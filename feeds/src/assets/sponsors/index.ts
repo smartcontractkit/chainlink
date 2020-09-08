@@ -38,6 +38,7 @@ import definer from './definer.png'
 import bitrue from './bitrue.png'
 import dodo from './dodo.png'
 import zapper from './zapper.png'
+import lien from './lien.png'
 
 // Listing Thumbnails
 
@@ -79,6 +80,7 @@ import definerTn from './definer_tn.png'
 import bitrueTn from './bitrue_tn.png'
 import dodoTn from './dodo_tn.png'
 import zapperTn from './zapper_tn.png'
+import lienTn from './lien_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -315,5 +317,11 @@ export const sponsorList: SponsorListItem[] = [
     url: 'http://zapper.fi',
     imageLg: zapper,
     imageTn: zapperTn,
+  },
+  {
+    name: 'Lien',
+    url: 'https://lien.finance',
+    imageLg: lien,
+    imageTn: lienTn,
   },
 ]
