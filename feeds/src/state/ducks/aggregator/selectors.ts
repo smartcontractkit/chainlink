@@ -8,23 +8,20 @@ export const upcaseOracles = (
 ): Record<OracleNode['oracleAddress'], OracleNode['name']> => {
   /**
    * In v2 of the contract, oracles' list has oracle addresses,
-   * but in v3 - node addresses. Therefore, a different record of
-   * pairs has to be made for each contract version.
+   * but in v3 - node addresses.
    */
-  if (state.aggregator.config.contractVersion === 2) {
-    return Object.fromEntries(
-      Object.entries(
-        state.aggregator.oracleNodes,
-      ).map(([oracleAddress, oracleNode]) => [oracleAddress, oracleNode.name]),
-    )
-  } else {
-    return Object.fromEntries(
-      Object.values(state.aggregator.oracleNodes).map(oracleNode => [
-        oracleNode.nodeAddress[0],
-        oracleNode.name,
-      ]),
-    )
-  }
+
+  return Object.entries(state.aggregator.oracleNodes).reduce(
+    (accumulator: Record<string, string>, [oracleAddress, oracle]) => {
+      accumulator[oracleAddress] = oracle.name
+      oracle.nodeAddress.forEach(nodeAddress => {
+        accumulator[nodeAddress] = oracle.name
+      })
+
+      return accumulator
+    },
+    {},
+  )
 }
 
 const oracleList = (state: AppState) => state.aggregator.oracleList
@@ -44,7 +41,6 @@ const oracles = createSelector(
     upcasedOracles: Record<OracleNode['oracleAddress'], OracleNode['name']>,
   ): Oracle[] => {
     if (!list) return []
-
     const result = list
       .map(address => {
         const oracle: Oracle = {
