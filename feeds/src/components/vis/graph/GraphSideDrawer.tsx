@@ -195,7 +195,10 @@ const ContractDetailsContent: React.FC<ContractDetailsContentProps> = ({
           <a
             target="_BLANK"
             rel="noopener noreferrer"
-            href={etherscanAddress(config.networkId, config.contractAddress)}
+            href={etherscanAddress(
+              config.networkId,
+              config.proxyAddress ?? config.contractAddress,
+            )}
           >
             Etherscan
           </a>
