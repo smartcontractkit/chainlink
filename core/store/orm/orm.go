@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+
 	// "encoding/json"
 	"fmt"
 	"os"
@@ -19,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -461,22 +460,6 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 
 		return uint(len(jobs)), nil
 	})
-}
-
-func (orm *ORM) JobsAsInterfaces(fn func(jobSpec job.JobSpec) bool) error {
-	orm.MustEnsureAdvisoryLock()
-	var jobSpecs []offchainreporting.JobSpec
-	err := orm.DB.Find(&jobSpecs).Error
-	if err != nil {
-		return err
-	}
-	for _, jobSpec := range jobSpecs {
-		ok := fn(jobSpec)
-		if !ok {
-			break
-		}
-	}
-	return nil
 }
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
@@ -1475,32 +1458,6 @@ func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID u
 					num_submissions = flux_monitor_round_stats.num_submissions + 1,
 					job_run_id = EXCLUDED.job_run_id
     `, aggregator, roundID, jobRunID).Error
-}
-
-func (orm *ORM) CreateOffchainReportingJobSpec(spec *offchainreporting.JobSpec) error {
-	orm.MustEnsureAdvisoryLock()
-	dbRow := spec.ForDB()
-	return orm.DB.Create(dbRow).Error
-}
-
-func (orm *ORM) FindOffchainReportingJobSpec(jobID models.ID) (offchainreporting.JobSpec, error) {
-	orm.MustEnsureAdvisoryLock()
-	var returnedSpec offchainreporting.JobSpecDBRow
-	err := orm.DB.Debug().
-		Set("gorm:auto_preload", true).
-		Find(&returnedSpec, "job_id = ?", jobID).Error
-	if err != nil {
-		return offchainreporting.JobSpec{}, err
-	}
-
-	js := returnedSpec.JobSpec
-	js.ObservationSource = job.UnwrapFetchersFromDB(returnedSpec.ObservationSource)[0]
-	return js, nil
-}
-
-func (orm *ORM) DeleteOffchainReportingJobSpec(id models.ID) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Delete(offchainreporting.JobSpec{UUID: &id}).Error
 }
 
 // func (orm *ORM) FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (offchainreporting.PersistentState, error) {

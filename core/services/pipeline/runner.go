@@ -1,9 +1,7 @@
-package job
+package pipeline
 
 import (
 	"database/sql"
-	"encoding/json"
-	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -11,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	// "github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 type Runner interface {
@@ -30,29 +28,33 @@ type runner struct {
 
 // FIXME: This interface probably needs rethinking
 type RunnerORM interface {
-	JobSpec(id models.ID) (JobSpec, error)
-	CreateJobRun(jobRun *JobRun) error
+	LoadSpec(id int64) (Spec, error)
+	CreatePipelineRun(id int64) error
 	NextTaskRunForExecution(func(*gorm.DB, TaskRun) error) error
-	MarkTaskRunCompleted(tx *gorm.DB, taskRunID uint64, output sql.Scanner, err error) error
+	MarkTaskRunCompleted(tx *gorm.DB, taskRunID int64, output sql.Scanner, err error) error
 }
 
-type JobRun struct {
-	ID          uint64 `gorm:"primary_key;auto_increment;not null"`
-	JobSpecID   *models.ID
-	JobSpecType string
+type PipelineSpec struct {
+	ID               int64
+	PipelineSpecType string
+}
+
+type PipelineRun struct {
+	ID           int64 `gorm:"primary_key;auto_increment;not null"`
+	PipelineSpec PipelineSpec
 
 	TaskRuns []TaskRun
 }
 
 type TaskRun struct {
-	ID       uint64 `gorm:"primary_key;auto_increment;not null"`
-	JobRunID uint64
+	ID       int64 `gorm:"primary_key;auto_increment;not null"`
+	JobRunID int64
 
 	Output *JSONSerializable `gorm:"type:jsonb"`
 	Error  string
 
-	Task          *TaskDBRow `json:"-"`
-	InputTaskRuns []TaskRun  `json:"-" gorm:"many2many:q_task_run_edges;joinForeignKey:q_child_id;JoinReferences:q_parent_id"`
+	Task          Task      `json:"-"`
+	InputTaskRuns []TaskRun `json:"-" gorm:"many2many:q_task_run_edges;joinForeignKey:q_child_id;JoinReferences:q_parent_id"`
 }
 
 func NewRunner(orm RunnerORM) *runner {
@@ -88,15 +90,15 @@ func (r *runner) Stop() {
 	<-r.chDone
 }
 
-func (r *runner) CreateJobRun(id models.ID) error {
-	jobSpec, err := r.orm.JobSpec(id)
+func (r *runner) CreatePipelineRun(id int64) error {
+	spec, err := r.orm.LoadSpec(id)
 	if err != nil {
 		return err
 	}
 
-	jobRun := &JobRun{
-		JobSpecID:   &id,
-		JobSpecType: string(jobSpec.JobType()),
+	run := &PipelineRun{
+		PipelineSpecID:   &id,
+		PipelineSpecType: string(spec.Type()),
 	}
 
 	// for _, task := range jobSpec.Tasks() {
@@ -123,6 +125,8 @@ type Result struct {
 // NOTE: This could potentially run on another machine in the cluster
 func (r *runner) processIncompleteTaskRuns() error {
 	for {
+		var jobRunID int64
+		r.orm.NextTaskRunForExecution(func(taskRun TaskRun) error {
 			jobRunID = taskRun.JobRunID
 
 			inputs := make([]Result, len(taskRun.InputTaskRuns))
@@ -163,13 +167,13 @@ type runnerORM struct {
 	orm *orm.ORM
 }
 
-func (r *runnerORM) JobSpec(id models.ID) (j JobSpec, err error) {
+func (r *runnerORM) LoadSpec(id models.ID) (j Spec, err error) {
 	err = r.orm.First(&j, id)
 	return j, err
 }
 
-func (r *runnerORM) CreateJobRun(jobRun *JobRun) error {
-	return r.orm.Create(jobRun)
+func (r *runnerORM) CreatePipelineRun(pr *PipelineRun) error {
+	return r.orm.Create(pr)
 }
 
 func (r *runnerORM) NextTaskRunForExecution(f func(*gorm.DB, TaskRun) error) error {

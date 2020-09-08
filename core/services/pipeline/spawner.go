@@ -1,4 +1,4 @@
-package job
+package pipeline
 
 import (
 	"sync"
@@ -27,7 +27,7 @@ type (
 	Spawner interface {
 		Start() error
 		Stop()
-		AddJob(jobSpec JobSpec) error
+		AddJob(jobSpec Spec) error
 		StopJob(jobID *models.ID)
 		RegisterJobType(jobType JobType, factory JobSpecToJobServiceFunc)
 	}

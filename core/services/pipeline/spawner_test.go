@@ -1,4 +1,4 @@
-package job_test
+package pipeline_test
 
 // import (
 // 	"testing"
@@ -8,7 +8,7 @@ package job_test
 // 	"github.com/stretchr/testify/require"
 
 // 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-// 	"github.com/smartcontractkit/chainlink/core/services/job"
+// 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 // 	"github.com/smartcontractkit/chainlink/core/store/models"
 // )
 
