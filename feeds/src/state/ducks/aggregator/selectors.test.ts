@@ -10,7 +10,7 @@ describe('upcaseOracles', () => {
       oracleNodes: {
         oracleAddress1: partialAsFull<OracleNode>({
           name: 'Oracle 1',
-          nodeAddress: ['nodeAddress1'],
+          nodeAddress: ['nodeAddress1', 'nodeAddress12'],
           oracleAddress: 'oracleAddress1',
         }),
         oracleAddress2: partialAsFull<OracleNode>({
@@ -19,30 +19,18 @@ describe('upcaseOracles', () => {
           oracleAddress: 'oracleAddress2',
         }),
       },
-      config: {
-        contractVersion: 2,
-      },
     }),
   })
 
-  it('for v2 contract returns a record of oracle addresses and names', () => {
+  it('for all contract types returns a record of oracle and node addresses and names', () => {
     const expectedResult = {
       oracleAddress1: 'Oracle 1',
-      oracleAddress2: 'Oracle 2',
-    }
-
-    expect(upcaseOracles(aggregatedState)).toEqual(expectedResult)
-  })
-
-  it('for v3 contract returns a record of node addresses and names', () => {
-    const aggregatedStateV3 = JSON.parse(JSON.stringify(aggregatedState))
-    aggregatedStateV3.aggregator.config.contractVersion = 3
-
-    const expectedResult = {
       nodeAddress1: 'Oracle 1',
+      nodeAddress12: 'Oracle 1',
+      oracleAddress2: 'Oracle 2',
       nodeAddress2: 'Oracle 2',
     }
 
-    expect(upcaseOracles(aggregatedStateV3)).toEqual(expectedResult)
+    expect(upcaseOracles(aggregatedState)).toEqual(expectedResult)
   })
 })
