@@ -14,7 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	// "github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -67,7 +68,7 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           eth.LogBroadcaster
-	JobSpawner               job.Spawner
+	PipelineSpawner          pipeline.Spawner
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -113,7 +114,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		GasUpdater:     gasUpdater,
 		EthBroadcaster: ethBroadcaster,
 		LogBroadcaster: logBroadcaster,
-		// JobSpawner:               jobSpawner,
+		// PipelineSpawner:               jobSpawner,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -173,7 +174,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Store.EthClient.Dial(context.TODO()),
 		app.Store.Start(),
 		app.StatsPusher.Start(),
-		app.JobSpawner.Start(),
+		app.PipelineSpawner.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		app.LogBroadcaster.Start(),
@@ -215,7 +216,7 @@ func (app *ChainlinkApplication) Stop() error {
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		app.JobSpawner.Stop()
+		app.PipelineSpawner.Stop()
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr
@@ -245,8 +246,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	}
 
 	// Once Flux Monitor and the "direct request" subsystems have integrated
-	// the JobSpawner, this will be the only call we need to make here.
-	app.JobSpawner.AddJob(job)
+	// the PipelineSpawner, this will be the only call we need to make here.
+	app.PipelineSpawner.AddJob(job)
 
 	app.Scheduler.AddJob(job)
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
@@ -256,7 +257,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
-	app.JobSpawner.RemoveJob(ID)
+	app.PipelineSpawner.RemoveJob(ID)
 	_ = app.JobSubscriber.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
@@ -270,7 +271,7 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 		return err
 	}
 
-	app.JobSpawner.AddJob(sa.JobSpec)
+	app.PipelineSpawner.AddJob(sa.JobSpec)
 
 	app.Scheduler.AddJob(sa.JobSpec)
 

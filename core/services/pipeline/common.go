@@ -1,7 +1,8 @@
-package job
+package pipeline
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -9,15 +10,15 @@ import (
 )
 
 type (
-	JobType string
+	Type string
 
-	JobSpec interface {
+	Spec interface {
 		JobID() *models.ID
-		JobType() JobType
+		Type() Type
 		Tasks() []Task
 	}
 
-	JobService interface {
+	Service interface {
 		Start() error
 		Stop() error
 	}
@@ -26,6 +27,21 @@ type (
 		Run(inputs []Result) (interface{}, error)
 		InputTasks() []Task
 		SetInputTasks(tasks []Task)
+	}
+	PipelineTask struct {
+		ID        uint64 `gorm:"primary_key;auto_increment;"`
+		CreatedAt time.Time
+		UpdatedAt time.Time
+
+		InputTasks []*PipelineTask `gorm:"many2many:task_dag"`
+
+		// TODO: Needs Scan/Value methods and encapsulate type
+		Task Task
+		// HTTPTask      *HTTPPipelineTask      `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		// BridgeTask    *BridgePipelineTask    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		// MedianTask    *MedianPipelineTask    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		// MultiplyTask  *MultiplyPipelineTask  `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
+		// JSONParseTask *JSONParsePipelineTask `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
 	}
 )
 
