@@ -14,7 +14,7 @@ const FIAT_GROUP_NAME = 'Fiat'
 const FIAT_GROUP = ['USD', 'JPY', 'GBP']
 
 const ETH_GROUP_NAME = 'ETH'
-const ETH_GROUP = ['ETH', 'Gwei']
+const ETH_GROUP = ['ETH', 'Gwei', 'XDR']
 
 const GROUPS: Record<string, string[]> = {
   [FIAT_GROUP_NAME]: FIAT_GROUP,
