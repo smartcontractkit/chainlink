@@ -16,7 +16,7 @@ import (
 type Runner interface {
 	Start()
 	Stop()
-	CreateJobRun(id models.ID) error
+	CreatePipelineRun(pipelineSpecID models.Sha256Hash) error
 }
 
 type runner struct {
@@ -28,33 +28,9 @@ type runner struct {
 
 // FIXME: This interface probably needs rethinking
 type RunnerORM interface {
-	LoadSpec(id int64) (Spec, error)
+	LoadPipelineSpec(id int64) (PipelineSpec, error)
 	CreatePipelineRun(id int64) error
-	NextTaskRunForExecution(func(*gorm.DB, TaskRun) error) error
-	MarkTaskRunCompleted(tx *gorm.DB, taskRunID int64, output sql.Scanner, err error) error
-}
-
-type PipelineSpec struct {
-	ID               int64
-	PipelineSpecType string
-}
-
-type PipelineRun struct {
-	ID           int64 `gorm:"primary_key;auto_increment;not null"`
-	PipelineSpec PipelineSpec
-
-	TaskRuns []TaskRun
-}
-
-type TaskRun struct {
-	ID       int64 `gorm:"primary_key;auto_increment;not null"`
-	JobRunID int64
-
-	Output *JSONSerializable `gorm:"type:jsonb"`
-	Error  string
-
-	Task          Task      `json:"-"`
-	InputTaskRuns []TaskRun `json:"-" gorm:"many2many:q_task_run_edges;joinForeignKey:q_child_id;JoinReferences:q_parent_id"`
+	NextTaskRunForExecution(func(*gorm.DB, PipelineTaskRun) error) error
 }
 
 func NewRunner(orm RunnerORM) *runner {
@@ -90,25 +66,17 @@ func (r *runner) Stop() {
 	<-r.chDone
 }
 
-func (r *runner) CreatePipelineRun(id int64) error {
-	spec, err := r.orm.LoadSpec(id)
+func (r *runner) CreatePipelineRun(pipelineSpecID models.Sha256Hash) error {
+	spec, err := r.orm.LoadPipelineSpec(pipelineSpecID)
 	if err != nil {
 		return err
 	}
 
 	run := &PipelineRun{
-		PipelineSpecID:   &id,
-		PipelineSpecType: string(spec.Type()),
+		PipelineSpecID: &id,
 	}
 
-	// for _, task := range jobSpec.Tasks() {
-	// 	jobRun.TaskRuns = append(jobRun.TaskRuns, TaskRun{
-	// 		TaskID:   task.TaskID(),
-	// 		TaskType: task.TaskType(),
-	// 	})
-	// }
-
-	err = r.orm.CreateJobRun(jobRun)
+	err = r.orm.CreatePipelineRun(run)
 	if err != nil {
 		return err
 	}
@@ -126,28 +94,28 @@ type Result struct {
 func (r *runner) processIncompleteTaskRuns() error {
 	for {
 		var jobRunID int64
-		r.orm.NextTaskRunForExecution(func(taskRun TaskRun) error {
-			jobRunID = taskRun.JobRunID
+		r.orm.NextTaskRunForExecution(func(ptRun PipelineTaskRun, predecessors []PipelineTaskRun) error {
+			jobRunID = ptRun.PipelineRunID
 
-			inputs := make([]Result, len(taskRun.InputTaskRuns))
-			for i, parent := range taskRun.InputTaskRuns {
+			inputs := make([]Result, len(predecessors))
+			for i, predecessor := range predecessors {
 				inputs[i] = Result{
-					Value: parent.Output.Value,
-					Error: parent.Error,
+					Value: predecessor.Output.Value,
+					Error: predecessor.ResultError(),
 				}
 			}
 
-			output, err := taskRun.Task.Run(inputs)
+			output, err := ptRun.PipelineTaskSpec.Task.Run(inputs)
 			if err != nil {
 				logger.Errorf("error in task run %v:", err)
 			}
 
-			err = r.orm.MarkTaskRunCompleted(tx, taskRun.ID, output, err)
+			err = r.finishTaskRun(tx, taskRun.ID, output, err)
 			if err != nil {
 				return errors.Wrap(err, "could not mark task run completed")
 			}
 		})
-		if errors.Cause(err) == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// All task runs complete
 			break
 		} else if err != nil {
@@ -163,6 +131,12 @@ func (r *runner) processIncompleteTaskRuns() error {
 	}
 }
 
+func (r *runner) finishTaskRun(tx *gorm.DB, ptRunID int64, output *JSONSerializable, resultErr error) {
+	timeNow := time.Now()
+	err := tx.Exec(`UPDATE pipeline_task_runs SET output = ?, err = ?, finished_at = ? WHERE id = ?`, output, resultErr, timeNow, ptRunID).Error
+	return errors.Wrap(err, "could not mark pipeline_task_run as finished")
+}
+
 type runnerORM struct {
 	orm *orm.ORM
 }
@@ -172,27 +146,55 @@ func (r *runnerORM) LoadSpec(id models.ID) (j Spec, err error) {
 	return j, err
 }
 
-func (r *runnerORM) CreatePipelineRun(pr *PipelineRun) error {
-	return r.orm.Create(pr)
+const pipelineTaskRunInsertSql = `
+INSERT INTO pipeline_task_runs (
+	pipeline_run_id, pipeline_task_spec_id, created_at
+)
+SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, NOW() AS created_at
+FROM pipeline_task_specs
+WHERE pipeline_spec_id = ?
+`
+
+func (r *runnerORM) CreatePipelineRun(prun PipelineRun) error {
+	return r.orm.Transaction(func(tx *gorm.DB) error {
+		err := tx.Create(&prun).Error
+		if err != nil {
+			return errors.Wrap(err, "could not create pipeline run")
+		}
+
+		err = tx.Exec(pipelineTaskRunInsertSql, prun.ID, prun.PipelineSpecID).Error
+		return errors.Wrap(err, "could not create pipeline task runs")
+	})
 }
 
-func (r *runnerORM) NextTaskRunForExecution(f func(*gorm.DB, TaskRun) error) error {
+func (r *runnerORM) NextTaskRunForExecution(f func(tx *gorm.DB, ptRun PipelineTaskRun, predecessors []PipelineTaskRun) error) error {
 	return r.orm.Transaction(func(tx *gorm.DB) error {
-		var taskRun TaskRun
-		// NOTE: Convert to join preloads with gormv2
-		err := tx.Table("q_task_runs AS child").
-			Set("gorm:query_option", "FOR UPDATE OF child SKIP LOCKED").
-			Joins("LEFT JOIN q_task_run_edges AS edge ON child.id = edge.child_id").
-			Joins("LEFT JOIN q_task_runs AS parent ON parent.id = edge.parent_id").
-			Where("parent.id IS NULL OR parent.completed = true").
-			Preload("Task").
-			Preload("InputTaskRuns").
+		var ptRun PipelineTaskRun
+		var predecessors []PipelineTaskRun
+
+		// NOTE: This could conceivably be done in pure SQL and made marginally more efficient by preloading with joins
+
+		// Find the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
+		err := tx.Table("pipeline_task_runs AS successor").
+			Set("gorm:query_option", "FOR UPDATE OF successor SKIP LOCKED").
+			Joins("LEFT JOIN pipeline_task_runs AS predecessors ON successor.id = predecessor.successor_id AND predecessors.finished_at IS NULL").
+			Where("predecessors.id IS NULL").
+			Where("successor.finished_at IS NULL").
+			Preload("PipelineTaskSpec").
 			Order("id ASC").
-			First(&taskRun)
+			First(&ptRun).
+			Error
 		if err != nil {
 			return errors.Wrap(err, "error finding next task run")
 		}
-		return f(tx, taskRun)
+
+		// Find all the predecessors
+		err = tx.Where("successor_id = ?", ptRun.ID).Find(&predecessors).Error
+		if err != nil {
+			return errors.Wrap(err, "error finding task run predecessors")
+		}
+
+		return f(tx, ptRun, predecessors)
 	})
 }
 

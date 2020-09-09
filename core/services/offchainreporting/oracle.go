@@ -3,9 +3,7 @@ package offchainreporting
 import (
 
 	// "math/big"
-	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	// "github.com/pkg/errors"
 
@@ -14,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	// "github.com/smartcontractkit/chainlink/core/utils"
 	// "github.com/smartcontractkit/offchain-reporting-design/prototype/gethwrappers/ulairi"
 	// ocr "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting"
