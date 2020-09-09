@@ -1,6 +1,6 @@
 pragma solidity ^0.7.0;
 
-import "../Owned.sol";
+import "../dev/Owned.sol";
 
 contract OwnedTestHelper is Owned {
 
