@@ -39,6 +39,8 @@ import bitrue from './bitrue.png'
 import dodo from './dodo.png'
 import zapper from './zapper.png'
 import lien from './lien.png'
+import trustswap from './trustswap.png'
+import sogur from './sogur.png'
 
 // Listing Thumbnails
 
@@ -81,6 +83,8 @@ import bitrueTn from './bitrue_tn.png'
 import dodoTn from './dodo_tn.png'
 import zapperTn from './zapper_tn.png'
 import lienTn from './lien_tn.png'
+import trustswapTn from './trustswap_tn.png'
+import sogurTn from './sogur_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -323,5 +327,17 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://lien.finance',
     imageLg: lien,
     imageTn: lienTn,
+  },
+  {
+    name: 'TrustSwap',
+    url: ' https://trustswap.org',
+    imageLg: trustswap,
+    imageTn: trustswapTn,
+  },
+  {
+    name: 'Sogur',
+    url: 'https://www.sogur.com',
+    imageLg: sogur,
+    imageTn: sogurTn,
   },
 ]
