@@ -18,7 +18,7 @@ func Migrate(tx *gorm.DB) error {
 		CREATE INDEX idx_offchainreporting_oracles_unique_key_bundles_created_at ON offchainreporting_key_bundles USING BRIN (created_at);
 
 	 	CREATE TABLE offchainreporting_oracles (
-	 		id BIGSERIAL PRIMARY KEY,
+	 		id SERIAL PRIMARY KEY,
 	 		contract_address bytea NOT NULL,
 	 		CONSTRAINT chk_contract_address_length CHECK (octet_length(contract_address) = 20),
 	 		p2p_peer_id text NOT NULL REFERENCES encrypted_p2p_keys (peer_id),
