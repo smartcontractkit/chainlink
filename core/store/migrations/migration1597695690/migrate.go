@@ -53,21 +53,16 @@ func Migrate(tx *gorm.DB) error {
 			id BIGSERIAL PRIMARY KEY,
 			pipeline_spec_id BIGINT NOT NULL REFERENCES pipeline_specs (id),
 
-			task_spec jsonb NOT NULL,
+			task jsonb NOT NULL,
+
+			successor_id BIGINT REFERENCES pipeline_task_specs (id),
 
 			created_at timestamptz NOT NULL,
 		);
 
+		CREATE INDEX idx_pipeline_task_specs_pipeline_spec_id ON pipeline_task_specs (pipeline_spec_id);
+		CREATE INDEX idx_pipeline_task_specs_successor_id ON pipeline_task_specs (successor_id);
 		CREATE INDEX idx_pipeline_task_specs_created_at ON pipeline_task_specs USING BRIN (created_at);
-
-		CREATE TABLE pipeline_task_spec_edges (
-			predecessor_id BIGINT NOT NULL REFERENCES pipeline_task_specs (id),
-			successor_id BIGINT NOT NULL REFERENCES pipeline_task_specs (id),
-			PRIMARY KEY(successor_id, predecessor_id)
-		);
-
-		-- This index is a little confusing, but the result is to only allow one successor (child) for any single predecessor (parent)
-		CREATE UNIQUE INDEX idx_pipeline_task_run_edges_only_one_successor_per_predecessor pipeline_task_spec_edges (predecessor_id);
 
 		CREATE TABLE pipeline_runs (
 			id BIGSERIAL PRIMARY KEY,
@@ -96,8 +91,13 @@ func Migrate(tx *gorm.DB) error {
 			)
 		);
 
+		-- NOTE: This table is large and insert/update heavy so we must be efficient with indexes
+
 		CREATE INDEX idx_pipeline_task_runs ON pipeline_task_tuns USING BRIN (created_at);
-		-- TODO: more indexes for pipeline_task_runs (dependent on queries in the pipeline runner)
+		CREATE INDEX idx_pipeline_task_runs_finished_at ON pipeline_task_tuns WHERE finished_at IS NOT NULL USING BRIN (finished_at);
+
+		-- This query is used in the runner to find unstarted task runs
+		CREATE INDEX idx_pipeline_task_runs_unfinished ON pipeline_task_runs (finished_at) WHERE finished_at IS NULL;
 	`).Error
 
 	// err = tx.Exec(`

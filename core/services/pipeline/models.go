@@ -1,8 +1,11 @@
 package pipeline
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 )
 
 type (
@@ -13,25 +16,35 @@ type (
 	}
 
 	PipelineTaskSpec struct {
-		ID           int64 `gorm:"primary_key"`
-		PipelineSpec PipelineSpec
-		TaskSpec     models.JSON
-		CreatedAt    time.Time
+		ID             int64 `gorm:"primary_key"`
+		PipelineSpecID models.Sha256Hash
+		// TODO: Task should be a special type?
+		Task        Task
+		SuccessorID null.Int
+		CreatedAt   time.Time
 	}
 
 	PipelineRun struct {
-		ID           int64 `gorm:"primary_key"`
-		PipelineSpec PipelineSpec
-		CreatedAt    time.Time
+		ID             int64 `gorm:"primary_key"`
+		PipelineSpecID models.Sha256Hash
+		CreatedAt      time.Time
 	}
 
 	PipelineTaskRun struct {
-		ID               int64 `gorm:"primary_key"`
-		PipelineRun      PipelineRun
-		Output           models.JSON
-		Error            string
-		PipelineTaskSpec PipelineTaskSpec
-		CreatedAt        time.Time
-		FinishedAt       time.Time
+		ID                 int64 `gorm:"primary_key"`
+		PipelineRunID      int64
+		Output             *JSONSerializable
+		Error              null.String
+		PipelineTaskSpecID int64
+		PipelineTaskSpec   PipelineTaskSpec
+		CreatedAt          time.Time
+		FinishedAt         time.Time
 	}
 )
+
+func (ptRun PipelineTaskRun) ResultError() error {
+	if !ptRun.Error.IsZero() {
+		return nil
+	}
+	return errors.New(ptRun.Error.ValueOrZero())
+}

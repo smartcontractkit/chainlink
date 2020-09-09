@@ -1,8 +1,8 @@
 package pipeline
 
 import (
+	"database/sql/driver"
 	"encoding/json"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -24,9 +24,9 @@ type (
 	}
 
 	Task interface {
-		Run(inputs []Result) (interface{}, error)
-		InputTasks() []Task
-		SetInputTasks(tasks []Task)
+		Run(inputs []Result) (*JSONSerializable, error)
+		Value() (driver.Value, error)
+		Scan(value interface{}) error
 	}
 )
 
