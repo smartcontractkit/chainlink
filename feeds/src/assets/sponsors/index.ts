@@ -37,7 +37,6 @@ import dydx from './dydx.png'
 import definer from './definer.png'
 import bitrue from './bitrue.png'
 import dodo from './dodo.png'
-import zapper from './zapper.png'
 import lien from './lien.png'
 import sogur from './sogur.png'
 
@@ -80,7 +79,6 @@ import dydxTn from './dydx_tn.png'
 import definerTn from './definer_tn.png'
 import bitrueTn from './bitrue_tn.png'
 import dodoTn from './dodo_tn.png'
-import zapperTn from './zapper_tn.png'
 import lienTn from './lien_tn.png'
 import sogurTn from './sogur_tn.png'
 
@@ -313,12 +311,6 @@ export const sponsorList: SponsorListItem[] = [
     url: 'http://dodoex.io',
     imageLg: dodo,
     imageTn: dodoTn,
-  },
-  {
-    name: 'Zapper',
-    url: 'http://zapper.fi',
-    imageLg: zapper,
-    imageTn: zapperTn,
   },
   {
     name: 'Lien',
