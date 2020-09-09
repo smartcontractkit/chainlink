@@ -80,4 +80,5 @@ require (
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
+	gopkg.in/guregu/null.v4 v4.0.0
 )
