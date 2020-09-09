@@ -28,21 +28,6 @@ type (
 		InputTasks() []Task
 		SetInputTasks(tasks []Task)
 	}
-	PipelineTask struct {
-		ID        uint64 `gorm:"primary_key;auto_increment;"`
-		CreatedAt time.Time
-		UpdatedAt time.Time
-
-		InputTasks []*PipelineTask `gorm:"many2many:task_dag"`
-
-		// TODO: Needs Scan/Value methods and encapsulate type
-		Task Task
-		// HTTPTask      *HTTPPipelineTask      `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		// BridgeTask    *BridgePipelineTask    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		// MedianTask    *MedianPipelineTask    `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		// MultiplyTask  *MultiplyPipelineTask  `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-		// JSONParseTask *JSONParsePipelineTask `gorm:"foreignkey:task_id;save_association:true;association_autoupdate:true;association_autocreate:true"`
-	}
 )
 
 var (

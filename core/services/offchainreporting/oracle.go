@@ -23,19 +23,6 @@ import (
 
 const PipelineType pipeline.Type = "offchainreporting"
 
-type OracleSpec struct {
-	JID                *models.ID         `toml:"jobID"              gorm:"not null;column:job_id"`
-	ContractAddress    common.Address     `toml:"contractAddress"    gorm:"not null"`
-	P2PNodeID          string             `toml:"p2pNodeID"          gorm:"not null"`
-	P2PBootstrapNodes  []P2PBootstrapNode `toml:"p2pBootstrapNodes"  gorm:"not null;type:jsonb"`
-	KeyBundle          string             `toml:"keyBundle"          gorm:"not null"`
-	MonitoringEndpoint string             `toml:"monitoringEndpoint" gorm:"not null"`
-	NodeAddress        common.Address     `toml:"nodeAddress"        gorm:"not null"`
-	ObservationTimeout time.Duration      `toml:"observationTimeout" gorm:"not null"`
-	ObservationSource  pipeline.TaskDAG   `toml:"observationSource"  gorm:"-"`
-	LogLevel           ocrtypes.LogLevel  `toml:"logLevel,omitempty"`
-}
-
 // PipelineSpec conforms to the pipeline.Spec interface
 var _ pipeline.Spec = JobSpec{}
 
@@ -51,32 +38,8 @@ func (spec JobSpec) Tasks() []Task {
 	return spec.ObservationSource.Tasks()
 }
 
-type P2PBootstrapNode struct {
-	PeerID    string `toml:"peerID"`
-	Multiaddr string `toml:"multiAddr"`
-}
-
 // func (n *P2PBootstrapNode) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), n) }
 // func (n P2PBootstrapNode) Value() (driver.Value, error)  { return json.Marshal(n) }
-
-type JobSpecDBRow struct {
-	ID        uint64 `gorm:"primary_key;not null;auto_increment"`
-	JobSpec   `gorm:"embedded;"`
-	Tasks     []job.TaskDBRow `gorm:"preload:true;polymorphic:Parent;save_association:true;association_autoupdate:true;association_autocreate:true;not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (spec JobSpecDBRow) TableName() string {
-	return "offchain_reporting_job_specs"
-}
-
-func (spec JobSpec) ForDB() *JobSpecDBRow {
-	return &JobSpecDBRow{
-		JobSpec: spec,
-		Tasks:   job.WrapTasksForDB(spec.Tasks()...),
-	}
-}
 
 func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
