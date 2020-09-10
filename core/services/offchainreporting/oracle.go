@@ -23,7 +23,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
-func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
+func RegisterJobType(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
 		JobType,
 		func(jobSpec job.Spec) ([]job.Service, error) {
