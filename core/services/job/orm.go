@@ -12,10 +12,7 @@ type orm struct {
 }
 
 type database interface {
-	Exec(sql string, values ...interface{}) *gorm.DB
-	First(out interface{}, where ...interface{}) *gorm.DB
 	Create(value interface{}) *gorm.DB
-	Transaction(fn func(db *gorm.DB) error) error
 }
 
 func NewORM(o database) *orm {

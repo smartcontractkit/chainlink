@@ -1,7 +1,7 @@
 package job
 
 import (
-	"github.com/smartcontractkit/chainlink/core/null"
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -171,12 +171,18 @@ func (js *spawner) CreateJob(spec JobSpec) error {
 				successorID = null.Int64From(taskSpecIDs[successor])
 			}
 
+			taskJSON, err := json.Marshal(task)
+			if err != nil {
+				return err
+			}
+
 			taskSpec := pipeline.TaskSpec{
-				TaskJson:    JSONSerializable{task},
+				TaskType:    task.Type(),
+				TaskJson:    taskJSON,
 				SuccessorID: successorID,
 			}
 
-			err := tx.Create(&taskSpec).Error
+			err = tx.Create(&taskSpec).Error
 			if err != nil {
 				return err
 			}
