@@ -1,44 +1,55 @@
 package ocrkey
 
 import (
-	"crypto/ed25519"
-	"crypto/rand"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/to_be_internal/signature"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/curve25519"
 )
 
+func assertPrivateKeysEqual(t *testing.T, pk1 *OCRPrivateKeys, pk2 *OCRPrivateKeys) {
+	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
+	assert.Equal(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
+	assert.Equal(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
+	assert.Equal(t, pk1.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
+	assert.Equal(t, pk1.offChainEncryption, pk2.offChainEncryption)
+}
+
+func assertPrivateKeysNotEqual(t *testing.T, pk1 *OCRPrivateKeys, pk2 *OCRPrivateKeys) {
+	assert.NotEqual(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
+	assert.NotEqual(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
+	assert.NotEqual(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
+	assert.NotEqual(t, pk1.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
+	assert.NotEqual(t, pk1.offChainEncryption, pk2.offChainEncryption)
+}
+
+// Tests that NewDeterministicOCRPrivateKeysXXXTestingOnly creates deterministic
+// OCRPrivateKeys
+func TestOCRKeys_NewDeterministicOCRPrivateKeysXXXTestingOnly(t *testing.T) {
+	t.Parallel()
+	pk := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	pkSameSeed := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	pkDifferentSeed := NewDeterministicOCRPrivateKeysXXXTestingOnly(2)
+	assertPrivateKeysEqual(t, pk, pkSameSeed)
+	assertPrivateKeysNotEqual(t, pk, pkDifferentSeed)
+}
+
+func TestOCRKeys_NewOCRPrivateKeys(t *testing.T) {
+	t.Parallel()
+	pk1 := NewOCRPrivateKeys()
+	pk2 := NewOCRPrivateKeys()
+	pk3 := NewOCRPrivateKeys()
+	assertPrivateKeysNotEqual(t, pk1, pk2)
+	assertPrivateKeysNotEqual(t, pk1, pk3)
+	assertPrivateKeysNotEqual(t, pk2, pk3)
+}
+
 func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
-	esdcaKey, err := crypto.GenerateKey()
+	t.Parallel()
+	pkEncrypted := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	encryptedPKs, err := pkEncrypted.Encrypt("password")
 	require.NoError(t, err)
-	onChainSigning := signature.OnChainPrivateKey(*esdcaKey)
-
-	_, esdcaPrivKey, err := ed25519.GenerateKey(nil)
+	pkDecrypted, err := encryptedPKs.Decrypt("password")
 	require.NoError(t, err)
-	offChainSigning := signature.OffChainPrivateKey(esdcaPrivKey)
-
-	var offChainEncryption [curve25519.ScalarSize]byte
-	randBytes := make([]byte, curve25519.ScalarSize)
-	rand.Read(randBytes)
-	copy(offChainEncryption[:], randBytes[:curve25519.ScalarSize])
-
-	pk := OCRPrivateKeys{
-		onChainSigning:     &onChainSigning,
-		offChainSigning:    &offChainSigning,
-		offChainEncryption: &offChainEncryption,
-	}
-	encryptedPKs, err := pk.Encrypt("password")
-	require.NoError(t, err)
-	pk2, err := encryptedPKs.Decrypt("password")
-	require.NoError(t, err)
-
-	assert.Equal(t, pk.onChainSigning.D, pk2.onChainSigning.D)
-	assert.Equal(t, pk.onChainSigning.X, pk2.onChainSigning.X)
-	assert.Equal(t, pk.onChainSigning.Y, pk2.onChainSigning.Y)
-	assert.Equal(t, pk.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
-	assert.Equal(t, pk.offChainEncryption, pk2.offChainEncryption)
+	assertPrivateKeysEqual(t, pkEncrypted, pkDecrypted)
 }

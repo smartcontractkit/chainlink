@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"math/big"
+	"math/rand"
 	"time"
 
 	cryptorand "crypto/rand"
@@ -48,15 +49,12 @@ var defaultScryptParams = ScryptParams{
 
 var _ types.PrivateKeys = (*OCRPrivateKeys)(nil)
 
-// NewOCRPrivateKeys returns a PrivateKeys with the given keys.
-//
-// In any real implementation (except maybe in a test helper), this function
-// should take no arguments, and use crypto/rand.{Read,Int}. It should return a
-// pointer, so we aren't copying secret material willy-nilly, and have a way to
-// destroy the secrets. Any persistence to disk should be encrypted, as in the
-// chainlink keystores.
-func NewOCRPrivateKeys(reader io.Reader) *OCRPrivateKeys {
-	// TODO - RYAN - remove argument
+// TODO - RYAN - have a way to destroy the secrets
+
+// For internal use only - used to generate new sets of OCR private keys
+// Use NewOCRPrivateKeys in production and NewDeterministicOCRPrivateKeysXXXTestingOnly
+// in tests
+func newPrivateKeys(reader io.Reader) *OCRPrivateKeys {
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
 		panic(err)
@@ -80,6 +78,16 @@ func NewOCRPrivateKeys(reader io.Reader) *OCRPrivateKeys {
 		offChainSigning:    (*signature.OffChainPrivateKey)(&offChainPriv),
 		offChainEncryption: &encryptionPriv,
 	}
+}
+
+// NewOCRPrivateKeys makes a new set of OCR keys from cryptographically secure entropy
+func NewOCRPrivateKeys() (key *OCRPrivateKeys) {
+	return newPrivateKeys(cryptorand.Reader)
+}
+
+// NewDeterministicOCRPrivateKeysXXXTestingOnly is for testing purposes only!
+func NewDeterministicOCRPrivateKeysXXXTestingOnly(seed int64) *OCRPrivateKeys {
+	return newPrivateKeys(rand.New(rand.NewSource(seed)))
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
@@ -136,28 +144,30 @@ func adulteratedPassword(auth string) string {
 	return s
 }
 
-// Encrypt combines the OCRPrivateKeys into a single array of bytes and then encrypts
-func (pk *OCRPrivateKeys) Encrypt(auth string) (s EncryptedOCRPrivateKeys, err error) {
-	// TODO - RYAN - return pointer
-	scryptParams := defaultScryptParams
+// Encrypt combines the OCRPrivateKeys into a single json-serialized
+// bytes array and then encrypts
+func (pk *OCRPrivateKeys) Encrypt(auth string) (*EncryptedOCRPrivateKeys, error) {
 	var marshalledPrivK []byte
-	marshalledPrivK, err = json.Marshal(&pk)
+	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
-		return s, err
+		return nil, err
 	}
-	// fmt.Println("Encrypt", "string(marshalledPrivK)", string(marshalledPrivK))
-	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword(auth)), scryptParams.N, scryptParams.P)
+	cryptoJSON, err := keystore.EncryptDataV3(
+		marshalledPrivK,
+		[]byte(adulteratedPassword(auth)),
+		defaultScryptParams.N,
+		defaultScryptParams.P,
+	)
 	if err != nil {
-		return s, errors.Wrapf(err, "could not encrypt ocr key")
+		return nil, errors.Wrapf(err, "could not encrypt ocr key")
 	}
 	encryptedPrivKeys, err := json.Marshal(&cryptoJSON)
 	if err != nil {
-		return s, errors.Wrapf(err, "could not encode cryptoJSON")
+		return nil, errors.Wrapf(err, "could not encode cryptoJSON")
 	}
-	s = EncryptedOCRPrivateKeys{
+	return &EncryptedOCRPrivateKeys{
 		EncryptedPrivKeys: encryptedPrivKeys,
-	}
-	return s, nil
+	}, nil
 }
 
 // Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
