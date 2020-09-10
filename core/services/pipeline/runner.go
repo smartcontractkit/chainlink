@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -9,24 +8,29 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	// "github.com/smartcontractkit/chainlink/core/services"
+	// "github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type Runner interface {
-	Start()
-	Stop()
-	CreateRun(specID int64) error
-}
+type (
+	Runner interface {
+		Start()
+		Stop()
+		CreateRun(specID int64) error
+	}
 
-type runner struct {
-	// processTasks services.SleeperTask
-	orm    ORM
-	chStop chan struct{}
-	chDone chan struct{}
-}
+	runner struct {
+		// processTasks services.SleeperTask
+		orm    ORM
+		config Config
+		chStop chan struct{}
+		chDone chan struct{}
+	}
+)
 
-func NewRunner(orm ORM) *runner {
+func NewRunner(orm ORM, config Config) *runner {
 	r := &runner{
 		orm:    orm,
+		config: config,
 		chStop: make(chan struct{}),
 		chDone: make(chan struct{}),
 	}
@@ -69,18 +73,18 @@ func (r *runner) CreateRun(specID int64) (int64, error) {
 // NOTE: This could potentially run on another machine in the cluster
 func (r *runner) processIncompleteTaskRuns() error {
 	for {
-		var pipelineRunID int64
+		var runID int64
 		err := r.orm.WithNextUnclaimedTaskRun(func(ptRun TaskRun, predecessors []TaskRun) Result {
-			pipelineRunID = ptRun.RunID
+			runID = ptRun.RunID
 
 			inputs := make([]Result, len(predecessors))
 			for i, predecessor := range predecessors {
 				inputs[i] = predecessor.Result()
 			}
 
-			task, err := UnmarshalTaskJSON(ptRun.TaskSpec.TaskJson)
+			task, err := UnmarshalTask(taskSpec.TaskType, taskSpec.TaskJson.Value, orm, config)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			result := task.Run(inputs)
@@ -96,7 +100,7 @@ func (r *runner) processIncompleteTaskRuns() error {
 			return err
 		}
 
-		err = r.orm.NotifyCompletion(pipelineRunID)
+		err = r.orm.NotifyCompletion(runID)
 		if err != nil {
 			return err
 		}

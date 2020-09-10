@@ -16,12 +16,8 @@ type BridgeTask struct {
 	Name        string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData"`
 
-	ORM                BridgeTaskORM   `json:"-"`
-	defaultHTTPTimeout models.Duration `json:"-"`
-}
-
-type BridgeTaskORM interface {
-	FindBridge(name models.TaskType) (models.BridgeType, error)
+	orm    ORM
+	config Config
 }
 
 func (f *BridgeTask) Run(inputs []Result) Result {
@@ -34,7 +30,7 @@ func (f *BridgeTask) Run(inputs []Result) Result {
 		return Result{Error: err}
 	}
 
-	// client := &http.Client{Timeout: f.defaultHTTPTimeout.Duration(), Transport: http.DefaultTransport}
+	// client := &http.Client{Timeout: f.config.DefaultHTTPTimeout().Duration(), Transport: http.DefaultTransport}
 	// client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
 	// client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
 
@@ -56,7 +52,7 @@ func (f *BridgeTask) Run(inputs []Result) Result {
 
 func (f BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	task := models.TaskType(f.Name)
-	bridge, err := f.ORM.FindBridge(task)
+	bridge, err := f.orm.FindBridge(task)
 	if err != nil {
 		return url.URL{}, err
 	}
