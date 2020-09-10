@@ -13,7 +13,7 @@ type (
 	Spec struct {
 		ID           int64 `gorm:"primary_key"`
 		JobSpecID    *models.ID
-		SourceDotDag string
+		DotDagSource string
 		TaskSpecs    []TaskSpec
 		CreatedAt    time.Time
 	}
