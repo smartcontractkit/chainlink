@@ -11,16 +11,16 @@ import (
 
 type JSONParseTask struct {
 	BaseTask
-	Path JSONPath `json:"path" gorm:"type:jsonb"`
+	Path JSONPath `json:"path"`
 }
 
 var _ Task = (*JSONParseTask)(nil)
 
-func (t *JSONParseTask) Run(inputs []Result) (out interface{}, err error) {
+func (t *JSONParseTask) Run(inputs []Result) Result {
 	if len(inputs) != 1 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")}
 	} else if inputs[0].Error != nil {
-		return nil, inputs[0].Error
+		return Result{Error: inputs[0].Error}
 	}
 
 	var bs []byte
@@ -30,13 +30,13 @@ func (t *JSONParseTask) Run(inputs []Result) (out interface{}, err error) {
 	case string:
 		bs = []byte(v)
 	default:
-		return nil, errors.Errorf("JSONParseTask does not accept inputs of type %T", inputs[0].Value)
+		return Result{Error: errors.Errorf("JSONParseTask does not accept inputs of type %T", inputs[0].Value)}
 	}
 
 	var decoded interface{}
 	err = json.Unmarshal(bs, &decoded)
 	if err != nil {
-		return nil, err
+		return Result{Error: err}
 	}
 
 	for i, part := range t.Path {
@@ -45,15 +45,15 @@ func (t *JSONParseTask) Run(inputs []Result) (out interface{}, err error) {
 			var exists bool
 			decoded, exists = d[part]
 			if !exists && i == len(t.Path)-1 {
-				return nil, nil
+				return Result{Value: nil}
 			} else if !exists {
-				return nil, errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 			}
 
 		case []interface{}:
 			index, err := strconv.Atoi(part)
 			if err != nil {
-				return nil, err
+				return Result{Error: err}
 			}
 			if index < 0 {
 				index = len(d) + index
@@ -61,14 +61,14 @@ func (t *JSONParseTask) Run(inputs []Result) (out interface{}, err error) {
 
 			exists := index >= 0 && index < len(d)
 			if !exists && i == len(t.Path)-1 {
-				return nil, nil
+				return Result{Value: nil}
 			} else if !exists {
-				return nil, errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 			}
 			decoded = d[index]
 
 		default:
-			return nil, errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))
+			return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 		}
 	}
 	return decoded, nil

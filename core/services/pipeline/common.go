@@ -1,7 +1,6 @@
 package pipeline
 
 import (
-	"database/sql/driver"
 	"encoding/json"
 
 	"github.com/pkg/errors"
@@ -9,24 +8,33 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type (
-	Type string
+//go:generate mockery --name JobSpec --output ./mocks/ --case=underscore
+//go:generate mockery --name JobService --output ./mocks/ --case=underscore
+//go:generate mockery --name Task --output ./mocks/ --case=underscore
 
-	Spec interface {
+type (
+	JobType string
+
+	JobSpec interface {
 		JobID() *models.ID
-		Type() Type
-		Tasks() []Task
+		JobType() JobType
+		TaskDAG() TaskDAG
 	}
 
-	Service interface {
+	JobService interface {
 		Start() error
 		Stop() error
 	}
 
 	Task interface {
-		Run(inputs []Result) (*JSONSerializable, error)
-		Value() (driver.Value, error)
-		Scan(value interface{}) error
+		Run(inputs []Result) Result
+		OutputTasks() []Task
+		SetOutputTasks(tasks []Task)
+	}
+
+	Result struct {
+		Value interface{}
+		Error error
 	}
 )
 
@@ -62,12 +70,11 @@ func NewTaskByType(taskType TaskType) (Task, error) {
 }
 
 type BaseTask struct {
-	ID         uint64 `gorm:"primary_key;auto_increment"`
-	inputTasks []Task `json:"-" gorm:"-"`
+	outputTasks []Task `json:"-"`
 }
 
-func (t BaseTask) InputTasks() []Task               { return t.inputTasks }
-func (t *BaseTask) SetInputTasks(inputTasks []Task) { t.inputTasks = inputTasks }
+func (t BaseTask) OutputTasks() []Task                { return t.outputTasks }
+func (t *BaseTask) SetOutputTasks(outputTasks []Task) { t.outputTasks = outputTasks }
 
 type JSONSerializable struct {
 	Value interface{}

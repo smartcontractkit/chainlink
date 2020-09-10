@@ -13,25 +13,25 @@ import (
 type BridgeTask struct {
 	BaseTask
 
-	Name        string
-	RequestData HttpRequestData `gorm:"type:jsonb"`
+	Name        string          `json:"name"`
+	RequestData HttpRequestData `json:"requestData"`
 
-	ORM                BridgeTaskORM   `gorm:"-"`
-	defaultHTTPTimeout models.Duration `gorm:"-"`
+	ORM                BridgeTaskORM   `json:"-"`
+	defaultHTTPTimeout models.Duration `json:"-"`
 }
 
 type BridgeTaskORM interface {
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
-func (f *BridgeTask) Run(inputs []Result) (out interface{}, err error) {
+func (f *BridgeTask) Run(inputs []Result) Result {
 	if len(inputs) > 0 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
 	}
 
 	url, err := f.getBridgeURLFromName()
 	if err != nil {
-		return nil, err
+		return Result{Error: err}
 	}
 
 	// client := &http.Client{Timeout: f.defaultHTTPTimeout.Duration(), Transport: http.DefaultTransport}
@@ -43,15 +43,15 @@ func (f *BridgeTask) Run(inputs []Result) (out interface{}, err error) {
 	// between flux monitor polling requests and http/bridge adapters
 	f.RequestData["id"] = models.NewID()
 
-	result, err := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Run(inputs)
-	if err != nil {
-		return nil, err
+	result := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Run(inputs)
+	if result.Error != nil {
+		return result
 	}
 	logger.Debugw("Bridge: fetched answer",
 		"answer", result,
 		"url", url.String(),
 	)
-	return result, nil
+	return result
 }
 
 func (f BridgeTask) getBridgeURLFromName() (url.URL, error) {

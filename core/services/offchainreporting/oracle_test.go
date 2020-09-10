@@ -15,44 +15,50 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+func TestJobSpec_Unmarshal(t *testing.T) {
+
+}
+
 func TestJobSpec_FetchFromDB(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	u, err := url.Parse("http://chain.link")
+	u, err := url.Parse("http://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
 	jobID := models.NewID()
 
+	ds1 := &BridgeTask{Name: "voter_turnout"}
+	ds1_parse := &JSONParseTask{
+		Path:     []string{"one", "two"},
+		BaseTask: BaseTask{inputTasks: []Task{ds1}},
+	}
+	ds1_multiply := &MultiplyTask{
+		Times:    decimal.NewFromFloat(1.23),
+		BaseTask: BaseTask{inputTasks: []Task{ds1_parse}},
+	}
+	ds2 := &HTTPTask{
+		URL:         models.WebURL(*u),
+		Method:      "GET",
+		RequestData: HttpRequestData{"hi": "hello"},
+	}
+	ds2_parse := &JSONParseTask{
+		Path:     []string{"three", "four"},
+		BaseTask: BaseTask{inputTasks: []Task{ds2}},
+	}
+	ds2_multiply := &MultiplyTask{
+		Times:    decimal.NewFromFloat(4.56),
+		BaseTask: BaseTask{inputTasks: []Task{ds2_parse}},
+	}
+	answer1 := &MedianTask{
+		BaseTask: BaseTask{inputTasks: []Task{ds1_multiply, ds2_multiply}},
+	}
+	answer2 := &BridgeTask{Name: "election_winner"}
+
+	tasks := []Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	jobSpec := &offchainreporting.JobSpec{
-		UUID: jobID,
-		ObservationSource: &job.MedianFetcher{
-			Fetchers: []job.Fetcher{
-				&job.HttpFetcher{
-					URL:    models.WebURL(*u),
-					Method: "GET",
-					RequestData: map[string]interface{}{
-						"one": "asdf",
-						"two": "xyzzy",
-					},
-					Transformers: job.Transformers{
-						&job.JSONParseTransformer{Path: []string{"one", "two"}},
-						&job.MultiplyTransformer{Times: decimal.NewFromFloat(1.23)},
-					},
-				},
-				&job.BridgeFetcher{
-					BridgeName: "t00f4r",
-					RequestData: map[string]interface{}{
-						"one": "asdf",
-						"two": "xyzzy",
-					},
-					Transformers: job.Transformers{
-						&job.JSONParseTransformer{Path: []string{"one", "two"}},
-						&job.MultiplyTransformer{Times: decimal.NewFromFloat(1.23)},
-					},
-				},
-			},
-		},
+		UUID:              jobID,
+		ObservationSource: tasks,
 	}
 
 	err = store.ORM.RawDB(func(db *gorm.DB) error {
