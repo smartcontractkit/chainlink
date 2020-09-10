@@ -3,33 +3,60 @@ package ocrkey
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"encoding/json"
+	"fmt"
 	"io"
 	"log"
+	"math/big"
+	"time"
 
 	cryptorand "crypto/rand"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/to_be_internal/signature"
 	"github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
 )
 
-type PrivateKeys struct {
-	onChainSignging    *signature.OnChainPrivateKey
+type OCRPrivateKeys struct {
+	onChainSigning     *signature.OnChainPrivateKey
 	offChainSigning    *signature.OffChainPrivateKey
-	OffChainEncryption *[curve25519.ScalarSize]byte
+	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
-var _ types.PrivateKeys = (*PrivateKeys)(nil)
+type EncryptedOCRPrivateKeys struct {
+	ID                int32 `gorm:"primary_key"`
+	EncryptedPrivKeys []byte
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
 
-// NewPrivateKeys returns a PrivateKeys with the given keys.
+type ScryptParams struct{ N, P int }
+
+type ocrPrivateKeysRawData struct {
+	X                  big.Int
+	Y                  big.Int
+	D                  big.Int
+	Ed25519PrivKey     []byte
+	OffChainEncryption [curve25519.ScalarSize]byte
+}
+
+var defaultScryptParams = ScryptParams{
+	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
+
+var _ types.PrivateKeys = (*OCRPrivateKeys)(nil)
+
+// NewOCRPrivateKeys returns a PrivateKeys with the given keys.
 //
 // In any real implementation (except maybe in a test helper), this function
 // should take no arguments, and use crypto/rand.{Read,Int}. It should return a
 // pointer, so we aren't copying secret material willy-nilly, and have a way to
 // destroy the secrets. Any persistence to disk should be encrypted, as in the
 // chainlink keystores.
-func NewPrivateKeys(reader io.Reader) *PrivateKeys {
+func NewOCRPrivateKeys(reader io.Reader) *OCRPrivateKeys {
+	// TODO - RYAN - remove argument
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
 		panic(err)
@@ -48,29 +75,29 @@ func NewPrivateKeys(reader io.Reader) *PrivateKeys {
 	if err != nil {
 		panic(err)
 	}
-	return &PrivateKeys{
-		onChainSignging:    onChainPriv,
+	return &OCRPrivateKeys{
+		onChainSigning:     onChainPriv,
 		offChainSigning:    (*signature.OffChainPrivateKey)(&offChainPriv),
-		OffChainEncryption: &encryptionPriv,
+		offChainEncryption: &encryptionPriv,
 	}
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
-func (pk PrivateKeys) SignOnChain(msg []byte) (signature []byte, err error) {
-	return pk.onChainSignging.Sign(msg)
+func (pk *OCRPrivateKeys) SignOnChain(msg []byte) (signature []byte, err error) {
+	return pk.onChainSigning.Sign(msg)
 }
 
 // SignOffChain returns an EdDSA-Ed25519 signature on msg.
-func (pk PrivateKeys) SignOffChain(msg []byte) (signature []byte, err error) {
+func (pk *OCRPrivateKeys) SignOffChain(msg []byte) (signature []byte, err error) {
 	return pk.offChainSigning.Sign(msg)
 }
 
 // ConfigDiffieHelman returns the shared point obtained by multiplying someone's
 // public key by a secret scalar ( in this case, the offChainEncryption key.)
-func (pk PrivateKeys) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
+func (pk *OCRPrivateKeys) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 	sharedPoint *[curve25519.PointSize]byte, err error,
 ) {
-	p, err := curve25519.X25519(pk.OffChainEncryption[:], base[:])
+	p, err := curve25519.X25519(pk.offChainEncryption[:], base[:])
 	if err != nil {
 		return nil, err
 	}
@@ -81,22 +108,122 @@ func (pk PrivateKeys) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 
 // PublicKeyAddressOnChain returns public component of the keypair used in
 // SignOnChain
-func (pk PrivateKeys) PublicKeyAddressOnChain() types.OnChainSigningAddress {
-	return pk.onChainSignging.Address()
+func (pk *OCRPrivateKeys) PublicKeyAddressOnChain() types.OnChainSigningAddress {
+	return pk.onChainSigning.Address()
 }
 
 // PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
-func (pk PrivateKeys) PublicKeyOffChain() types.OffChainPublicKey {
+func (pk *OCRPrivateKeys) PublicKeyOffChain() types.OffChainPublicKey {
 	return types.OffChainPublicKey(pk.offChainSigning.PublicKey())
 }
 
 // PublicKeyConfig returns the public component of the keypair used in ConfigKeyShare
-func (pk PrivateKeys) PublicKeyConfig() [curve25519.PointSize]byte {
-	rv, err := curve25519.X25519(pk.OffChainEncryption[:], curve25519.Basepoint)
+func (pk *OCRPrivateKeys) PublicKeyConfig() [curve25519.PointSize]byte {
+	rv, err := curve25519.X25519(pk.offChainEncryption[:], curve25519.Basepoint)
 	if err != nil {
 		log.Println("failure while computing public key: " + err.Error())
 	}
 	var rvFixed [curve25519.PointSize]byte
 	copy(rvFixed[:], rv)
 	return rvFixed
+}
+
+// type is added to the beginning of the passwords for
+// OCR keys, so that the keys can't accidentally be mis-used
+// in the wrong place
+func adulteratedPassword(auth string) string {
+	s := "ocrkey" + auth
+	return s
+}
+
+// Encrypt combines the OCRPrivateKeys into a single array of bytes and then encrypts
+func (pk *OCRPrivateKeys) Encrypt(auth string) (s EncryptedOCRPrivateKeys, err error) {
+	// TODO - RYAN - return pointer
+	scryptParams := defaultScryptParams
+	var marshalledPrivK []byte
+	marshalledPrivK, err = json.Marshal(&pk)
+	if err != nil {
+		return s, err
+	}
+	// fmt.Println("Encrypt", "string(marshalledPrivK)", string(marshalledPrivK))
+	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword(auth)), scryptParams.N, scryptParams.P)
+	if err != nil {
+		return s, errors.Wrapf(err, "could not encrypt ocr key")
+	}
+	encryptedPrivKeys, err := json.Marshal(&cryptoJSON)
+	if err != nil {
+		return s, errors.Wrapf(err, "could not encode cryptoJSON")
+	}
+	s = EncryptedOCRPrivateKeys{
+		EncryptedPrivKeys: encryptedPrivKeys,
+	}
+	return s, nil
+}
+
+// Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
+func (e EncryptedOCRPrivateKeys) Decrypt(auth string) (*OCRPrivateKeys, error) {
+	var cryptoJSON keystore.CryptoJSON
+	err := json.Unmarshal(e.EncryptedPrivKeys, &cryptoJSON)
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR key")
+	}
+	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not decrypt OCR key")
+	}
+	var k OCRPrivateKeys
+	err = json.Unmarshal(marshalledPrivK, &k)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not unmarshal OCR key")
+	}
+	return &k, nil
+}
+
+// MarshalJSON marshals the private keys into json
+func (pk *OCRPrivateKeys) MarshalJSON() ([]byte, error) {
+	rawKeyData := ocrPrivateKeysRawData{
+		X:                  *pk.onChainSigning.X,
+		Y:                  *pk.onChainSigning.Y,
+		D:                  *pk.onChainSigning.D,
+		Ed25519PrivKey:     []byte(*pk.offChainSigning),
+		OffChainEncryption: *pk.offChainEncryption,
+	}
+	return json.Marshal(&rawKeyData)
+}
+
+// UnmarshalJSON constructs OCRPrivateKeys from raw json
+func (pk *OCRPrivateKeys) UnmarshalJSON(b []byte) (err error) {
+	var rawKeyData ocrPrivateKeysRawData
+	err = json.Unmarshal(b, &rawKeyData)
+	if err != nil {
+		return err
+	}
+	publicKey := ecdsa.PublicKey{
+		X: &rawKeyData.X,
+		Y: &rawKeyData.Y,
+	}
+	privateKey := ecdsa.PrivateKey{
+		PublicKey: publicKey,
+		D:         &rawKeyData.D,
+	}
+	onChainSigning := signature.OnChainPrivateKey(privateKey)
+	offChainSigning := signature.OffChainPrivateKey(rawKeyData.Ed25519PrivKey)
+	pk.onChainSigning = &onChainSigning
+	pk.offChainSigning = &offChainSigning
+	pk.offChainEncryption = &rawKeyData.OffChainEncryption
+	return nil
+}
+
+// String reduces the risk of accidentally logging the private key
+func (pk OCRPrivateKeys) String() string {
+	return fmt.Sprintf(
+		"OCRPrivateKey{PublicKeyAddressOnChain: %s, PublicKeyOffChain: %s}",
+		pk.PublicKeyAddressOnChain(),
+		pk.PublicKeyOffChain(),
+	)
+}
+
+// GoStringer reduces the risk of accidentally logging the private key
+func (pk OCRPrivateKeys) GoStringer() string {
+	return pk.String()
 }
