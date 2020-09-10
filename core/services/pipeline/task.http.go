@@ -26,12 +26,12 @@ import (
 type HTTPTask struct {
 	BaseTask
 
-	Method                         string
-	URL                            models.WebURL
-	ExtendedPath                   ExtendedPath    `gorm:"type:jsonb"`
-	Headers                        Header          `gorm:"type:jsonb"`
-	QueryParams                    QueryParameters `gorm:"type:jsonb"`
-	RequestData                    HttpRequestData `gorm:"type:jsonb"`
+	Method                         string          `json:"method"`
+	URL                            models.WebURL   `json:"url"`
+	ExtendedPath                   ExtendedPath    `json:"extendedPath"`
+	Headers                        Header          `json:"headers"`
+	QueryParams                    QueryParameters `json:"queryParams"`
+	RequestData                    HttpRequestData `json:"requestData"`
 	AllowUnrestrictedNetworkAccess bool
 
 	defaultHTTPTimeout     models.Duration
@@ -46,9 +46,9 @@ type httpRequestConfig struct {
 	allowUnrestrictedNetworkAccess bool
 }
 
-func (f *HTTPTask) Run(inputs []Result) (out interface{}, err error) {
+func (f *HTTPTask) Run(inputs []Result) Result {
 	if len(inputs) > 0 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
 
 	var contentType string
@@ -60,14 +60,14 @@ func (f *HTTPTask) Run(inputs []Result) (out interface{}, err error) {
 	if f.RequestData != nil {
 		bs, err := json.Marshal(f.RequestData)
 		if err != nil {
-			return nil, err
+			return Result{Error: err}
 		}
 		body = bytes.NewBuffer(bs)
 	}
 
 	request, err := http.NewRequest(f.Method, f.URL.String(), body)
 	if err != nil {
-		return nil, err
+		return Result{Error: err}
 	}
 
 	appendExtendedPath(request, f.ExtendedPath)
@@ -80,7 +80,11 @@ func (f *HTTPTask) Run(inputs []Result) (out interface{}, err error) {
 		false,
 	}
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
-	return sendRequest(request, httpConfig)
+	resp, err := sendRequest(request, httpConfig)
+	if err != nil {
+		return Result{Error: err}
+	}
+	return Result{Value: resp}
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {

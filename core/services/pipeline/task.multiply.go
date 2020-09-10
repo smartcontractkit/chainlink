@@ -9,21 +9,21 @@ import (
 
 type MultiplyTask struct {
 	BaseTask
-	Times decimal.Decimal `json:"times" gorm:"type:text;not null"`
+	Times decimal.Decimal `json:"times"`
 }
 
 var _ Task = (*MultiplyTask)(nil)
 
-func (t *MultiplyTask) Run(inputs []Result) (out interface{}, err error) {
+func (t *MultiplyTask) Run(inputs []Result) Result {
 	if len(inputs) != 1 {
-		return nil, errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}
 	} else if inputs[0].Error != nil {
-		return nil, inputs[0].Error
+		return Result{Error: inputs[0].Error}
 	}
 
 	value, err := utils.ToDecimal(inputs[0].Value)
 	if err != nil {
-		return nil, err
+		return Result{Error: err}
 	}
-	return value.Mul(t.Times), nil
+	return Result{Value: value.Mul(t.Times)}
 }

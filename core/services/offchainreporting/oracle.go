@@ -1,7 +1,7 @@
 package offchainreporting
 
 import (
-
+	"github.com/golangci/golangci-lint/pkg/result"
 	// "math/big"
 
 	"github.com/pkg/errors"
@@ -20,33 +20,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
-const PipelineType pipeline.Type = "offchainreporting"
-
-// PipelineSpec conforms to the pipeline.Spec interface
-var _ pipeline.Spec = JobSpec{}
-
-func (spec JobSpec) JobID() *models.ID {
-	return spec.UUID
-}
-
-func (spec JobSpec) Type() pipeline.Type {
-	return PipelineType
-}
-
-func (spec JobSpec) Tasks() []Task {
-	return spec.ObservationSource.Tasks()
-}
-
-// func (n *P2PBootstrapNode) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), n) }
-// func (n P2PBootstrapNode) Value() (driver.Value, error)  { return json.Marshal(n) }
-
-func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
+func RegisterJobTypes(jobSpawner pipeline.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
 		JobType,
-		func(jobSpec job.JobSpec) ([]job.JobService, error) {
-			concreteSpec, ok := jobSpec.(JobSpec)
+		func(jobSpec pipeline.JobSpec) ([]pipeline.JobService, error) {
+			concreteSpec, ok := jobSpec.(*OracleSpec)
 			if !ok {
-				return nil, errors.Errorf("expected an offchainreporting.JobSpec, got %T", jobSpec)
+				return nil, errors.Errorf("expected an offchainreporting.OracleSpec, got %T", jobSpec)
 			}
 
 			db := database{JobSpecID: concreteSpec.ID, orm: orm}
@@ -84,29 +64,46 @@ func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Cl
 				return nil, err
 			}
 
-			return []job.JobService{service}, nil
+			return []pipeline.JobService{service}, nil
 		},
 	)
 }
 
-// // dataSource is a simple wrapper around an existing job.Fetcher that converts
-// // whatever value is fetched into a *big.Int, as the offchain reporting prototype
-// // expects.
-// type dataSource job.Fetcher
+// dataSource is an abstraction over the process of initiating a pipeline run
+// and capturing the result.  Additionally, it converts the result to a *big.Int,
+// as expected by the offchain reporting library.
+type dataSource struct {
+	pipelineRunner pipeline.Runner
+	pipelineSpecID int64
+}
 
-// var _ ocr.DataSource = dataSource(nil)
+var _ ocr.DataSource = (*dataSource)(nil)
 
-// func (ds dataSource) Fetch() (*big.Int, error) {
-// 	val, err := job.Fetcher(ds).Fetch()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	asDecimal, err := utils.ToDecimal(val)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return asDecimal.BigInt(), nil
-// }
+func (ds dataSource) Fetch() (*big.Int, error) {
+	runID, err := ds.pipelineRunner.CreatePipelineRun(ds.pipelineSpecID)
+	if err != nil {
+		return nil, err
+	}
+
+	<-ds.pipelineRunner.AwaitRun(runID)
+
+	results, err := ds.pipelineRunner.ResultsForRun(runID)
+	if err != nil {
+		return nil, err
+	} else if len(results) != 1 {
+		return nil, errors.Errorf("offchain reporting pipeline should have a single output (pipeline spec ID: %v, pipeline run ID: %v)", ds.pipelineSpecID, runID)
+	}
+	result := results[0]
+	if result.Error != nil {
+		return nil, errors.Wrapf(result.Error, "pipeline error")
+	}
+
+	asDecimal, err := utils.ToDecimal(result.Value)
+	if err != nil {
+		return nil, err
+	}
+	return asDecimal.BigInt(), nil
+}
 
 // // database is an abstraction that conforms to the Database interface in the
 // // offchain reporting prototype, which is unaware of job IDs.

@@ -15,7 +15,7 @@ type MedianTask struct {
 	BaseTask
 }
 
-func (f *MedianTask) Run(inputs []Result) (out interface{}, err error) {
+func (f *MedianTask) Run(inputs []Result) Result {
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -37,7 +37,7 @@ func (f *MedianTask) Run(inputs []Result) (out interface{}, err error) {
 
 	errorRate := float64(len(fetchErrors)) / float64(len(answers)+len(fetchErrors))
 	if errorRate >= 0.5 {
-		return nil, errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")
+		return Result{Error: errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")}
 	}
 
 	sort.Slice(answers, func(i, j int) bool {
@@ -45,8 +45,8 @@ func (f *MedianTask) Run(inputs []Result) (out interface{}, err error) {
 	})
 	k := len(answers) / 2
 	if len(answers)%2 == 1 {
-		return answers[k], nil
+		return Result{Value: answers[k]}
 	}
 	median := answers[k].Add(answers[k-1]).Div(decimal.NewFromInt(2))
-	return median, nil
+	return Result{Value: median}
 }
