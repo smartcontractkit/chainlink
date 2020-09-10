@@ -1,6 +1,8 @@
 package offchainreporting
 
 import (
+	"context"
+
 	"github.com/golangci/golangci-lint/pkg/result"
 	// "math/big"
 
@@ -10,6 +12,7 @@ import (
 	// "github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -20,10 +23,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
-func RegisterJobTypes(jobSpawner pipeline.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
+func RegisterJobTypes(jobSpawner job.Spawner, orm ormInterface, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) {
 	jobSpawner.RegisterJobType(
 		JobType,
-		func(jobSpec pipeline.JobSpec) ([]pipeline.JobService, error) {
+		func(jobSpec job.Spec) ([]job.Service, error) {
 			concreteSpec, ok := jobSpec.(*OracleSpec)
 			if !ok {
 				return nil, errors.Errorf("expected an offchainreporting.OracleSpec, got %T", jobSpec)
@@ -55,7 +58,7 @@ func RegisterJobTypes(jobSpawner pipeline.Spawner, orm ormInterface, ethClient e
 				LocalConfig: localConfig,
 				PrivateKeys: privateKeys,
 				NetEndPoint: netEndpoint,
-				Datasource:  dataSource(concreteSpec.ObservationSource),
+				Datasource:  dataSource{pipelineRunner},
 				// ContractTransmitter:   aggregator,
 				// ContractConfigTracker: aggregator,
 				MonitoringEndpoint: monitoringEndpoint,
@@ -64,7 +67,7 @@ func RegisterJobTypes(jobSpawner pipeline.Spawner, orm ormInterface, ethClient e
 				return nil, err
 			}
 
-			return []pipeline.JobService{service}, nil
+			return []job.Service{service}, nil
 		},
 	)
 }
@@ -79,13 +82,16 @@ type dataSource struct {
 
 var _ ocr.DataSource = (*dataSource)(nil)
 
-func (ds dataSource) Fetch() (*big.Int, error) {
-	runID, err := ds.pipelineRunner.CreatePipelineRun(ds.pipelineSpecID)
+func (ds dataSource) Fetch(ctx context.Context) (*big.Int, error) {
+	runID, err := ds.pipelineRunner.CreateRun(ds.pipelineSpecID)
 	if err != nil {
 		return nil, err
 	}
 
-	<-ds.pipelineRunner.AwaitRun(runID)
+	err = ds.pipelineRunner.AwaitRun(ctx, runID)
+	if err != nil {
+		return nil, err
+	}
 
 	results, err := ds.pipelineRunner.ResultsForRun(runID)
 	if err != nil {
@@ -105,59 +111,59 @@ func (ds dataSource) Fetch() (*big.Int, error) {
 	return asDecimal.BigInt(), nil
 }
 
-// // database is an abstraction that conforms to the Database interface in the
-// // offchain reporting prototype, which is unaware of job IDs.
-// type database struct {
-// 	orm       ormInterface
-// 	JobSpecID models.ID
-// }
+// database is an abstraction that conforms to the Database interface in the
+// offchain reporting prototype, which is unaware of job IDs.
+type database struct {
+	orm       ormInterface
+	JobSpecID models.ID
+}
 
-// var _ ocr.Database = database{}
+var _ ocr.Database = database{}
 
-// type ormInterface interface {
-// 	FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (PersistentState, error)
-// 	SaveOffchainReportingPersistentState(state PersistentState) error
-// 	FindOffchainReportingConfig(jobID models.ID) (Config, error)
-// 	SaveOffchainReportingConfig(config Config) error
-// }
+type ormInterface interface {
+	FindOffchainReportingPersistentState(jobID models.ID, groupID ocrtypes.GroupID) (PersistentState, error)
+	SaveOffchainReportingPersistentState(state PersistentState) error
+	FindOffchainReportingConfig(jobID models.ID) (Config, error)
+	SaveOffchainReportingConfig(config Config) error
+}
 
-// type PersistentState struct {
-// 	JobSpecID models.ID
-// 	GroupID   ocrtypes.GroupID
-// 	ocr.PersistentState
-// }
+type PersistentState struct {
+	JobSpecID models.ID
+	GroupID   ocrtypes.GroupID
+	ocr.PersistentState
+}
 
-// type Config struct {
-// 	JobSpecID models.ID
-// 	ocrtypes.Config
-// }
+type Config struct {
+	JobSpecID models.ID
+	ocrtypes.Config
+}
 
-// func (db database) ReadState(groupID ocrtypes.GroupID) (*ocr.PersistentState, error) {
-// 	state, err := db.orm.FindOffchainReportingPersistentState(db.JobSpecID, groupID)
-// 	if err != nil {
-// 		return &ocr.PersistentState{}, err
-// 	}
-// 	return state.PersistentState, nil
-// }
+func (db database) ReadState(groupID ocrtypes.GroupID) (*ocr.PersistentState, error) {
+	state, err := db.orm.FindOffchainReportingPersistentState(db.JobSpecID, groupID)
+	if err != nil {
+		return &ocr.PersistentState{}, err
+	}
+	return state.PersistentState, nil
+}
 
-// func (db database) WriteState(groupID ocrtypes.GroupID, state ocr.PersistentState) error {
-// 	return db.orm.SaveOffchainReportingPersistentState(PersistentState{
-// 		ID:              db.JobSpecID,
-// 		PersistentState: state,
-// 	})
-// }
+func (db database) WriteState(groupID ocrtypes.GroupID, state ocr.PersistentState) error {
+	return db.orm.SaveOffchainReportingPersistentState(PersistentState{
+		ID:              db.JobSpecID,
+		PersistentState: state,
+	})
+}
 
-// func (db database) ReadConfig() (ocrtypes.Config, error) {
-// 	config, err := db.orm.FindOffchainReportingConfig(db.JobSpecID)
-// 	if err != nil {
-// 		return ocr.Config{}, err
-// 	}
-// 	return config.Config, nil
-// }
+func (db database) ReadConfig() (ocrtypes.Config, error) {
+	config, err := db.orm.FindOffchainReportingConfig(db.JobSpecID)
+	if err != nil {
+		return ocr.Config{}, err
+	}
+	return config.Config, nil
+}
 
-// func (db database) WriteConfig(config ocrtypes.Config) error {
-// 	return db.orm.SaveOffchainReportingConfig(Config{
-// 		ID:     db.JobSpecID,
-// 		Config: config,
-// 	})
-// }
+func (db database) WriteConfig(config ocrtypes.Config) error {
+	return db.orm.SaveOffchainReportingConfig(Config{
+		ID:     db.JobSpecID,
+		Config: config,
+	})
+}

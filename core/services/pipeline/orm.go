@@ -1,6 +1,9 @@
 package pipeline
 
 import (
+	"context"
+	"time"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
@@ -9,16 +12,12 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	// Spawner
-	UnclaimedJobs() ([]JobSpec, error)
-	CreatePipelineSpec(spec PipelineSpec) error
-	LoadPipelineSpec(id int64) (PipelineSpec, error)
-
-	// Runner
-	CreatePipelineRun(prun PipelineRun) (int64, error)
-	WithNextUnclaimedTaskRun(f func(tx *gorm.DB, ptRun PipelineTaskRun, predecessors []PipelineTaskRun) error) error
+	CreateRun(prun Run) (int64, error)
+	WithNextUnclaimedTaskRun(f func(tx *gorm.DB, ptRun TaskRun, predecessors []TaskRun) error) error
 	MarkTaskRunCompleted(tx *gorm.DB, taskRunID int64, output sql.Scanner, err error) error
+	AwaitRun(ctx context.Context, runID int64) error
 	NotifyCompletion(pipelineRunID int64) error
+	ResultsForRun(runID int64) ([]Result, error)
 }
 
 type orm struct {
@@ -36,22 +35,13 @@ func NewORM(o database) *orm {
 	return &orm{o}
 }
 
-func (o *orm) CreatePipelineSpec(spec *PipelineSpec) error {
-	return o.db.Create(spec)
-}
-
-func (o *orm) LoadPipelineSpec(id int64) (spec PipelineSpec, err error) {
-	err = o.db.Preload("TaskSpecs").First(&spec, id).Error
-	return j, err
-}
-
-// CreatePipelineRun adds a PipelineRun record to the DB, and one PipelineTaskRun
-// per PipelineTaskSpec associated with the given PipelineSpec.  Processing of the
+// CreateRun adds a Run record to the DB, and one TaskRun
+// per TaskSpec associated with the given Spec.  Processing of the
 // TaskRuns is maximally parallelized across all of the Chainlink nodes in the
 // cluster.
-func (o *orm) CreatePipelineRun(specID int64) (int64, error) {
+func (o *orm) CreateRun(specID int64) (int64, error) {
 	return o.db.Transaction(func(tx *gorm.DB) error {
-		prun := PipelineRun{PipelineSpecID: specID}
+		prun := Run{SpecID: specID}
 
 		err := tx.Create(&prun).Error
 		if err != nil {
@@ -65,17 +55,17 @@ func (o *orm) CreatePipelineRun(specID int64) (int64, error) {
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?
-        `, prun.ID, prun.PipelineSpecID).Error
+        `, prun.ID, prun.SpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
 }
 
 // WithNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
-func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun PipelineTaskRun, predecessors []PipelineTaskRun) Result) error {
+func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun TaskRun, predecessors []TaskRun) Result) error {
 	return o.db.Transaction(func(tx *gorm.DB) error {
-		var ptRun PipelineTaskRun
-		var predecessors []PipelineTaskRun
+		var ptRun TaskRun
+		var predecessors []TaskRun
 
 		// NOTE: This could conceivably be done in pure SQL and made marginally more efficient by preloading with joins
 
@@ -85,7 +75,7 @@ func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun PipelineTaskRun, predecesso
 			Joins("LEFT JOIN pipeline_task_runs AS predecessors ON successor.id = predecessor.successor_id AND predecessors.finished_at IS NULL").
 			Where("predecessors.id IS NULL").
 			Where("successor.finished_at IS NULL").
-			Preload("PipelineTaskSpec").
+			Preload("TaskSpec").
 			Order("id ASC").
 			First(&ptRun).
 			Error
@@ -120,7 +110,34 @@ func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun PipelineTaskRun, predecesso
 	})
 }
 
-func (o *orm) NotifyCompletion(pipelineRunID int64) error {
+func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		var done bool
+		err := orm.db.Exec(`
+            SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
+            FROM pipeline_job_runs
+            JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id
+            WHERE pipeline_job_runs.id = $1
+        `, runID).Scan(&done).Error
+		if err != nil {
+			// TODO: log error
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		if done {
+			return nil
+		}
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func (o *orm) NotifyCompletion(runID int64) error {
 	return o.db.Exec(`
     $$
     BEGIN
@@ -129,5 +146,23 @@ func (o *orm) NotifyCompletion(pipelineRunID int64) error {
         END IF;
     END;
     $$ LANGUAGE plpgsql;
-    )`, pipelineRunID).Error
+    )`, runID).Error
+}
+
+func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
+	var taskRuns []TaskRun
+	err := o.db.
+		Where("pipeline_job_run_id = ?", runID).
+		Where("error IS NOT NULL OR output IS NOT NULL").
+		Where("successor_id IS NULL").
+		Find(&results).
+		Error
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]Result, len(taskRuns))
+	for i, taskRun := range taskRuns {
+		results[i] = taskRun.Result()
+	}
 }
