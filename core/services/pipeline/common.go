@@ -3,7 +3,9 @@ package pipeline
 import (
 	"encoding/json"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -21,38 +23,17 @@ type (
 		Value interface{}
 		Error error
 	}
+
+	Config interface {
+		DefaultHTTPTimeout() models.Duration
+		DefaultMaxHTTPAttempts() uint
+		DefaultHTTPLimit() int64
+	}
 )
 
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 )
-
-type TaskType string
-
-const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
-)
-
-func NewTaskByType(taskType TaskType) (Task, error) {
-	switch taskType {
-	case TaskTypeHTTP:
-		return &HTTPTask{}, nil
-	case TaskTypeBridge:
-		return &BridgeTask{}, nil
-	case TaskTypeMedian:
-		return &MedianTask{}, nil
-	case TaskTypeJSONParse:
-		return &JSONParseTask{}, nil
-	case TaskTypeMultiply:
-		return &MultiplyTask{}, nil
-	default:
-		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
-	}
-}
 
 type BaseTask struct {
 	outputTasks []Task `json:"-"`
@@ -74,4 +55,76 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	return json.Marshal(js.Value)
+}
+
+type TaskType string
+
+const (
+	TaskTypeHTTP      TaskType = "http"
+	TaskTypeBridge    TaskType = "bridge"
+	TaskTypeMedian    TaskType = "median"
+	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeJSONParse TaskType = "jsonparse"
+)
+
+func UnmarshalTask(taskType TaskType, taskMap interface{}, orm ORM, config RunnerConfig) (Task, error) {
+	switch taskMap.(type) {
+	default:
+		return nil, errors.New("UnmarshalTask only accepts a map[string]interface{} or a map[string]string")
+	case map[string]interface{}, map[string]string:
+	}
+
+	var task Task
+	switch taskType {
+	case TaskTypeHTTP:
+		task = &HTTPTask{config: config}
+	case TaskTypeBridge:
+		task = &BridgeTask{orm: orm, config: config}
+	case TaskTypeMedian:
+		task = &MedianTask{}
+	case TaskTypeJSONParse:
+		task = &JSONParseTask{}
+	case TaskTypeMultiply:
+		task = &MultiplyTask{}
+	default:
+		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
+	}
+
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			mapstructure.StringToSliceHookFunc(","),
+			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
+				switch f {
+				case reflect.TypeOf(""):
+					switch t {
+					case reflect.TypeOf(models.WebURL{}):
+						u, err := url.Parse(data.(string))
+						if err != nil {
+							return nil, err
+						}
+						return models.WebURL(*u), nil
+
+					case reflect.TypeOf(HttpRequestData{}):
+						var m map[string]interface{}
+						err := json.Unmarshal([]byte(data.(string)), &m)
+						return HttpRequestData(m), err
+
+					case reflect.TypeOf(decimal.Decimal{}):
+						return decimal.NewFromString(data.(string))
+					}
+				}
+				return data, nil
+			},
+		),
+		Result: task,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = decoder.Decode(taskMap)
+	if err != nil {
+		return nil, err
+	}
+	return task, nil
 }

@@ -12,12 +12,16 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	// Runner
 	CreateRun(prun Run) (int64, error)
 	WithNextUnclaimedTaskRun(f func(tx *gorm.DB, ptRun TaskRun, predecessors []TaskRun) error) error
 	MarkTaskRunCompleted(tx *gorm.DB, taskRunID int64, output sql.Scanner, err error) error
 	AwaitRun(ctx context.Context, runID int64) error
 	NotifyCompletion(pipelineRunID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
+
+	// BridgeTask
+	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
 type orm struct {

@@ -5,8 +5,6 @@ import (
 	"net/url"
 	"reflect"
 
-	"github.com/mitchellh/mapstructure"
-	"github.com/shopspring/decimal"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
 	"gonum.org/v1/gonum/graph/encoding/dot"
@@ -61,44 +59,7 @@ func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
 			continue
 		}
 
-		task, err := NewTaskByType(TaskType(node.attrs["type"]))
-		if err != nil {
-			return err
-		}
-
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook: mapstructure.ComposeDecodeHookFunc(
-				mapstructure.StringToSliceHookFunc(","),
-				func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
-					switch f {
-					case reflect.TypeOf(""):
-						switch t {
-						case reflect.TypeOf(models.WebURL{}):
-							u, err := url.Parse(data.(string))
-							if err != nil {
-								return nil, err
-							}
-							return models.WebURL(*u), nil
-
-						case reflect.TypeOf(HttpRequestData{}):
-							var m map[string]interface{}
-							err := json.Unmarshal([]byte(data.(string)), &m)
-							return HttpRequestData(m), err
-
-						case reflect.TypeOf(decimal.Decimal{}):
-							return decimal.NewFromString(data.(string))
-						}
-					}
-					return data, nil
-				},
-			),
-			Result: task,
-		})
-		if err != nil {
-			return err
-		}
-
-		err = decoder.Decode(node.attrs)
+		task, err := UnmarshalTask(TaskType(node.attrs["type"]), node.attrs, nil, nil)
 		if err != nil {
 			return err
 		}

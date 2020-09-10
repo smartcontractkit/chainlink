@@ -21,6 +21,7 @@ type (
 	TaskSpec struct {
 		ID          int64 `gorm:"primary_key"`
 		SpecID      int64
+		TaskType    TaskType
 		TaskJson    JSONSerializable `gorm:"type:jsonb"`
 		SuccessorID null.Int64
 		CreatedAt   time.Time

@@ -32,11 +32,9 @@ type HTTPTask struct {
 	Headers                        Header          `json:"headers"`
 	QueryParams                    QueryParameters `json:"queryParams"`
 	RequestData                    HttpRequestData `json:"requestData"`
-	AllowUnrestrictedNetworkAccess bool
+	AllowUnrestrictedNetworkAccess bool            `json:"-"`
 
-	defaultHTTPTimeout     models.Duration
-	defaultMaxHTTPAttempts uint
-	defaultHTTPLimit       int64
+	config Config
 }
 
 type httpRequestConfig struct {
@@ -74,9 +72,9 @@ func (f *HTTPTask) Run(inputs []Result) Result {
 	appendQueryParams(request, f.QueryParams)
 	setHeaders(request, http.Header(f.Headers), contentType)
 	httpConfig := httpRequestConfig{
-		f.defaultHTTPTimeout.Duration(),
-		f.defaultMaxHTTPAttempts,
-		f.defaultHTTPLimit,
+		f.config.DefaultHTTPTimeout().Duration(),
+		f.config.DefaultMaxHTTPAttempts(),
+		f.config.DefaultHTTPLimit(),
 		false,
 	}
 	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
