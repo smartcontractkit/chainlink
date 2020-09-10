@@ -9,11 +9,9 @@ func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		CREATE TABLE encrypted_ocr_keys (
 			id SERIAL PRIMARY KEY,
-			encrypted_priv_key bytea NOT NULL,
+			encrypted_priv_key jsonb NOT NULL,
 			created_at timestamptz NOT NULL,
 			updated_at timestamptz NOT NULL
 			);
 			`).Error
 }
-
-// encrypted_priv_key jsonb NOT NULL,
