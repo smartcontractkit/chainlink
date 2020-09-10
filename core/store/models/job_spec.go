@@ -57,19 +57,6 @@ type JobSpec struct {
 	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
 }
 
-func (j JobSpec) JobID() *ID {
-	return j.ID
-}
-
-func (j JobSpec) JobType() string {
-	for _, initr := range j.Initiators {
-		if initr.Type == InitiatorFluxMonitor {
-			return InitiatorFluxMonitor
-		}
-	}
-	return "directrequest"
-}
-
 // GetID returns the ID of this structure for jsonapi serialization.
 func (j JobSpec) GetID() string {
 	return j.ID.String()

@@ -10,7 +10,7 @@ monitoringEndpoint = "<ip:port>"
 nodeAddress        = "0x1234..."
 observation_source = """
     // data source 1
-    ds1          [type=bridge bridgeName=voter_turnout];
+    ds1          [type=bridge name=voter_turnout];
     ds1_parse    [type=jsonparse path="one,two"];
     ds1_multiply [type=multiply times=1.23];
 
@@ -24,5 +24,5 @@ observation_source = """
     ds1 -> ds1_parse -> ds1_multiply -> answer1;
     ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-    answer2 [type=bridge bridgeName=election_winner];
+    answer2 [type=bridge name=election_winner];
 """

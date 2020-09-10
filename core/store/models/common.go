@@ -1,7 +1,6 @@
 package models
 
 import (
-	"crypto/sha256"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"

@@ -49,7 +49,6 @@ func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
 	visited := make(map[int64]bool)
 	stack := g.outputs()
 
-	// var tasks []Task
 	tasksByID := map[int64]Task{}
 	for len(stack) > 0 {
 		node := stack[0]
@@ -78,7 +77,7 @@ func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
 		tasksByID[node.ID()] = task
 		visited[node.ID()] = true
 	}
-	return tasks, nil
+	return nil
 }
 
 func (g *TaskDAG) inputs() []*taskDAGNode {
