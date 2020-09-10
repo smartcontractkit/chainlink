@@ -10,41 +10,46 @@ import (
 )
 
 type (
-	PipelineSpec struct {
+	Spec struct {
 		ID           int64 `gorm:"primary_key"`
 		JobSpecID    *models.ID
 		SourceDotDag string
-		TaskSpecs    []PipelineTaskSpec
+		TaskSpecs    []TaskSpec
 		CreatedAt    time.Time
 	}
 
-	PipelineTaskSpec struct {
-		ID             int64 `gorm:"primary_key"`
-		PipelineSpecID int64
-		TaskJson       JSONSerializable `gorm:"type:jsonb"`
-		SuccessorID    null.Int64
-		CreatedAt      time.Time
+	TaskSpec struct {
+		ID          int64 `gorm:"primary_key"`
+		SpecID      int64
+		TaskJson    JSONSerializable `gorm:"type:jsonb"`
+		SuccessorID null.Int64
+		CreatedAt   time.Time
 	}
 
-	PipelineRun struct {
-		ID             int64 `gorm:"primary_key"`
-		PipelineSpecID int64
-		CreatedAt      time.Time
+	Run struct {
+		ID        int64 `gorm:"primary_key"`
+		SpecID    int64
+		CreatedAt time.Time
 	}
 
-	PipelineTaskRun struct {
-		ID                 int64 `gorm:"primary_key"`
-		PipelineRunID      int64
-		Output             *JSONSerializable `gorm:"type:jsonb"`
-		Error              null.String
-		PipelineTaskSpecID int64
-		PipelineTaskSpec   PipelineTaskSpec
-		CreatedAt          time.Time
-		FinishedAt         time.Time
+	TaskRun struct {
+		ID         int64 `gorm:"primary_key"`
+		RunID      int64
+		Output     *JSONSerializable `gorm:"type:jsonb"`
+		Error      null.String
+		TaskSpecID int64
+		TaskSpec   TaskSpec
+		CreatedAt  time.Time
+		FinishedAt time.Time
 	}
 )
 
-func (r PipelineTaskRun) Result() Result {
+func (Spec) TableName() string     { return "pipeline_specs" }
+func (Run) TableName() string      { return "pipeline_runs" }
+func (TaskSpec) TableName() string { return "pipeline_task_specs" }
+func (TaskRun) TableName() string  { return "pipeline_task_runs" }
+
+func (r TaskRun) Result() Result {
 	var result Result
 	if !r.Error.IsZero() {
 		result.Error = errors.New(r.Error.ValueOrZero())

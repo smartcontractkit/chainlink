@@ -8,24 +8,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//go:generate mockery --name JobSpec --output ./mocks/ --case=underscore
-//go:generate mockery --name JobService --output ./mocks/ --case=underscore
 //go:generate mockery --name Task --output ./mocks/ --case=underscore
 
 type (
-	JobType string
-
-	JobSpec interface {
-		JobID() *models.ID
-		JobType() JobType
-		TaskDAG() TaskDAG
-	}
-
-	JobService interface {
-		Start() error
-		Stop() error
-	}
-
 	Task interface {
 		Run(inputs []Result) Result
 		OutputTasks() []Task
