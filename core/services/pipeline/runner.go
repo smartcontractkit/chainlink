@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"database/sql"
-	"github.com/golangci/golangci-lint/pkg/result"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -15,7 +14,7 @@ import (
 type Runner interface {
 	Start()
 	Stop()
-	CreatePipelineRun(pipelineSpecID int64) error
+	CreateRun(specID int64) error
 }
 
 type runner struct {
@@ -58,8 +57,8 @@ func (r *runner) Stop() {
 	<-r.chDone
 }
 
-func (r *runner) CreatePipelineRun(specID int64) (int64, error) {
-	err = r.orm.CreatePipelineRun(specID)
+func (r *runner) CreateRun(specID int64) (int64, error) {
+	err = r.orm.CreateRun(specID)
 	if err != nil {
 		return err
 	}
@@ -71,15 +70,15 @@ func (r *runner) CreatePipelineRun(specID int64) (int64, error) {
 func (r *runner) processIncompleteTaskRuns() error {
 	for {
 		var pipelineRunID int64
-		err := r.orm.WithNextUnclaimedTaskRun(func(ptRun PipelineTaskRun, predecessors []PipelineTaskRun) Result {
-			pipelineRunID = ptRun.PipelineRunID
+		err := r.orm.WithNextUnclaimedTaskRun(func(ptRun TaskRun, predecessors []TaskRun) Result {
+			pipelineRunID = ptRun.RunID
 
 			inputs := make([]Result, len(predecessors))
 			for i, predecessor := range predecessors {
 				inputs[i] = predecessor.Result()
 			}
 
-			task, err := UnmarshalTaskJSON(ptRun)
+			task, err := UnmarshalTaskJSON(ptRun.TaskSpec.TaskJson)
 			if err != nil {
 				return err
 			}
