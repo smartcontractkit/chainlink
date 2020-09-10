@@ -366,9 +366,15 @@ func NewApp(client *Client) *cli.App {
 					Subcommands: []cli.Command{
 						{
 							Name:   "reset",
-							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
+							Usage:  "Drop, create and migrate test database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
 							Hidden: !client.Config.Dev(),
 							Action: client.ResetDatabase,
+							Flags:  []cli.Flag{},
+						},
+						{
+							Name:   "hard-reset",
+							Usage:  "Clean all the state in the production DB. Use with caution!",
+							Action: client.HardResetDatabase,
 							Flags:  []cli.Flag{},
 						},
 						{

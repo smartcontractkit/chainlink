@@ -366,6 +366,44 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	return nil
 }
 
+func (cli *Client) HardResetDatabase(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+
+	prompt := NewTerminalPrompter()
+	var answer string
+	for {
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/No)")
+		if answer == "yes" {
+			break
+		} else if answer == "no" {
+			return nil
+		} else {
+			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
+		}
+	}
+
+	if err := truncateDatabase(); err != nil {
+		logger.Errorw("failed to truncate database", "error", err)
+		return err
+	}
+	return nil
+}
+
+func truncateDatabase() error {
+	cfg := orm.NewConfig()
+	ormInstance, err := orm.NewORM(
+		cfg.DatabaseURL(),
+		cfg.DatabaseTimeout(),
+		gracefulpanic.NewSignal(),
+		cfg.GetDatabaseDialectConfiguredOrDefault(),
+		cfg.GetAdvisoryLockIDConfiguredOrDefault())
+	if err != nil {
+		return err
+	}
+
+	return ormInstance.TruncateDatabase()
+}
+
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
 func (cli *Client) PrepareTestDatabase(c *clipkg.Context) error {
 	if err := cli.ResetDatabase(c); err != nil {

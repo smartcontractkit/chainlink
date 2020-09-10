@@ -1431,6 +1431,51 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 	return merr
 }
 
+// This will eliminate all intermediate state involved in transaction processing:
+// - deletes in 'job_runs' will cascade to 'task_runs' and 'flux_monitor_round_stats'.
+// - deletes in 'run_requests' will cascade into 'job_runs'.
+// - deletes in 'eth_txes' will cascade into 'eth_tx_attempts' and 'eth_task_run_txes'.
+// - deletes in 'eth_tx_attempts' will cascade into 'eth_receipts'.
+const truncateDBQuery = `
+WITH
+unstarted_job_runs AS (
+	DELETE FROM job_runs
+	WHERE status = 'unstarted'
+	RETURNING id, run_request_id
+),
+linked_run_requests AS (
+	DELETE FROM run_requests AS rr
+	WHERE rr.id IN (
+		SELECT run_request_id
+		FROM unstarted_job_runs
+	)
+),
+linked_task_runs AS (
+	DELETE FROM task_runs AS ts
+	WHERE ts.job_run_id IN (
+		SELECT id
+		FROM unstarted_job_runs
+	)
+	RETURNING id
+),
+linked_eth_txes AS (
+	DELETE FROM eth_txes AS et
+	USING eth_task_run_txes AS etr
+	WHERE etr.task_run_id IN (
+		SELECT id
+		FROM linked_task_runs
+	)
+	RETURNING id
+)
+DELETE FROM eth_tx_attempts AS eta
+USING linked_eth_txes AS let
+WHERE let.id = eta.eth_tx_id
+`
+
+func (orm *ORM) TruncateDatabase() error {
+	return orm.DB.Exec(truncateDBQuery).Error
+}
+
 // Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217
 func keyFileName(keyAddr models.EIP55Address, createdAt time.Time) string {
 	return fmt.Sprintf("UTC--%s--%s", toISO8601(createdAt), keyAddr[2:])
