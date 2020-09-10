@@ -32,7 +32,6 @@ const dotStr = `
 `
 
 func TestGraph_Decode(t *testing.T) {
-
 	expected := map[string]map[string]bool{
 		"ds1": {
 			"ds1":          false,

@@ -1,19 +1,18 @@
 package pipeline
 
 import (
+	"github.com/smartcontractkit/chainlink/core/null"
 	"sync"
 	"time"
 
+	"github.com/guregu/null.v4"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//go:generate mockery --name Spawner --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name JobSpec --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name JobService --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name SpawnerORM --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Spawner --output ./mocks/ --case=underscore
 
 type (
 	// The job spawner manages the spinning up and spinning down of the long-running
@@ -27,13 +26,13 @@ type (
 	Spawner interface {
 		Start() error
 		Stop()
-		AddJob(jobSpec Spec) error
-		StopJob(jobID *models.ID)
+		CreateJob(jobSpec Spec) error
+		StopJob(jobID models.ID)
 		RegisterJobType(jobType JobType, factory JobSpecToJobServiceFunc)
 	}
 
 	spawner struct {
-		orm                   SpawnerORM
+		orm                   ORM
 		jobServiceFactories   map[JobType]JobSpecToJobServiceFunc
 		jobServiceFactoriesMu sync.RWMutex
 		jobServices           map[models.ID][]JobService
@@ -43,14 +42,9 @@ type (
 	}
 
 	JobSpecToJobServiceFunc func(jobSpec JobSpec) ([]JobService, error)
-
-	SpawnerORM interface {
-		UnclaimedJobs() ([]JobSpec, error)
-		UpsertErrorFor(jobID *models.ID, err string)
-	}
 )
 
-func NewSpawner(orm SpawnerORM) *spawner {
+func NewSpawner(orm ORM) *spawner {
 	return &spawner{
 		orm:                 orm,
 		jobServiceFactories: make(map[JobType]JobSpecToJobServiceFunc),
@@ -155,14 +149,55 @@ func (js *spawner) stopJobService(jobID models.ID) {
 	delete(js.jobServices, jobID)
 }
 
-func (js *spawner) StopJob(id *models.ID) {
-	if id == nil {
-		logger.Warn("nil job ID passed to Spawner#StopJob")
-		return
-	}
+func (js *spawner) CreateJob(spec JobSpec) error {
+	return js.db.Transaction(func(tx *gorm.DB) error {
+		// Save the spec to the DB
+		err := tx.Create(spec)
+		if err != nil {
+			return err
+		}
+
+		// Convert the task DAG into TaskSpec DB rows
+		taskSpecs := []PipelineTaskSpec{}
+		taskSpecIDs := make(map[Task]int64)
+		err = spec.TaskDAG().ReverseWalkTasks(func(task Task) error {
+			var successorID null.Int64
+			if len(task.OutputTasks()) > 1 {
+				return errors.New("task has > 1 output task")
+
+			} else if len(task.OutputTasks()) == 1 {
+				successor := task.OutputTasks()[0]
+				successorID = null.Int64From(taskSpecIDs[successor])
+			}
+
+			taskSpec := PipelineTaskSpec{
+				TaskJson:    JSONSerializable{task},
+				SuccessorID: successorID,
+			}
+
+			err := tx.Create(&taskSpec).Error
+			if err != nil {
+				return err
+			}
+
+			taskSpecIDs[task] = taskSpec
+			taskSpecs = append(taskSpecs, taskSpec)
+			return nil
+		})
+
+		pipelineSpec := PipelineSpec{
+			JobSpecID:    spec.JobID(),
+			SourceDotDag: spec.TaskDAG().DOTSource,
+			TaskSpecs:    taskSpecs,
+		}
+		return tx.Create(&pipelineSpec).Error
+	})
+}
+
+func (js *spawner) StopJob(id models.ID) {
 	select {
 	case <-js.chStop:
-	case js.chStopJob <- *id:
+	case js.chStopJob <- id:
 	}
 }
 

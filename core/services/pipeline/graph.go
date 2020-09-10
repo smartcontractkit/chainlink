@@ -16,8 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
+// for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
+// calling `TaskDAG#Tasks()` will return
 type TaskDAG struct {
 	*simple.DirectedGraph
+	DOTSource string
 }
 
 func NewTaskDAG() *TaskDAG {
@@ -31,30 +35,35 @@ func (g *TaskDAG) NewNode() graph.Node {
 func (g *TaskDAG) UnmarshalText(bs []byte) error {
 	bs = append([]byte("digraph {\n"), bs...)
 	bs = append(bs, []byte("\n}")...)
-	return dot.Unmarshal(bs, g)
+	err := dot.Unmarshal(bs, g)
+	if err != nil {
+		return err
+	}
+	g.DOTSource = string(bs)
+	return nil
 }
 
 func (g *TaskDAG) HasCycles() bool {
 	return len(topo.DirectedCyclesIn(g)) > 0
 }
 
-func (g *TaskDAG) Tasks() ([]Task, error) {
+func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
 	visited := make(map[int64]bool)
-	stack := g.inputs()
+	stack := g.outputs()
 
-	var tasks []Task
+	// var tasks []Task
 	tasksByID := map[int64]Task{}
 	for len(stack) > 0 {
 		node := stack[0]
 		stack = stack[1:]
-		stack = append(stack, unwrapGraphNodes(g.From(node.ID()))...)
+		stack = append(stack, unwrapGraphNodes(g.To(node.ID()))...)
 		if visited[node.ID()] {
 			continue
 		}
 
 		task, err := NewTaskByType(TaskType(node.attrs["type"]))
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
@@ -86,21 +95,25 @@ func (g *TaskDAG) Tasks() ([]Task, error) {
 			Result: task,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		err = decoder.Decode(node.attrs)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		var inputTasks []Task
-		for _, input := range node.inputs() {
-			inputTasks = append(inputTasks, tasksByID[input.ID()])
+		var outputTasks []Task
+		for _, output := range node.outputs() {
+			outputTasks = append(outputTasks, tasksByID[output.ID()])
 		}
-		task.SetInputTasks(inputTasks)
+		task.SetOutputTasks(outputTasks)
 
-		tasks = append(tasks, task)
+		err = fn(task)
+		if err != nil {
+			return err
+		}
+
 		tasksByID[node.ID()] = task
 		visited[node.ID()] = true
 	}
@@ -117,6 +130,18 @@ func (g *TaskDAG) inputs() []*taskDAGNode {
 		}
 	}
 	return inputs
+}
+
+func (g *TaskDAG) outputs() []*taskDAGNode {
+	var outputs []*taskDAGNode
+	iter := g.Nodes()
+	for iter.Next() {
+		node := iter.Node().(*taskDAGNode)
+		if g.From(node.ID()) == graph.Empty {
+			outputs = append(outputs, node)
+		}
+	}
+	return outputs
 }
 
 type taskDAGNode struct {
@@ -149,6 +174,15 @@ func (n *taskDAGNode) SetAttribute(attr encoding.Attribute) error {
 func (n *taskDAGNode) inputs() []*taskDAGNode {
 	var nodes []*taskDAGNode
 	ns := n.g.To(n.ID())
+	for ns.Next() {
+		nodes = append(nodes, ns.Node().(*taskDAGNode))
+	}
+	return nodes
+}
+
+func (n *taskDAGNode) outputs() []*taskDAGNode {
+	var nodes []*taskDAGNode
+	ns := n.g.From(n.ID())
 	for ns.Next() {
 		nodes = append(nodes, ns.Node().(*taskDAGNode))
 	}
