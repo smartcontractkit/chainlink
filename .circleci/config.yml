@@ -635,44 +635,26 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - build-publish-ts-integration:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - build-publish-cypress-job-server:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - build-publish-echo-server:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - build-publish-external-adapter:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - build-publish-ingester:
           filters:
             tags:
               only: /^v.*/
-            branches:
-              only:
-                - develop
       - reportcoverage:
           requires:
             - core-go-test
