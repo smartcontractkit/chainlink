@@ -194,7 +194,7 @@ func (js *spawner) CreateJob(spec JobSpec) error {
 
 		pipelineSpec := pipeline.Spec{
 			JobSpecID:    spec.JobID(),
-			SourceDotDag: spec.TaskDAG().DOTSource,
+			DotDagSource: spec.TaskDAG().DOTSource,
 			TaskSpecs:    taskSpecs,
 		}
 		return tx.Create(&pipelineSpec).Error
