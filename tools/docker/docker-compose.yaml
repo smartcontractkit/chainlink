@@ -68,23 +68,6 @@ services:
       - apicredentials
       - keystore
 
-  explorer:
-    container_name: chainlink-explorer
-    image: chainlink/explorer
-    build:
-      context: ../../
-      dockerfile: explorer/Dockerfile
-    entrypoint: yarn workspace @chainlink/explorer dev:compose
-    restart: always
-    ports:
-      - 8080:3001
-    depends_on:
-      - explorer-db
-    environment:
-      - EXPLORER_COOKIE_SECRET
-      - EXPLORER_SERVER_PORT
-      - PGPASSWORD=$EXPLORER_PGPASSWORD
-
   explorer-db:
     container_name: chainlink-explorer-db
     image: postgres:11.6
