@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.15] - 2020-09-14
+
 ### Added
 
 - Chainlink header images to the following `README.md` files: root, core, 
