@@ -84,6 +84,13 @@ describe('Owned', () => {
         expect(h.eventArgs(event).to).toEqual(newOwner.address)
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
+
+      it('does not allow ownership transfer to self', async () => {
+        await matchers.evmRevert(
+          owned.connect(owner).transferOwnership(owner.address),
+          'Cannot transfer to self',
+        )
+      })
     })
   })
 
