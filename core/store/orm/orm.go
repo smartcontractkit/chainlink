@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -1300,6 +1301,16 @@ func (orm *ORM) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 }
 
 func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
+	return keys, orm.DB.Find(&keys).Error
+}
+
+// CreateEncryptedOCRKeys creates an encrypted OCR private key record
+func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKeys) error {
+	return orm.DB.Create(keys).Error
+}
+
+// FindEncryptedOCRKeys finds all the encrypted OCR key records
+func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKeys, err error) {
 	return keys, orm.DB.Find(&keys).Error
 }
 

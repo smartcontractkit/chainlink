@@ -605,7 +605,3 @@ func TestClient_OCR_CreateKeys(t *testing.T) {
 	_, err = e.Decrypt(cltest.Password)
 	require.NoError(t, err)
 }
-
-func TestClient_OCR_CreateKeys_Error(t *testing.T) {
-	// TODO - RYAN
-}
