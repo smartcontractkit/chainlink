@@ -571,3 +571,41 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	_, err = e.Decrypt(cltest.Password)
 	require.NoError(t, err)
 }
+
+func TestClient_OCR_CreateKeys(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.CreateOCRKeys(c))
+
+	keys, err := app.GetStore().FindEncryptedOCRKeys()
+	require.NoError(t, err)
+
+	require.Len(t, keys, 1)
+
+	e := keys[0]
+	_, err = e.Decrypt(cltest.Password)
+	require.NoError(t, err)
+}
+
+func TestClient_OCR_CreateKeys_Error(t *testing.T) {
+	// TODO - RYAN
+}
