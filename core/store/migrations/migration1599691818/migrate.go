@@ -7,7 +7,7 @@ import (
 // Migrate creates the encrypted_ocr_keys table
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
-		CREATE TABLE encrypted_ocr_keys (
+		CREATE TABLE encrypted_ocr_private_keys (
 			id SERIAL PRIMARY KEY,
 			encrypted_priv_key jsonb NOT NULL,
 			created_at timestamptz NOT NULL,
