@@ -13,8 +13,6 @@ operator_ui/dist
 operator_ui/artifacts
 *-packr.go
 
-# Feeds UI
-feeds/build
 
 # SQLite
 tools/clroot/db.sqlite3-shm

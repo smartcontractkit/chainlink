@@ -9,12 +9,5 @@
     "noEmit": true,
     "allowJs": true
   },
-  "include": ["src", "@types", "__tests__", "support"],
-  "references": [
-    { "path": "../styleguide" },
-    { "path": "../tools/json-api-client" },
-    { "path": "../tools/local-storage" },
-    { "path": "../tools/redux" },
-    { "path": "../tools/ts-helpers" }
-  ]
+  "include": ["src", "@types", "__tests__", "support"]
 }
