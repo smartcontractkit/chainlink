@@ -185,9 +185,12 @@ func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 		}
 	}
 
-	errorRate := float64(len(fetchErrors)) / float64(len(m.fetchers))
+	fetchersCount := len(m.fetchers)
+	fetchErrorsCount := len(fetchErrors)
+	errorRate := float64(fetchErrorsCount) / float64(fetchersCount)
 	if errorRate >= 0.5 {
-		return decimal.Decimal{}, errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")
+		err := errors.Wrap(multierr.Combine(fetchErrors...), fmt.Sprintf("at least 50%% of the fetchers in median failed (%d/%d)", fetchErrorsCount, fetchersCount))
+		return decimal.Decimal{}, err
 	}
 
 	sort.Slice(prices, func(i, j int) bool {
