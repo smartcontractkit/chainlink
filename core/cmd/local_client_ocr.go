@@ -1,0 +1,50 @@
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/pkg/errors"
+	clipkg "github.com/urfave/cli"
+
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+)
+
+// CreateOCRKeys creates a key and inserts it into encrypted_ocr_keys,
+// protected by the password in the password file
+func (cli *Client) CreateOCRKeys(c *clipkg.Context) error {
+	return cli.errorOut(cli.createOCRKeys(c))
+}
+
+const createOCRKeyMsg = `Created OCR keypair.
+Key ID
+  %v
+On-chain Public Address:
+  0x%s
+Off-chain Public Key:
+  %s
+`
+
+func (cli *Client) createOCRKeys(c *clipkg.Context) error {
+	cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
+
+	password, err := getPassword(c)
+	if err != nil {
+		return err
+	}
+	k, err := ocrkey.NewOCRPrivateKeys()
+	if err != nil {
+		return errors.Wrapf(err, "while generating new OCR key")
+	}
+	encryptedKeys, err := k.Encrypt(string(password))
+	if err != nil {
+		return errors.Wrapf(err, "while encrypting OCR key")
+	}
+	err = store.CreateEncryptedOCRKeys(encryptedKeys)
+	if err != nil {
+		return errors.Wrapf(err, "while inserting OCR key")
+	}
+	fmt.Printf(createOCRKeyMsg, encryptedKeys.ID, k.PublicKeyAddressOnChain(), k.PublicKeyOffChain())
+	return nil
+}
