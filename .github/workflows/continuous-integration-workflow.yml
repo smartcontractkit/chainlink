@@ -91,7 +91,11 @@ jobs:
         uses: actions/checkout@v2
       - name: Run tests
         run: cd ./tools/docker && timeout --foreground 1200s ./compose ${{ matrix.test }}
-      - name: Store logs artifacts
+      - name: Capture logs on failure
+        if: failure()
+        run: cd ./tools/docker && CI_SKIP_PRE_HOOK=1 ./compose logs:test:save
+      - name: Store logs artifacts on failure
+        if: failure()
         uses: actions/upload-artifact@v1
         with:
           name: logs
