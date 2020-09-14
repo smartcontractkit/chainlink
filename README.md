@@ -1,11 +1,10 @@
 <br/>
 <p align="center">
 <a href="https://chain.link" target="_blank">
-<img src="./styleguide/static/images/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
+<img src="https://raw.githubusercontent.com/smartcontractkit/explorer/develop/styleguide/static/images/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
-
 
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
@@ -40,7 +39,7 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
 is the primary communication channel used for day to day communication,
 answering development questions, and aggregating Chainlink related content. Take
-a look at the [community docs](../docs/COMMUNITY.md) for more information 
+a look at the [community docs](../docs/COMMUNITY.md) for more information
 regarding Chainlink social accounts, news, and networking.
 
 ## Install
@@ -95,17 +94,15 @@ You can configure your node's behavior by setting environment variables which ca
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable 
+Chainlink is a monorepo containing several logicaly separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
 - [@chainlink/contracts](./evm-contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
-- [explorer](./explorer) - [Mainnet Chainlink Explorer](https://explorer.chain.link/)
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [sgx](./core/sgx) - an optional and experimental Chainlink module to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
-- [styleguide](./styleguide) - Chainlink style guide
 - [tools](./tools) - Chainlink tools
 
 ## External Adapters
@@ -159,6 +156,7 @@ export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
 6.  Drop/Create test database and run migrations:
+
 ```
 go run ./core/main.go local db preparetest
 ```
@@ -170,7 +168,6 @@ If you do end up modifying the migrations for the database, you will need to rer
 ```bash
 go test -parallel=1 ./...
 ```
-
 
 ### Solidity Development
 
@@ -207,4 +204,3 @@ Thank you!
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
-
