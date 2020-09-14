@@ -34,6 +34,13 @@ A new prometheus metric is also introduced to track dropped heads, called `head_
 
 ## [0.8.13] - 2020-08-31
 
+## Changed
+
+- Fix for gas bumper
+- Fix for broadcast-transactions function
+
+## [0.8.13] - 2020-08-31
+
 ### Changed
 
 - Performance improvements when using BulletproofTxManager.
