@@ -31,7 +31,7 @@ require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/guregu/null v3.5.0+incompatible
-	github.com/ipfs/go-datastore v0.4.4
+	github.com/ipfs/go-datastore v0.4.5
 	github.com/ipfs/go-ds-sql v0.2.0
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
