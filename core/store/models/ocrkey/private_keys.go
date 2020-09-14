@@ -54,10 +54,10 @@ var _ types.PrivateKeys = (*OCRPrivateKeys)(nil)
 // For internal use only - used to generate new sets of OCR private keys
 // Use NewOCRPrivateKeys in production and NewDeterministicOCRPrivateKeysXXXTestingOnly
 // in tests
-func newPrivateKeys(reader io.Reader) *OCRPrivateKeys {
+func newPrivateKeys(reader io.Reader) (*OCRPrivateKeys, error) {
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	onChainPriv := new(signature.OnChainPrivateKey)
 	p := (*ecdsa.PrivateKey)(onChainPriv)
@@ -66,27 +66,28 @@ func newPrivateKeys(reader io.Reader) *OCRPrivateKeys {
 	p.PublicKey.X, p.PublicKey.Y = signature.Curve.ScalarBaseMult(onChainSk.Bytes())
 	_, offChainPriv, err := ed25519.GenerateKey(reader)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	var encryptionPriv [curve25519.ScalarSize]byte
 	_, err = reader.Read(encryptionPriv[:])
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return &OCRPrivateKeys{
+	k := &OCRPrivateKeys{
 		onChainSigning:     onChainPriv,
 		offChainSigning:    (*signature.OffChainPrivateKey)(&offChainPriv),
 		offChainEncryption: &encryptionPriv,
 	}
+	return k, nil
 }
 
 // NewOCRPrivateKeys makes a new set of OCR keys from cryptographically secure entropy
-func NewOCRPrivateKeys() (key *OCRPrivateKeys) {
+func NewOCRPrivateKeys() (*OCRPrivateKeys, error) {
 	return newPrivateKeys(cryptorand.Reader)
 }
 
 // NewDeterministicOCRPrivateKeysXXXTestingOnly is for testing purposes only!
-func NewDeterministicOCRPrivateKeysXXXTestingOnly(seed int64) *OCRPrivateKeys {
+func NewDeterministicOCRPrivateKeysXXXTestingOnly(seed int64) (*OCRPrivateKeys, error) {
 	return newPrivateKeys(rand.New(rand.NewSource(seed)))
 }
 

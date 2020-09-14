@@ -27,26 +27,35 @@ func assertPrivateKeysNotEqual(t *testing.T, pk1 *OCRPrivateKeys, pk2 *OCRPrivat
 // OCRPrivateKeys
 func TestOCRKeys_NewDeterministicOCRPrivateKeysXXXTestingOnly(t *testing.T) {
 	t.Parallel()
-	pk := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
-	pkSameSeed := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
-	pkDifferentSeed := NewDeterministicOCRPrivateKeysXXXTestingOnly(2)
+	pk, err := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	require.NoError(t, err)
+	pkSameSeed, err := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	require.NoError(t, err)
+	pkDifferentSeed, err := NewDeterministicOCRPrivateKeysXXXTestingOnly(2)
+	require.NoError(t, err)
 	assertPrivateKeysEqual(t, pk, pkSameSeed)
 	assertPrivateKeysNotEqual(t, pk, pkDifferentSeed)
 }
 
 func TestOCRKeys_NewOCRPrivateKeys(t *testing.T) {
 	t.Parallel()
-	pk1 := NewOCRPrivateKeys()
-	pk2 := NewOCRPrivateKeys()
-	pk3 := NewOCRPrivateKeys()
+	pk1, err := NewOCRPrivateKeys()
+	require.NoError(t, err)
+	pk2, err := NewOCRPrivateKeys()
+	require.NoError(t, err)
+	pk3, err := NewOCRPrivateKeys()
+	require.NoError(t, err)
 	assertPrivateKeysNotEqual(t, pk1, pk2)
 	assertPrivateKeysNotEqual(t, pk1, pk3)
 	assertPrivateKeysNotEqual(t, pk2, pk3)
 }
 
+// TestOCRKeys_Encrypt_Decrypt tests that keys are identical after encrypting
+// and then decrypting
 func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
-	pkEncrypted := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	pkEncrypted, err := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
+	require.NoError(t, err)
 	encryptedPKs, err := pkEncrypted.Encrypt("password")
 	require.NoError(t, err)
 	pkDecrypted, err := encryptedPKs.Decrypt("password")
