@@ -30,6 +30,8 @@ contract Owned {
     external
     onlyOwner()
   {
+    require(_to != msg.sender, "Cannot transfer to self");
+
     pendingOwner = _to;
 
     emit OwnershipTransferRequested(owner, _to);
