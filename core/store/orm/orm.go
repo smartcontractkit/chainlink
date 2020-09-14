@@ -1310,8 +1310,16 @@ func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKeys) err
 }
 
 // FindEncryptedOCRKeys finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKeys, err error) {
-	return keys, orm.DB.Find(&keys).Error
+func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKeys, err error) {
+	var result []ocrkey.EncryptedOCRPrivateKeys
+	err = orm.DB.Find(&result).Error
+	if err != nil {
+		return keys, err
+	}
+	for i := 0; i < len(result); i++ {
+		keys = append(keys, &result[i])
+	}
+	return keys, nil
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
