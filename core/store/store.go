@@ -38,6 +38,7 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
+	OCRKeyStore    *OCRKeyStore
 	TxManager      TxManager
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
@@ -90,6 +91,7 @@ func newStoreWithKeyStore(
 		closeOnce: &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
+	store.OCRKeyStore = NewOCRKeyStore(store)
 	return store
 }
 
