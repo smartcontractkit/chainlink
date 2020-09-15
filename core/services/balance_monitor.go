@@ -33,7 +33,7 @@ func NewBalanceMonitor(store *store.Store) BalanceMonitor {
 		store:          store,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
-		headQueue:      make(chan *models.Head, 1),
+		headQueue:      make(chan *models.Head),
 	}
 	go balanceWorker(bm)
 	return bm

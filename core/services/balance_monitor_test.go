@@ -212,10 +212,10 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	head := cltest.Head(0)
 	mockUnblocker := make(chan time.Time)
 
-	// Only expect this twice, even though 10 heads will come in
+	// Only expect this once, even though 10 heads will come in
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		WaitUntil(mockUnblocker).
-		Twice().
+		Once().
 		Return(big.NewInt(42), nil)
 
 	// Do the thing multiple times
@@ -224,7 +224,6 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	}
 
 	// Unblock the mock
-	mockUnblocker <- time.Time{}
 	mockUnblocker <- time.Time{}
 
 	bm.Disconnect()
