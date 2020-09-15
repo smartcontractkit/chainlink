@@ -39,7 +39,7 @@ func vrfVerifier() *solidity_vrf_verifier_wrapper.VRFTestHelper {
 	return verifier
 }
 
-var phrase = "englebert humperdinck is the greatest musician of all time"
+var phrase = "engelbert humperdinck is the greatest musician of all time"
 
 func TestKeyStoreEndToEnd(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
