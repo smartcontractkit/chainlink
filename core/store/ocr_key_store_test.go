@@ -28,9 +28,7 @@ func TestOCRKeyStoreEndToEnd(t *testing.T) {
 		require.Len(t, encryptedKeys, n)
 	}
 
-	// TODO - RYAN - implement fast gey gen
-	// key, err := ks.CreateKey(phrase, vrfkey.FastScryptParams) // NB: Varies from run to run. Shouldn't matter, though
-	createdKey, err := ks.CreateWeakKeyXXXTestingOnly(ocrPassphrase) // NB: Varies from run to run. Shouldn't matter, though
+	createdKey, err := ks.CreateWeakKeyXXXTestingOnly(ocrPassphrase)
 	require.NoError(t, err, "could not create OCR key")
 	assertKeyCount(1)
 	// retrieve key from in-memory keystore
