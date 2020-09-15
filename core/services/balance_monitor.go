@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -66,15 +65,7 @@ func (bm *balanceMonitor) checkBalance(head *models.Head) {
 	}
 }
 
-func (bm *balanceMonitor) withLag(headNum int64) int64 {
-	lagged := headNum - int64(bm.store.Config.EthBalanceMonitorBlockDelay())
-	if lagged < 0 {
-		return 0
-	}
-	return lagged
-}
-
-func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address, headNum *big.Int) {
+func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {
 	store.PromUpdateEthBalance(&ethBal, address)
 
 	bm.ethBalancesMtx.Lock()
@@ -84,7 +75,6 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 
 	loggerFields := []interface{}{
 		"address", address.Hex(),
-		"headNum", headNum,
 		"ethBalance", ethBal.String(),
 		"weiBalance", ethBal.ToInt(),
 		"id", "balance_log",
@@ -124,7 +114,7 @@ func balanceWorker(bm *balanceMonitor) {
 			wg.Add(len(keys))
 			for _, key := range keys {
 				go func(k models.Key) {
-					checkAccountBalance(bm, head, key)
+					checkAccountBalance(bm, head, k)
 					wg.Done()
 				}(key)
 			}
@@ -139,30 +129,19 @@ func checkAccountBalance(bm *balanceMonitor, head *models.Head, k models.Key) {
 	ctx, cancel := context.WithTimeout(context.TODO(), ethFetchTimeout)
 	defer cancel()
 
-	var headNum *big.Int
-	var err error
-	var bal *big.Int
-	if head == nil {
-		headNum = nil
-		bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
-	} else {
-		headNum = big.NewInt(bm.withLag(head.Number))
-		bal, err = bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), headNum)
-	}
+	bal, err := bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
 			"address", k.Address,
-			"headNum", headNum,
 		)
 	} else if bal == nil {
 		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", k.Address.Hex()),
 			"error", err,
 			"address", k.Address,
-			"headNum", headNum,
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		bm.updateBalance(ethBal, k.Address.Address(), headNum)
+		bm.updateBalance(ethBal, k.Address.Address())
 	}
 }
