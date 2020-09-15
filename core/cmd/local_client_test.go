@@ -596,7 +596,7 @@ func TestClient_OCR_CreateKeys(t *testing.T) {
 
 	require.NoError(t, client.CreateOCRKey(c))
 
-	keys, err := app.GetStore().FindEncryptedOCRKey()
+	keys, err := app.GetStore().FindEncryptedOCRKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 1)

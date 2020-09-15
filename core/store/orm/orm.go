@@ -1309,8 +1309,8 @@ func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKey) erro
 	return orm.DB.Create(keys).Error
 }
 
-// FindEncryptedOCRKey finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKey() (keys []*ocrkey.EncryptedOCRPrivateKey, err error) {
+// FindEncryptedOCRKeys finds all the encrypted OCR key records
+func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKey, err error) {
 	var result []ocrkey.EncryptedOCRPrivateKey
 	err = orm.DB.Find(&result).Error
 	if err != nil {
