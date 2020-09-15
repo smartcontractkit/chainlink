@@ -347,7 +347,7 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 		Set(
 			"gorm:insert_option",
 			`ON CONFLICT (job_spec_id, description)
-			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1`,
+			DO UPDATE SET occurrences = job_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
 		).
 		Create(&jse).
 		Error
@@ -1352,9 +1352,9 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 }
 
 // MarkLogConsumed creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID) error {
+func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
@@ -1556,7 +1556,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
 	}
 
-	db.SetLogger(newOrmLogWrapper(logger.GetLogger()))
+	db.SetLogger(newOrmLogWrapper(logger.Default))
 
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err

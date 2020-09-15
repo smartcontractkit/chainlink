@@ -272,7 +272,7 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 			require.NoError(t, os.MkdirAll(config.KeysDir(), os.FileMode(0700)))
 			defer os.RemoveAll(config.RootDir())
 
-			previousLogger := logger.GetLogger().Desugar()
+			previousLogger := logger.Default
 			logger.SetLogger(config.CreateProductionLogger())
 			defer logger.SetLogger(previousLogger)
 			filepath := filepath.Join(config.RootDir(), "log.jsonl")

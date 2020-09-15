@@ -1,7 +1,6 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
 import { Button } from 'antd'
-import { withRouter, RouteComponentProps } from 'react-router'
+import { withRouter, RouteComponentProps, Link } from 'react-router-dom'
 import ReactGA from 'react-ga'
 import ChainlinkLogo from '../shared/ChainlinkLogo'
 

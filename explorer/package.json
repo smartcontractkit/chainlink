@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/explorer",
   "private": true,
-  "version": "0.8.3",
+  "version": "0.8.5",
   "description": "LINK Explorer",
   "author": "Chainlink Dev Team",
   "license": "MIT",

@@ -1,0 +1,61 @@
+[parity]
+chain = "/paritynet/apocalypse-parity.json"
+db_path = "/paritynet/data/miner"
+keys_path = "/paritynet/keys"
+
+[network]
+id = 1337
+reserved_peers = "/paritynet/peers.txt"
+
+[rpc]
+disable = false
+port = 8545
+apis = ["all"]
+cors = ["*"]
+hosts = ["all"]
+interface = "all"
+
+# [account]
+# unlock = ["0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd"]
+# password = ["node.pwds"]
+
+# [mining]
+# # Minimum amount of Wei per GAS to be paid for a transaction to be accepted for mining. Overrides --usd-per-tx.
+# min_gas_price = 1
+# # Account address to receive reward when block is mined.
+# author = "0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd"
+# # Account to sign consensus messages and issue blocks for non-PoW chains.
+# engine_signer = "0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd"
+# # Prepare a block to seal even when there are no miners connected.
+# force_sealing = true
+# # New pending block will be created for all transactions (both local and external).
+# reseal_on_txs = "all"
+# # Targeting 10000 gas per block when sealing a new block.
+# gas_floor_target = "10000"
+# # Parity will keep/relay at most 100 transactions in queue.
+# tx_queue_size = 1000
+# # Specify the maximum time since last block to enable force-sealing. MS is time measured in milliseconds.
+# reseal_max_period = 2000
+# # New pending block will be created only once per 500 milliseconds.
+# reseal_min_period = 500
+# # Specify local accounts for which transactions are prioritized in the queue.
+# tx_queue_locals = ["0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd"]
+
+
+[misc]
+logging = "lsync=trace,txqueue=trace,own_tx=trace,miner=trace"
+
+[ipc]
+disable = false
+apis = ["all"]
+
+[websockets]
+disable = false
+port = 8546
+interface = "all"
+origins = ["all"]
+apis = ["all"]
+hosts = ["all"]
+
+[footprint]
+tracing = "on"

@@ -25,6 +25,7 @@ import {
   CONTRACT_ADDRESS,
   ETHGAS_PRICE,
   AggregatorActionTypes,
+  STORE_AGGREGATOR_CONFIG,
 } from './types'
 
 export interface State {
@@ -33,9 +34,9 @@ export interface State {
   config: null | any
   loadingOracleNodes: boolean
   errorOracleNodes?: string
-  oracleNodes: Record<OracleNode['address'], OracleNode>
+  oracleNodes: Record<OracleNode['oracleAddress'], OracleNode>
   contractAddress: null | any
-  oracleList: Array<OracleNode['address']> | any
+  oracleList: Array<OracleNode['oracleAddress']> | any
   latestAnswer: null | any
   latestCompletedAnswerId: null | any
   pendingAnswerId: null | any
@@ -138,7 +139,6 @@ const reducer: Reducer<State, AggregatorActionTypes> = (
 
     case FETCH_ORACLE_NODES_SUCCESS: {
       const oracleNodes = Object.fromEntries(
-        // action.payload.map(n => [n.address, n]),
         action.payload.map(n => [n.oracleAddress, n]),
       )
 
@@ -228,6 +228,12 @@ const reducer: Reducer<State, AggregatorActionTypes> = (
       return {
         ...state,
         ethGasPrice: action.payload,
+      }
+
+    case STORE_AGGREGATOR_CONFIG:
+      return {
+        ...state,
+        config: action.payload.config,
       }
 
     default:
