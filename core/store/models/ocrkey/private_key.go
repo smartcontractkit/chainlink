@@ -174,7 +174,7 @@ func (pk *OCRPrivateKey) Encrypt(auth string, scryptParams ScryptParams) (*Encry
 }
 
 // Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
-func (e EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
+func (e *EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
 	var cryptoJSON keystore.CryptoJSON
 	err := json.Unmarshal(e.EncryptedPrivKeys, &cryptoJSON)
 	if err != nil {
