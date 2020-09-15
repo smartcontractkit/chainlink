@@ -76,7 +76,7 @@ func newFixedPricedFetcher(price decimal.Decimal) *fixedFetcher {
 	return &fixedFetcher{price: price}
 }
 
-func (ps *fixedFetcher) Fetch() (decimal.Decimal, error) {
+func (ps *fixedFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
 	return ps.price, nil
 }
 
@@ -86,20 +86,23 @@ func newErroringPricedFetcher() *erroringFetcher {
 	return &erroringFetcher{}
 }
 
-func (*erroringFetcher) Fetch() (decimal.Decimal, error) {
+func (*erroringFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 
 type fetcherRequest struct {
-	Data interface{} `json:"data"`
-	ID   string      `json:"id"`
+	Data interface{}            `json:"data"`
+	ID   string                 `json:"id"`
+	Meta map[string]interface{} `json:"meta,omitempty"`
 }
 
-func fakePriceResponder(t *testing.T, requestData string, result decimal.Decimal) http.Handler {
+func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal) http.Handler {
 	t.Helper()
 
+	body, err := json.Marshal(requestData)
+	require.NoError(t, err)
 	var expectedRequest fetcherRequest
-	err := json.Unmarshal([]byte(requestData), &expectedRequest)
+	err = json.Unmarshal(body, &expectedRequest)
 	require.NoError(t, err)
 	response := adapterResponse{Data: dataWithResult(t, result)}
 
