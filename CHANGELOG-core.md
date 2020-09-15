@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.15] - 2020-09-14
+
 ### Added
 
 - Chainlink header images to the following `README.md` files: root, core, 
@@ -24,6 +26,13 @@ A new environment variable is introduced to configure this, called `ETH_HEAD_TRA
 A new prometheus metric is also introduced to track dropped heads, called `head_tracker_num_heads_dropped`. You may wish to set an alert on a rule such as `increase(chainlink_dropped_heads[5m]) > 0`.
 
 ## [0.8.14] - 2020-09-02
+
+## Changed
+
+- Fix for gas bumper
+- Fix for broadcast-transactions function
+
+## [0.8.13] - 2020-08-31
 
 ## Changed
 
