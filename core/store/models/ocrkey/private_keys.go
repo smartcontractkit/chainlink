@@ -21,7 +21,10 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+// TODO - RYAN - model should be named encrypted private key ????
+
 type OCRPrivateKeys struct {
+	ID                 int32
 	onChainSigning     *signature.OnChainPrivateKey
 	offChainSigning    *signature.OffChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
@@ -37,6 +40,7 @@ type EncryptedOCRPrivateKeys struct {
 type ScryptParams struct{ N, P int }
 
 type ocrPrivateKeysRawData struct {
+	ID                 int32
 	X                  big.Int
 	Y                  big.Int
 	D                  big.Int
@@ -167,6 +171,7 @@ func (pk *OCRPrivateKeys) Encrypt(auth string) (*EncryptedOCRPrivateKeys, error)
 		return nil, errors.Wrapf(err, "could not encode cryptoJSON")
 	}
 	return &EncryptedOCRPrivateKeys{
+		ID:                pk.ID,
 		EncryptedPrivKeys: encryptedPrivKeys,
 	}, nil
 }
@@ -187,13 +192,14 @@ func (e EncryptedOCRPrivateKeys) Decrypt(auth string) (*OCRPrivateKeys, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not unmarshal OCR key")
 	}
+	k.ID = e.ID
 	return &k, nil
 }
 
 // MarshalJSON marshals the private keys into json
 func (pk *OCRPrivateKeys) MarshalJSON() ([]byte, error) {
 	rawKeyData := ocrPrivateKeysRawData{
-		X:                  *pk.onChainSigning.X,
+		X:                  *pk.onChainSigning.X, // TODO - RYAN - rename variables X, Y, D
 		Y:                  *pk.onChainSigning.Y,
 		D:                  *pk.onChainSigning.D,
 		Ed25519PrivKey:     []byte(*pk.offChainSigning),
