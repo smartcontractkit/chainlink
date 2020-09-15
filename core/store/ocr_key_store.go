@@ -10,12 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 )
 
-// OCRKeyStore tracks auxiliary OCR secret keys, and generates their OCR proofs
-//
-// OCR proofs need access to the actual secret key, which geth does not expose.
-// Similar to the way geth's KeyStore exposes signing capability, OCRKeyStore
-// exposes OCR proof generation without the caller needing explicit knowledge of
-// the secret key.
+// OCRKeyStore holds the OCR keys in memory
 type OCRKeyStore struct {
 	lock  sync.RWMutex
 	keys  InMemoryOCRKeyStore
@@ -41,7 +36,7 @@ func (ks *OCRKeyStore) CreateKey(auth string) (*ocrkey.OCRPrivateKey, error) {
 	return ks.createKey(auth, ocrkey.DefaultScryptParams)
 }
 
-// CreateFastKeyXXXTestingOnly creates a new private key with weak encryption parameters and should
+// CreateWeakKeyXXXTestingOnly creates a new private key with weak encryption parameters and should
 // only be used for testing
 func (ks *OCRKeyStore) CreateWeakKeyXXXTestingOnly(auth string) (*ocrkey.OCRPrivateKey, error) {
 	return ks.createKey(auth, ocrkey.FastScryptParams)
