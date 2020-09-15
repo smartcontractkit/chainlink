@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -194,4 +195,38 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		gethClient.AssertExpectations(t)
 	})
+}
+
+func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.Config.Set("ETH_BALANCE_MONITOR_BLOCK_DELAY", 0)
+
+	gethClient := new(mocks.GethClient)
+	cltest.MockEthOnStore(t, store,
+		eth.NewClientWith(nil, gethClient),
+	)
+
+	bm := services.NewBalanceMonitor(store)
+
+	head := cltest.Head(0)
+	mockUnblocker := make(chan time.Time)
+
+	// Only expect this twice, even though 10 heads will come in
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+		WaitUntil(mockUnblocker).
+		Twice().
+		Return(big.NewInt(42), nil)
+
+	// Do the thing multiple times
+	for i := 0; i < 10; i++ {
+		bm.OnNewLongestChain(context.TODO(), *head)
+	}
+
+	// Unblock the mock
+	mockUnblocker <- time.Time{}
+	mockUnblocker <- time.Time{}
+
+	bm.Disconnect()
+	gethClient.AssertExpectations(t)
 }
