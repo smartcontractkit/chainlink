@@ -67,7 +67,7 @@ func (e EthTx) GetError() error {
 
 // GetID allows EthTx to be used as jsonapi.MarshalIdentifier
 func (e EthTx) GetID() string {
-	return string(e.ID)
+	return fmt.Sprintf("%d", e.ID)
 }
 
 type EthTxAttempt struct {
