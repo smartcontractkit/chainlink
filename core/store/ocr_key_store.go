@@ -115,7 +115,7 @@ func (ks *OCRKeyStore) Delete(key *ocrkey.OCRPrivateKey) (err error) {
 		return err
 	}
 	encryptedKey := ocrkey.EncryptedOCRPrivateKey{ID: key.ID} // don't actually encrypt, we just need the ID to delete
-	if err = ks.store.DeleteEncryptedOCRKeys(&encryptedKey); err != nil {
+	if err = ks.store.DeleteEncryptedOCRKey(&encryptedKey); err != nil {
 		return err
 	}
 	return nil

@@ -1322,8 +1322,8 @@ func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKey, e
 	return keys, nil
 }
 
-// DeleteEncryptedOCRKeys deletes the provided encrypted OCR key record
-func (orm *ORM) DeleteEncryptedOCRKeys(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
+// DeleteEncryptedOCRKey deletes the provided encrypted OCR key record
+func (orm *ORM) DeleteEncryptedOCRKey(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Delete(&key).Error
 }
