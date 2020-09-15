@@ -63,7 +63,7 @@ func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) 
 func (ks *OCRKeyStore) Unlock(phrase string) (keysUnlocked []int32, merr error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	keys, err := ks.store.FindEncryptedOCRKey()
+	keys, err := ks.store.FindEncryptedOCRKeys()
 	if err != nil {
 		return nil, errors.Wrap(err, "while retrieving ocr keys from db")
 	}
