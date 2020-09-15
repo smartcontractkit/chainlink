@@ -22,9 +22,9 @@ type OCRKeyStore struct {
 	store *Store
 }
 
-// InMemoryOCRKeyStore holds all the unlocked OCRPrivateKeys, mapped by the IDs of their
+// InMemoryOCRKeyStore holds all the unlocked OCRPrivateKey, mapped by the IDs of their
 // encrypted DB records
-type InMemoryOCRKeyStore = map[int32]*ocrkey.OCRPrivateKeys
+type InMemoryOCRKeyStore = map[int32]*ocrkey.OCRPrivateKey
 
 // NewOCRKeyStore returns an empty OCRKeyStore
 func NewOCRKeyStore(store *Store) *OCRKeyStore {
@@ -35,22 +35,22 @@ func NewOCRKeyStore(store *Store) *OCRKeyStore {
 	}
 }
 
-// CreateKey creates a new private key set, persists it to the DB, and adds it
+// CreateKey creates a new private key, persists it to the DB, and adds it
 // to the in-memory keystore
-func (ks *OCRKeyStore) CreateKey(auth string) (*ocrkey.OCRPrivateKeys, error) {
+func (ks *OCRKeyStore) CreateKey(auth string) (*ocrkey.OCRPrivateKey, error) {
 	return ks.createKey(auth, ocrkey.DefaultScryptParams)
 }
 
 // CreateFastKeyXXXTestingOnly creates a new private key with weak encryption parameters and should
 // only be used for testing
-func (ks *OCRKeyStore) CreateWeakKeyXXXTestingOnly(auth string) (*ocrkey.OCRPrivateKeys, error) {
+func (ks *OCRKeyStore) CreateWeakKeyXXXTestingOnly(auth string) (*ocrkey.OCRPrivateKey, error) {
 	return ks.createKey(auth, ocrkey.FastScryptParams)
 }
 
-func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) (*ocrkey.OCRPrivateKeys, error) {
+func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) (*ocrkey.OCRPrivateKey, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	key, err := ocrkey.NewOCRPrivateKeys()
+	key, err := ocrkey.NewOCRPrivateKey()
 	if err != nil {
 		return nil, err
 	}
@@ -62,18 +62,6 @@ func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) 
 	}
 	return key, nil
 }
-
-// CreateWeakInMemoryEncryptedOCRKeyXXXTestingOnly is for testing only! It returns
-// an encrypted key set which is added to the in-memory keystore but not to the database
-// func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedOCRKeyXXXTestingOnly(
-// 	phrase string) (*ocrkey.OCRPrivateKeys, error) {
-// 	key := vrfkey.CreateKey()
-// 	encrypted, err := key.Encrypt(phrase, vrfkey.FastScryptParams)
-// 	if err != nil {
-// 		return nil, errors.Wrap(err, "while creating testing key")
-// 	}
-// 	return encrypted, nil
-// }
 
 // Unlock tries to unlock each ocr key in the db, using the given pass phrase,
 // and returns any keys it manages to unlock. It returns an error if none were unlocked.
@@ -106,7 +94,7 @@ func (ks *OCRKeyStore) Has(id int32) bool {
 }
 
 // Get gets a key from the keystore by it's ID, errors if not found
-func (ks *OCRKeyStore) Get(id int32) (*ocrkey.OCRPrivateKeys, error) {
+func (ks *OCRKeyStore) Get(id int32) (*ocrkey.OCRPrivateKey, error) {
 	key, found := ks.keys[id]
 	if !found {
 		return nil, fmt.Errorf("public key %s is not unlocked; can't forget it", key)
@@ -116,7 +104,7 @@ func (ks *OCRKeyStore) Get(id int32) (*ocrkey.OCRPrivateKeys, error) {
 
 // Forget removes the in-memory copy of the secret key of k, or errors if not
 // present.
-func (ks *OCRKeyStore) Forget(key *ocrkey.OCRPrivateKeys) error {
+func (ks *OCRKeyStore) Forget(key *ocrkey.OCRPrivateKey) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	if _, found := ks.keys[key.ID]; !found {
@@ -127,11 +115,11 @@ func (ks *OCRKeyStore) Forget(key *ocrkey.OCRPrivateKeys) error {
 }
 
 // Delete removes key from in-memory keystore and from DB
-func (ks *OCRKeyStore) Delete(key *ocrkey.OCRPrivateKeys) (err error) {
+func (ks *OCRKeyStore) Delete(key *ocrkey.OCRPrivateKey) (err error) {
 	if err = ks.Forget(key); err != nil {
 		return err
 	}
-	encryptedKey := ocrkey.EncryptedOCRPrivateKeys{ID: key.ID} // don't actually encrypt, we just need the ID to delete
+	encryptedKey := ocrkey.EncryptedOCRPrivateKey{ID: key.ID} // don't actually encrypt, we just need the ID to delete
 	if err = ks.store.DeleteEncryptedOCRKeys(&encryptedKey); err != nil {
 		return err
 	}
@@ -139,7 +127,7 @@ func (ks *OCRKeyStore) Delete(key *ocrkey.OCRPrivateKeys) (err error) {
 }
 
 // saveToDB encrypts an OPCR private key and persists it to the DB
-func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKeys, auth string, scryptParams ocrkey.ScryptParams) error {
+func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKey, auth string, scryptParams ocrkey.ScryptParams) error {
 	encryptedKey, err := key.Encrypt(auth, scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "encrypting new OCR key")
@@ -153,7 +141,7 @@ func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKeys, auth string, scryptP
 }
 
 // addToKeystore adds an OCR private key to the in-memory keystore
-func (ks *OCRKeyStore) addToKeystore(key *ocrkey.OCRPrivateKeys) error {
+func (ks *OCRKeyStore) addToKeystore(key *ocrkey.OCRPrivateKey) error {
 	if key.ID == 0 {
 		return errors.New("key is not yet saved to DB - cannot add to in-memory key store")
 	}

@@ -1305,13 +1305,13 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 }
 
 // CreateEncryptedOCRKeys creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKeys) error {
+func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKey) error {
 	return orm.DB.Create(keys).Error
 }
 
 // FindEncryptedOCRKeys finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKeys, err error) {
-	var result []ocrkey.EncryptedOCRPrivateKeys
+func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKey, err error) {
+	var result []ocrkey.EncryptedOCRPrivateKey
 	err = orm.DB.Find(&result).Error
 	if err != nil {
 		return keys, err
@@ -1323,7 +1323,7 @@ func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKeys, 
 }
 
 // DeleteEncryptedOCRKeys deletes the provided encrypted OCR key record
-func (orm *ORM) DeleteEncryptedOCRKeys(key *ocrkey.EncryptedOCRPrivateKeys) (err error) {
+func (orm *ORM) DeleteEncryptedOCRKeys(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Delete(&key).Error
 }
