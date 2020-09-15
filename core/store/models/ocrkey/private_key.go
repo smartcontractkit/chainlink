@@ -38,10 +38,9 @@ type EncryptedOCRPrivateKey struct {
 type ScryptParams struct{ N, P int }
 
 type ocrPrivateKeysRawData struct {
-	ID                 int32
-	X                  big.Int
-	Y                  big.Int
-	D                  big.Int
+	EcdsaX             big.Int
+	EcdsaY             big.Int
+	EcdsaD             big.Int
 	Ed25519PrivKey     []byte
 	OffChainEncryption [curve25519.ScalarSize]byte
 }
@@ -197,9 +196,9 @@ func (e EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
 // MarshalJSON marshals the private keys into json
 func (pk *OCRPrivateKey) MarshalJSON() ([]byte, error) {
 	rawKeyData := ocrPrivateKeysRawData{
-		X:                  *pk.onChainSigning.X, // TODO - RYAN - rename variables X, Y, D
-		Y:                  *pk.onChainSigning.Y,
-		D:                  *pk.onChainSigning.D,
+		EcdsaX:             *pk.onChainSigning.X,
+		EcdsaY:             *pk.onChainSigning.Y,
+		EcdsaD:             *pk.onChainSigning.D,
 		Ed25519PrivKey:     []byte(*pk.offChainSigning),
 		OffChainEncryption: *pk.offChainEncryption,
 	}
@@ -214,12 +213,12 @@ func (pk *OCRPrivateKey) UnmarshalJSON(b []byte) (err error) {
 		return err
 	}
 	publicKey := ecdsa.PublicKey{
-		X: &rawKeyData.X,
-		Y: &rawKeyData.Y,
+		X: &rawKeyData.EcdsaX,
+		Y: &rawKeyData.EcdsaY,
 	}
 	privateKey := ecdsa.PrivateKey{
 		PublicKey: publicKey,
-		D:         &rawKeyData.D,
+		D:         &rawKeyData.EcdsaD,
 	}
 	onChainSigning := signature.OnChainPrivateKey(privateKey)
 	offChainSigning := signature.OffChainPrivateKey(rawKeyData.Ed25519PrivKey)
