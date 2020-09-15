@@ -48,8 +48,10 @@ type ocrPrivateKeysRawData struct {
 	OffChainEncryption [curve25519.ScalarSize]byte
 }
 
-var defaultScryptParams = ScryptParams{
+var DefaultScryptParams = ScryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
+
+var FastScryptParams = ScryptParams{N: 2, P: 1}
 
 var _ types.PrivateKeys = (*OCRPrivateKeys)(nil)
 
@@ -151,7 +153,7 @@ func adulteratedPassword(auth string) string {
 
 // Encrypt combines the OCRPrivateKeys into a single json-serialized
 // bytes array and then encrypts
-func (pk *OCRPrivateKeys) Encrypt(auth string) (*EncryptedOCRPrivateKeys, error) {
+func (pk *OCRPrivateKeys) Encrypt(auth string, scryptParams ScryptParams) (*EncryptedOCRPrivateKeys, error) {
 	var marshalledPrivK []byte
 	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
@@ -160,8 +162,8 @@ func (pk *OCRPrivateKeys) Encrypt(auth string) (*EncryptedOCRPrivateKeys, error)
 	cryptoJSON, err := keystore.EncryptDataV3(
 		marshalledPrivK,
 		[]byte(adulteratedPassword(auth)),
-		defaultScryptParams.N,
-		defaultScryptParams.P,
+		scryptParams.N,
+		scryptParams.P,
 	)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not encrypt ocr key")

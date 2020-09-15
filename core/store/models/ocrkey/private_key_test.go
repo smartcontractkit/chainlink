@@ -56,7 +56,7 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
 	pkEncrypted, err := NewDeterministicOCRPrivateKeysXXXTestingOnly(1)
 	require.NoError(t, err)
-	encryptedPKs, err := pkEncrypted.Encrypt("password")
+	encryptedPKs, err := pkEncrypted.Encrypt("password", FastScryptParams)
 	require.NoError(t, err)
 	pkDecrypted, err := encryptedPKs.Decrypt("password")
 	require.NoError(t, err)

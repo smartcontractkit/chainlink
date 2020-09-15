@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
@@ -33,18 +32,10 @@ func (cli *Client) createOCRKeys(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	k, err := ocrkey.NewOCRPrivateKeys()
+	key, err := store.OCRKeyStore.CreateKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while generating new OCR key")
 	}
-	encryptedKeys, err := k.Encrypt(string(password))
-	if err != nil {
-		return errors.Wrapf(err, "while encrypting OCR key")
-	}
-	err = store.CreateEncryptedOCRKeys(encryptedKeys)
-	if err != nil {
-		return errors.Wrapf(err, "while inserting OCR key")
-	}
-	fmt.Printf(createOCRKeyMsg, encryptedKeys.ID, k.PublicKeyAddressOnChain(), k.PublicKeyOffChain())
+	fmt.Printf(createOCRKeyMsg, key.ID, key.PublicKeyAddressOnChain(), key.PublicKeyOffChain())
 	return nil
 }

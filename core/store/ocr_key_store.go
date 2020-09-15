@@ -38,13 +38,23 @@ func NewOCRKeyStore(store *Store) *OCRKeyStore {
 // CreateKey creates a new private key set, persists it to the DB, and adds it
 // to the in-memory keystore
 func (ks *OCRKeyStore) CreateKey(auth string) (*ocrkey.OCRPrivateKeys, error) {
+	return ks.createKey(auth, ocrkey.DefaultScryptParams)
+}
+
+// CreateFastKeyXXXTestingOnly creates a new private key with weak encryption parameters and should
+// only be used for testing
+func (ks *OCRKeyStore) CreateWeakKeyXXXTestingOnly(auth string) (*ocrkey.OCRPrivateKeys, error) {
+	return ks.createKey(auth, ocrkey.FastScryptParams)
+}
+
+func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) (*ocrkey.OCRPrivateKeys, error) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	key, err := ocrkey.NewOCRPrivateKeys()
 	if err != nil {
 		return nil, err
 	}
-	if err = ks.saveToDB(key, auth); err != nil {
+	if err = ks.saveToDB(key, auth, scryptParams); err != nil {
 		return nil, err
 	}
 	if err = ks.addToKeystore(key); err != nil {
@@ -129,8 +139,8 @@ func (ks *OCRKeyStore) Delete(key *ocrkey.OCRPrivateKeys) (err error) {
 }
 
 // saveToDB encrypts an OPCR private key and persists it to the DB
-func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKeys, auth string) error {
-	encryptedKey, err := key.Encrypt(auth)
+func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKeys, auth string, scryptParams ocrkey.ScryptParams) error {
+	encryptedKey, err := key.Encrypt(auth, scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "encrypting new OCR key")
 	}
