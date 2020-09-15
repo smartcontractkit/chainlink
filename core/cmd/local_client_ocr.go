@@ -9,10 +9,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-// CreateOCRKeys creates a key and inserts it into encrypted_ocr_keys,
+// CreateOCRKey creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
-func (cli *Client) CreateOCRKeys(c *clipkg.Context) error {
-	return cli.errorOut(cli.createOCRKeys(c))
+func (cli *Client) CreateOCRKey(c *clipkg.Context) error {
+	return cli.errorOut(cli.CreateOCRKey(c))
 }
 
 const createOCRKeyMsg = `Created OCR keypair.
@@ -24,7 +24,7 @@ Off-chain Public Key:
   %s
 `
 
-func (cli *Client) createOCRKeys(c *clipkg.Context) error {
+func (cli *Client) CreateOCRKey(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 

@@ -283,7 +283,7 @@ func NewApp(client *Client) *cli.App {
 							Usage: format(`Create an OCR key, encrypted with password from the
                password file, and store it in the database.`),
 							Flags:  flags("password, p"),
-							Action: client.CreateOCRKeys,
+							Action: client.CreateOCRKey,
 						},
 					},
 				},
