@@ -5,55 +5,52 @@ import { OracleNode } from '../../../config'
 
 export const upcaseOracles = (
   state: AppState,
-): Record<OracleNode['address'], OracleNode['name']> => {
+): Record<OracleNode['oracleAddress'], OracleNode['name']> => {
   /**
    * In v2 of the contract, oracles' list has oracle addresses,
-   * but in v3 - node addresses. Therefore, a different record of
-   * pairs has to be made for each contract version.
-   *
-   * Custom pages that are used to test new contracts have their
-   * `config` attribute set as `null`, so we need to check that as well.
+   * but in v3 - node addresses.
    */
-  if (
-    state.aggregator.config === null ||
-    state.aggregator.config.contractVersion === 2
-  ) {
-    return Object.fromEntries(
-      Object.entries(
-        state.aggregator.oracleNodes,
-      ).map(([oracleAddress, oracleNode]) => [oracleAddress, oracleNode.name]),
-    )
-  } else {
-    return Object.fromEntries(
-      Object.values(state.aggregator.oracleNodes).map(oracleNode => [
-        oracleNode.nodeAddress[0],
-        oracleNode.name,
-      ]),
-    )
-  }
+
+  return Object.entries(state.aggregator.oracleNodes).reduce(
+    (accumulator: Record<string, string>, [oracleAddress, oracle]) => {
+      accumulator[oracleAddress] = oracle.name
+      oracle.nodeAddress.forEach(nodeAddress => {
+        accumulator[nodeAddress] = oracle.name
+      })
+
+      return accumulator
+    },
+    {},
+  )
 }
 
 const oracleList = (state: AppState) => state.aggregator.oracleList
 const oracleAnswers = (state: AppState) => state.aggregator.oracleAnswers
 const pendingAnswerId = (state: AppState) => state.aggregator.pendingAnswerId
 
+type Oracle = {
+  address: OracleNode['oracleAddress']
+  name: OracleNode['name']
+  type: string
+}
+
 const oracles = createSelector(
   [oracleList, upcaseOracles],
   (
-    list: Array<OracleNode['address']>,
-    upcasedOracles: Record<OracleNode['address'], OracleNode['name']>,
-  ) => {
+    list: Array<OracleNode['oracleAddress']>,
+    upcasedOracles: Record<OracleNode['oracleAddress'], OracleNode['name']>,
+  ): Oracle[] => {
     if (!list) return []
-
     const result = list
       .map(address => {
-        return {
+        const oracle: Oracle = {
           address,
           name: upcasedOracles[address] || 'Unknown',
           type: 'oracle',
         }
+        return oracle
       })
-      .sort((a: any, b: any) => a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
 
     return result
   },
@@ -74,15 +71,13 @@ interface OracleAnswer {
 
 const latestOraclesState = createSelector(
   [oracles, oracleAnswers, pendingAnswerId],
-  (list, answers: OracleAnswer[], pendingAnswerId) => {
+  (list: Oracle[], answers: OracleAnswer[], pendingAnswerId: number) => {
     if (!list) return []
 
-    const data = list.map((o: any, id: any) => {
+    const data = list.map((o, id) => {
       const state =
         answers &&
-        answers.find(
-          (r: any) => r.sender.toUpperCase() === o.address.toUpperCase(),
-        )
+        answers.find(r => r.sender.toUpperCase() === o.address.toUpperCase())
 
       const isFulfilled = state && state.answerId >= pendingAnswerId
       return { ...o, ...state, id, isFulfilled }

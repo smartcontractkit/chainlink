@@ -301,6 +301,8 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	connectedBN := connectedValue.Load().(*big.Int)
 	assert.Equal(t, lastSavedBN, connectedBN)
 
+	g.Eventually(func() int32 { return checker.OnNewLongestChainCount() }).Should(gomega.Equal(int32(1)))
+
 	assert.NoError(t, ht.Stop())
 
 	// Check that it saved the head
@@ -314,6 +316,9 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
+	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
+	store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 42)
 
 	sub := new(mocks.Subscription)
 	ethClient := new(mocks.Client)
@@ -713,5 +718,96 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		assert.Equal(t, int64(9), h.EarliestInChain().Number)
 
 		ethClient.AssertExpectations(t)
+	})
+}
+
+type blockingCallback struct {
+	called chan models.Head
+	resume chan bool
+}
+
+func (c *blockingCallback) Connect(bn *models.Head) error {
+	return nil
+}
+
+func (c *blockingCallback) Disconnect() {
+}
+
+// OnNewLongestChain increases the OnNewLongestChainCount count by one
+func (c *blockingCallback) OnNewLongestChain(ctx context.Context, h models.Head) {
+	c.called <- h
+	<-c.resume
+}
+
+func TestHeadTracker_RingBuffer(t *testing.T) {
+	t.Run("drops excess heads if we can't process them fast enough", func(t *testing.T) {
+		t.Parallel()
+		bufferSize := 3
+
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
+
+		store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", bufferSize)
+
+		sub := new(mocks.Subscription)
+		ethClient := new(mocks.Client)
+		store.EthClient = ethClient
+
+		chchHeaders := make(chan chan<- *models.Head, 1)
+		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
+		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				chchHeaders <- args.Get(1).(chan<- *models.Head)
+			}).
+			Return(sub, nil)
+		// We don't care about this since we're not testing backfilling, just return anything
+		ethClient.On("HeaderByNumber", mock.Anything, mock.Anything).Return(cltest.Head(42), nil)
+
+		sub.On("Unsubscribe").Return()
+		sub.On("Err").Return(nil)
+
+		called := make(chan models.Head)
+		resume := make(chan bool)
+		cb := &blockingCallback{
+			called: called,
+			resume: resume,
+		}
+		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{cb}, cltest.NeverSleeper{})
+		require.NoError(t, ht.Start())
+		headers := <-chchHeaders
+
+		// Fill up the buffer first
+		for i := 0; i < bufferSize; i++ {
+			headers <- &models.Head{Number: int64(i), Hash: cltest.NewHash()}
+		}
+		// Now we have heads 0, 1, 2 in buffer. Wait for callback to block on head 0
+		h := <-cb.called
+		require.Equal(t, int64(0), h.Number)
+
+		// Head 0 has been pulled off. Callback is blocking on head 0.
+		// Buffer: 1, 2
+		headers <- &models.Head{Number: 3, Hash: cltest.NewHash()}
+		// Buffer: 1, 2, 3
+		headers <- &models.Head{Number: 4, Hash: cltest.NewHash()}
+		// Buffer: 2, 3, 4 (dropped head 1)
+
+		// Resume the headtracker callback
+		cb.resume <- true
+
+		// Next head to be pulled off ought to be 2
+		h = <-cb.called
+		require.Equal(t, int64(2), h.Number)
+		cb.resume <- true
+
+		// 3, 4
+		h = <-cb.called
+		require.Equal(t, int64(3), h.Number)
+		cb.resume <- true
+		h = <-cb.called
+		require.Equal(t, int64(4), h.Number)
+		cb.resume <- true
+
+		// Headers channel now empty
+		require.Len(t, headers, 0)
 	})
 }

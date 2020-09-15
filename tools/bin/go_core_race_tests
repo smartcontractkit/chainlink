@@ -1,0 +1,3 @@
+#!/bin/bash
+set -ex
+go test -race -timeout 1800s -v -p 4 -parallel 4 ./...

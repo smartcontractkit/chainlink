@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"math"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -100,4 +101,10 @@ func coloredLevel(level gjson.Result) string {
 // iso8601UTC formats given time to ISO8601.
 func iso8601UTC(t time.Time) string {
 	return t.UTC().Format(time.RFC3339)
+}
+
+func prettyConsoleSink(s zap.Sink) func(*url.URL) (zap.Sink, error) {
+	return func(*url.URL) (zap.Sink, error) {
+		return PrettyConsole{s}, nil
+	}
 }

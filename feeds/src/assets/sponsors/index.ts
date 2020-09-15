@@ -33,6 +33,12 @@ import sandbank from './sandbank.png'
 import plasm from './plasm.png'
 import swipe from './swipe.png'
 import hxro from './hxro.png'
+import dydx from './dydx.png'
+import definer from './definer.png'
+import bitrue from './bitrue.png'
+import dodo from './dodo.png'
+import lien from './lien.png'
+import sogur from './sogur.png'
 
 // Listing Thumbnails
 
@@ -69,6 +75,12 @@ import sandbankTn from './sandbank_tn.png'
 import plasmTn from './plasm_tn.png'
 import swipeTn from './swipe_tn.png'
 import hxroTn from './hxro_tn.png'
+import dydxTn from './dydx_tn.png'
+import definerTn from './definer_tn.png'
+import bitrueTn from './bitrue_tn.png'
+import dodoTn from './dodo_tn.png'
+import lienTn from './lien_tn.png'
+import sogurTn from './sogur_tn.png'
 
 export interface SponsorListItem {
   name: string
@@ -275,5 +287,41 @@ export const sponsorList: SponsorListItem[] = [
     url: 'https://hxro.io',
     imageLg: hxro,
     imageTn: hxroTn,
+  },
+  {
+    name: 'dYdX',
+    url: 'https://dydx.exchange',
+    imageLg: dydx,
+    imageTn: dydxTn,
+  },
+  {
+    name: 'DeFiner',
+    url: 'https://definer.org',
+    imageLg: definer,
+    imageTn: definerTn,
+  },
+  {
+    name: 'Bitrue',
+    url: 'https://www.bitrue.com',
+    imageLg: bitrue,
+    imageTn: bitrueTn,
+  },
+  {
+    name: 'DODO',
+    url: 'http://dodoex.io',
+    imageLg: dodo,
+    imageTn: dodoTn,
+  },
+  {
+    name: 'Lien',
+    url: 'https://lien.finance',
+    imageLg: lien,
+    imageTn: lienTn,
+  },
+  {
+    name: 'Sogur',
+    url: 'https://www.sogur.com',
+    imageLg: sogur,
+    imageTn: sogurTn,
   },
 ]

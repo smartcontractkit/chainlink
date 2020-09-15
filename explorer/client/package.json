@@ -1,7 +1,7 @@
 {
   "name": "@chainlink/explorer-client",
   "private": true,
-  "version": "0.8.3",
+  "version": "0.8.5",
   "keywords": [],
   "browserslist": {
     "production": [
@@ -57,7 +57,7 @@
   },
   "devDependencies": {
     "@chainlink/ts-helpers": "0.0.1",
-    "@craco/craco": "^5.5.0",
+    "@craco/craco": "^5.6.0",
     "@types/classnames": "^2.2.7",
     "@types/enzyme": "^3.10.5",
     "@types/enzyme-adapter-react-16": "^1.0.5",
@@ -78,12 +78,12 @@
     "enzyme": "^3.11.0",
     "enzyme-adapter-react-16": "^1.15.2",
     "git-revision-webpack-plugin": "^3.0.6",
-    "html-webpack-plugin": "4.0.0-beta.5",
+    "html-webpack-plugin": "^4.3.0",
     "jest": "^24.9.0",
     "mock-local-storage": "^1.1.11",
     "module-to-cdn": "^3.1.2",
     "react-hot-loader": "^4.12.19",
-    "react-scripts": "^3.1.0",
+    "react-scripts": "^3.4.0",
     "redux-devtools-extension": "^2.13.8",
     "rimraf": "^3.0.2",
     "ts-jest": "^24.1.0",

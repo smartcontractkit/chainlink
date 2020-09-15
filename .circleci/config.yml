@@ -74,13 +74,12 @@ jobs:
           EXITCODE=$?
           cat ./output.txt | grep "\-\-\- FAIL"
           echo "Exit code: $EXITCODE"
-          if [[ $EXITCODE == 1 ]]; then
-              echo "Encountered test failures."
-              exit 1
-          else
+          if [[ $EXITCODE == 0 ]]; then
               echo "All tests passed!"
-              exit 0
+          else
+              echo "Encountered test failures. Please see the output.txt artifact for details."
           fi
+          exit $EXITCODE
       - store_artifacts:
           path: ./output.txt
 
@@ -360,6 +359,115 @@ jobs:
           name: Docker build
           command: |
             SGX_ENABLED=yes DOCKER_TAG=circleci make docker
+  build-publish-integration:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/docker/integration.Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/test-integration:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-integration
+
+  build-publish-ts-integration:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/docker/ts-integration.Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/test-ts-integration:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-ts-integration
+  build-publish-cypress-job-server:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/cypress-job-server/Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/test-cypress-job-server:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-cypress-job-server
+  build-publish-echo-server:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/echo-server/Dockerfile --build-arg SRCROOT=/chainlink -t smartcontract/test-echo-server:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-echo-server
+  build-publish-external-adapter:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f tools/external-adapter/Dockerfile -t smartcontract/test-external-adapter:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-external-adapter
+  build-publish-ingester:
+    resource_class: large
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Docker login
+          command: |
+            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - run:
+          name: Docker build
+          command: docker build -f ingester/ingester.Dockerfile -t smartcontract/ingester:circleci .
+      - run:
+          name: Docker push, if applicable
+          command: |
+            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" ingester
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.33
@@ -520,6 +628,30 @@ workflows:
             - json-api-client
             - operator-ui
             - rust
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-integration:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-ts-integration:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-cypress-job-server:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-echo-server:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-external-adapter:
+          filters:
+            tags:
+              only: /^v.*/
+      - build-publish-ingester:
           filters:
             tags:
               only: /^v.*/

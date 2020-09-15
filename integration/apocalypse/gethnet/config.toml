@@ -1,0 +1,57 @@
+[Eth]
+NetworkId = 1337
+SyncMode = "fast"
+NoPruning = false
+NoPrefetch = false
+LightPeers = 100
+UltraLightFraction = 75
+DatabaseCache = 512
+DatabaseFreezer = ""
+TrieCleanCache = 256
+TrieDirtyCache = 256
+TrieTimeout = 3600000000000
+EnablePreimageRecording = false
+EWASMInterpreter = ""
+EVMInterpreter = ""
+
+[Eth.Miner]
+# GasFloor = 8000000
+# GasCeil = 10000000
+GasPrice = 1
+# Recommit = 3000000000
+# Noverify = true
+
+[Eth.TxPool]
+Locals = ["0xbafec8991031ca09b3d8c79cc43feb361c7b9c6e", "0xa3b8d6c6dbc42a1fe8172ea3ddb30380be266046", "0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd", "0x50b096ae0dc592d9b57fdcf9d3e73861d8a86b26", "0x86482de129d0d7c0a131c13be68a82c47d4dd70e", "0x1b2cb7db28d3b9fb8d4a31d6671b77813b602c93"]
+NoLocals = false
+Journal = "transactions.rlp"
+Rejournal = 3600000000000
+PriceLimit = 1
+PriceBump = 10
+AccountSlots = 1024
+GlobalSlots = 4096
+AccountQueue = 1024
+GlobalQueue = 1024
+Lifetime = 10800000000000
+
+[Eth.GPO]
+Blocks = 20
+Percentile = 60
+
+[Shh]
+MaxMessageSize = 1048576
+MinimumAcceptedPOW = 2e-01
+RestrictConnectionBetweenLightClients = true
+
+[Node]
+NoUSB = true
+InsecureUnlockAllowed = true
+HTTPHost = "0.0.0.0"
+HTTPPort = 8545
+HTTPCors = ["*"]
+HTTPVirtualHosts = ["*"]
+HTTPModules = ["eth", "net", "web3", "admin", "personal", "debug", "txpool"]
+WSHost = "0.0.0.0"
+WSPort = 8546
+WSOrigins = ["*"]
+WSModules = ["eth", "net", "web3", "admin", "personal", "debug", "txpool"]

@@ -7,6 +7,9 @@ env:
 
 jobs:
   core:
+    strategy:
+      matrix:
+        cmd: ['go_core_tests', 'go_core_race_tests']
     name: Core Tests
     runs-on: self-hosted
     container: smartcontract/builder:1.0.34
@@ -54,7 +57,7 @@ jobs:
       - name: Setup DB
         run: go run ./core local db preparetest
       - name: Run tests
-        run: ./tools/bin/go_core_tests
+        run: ./tools/bin/${{ matrix.cmd }}
 
   rust:
     name: Rust
@@ -70,70 +73,22 @@ jobs:
       - name: Run Rust test
         run: ./tools/ci/rust_test
 
-  geth:
-    name: Geth Integration Tests
+  integration:
+    name: Integration tests
     runs-on: self-hosted
+    strategy:
+      matrix:
+        test: ['test', 'test:ts']
+        geth: [true, false]
     env:
-      GETH_MODE: true
+      GETH_MODE: ${{ matrix.geth }}
       CI: true
       CHAINLINK_DB_NAME: postgres
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./tools/docker/logs
-
-  geth-ts:
-    name: Geth Typescript-Based Integration tests
-    runs-on: self-hosted
-    env:
-      GETH_MODE: true
-      CI: true
-      CHAINLINK_DB_NAME: postgres
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./tools/docker/logs
-
-  parity:
-    name: Parity Integration tests
-    runs-on: self-hosted
-    env:
-      CI: true
-      CHAINLINK_DB_NAME: postgres
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./tools/docker/logs
-
-  parity-ts:
-    name: Parity Typescript-Based Integration tests
-    runs-on: self-hosted
-    env:
-      CI: true
-      CHAINLINK_DB_NAME: postgres
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
+        run: cd ./tools/docker && timeout --foreground 1200s ./compose ${{ matrix.test }}
       - name: Store logs artifacts
         uses: actions/upload-artifact@v1
         with:

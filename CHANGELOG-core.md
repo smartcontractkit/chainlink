@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.15] - 2020-09-14
+
+### Added
+
+- Chainlink header images to the following `README.md` files: root, core, 
+  evm-contracts, and evm-test-helpers.
+- Database migrations: new log_consumptions records will contain the number of the associated block.
+  This migration will allow future version of chainlink to automatically clean up unneeded log_consumption records.
+  This migration should execute very fast.
+
+### Fixed
+
+Previously when the node was overloaded with heads there was a minor possibility it could get backed up with a very large head queue, and become unstable. Now, we drop heads instead in this case and noisily emit an error. This means the node should more gracefully handle overload conditions, although this is still dangerous and node operators should deal with it immediately to avoid missing jobs.
+
+A new environment variable is introduced to configure this, called `ETH_HEAD_TRACKER_MAX_BUFFER_SIZE`. It is recommended to leave this set to the default of "3".
+
+A new prometheus metric is also introduced to track dropped heads, called `head_tracker_num_heads_dropped`. You may wish to set an alert on a rule such as `increase(chainlink_dropped_heads[5m]) > 0`.
+
 ## [0.8.14] - 2020-09-02
 
 ## Changed
@@ -18,14 +36,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
 
-Performance improvements when using BulletproofTxManager.
+- Fix for gas bumper
+- Fix for broadcast-transactions function
+
+## [0.8.13] - 2020-08-31
+
+### Changed
+
+- Performance improvements when using BulletproofTxManager.
 
 ## [0.8.12] - 2020-08-10
 
 ### Fixed
 
-Added a workaround for Infura users who are seeing "error getting balance: header not found".
-
+- Added a workaround for Infura users who are seeing "error getting balance: header not found".
 This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
 
 ## [0.8.11] - 2020-07-27

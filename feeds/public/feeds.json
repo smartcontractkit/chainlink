@@ -2,7 +2,6 @@
   {
     "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
     "contractAddress": "0xF79D6aFBb6dA890132F9D7c355e3015f15F3406F",
-    "proxyAddress": "0x32dbd3214aC75223e27e575C5394430791fake12",
     "contractType": "aggregator",
     "contractVersion": 2,
     "decimalPlaces": 3,
@@ -13,11 +12,9 @@
     "listing": true,
     "multiply": "100000000",
     "name": "ETH / USD",
-    "pair": [
-      "ETH",
-      "USD"
-    ],
+    "pair": ["ETH", "USD"],
     "path": "eth-usd",
+    "proxyAddress": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
     "sponsored": [
       "Synthetix",
       "Loopring",
@@ -35,38 +32,9 @@
       "Sandbank",
       "Plasm Network",
       "Swipe",
-      "HXRO"
-    ],
-    "threshold": 0.5,
-    "valuePrefix": "$"
-  },
-  {
-    "compareOffchain": "https://www.tradingview.com/symbols/ETHUSD/?exchange=COINBASE",
-    "contractAddress": "0x79fEbF6B9F76853EDBcBc913e6aAE8232cFB9De9",
-    "contractType": "aggregator",
-    "contractVersion": 1,
-    "decimalPlaces": 3,
-    "formatDecimalPlaces": 0,
-    "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=ethereum",
-    "heartbeat": 3600,
-    "history": true,
-    "listing": false,
-    "multiply": "100000000",
-    "name": "ETH / USD (old)",
-    "pair": [
-      "ETH",
-      "USD"
-    ],
-    "path": "eth-usd-deprecated",
-    "sponsored": [
-      "Synthetix",
-      "Loopring",
-      "OpenLaw",
-      "1inch",
-      "ParaSwap",
-      "MCDEX",
-      "Futureswap",
-      "HXRO"
+      "HXRO",
+      "DODO",
+      "Bitrue"
     ],
     "threshold": 0.5,
     "valuePrefix": "$"
@@ -84,17 +52,16 @@
     "listing": true,
     "multiply": "100000000",
     "name": "BTC / USD",
-    "pair": [
-      "BTC",
-      "USD"
-    ],
+    "pair": ["BTC", "USD"],
     "path": "btc-usd",
+    "proxyAddress": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
     "sponsored": [
       "Synthetix",
       "Gamerhash",
       "Sandbank",
       "Plasm Network",
-      "HXRO"
+      "HXRO",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "$"
@@ -112,15 +79,10 @@
     "listing": true,
     "multiply": "100000000",
     "name": "DAI / USD",
-    "pair": [
-      "DAI",
-      "USD"
-    ],
+    "pair": ["DAI", "USD"],
     "path": "dai-usd",
-    "sponsored": [
-      "Futureswap",
-      "DMM"
-    ],
+    "proxyAddress": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+    "sponsored": ["Futureswap", "DMM"],
     "threshold": 2,
     "valuePrefix": "$"
   },
@@ -132,20 +94,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "AUD / USD",
-    "pair": [
-      "AUD",
-      "USD"
-    ],
+    "pair": ["AUD", "USD"],
     "path": "aud-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x77F9710E7d0A19669A13c055F62cd80d313dF022",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -156,20 +114,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "EUR / USD",
-    "pair": [
-      "EUR",
-      "USD"
-    ],
+    "pair": ["EUR", "USD"],
     "path": "eur-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0xb49f677943BC038e9857d61E7d053CaA2C1734C1",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -180,20 +134,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "CHF / USD",
-    "pair": [
-      "CHF",
-      "USD"
-    ],
+    "pair": ["CHF", "USD"],
     "path": "chf-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x449d117117838fFA61263B61dA6301AA2a88B13A",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -204,20 +154,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "GBP / USD",
-    "pair": [
-      "GBP",
-      "USD"
-    ],
+    "pair": ["GBP", "USD"],
     "path": "gbp-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x5c0Ab2d9b5a7ed9f470386e82BB36A3613cDd4b5",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -228,20 +174,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "JPY / USD",
-    "pair": [
-      "JPY",
-      "USD"
-    ],
+    "pair": ["JPY", "USD"],
     "path": "jpy-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0xBcE206caE7f0ec07b545EddE332A47C2F75bbeb3",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -252,20 +194,16 @@
     "decimalPlaces": 3,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "XAG / USD",
-    "pair": [
-      "XAG",
-      "USD"
-    ],
+    "pair": ["XAG", "USD"],
     "path": "xag-usd",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x379589227b15F1a12195D3f2d90bBc9F31f95235",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -276,21 +214,16 @@
     "decimalPlaces": 3,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "XAU / USD",
-    "pair": [
-      "XAU",
-      "USD"
-    ],
+    "pair": ["XAU", "USD"],
     "path": "xau-usd",
-    "sponsored": [
-      "Synthetix",
-      "Bullionix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x214eD9Da11D2fbe465a6fc601a91E62EbEc1a0D6",
+    "sponsored": ["Synthetix", "Bullionix"],
+    "threshold": 0.5,
     "valuePrefix": "$"
   },
   {
@@ -301,19 +234,15 @@
     "decimalPlaces": 3,
     "formatDecimalPlaces": 0,
     "healthPrice": "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=chainlink",
+    "heartbeat": 86400,
     "history": true,
     "listing": true,
     "multiply": "100000000",
     "name": "LINK / USD",
-    "pair": [
-      "LINK",
-      "USD"
-    ],
+    "pair": ["LINK", "USD"],
     "path": "link-usd",
-    "sponsored": [
-      "Set Protocol",
-      "LinkPool"
-    ],
+    "proxyAddress": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+    "sponsored": ["Set Protocol", "LinkPool", "dYdX", "DODO"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -330,11 +259,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "LRC / ETH",
-    "pair": [
-      "LRC",
-      "ETH"
-    ],
+    "pair": ["LRC", "ETH"],
     "path": "lrc-eth",
+    "proxyAddress": "0x160AC928A16C93eD4895C2De6f81ECcE9a7eB7b4",
     "sponsored": [
       "Loopring",
       "1inch",
@@ -357,18 +284,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "LEND / ETH",
-    "pair": [
-      "LEND",
-      "ETH"
-    ],
+    "pair": ["LEND", "ETH"],
     "path": "lend-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0xc9dDB0E869d931D031B24723132730Ecf3B4F74d",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -384,11 +303,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "BTC / ETH",
-    "pair": [
-      "BTC",
-      "ETH"
-    ],
+    "pair": ["BTC", "ETH"],
     "path": "btc-eth",
+    "proxyAddress": "0xdeb288F737066589598e9214E782fa5A8eD689e8",
     "sponsored": [
       "Aave",
       "bZx",
@@ -413,18 +330,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "MKR / ETH",
-    "pair": [
-      "MKR",
-      "ETH"
-    ],
+    "pair": ["MKR", "ETH"],
     "path": "mkr-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0x24551a8Fb2A7211A25a17B1481f043A8a8adC7f2",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 1,
     "valuePrefix": "Ξ"
   },
@@ -440,18 +349,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "MANA / ETH",
-    "pair": [
-      "MANA",
-      "ETH"
-    ],
+    "pair": ["MANA", "ETH"],
     "path": "mana-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0x82A44D92D6c329826dc557c5E1Be6ebeC5D5FeB9",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -467,11 +368,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "KNC / ETH",
-    "pair": [
-      "KNC",
-      "ETH"
-    ],
+    "pair": ["KNC", "ETH"],
     "path": "knc-eth",
+    "proxyAddress": "0x656c0544eF4C98A6a98491833A89204Abb045d6b",
     "sponsored": [
       "Aave",
       "bZx",
@@ -495,11 +394,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "LINK / ETH",
-    "pair": [
-      "LINK",
-      "ETH"
-    ],
+    "pair": ["LINK", "ETH"],
     "path": "link-eth",
+    "proxyAddress": "0xDC530D9457755926550b59e8ECcdaE7624181557",
     "sponsored": [
       "Aave",
       "bZx",
@@ -523,11 +420,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "USDC / ETH",
-    "pair": [
-      "USDC",
-      "ETH"
-    ],
+    "pair": ["USDC", "ETH"],
     "path": "usdc-eth",
+    "proxyAddress": "0x986b5E1e1755e3C2440e960477f25201B0a8bbD4",
     "sponsored": [
       "Aave",
       "1inch",
@@ -535,7 +430,9 @@
       "DMM",
       "The Force Protocol",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -552,18 +449,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "REP / ETH",
-    "pair": [
-      "REP",
-      "ETH"
-    ],
+    "pair": ["REP", "ETH"],
     "path": "rep-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0xD4CE430C3b67b3E2F7026D86E7128588629e2455",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -579,18 +468,17 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "ZRX / ETH",
-    "pair": [
-      "ZRX",
-      "ETH"
-    ],
+    "pair": ["ZRX", "ETH"],
     "path": "zrx-eth",
+    "proxyAddress": "0x2Da4983a622a8498bb1a21FaE9D8F6C664939962",
     "sponsored": [
       "Aave",
       "bZx",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -607,17 +495,16 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "BAT / ETH",
-    "pair": [
-      "BAT",
-      "ETH"
-    ],
+    "pair": ["BAT", "ETH"],
     "path": "bat-eth",
+    "proxyAddress": "0x0d16d4528239e9ee52fa531af613AcdB23D88c94",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -634,11 +521,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "DAI / ETH",
-    "pair": [
-      "DAI",
-      "ETH"
-    ],
+    "pair": ["DAI", "ETH"],
     "path": "dai-eth",
+    "proxyAddress": "0x773616E4d11A78F511299002da57A0a94577F1f4",
     "sponsored": [
       "Aave",
       "Nexus Mutual",
@@ -647,7 +532,8 @@
       "ParaSwap",
       "Opium.exchange",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -664,17 +550,16 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "TUSD / ETH",
-    "pair": [
-      "TUSD",
-      "ETH"
-    ],
+    "pair": ["TUSD", "ETH"],
     "path": "tusd-eth",
+    "proxyAddress": "0x3886BA987236181D98F2401c507Fb8BeA7871dF2",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -691,18 +576,18 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "USDT / ETH",
-    "pair": [
-      "USDT",
-      "ETH"
-    ],
+    "pair": ["USDT", "ETH"],
     "path": "usdt-eth",
+    "proxyAddress": "0xEe9F2375b4bdF6387aa8265dD4FB8F16512A1d46",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "The Force Protocol",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -719,18 +604,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "BUSD / ETH",
-    "pair": [
-      "BUSD",
-      "ETH"
-    ],
+    "pair": ["BUSD", "ETH"],
     "path": "busd-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0x614715d2Af89E6EC99A233818275142cE88d1Cfd",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 1,
     "valuePrefix": "Ξ"
   },
@@ -746,11 +623,9 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "SUSD / ETH",
-    "pair": [
-      "SUSD",
-      "ETH"
-    ],
+    "pair": ["SUSD", "ETH"],
     "path": "susd-eth",
+    "proxyAddress": "0x8e0b7e6062272B5eF4524250bFFF8e5Bd3497757",
     "sponsored": [
       "Aave",
       "bZx",
@@ -774,18 +649,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "SNX / ETH",
-    "pair": [
-      "SNX",
-      "ETH"
-    ],
+    "pair": ["SNX", "ETH"],
     "path": "snx-eth",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "0x79291A9d692Df95334B1a0B3B4AE6bC606782f8c",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -801,14 +668,10 @@
     "listing": true,
     "multiply": "100000000",
     "name": "XHV / USD",
-    "pair": [
-      "XHV",
-      "USD"
-    ],
+    "pair": ["XHV", "USD"],
     "path": "xhv-usd",
-    "sponsored": [
-      "Haven Protocol"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Haven Protocol"],
     "threshold": 2,
     "valuePrefix": "$"
   },
@@ -820,20 +683,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": false,
     "listing": true,
     "multiply": "100000000",
     "name": "FTSE / GBP",
-    "pair": [
-      "FTSE",
-      "GBP"
-    ],
+    "pair": ["FTSE", "GBP"],
     "path": "ftse-gbp",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0xE23FA0e8dd05D6f66a6e8c98cab2d9AE82A7550c",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "£"
   },
   {
@@ -844,20 +703,16 @@
     "decimalPlaces": 6,
     "formatDecimalPlaces": 0,
     "healthPrice": "",
-    "heartbeat": 3600,
+    "heartbeat": 86400,
     "history": false,
     "listing": true,
     "multiply": "100000000",
     "name": "N225 / JPY",
-    "pair": [
-      "N225",
-      "JPY"
-    ],
+    "pair": ["N225", "JPY"],
     "path": "n225-jpy",
-    "sponsored": [
-      "Synthetix"
-    ],
-    "threshold": 1,
+    "proxyAddress": "0x5c4939a2ab3A2a9f93A518d81d4f8D0Bc6a68980",
+    "sponsored": ["Synthetix"],
+    "threshold": 0.5,
     "valuePrefix": "¥"
   },
   {
@@ -872,14 +727,10 @@
     "listing": true,
     "multiply": "100000000",
     "name": "OXT / USD",
-    "pair": [
-      "OXT",
-      "USD"
-    ],
+    "pair": ["OXT", "USD"],
     "path": "oxt-usd",
-    "sponsored": [
-      "Orchid Network"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Orchid Network"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -895,14 +746,10 @@
     "listing": true,
     "multiply": "100000000",
     "name": "BNT / USD",
-    "pair": [
-      "BNT",
-      "USD"
-    ],
+    "pair": ["BNT", "USD"],
     "path": "bnt-usd",
-    "sponsored": [
-      "Bancor"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Bancor"],
     "threshold": 2,
     "valuePrefix": "$"
   },
@@ -919,15 +766,10 @@
     "listing": true,
     "multiply": "1",
     "name": "Fast Gas / Gwei",
-    "pair": [
-      "Fast Gas",
-      "Gwei"
-    ],
+    "pair": ["Fast Gas", "Gwei"],
     "path": "fast-gas-gwei",
-    "sponsored": [
-      "Tornado Cash",
-      "Gelato"
-    ],
+    "proxyAddress": "0x169E633A2D1E6c10dD91238Ba11c4A708dfEF37C",
+    "sponsored": ["Tornado Cash", "Gelato", "Synthetix", "Zapper"],
     "threshold": 25,
     "valuePrefix": "Ξ"
   },
@@ -944,14 +786,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "FTSE / GBP",
-    "pair": [
-      "FTSE",
-      "GBP"
-    ],
+    "pair": ["FTSE", "GBP"],
     "path": "ftse-gbp2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "£"
   },
@@ -967,11 +805,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "SUSD / ETH",
-    "pair": [
-      "SUSD",
-      "ETH"
-    ],
+    "pair": ["SUSD", "ETH"],
     "path": "susd-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "bZx",
@@ -995,11 +831,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "KNC / ETH",
-    "pair": [
-      "KNC",
-      "ETH"
-    ],
+    "pair": ["KNC", "ETH"],
     "path": "knc-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "bZx",
@@ -1023,11 +857,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "USDC / ETH",
-    "pair": [
-      "USDC",
-      "ETH"
-    ],
+    "pair": ["USDC", "ETH"],
     "path": "usdc-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "1inch",
@@ -1035,7 +867,9 @@
       "DMM",
       "The Force Protocol",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -1052,17 +886,16 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "BAT / ETH",
-    "pair": [
-      "BAT",
-      "ETH"
-    ],
+    "pair": ["BAT", "ETH"],
     "path": "bat-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -1080,14 +913,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "N225 / JPY",
-    "pair": [
-      "N225",
-      "JPY"
-    ],
+    "pair": ["N225", "JPY"],
     "path": "n225-jpy2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "¥"
   },
@@ -1104,14 +933,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "JPY / USD",
-    "pair": [
-      "JPY",
-      "USD"
-    ],
+    "pair": ["JPY", "USD"],
     "path": "jpy-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1127,18 +952,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "MANA / ETH",
-    "pair": [
-      "MANA",
-      "ETH"
-    ],
+    "pair": ["MANA", "ETH"],
     "path": "mana-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1154,11 +971,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "DAI / ETH",
-    "pair": [
-      "DAI",
-      "ETH"
-    ],
+    "pair": ["DAI", "ETH"],
     "path": "dai-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "Nexus Mutual",
@@ -1167,7 +982,8 @@
       "ParaSwap",
       "Opium.exchange",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -1184,18 +1000,17 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "ZRX / ETH",
-    "pair": [
-      "ZRX",
-      "ETH"
-    ],
+    "pair": ["ZRX", "ETH"],
     "path": "zrx-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "bZx",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner"
     ],
     "threshold": 2,
     "valuePrefix": "Ξ"
@@ -1212,18 +1027,18 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "USDT / ETH",
-    "pair": [
-      "USDT",
-      "ETH"
-    ],
+    "pair": ["USDT", "ETH"],
     "path": "usdt-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "The Force Protocol",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "DeFiner",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -1240,18 +1055,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "SNX / ETH",
-    "pair": [
-      "SNX",
-      "ETH"
-    ],
+    "pair": ["SNX", "ETH"],
     "path": "snx-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1268,14 +1075,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "GBP / USD",
-    "pair": [
-      "GBP",
-      "USD"
-    ],
+    "pair": ["GBP", "USD"],
     "path": "gbp-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1291,15 +1094,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "LINK / USD",
-    "pair": [
-      "LINK",
-      "USD"
-    ],
+    "pair": ["LINK", "USD"],
     "path": "link-usd2",
-    "sponsored": [
-      "Set Protocol",
-      "LinkPool"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Set Protocol", "LinkPool", "dYdX", "DODO"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1316,14 +1114,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "XAG / USD",
-    "pair": [
-      "XAG",
-      "USD"
-    ],
+    "pair": ["XAG", "USD"],
     "path": "xag-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1339,18 +1133,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "REP / ETH",
-    "pair": [
-      "REP",
-      "ETH"
-    ],
+    "pair": ["REP", "ETH"],
     "path": "rep-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1366,11 +1152,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "LINK / ETH",
-    "pair": [
-      "LINK",
-      "ETH"
-    ],
+    "pair": ["LINK", "ETH"],
     "path": "link-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "bZx",
@@ -1394,17 +1178,16 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "TUSD / ETH",
-    "pair": [
-      "TUSD",
-      "ETH"
-    ],
+    "pair": ["TUSD", "ETH"],
     "path": "tusd-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "1inch",
       "ParaSwap",
       "Kyber Network",
-      "Bamboo Relay"
+      "Bamboo Relay",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "Ξ"
@@ -1422,17 +1205,16 @@
     "listing": false,
     "multiply": "100000000",
     "name": "BTC / USD",
-    "pair": [
-      "BTC",
-      "USD"
-    ],
+    "pair": ["BTC", "USD"],
     "path": "btc-usd2",
+    "proxyAddress": "",
     "sponsored": [
       "Synthetix",
       "Gamerhash",
       "Sandbank",
       "Plasm Network",
-      "HXRO"
+      "HXRO",
+      "Bitrue"
     ],
     "threshold": 1,
     "valuePrefix": "$"
@@ -1450,11 +1232,9 @@
     "listing": false,
     "multiply": "100000000",
     "name": "ETH / USD",
-    "pair": [
-      "ETH",
-      "USD"
-    ],
+    "pair": ["ETH", "USD"],
     "path": "eth-usd2",
+    "proxyAddress": "",
     "sponsored": [
       "Synthetix",
       "Loopring",
@@ -1472,7 +1252,9 @@
       "Sandbank",
       "Plasm Network",
       "Swipe",
-      "HXRO"
+      "HXRO",
+      "DODO",
+      "Bitrue"
     ],
     "threshold": 0.5,
     "valuePrefix": "$"
@@ -1489,18 +1271,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "MKR / ETH",
-    "pair": [
-      "MKR",
-      "ETH"
-    ],
+    "pair": ["MKR", "ETH"],
     "path": "mkr-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 1,
     "valuePrefix": "Ξ"
   },
@@ -1517,14 +1291,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "CHF / USD",
-    "pair": [
-      "CHF",
-      "USD"
-    ],
+    "pair": ["CHF", "USD"],
     "path": "chf-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1541,14 +1311,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "EUR / USD",
-    "pair": [
-      "EUR",
-      "USD"
-    ],
+    "pair": ["EUR", "USD"],
     "path": "eur-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1564,18 +1330,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "BUSD / ETH",
-    "pair": [
-      "BUSD",
-      "ETH"
-    ],
+    "pair": ["BUSD", "ETH"],
     "path": "busd-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 1,
     "valuePrefix": "Ξ"
   },
@@ -1592,11 +1350,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "LRC / ETH",
-    "pair": [
-      "LRC",
-      "ETH"
-    ],
+    "pair": ["LRC", "ETH"],
     "path": "lrc-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Loopring",
       "1inch",
@@ -1619,11 +1375,9 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "BTC / ETH",
-    "pair": [
-      "BTC",
-      "ETH"
-    ],
+    "pair": ["BTC", "ETH"],
     "path": "btc-eth2",
+    "proxyAddress": "",
     "sponsored": [
       "Aave",
       "bZx",
@@ -1648,14 +1402,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "XHV / USD",
-    "pair": [
-      "XHV",
-      "USD"
-    ],
+    "pair": ["XHV", "USD"],
     "path": "xhv-usd2",
-    "sponsored": [
-      "Haven Protocol"
-    ],
+    "proxyAddress": "0xeccBeEd9691d8521385259AE596CF00D68429de0",
+    "sponsored": ["Haven Protocol"],
     "threshold": 2,
     "valuePrefix": "$"
   },
@@ -1672,14 +1422,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "AUD / USD",
-    "pair": [
-      "AUD",
-      "USD"
-    ],
+    "pair": ["AUD", "USD"],
     "path": "aud-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1695,18 +1441,10 @@
     "listing": false,
     "multiply": "1000000000000000000",
     "name": "LEND / ETH",
-    "pair": [
-      "LEND",
-      "ETH"
-    ],
+    "pair": ["LEND", "ETH"],
     "path": "lend-eth2",
-    "sponsored": [
-      "Aave",
-      "1inch",
-      "ParaSwap",
-      "Kyber Network",
-      "Bamboo Relay"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Aave", "1inch", "ParaSwap", "Kyber Network", "Bamboo Relay"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1723,14 +1461,10 @@
     "listing": false,
     "multiply": "100000000",
     "name": "XAU / USD",
-    "pair": [
-      "XAU",
-      "USD"
-    ],
+    "pair": ["XAU", "USD"],
     "path": "xau-usd2",
-    "sponsored": [
-      "Synthetix"
-    ],
+    "proxyAddress": "",
+    "sponsored": ["Synthetix"],
     "threshold": 1,
     "valuePrefix": "$"
   },
@@ -1747,15 +1481,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "REN / ETH",
-    "pair": [
-      "REN",
-      "ETH"
-    ],
+    "pair": ["REN", "ETH"],
     "path": "ren-eth",
-    "sponsored": [
-      "Bancor",
-      "Aave"
-    ],
+    "proxyAddress": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
+    "sponsored": ["Bancor", "Aave"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1772,15 +1501,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "ENJ / ETH",
-    "pair": [
-      "ENJ",
-      "ETH"
-    ],
+    "pair": ["ENJ", "ETH"],
     "path": "enj-eth",
-    "sponsored": [
-      "Bancor",
-      "Aave"
-    ],
+    "proxyAddress": "0x24D9aB51950F3d62E9144fdC2f3135DAA6Ce8D1B",
+    "sponsored": ["Bancor", "Aave"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1796,14 +1520,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "WOM / ETH",
-    "pair": [
-      "WOM",
-      "ETH"
-    ],
+    "pair": ["WOM", "ETH"],
     "path": "wom-eth",
-    "sponsored": [
-      "WOM Protocol"
-    ],
+    "proxyAddress": "0xcEBD2026d3C99F2a7CE028acf372C154aB4638a9",
+    "sponsored": ["WOM Protocol"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1820,14 +1540,10 @@
     "listing": true,
     "multiply": "1000000000000000000",
     "name": "YFI / ETH",
-    "pair": [
-      "YFI",
-      "ETH"
-    ],
+    "pair": ["YFI", "ETH"],
     "path": "yfi-eth",
-    "sponsored": [
-      "Opium.exchange"
-    ],
+    "proxyAddress": "0x7c5d4F8345e66f68099581Db340cd65B078C41f4",
+    "sponsored": ["Opium.exchange"],
     "threshold": 2,
     "valuePrefix": "Ξ"
   },
@@ -1844,15 +1560,271 @@
     "listing": true,
     "multiply": "100000000",
     "name": "SXP / USD",
-    "pair": [
-      "SXP",
-      "USD"
-    ],
+    "pair": ["SXP", "USD"],
     "path": "sxp-usd",
-    "sponsored": [
-      "Swipe"
-    ],
+    "proxyAddress": "0xFb0CfD6c19e25DB4a08D8a204a387cEa48Cc138f",
+    "sponsored": ["Swipe"],
     "threshold": 1,
     "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x7AE7781C7F3a5182596d161e037E6db8e36328ef",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 3,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "sDEFI / USD",
+    "pair": ["sDEFI", "USD"],
+    "path": "sdefi-usd",
+    "proxyAddress": "0xa8E875F94138B0C5b51d1e1d5dE35bbDdd28EA87",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x0821f21F21C325AE39557CA83B6B4df525495D06",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "BNB / USD",
+    "pair": ["BNB", "USD"],
+    "path": "bnb-usd",
+    "proxyAddress": "0x14e613AC84a31f709eadbdF89C6CC390fDc9540A",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x6a6527d91DDaE0a259Cc09DAD311b3455Cdc1fbd",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "BCH / USD",
+    "pair": ["BCH", "USD"],
+    "path": "bch-usd",
+    "proxyAddress": "0x9F0F69428F923D6c95B781F89E165C9b2df9789D",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xF11Bf075f0B2B8d8442AB99C44362f1353D40B44",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "ADA / USD",
+    "pair": ["ADA", "USD"],
+    "path": "ada-usd",
+    "proxyAddress": "0xAE48c91dF1fE419994FFDa27da09D5aC69c30f55",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xc6eE0D4943dc43Bd462145aa6aC95e9C0C8b462f",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "LTC / USD",
+    "pair": ["LTC", "USD"],
+    "path": "ltc-usd",
+    "proxyAddress": "0x6AF09DF7563C363B5763b9102712EbeD3b9e859B",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x570985649832B51786a181d57BAbe012be1C09a4",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "XRP / USD",
+    "pair": ["XRP", "USD"],
+    "path": "xrp-usd",
+    "proxyAddress": "0xCed2660c6Dd1Ffd856A5A82C67f3482d88C50b12",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x52D674C76E91c50A0190De77da1faD67D859a569",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "XTZ / USD",
+    "pair": ["XTZ", "USD"],
+    "path": "xtz-usd",
+    "proxyAddress": "0x5239a625dEb44bF3EeAc2CD5366ba24b8e9DB63F",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x353F61F39a17e56cA413F4559B8cD3b6A252ffC8",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "REN / USD",
+    "pair": ["REN", "USD"],
+    "path": "ren-usd",
+    "proxyAddress": "0x0f59666EDE214281e956cb3b2D0d69415AfF4A01",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x80Eeb41E2a86D4ae9903A3860Dd643daD2D1A853",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "COMP / USD",
+    "pair": ["COMP", "USD"],
+    "path": "comp-usd",
+    "proxyAddress": "0xdbd020CAeF83eFd542f4De03e3cF0C28A4428bd5",
+    "sponsored": ["Synthetix", "MCDEX"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x2408935EFE60F092B442a8755f7572eDb9cF971E",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "LEND / USD",
+    "pair": ["LEND", "USD"],
+    "path": "lend-usd",
+    "proxyAddress": "0x4aB81192BB75474Cf203B56c36D6a13623270A67",
+    "sponsored": ["Synthetix", "MCDEX"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0xd3CE735cdc708d9607cfbc6C3429861625132cb4",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "SNX / USD",
+    "pair": ["SNX", "USD"],
+    "path": "snx-usd",
+    "proxyAddress": "0xDC3EA94CD0AC27d9A86C180091e7f78C683d3699",
+    "sponsored": ["Synthetix", "MCDEX"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x45e9FEe61185e213c37fc14D18e44eF9262e10Db",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 6,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": true,
+    "listing": true,
+    "multiply": "100000000",
+    "name": "KNC / USD",
+    "pair": ["KNC", "USD"],
+    "path": "knc-usd",
+    "proxyAddress": "0xf8fF43E991A81e6eC886a3D281A2C6cC19aE70Fc",
+    "sponsored": ["Synthetix"],
+    "threshold": 1,
+    "valuePrefix": "$"
+  },
+  {
+    "compareOffchain": "",
+    "contractAddress": "0x82C5720Cb830341b48AC93Cf6FF3064cF5eB504b",
+    "contractType": "aggregator",
+    "contractVersion": 2,
+    "decimalPlaces": 9,
+    "formatDecimalPlaces": 0,
+    "healthPrice": "",
+    "heartbeat": 86400,
+    "history": false,
+    "listing": true,
+    "multiply": "1000000000000000000",
+    "name": "BZRX / ETH",
+    "pair": ["BZRX", "ETH"],
+    "path": "bzrx-eth",
+    "proxyAddress": "0x8f7C7181Ed1a2BA41cfC3f5d064eF91b67daef66",
+    "sponsored": ["bZx"],
+    "threshold": 2,
+    "valuePrefix": "Ξ"
   }
 ]
