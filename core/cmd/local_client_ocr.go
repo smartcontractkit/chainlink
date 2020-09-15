@@ -24,7 +24,7 @@ Off-chain Public Key:
   %s
 `
 
-func (cli *Client) CreateOCRKey(c *clipkg.Context) error {
+func (cli *Client) createOCRKey(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 
