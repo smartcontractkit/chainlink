@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -132,6 +133,11 @@ func TestHighestPricedTxAttemptPerTx(t *testing.T) {
 	assert.Len(t, items, 2)
 	assert.True(t, items[0].GasPrice.ToInt().Cmp(big.NewInt(33333)) == 0)
 	assert.True(t, items[1].GasPrice.ToInt().Cmp(big.NewInt(12211)) == 0)
+}
+
+func TestEthTx_GetID(t *testing.T) {
+	tx := models.EthTx{ID: math.MinInt64}
+	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
