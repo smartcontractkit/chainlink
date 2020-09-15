@@ -77,7 +77,6 @@ type TxManager interface {
 
 	BumpGasUntilSafe(hash common.Hash) (*types.Receipt, AttemptState, error)
 
-	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
@@ -499,28 +498,6 @@ func (txm *EthTxManager) GetAvailableAccount(from common.Address) *ManagedAccoun
 		}
 	}
 	return nil
-}
-
-// ContractLINKBalance returns the balance for the contract associated with this
-// withdrawal request, or any errors
-func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error) {
-	contractAddress := &wr.ContractAddress
-	if (*contractAddress == common.Address{}) {
-		if txm.config.OracleContractAddress() == nil {
-			return assets.Link{}, errors.New(
-				"OracleContractAddress not set; cannot check LINK balance")
-		}
-		contractAddress = txm.config.OracleContractAddress()
-	}
-
-	linkBalance, err := txm.GetLINKBalance(*contractAddress)
-	if err != nil {
-		return assets.Link{}, multierr.Combine(
-			fmt.Errorf("could not check LINK balance for %v",
-				contractAddress),
-			err)
-	}
-	return *linkBalance, nil
 }
 
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
