@@ -1322,6 +1322,12 @@ func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKeys, 
 	return keys, nil
 }
 
+// DeleteEncryptedOCRKeys deletes the provided encrypted OCR key record
+func (orm *ORM) DeleteEncryptedOCRKeys(key *ocrkey.EncryptedOCRPrivateKeys) (err error) {
+	orm.MustEnsureAdvisoryLock()
+	return orm.DB.Delete(&key).Error
+}
+
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
 // This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
 // addresses in the database.
