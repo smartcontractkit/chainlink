@@ -281,7 +281,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
 
 				if test.expectedToPoll {
-					fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil)
+					fetcher.On("Fetch", roundState).Return(decimal.NewFromInt(test.polledAnswer), nil)
 				}
 
 				if test.expectedToSubmit {
