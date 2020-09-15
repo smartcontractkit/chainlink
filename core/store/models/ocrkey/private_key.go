@@ -55,7 +55,7 @@ var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
 // For internal use only - used to generate new sets of OCR private keys
 // Use NewOCRPrivateKey in production and NewDeterministicOCRPrivateKeyXXXTestingOnly
 // in tests
-func newPrivateKeys(reader io.Reader) (*OCRPrivateKey, error) {
+func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
 		return nil, err
@@ -84,12 +84,12 @@ func newPrivateKeys(reader io.Reader) (*OCRPrivateKey, error) {
 
 // NewOCRPrivateKey makes a new set of OCR keys from cryptographically secure entropy
 func NewOCRPrivateKey() (*OCRPrivateKey, error) {
-	return newPrivateKeys(cryptorand.Reader)
+	return newPrivateKey(cryptorand.Reader)
 }
 
 // NewDeterministicOCRPrivateKeyXXXTestingOnly is for testing purposes only!
 func NewDeterministicOCRPrivateKeyXXXTestingOnly(seed int64) (*OCRPrivateKey, error) {
-	return newPrivateKeys(rand.New(rand.NewSource(seed)))
+	return newPrivateKey(rand.New(rand.NewSource(seed)))
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
