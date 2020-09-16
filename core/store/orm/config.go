@@ -351,6 +351,11 @@ func (c Config) EthereumDisabled() bool {
 	return c.viper.GetBool(EnvVarName("EthereumDisabled"))
 }
 
+// FlagsContractAddress represents the Flags contract address
+func (c Config) FlagsContractAddress() string {
+	return c.viper.GetString(EnvVarName("FlagsContractAddress"))
+}
+
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
 // E.g. if this is set to 3, and we receive block 10, gas updater will
 // fetch block 7.
