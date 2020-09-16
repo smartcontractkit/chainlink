@@ -3,16 +3,19 @@
 package gethwrappers
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/tidwall/gjson"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
 
@@ -22,10 +25,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCheckContractHashesFromLastGoGenerate compares the metadata recorded by
-// record_versions.sh, and fails if it indicates that the corresponding golang
-// wrappers are out of date with respect to the solidty contracts they wrap. See
-// record_versions.sh for description of file format.
+// TestCheckContractHashesFromLastGoGenerate compares the abi and bytecode of the
+// contract artifacts in evm-contracts/abi with the abi and bytecode stored in the
+// contract wrapper
 func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	versions, err := ReadVersionsDB()
 	require.NoError(t, err)
@@ -49,6 +51,44 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
 		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",
 		"should never differ!")
+}
+
+// TestArtifactCompilerVersionMatchesConfig compares the solidity version in the contract artifacts
+// with the version specified in evm-contracts/app.config.json - this ensures we
+// use the correct artifacts to generate the golang wrappers.
+func TestArtifactCompilerVersionMatchesConfig(t *testing.T) {
+	appConfig, err := ioutil.ReadFile(fmt.Sprintf("%v/evm-contracts/app.config.json", getProjectRoot(t)))
+	require.NoError(t, err)
+	versionConfigJSON := gjson.Get(string(appConfig), `compilerSettings.versions`).String() // eg {"v0.6": "0.6.6"}
+
+	wrapperVersions, err := os.Open("./generation/generated-wrapper-dependency-versions-do-not-edit.txt")
+	require.NoError(t, err)
+	defer wrapperVersions.Close()
+
+	artifactRegex := regexp.MustCompile(`evm-contracts/abi/.*\.json`)
+	patchVersionRegex := regexp.MustCompile(`\d+\.\d+\.\d+`)
+	minorVersionRegex := regexp.MustCompile(`v\d+\.\d+`)
+
+	scanner := bufio.NewScanner(wrapperVersions)
+	for scanner.Scan() {
+		artifact := artifactRegex.FindString(scanner.Text())
+		if artifact == "" {
+			continue
+		}
+		beltArtifactPath := fmt.Sprintf("%v/%v", getProjectRoot(t), artifact)
+		beltArtifact, err := ioutil.ReadFile(beltArtifactPath)
+		require.NoError(t, err)
+		metadata := gjson.Get(string(beltArtifact), "compilerOutput.metadata").String()
+		fullVersion := gjson.Get(metadata, "compiler.version").String()                    // eg 0.6.6+commit.6c089d02
+		patchVersionInArtifact := patchVersionRegex.FindString(fullVersion)                // eg 0.6.6
+		minorVersion := minorVersionRegex.FindString(artifact)                             // eg v0.6
+		escapedMinorVersion := strings.ReplaceAll(minorVersion, ".", `\.`)                 // eg v0\.6
+		patchVersionInConfig := gjson.Get(versionConfigJSON, escapedMinorVersion).String() // eg 0.6.6
+
+		assert.Equal(t, patchVersionInArtifact, patchVersionInConfig)
+	}
+
+	require.NoError(t, scanner.Err())
 }
 
 // compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources checks that
