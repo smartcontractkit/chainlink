@@ -1310,21 +1310,16 @@ func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKey) erro
 }
 
 // FindEncryptedOCRKeys finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeys() (keys []*ocrkey.EncryptedOCRPrivateKey, err error) {
-	var result []ocrkey.EncryptedOCRPrivateKey
-	err = orm.DB.Find(&result).Error
+func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKey, err error) {
+	err = orm.DB.Find(&keys).Error
 	if err != nil {
-		return keys, err
-	}
-	for i := 0; i < len(result); i++ {
-		keys = append(keys, &result[i])
+		return nil, err
 	}
 	return keys, nil
 }
 
 // DeleteEncryptedOCRKey deletes the provided encrypted OCR key record
 func (orm *ORM) DeleteEncryptedOCRKey(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
-	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Delete(&key).Error
 }
 
