@@ -281,7 +281,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
 
 				if test.expectedToPoll {
-					fetcher.On("Fetch", roundState).Return(decimal.NewFromInt(test.polledAnswer), nil)
+					fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil)
 				}
 
 				if test.expectedToSubmit {
@@ -432,7 +432,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fluxAggregator.On("RoundState", nodeAddr, uint32(4)).Return(makeRoundStateForRoundID(4), nil).Once()
 
 	fetcher := new(mocks.Fetcher)
-	fetcher.On("Fetch").Return(decimal.NewFromInt(fetchedValue), nil)
+	fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
@@ -841,7 +841,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToPoll {
-				fetcher.On("Fetch").Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
+				fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
 			}
 
 			if expectedToSubmit {
@@ -1352,7 +1352,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:       1,
 			}, nil).
 			Once()
-		fetcher.On("Fetch").
+		fetcher.On("Fetch", mock.Anything).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		fluxAggregator.On("GetMethodID", "submit").
@@ -1433,7 +1433,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:       1,
 			}, nil).
 			Once()
-		fetcher.On("Fetch").
+		fetcher.On("Fetch", mock.Anything).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		fluxAggregator.On("GetMethodID", "submit").
