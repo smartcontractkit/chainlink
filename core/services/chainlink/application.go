@@ -117,6 +117,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
+		balanceMonitor:           balanceMonitor,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
