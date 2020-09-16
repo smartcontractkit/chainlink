@@ -12,7 +12,7 @@ import (
 // CreateOCRKey creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
 func (cli *Client) CreateOCRKey(c *clipkg.Context) error {
-	return cli.errorOut(cli.CreateOCRKey(c))
+	return cli.errorOut(cli.createOCRKey(c))
 }
 
 const createOCRKeyMsg = `Created OCR keypair.
