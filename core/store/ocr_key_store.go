@@ -36,15 +36,7 @@ func (ks *OCRKeyStore) CreateKey(auth string) (*ocrkey.OCRPrivateKey, error) {
 	return ks.createKey(auth, ocrkey.DefaultScryptParams)
 }
 
-// CreateWeakKeyXXXTestingOnly creates a new private key with weak encryption parameters and should
-// only be used for testing
-func (ks *OCRKeyStore) CreateWeakKeyXXXTestingOnly(auth string) (*ocrkey.OCRPrivateKey, error) {
-	return ks.createKey(auth, ocrkey.FastScryptParams)
-}
-
 func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) (*ocrkey.OCRPrivateKey, error) {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
 	key, err := ocrkey.NewOCRPrivateKey()
 	if err != nil {
 		return nil, err
@@ -52,6 +44,8 @@ func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) 
 	if err = ks.saveToDB(key, auth, scryptParams); err != nil {
 		return nil, err
 	}
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	if err = ks.addToKeystore(key); err != nil {
 		return nil, err
 	}
@@ -61,12 +55,12 @@ func (ks *OCRKeyStore) createKey(auth string, scryptParams ocrkey.ScryptParams) 
 // Unlock tries to unlock each ocr key in the db, using the given pass phrase,
 // and returns any keys it manages to unlock. It returns an error if none were unlocked.
 func (ks *OCRKeyStore) Unlock(phrase string) (keysUnlocked []int32, merr error) {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
 	keys, err := ks.store.FindEncryptedOCRKeys()
 	if err != nil {
 		return nil, errors.Wrap(err, "while retrieving ocr keys from db")
 	}
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	for _, k := range keys {
 		key, err := k.Decrypt(phrase)
 		if err != nil {
@@ -84,12 +78,16 @@ func (ks *OCRKeyStore) Unlock(phrase string) (keysUnlocked []int32, merr error) 
 
 // Has returns a bool indicating whether an ID is present in the keystore or not
 func (ks *OCRKeyStore) Has(id int32) bool {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	_, found := ks.keys[id]
 	return found
 }
 
 // Get gets a key from the keystore by it's ID, errors if not found
 func (ks *OCRKeyStore) Get(id int32) (*ocrkey.OCRPrivateKey, error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	key, found := ks.keys[id]
 	if !found {
 		return nil, fmt.Errorf("public key %s is not unlocked; can't forget it", key)

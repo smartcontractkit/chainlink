@@ -11,12 +11,6 @@ import (
 
 const ocrPassphrase = "davie bowie is the greatest musician of all time"
 
-func assertKeyCount(t *testing.T, store *strpkg.Store, n int) {
-	encryptedKeys, err := store.FindEncryptedOCRKeys()
-	require.NoError(t, err, "failed to retrieve keys from db")
-	require.Len(t, encryptedKeys, 1)
-}
-
 func TestOCRKeyStoreEndToEnd(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

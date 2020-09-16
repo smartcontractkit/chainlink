@@ -8,7 +8,6 @@ import (
 	"io"
 	"log"
 	"math/big"
-	"math/rand"
 	"time"
 
 	cryptorand "crypto/rand"
@@ -53,8 +52,6 @@ var FastScryptParams = ScryptParams{N: 2, P: 1}
 var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
 
 // For internal use only - used to generate new sets of OCR private keys
-// Use NewOCRPrivateKey in production and NewDeterministicOCRPrivateKeyXXXTestingOnly
-// in tests
 func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
@@ -85,11 +82,6 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 // NewOCRPrivateKey makes a new set of OCR keys from cryptographically secure entropy
 func NewOCRPrivateKey() (*OCRPrivateKey, error) {
 	return newPrivateKey(cryptorand.Reader)
-}
-
-// NewDeterministicOCRPrivateKeyXXXTestingOnly is for testing purposes only!
-func NewDeterministicOCRPrivateKeyXXXTestingOnly(seed int64) (*OCRPrivateKey, error) {
-	return newPrivateKey(rand.New(rand.NewSource(seed)))
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
