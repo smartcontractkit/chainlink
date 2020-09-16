@@ -156,6 +156,7 @@ type EnvPrinter struct {
 	ExplorerURL                      string          `json:"explorerUrl"`
 	FeatureExternalInitiators        bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor               bool            `json:"featureFluxMonitor"`
+	FlagsContractAddress             string          `json:"flagsContractAddress"`
 	GasUpdaterBlockDelay             uint16          `json:"gasUpdaterBlockDelay"`
 	GasUpdaterBlockHistorySize       uint16          `json:"gasUpdaterBlockHistorySize"`
 	GasUpdaterEnabled                bool            `json:"gasUpdaterEnabled"`
@@ -227,6 +228,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			ExplorerURL:                      explorerURL,
 			FeatureExternalInitiators:        config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:               config.FeatureFluxMonitor(),
+			FlagsContractAddress:             config.FlagsContractAddress(),
 			GasUpdaterBlockDelay:             config.GasUpdaterBlockDelay(),
 			GasUpdaterBlockHistorySize:       config.GasUpdaterBlockHistorySize(),
 			GasUpdaterEnabled:                config.GasUpdaterEnabled(),
