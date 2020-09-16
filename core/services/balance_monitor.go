@@ -18,13 +18,14 @@ import (
 type BalanceMonitor interface {
 	store.HeadTrackable
 	GetEthBalance(gethCommon.Address) *assets.Eth
+	Stop()
 }
 
 type balanceMonitor struct {
 	store          *store.Store
 	ethBalances    map[gethCommon.Address]*assets.Eth
 	ethBalancesMtx *sync.RWMutex
-	headQueue      chan *models.Head
+	sleeperTask    SleeperTask
 }
 
 // NewBalanceMonitor returns a new balanceMonitor
@@ -33,9 +34,8 @@ func NewBalanceMonitor(store *store.Store) BalanceMonitor {
 		store:          store,
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
-		headQueue:      make(chan *models.Head),
 	}
-	go balanceWorker(bm)
+	bm.sleeperTask = NewSleeperTask(&worker{bm: bm})
 	return bm
 }
 
@@ -46,10 +46,13 @@ func (bm *balanceMonitor) Connect(_ *models.Head) error {
 	return nil
 }
 
-// Disconnect complies with HeadTrackable
-func (bm *balanceMonitor) Disconnect() {
-	close(bm.headQueue)
+// Stop shuts down the BalanceMonitor, should not be used after this
+func (bm *balanceMonitor) Stop() {
+	bm.sleeperTask.Stop()
 }
+
+// Disconnect complies with HeadTrackable
+func (bm *balanceMonitor) Disconnect() {}
 
 // OnNewLongestChain checks the balance for each key
 func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head) {
@@ -57,12 +60,8 @@ func (bm *balanceMonitor) OnNewLongestChain(_ context.Context, head models.Head)
 }
 
 func (bm *balanceMonitor) checkBalance(head *models.Head) {
-	// Non blocking send on headQueue, if the queue is full, hits the default
-	// block and returns immediately
-	select {
-	case bm.headQueue <- head:
-	default:
-	}
+	logger.Debugw("BalanceMonitor: signalling balance worker")
+	bm.sleeperTask.WakeUp()
 }
 
 func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Address) {
@@ -96,40 +95,35 @@ func (bm *balanceMonitor) GetEthBalance(address gethCommon.Address) *assets.Eth 
 	return bm.ethBalances[address]
 }
 
-func balanceWorker(bm *balanceMonitor) {
-	for {
-		select {
-		case head, open := <-bm.headQueue:
-			if !open {
-				return
-			}
+type worker struct {
+	bm *balanceMonitor
+}
 
-			keys, err := bm.store.Keys()
-			if err != nil {
-				logger.Error("BalanceMonitor: error getting keys", err)
-			}
-
-			var wg sync.WaitGroup
-
-			wg.Add(len(keys))
-			for _, key := range keys {
-				go func(k models.Key) {
-					checkAccountBalance(bm, head, k)
-					wg.Done()
-				}(key)
-			}
-			wg.Wait()
-		}
+func (w *worker) Work() {
+	keys, err := w.bm.store.Keys()
+	if err != nil {
+		logger.Error("BalanceMonitor: error getting keys", err)
 	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(len(keys))
+	for _, key := range keys {
+		go func(k models.Key) {
+			w.checkAccountBalance(k)
+			wg.Done()
+		}(key)
+	}
+	wg.Wait()
 }
 
 const ethFetchTimeout = 2 * time.Second
 
-func checkAccountBalance(bm *balanceMonitor, head *models.Head, k models.Key) {
+func (w *worker) checkAccountBalance(k models.Key) {
 	ctx, cancel := context.WithTimeout(context.TODO(), ethFetchTimeout)
 	defer cancel()
 
-	bal, err := bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
+	bal, err := w.bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", k.Address.Hex()),
 			"error", err,
@@ -142,6 +136,6 @@ func checkAccountBalance(bm *balanceMonitor, head *models.Head, k models.Key) {
 		)
 	} else {
 		ethBal := assets.Eth(*bal)
-		bm.updateBalance(ethBal, k.Address.Address())
+		w.bm.updateBalance(ethBal, k.Address.Address())
 	}
 }
