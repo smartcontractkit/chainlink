@@ -1433,7 +1433,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:       1,
 			}, nil).
 			Once()
-		fetcher.On("Fetch", mock.Anything).
+		meta := utils.MustUnmarshalToMap(`{"availableFunds":100000, "eligibleToSubmit":true, "latestAnswer":100, "oracleCount":1, "paymentAmount":100, "reportableRoundID":3, "startedAt":0, "timeout":0}`)
+		fetcher.On("Fetch", meta).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		fluxAggregator.On("GetMethodID", "submit").
