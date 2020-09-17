@@ -59,8 +59,6 @@ type ocrPrivateKeysRawData struct {
 var DefaultScryptParams = ScryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
-var FastScryptParams = ScryptParams{N: 2, P: 1}
-
 var curve = secp256k1.S256()
 
 // var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
