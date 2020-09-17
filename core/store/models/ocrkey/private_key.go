@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"database/sql/driver"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,8 +22,6 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-type OCRPrivateKeyID [32]byte
-
 type OnChainSigningAddress common.Address
 type OnChainPublicKey ecdsa.PublicKey
 type onChainPrivateKey ecdsa.PrivateKey
@@ -31,14 +30,14 @@ type OffChainPublicKey ed25519.PublicKey
 type offChainPrivateKey ed25519.PrivateKey
 
 type OCRPrivateKey struct {
-	ID                 OCRPrivateKeyID
+	ID                 string
 	onChainSigning     *onChainPrivateKey
 	offChainSigning    *offChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
 type EncryptedOCRPrivateKey struct {
-	ID                    OCRPrivateKeyID `gorm:"primary_key"`
+	ID                    string `gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress
 	OffChainPublicKey     OffChainPublicKey
 	EncryptedPrivKeys     []byte
@@ -61,7 +60,10 @@ var DefaultScryptParams = ScryptParams{
 
 var curve = secp256k1.S256()
 
-// var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
+func (addr OnChainSigningAddress) Value() (driver.Value, error) {
+	byteArray := [20]byte(addr)
+	return byteArray[:], nil
+}
 
 // Sign returns the signature on msgHash with k
 func (k *onChainPrivateKey) Sign(msg []byte) (signature []byte, err error) {
@@ -128,7 +130,8 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	k.ID = sha256.Sum256(marshalledPrivK)
+	byteID := sha256.Sum256(marshalledPrivK)
+	k.ID = string(byteID[:])
 	return k, nil
 }
 
