@@ -8,14 +8,16 @@ import (
 )
 
 func assertPrivateKeysEqual(t *testing.T, pk1 *OCRPrivateKey, pk2 *OCRPrivateKey) {
+	assert.Equal(t, pk1.ID, pk2.ID)
 	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
 	assert.Equal(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
 	assert.Equal(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
-	assert.Equal(t, pk1.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
+	assert.Equal(t, pk1.offChainSigning, pk2.offChainSigning)
 	assert.Equal(t, pk1.offChainEncryption, pk2.offChainEncryption)
 }
 
 func assertPrivateKeysNotEqual(t *testing.T, pk1 *OCRPrivateKey, pk2 *OCRPrivateKey) {
+	assert.NotEqual(t, pk1.ID, pk2.ID)
 	assert.NotEqual(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
 	assert.NotEqual(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
 	assert.NotEqual(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
@@ -54,11 +56,15 @@ func TestOCRKeys_NewOCRPrivateKey(t *testing.T) {
 // and then decrypting
 func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
-	pkEncrypted, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(1)
+	pk, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(1)
 	require.NoError(t, err)
-	encryptedPKs, err := pkEncrypted.Encrypt("password", FastScryptParams)
+	pkEncrypted, err := pk.Encrypt("password", FastScryptParams)
 	require.NoError(t, err)
-	pkDecrypted, err := encryptedPKs.Decrypt("password")
+	// check that properties on encrypted key match those on OCRkey
+	require.Equal(t, pk.ID, pkEncrypted.ID)
+	require.Equal(t, pk.onChainSigning.Address(), pkEncrypted.OnChainSigningAddress)
+	require.Equal(t, pk.offChainSigning.PublicKey(), pkEncrypted.OffChainPublicKey)
+	pkDecrypted, err := pkEncrypted.Decrypt("password")
 	require.NoError(t, err)
-	assertPrivateKeysEqual(t, pkEncrypted, pkDecrypted)
+	assertPrivateKeysEqual(t, pk, pkDecrypted)
 }
