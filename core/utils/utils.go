@@ -348,6 +348,22 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 	}
 }
 
+// UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object
+func UnmarshalToMap(input string) (map[string]interface{}, error) {
+	var output map[string]interface{}
+	err := json.Unmarshal([]byte(input), &output)
+	return output, err
+}
+
+// MustUnmarshalToMap performs UnmarshalToMap, panics upon failure
+func MustUnmarshalToMap(input string) map[string]interface{} {
+	output, err := UnmarshalToMap(input)
+	if err != nil {
+		panic(err)
+	}
+	return output
+}
+
 // HashPassword wraps around bcrypt.GenerateFromPassword for a friendlier API.
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
