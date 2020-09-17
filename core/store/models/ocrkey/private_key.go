@@ -3,6 +3,7 @@ package ocrkey
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +21,8 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+type OCRPrivateKeyID [32]byte
+
 type OnChainSigningAddress common.Address
 type OnChainPublicKey ecdsa.PublicKey
 type onChainPrivateKey ecdsa.PrivateKey
@@ -28,17 +31,19 @@ type OffChainPublicKey ed25519.PublicKey
 type offChainPrivateKey ed25519.PrivateKey
 
 type OCRPrivateKey struct {
-	ID                 int32
+	ID                 OCRPrivateKeyID
 	onChainSigning     *onChainPrivateKey
 	offChainSigning    *offChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
 type EncryptedOCRPrivateKey struct {
-	ID                int32 `gorm:"primary_key"`
-	EncryptedPrivKeys []byte
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                    OCRPrivateKeyID `gorm:"primary_key"`
+	OnChainSigningAddress OnChainSigningAddress
+	OffChainPublicKey     OffChainPublicKey
+	EncryptedPrivKeys     []byte
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type ScryptParams struct{ N, P int }
@@ -121,6 +126,11 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 		offChainSigning:    (*offChainPrivateKey)(&offChainPriv),
 		offChainEncryption: &encryptionPriv,
 	}
+	marshalledPrivK, err := json.Marshal(k)
+	if err != nil {
+		return nil, err
+	}
+	k.ID = sha256.Sum256(marshalledPrivK)
 	return k, nil
 }
 
@@ -181,7 +191,6 @@ func adulteratedPassword(auth string) string {
 // Encrypt combines the OCRPrivateKey into a single json-serialized
 // bytes array and then encrypts
 func (pk *OCRPrivateKey) Encrypt(auth string, scryptParams ScryptParams) (*EncryptedOCRPrivateKey, error) {
-	var marshalledPrivK []byte
 	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
 		return nil, err
@@ -200,15 +209,17 @@ func (pk *OCRPrivateKey) Encrypt(auth string, scryptParams ScryptParams) (*Encry
 		return nil, errors.Wrapf(err, "could not encode cryptoJSON")
 	}
 	return &EncryptedOCRPrivateKey{
-		ID:                pk.ID,
-		EncryptedPrivKeys: encryptedPrivKeys,
+		ID:                    pk.ID,
+		OnChainSigningAddress: pk.onChainSigning.Address(),
+		OffChainPublicKey:     pk.offChainSigning.PublicKey(),
+		EncryptedPrivKeys:     encryptedPrivKeys,
 	}, nil
 }
 
 // Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
-func (e *EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
+func (encKey *EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
 	var cryptoJSON keystore.CryptoJSON
-	err := json.Unmarshal(e.EncryptedPrivKeys, &cryptoJSON)
+	err := json.Unmarshal(encKey.EncryptedPrivKeys, &cryptoJSON)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR key")
 	}
@@ -216,13 +227,13 @@ func (e *EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not decrypt OCR key")
 	}
-	var k OCRPrivateKey
-	err = json.Unmarshal(marshalledPrivK, &k)
+	var pk OCRPrivateKey
+	err = json.Unmarshal(marshalledPrivK, &pk)
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not unmarshal OCR key")
 	}
-	k.ID = e.ID
-	return &k, nil
+	pk.ID = encKey.ID
+	return &pk, nil
 }
 
 // MarshalJSON marshals the private keys into json
