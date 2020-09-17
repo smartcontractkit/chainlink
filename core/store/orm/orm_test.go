@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -2009,4 +2010,21 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
+}
+
+func TestORMCreateEncryptedOCRKey(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	sParams := ocrkey.ScryptParams{N: 2, P: 1}
+	key, err := ocrkey.NewOCRPrivateKey()
+	require.NoError(t, err)
+	encryptedKey, err := key.Encrypt("password", sParams)
+	require.NoError(t, err)
+	err = store.CreateEncryptedOCRKey(encryptedKey)
+	require.NoError(t, err)
+	var count int
+	store.DB.Model(&ocrkey.EncryptedOCRPrivateKey{}).Count(&count)
+	assert.Equal(t, 1, count)
 }
