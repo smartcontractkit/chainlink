@@ -10,7 +10,6 @@ set -ex
 # ie:
 # push_image master 0.6.9 integration
 # push_image develop echo_server
-# push_image release/0.6.9 ingester
 #
 # Ignores anything not matching above.
 # Key assumption: local version of smartcontract/<image>:circleci is the image
@@ -21,7 +20,6 @@ set -ex
 # test-cypress-job-server
 # test-external-adapter
 # test-echo-server
-# ingester
 #
 
 if [ -z "$DOCKERHUB_PASS" ]

@@ -338,24 +338,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-external-adapter
-  build-publish-ingester:
-    resource_class: large
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: docker build -f ingester/ingester.Dockerfile -t smartcontract/ingester:circleci .
-      - run:
-          name: Docker push, if applicable
-          command: |
-            tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" ingester
   reportcoverage:
     docker:
       - image: smartcontract/builder:1.0.33
@@ -504,10 +486,6 @@ workflows:
             tags:
               only: /^v.*/
       - build-publish-external-adapter:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-ingester:
           filters:
             tags:
               only: /^v.*/
