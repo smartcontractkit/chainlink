@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var fastScryptParamsXXXTestingOnly = ScryptParams{N: 2, P: 1}
+
 func assertPrivateKeysEqual(t *testing.T, pk1 *OCRPrivateKey, pk2 *OCRPrivateKey) {
 	assert.Equal(t, pk1.ID, pk2.ID)
 	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
@@ -23,20 +25,6 @@ func assertPrivateKeysNotEqual(t *testing.T, pk1 *OCRPrivateKey, pk2 *OCRPrivate
 	assert.NotEqual(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
 	assert.NotEqual(t, pk1.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
 	assert.NotEqual(t, pk1.offChainEncryption, pk2.offChainEncryption)
-}
-
-// Tests that NewDeterministicOCRPrivateKeyXXXTestingOnly creates deterministic
-// OCRPrivateKey
-func TestOCRKeys_NewDeterministicOCRPrivateKeyXXXTestingOnly(t *testing.T) {
-	t.Parallel()
-	pk, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(1)
-	require.NoError(t, err)
-	pkSameSeed, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(1)
-	require.NoError(t, err)
-	pkDifferentSeed, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(2)
-	require.NoError(t, err)
-	assertPrivateKeysEqual(t, pk, pkSameSeed)
-	assertPrivateKeysNotEqual(t, pk, pkDifferentSeed)
 }
 
 func TestOCRKeys_NewOCRPrivateKey(t *testing.T) {
@@ -56,9 +44,9 @@ func TestOCRKeys_NewOCRPrivateKey(t *testing.T) {
 // and then decrypting
 func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
-	pk, err := NewDeterministicOCRPrivateKeyXXXTestingOnly(1)
+	pk, err := NewOCRPrivateKey()
 	require.NoError(t, err)
-	pkEncrypted, err := pk.Encrypt("password", FastScryptParams)
+	pkEncrypted, err := pk.Encrypt("password", fastScryptParamsXXXTestingOnly)
 	require.NoError(t, err)
 	// check that properties on encrypted key match those on OCRkey
 	require.Equal(t, pk.ID, pkEncrypted.ID)
