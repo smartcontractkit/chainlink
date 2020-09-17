@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
@@ -27,14 +28,21 @@ Off-chain Public Key:
 func (cli *Client) createOCRKey(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-
 	password, err := getPassword(c)
 	if err != nil {
 		return err
 	}
-	key, err := store.OCRKeyStore.CreateKey(string(password))
+	key, err := ocrkey.NewOCRPrivateKey()
 	if err != nil {
-		return errors.Wrapf(err, "while generating new OCR key")
+		return errors.Wrapf(err, "while generating the new OCR key")
+	}
+	encryptedKey, err := key.Encrypt(string(password), ocrkey.DefaultScryptParams)
+	if err != nil {
+		return errors.Wrapf(err, "while encrypting the new OCR key")
+	}
+	err = store.CreateEncryptedOCRKey(encryptedKey)
+	if err != nil {
+		return errors.Wrapf(err, "while persisting the new encrypted OCR key")
 	}
 	fmt.Printf(createOCRKeyMsg, key.ID, key.PublicKeyAddressOnChain(), key.PublicKeyOffChain())
 	return nil
