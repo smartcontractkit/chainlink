@@ -1304,8 +1304,8 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 	return keys, orm.DB.Find(&keys).Error
 }
 
-// CreateEncryptedOCRKeys creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKeys(keys *ocrkey.EncryptedOCRPrivateKey) error {
+// CreateEncryptedOCRKey creates an encrypted OCR private key record
+func (orm *ORM) CreateEncryptedOCRKey(keys *ocrkey.EncryptedOCRPrivateKey) error {
 	return orm.DB.Create(keys).Error
 }
 

@@ -21,7 +21,7 @@ import (
 )
 
 type OnChainSigningAddress common.Address
-type onChainPublicKey ecdsa.PublicKey
+type OnChainPublicKey ecdsa.PublicKey
 type onChainPrivateKey ecdsa.PrivateKey
 
 type OffChainPublicKey ed25519.PublicKey
@@ -70,7 +70,7 @@ func onChainHash(msg []byte) []byte {
 	return crypto.Keccak256(msg)
 }
 
-func (k onChainPublicKey) Address() OnChainSigningAddress {
+func (k OnChainPublicKey) Address() OnChainSigningAddress {
 	return OnChainSigningAddress(crypto.PubkeyToAddress(ecdsa.PublicKey(k)))
 }
 

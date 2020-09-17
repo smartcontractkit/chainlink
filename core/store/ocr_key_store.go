@@ -125,7 +125,7 @@ func (ks *OCRKeyStore) saveToDB(key *ocrkey.OCRPrivateKey, auth string, scryptPa
 	if err != nil {
 		return errors.Wrap(err, "encrypting new OCR key")
 	}
-	err = ks.store.CreateEncryptedOCRKeys(encryptedKey)
+	err = ks.store.CreateEncryptedOCRKey(encryptedKey)
 	if err != nil {
 		return errors.Wrap(err, "persisting new OCR key")
 	}
