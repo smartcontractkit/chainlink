@@ -13,17 +13,24 @@ import (
 	cryptorand "crypto/rand"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/to_be_internal/signature"
-	"github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
 )
 
+type OnChainSigningAddress common.Address
+type onChainPublicKey ecdsa.PublicKey
+type onChainPrivateKey ecdsa.PrivateKey
+
+type OffChainPublicKey ed25519.PublicKey
+type offChainPrivateKey ed25519.PrivateKey
+
 type OCRPrivateKey struct {
 	ID                 int32
-	onChainSigning     *signature.OnChainPrivateKey
-	offChainSigning    *signature.OffChainPrivateKey
+	onChainSigning     *onChainPrivateKey
+	offChainSigning    *offChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
@@ -49,7 +56,45 @@ var DefaultScryptParams = ScryptParams{
 
 var FastScryptParams = ScryptParams{N: 2, P: 1}
 
-var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
+var curve = secp256k1.S256()
+
+// var _ types.PrivateKeys = (*OCRPrivateKey)(nil)
+
+// Sign returns the signature on msgHash with k
+func (k *onChainPrivateKey) Sign(msg []byte) (signature []byte, err error) {
+	sig, err := crypto.Sign(onChainHash(msg), (*ecdsa.PrivateKey)(k))
+	return sig, err
+}
+
+func onChainHash(msg []byte) []byte {
+	return crypto.Keccak256(msg)
+}
+
+func (k onChainPublicKey) Address() OnChainSigningAddress {
+	return OnChainSigningAddress(crypto.PubkeyToAddress(ecdsa.PublicKey(k)))
+}
+
+func (k onChainPrivateKey) Address() OnChainSigningAddress {
+	return OnChainSigningAddress(crypto.PubkeyToAddress(k.PublicKey))
+}
+
+// Sign returns the signature on msgHash with k
+func (k *offChainPrivateKey) Sign(msg []byte) ([]byte, error) {
+	if k == nil {
+		return nil, errors.Errorf("attempt to sign with nil key")
+	}
+	return ed25519.Sign(ed25519.PrivateKey(*k), msg), nil
+}
+
+// PublicKey returns the public key which commits to k
+func (k *offChainPrivateKey) PublicKey() OffChainPublicKey {
+	return OffChainPublicKey(ed25519.PrivateKey(*k).Public().(ed25519.PublicKey))
+}
+
+// NewOCRPrivateKey makes a new set of OCR keys from cryptographically secure entropy
+func NewOCRPrivateKey() (*OCRPrivateKey, error) {
+	return newPrivateKey(cryptorand.Reader)
+}
 
 // For internal use only - used to generate new sets of OCR private keys
 func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
@@ -57,11 +102,11 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	onChainPriv := new(signature.OnChainPrivateKey)
+	onChainPriv := new(onChainPrivateKey)
 	p := (*ecdsa.PrivateKey)(onChainPriv)
 	p.D = onChainSk
-	onChainPriv.PublicKey = ecdsa.PublicKey{Curve: signature.Curve}
-	p.PublicKey.X, p.PublicKey.Y = signature.Curve.ScalarBaseMult(onChainSk.Bytes())
+	onChainPriv.PublicKey = ecdsa.PublicKey{Curve: curve}
+	p.PublicKey.X, p.PublicKey.Y = curve.ScalarBaseMult(onChainSk.Bytes())
 	_, offChainPriv, err := ed25519.GenerateKey(reader)
 	if err != nil {
 		return nil, err
@@ -73,15 +118,10 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 	}
 	k := &OCRPrivateKey{
 		onChainSigning:     onChainPriv,
-		offChainSigning:    (*signature.OffChainPrivateKey)(&offChainPriv),
+		offChainSigning:    (*offChainPrivateKey)(&offChainPriv),
 		offChainEncryption: &encryptionPriv,
 	}
 	return k, nil
-}
-
-// NewOCRPrivateKey makes a new set of OCR keys from cryptographically secure entropy
-func NewOCRPrivateKey() (*OCRPrivateKey, error) {
-	return newPrivateKey(cryptorand.Reader)
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
@@ -110,13 +150,13 @@ func (pk *OCRPrivateKey) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 
 // PublicKeyAddressOnChain returns public component of the keypair used in
 // SignOnChain
-func (pk *OCRPrivateKey) PublicKeyAddressOnChain() types.OnChainSigningAddress {
+func (pk *OCRPrivateKey) PublicKeyAddressOnChain() OnChainSigningAddress {
 	return pk.onChainSigning.Address()
 }
 
 // PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
-func (pk *OCRPrivateKey) PublicKeyOffChain() types.OffChainPublicKey {
-	return types.OffChainPublicKey(pk.offChainSigning.PublicKey())
+func (pk *OCRPrivateKey) PublicKeyOffChain() OffChainPublicKey {
+	return OffChainPublicKey(pk.offChainSigning.PublicKey())
 }
 
 // PublicKeyConfig returns the public component of the keypair used in ConfigKeyShare
@@ -212,8 +252,8 @@ func (pk *OCRPrivateKey) UnmarshalJSON(b []byte) (err error) {
 		PublicKey: publicKey,
 		D:         &rawKeyData.EcdsaD,
 	}
-	onChainSigning := signature.OnChainPrivateKey(privateKey)
-	offChainSigning := signature.OffChainPrivateKey(rawKeyData.Ed25519PrivKey)
+	onChainSigning := onChainPrivateKey(privateKey)
+	offChainSigning := offChainPrivateKey(rawKeyData.Ed25519PrivKey)
 	pk.onChainSigning = &onChainSigning
 	pk.offChainSigning = &offChainSigning
 	pk.offChainEncryption = &rawKeyData.OffChainEncryption
