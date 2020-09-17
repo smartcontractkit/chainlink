@@ -11,11 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Chainlink header images to the following `README.md` files: root, core, 
+- Chainlink header images to the following `README.md` files: root, core,
   evm-contracts, and evm-test-helpers.
 - Database migrations: new log_consumptions records will contain the number of the associated block.
   This migration will allow future version of chainlink to automatically clean up unneeded log_consumption records.
   This migration should execute very fast.
+- External Adapters for the Flux Monitor will now receive the Flux Monitor round state info as the meta payload.
 
 ### Fixed
 

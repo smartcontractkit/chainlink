@@ -73,14 +73,14 @@ func (fa *fluxAggregator) SubscribeToLogs(listener eth.LogListener) (connected b
 }
 
 type FluxAggregatorRoundState struct {
-	ReportableRoundID uint32   `abi:"_roundId"`
-	EligibleToSubmit  bool     `abi:"_eligibleToSubmit"`
-	LatestAnswer      *big.Int `abi:"_latestSubmission"`
-	Timeout           uint64   `abi:"_timeout"`
-	StartedAt         uint64   `abi:"_startedAt"`
-	AvailableFunds    *big.Int `abi:"_availableFunds"`
-	PaymentAmount     *big.Int `abi:"_paymentAmount"`
-	OracleCount       uint8    `abi:"_oracleCount"`
+	ReportableRoundID uint32   `abi:"_roundId" json:"reportableRoundID"`
+	EligibleToSubmit  bool     `abi:"_eligibleToSubmit" json:"eligibleToSubmit"`
+	LatestAnswer      *big.Int `abi:"_latestSubmission" json:"latestAnswer,omitempty"`
+	Timeout           uint64   `abi:"_timeout" json:"timeout"`
+	StartedAt         uint64   `abi:"_startedAt" json:"startedAt"`
+	AvailableFunds    *big.Int `abi:"_availableFunds" json:"availableFunds,omitempty"`
+	PaymentAmount     *big.Int `abi:"_paymentAmount" json:"paymentAmount,omitempty"`
+	OracleCount       uint8    `abi:"_oracleCount" json:"oracleCount"`
 }
 
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {

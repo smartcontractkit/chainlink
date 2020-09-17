@@ -266,9 +266,14 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
+	requestData, err := initr.RequestData.AsMap()
+	if err != nil {
+		return nil, err
+	}
+
 	fetcher, err := newMedianFetcherFromURLs(
 		timeout,
-		initr.RequestData.String(),
+		requestData,
 		urls)
 	if err != nil {
 		return nil, err
@@ -718,7 +723,13 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 
 	logger.Infow("Responding to new round request", p.loggerFieldsForNewRound(log)...)
 
-	polledAnswer, err := p.fetcher.Fetch()
+	request, err := models.MarshalToMap(&roundState)
+	if err != nil {
+		logger.Warnw("Error marshalling roundState for request meta", p.loggerFieldsForNewRound(log)...)
+		return
+	}
+
+	polledAnswer, err := p.fetcher.Fetch(request)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to fetch median price: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -836,7 +847,13 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
-	polledAnswer, err := p.fetcher.Fetch()
+	request, err := models.MarshalToMap(&roundState)
+	if err != nil {
+		logger.Warnw("Error marshalling roundState for request meta", loggerFields...)
+		return
+	}
+
+	polledAnswer, err := p.fetcher.Fetch(request)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")

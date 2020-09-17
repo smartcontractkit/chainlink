@@ -269,6 +269,22 @@ func (j JSON) CBOR() ([]byte, error) {
 	}
 }
 
+// MarshalToMap converts a struct (typically) to a map[string] so it can be
+// manipulated without repeatedly serializing/deserializing
+func MarshalToMap(input interface{}) (map[string]interface{}, error) {
+	bytes, err := json.Marshal(input)
+	if err != nil {
+		return nil, err
+	}
+	var output map[string]interface{}
+	err = json.Unmarshal(bytes, &output)
+	if err != nil {
+		// Technically this should be impossible
+		return nil, err
+	}
+	return output, nil
+}
+
 // WebURL contains the URL of the endpoint.
 type WebURL url.URL
 
