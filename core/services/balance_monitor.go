@@ -117,10 +117,11 @@ func (w *worker) Work() {
 	wg.Wait()
 }
 
-const ethFetchTimeout = 2 * time.Second
+// Approximately ETH block time
+const ethFetchTimeout = 15 * time.Second
 
 func (w *worker) checkAccountBalance(k models.Key) {
-	ctx, cancel := context.WithTimeout(context.TODO(), ethFetchTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ethFetchTimeout)
 	defer cancel()
 
 	bal, err := w.bm.store.EthClient.BalanceAt(ctx, k.Address.Address(), nil)
