@@ -49,7 +49,7 @@ jobs:
       - uses: actions/setup-go@v2
       - uses: actions/checkout@v2
       - run: go get -v github.com/securego/gosec/cmd/gosec
-      - run: $HOME/go/bin/gosec -exclude=G101,G104,G204,G304 -exclude-dir ingester ./...
+      - run: $HOME/go/bin/gosec -exclude=G101,G104,G204,G304 ./...
   lint:
     name: lint
     runs-on: ubuntu-latest
