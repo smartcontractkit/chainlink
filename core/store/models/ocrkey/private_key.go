@@ -62,8 +62,21 @@ var DefaultScryptParams = ScryptParams{
 var curve = secp256k1.S256()
 
 func (addr OnChainSigningAddress) Value() (driver.Value, error) {
-	byteArray := [20]byte(addr)
+	byteArray := [common.AddressLength]byte(addr)
 	return byteArray[:], nil
+}
+
+func (addr *OnChainSigningAddress) Scan(value interface{}) error {
+	switch typed := value.(type) {
+	case []byte:
+		if len(typed) != common.AddressLength {
+			return errors.New("wrong number of bytes to scan into address")
+		}
+		copy(addr[:], typed)
+		return nil
+	default:
+		return errors.Errorf(`unable to convert %v of %T to OnChainSigningAddress`, value, value)
+	}
 }
 
 // Sign returns the signature on msgHash with k
