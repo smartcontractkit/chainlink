@@ -1,16 +1,12 @@
 package job
 
 import (
-	"encoding/json"
 	"sync"
 	"time"
 
-	"github.com/guregu/null.v4"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 //go:generate mockery --name Spawner --output ./mocks/ --case=underscore
@@ -25,34 +21,42 @@ type (
 	// "direct request" model allows for multiple initiators, which imply multiple
 	// services.
 	Spawner interface {
-		Start() error
+		Start()
 		Stop()
-		CreateJob(jobSpec Spec) error
-		StopJob(jobID models.ID)
-		RegisterJobType(jobType Type, factory SpecToServicesFunc)
+		CreateJob(spec Spec) error
+		DeleteJob(spec Spec) error
+		RegisterJobType(registration Registration)
 	}
 
 	spawner struct {
-		orm                ORM
-		serviceFactories   map[JobType]SpecToServicesFunc
-		serviceFactoriesMu sync.RWMutex
-		services           map[models.ID][]Service
-		chStopJob          chan models.ID
-		chStop             chan struct{}
-		chDone             chan struct{}
+		orm                    ORM
+		jobTypeRegistrations   map[Type]Registration
+		jobTypeRegistrationsMu sync.RWMutex
+		services               map[int32][]Service
+		chStopJob              chan int32
+		chStop                 chan struct{}
+		chDone                 chan struct{}
 	}
 
-	SpecToServicesFunc func(jobSpec Spec) ([]Service, error)
+	ServicesFactory func(spec Spec) ([]Service, error)
+
+	Registration struct {
+		JobType         Type
+		Spec            Spec
+		ServicesFactory ServicesFactory
+	}
 )
+
+var _ Spawner = (*spawner)(nil)
 
 func NewSpawner(orm ORM) *spawner {
 	return &spawner{
-		orm:              orm,
-		serviceFactories: make(map[JobType]SpecToServicesFunc),
-		services:         make(map[models.ID][]Service),
-		chStopJob:        make(chan models.ID),
-		chStop:           make(chan struct{}),
-		chDone:           make(chan struct{}),
+		orm:                  orm,
+		jobTypeRegistrations: make(map[Type]Registration),
+		services:             make(map[int32][]Service),
+		chStopJob:            make(chan int32),
+		chStop:               make(chan struct{}),
+		chDone:               make(chan struct{}),
 	}
 }
 
@@ -63,6 +67,13 @@ func (js *spawner) Start() {
 func (js *spawner) Stop() {
 	close(js.chStop)
 	<-js.chDone
+}
+
+func (js *spawner) RegisterJobType(registration Registration) {
+	js.jobTypeRegistrationsMu.Lock()
+	defer js.jobTypeRegistrationsMu.Unlock()
+
+	js.jobTypeRegistrations[registration.JobType] = registration
 }
 
 func (js *spawner) runLoop() {
@@ -78,8 +89,10 @@ func (js *spawner) runLoop() {
 		case <-js.chStop:
 			js.stopAllServices()
 			return
+
 		case jobID := <-js.chStopJob:
 			js.stopService(jobID)
+
 		case <-ticker.C:
 			js.startUnclaimedServices()
 		}
@@ -87,8 +100,7 @@ func (js *spawner) runLoop() {
 }
 
 func (js *spawner) startUnclaimedServices() {
-	// NOTE: .UnclaimedJobs() should automatically lock/claim the jobs
-	jobSpecs, err := js.orm.UnclaimedJobs()
+	jobSpecs, err := js.orm.UnclaimedJobs(js.jobTypeRegistrations, js.services)
 	if err != nil {
 		logger.Errorf("error fetching unclaimed jobs: %v", err)
 		return
@@ -102,21 +114,25 @@ func (js *spawner) startUnclaimedServices() {
 				"job id", jobSpec.JobID(),
 				"error", err,
 			)
-			// TODO: un-claim the job
 		}
 	}
 }
 
 func (js *spawner) startService(jobSpec Spec) error {
-	js.serviceFactoriesMu.RLock()
-	defer js.serviceFactoriesMu.RUnlock()
+	js.jobTypeRegistrationsMu.RLock()
+	defer js.jobTypeRegistrationsMu.RUnlock()
 
-	factory, exists := js.serviceFactories[jobSpec.JobType()]
+	logger.Infow("Starting service for job",
+		"jobID", jobSpec.JobID(),
+		"jobType", jobSpec.JobType(),
+	)
+
+	reg, exists := js.jobTypeRegistrations[jobSpec.JobType()]
 	if !exists {
 		return errors.Errorf("Job Spawner got unknown job type '%v'", jobSpec.JobType())
 	}
 
-	services, err := factory(jobSpec)
+	services, err := reg.ServicesFactory(jobSpec)
 	if err != nil {
 		return err
 	}
@@ -137,7 +153,7 @@ func (js *spawner) stopAllServices() {
 	}
 }
 
-func (js *spawner) stopService(jobID models.ID) {
+func (js *spawner) stopService(jobID int32) {
 	for _, service := range js.services[jobID] {
 		err := service.Stop()
 		if err != nil {
@@ -150,67 +166,24 @@ func (js *spawner) stopService(jobID models.ID) {
 	delete(js.services, jobID)
 }
 
-func (js *spawner) CreateJob(spec JobSpec) error {
-	return js.db.Transaction(func(tx *gorm.DB) error {
-		// Save the spec to the DB
-		err := tx.Create(spec)
-		if err != nil {
-			return err
-		}
-
-		// Convert the task DAG into TaskSpec DB rows
-		taskSpecs := []pipeline.TaskSpec{}
-		taskSpecIDs := make(map[pipeline.Task]int64)
-		err = spec.TaskDAG().ReverseWalkTasks(func(task pipeline.Task) error {
-			var successorID null.Int64
-			if len(task.OutputTasks()) > 1 {
-				return errors.New("task has > 1 output task")
-
-			} else if len(task.OutputTasks()) == 1 {
-				successor := task.OutputTasks()[0]
-				successorID = null.Int64From(taskSpecIDs[successor])
-			}
-
-			taskJSON, err := json.Marshal(task)
-			if err != nil {
-				return err
-			}
-
-			taskSpec := pipeline.TaskSpec{
-				TaskType:    task.Type(),
-				TaskJson:    taskJSON,
-				SuccessorID: successorID,
-			}
-
-			err = tx.Create(&taskSpec).Error
-			if err != nil {
-				return err
-			}
-
-			taskSpecIDs[task] = taskSpec
-			taskSpecs = append(taskSpecs, taskSpec)
-			return nil
-		})
-
-		pipelineSpec := pipeline.Spec{
-			JobSpecID:    spec.JobID(),
-			DotDagSource: spec.TaskDAG().DOTSource,
-			TaskSpecs:    taskSpecs,
-		}
-		return tx.Create(&pipelineSpec).Error
-	})
+func (js *spawner) CreateJob(spec Spec) error {
+	return js.orm.CreateJob(spec)
 }
 
-func (js *spawner) StopJob(id models.ID) {
+func (js *spawner) DeleteJob(spec Spec) error {
+	if spec.JobID() == nil {
+		return errors.New("Job Spawner could not delete job: got nil job ID")
+	}
+
+	err := js.orm.DeleteJob(spec)
+	if err != nil {
+		return err
+	}
+
 	select {
 	case <-js.chStop:
-	case js.chStopJob <- id:
+	case js.chStopJob <- *spec.JobID():
 	}
-}
 
-func (js *spawner) RegisterJobType(jobType Type, factory SpecToServicesFunc) {
-	js.serviceFactoriesMu.Lock()
-	defer js.serviceFactoriesMu.Unlock()
-
-	js.serviceFactories[jobType] = factory
+	return nil
 }

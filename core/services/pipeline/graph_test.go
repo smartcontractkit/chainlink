@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"net/url"
-	"reflect"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -133,56 +132,58 @@ func TestGraph_Decode(t *testing.T) {
 	}
 }
 
-func TestGraph_Tasks(t *testing.T) {
+func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	g := NewTaskDAG()
 	err := g.UnmarshalText([]byte(dotStr))
-	require.NoError(t, err)
-
-	tasks, err := g.Tasks()
 	require.NoError(t, err)
 
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
-	ds1 := &BridgeTask{Name: "voter_turnout"}
-	ds1_parse := &JSONParseTask{
-		Path:     []string{"one", "two"},
-		BaseTask: BaseTask{inputTasks: []Task{ds1}},
-	}
+	answer1 := &MedianTask{}
+	answer2 := &BridgeTask{Name: "election_winner"}
 	ds1_multiply := &MultiplyTask{
 		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: BaseTask{inputTasks: []Task{ds1_parse}},
+		BaseTask: BaseTask{outputTask: answer1},
+	}
+	ds1_parse := &JSONParseTask{
+		Path:     []string{"one", "two"},
+		BaseTask: BaseTask{outputTask: ds1_multiply},
+	}
+	ds1 := &BridgeTask{
+		Name:     "voter_turnout",
+		BaseTask: BaseTask{outputTask: ds1_parse},
+	}
+	ds2_multiply := &MultiplyTask{
+		Times:    decimal.NewFromFloat(4.56),
+		BaseTask: BaseTask{outputTask: answer1},
+	}
+	ds2_parse := &JSONParseTask{
+		Path:     []string{"three", "four"},
+		BaseTask: BaseTask{outputTask: ds2_multiply},
 	}
 	ds2 := &HTTPTask{
 		URL:         models.WebURL(*u),
 		Method:      "GET",
 		RequestData: HttpRequestData{"hi": "hello"},
+		BaseTask:    BaseTask{outputTask: ds2_parse},
 	}
-	ds2_parse := &JSONParseTask{
-		Path:     []string{"three", "four"},
-		BaseTask: BaseTask{inputTasks: []Task{ds2}},
+
+	tasks, err := g.TasksInDependencyOrder()
+	require.NoError(t, err)
+
+	// Make sure that no task appears in the array until its output task has already appeared
+	for i, task := range tasks {
+		if task.OutputTask() != nil {
+			require.Contains(t, tasks[:i], task.OutputTask())
+		}
 	}
-	ds2_multiply := &MultiplyTask{
-		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: BaseTask{inputTasks: []Task{ds2_parse}},
-	}
-	answer1 := &MedianTask{
-		BaseTask: BaseTask{inputTasks: []Task{ds1_multiply, ds2_multiply}},
-	}
-	answer2 := &BridgeTask{Name: "election_winner"}
 
 	expected := []Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	require.Len(t, tasks, len(expected))
 
 	for _, task := range expected {
-		var found bool
-		for _, other := range tasks {
-			if reflect.DeepEqual(task, other) {
-				found = true
-				break
-			}
-		}
-		require.True(t, found)
+		require.Contains(t, tasks, task)
 	}
 }
 

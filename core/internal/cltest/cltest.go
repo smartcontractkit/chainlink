@@ -1270,6 +1270,20 @@ func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
 	return tx
 }
 
+type Awaiter chan struct{}
+
+func NewAwaiter() Awaiter { return make(Awaiter) }
+
+func (a Awaiter) ItHappened() { close(a) }
+
+func (a Awaiter) AwaitOrFail(t testing.TB, d time.Duration) {
+	select {
+	case <-a:
+	case <-time.After(d):
+		t.Fatal("timed out")
+	}
+}
+
 func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {
 	t.Helper()
 

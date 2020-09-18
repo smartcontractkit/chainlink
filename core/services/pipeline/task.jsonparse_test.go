@@ -1,12 +1,9 @@
-package pipeline_test
+package pipeline
 
 import (
 	"testing"
 
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestJSONParseTask(t *testing.T) {
@@ -124,14 +121,15 @@ func TestJSONParseTask(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.JSONParseTask{Path: test.path}
-			result, err := task.Run([]pipeline.Result{{Value: test.input}})
-			require.Equal(t, test.wantData, result)
+			task := JSONParseTask{Path: test.path}
+			result := task.Run([]Result{{Value: test.input}})
 
 			if test.wantResultError {
-				require.Error(t, err)
+				require.Error(t, result.Error)
+				require.Nil(t, result.Value)
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, result.Error)
+				require.Equal(t, test.wantData, result.Value)
 			}
 		})
 	}

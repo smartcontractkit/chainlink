@@ -5,31 +5,29 @@ import (
 
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type (
 	Spec struct {
-		ID           int64 `gorm:"primary_key"`
-		JobSpecID    *models.ID
+		ID           int32 `gorm:"primary_key"`
+		JobSpecID    int32
 		DotDagSource string
 		TaskSpecs    []TaskSpec
 		CreatedAt    time.Time
 	}
 
 	TaskSpec struct {
-		ID          int64 `gorm:"primary_key"`
-		SpecID      int64
-		TaskType    TaskType
-		TaskJson    JSONSerializable `gorm:"type:jsonb"`
-		SuccessorID null.Int64
+		ID          int32 `gorm:"primary_key"`
+		SpecID      int32
+		Type        TaskType
+		JSON        JSONSerializable `gorm:"type:jsonb"`
+		SuccessorID null.Int
 		CreatedAt   time.Time
 	}
 
 	Run struct {
 		ID        int64 `gorm:"primary_key"`
-		SpecID    int64
+		SpecID    int32
 		CreatedAt time.Time
 	}
 
@@ -38,7 +36,7 @@ type (
 		RunID      int64
 		Output     *JSONSerializable `gorm:"type:jsonb"`
 		Error      null.String
-		TaskSpecID int64
+		TaskSpecID int32
 		TaskSpec   TaskSpec
 		CreatedAt  time.Time
 		FinishedAt time.Time

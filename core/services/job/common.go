@@ -2,7 +2,6 @@ package job
 
 import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/model"
 )
 
 //go:generate mockery --name Spec --output ./mocks/ --case=underscore
@@ -12,9 +11,10 @@ type (
 	Type string
 
 	Spec interface {
-		JobID() *models.ID
+		JobID() int32
 		JobType() Type
 		TaskDAG() pipeline.TaskDAG
+		TableName() string
 	}
 
 	Service interface {

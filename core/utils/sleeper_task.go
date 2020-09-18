@@ -1,4 +1,4 @@
-package services
+package utils
 
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {

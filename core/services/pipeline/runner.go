@@ -1,29 +1,31 @@
 package pipeline
 
 import (
+	"context"
 	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	// "github.com/smartcontractkit/chainlink/core/services"
-	// "github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type (
 	Runner interface {
 		Start()
 		Stop()
-		CreateRun(specID int64) error
+		CreateRun(jobSpecID int32) (int64, error)
+		AwaitRun(ctx context.Context, runID int64) error
+		ResultsForRun(runID int64) ([]Result, error)
 	}
 
 	runner struct {
-		// processTasks services.SleeperTask
-		orm    ORM
-		config Config
-		chStop chan struct{}
-		chDone chan struct{}
+		processTasks utils.SleeperTask
+		orm          ORM
+		config       Config
+		chStop       chan struct{}
+		chDone       chan struct{}
 	}
 )
 
@@ -34,7 +36,9 @@ func NewRunner(orm ORM, config Config) *runner {
 		chStop: make(chan struct{}),
 		chDone: make(chan struct{}),
 	}
-	// r.processTasks = services.NewSleeperTask(services.SleeperTaskFuncWorker(r.processIncompleteTaskRuns))
+	r.processTasks = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(r.processIncompleteTaskRuns),
+	)
 	return r
 }
 
@@ -61,30 +65,39 @@ func (r *runner) Stop() {
 	<-r.chDone
 }
 
-func (r *runner) CreateRun(specID int64) (int64, error) {
-	err = r.orm.CreateRun(specID)
+func (r *runner) CreateRun(jobSpecID int32) (int64, error) {
+	runID, err := r.orm.CreateRun(jobSpecID)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	// r.processTasks.WakeUp()
-	return nil
+	r.processTasks.WakeUp()
+	return runID, nil
 }
 
-// NOTE: This could potentially run on another machine in the cluster
-func (r *runner) processIncompleteTaskRuns() error {
+func (r *runner) AwaitRun(ctx context.Context, runID int64) error {
+	return r.orm.AwaitRun(ctx, runID)
+}
+
+func (r *runner) ResultsForRun(runID int64) ([]Result, error) {
+	return r.orm.ResultsForRun(runID)
+}
+
+// NOTE: This could potentially run on a different machine in the cluster than
+// the one that originally added the task runs.
+func (r *runner) processIncompleteTaskRuns() {
 	for {
 		var runID int64
-		err := r.orm.WithNextUnclaimedTaskRun(func(ptRun TaskRun, predecessors []TaskRun) Result {
-			runID = ptRun.RunID
+		err := r.orm.WithNextUnclaimedTaskRun(func(taskRun TaskRun, predecessors []TaskRun) Result {
+			runID = taskRun.RunID
 
 			inputs := make([]Result, len(predecessors))
 			for i, predecessor := range predecessors {
 				inputs[i] = predecessor.Result()
 			}
 
-			task, err := UnmarshalTask(taskSpec.TaskType, taskSpec.TaskJson.Value, orm, config)
+			task, err := UnmarshalTask(taskRun.TaskSpec.Type, taskRun.TaskSpec.JSON.Value, r.orm, r.config)
 			if err != nil {
-				return nil, err
+				return Result{Error: err}
 			}
 
 			result := task.Run(inputs)
@@ -97,12 +110,13 @@ func (r *runner) processIncompleteTaskRuns() error {
 			// All task runs complete
 			break
 		} else if err != nil {
-			return err
+			logger.Errorf("Error processing incomplete task runs: %v", err)
+			return
 		}
 
 		err = r.orm.NotifyCompletion(runID)
 		if err != nil {
-			return err
+			logger.Errorf("Error calling pg_notify for run %v: %v", runID, err)
 		}
 	}
 }

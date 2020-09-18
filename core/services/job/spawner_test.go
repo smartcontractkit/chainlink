@@ -1,149 +1,206 @@
-package job
+package job_test
 
 import (
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-func TestSpawner_AddJobRemoveJob(t *testing.T) {
+func mockORM(jobsInDB ...job.Spec) *mocks.ORM {
+	orm := new(mocks.ORM)
+
+	var jobsInDBMu sync.Mutex
+
+	fnCall := orm.On("UnclaimedJobs", mock.Anything)
+	fnCall.RunFn = func(args mock.Arguments) {
+		jobsInDBMu.Lock()
+		defer jobsInDBMu.Unlock()
+		claimedJobs := make([]job.Spec, len(jobsInDB))
+		copy(claimedJobs, jobsInDB)
+		jobsInDB = nil
+		fnCall.ReturnArguments = mock.Arguments{claimedJobs, nil}
+	}
+	fnCall.Maybe()
+
+	orm.On("CreateJob", mock.Anything).
+		Run(func(args mock.Arguments) {
+			jobsInDBMu.Lock()
+			defer jobsInDBMu.Unlock()
+			jobsInDB = append(jobsInDB, args.Get(0).(job.Spec))
+		}).
+		Return(nil).
+		Maybe()
+
+	orm.On("DeleteJob", mock.Anything).
+		Run(func(args mock.Arguments) {
+			jobsInDBMu.Lock()
+			defer jobsInDBMu.Unlock()
+			jobID := args.Get(0).(int32)
+			for i, job := range jobsInDB {
+				if *job.JobID() == jobID {
+					jobsInDB = append(jobsInDB[:i], jobsInDB[i+1:]...)
+					break
+				}
+			}
+		}).
+		Return(nil).
+		Maybe()
+
+	return orm
+}
+
+func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		orm := new(mocks.JobSpawnerORM)
+		orm := mockORM()
 
-		var jobs []JobSpec
-		fnCall := orm.On("UnclaimedJobs")
-		fn.RunFn = func(args mock.Arguments) {
-			fnCall.ReturnArguments = mock.Arguments{jobs, nil}
-		}
+		spawner := job.NewSpawner(orm)
+		spawner.Start()
 
-		spawner := NewSpawner(orm)
-		err := spawner.Start()
-		require.NoError(t, err)
-
-		jobIDA := models.NewID()
-		jobSpecA := new(mocks.JobSpec)
-		jobSpecA.On("JobType").Return("AAA")
+		jobIDA := int32(1)
+		jobSpecA := new(mocks.Spec)
+		jobSpecA.On("JobType").Return(job.Type("AAA"))
 		jobSpecA.On("JobID").Return(jobIDA)
 
-		serviceA1 := new(mocks.Service)
-		serviceA2 := new(mocks.Service)
-		serviceA1.On("Start").Return(nil).Run(func(mock.Arguments) { jobs = jobs[1:] }).Once()
-		serviceA2.On("Start").Return(nil).Once()
-		spawner.RegisterJobType("AAA", func(jobSpec JobSpec) ([]Service, error) {
-			jobs = append(jobs, jobSpec)
-			require.Equal(t, jobIDA, jobSpec.JobID())
-			require.Equal(t, "AAA", jobSpec.JobType())
-			return []Service{serviceA1, serviceA2}, nil
-		})
-
-		err = spawner.AddJob(jobSpecA)
-		require.NoError(t, err)
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceA1, serviceA2) }, 5*time.Second, 100*time.Millisecond)
-
-		jobIDB := models.NewID()
-		jobSpecB := new(mocks.JobSpec)
-		jobSpecB.On("JobType").Return("BBB")
-		jobSpecB.On("JobID").Return(jobIDB)
-
-		serviceB1 := new(mocks.Service)
-		serviceB2 := new(mocks.Service)
-		serviceB1.On("Start").Return(nil).Run(func(mock.Arguments) { jobs = jobs[1:] }).Once()
-		serviceB2.On("Start").Return(nil).Once()
-		spawner.RegisterJobType("BBB", func(jobSpec JobSpec) ([]Service, error) {
-			jobs = append(jobs, jobSpec)
-			require.Equal(t, jobIDB, jobSpec.JobID())
-			require.Equal(t, "BBB", jobSpec.JobType())
-			return []Service{serviceB1, serviceB2}, nil
-		})
-
-		err = spawner.AddJob(jobSpecB)
-		require.NoError(t, err)
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceB1, serviceB2) }, 5*time.Second, 100*time.Millisecond)
-
-		serviceA1.On("Stop").Return(nil).Once()
-		serviceA2.On("Stop").Return(nil).Once()
-		spawner.RemoveJob(jobSpecA.JobID())
-
-		serviceB1.On("Stop").Return(nil).Once()
-		serviceB2.On("Stop").Return(nil).Once()
-		spawner.RemoveJob(jobSpecB.JobID())
-
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceA1, serviceA2, serviceB1, serviceB2) }, 5*time.Second, 100*time.Millisecond)
-
-		spawner.Stop()
-	})
-
-	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
-		jobIDA := models.NewID()
-		jobSpecA := new(mocks.JobSpec)
-		jobSpecA.On("JobType").Return("AAA")
-		jobSpecA.On("JobID").Return(jobIDA)
-
+		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
 		serviceA1.On("Start").Return(nil).Once()
-		serviceA2.On("Start").Return(nil).Once()
-
-		orm := new(mocks.JobSpawnerORM)
-		orm.On("UnclaimedJobs").Return([]Spec{jobSpecA}, nil).Once()
-		orm.On("UnclaimedJobs").Return(nil, nil)
-
-		spawner := NewSpawner(orm)
-
-		spawner.RegisterJobType("AAA", func(jobSpec JobSpec) ([]Service, error) {
-			require.Equal(t, jobIDA, jobSpec.JobID())
-			require.Equal(t, "AAA", jobSpec.JobType())
-			return []Service{serviceA1, serviceA2}, nil
+		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
+		spawner.RegisterJobType(job.Registration{
+			JobType: "AAA",
+			Spec:    nil,
+			ServicesFactory: func(jobSpec job.Spec) ([]job.Service, error) {
+				require.Equal(t, jobIDA, jobSpec.JobID())
+				require.Equal(t, job.Type("AAA"), jobSpec.JobType())
+				return []job.Service{serviceA1, serviceA2}, nil
+			},
 		})
 
-		err := spawner.Start()
+		err := spawner.CreateJob(jobSpecA)
 		require.NoError(t, err)
+
+		eventuallyA.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, orm, serviceA1, serviceA2)
+
+		jobIDB := int32(2)
+		jobSpecB := new(mocks.Spec)
+		jobSpecB.On("JobType").Return(job.Type("BBB"))
+		jobSpecB.On("JobID").Return(jobIDB)
+
+		eventuallyB := cltest.NewAwaiter()
+		serviceB1 := new(mocks.Service)
+		serviceB2 := new(mocks.Service)
+		serviceB1.On("Start").Return(nil).Once()
+		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
+		spawner.RegisterJobType(job.Registration{
+			JobType: "BBB",
+			Spec:    nil,
+			ServicesFactory: func(jobSpec job.Spec) ([]job.Service, error) {
+				require.Equal(t, jobIDB, jobSpec.JobID())
+				require.Equal(t, job.Type("BBB"), jobSpec.JobType())
+				return []job.Service{serviceB1, serviceB2}, nil
+			},
+		})
+
+		err = spawner.CreateJob(jobSpecB)
+		require.NoError(t, err)
+
+		eventuallyB.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, orm, serviceB1, serviceB2)
+
+		serviceA1.On("Stop").Return(nil).Once()
+		serviceA2.On("Stop").Return(nil).Once()
+		spawner.DeleteJob(jobSpecA)
+
+		serviceB1.On("Stop").Return(nil).Once()
+		serviceB2.On("Stop").Return(nil).Once()
+		spawner.DeleteJob(jobSpecB)
+
+		spawner.Stop()
+		orm.AssertExpectations(t)
+		serviceA1.AssertExpectations(t)
+		serviceA2.AssertExpectations(t)
+		serviceB1.AssertExpectations(t)
+		serviceB2.AssertExpectations(t)
+	})
+
+	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
+		jobIDA := int32(1)
+		jobSpecA := new(mocks.Spec)
+		jobSpecA.On("JobType").Return(job.Type("AAA"))
+		jobSpecA.On("JobID").Return(jobIDA)
+
+		eventually := cltest.NewAwaiter()
+		serviceA1 := new(mocks.Service)
+		serviceA2 := new(mocks.Service)
+		serviceA1.On("Start").Return(nil).Once()
+		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
+
+		orm := mockORM(jobSpecA)
+		spawner := job.NewSpawner(orm)
+
+		spawner.RegisterJobType(job.Registration{
+			JobType: "AAA",
+			Spec:    nil,
+			ServicesFactory: func(jobSpec job.Spec) ([]job.Service, error) {
+				require.Equal(t, jobIDA, jobSpec.JobID())
+				require.Equal(t, job.Type("AAA"), jobSpec.JobType())
+				return []job.Service{serviceA1, serviceA2}, nil
+			},
+		})
+
+		spawner.Start()
 		defer spawner.Stop()
 
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceA1, serviceA2) }, 5*time.Second, 100*time.Millisecond)
+		eventually.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Stop").Return(nil).Once()
 		serviceA2.On("Stop").Return(nil).Once()
 	})
 
 	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-		jobIDA := models.NewID()
-		jobSpecA := new(mocks.JobSpec)
-		jobSpecA.On("JobType").Return("AAA")
+		jobIDA := int32(1)
+		jobSpecA := new(mocks.Spec)
+		jobSpecA.On("JobType").Return(job.Type("AAA"))
 		jobSpecA.On("JobID").Return(jobIDA)
 
+		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
 		serviceA1.On("Start").Return(nil).Once()
-		serviceA2.On("Start").Return(nil).Once()
+		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := new(mocks.JobSpawnerORM)
-		orm.On("UnclaimedJobs").Return([]Spec{jobSpecA}, nil).Once()
-		orm.On("UnclaimedJobs").Return(nil, nil)
+		orm := mockORM(jobSpecA)
+		spawner := job.NewSpawner(orm)
 
-		spawner := NewSpawner(orm)
-
-		spawner.RegisterJobType("AAA", func(jobSpec JobSpec) ([]Service, error) {
-			require.Equal(t, jobIDA, jobSpec.JobID())
-			require.Equal(t, "AAA", jobSpec.JobType())
-			return []Service{serviceA1, serviceA2}, nil
+		spawner.RegisterJobType(job.Registration{
+			JobType: "AAA",
+			Spec:    nil,
+			ServicesFactory: func(jobSpec job.Spec) ([]job.Service, error) {
+				require.Equal(t, jobIDA, jobSpec.JobID())
+				require.Equal(t, job.Type("AAA"), jobSpec.JobType())
+				return []job.Service{serviceA1, serviceA2}, nil
+			},
 		})
 
-		err := spawner.Start()
-		require.NoError(t, err)
+		spawner.Start()
 
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceA1, serviceA2) }, 5*time.Second, 100*time.Millisecond)
+		eventually.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Stop").Return(nil).Once()
 		serviceA2.On("Stop").Return(nil).Once()
 
 		spawner.Stop()
 
-		require.Eventually(t, func() bool { return mock.AssertExpectationsForObjects(t, serviceA1, serviceA2) }, 5*time.Second, 100*time.Millisecond)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 	})
 }

@@ -2,6 +2,8 @@ package pipeline
 
 import (
 	"encoding/json"
+	"net/url"
+	"reflect"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -15,9 +17,10 @@ import (
 
 type (
 	Task interface {
+		Type() TaskType
 		Run(inputs []Result) Result
-		OutputTasks() []Task
-		SetOutputTasks(tasks []Task)
+		OutputTask() Task
+		SetOutputTask(task Task)
 	}
 
 	Result struct {
@@ -37,11 +40,11 @@ var (
 )
 
 type BaseTask struct {
-	outputTasks []Task `json:"-"`
+	outputTask Task `json:"-"`
 }
 
-func (t BaseTask) OutputTasks() []Task                { return t.outputTasks }
-func (t *BaseTask) SetOutputTasks(outputTasks []Task) { t.outputTasks = outputTasks }
+func (t BaseTask) OutputTask() Task               { return t.outputTask }
+func (t *BaseTask) SetOutputTask(outputTask Task) { t.outputTask = outputTask }
 
 type JSONSerializable struct {
 	Value interface{}
@@ -68,7 +71,7 @@ const (
 	TaskTypeJSONParse TaskType = "jsonparse"
 )
 
-func UnmarshalTask(taskType TaskType, taskMap interface{}, orm ORM, config RunnerConfig) (Task, error) {
+func UnmarshalTask(taskType TaskType, taskMap interface{}, orm ORM, config Config) (Task, error) {
 	switch taskMap.(type) {
 	default:
 		return nil, errors.New("UnmarshalTask only accepts a map[string]interface{} or a map[string]string")

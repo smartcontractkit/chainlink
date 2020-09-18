@@ -20,6 +20,12 @@ type BridgeTask struct {
 	config Config
 }
 
+var _ Task = (*BridgeTask)(nil)
+
+func (t *BridgeTask) Type() TaskType {
+	return TaskTypeBridge
+}
+
 func (f *BridgeTask) Run(inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}

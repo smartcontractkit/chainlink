@@ -15,6 +15,12 @@ type MedianTask struct {
 	BaseTask
 }
 
+var _ Task = (*MedianTask)(nil)
+
+func (t *MedianTask) Type() TaskType {
+	return TaskTypeMedian
+}
+
 func (f *MedianTask) Run(inputs []Result) Result {
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
