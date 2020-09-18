@@ -286,6 +286,11 @@ func NewApp(client *Client) *cli.App {
 							Action: client.CreateOCRKey,
 						},
 						{
+							Name:   "delete",
+							Usage:  format(`Deletes the encrypted OCR Key bundle matching the given ID`),
+							Action: client.DeleteOCRKey,
+						},
+						{
 							Name:   "list",
 							Usage:  format(`List available OCR keys`),
 							Action: client.ListOCRKeys,
