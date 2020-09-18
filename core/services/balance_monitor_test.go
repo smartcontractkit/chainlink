@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -198,7 +199,12 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 		WaitUntil(mockUnblocker).
 		Once().
 		Return(big.NewInt(42), nil)
+	// This second call is Maybe because the SleeperTask may not have started
+	// before we call `OnNewLongestChain` 10 times, in which case it's only
+	// executed once
+	var callCount int32
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+		Run(func(mock.Arguments) { atomic.AddInt32(&callCount, 1) }).
 		Maybe().
 		Return(big.NewInt(42), nil)
 
@@ -213,5 +219,8 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	})
 
 	bm.Stop()
+
+	// Make sure the BalanceAt mock wasn't called more than once
+	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))
 	gethClient.AssertExpectations(t)
 }
