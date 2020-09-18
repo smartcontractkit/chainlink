@@ -1318,6 +1318,16 @@ func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKey, er
 	return keys, nil
 }
 
+// FindEncryptedOCRKeyByID finds an EncryptedOCRPrivateKey bundle by it's ID
+func (orm *ORM) FindEncryptedOCRKeyByID(id string) (*ocrkey.EncryptedOCRPrivateKey, error) {
+	key := ocrkey.EncryptedOCRPrivateKey{}
+	err := orm.DB.Where("id = ?", id).First(&key).Error
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
 // DeleteEncryptedOCRKey deletes the provided encrypted OCR key record
 func (orm *ORM) DeleteEncryptedOCRKey(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
 	return orm.DB.Delete(&key).Error
