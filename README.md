@@ -49,6 +49,7 @@ regarding Chainlink social accounts, news, and networking.
 2. Install [NodeJS 10.16](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
    -  It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 10.16 && nvm use 10.16`
 3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+   - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
    - If you got any errors regarding locked yarn package, try running `yarn install` before this step
