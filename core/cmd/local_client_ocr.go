@@ -51,7 +51,7 @@ func (cli *Client) createOCRKey(c *clipkg.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "while generating the new OCR key")
 	}
-	encryptedKey, err := key.Encrypt(string(password), ocrkey.DefaultScryptParams)
+	encryptedKey, err := key.Encrypt(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while encrypting the new OCR key")
 	}
