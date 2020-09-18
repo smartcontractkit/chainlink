@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -131,7 +132,7 @@ func newPrivateKey(reader io.Reader) (*OCRPrivateKey, error) {
 		return nil, err
 	}
 	byteID := sha256.Sum256(marshalledPrivK)
-	k.ID = string(byteID[:])
+	k.ID = hex.EncodeToString(byteID[:])
 	return k, nil
 }
 
