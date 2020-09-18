@@ -230,7 +230,9 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, blockHeight i
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, int64(ec.config.EthGasBumpThreshold()), 10)
+	threshold := int64(ec.config.EthGasBumpThreshold())
+	depth := int64(ec.config.EthGasBumpTxDepth())
+	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, threshold, depth)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 	}
