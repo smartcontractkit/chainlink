@@ -46,7 +46,7 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
 	pk, err := NewOCRPrivateKey()
 	require.NoError(t, err)
-	pkEncrypted, err := pk.Encrypt("password", fastScryptParamsXXXTestingOnly)
+	pkEncrypted, err := pk.encrypt("password", fastScryptParamsXXXTestingOnly)
 	require.NoError(t, err)
 	// check that properties on encrypted key match those on OCRkey
 	require.Equal(t, pk.ID, pkEncrypted.ID)

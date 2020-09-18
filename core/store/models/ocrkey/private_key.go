@@ -23,13 +23,16 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+// public properties of key bundle
 type OnChainSigningAddress common.Address
 type OnChainPublicKey ecdsa.PublicKey
-type onChainPrivateKey ecdsa.PrivateKey
-
 type OffChainPublicKey ed25519.PublicKey
+
+// private properties of key bundle
+type onChainPrivateKey ecdsa.PrivateKey
 type offChainPrivateKey ed25519.PrivateKey
 
+// OCRPrivateKey represents the bundle of keys needed for OCR
 type OCRPrivateKey struct {
 	ID                 string
 	onChainSigning     *onChainPrivateKey
@@ -37,6 +40,7 @@ type OCRPrivateKey struct {
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
+// EncryptedOCRPrivateKey holds an encrypted OCROCRPrivateKey bundle
 type EncryptedOCRPrivateKey struct {
 	ID                    string `gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress
@@ -56,7 +60,7 @@ type ocrPrivateKeysRawData struct {
 	OffChainEncryption [curve25519.ScalarSize]byte
 }
 
-var DefaultScryptParams = ScryptParams{
+var defaultScryptParams = ScryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
 var curve = secp256k1.S256()
@@ -205,7 +209,13 @@ func adulteratedPassword(auth string) string {
 
 // Encrypt combines the OCRPrivateKey into a single json-serialized
 // bytes array and then encrypts
-func (pk *OCRPrivateKey) Encrypt(auth string, scryptParams ScryptParams) (*EncryptedOCRPrivateKey, error) {
+func (pk *OCRPrivateKey) Encrypt(auth string) (*EncryptedOCRPrivateKey, error) {
+	return pk.encrypt(auth, defaultScryptParams)
+}
+
+// encrypt combines the OCRPrivateKey into a single json-serialized
+// bytes array and then encrypts, using the provided scrypt params
+func (pk *OCRPrivateKey) encrypt(auth string, scryptParams ScryptParams) (*EncryptedOCRPrivateKey, error) {
 	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
 		return nil, err
