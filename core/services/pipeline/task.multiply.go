@@ -14,6 +14,10 @@ type MultiplyTask struct {
 
 var _ Task = (*MultiplyTask)(nil)
 
+func (t *MultiplyTask) Type() TaskType {
+	return TaskTypeMultiply
+}
+
 func (t *MultiplyTask) Run(inputs []Result) Result {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}

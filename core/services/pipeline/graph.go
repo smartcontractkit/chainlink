@@ -1,17 +1,13 @@
 package pipeline
 
 import (
-	"encoding/json"
-	"net/url"
-	"reflect"
-
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
-
-	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 )
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
@@ -45,11 +41,12 @@ func (g *TaskDAG) HasCycles() bool {
 	return len(topo.DirectedCyclesIn(g)) > 0
 }
 
-func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
+func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 	visited := make(map[int64]bool)
 	stack := g.outputs()
 
 	tasksByID := map[int64]Task{}
+	var tasks []Task
 	for len(stack) > 0 {
 		node := stack[0]
 		stack = stack[1:]
@@ -60,24 +57,59 @@ func (g *TaskDAG) ReverseWalkTasks(fn func(task Task) error) error {
 
 		task, err := UnmarshalTask(TaskType(node.attrs["type"]), node.attrs, nil, nil)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		var outputTasks []Task
 		for _, output := range node.outputs() {
 			outputTasks = append(outputTasks, tasksByID[output.ID()])
 		}
-		task.SetOutputTasks(outputTasks)
-
-		err = fn(task)
-		if err != nil {
-			return err
+		if len(outputTasks) > 1 {
+			return nil, errors.New("task has > 1 output task")
+		} else if len(outputTasks) == 1 {
+			task.SetOutputTask(outputTasks[0])
 		}
+
+		tasks = append(tasks, task)
 
 		tasksByID[node.ID()] = task
 		visited[node.ID()] = true
 	}
-	return nil
+	return tasks, nil
+}
+
+func (g TaskDAG) ToPipelineSpec() (Spec, error) {
+	tasks, err := g.TasksInDependencyOrder()
+	if err != nil {
+		return Spec{}, err
+	}
+
+	// Convert the task DAG into TaskSpec DB rows.  We walk the TaskDAG backwards,
+	// from final outputs to inputs, to ensure that each task's successor is
+	// already in the `taskSpecIDs` map.
+	taskSpecs := []TaskSpec{}
+	taskSpecIDs := make(map[Task]int32)
+	for _, task := range tasks {
+		var successorID null.Int
+		if task.OutputTask() != nil {
+			successor := task.OutputTask()
+			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
+		}
+
+		taskSpec := TaskSpec{
+			Type:        task.Type(),
+			JSON:        JSONSerializable{Value: task},
+			SuccessorID: successorID,
+		}
+
+		taskSpecIDs[task] = taskSpec.ID
+		taskSpecs = append(taskSpecs, taskSpec)
+	}
+
+	return Spec{
+		DotDagSource: g.DOTSource,
+		TaskSpecs:    taskSpecs,
+	}, nil
 }
 
 func (g *TaskDAG) inputs() []*taskDAGNode {

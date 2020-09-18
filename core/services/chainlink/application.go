@@ -15,15 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	// "github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gobuffalo/packr"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -74,7 +75,7 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
-	SessionReaper            services.SleeperTask
+	SessionReaper            utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
@@ -90,6 +91,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	store := strpkg.NewStore(config, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
+	ethClient := store.TxManager.(*strpkg.EthTxManager).Client
 	statsPusher := synchronization.NewStatsPusher(
 		store.ORM, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
 	)
@@ -98,16 +100,18 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	logBroadcaster := eth.NewLogBroadcaster(store.TxManager.Client, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	jobSpawner := job.NewSpawner(store.ORM)
-	offchainreporting.RegisterJobType(jobSpawner, store.ORM, store.TxManager.Client, logBroadcaster)
+	jobORM := job.NewORM(store.ORM.DB)
+	jobSpawner := job.NewSpawner(jobORM)
+	pipelineORM := pipeline.NewORM(store.ORM.DB)
+	pipelineRunner := pipeline.NewRunner(pipelineORM, store.Config)
 
-	pipelineRunner := pipeline.NewRunner(store.ORM, store.Config)
+	offchainreporting.RegisterJobType(store.ORM.DB, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -182,12 +186,13 @@ func (app *ChainlinkApplication) Start() error {
 		}
 	}
 
+	app.JobSpawner.Start()
+	app.PipelineRunner.Start()
+
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
 		app.Store.Start(),
 		app.StatsPusher.Start(),
-		app.JobSpawner.Start(),
-		app.PipelineRunner.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
 		startIf(ethEnabled, app.LogBroadcaster.Start),
@@ -266,22 +271,28 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 		return err
 	}
 
-	// Once Flux Monitor and the "direct request" subsystems have integrated
-	// the JobSpawner, this will be the only call we need to make here.
-	app.JobSpawner.AddJob(job)
-
 	app.Scheduler.AddJob(job)
 	logger.ErrorIf(app.FluxMonitor.AddJob(job))
 	logger.ErrorIf(app.JobSubscriber.AddJob(job, nil))
 	return nil
 }
 
+func (app *ChainlinkApplication) AddJobV2(job job.Spec) error {
+	return app.JobSpawner.CreateJob(job)
+}
+
 // ArchiveJob silences the job from the system, preventing future job runs.
 func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
-	app.JobSpawner.RemoveJob(ID)
 	_ = app.JobSubscriber.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
 	return app.Store.ArchiveJob(ID)
+}
+
+func (app *ChainlinkApplication) ArchiveJobV2(job job.Spec) error {
+	if job.JobID() == nil {
+		return errors.New("ArchiveJobV2: got nil job ID")
+	}
+	return app.JobSpawner.DeleteJob(job)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
@@ -291,8 +302,6 @@ func (app *ChainlinkApplication) AddServiceAgreement(sa *models.ServiceAgreement
 	if err != nil {
 		return err
 	}
-
-	app.JobSpawner.AddJob(sa.JobSpec)
 
 	app.Scheduler.AddJob(sa.JobSpec)
 

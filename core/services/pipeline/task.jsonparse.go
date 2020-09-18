@@ -3,7 +3,7 @@ package pipeline
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"strconv"
+	"math/big"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -15,6 +15,10 @@ type JSONParseTask struct {
 }
 
 var _ Task = (*JSONParseTask)(nil)
+
+func (t *JSONParseTask) Type() TaskType {
+	return TaskTypeJSONParse
+}
 
 func (t *JSONParseTask) Run(inputs []Result) Result {
 	if len(inputs) != 1 {
@@ -34,7 +38,7 @@ func (t *JSONParseTask) Run(inputs []Result) Result {
 	}
 
 	var decoded interface{}
-	err = json.Unmarshal(bs, &decoded)
+	err := json.Unmarshal(bs, &decoded)
 	if err != nil {
 		return Result{Error: err}
 	}
@@ -51,10 +55,11 @@ func (t *JSONParseTask) Run(inputs []Result) Result {
 			}
 
 		case []interface{}:
-			index, err := strconv.Atoi(part)
-			if err != nil {
-				return Result{Error: err}
+			bigindex, ok := big.NewInt(0).SetString(part, 10)
+			if !ok {
+				return Result{Error: errors.Errorf("JSONParse task error: %v is not a valid array index", part)}
 			}
+			index := int(bigindex.Int64())
 			if index < 0 {
 				index = len(d) + index
 			}
@@ -71,7 +76,7 @@ func (t *JSONParseTask) Run(inputs []Result) Result {
 			return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 		}
 	}
-	return decoded, nil
+	return Result{Value: decoded}
 }
 
 type JSONPath []string

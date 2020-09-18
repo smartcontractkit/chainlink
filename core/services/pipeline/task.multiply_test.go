@@ -1,12 +1,10 @@
-package pipeline_test
+package pipeline
 
 import (
 	"testing"
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
 func TestMultiplyTask_Happy(t *testing.T) {
@@ -100,10 +98,10 @@ func TestMultiplyTask_Happy(t *testing.T) {
 	for _, test := range tests {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.MultiplyTask{Times: test.times}
-			result, err := task.Transform([]pipeline.Result{{Value: test.input}})
-			require.NoError(t, err)
-			require.Equal(t, test.want.String(), result.(decimal.Decimal).String())
+			task := MultiplyTask{Times: test.times}
+			result := task.Run([]Result{{Value: test.input}})
+			require.NoError(t, result.Error)
+			require.Equal(t, test.want.String(), result.Value.(decimal.Decimal).String())
 		})
 	}
 }
@@ -121,9 +119,9 @@ func TestMultiplyTask_Unhappy(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			task := pipeline.MultiplyTask{Times: test.times}
-			_, err := task.Transform(test.input)
-			require.Error(t, err)
+			task := MultiplyTask{Times: test.times}
+			result := task.Run([]Result{{Value: test.input}})
+			require.Error(t, result.Error)
 		})
 	}
 }

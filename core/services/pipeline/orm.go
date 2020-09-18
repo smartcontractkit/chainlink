@@ -7,15 +7,17 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
 	// Runner
-	CreateRun(prun Run) (int64, error)
-	WithNextUnclaimedTaskRun(f func(tx *gorm.DB, ptRun TaskRun, predecessors []TaskRun) error) error
-	MarkTaskRunCompleted(tx *gorm.DB, taskRunID int64, output sql.Scanner, err error) error
+	CreateRun(jobSpecID int32) (int64, error)
+	WithNextUnclaimedTaskRun(f func(ptRun TaskRun, predecessors []TaskRun) Result) error
 	AwaitRun(ctx context.Context, runID int64) error
 	NotifyCompletion(pipelineRunID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
@@ -25,33 +27,46 @@ type ORM interface {
 }
 
 type orm struct {
-	db database
+	db *gorm.DB
 }
 
-type database interface {
-	Exec(sql string, values ...interface{}) *gorm.DB
-	First(out interface{}, where ...interface{}) *gorm.DB
-	Create(value interface{}) *gorm.DB
-	Transaction(fn func(db *gorm.DB) error) error
-}
+var _ ORM = (*orm)(nil)
 
-func NewORM(o database) *orm {
-	return &orm{o}
+func NewORM(db *gorm.DB) *orm {
+	return &orm{db}
 }
 
 // CreateRun adds a Run record to the DB, and one TaskRun
 // per TaskSpec associated with the given Spec.  Processing of the
 // TaskRuns is maximally parallelized across all of the Chainlink nodes in the
 // cluster.
-func (o *orm) CreateRun(specID int64) (int64, error) {
-	return o.db.Transaction(func(tx *gorm.DB) error {
-		prun := Run{SpecID: specID}
+func (o *orm) CreateRun(jobSpecID int32) (int64, error) {
+	var runID int64
+	err := ormpkg.GormTransaction(o.db, func(tx *gorm.DB) error {
+		// Fetch the spec ID
+		var spec Spec
+		err := o.db.
+			Where("job_spec_id = ?", jobSpecID).
+			First(&spec).
+			Error
+		if err != nil {
+			return err
+		}
 
-		err := tx.Create(&prun).Error
+		// Create the job run
+		run := Run{
+			SpecID:    spec.ID,
+			CreatedAt: time.Now(),
+		}
+
+		err = tx.Create(&run).Error
 		if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
 		}
 
+		runID = run.ID
+
+		// Create the task runs
 		err = tx.Exec(`
             INSERT INTO pipeline_task_runs (
                 pipeline_run_id, pipeline_task_spec_id, created_at
@@ -59,15 +74,16 @@ func (o *orm) CreateRun(specID int64) (int64, error) {
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?
-        `, prun.ID, prun.SpecID).Error
+        `, run.ID, run.SpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
+	return runID, err
 }
 
 // WithNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun TaskRun, predecessors []TaskRun) Result) error {
-	return o.db.Transaction(func(tx *gorm.DB) error {
+	return ormpkg.GormTransaction(o.db, func(tx *gorm.DB) error {
 		var ptRun TaskRun
 		var predecessors []TaskRun
 
@@ -75,7 +91,7 @@ func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun TaskRun, predecessors []Tas
 
 		// Find the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
 		err := tx.Table("pipeline_task_runs AS successor").
-			Set("gorm:query_option", "FOR UPDATE OF successor SKIP LOCKED").
+			Set("gorm:query_option", "FOR UPDATE OF successor SKIP LOCKED"). // Row-level lock
 			Joins("LEFT JOIN pipeline_task_runs AS predecessors ON successor.id = predecessor.successor_id AND predecessors.finished_at IS NULL").
 			Where("predecessors.id IS NULL").
 			Where("successor.finished_at IS NULL").
@@ -123,7 +139,7 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 		}
 
 		var done bool
-		err := orm.db.Exec(`
+		err := o.db.Exec(`
             SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
             FROM pipeline_job_runs
             JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id
@@ -159,7 +175,7 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 		Where("pipeline_job_run_id = ?", runID).
 		Where("error IS NOT NULL OR output IS NOT NULL").
 		Where("successor_id IS NULL").
-		Find(&results).
+		Scan(&taskRuns).
 		Error
 	if err != nil {
 		return nil, err
@@ -169,4 +185,10 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 	for i, taskRun := range taskRuns {
 		results[i] = taskRun.Result()
 	}
+	return results, nil
+}
+
+func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
+	var bt models.BridgeType
+	return bt, o.db.First(&bt, "name = ?", name.String()).Error
 }
