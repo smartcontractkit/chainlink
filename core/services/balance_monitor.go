@@ -18,7 +18,7 @@ import (
 type BalanceMonitor interface {
 	store.HeadTrackable
 	GetEthBalance(gethCommon.Address) *assets.Eth
-	Stop()
+	Stop() error
 }
 
 type balanceMonitor struct {
@@ -47,8 +47,8 @@ func (bm *balanceMonitor) Connect(_ *models.Head) error {
 }
 
 // Stop shuts down the BalanceMonitor, should not be used after this
-func (bm *balanceMonitor) Stop() {
-	bm.sleeperTask.Stop()
+func (bm *balanceMonitor) Stop() error {
+	return bm.sleeperTask.Stop()
 }
 
 // Disconnect complies with HeadTrackable
