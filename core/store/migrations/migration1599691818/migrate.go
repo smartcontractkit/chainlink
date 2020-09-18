@@ -8,7 +8,7 @@ import (
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		CREATE TABLE encrypted_ocr_private_keys (
-			id string PRIMARY KEY,
+			id bytea PRIMARY KEY,
 			on_chain_signing_address bytea NOT NULL,
 			off_chain_public_key bytea NOT NULL,
 			encrypted_priv_keys jsonb NOT NULL,
