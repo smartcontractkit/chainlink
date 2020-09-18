@@ -354,7 +354,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce := int64(0)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -364,7 +364,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	t.Run("returns nothing when the transaction is in_progress", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -375,7 +375,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	t.Run("ignores unconfirmed transactions with nil BroadcastBeforeBlockNum", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -392,7 +392,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	require.NoError(t, store.DB.Save(&attempt1_2).Error)
 
 	t.Run("returns nothing when the transaction is unconfirmed with an attempt that is recent", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -405,7 +405,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	require.NoError(t, store.DB.Save(&attempt2_1).Error)
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		assert.Len(t, etxs, 0)
@@ -420,7 +420,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	t.Run("returns the transaction if it is unconfirmed and has no attempts (note that this is an invariant violation, but we handle it anyway)", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 1)
@@ -434,7 +434,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	require.NoError(t, store.DB.Save(&attempt3_1).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
@@ -448,10 +448,26 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	require.NoError(t, store.DB.Save(&attempt3_2).Error)
 
 	t.Run("returns the transaction if it is unconfirmed with two attempts that are older than gasBumpThreshold blocks", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
 		require.Len(t, etxs, 2)
+		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
+		assert.Equal(t, etx3.ID, etxs[1].ID)
+	})
+
+	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce)
+	nonce++
+	attempt4_1 := etx4.EthTxAttempts[0]
+	attempt4_1.BroadcastBeforeBlockNum = &oldEnough
+	require.NoError(t, store.DB.Save(&attempt4_1).Error)
+
+	t.Run("does not return more transactions the requested limit", func(t *testing.T) {
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 2)
+		require.NoError(t, err)
+		require.Equal(t, int(*etx3.Nonce)+1, int(*etx4.Nonce))
+
+		require.Len(t, etxs, 2) // leaves out etx4
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
 		assert.Equal(t, etx3.ID, etxs[1].ID)
 	})
@@ -462,11 +478,12 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	require.NoError(t, store.DB.Save(&attempt3_3).Error)
 
 	t.Run("does not return the transaction if it has some older but one newer attempt", func(t *testing.T) {
-		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold)
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringNewAttempt(store.DB, currentHead, gasBumpThreshold, 10)
 		require.NoError(t, err)
 
-		require.Len(t, etxs, 1)
+		require.Len(t, etxs, 2)
 		assert.Equal(t, etxWithoutAttempts.ID, etxs[0].ID)
+		assert.Equal(t, etx4.ID, etxs[1].ID)
 	})
 }
 

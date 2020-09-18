@@ -230,7 +230,7 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, blockHeight i
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, int64(ec.config.EthGasBumpThreshold()))
+	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, int64(ec.config.EthGasBumpThreshold()), 10)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 	}
@@ -281,7 +281,7 @@ func getInProgressEthTxAttempts(s *store.Store) ([]models.EthTxAttempt, error) {
 
 // FindEthTxsRequiringNewAttempt returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks
-func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold int64) ([]models.EthTx, error) {
+func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum, gasBumpThreshold, limit int64) ([]models.EthTx, error) {
 	var etxs []models.EthTx
 	err := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
@@ -292,6 +292,7 @@ func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold
 			"AND (broadcast_before_block_num > ? OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')", blockNum-gasBumpThreshold).
 		Order("nonce ASC").
 		Where("eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL").
+		Limit(limit).
 		Find(&etxs).Error
 
 	return etxs, errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
