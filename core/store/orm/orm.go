@@ -1304,13 +1304,13 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 	return keys, orm.DB.Find(&keys).Error
 }
 
-// CreateEncryptedOCRKey creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKey(keys *ocrkey.EncryptedOCRPrivateKey) error {
+// CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
+func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
 	return orm.DB.Create(keys).Error
 }
 
-// FindEncryptedOCRKeys finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKey, err error) {
+// FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
+func (orm *ORM) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
 	err = orm.DB.Find(&keys).Error
 	if err != nil {
 		return nil, err
@@ -1318,9 +1318,9 @@ func (orm *ORM) FindEncryptedOCRKeys() (keys []ocrkey.EncryptedOCRPrivateKey, er
 	return keys, nil
 }
 
-// FindEncryptedOCRKeyByID finds an EncryptedOCRPrivateKey bundle by it's ID
-func (orm *ORM) FindEncryptedOCRKeyByID(id string) (*ocrkey.EncryptedOCRPrivateKey, error) {
-	key := ocrkey.EncryptedOCRPrivateKey{}
+// FindEncryptedOCRKeyBundleByID finds an EncryptedKeyBundle bundle by it's ID
+func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBundle, error) {
+	key := ocrkey.EncryptedKeyBundle{}
 	err := orm.DB.Where("id = ?", id).First(&key).Error
 	if err != nil {
 		return nil, err
@@ -1328,8 +1328,8 @@ func (orm *ORM) FindEncryptedOCRKeyByID(id string) (*ocrkey.EncryptedOCRPrivateK
 	return &key, nil
 }
 
-// DeleteEncryptedOCRKey deletes the provided encrypted OCR key record
-func (orm *ORM) DeleteEncryptedOCRKey(key *ocrkey.EncryptedOCRPrivateKey) (err error) {
+// DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
+func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
 	return orm.DB.Delete(&key).Error
 }
 

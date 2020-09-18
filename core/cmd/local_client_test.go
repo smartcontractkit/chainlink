@@ -594,9 +594,9 @@ func TestClient_OCR_CreateKeys(t *testing.T) {
 	set.String("password", "../internal/fixtures/correct_password.txt", "")
 	c := cli.NewContext(nil, set, nil)
 
-	require.NoError(t, client.CreateOCRKey(c))
+	require.NoError(t, client.CreateOCRKeyBundle(c))
 
-	keys, err := app.GetStore().FindEncryptedOCRKeys()
+	keys, err := app.GetStore().FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 1)

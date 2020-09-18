@@ -12,26 +12,26 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-// CreateOCRKey creates a key and inserts it into encrypted_ocr_keys,
+// CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
-func (cli *Client) CreateOCRKey(c *clipkg.Context) error {
+func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
 	return cli.errorOut(cli.createOCRKey(c))
 }
 
-// DeleteOCRKey creates a key and inserts it into encrypted_ocr_keys,
+// DeleteOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
-func (cli *Client) DeleteOCRKey(c *clipkg.Context) error {
+func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	return cli.errorOut(cli.deleteOCRKey(c))
 
 }
 
-// ListOCRKeys creates a key and inserts it into encrypted_ocr_keys,
+// ListOCRKeyBundles creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
-func (cli *Client) ListOCRKeys(c *clipkg.Context) error {
+func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
 	return cli.errorOut(cli.listOCRKeys(c))
 }
 
-const createOCRKeyMsg = `Created OCR keypair.
+const createMsg = `Created OCR key bundle
 Key Set ID:
   %s
 On-chain Public Address:
@@ -47,21 +47,21 @@ func (cli *Client) createOCRKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := ocrkey.NewOCRPrivateKey()
+	key, err := ocrkey.NewKeyBundle()
 	if err != nil {
-		return errors.Wrapf(err, "while generating the new OCR key")
+		return errors.Wrapf(err, "while generating the new OCR key bundle")
 	}
 	encryptedKey, err := key.Encrypt(string(password))
 	if err != nil {
-		return errors.Wrapf(err, "while encrypting the new OCR key")
+		return errors.Wrapf(err, "while encrypting the new OCR key bundle")
 	}
-	err = store.CreateEncryptedOCRKey(encryptedKey)
+	err = store.CreateEncryptedOCRKeyBundle(encryptedKey)
 	if err != nil {
-		return errors.Wrapf(err, "while persisting the new encrypted OCR key")
+		return errors.Wrapf(err, "while persisting the new encrypted OCR key bundle")
 	}
 	addressOnChain := key.PublicKeyAddressOnChain()
 	fmt.Printf(
-		createOCRKeyMsg,
+		createMsg,
 		key.ID,
 		hex.EncodeToString(addressOnChain[:]),
 		hex.EncodeToString(key.PublicKeyOffChain()),
@@ -72,14 +72,14 @@ func (cli *Client) createOCRKey(c *clipkg.Context) error {
 func (cli *Client) listOCRKeys(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	keys, err := store.FindEncryptedOCRKeys()
+	keys, err := store.FindEncryptedOCRKeyBundles()
 	if err != nil {
-		return errors.Wrapf(err, "while fetching encrypted OCR keys")
+		return errors.Wrapf(err, "while fetching encrypted OCR key bundles")
 	}
 
 	fmt.Println(
 		`***********************************************************************************
-Encrypted Off-Chain Reporting Keys in DB
+Encrypted Off-Chain Reporting Key Bundles in DB
 ***********************************************************************************`)
 	for keyidx, key := range keys {
 		fmt.Println("ID                ", key.ID)
@@ -101,25 +101,25 @@ Encrypted Off-Chain Reporting Keys in DB
 
 func (cli *Client) deleteOCRKey(c *clipkg.Context) error {
 	if !c.Args().Present() {
-		return errors.New("Must pass the ID of the OCR Key bundle to delete")
+		return errors.New("Must pass the ID of the OCR key bundle to delete")
 	}
 	id := c.Args().First()
 
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 
-	key, err := store.FindEncryptedOCRKeyByID(id)
+	key, err := store.FindEncryptedOCRKeyBundleByID(id)
 	if gorm.IsRecordNotFoundError(err) {
-		return errors.New("Unable to find the key bundle with the provided ID")
+		return errors.New("Unable to find the OCR key bundle with the provided ID")
 	} else if err != nil {
-		return errors.Wrapf(err, "while fetching the OCR key")
+		return errors.Wrapf(err, "while fetching the OCR key bundle")
 	}
 
-	err = store.DeleteEncryptedOCRKey(key)
+	err = store.DeleteEncryptedOCRKeyBundle(key)
 	if err != nil {
-		return errors.Wrapf(err, "while deleting the OCR key")
+		return errors.Wrapf(err, "while deleting the OCR key bundle")
 	}
 
-	fmt.Printf("Successfully deleted OCRKeyBundle %s", key.ID)
+	fmt.Printf("Successfully deleted OCR key bundle %s", key.ID)
 	return nil
 }
