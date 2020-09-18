@@ -44,11 +44,14 @@ regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
-1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
-2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+1. [Install Go 1.14](https://golang.org/doc/install?download=go1.14.9.darwin-amd64.pkg), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+   - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go` 
+2. Install [NodeJS 10.16](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+   -  It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 10.16 && nvm use 10.16`
 3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
+   - If you got any errors regarding locked yarn package, try running `yarn install` before this step
 6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
