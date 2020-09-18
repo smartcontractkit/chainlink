@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var fastScryptParamsXXXTestingOnly = ScryptParams{N: 2, P: 1}
+var fastScryptParamsXXXTestingOnly = scryptParams{N: 2, P: 1}
 
 func assertPrivateKeysEqual(t *testing.T, pk1 *OCRPrivateKey, pk2 *OCRPrivateKey) {
 	assert.Equal(t, pk1.ID, pk2.ID)
