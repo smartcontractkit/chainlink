@@ -37,11 +37,17 @@ type HTTPTask struct {
 	config Config
 }
 
+var _ Task = (*HTTPTask)(nil)
+
 type httpRequestConfig struct {
 	timeout                        time.Duration
 	maxAttempts                    uint
 	sizeLimit                      int64
 	allowUnrestrictedNetworkAccess bool
+}
+
+func (t *HTTPTask) Type() TaskType {
+	return TaskTypeHTTP
 }
 
 func (f *HTTPTask) Run(inputs []Result) Result {

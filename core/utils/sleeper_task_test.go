@@ -1,11 +1,11 @@
-package services_test
+package utils_test
 
 import (
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
@@ -32,7 +32,7 @@ func TestSleeperTask_WakeupAfterStopPanics(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{}
-	sleeper := services.NewSleeperTask(worker)
+	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.Stop()
 
@@ -46,7 +46,7 @@ func TestSleeperTask_CallingStopTwicePanics(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{}
-	sleeper := services.NewSleeperTask(worker)
+	sleeper := utils.NewSleeperTask(worker)
 	sleeper.Stop()
 	require.Panics(t, func() {
 		sleeper.Stop()
@@ -57,7 +57,7 @@ func TestSleeperTask_WakeupPerformsWork(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{}
-	sleeper := services.NewSleeperTask(worker)
+	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
 	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(1))
@@ -84,7 +84,7 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 	t.Parallel()
 
 	worker := &controllableWorker{awaitWorkStarted: make(chan struct{}), allowResumeWork: make(chan struct{})}
-	sleeper := services.NewSleeperTask(worker)
+	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
 	<-worker.awaitWorkStarted
@@ -102,7 +102,7 @@ func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
 	t.Parallel()
 
 	worker := &countingWorker{delay: 200 * time.Millisecond}
-	sleeper := services.NewSleeperTask(worker)
+	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
 	require.Equal(t, worker.getNumJobsPerformed(), 0)
