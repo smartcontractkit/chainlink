@@ -34,6 +34,7 @@ type ConfigReader interface {
 	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
+	EthGasBumpTxDepth() uint64
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int

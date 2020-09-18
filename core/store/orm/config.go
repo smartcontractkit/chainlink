@@ -260,6 +260,12 @@ func (c Config) EthGasBumpThreshold() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
 }
 
+// EthGasBumpTxDepth is the number of transactions to gas bump starting from oldest.
+// Set to 0 for no limit (i.e. bump all)
+func (c Config) EthGasBumpTxDepth() uint64 {
+	return c.viper.GetUint64(EnvVarName("EthGasBumpTxDepth"))
+}
+
 // EthGasBumpPercent is the minimum percentage by which gas is bumped on each transaction attempt
 // Change with care since values below geth's default will fail with "underpriced replacement transaction"
 func (c Config) EthGasBumpPercent() uint16 {

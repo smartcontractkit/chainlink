@@ -129,8 +129,8 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 
 			// It is safe to process separate keys concurrently
 			// NOTE: This design will block one key if another takes a really long time to execute
+			wg.Add(len(keys))
 			for _, key := range keys {
-				wg.Add(1)
 				go func(k models.Key) {
 					if err := eb.ProcessUnstartedEthTxs(k); err != nil {
 						logger.Errorw("Error in ProcessUnstartedEthTxs", "error", err)
