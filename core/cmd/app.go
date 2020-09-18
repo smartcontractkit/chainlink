@@ -280,20 +280,20 @@ func NewApp(client *Client) *cli.App {
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
-							Usage: format(`Create an OCR key, encrypted with password from the
+							Usage: format(`Create an OCR key bundle, encrypted with password from the
                password file, and store it in the database`),
 							Flags:  flags("password, p"),
-							Action: client.CreateOCRKey,
+							Action: client.CreateOCRKeyBundle,
 						},
 						{
 							Name:   "delete",
-							Usage:  format(`Deletes the encrypted OCR Key bundle matching the given ID`),
-							Action: client.DeleteOCRKey,
+							Usage:  format(`Deletes the encrypted OCR key bundle matching the given ID`),
+							Action: client.DeleteOCRKeyBundle,
 						},
 						{
 							Name:   "list",
-							Usage:  format(`List available OCR keys`),
-							Action: client.ListOCRKeys,
+							Usage:  format(`List available OCR key bundles`),
+							Action: client.ListOCRKeyBundles,
 						},
 					},
 				},

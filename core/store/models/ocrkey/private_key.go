@@ -20,25 +20,25 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-// OCRPrivateKey represents the bundle of keys needed for OCR
-type OCRPrivateKey struct {
+// KeyBundle represents the bundle of keys needed for OCR
+type KeyBundle struct {
 	ID                 string
 	onChainSigning     *onChainPrivateKey
 	offChainSigning    *offChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
-// EncryptedOCRPrivateKey holds an encrypted OCROCRPrivateKey bundle
-type EncryptedOCRPrivateKey struct {
+// EncryptedKeyBundle holds an encrypted OCRKeyBundle bundle
+type EncryptedKeyBundle struct {
 	ID                    string `gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress
 	OffChainPublicKey     OffChainPublicKey
-	EncryptedPrivKeys     []byte
+	EncryptedPrivateKeys  []byte
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
 
-type ocrPrivateKeyRawData struct {
+type keyBundleRawData struct {
 	EcdsaX             big.Int
 	EcdsaY             big.Int
 	EcdsaD             big.Int
@@ -53,8 +53,12 @@ var defaultScryptParams = scryptParams{
 
 var curve = secp256k1.S256()
 
-// NewOCRPrivateKey makes a new set of OCR keys from cryptographically secure entropy
-func NewOCRPrivateKey() (*OCRPrivateKey, error) {
+func (EncryptedKeyBundle) TableName() string {
+	return "encrypted_ocr_key_bundles"
+}
+
+// NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
+func NewKeyBundle() (*KeyBundle, error) {
 	reader := cryptorand.Reader
 	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
 	if err != nil {
@@ -74,7 +78,7 @@ func NewOCRPrivateKey() (*OCRPrivateKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	k := &OCRPrivateKey{
+	k := &KeyBundle{
 		onChainSigning:     onChainPriv,
 		offChainSigning:    (*offChainPrivateKey)(&offChainPriv),
 		offChainEncryption: &encryptionPriv,
@@ -89,18 +93,18 @@ func NewOCRPrivateKey() (*OCRPrivateKey, error) {
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.
-func (pk *OCRPrivateKey) SignOnChain(msg []byte) (signature []byte, err error) {
+func (pk *KeyBundle) SignOnChain(msg []byte) (signature []byte, err error) {
 	return pk.onChainSigning.Sign(msg)
 }
 
 // SignOffChain returns an EdDSA-Ed25519 signature on msg.
-func (pk *OCRPrivateKey) SignOffChain(msg []byte) (signature []byte, err error) {
+func (pk *KeyBundle) SignOffChain(msg []byte) (signature []byte, err error) {
 	return pk.offChainSigning.Sign(msg)
 }
 
 // ConfigDiffieHelman returns the shared point obtained by multiplying someone's
 // public key by a secret scalar ( in this case, the offChainEncryption key.)
-func (pk *OCRPrivateKey) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
+func (pk *KeyBundle) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 	sharedPoint *[curve25519.PointSize]byte, err error,
 ) {
 	p, err := curve25519.X25519(pk.offChainEncryption[:], base[:])
@@ -114,17 +118,17 @@ func (pk *OCRPrivateKey) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 
 // PublicKeyAddressOnChain returns public component of the keypair used in
 // SignOnChain
-func (pk *OCRPrivateKey) PublicKeyAddressOnChain() OnChainSigningAddress {
+func (pk *KeyBundle) PublicKeyAddressOnChain() OnChainSigningAddress {
 	return pk.onChainSigning.Address()
 }
 
 // PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
-func (pk *OCRPrivateKey) PublicKeyOffChain() OffChainPublicKey {
+func (pk *KeyBundle) PublicKeyOffChain() OffChainPublicKey {
 	return OffChainPublicKey(pk.offChainSigning.PublicKey())
 }
 
 // PublicKeyConfig returns the public component of the keypair used in ConfigKeyShare
-func (pk *OCRPrivateKey) PublicKeyConfig() [curve25519.PointSize]byte {
+func (pk *KeyBundle) PublicKeyConfig() [curve25519.PointSize]byte {
 	rv, err := curve25519.X25519(pk.offChainEncryption[:], curve25519.Basepoint)
 	if err != nil {
 		log.Println("failure while computing public key: " + err.Error())
@@ -134,17 +138,17 @@ func (pk *OCRPrivateKey) PublicKeyConfig() [curve25519.PointSize]byte {
 	return rvFixed
 }
 
-// Encrypt combines the OCRPrivateKey into a single json-serialized
+// Encrypt combines the KeyBundle into a single json-serialized
 // bytes array and then encrypts
-func (pk *OCRPrivateKey) Encrypt(auth string) (*EncryptedOCRPrivateKey, error) {
+func (pk *KeyBundle) Encrypt(auth string) (*EncryptedKeyBundle, error) {
 	return pk.encrypt(auth, defaultScryptParams)
 }
 
-// encrypt combines the OCRPrivateKey into a single json-serialized
+// encrypt combines the KeyBundle into a single json-serialized
 // bytes array and then encrypts, using the provided scrypt params
 // separated into a different function so that scryptParams can be
 // weakened in tests
-func (pk *OCRPrivateKey) encrypt(auth string, scryptParams scryptParams) (*EncryptedOCRPrivateKey, error) {
+func (pk *KeyBundle) encrypt(auth string, scryptParams scryptParams) (*EncryptedKeyBundle, error) {
 	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
 		return nil, err
@@ -162,37 +166,37 @@ func (pk *OCRPrivateKey) encrypt(auth string, scryptParams scryptParams) (*Encry
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not encode cryptoJSON")
 	}
-	return &EncryptedOCRPrivateKey{
+	return &EncryptedKeyBundle{
 		ID:                    pk.ID,
 		OnChainSigningAddress: pk.onChainSigning.Address(),
 		OffChainPublicKey:     pk.offChainSigning.PublicKey(),
-		EncryptedPrivKeys:     encryptedPrivKeys,
+		EncryptedPrivateKeys:  encryptedPrivKeys,
 	}, nil
 }
 
 // Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
-func (encKey *EncryptedOCRPrivateKey) Decrypt(auth string) (*OCRPrivateKey, error) {
+func (encKey *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
 	var cryptoJSON keystore.CryptoJSON
-	err := json.Unmarshal(encKey.EncryptedPrivKeys, &cryptoJSON)
+	err := json.Unmarshal(encKey.EncryptedPrivateKeys, &cryptoJSON)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR key")
+		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR key bundle")
 	}
 	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not decrypt OCR key")
+		return nil, errors.Wrapf(err, "could not decrypt OCR key bundle")
 	}
-	var pk OCRPrivateKey
+	var pk KeyBundle
 	err = json.Unmarshal(marshalledPrivK, &pk)
 	if err != nil {
-		return nil, errors.Wrapf(err, "could not unmarshal OCR key")
+		return nil, errors.Wrapf(err, "could not unmarshal OCR key bundle")
 	}
 	pk.ID = encKey.ID
 	return &pk, nil
 }
 
 // MarshalJSON marshals the private keys into json
-func (pk *OCRPrivateKey) MarshalJSON() ([]byte, error) {
-	rawKeyData := ocrPrivateKeyRawData{
+func (pk *KeyBundle) MarshalJSON() ([]byte, error) {
+	rawKeyData := keyBundleRawData{
 		EcdsaX:             *pk.onChainSigning.X,
 		EcdsaY:             *pk.onChainSigning.Y,
 		EcdsaD:             *pk.onChainSigning.D,
@@ -202,9 +206,9 @@ func (pk *OCRPrivateKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&rawKeyData)
 }
 
-// UnmarshalJSON constructs OCRPrivateKey from raw json
-func (pk *OCRPrivateKey) UnmarshalJSON(b []byte) (err error) {
-	var rawKeyData ocrPrivateKeyRawData
+// UnmarshalJSON constructs KeyBundle from raw json
+func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
+	var rawKeyData keyBundleRawData
 	err = json.Unmarshal(b, &rawKeyData)
 	if err != nil {
 		return err
@@ -226,22 +230,21 @@ func (pk *OCRPrivateKey) UnmarshalJSON(b []byte) (err error) {
 }
 
 // String reduces the risk of accidentally logging the private key
-func (pk OCRPrivateKey) String() string {
+func (pk KeyBundle) String() string {
 	return fmt.Sprintf(
-		"OCRPrivateKey{PublicKeyAddressOnChain: %s, PublicKeyOffChain: %s}",
+		"KeyBundle{PublicKeyAddressOnChain: %s, PublicKeyOffChain: %s}",
 		pk.PublicKeyAddressOnChain(),
 		pk.PublicKeyOffChain(),
 	)
 }
 
 // GoStringer reduces the risk of accidentally logging the private key
-func (pk OCRPrivateKey) GoStringer() string {
+func (pk KeyBundle) GoStringer() string {
 	return pk.String()
 }
 
-// type is added to the beginning of the passwords for
-// OCR keys, so that the keys can't accidentally be mis-used
-// in the wrong place
+// type is added to the beginning of the passwords for OCR key bundles,
+// so that the keys can't accidentally be mis-used in the wrong place
 func adulteratedPassword(auth string) string {
 	s := "ocrkey" + auth
 	return s
