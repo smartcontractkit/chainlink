@@ -15,20 +15,20 @@ import (
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
 func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
-	return cli.errorOut(cli.createOCRKey(c))
+	return cli.errorOut(cli.createOCRKeyBundle(c))
 }
 
 // DeleteOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
 func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
-	return cli.errorOut(cli.deleteOCRKey(c))
+	return cli.errorOut(cli.deleteOCRKeyBundle(c))
 
 }
 
 // ListOCRKeyBundles creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
 func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
-	return cli.errorOut(cli.listOCRKeys(c))
+	return cli.errorOut(cli.listOCRKeyBundles(c))
 }
 
 const createMsg = `Created OCR key bundle
@@ -40,7 +40,7 @@ Off-chain Public Key:
   %s
 `
 
-func (cli *Client) createOCRKey(c *clipkg.Context) error {
+func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 	password, err := getPassword(c)
@@ -69,7 +69,7 @@ func (cli *Client) createOCRKey(c *clipkg.Context) error {
 	return nil
 }
 
-func (cli *Client) listOCRKeys(c *clipkg.Context) error {
+func (cli *Client) listOCRKeyBundles(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 	keys, err := store.FindEncryptedOCRKeyBundles()
@@ -99,7 +99,7 @@ Encrypted Off-Chain Reporting Key Bundles in DB
 	return nil
 }
 
-func (cli *Client) deleteOCRKey(c *clipkg.Context) error {
+func (cli *Client) deleteOCRKeyBundle(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return errors.New("Must pass the ID of the OCR key bundle to delete")
 	}
