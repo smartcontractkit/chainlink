@@ -231,10 +231,11 @@ func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
 
 // String reduces the risk of accidentally logging the private key
 func (pk KeyBundle) String() string {
+	addressOnChain := pk.PublicKeyAddressOnChain()
 	return fmt.Sprintf(
 		"KeyBundle{PublicKeyAddressOnChain: %s, PublicKeyOffChain: %s}",
-		pk.PublicKeyAddressOnChain(),
-		pk.PublicKeyOffChain(),
+		hex.EncodeToString(addressOnChain[:]),
+		hex.EncodeToString(pk.PublicKeyOffChain()),
 	)
 }
 
