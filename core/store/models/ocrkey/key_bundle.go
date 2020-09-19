@@ -28,7 +28,7 @@ type KeyBundle struct {
 	offChainEncryption *[curve25519.ScalarSize]byte
 }
 
-// EncryptedKeyBundle holds an encrypted OCRKeyBundle bundle
+// EncryptedKeyBundle holds an encrypted KeyBundle
 type EncryptedKeyBundle struct {
 	ID                    string `gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress
