@@ -4,7 +4,7 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-// Migrate creates the encrypted_ocr_keys table
+// Migrate creates the encrypted_ocr_key_bundles table
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		CREATE TABLE encrypted_ocr_key_bundles (
