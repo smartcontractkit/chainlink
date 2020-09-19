@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -572,7 +573,7 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClient_OCR_CreateKeys(t *testing.T) {
+func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -604,4 +605,45 @@ func TestClient_OCR_CreateKeys(t *testing.T) {
 	e := keys[0]
 	_, err = e.Decrypt(cltest.Password)
 	require.NoError(t, err)
+}
+
+func TestClient_DeleteOCRKeyBundle(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	key, err := ocrkey.NewKeyBundle()
+	require.NoError(t, err)
+	encKey, err := key.Encrypt("password")
+	require.NoError(t, err)
+	err = store.CreateEncryptedOCRKeyBundle(encKey)
+	require.NoError(t, err)
+
+	keys, err := store.FindEncryptedOCRKeyBundles()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{key.ID})
+	c := cli.NewContext(nil, set, nil)
+
+	err = client.DeleteOCRKeyBundle(c)
+	require.NoError(t, err)
+
+	keys, err = store.FindEncryptedOCRKeyBundles()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
 }
