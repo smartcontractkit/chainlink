@@ -9,7 +9,7 @@ import (
 
 var fastScryptParamsXXXTestingOnly = scryptParams{N: 2, P: 1}
 
-func assertPrivateKeysEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
+func assertKeyBundlesEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
 	assert.Equal(t, pk1.ID, pk2.ID)
 	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
 	assert.Equal(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
@@ -18,7 +18,7 @@ func assertPrivateKeysEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
 	assert.Equal(t, pk1.offChainEncryption, pk2.offChainEncryption)
 }
 
-func assertPrivateKeysNotEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
+func assertKeyBundlesNotEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
 	assert.NotEqual(t, pk1.ID, pk2.ID)
 	assert.NotEqual(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
 	assert.NotEqual(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
@@ -35,9 +35,9 @@ func TestOCRKeys_NewKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	pk3, err := NewKeyBundle()
 	require.NoError(t, err)
-	assertPrivateKeysNotEqual(t, pk1, pk2)
-	assertPrivateKeysNotEqual(t, pk1, pk3)
-	assertPrivateKeysNotEqual(t, pk2, pk3)
+	assertKeyBundlesNotEqual(t, pk1, pk2)
+	assertKeyBundlesNotEqual(t, pk1, pk3)
+	assertKeyBundlesNotEqual(t, pk2, pk3)
 }
 
 // TestOCRKeys_Encrypt_Decrypt tests that keys are identical after encrypting
@@ -54,5 +54,5 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	require.Equal(t, pk.offChainSigning.PublicKey(), pkEncrypted.OffChainPublicKey)
 	pkDecrypted, err := pkEncrypted.Decrypt("password")
 	require.NoError(t, err)
-	assertPrivateKeysEqual(t, pk, pkDecrypted)
+	assertKeyBundlesEqual(t, pk, pkDecrypted)
 }
