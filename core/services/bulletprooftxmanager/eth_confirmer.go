@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -64,7 +65,7 @@ func (ec *ethConfirmer) Disconnect() {
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
 	if ec.config.EnableBulletproofTxManager() {
 		if err := ec.ProcessHead(ctx, head); err != nil {
-			logger.Error("EthConfirmer: ", err)
+			logger.Errorw("EthConfirmer error", "err", err)
 		}
 	}
 }
@@ -158,7 +159,7 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
 				break
 			} else if err != nil {
-				logger.Errorf("EthConfirmer#fetchReceipts: fetchReceipt failed for transaction %s", attempt.Hash.Hex())
+				logger.Errorw("EthConfirmer#fetchReceipts: fetchReceipt failed", "txHash", attempt.Hash.Hex(), "err", err)
 				break
 			}
 			if receipt != nil {
@@ -168,7 +169,7 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 					break
 				}
 				if err := ec.saveReceipt(*receipt, etx.ID); err != nil {
-					logger.Errorf("EthConfirmer#fetchReceipts: saveReceipt failed")
+					logger.Errorw("EthConfirmer#fetchReceipts: saveReceipt failed", "err", err)
 					break
 				}
 				break
@@ -350,7 +351,12 @@ func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (attempt models.
 		previousGasPrice := previousAttempt.GasPrice
 		bumpedGasPrice, err = BumpGas(ec.config, previousGasPrice.ToInt())
 		if err != nil {
-			return attempt, errors.Wrapf(err, "could not create newAttemptWithGasBump")
+			logger.Errorw("Failed to bump gas", "err", err, "etxID", etx.ID, "txHash", attempt.Hash, "originalGasPrice", previousGasPrice.String(), "maxGasPrice", ec.config.EthMaxGasPriceWei())
+			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
+			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
+			previousAttempt.BroadcastBeforeBlockNum = nil
+			previousAttempt.State = models.EthTxAttemptInProgress
+			return previousAttempt, nil
 		}
 	} else {
 		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
@@ -418,12 +424,13 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		//
 		// The only scenario imaginable where this might take place is if
 		// geth/parity have been updated between broadcasting and confirming steps.
-		logger.Errorf("invariant violation: fatal error while reattempting transaction %v: '%s'. "+
-			"SignedRawTx: %s\n"+
-			"BlockHeight: %v\n"+
-			"IsVirginAttempt: %v\n"+
-			"ACTION REQUIRED: Your node is BROKEN - this error should never happen in normal operation. "+
-			"Please consider raising an issue here: https://github.com/smartcontractkit/chainlink/issues", etx.ID, sendError, hexutil.Encode(attempt.SignedRawTx), blockHeight, isVirginAttempt)
+		logger.Errorw("invariant violation: fatal error while re-attempting transaction",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
+			"blockHeight", blockHeight,
+			"isVirginAttempt", isVirginAttempt,
+		)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return deleteInProgressAttempt(ec.store.DB, attempt)
 	}
@@ -495,22 +502,22 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// In this case the simplest and most robust way to recover is to ignore
 		// this attempt and wait until the next bump threshold is reached in
 		// order to bump again.
-		logger.Errorf("EthConfirmer: replacement transaction underpriced at %v wei for eth_tx %v. "+
+		logger.Errorw(fmt.Sprintf("EthConfirmer: replacement transaction underpriced at %v wei for eth_tx %v. "+
 			"Eth node returned error: '%s'. "+
 			"Either you have set ETH_GAS_BUMP_PERCENT (currently %v%%) too low or an external wallet used this account. "+
 			"Please note that using your node's private keys outside of the chainlink node is NOT SUPPORTED and can lead to missed transactions.",
-			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.store.Config.EthGasBumpPercent())
+			attempt.GasPrice.ToInt().Int64(), etx.ID, sendError.Error(), ec.store.Config.EthGasBumpPercent()), "err", sendError)
 
 		// Assume success and hand off to the next cycle.
 		sendError = nil
 	}
 
 	if sendError.IsInsufficientEth() {
-		logger.Errorf("EthConfirmer: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+		logger.Errorw(fmt.Sprintf("EthConfirmer: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
 			"The eth node returned %s. "+
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
-		)
+		), "err", sendError)
 		return saveInsufficientEthAttempt(ec.store.DB, &attempt)
 	}
 
@@ -722,7 +729,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			logger.Debugf("ForceRebroadcast: no eth_tx found with nonce %v, will rebroadcast empty transaction", n)
 			hash, err := ec.sendEmptyTransaction(context.TODO(), address, n, overrideGasLimit, gasPriceWei)
 			if err != nil {
-				logger.Errorf("ForceRebroadcast: failed to send empty transaction with nonce %v: %s", n, err.Error())
+				logger.Errorw("ForceRebroadcast: failed to send empty transaction", "nonce", n, "err", err)
 				continue
 			}
 			logger.Infof("ForceRebroadcast: successfully rebroadcast empty transaction with nonce %v and hash %s", n, hash)
@@ -733,11 +740,11 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 			}
 			attempt, err := newAttempt(ec.store, *etx, big.NewInt(int64(gasPriceWei)))
 			if err != nil {
-				logger.Errorf("ForceRebroadcast: failed to create new attempt for eth_tx %v: %s", etx.ID, err.Error())
+				logger.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
 				continue
 			}
 			if err := sendTransaction(context.TODO(), ec.ethClient, attempt); err != nil {
-				logger.Errorf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error())
+				logger.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with nonce %v at gas price %s wei and gas limit %v: %s", etx.ID, *etx.Nonce, attempt.GasPrice.String(), etx.GasLimit, err.Error()), "err", err)
 				continue
 			}
 			logger.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: 0x%x", etx.ID, attempt.Hash)
