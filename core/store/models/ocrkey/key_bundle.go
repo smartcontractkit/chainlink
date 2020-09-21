@@ -14,7 +14,6 @@ import (
 	cryptorand "crypto/rand"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/curve25519"
@@ -39,8 +38,6 @@ type EncryptedKeyBundle struct {
 }
 
 type keyBundleRawData struct {
-	EcdsaX             big.Int
-	EcdsaY             big.Int
 	EcdsaD             big.Int
 	Ed25519PrivKey     []byte
 	OffChainEncryption [curve25519.ScalarSize]byte
@@ -60,15 +57,13 @@ func (EncryptedKeyBundle) TableName() string {
 // NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
 func NewKeyBundle() (*KeyBundle, error) {
 	reader := cryptorand.Reader
-	onChainSk, err := cryptorand.Int(reader, crypto.S256().Params().N)
+
+	ecdsaKey, err := ecdsa.GenerateKey(curve, reader)
 	if err != nil {
 		return nil, err
 	}
-	onChainPriv := new(onChainPrivateKey)
-	p := (*ecdsa.PrivateKey)(onChainPriv)
-	p.D = onChainSk
-	onChainPriv.PublicKey = ecdsa.PublicKey{Curve: curve}
-	p.PublicKey.X, p.PublicKey.Y = curve.ScalarBaseMult(onChainSk.Bytes())
+	onChainPriv := (*onChainPrivateKey)(ecdsaKey)
+
 	_, offChainPriv, err := ed25519.GenerateKey(reader)
 	if err != nil {
 		return nil, err
@@ -197,8 +192,6 @@ func (encKey *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
 // MarshalJSON marshals the private keys into json
 func (pk *KeyBundle) MarshalJSON() ([]byte, error) {
 	rawKeyData := keyBundleRawData{
-		EcdsaX:             *pk.onChainSigning.X,
-		EcdsaY:             *pk.onChainSigning.Y,
 		EcdsaD:             *pk.onChainSigning.D,
 		Ed25519PrivKey:     []byte(*pk.offChainSigning),
 		OffChainEncryption: *pk.offChainEncryption,
@@ -213,10 +206,9 @@ func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
 	if err != nil {
 		return err
 	}
-	publicKey := ecdsa.PublicKey{
-		X: &rawKeyData.EcdsaX,
-		Y: &rawKeyData.EcdsaY,
-	}
+
+	publicKey := ecdsa.PublicKey{Curve: curve}
+	publicKey.X, publicKey.Y = curve.ScalarBaseMult(rawKeyData.EcdsaD.Bytes())
 	privateKey := ecdsa.PrivateKey{
 		PublicKey: publicKey,
 		D:         &rawKeyData.EcdsaD,

@@ -11,6 +11,7 @@ var fastScryptParamsXXXTestingOnly = scryptParams{N: 2, P: 1}
 
 func assertKeyBundlesEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
 	assert.Equal(t, pk1.ID, pk2.ID)
+	assert.Equal(t, pk1.onChainSigning.Curve, pk2.onChainSigning.Curve)
 	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
 	assert.Equal(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
 	assert.Equal(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
