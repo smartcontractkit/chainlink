@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This migration will allow future version of chainlink to automatically clean up unneeded log_consumption records.
   This migration should execute very fast.
 - External Adapters for the Flux Monitor will now receive the Flux Monitor round state info as the meta payload.
+- Reduce frequency of balance checking.
 
 ### Fixed
 

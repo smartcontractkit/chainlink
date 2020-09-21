@@ -72,6 +72,7 @@ type ChainlinkApplication struct {
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
+	balanceMonitor           services.BalanceMonitor
 }
 
 // NewApplication initializes a new store if one is not already
@@ -116,6 +117,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		Exiter:                   os.Exit,
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
+		balanceMonitor:           balanceMonitor,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -212,6 +214,7 @@ func (app *ChainlinkApplication) Stop() error {
 
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
+		merr = multierr.Append(merr, app.balanceMonitor.Stop())
 		merr = multierr.Append(merr, app.JobSubscriber.Stop())
 		app.FluxMonitor.Stop()
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
