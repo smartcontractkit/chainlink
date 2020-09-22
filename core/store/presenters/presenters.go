@@ -136,48 +136,48 @@ type Whitelist struct {
 	ChainID                          *big.Int        `json:"ethChainId"`
 	ClientNodeURL                    string          `json:"clientNodeUrl"`
 	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
-	Dev                              bool            `json:"chainlinkDev"`
 	DefaultHTTPLimit                 int64
 	DefaultHTTPTimeout               models.Duration
-	EnableExperimentalAdapters       bool
+	Dev                              bool `json:"chainlinkDev"`
 	EnableBulletproofTxManager       bool
-	EnableExternalInitiators         bool
-	EnableFluxMonitor                bool
-	EthGasLimitDefault               uint64
-	EthMaxGasPriceWei                *big.Int
+	EnableExperimentalAdapters       bool
+	EthBalanceMonitorBlockDelay      uint16
+	EthereumDisabled                 bool
 	EthFinalityDepth                 uint
+	EthGasBumpThreshold              uint64   `json:"ethGasBumpThreshold"`
+	EthGasBumpWei                    *big.Int `json:"ethGasBumpWei"`
+	EthGasLimitDefault               uint64
+	EthGasPriceDefault               *big.Int `json:"ethGasPriceDefault"`
 	EthHeadTrackerHistoryDepth       uint
 	EthHeadTrackerMaxBufferSize      uint
-	EthBalanceMonitorBlockDelay      uint16
-	EthDisabled                      bool
+	EthMaxGasPriceWei                *big.Int
+	EthereumURL                      string `json:"ethUrl"`
+	ExplorerURL                      string `json:"explorerUrl"`
+	FeatureExternalInitiators        bool
+	FeatureFluxMonitor               bool
 	GasUpdaterBlockDelay             uint16
 	GasUpdaterBlockHistorySize       uint16
-	GasUpdaterTransactionPercentile  uint16
 	GasUpdaterEnabled                bool
-	MaxServiceDuration               models.Duration
-	MinServiceDuration               models.Duration
-	SecureCookies                    bool
-	EthereumURL                      string          `json:"ethUrl"`
-	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
-	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
-	EthGasPriceDefault               *big.Int        `json:"ethGasPriceDefault"`
-	ExplorerURL                      string          `json:"explorerUrl"`
-	JSONConsole                      bool            `json:"jsonConsole"`
-	LinkContractAddress              string          `json:"linkContractAddress"`
-	LogLevel                         orm.LogLevel    `json:"logLevel"`
-	LogSQLMigrations                 bool            `json:"logSqlMigrations"`
-	LogSQLStatements                 bool            `json:"logSqlStatements"`
-	LogToDisk                        bool            `json:"logToDisk"`
-	MaxRPCCallsPerSecond             uint64          `json:"maxRPCCallsPerSecond"`
+	GasUpdaterTransactionPercentile  uint16
+	JSONConsole                      bool         `json:"jsonConsole"`
+	LinkContractAddress              string       `json:"linkContractAddress"`
+	LogLevel                         orm.LogLevel `json:"logLevel"`
+	LogSQLMigrations                 bool         `json:"logSqlMigrations"`
+	LogSQLStatements                 bool         `json:"logSqlStatements"`
+	LogToDisk                        bool         `json:"logToDisk"`
+	MaxRPCCallsPerSecond             uint64       `json:"maxRPCCallsPerSecond"`
+	MaximumServiceDuration           models.Duration
+	MinIncomingConfirmations         uint32 `json:"minIncomingConfirmations"`
+	MinRequiredOutgoingConfirmations uint64 `json:"minOutgoingConfirmations"`
+	MinimumServiceDuration           models.Duration
 	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
-	MinIncomingConfirmations         uint32          `json:"minIncomingConfirmations"`
-	MinRequiredOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
 	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
 	Port                             uint16          `json:"chainlinkPort"`
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
 	RootDir                          string          `json:"root"`
+	SecureCookies                    bool
 	SessionTimeout                   models.Duration `json:"sessionTimeout"`
 	TLSHost                          string          `json:"chainlinkTLSHost"`
 	TLSPort                          uint16          `json:"chainlinkTLSPort"`
@@ -205,43 +205,43 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			BridgeResponseURL:                config.BridgeResponseURL().String(),
 			ChainID:                          config.ChainID(),
 			ClientNodeURL:                    config.ClientNodeURL(),
-			Dev:                              config.Dev(),
 			DatabaseTimeout:                  config.DatabaseTimeout(),
 			DefaultHTTPLimit:                 config.DefaultHTTPLimit(),
 			DefaultHTTPTimeout:               config.DefaultHTTPTimeout(),
-			EnableExperimentalAdapters:       config.EnableExperimentalAdapters(),
+			Dev:                              config.Dev(),
 			EnableBulletproofTxManager:       config.EnableBulletproofTxManager(),
-			EnableExternalInitiators:         config.FeatureExternalInitiators(),
-			EnableFluxMonitor:                config.FeatureFluxMonitor(),
-			EthereumURL:                      config.EthereumURL(),
+			EnableExperimentalAdapters:       config.EnableExperimentalAdapters(),
+			EthBalanceMonitorBlockDelay:      config.EthBalanceMonitorBlockDelay(),
+			EthereumDisabled:                 config.EthereumDisabled(),
+			EthFinalityDepth:                 config.EthFinalityDepth(),
 			EthGasBumpThreshold:              config.EthGasBumpThreshold(),
 			EthGasBumpWei:                    config.EthGasBumpWei(),
 			EthGasLimitDefault:               config.EthGasLimitDefault(),
 			EthGasPriceDefault:               config.EthGasPriceDefault(),
-			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
-			EthFinalityDepth:                 config.EthFinalityDepth(),
 			EthHeadTrackerHistoryDepth:       config.EthHeadTrackerHistoryDepth(),
 			EthHeadTrackerMaxBufferSize:      config.EthHeadTrackerMaxBufferSize(),
-			EthBalanceMonitorBlockDelay:      config.EthBalanceMonitorBlockDelay(),
-			EthDisabled:                      config.EthereumDisabled(),
+			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
+			EthereumURL:                      config.EthereumURL(),
+			ExplorerURL:                      explorerURL,
+			FeatureExternalInitiators:        config.FeatureExternalInitiators(),
+			FeatureFluxMonitor:               config.FeatureFluxMonitor(),
 			GasUpdaterBlockDelay:             config.GasUpdaterBlockDelay(),
 			GasUpdaterBlockHistorySize:       config.GasUpdaterBlockHistorySize(),
-			GasUpdaterTransactionPercentile:  config.GasUpdaterTransactionPercentile(),
 			GasUpdaterEnabled:                config.GasUpdaterEnabled(),
+			GasUpdaterTransactionPercentile:  config.GasUpdaterTransactionPercentile(),
 			JSONConsole:                      config.JSONConsole(),
 			LinkContractAddress:              config.LinkContractAddress(),
-			ExplorerURL:                      explorerURL,
 			LogLevel:                         config.LogLevel(),
-			LogToDisk:                        config.LogToDisk(),
-			LogSQLStatements:                 config.LogSQLStatements(),
 			LogSQLMigrations:                 config.LogSQLMigrations(),
+			LogSQLStatements:                 config.LogSQLStatements(),
+			LogToDisk:                        config.LogToDisk(),
 			MaxRPCCallsPerSecond:             config.MaxRPCCallsPerSecond(),
-			MaxServiceDuration:               config.MaximumServiceDuration(),
-			MinServiceDuration:               config.MinimumServiceDuration(),
-			MinimumContractPayment:           config.MinimumContractPayment(),
-			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
+			MaximumServiceDuration:           config.MaximumServiceDuration(),
 			MinIncomingConfirmations:         config.MinIncomingConfirmations(),
 			MinRequiredOutgoingConfirmations: config.MinRequiredOutgoingConfirmations(),
+			MinimumServiceDuration:           config.MinimumServiceDuration(),
+			MinimumContractPayment:           config.MinimumContractPayment(),
+			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
 			OracleContractAddress:            config.OracleContractAddress(),
 			Port:                             config.Port(),
 			ReaperExpiration:                 config.ReaperExpiration(),
