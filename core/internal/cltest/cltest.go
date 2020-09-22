@@ -942,6 +942,21 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+// AssertRunsStays asserts that the number of job runs for a particular job remains at the provided valuea
+func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jrs []models.JobRun
+	var err error
+	g.Consistently(func() []models.JobRun {
+		jrs, err = store.JobRunsFor(j.ID)
+		assert.NoError(t, err)
+		return jrs
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return jrs
+}
+
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
 func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) {
 	t.Helper()
