@@ -136,41 +136,41 @@ type EnvPrinter struct {
 	ChainID                          *big.Int        `json:"ethChainId"`
 	ClientNodeURL                    string          `json:"clientNodeUrl"`
 	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
-	DefaultHTTPLimit                 int64
-	DefaultHTTPTimeout               models.Duration
-	Dev                              bool `json:"chainlinkDev"`
-	EnableBulletproofTxManager       bool
-	EnableExperimentalAdapters       bool
-	EthBalanceMonitorBlockDelay      uint16
-	EthereumDisabled                 bool
-	EthFinalityDepth                 uint
-	EthGasBumpThreshold              uint64 `json:"ethGasBumpThreshold"`
-	EthGasBumpTxDepth                uint16
-	EthGasBumpWei                    *big.Int `json:"ethGasBumpWei"`
-	EthGasLimitDefault               uint64
-	EthGasPriceDefault               *big.Int `json:"ethGasPriceDefault"`
-	EthHeadTrackerHistoryDepth       uint
-	EthHeadTrackerMaxBufferSize      uint
-	EthMaxGasPriceWei                *big.Int
-	EthereumURL                      string `json:"ethUrl"`
-	ExplorerURL                      string `json:"explorerUrl"`
-	FeatureExternalInitiators        bool
-	FeatureFluxMonitor               bool
-	GasUpdaterBlockDelay             uint16
-	GasUpdaterBlockHistorySize       uint16
-	GasUpdaterEnabled                bool
-	GasUpdaterTransactionPercentile  uint16
-	JSONConsole                      bool         `json:"jsonConsole"`
-	LinkContractAddress              string       `json:"linkContractAddress"`
-	LogLevel                         orm.LogLevel `json:"logLevel"`
-	LogSQLMigrations                 bool         `json:"logSqlMigrations"`
-	LogSQLStatements                 bool         `json:"logSqlStatements"`
-	LogToDisk                        bool         `json:"logToDisk"`
-	MaxRPCCallsPerSecond             uint64       `json:"maxRPCCallsPerSecond"`
-	MaximumServiceDuration           models.Duration
-	MinIncomingConfirmations         uint32 `json:"minIncomingConfirmations"`
-	MinRequiredOutgoingConfirmations uint64 `json:"minOutgoingConfirmations"`
-	MinimumServiceDuration           models.Duration
+	DefaultHTTPLimit                 int64           `json:"defaultHttpLimit"`
+	DefaultHTTPTimeout               models.Duration `json:"defaultHttpTimeout"`
+	Dev                              bool            `json:"chainlinkDev"`
+	EnableBulletproofTxManager       bool            `json:"enableBulletproofTxManager"`
+	EnableExperimentalAdapters       bool            `json:"enableExperimentalAdapters"`
+	EthBalanceMonitorBlockDelay      uint16          `json:"ethBalanceMonitorBlockDelay"`
+	EthereumDisabled                 bool            `json:"ethereumDisabled"`
+	EthFinalityDepth                 uint            `json:"ethFinalityDepth"`
+	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
+	EthGasBumpTxDepth                uint16          `json:"ethGasBumpTxDepth"`
+	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
+	EthGasLimitDefault               uint64          `json:"ethGasLimitDefault"`
+	EthGasPriceDefault               *big.Int        `json:"ethGasPriceDefault"`
+	EthHeadTrackerHistoryDepth       uint            `json:"ethHeadTrackerHistoryDepth"`
+	EthHeadTrackerMaxBufferSize      uint            `json:"ethHeadTrackerMaxBufferSize"`
+	EthMaxGasPriceWei                *big.Int        `json:"ethMaxGasPriceWei"`
+	EthereumURL                      string          `json:"ethUrl"`
+	ExplorerURL                      string          `json:"explorerUrl"`
+	FeatureExternalInitiators        bool            `json:"featureExternalInitiators"`
+	FeatureFluxMonitor               bool            `json:"featureFluxMonitor"`
+	GasUpdaterBlockDelay             uint16          `json:"gasUpdaterBlockDelay"`
+	GasUpdaterBlockHistorySize       uint16          `json:"gasUpdaterBlockHistorySize"`
+	GasUpdaterEnabled                bool            `json:"gasUpdaterEnabled"`
+	GasUpdaterTransactionPercentile  uint16          `json:"gasUpdaterTransactionPercentile"`
+	JSONConsole                      bool            `json:"jsonConsole"`
+	LinkContractAddress              string          `json:"linkContractAddress"`
+	LogLevel                         orm.LogLevel    `json:"logLevel"`
+	LogSQLMigrations                 bool            `json:"logSqlMigrations"`
+	LogSQLStatements                 bool            `json:"logSqlStatements"`
+	LogToDisk                        bool            `json:"logToDisk"`
+	MaxRPCCallsPerSecond             uint64          `json:"maxRPCCallsPerSecond"`
+	MaximumServiceDuration           models.Duration `json:"maximumServiceDuration"`
+	MinIncomingConfirmations         uint32          `json:"minIncomingConfirmations"`
+	MinRequiredOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
+	MinimumServiceDuration           models.Duration `json:"minimumServiceDuration"`
 	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
 	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
@@ -178,7 +178,7 @@ type EnvPrinter struct {
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
 	RootDir                          string          `json:"root"`
-	SecureCookies                    bool
+	SecureCookies                    bool            `json:"secureCookies"`
 	SessionTimeout                   models.Duration `json:"sessionTimeout"`
 	TLSHost                          string          `json:"chainlinkTLSHost"`
 	TLSPort                          uint16          `json:"chainlinkTLSPort"`
