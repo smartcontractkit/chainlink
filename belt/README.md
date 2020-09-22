@@ -27,7 +27,7 @@ $ npm install -g @chainlink/belt
 $ belt COMMAND
 running command...
 $ belt (-v|--version|version)
-@chainlink/belt/0.0.2 darwin-x64 node-v14.10.1
+@chainlink/belt/0.0.3 darwin-x64 node-v10.16.3
 $ belt --help [COMMAND]
 USAGE
   $ belt COMMAND
@@ -68,7 +68,7 @@ EXAMPLES
   belt box -l
 ```
 
-_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.2/src/src/commands/box.ts)_
+_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/box.ts)_
 
 ## `belt compile [COMPILER]`
 
@@ -100,7 +100,7 @@ EXAMPLE
   ...
 ```
 
-_See code: [src/src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.2/src/src/commands/compile.ts)_
+_See code: [src/src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/compile.ts)_
 
 ## `belt help [COMMAND]`
 
