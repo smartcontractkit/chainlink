@@ -137,6 +137,26 @@ type Whitelist struct {
 	ClientNodeURL                    string          `json:"clientNodeUrl"`
 	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
 	Dev                              bool            `json:"chainlinkDev"`
+	DefaultHTTPLimit                 int64
+	DefaultHTTPTimeout               models.Duration
+	EnableExperimentalAdapters       bool
+	EnableBulletproofTxManager       bool
+	EnableExternalInitiators         bool
+	EnableFluxMonitor                bool
+	EthGasLimitDefault               uint64
+	EthMaxGasPriceWei                *big.Int
+	EthFinalityDepth                 uint
+	EthHeadTrackerHistoryDepth       uint
+	EthHeadTrackerMaxBufferSize      uint
+	EthBalanceMonitorBlockDelay      uint16
+	EthDisabled                      bool
+	GasUpdaterBlockDelay             uint16
+	GasUpdaterBlockHistorySize       uint16
+	GasUpdaterTransactionPercentile  uint16
+	GasUpdaterEnabled                bool
+	MaxServiceDuration               models.Duration
+	MinServiceDuration               models.Duration
+	SecureCookies                    bool
 	EthereumURL                      string          `json:"ethUrl"`
 	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
 	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
@@ -187,10 +207,27 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ClientNodeURL:                    config.ClientNodeURL(),
 			Dev:                              config.Dev(),
 			DatabaseTimeout:                  config.DatabaseTimeout(),
+			DefaultHTTPLimit:                 config.DefaultHTTPLimit(),
+			DefaultHTTPTimeout:               config.DefaultHTTPTimeout(),
+			EnableExperimentalAdapters:       config.EnableExperimentalAdapters(),
+			EnableBulletproofTxManager:       config.EnableBulletproofTxManager(),
+			EnableExternalInitiators:         config.FeatureExternalInitiators(),
+			EnableFluxMonitor:                config.FeatureFluxMonitor(),
 			EthereumURL:                      config.EthereumURL(),
 			EthGasBumpThreshold:              config.EthGasBumpThreshold(),
 			EthGasBumpWei:                    config.EthGasBumpWei(),
+			EthGasLimitDefault:               config.EthGasLimitDefault(),
 			EthGasPriceDefault:               config.EthGasPriceDefault(),
+			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
+			EthFinalityDepth:                 config.EthFinalityDepth(),
+			EthHeadTrackerHistoryDepth:       config.EthHeadTrackerHistoryDepth(),
+			EthHeadTrackerMaxBufferSize:      config.EthHeadTrackerMaxBufferSize(),
+			EthBalanceMonitorBlockDelay:      config.EthBalanceMonitorBlockDelay(),
+			EthDisabled:                      config.EthereumDisabled(),
+			GasUpdaterBlockDelay:             config.GasUpdaterBlockDelay(),
+			GasUpdaterBlockHistorySize:       config.GasUpdaterBlockHistorySize(),
+			GasUpdaterTransactionPercentile:  config.GasUpdaterTransactionPercentile(),
+			GasUpdaterEnabled:                config.GasUpdaterEnabled(),
 			JSONConsole:                      config.JSONConsole(),
 			LinkContractAddress:              config.LinkContractAddress(),
 			ExplorerURL:                      explorerURL,
@@ -199,6 +236,8 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			LogSQLStatements:                 config.LogSQLStatements(),
 			LogSQLMigrations:                 config.LogSQLMigrations(),
 			MaxRPCCallsPerSecond:             config.MaxRPCCallsPerSecond(),
+			MaxServiceDuration:               config.MaximumServiceDuration(),
+			MinServiceDuration:               config.MinimumServiceDuration(),
 			MinimumContractPayment:           config.MinimumContractPayment(),
 			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
 			MinIncomingConfirmations:         config.MinIncomingConfirmations(),
@@ -208,6 +247,7 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 			ReaperExpiration:                 config.ReaperExpiration(),
 			ReplayFromBlock:                  config.ReplayFromBlock(),
 			RootDir:                          config.RootDir(),
+			SecureCookies:                    config.SecureCookies(),
 			SessionTimeout:                   config.SessionTimeout(),
 			TLSHost:                          config.TLSHost(),
 			TLSPort:                          config.TLSPort(),
