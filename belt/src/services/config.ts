@@ -132,13 +132,6 @@ function assertAppConfig(json: unknown): asserts json is App {
         )}`,
       )
     }
-    Object.entries(compilerSettings.versions).forEach(([k, v]) => {
-      if (typeof v !== 'string' || !v.match(/^\d+.\d+.\d+$/)) {
-        throw Error(
-          `Expected value of config.compilerSettings.versions.${k} to be a valid version number\nGot:${v}`,
-        )
-      }
-    })
   }
 
   const appConfig = json as DeepUnknown<App>

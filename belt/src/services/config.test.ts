@@ -98,24 +98,6 @@ describe('config.load', () => {
     )
   })
 
-  it('should throw on a non-valid compilerSettings value', () => {
-    mock({
-      src: {},
-      conf: strify({
-        ...getDefaultConf(),
-        compilerSettings: {
-          versions: {
-            'v0.4': 'invalid',
-          },
-        },
-      }),
-    })
-
-    expect(() => load('./conf')).toThrowError(
-      'Expected value of config.compilerSettings.versions',
-    )
-  })
-
   it('should load a config correctly', () => {
     mock({
       src: {},
