@@ -672,9 +672,16 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 	return key
 }
 
-func NewEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
+func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {
+	var address common.Address
+	if len(fromAddress) > 0 {
+		address = fromAddress[0]
+	} else {
+		address = GetDefaultFromAddress(t, store)
+	}
+
 	return models.EthTx{
-		FromAddress:    GetDefaultFromAddress(t, store),
+		FromAddress:    address,
 		ToAddress:      NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
@@ -682,9 +689,9 @@ func NewEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store)
+	etx := NewEthTx(t, store, fromAddress...)
 
 	etx.BroadcastAt = &timeNow
 	n := nonce
@@ -705,9 +712,9 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64) models.EthTx {
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress ...common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store)
+	etx := NewEthTx(t, store, fromAddress...)
 
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
@@ -721,12 +728,16 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	return etx
 }
 
+func MustGetFixtureKey(t *testing.T, store *strpkg.Store) models.Key {
+	key, err := store.KeyByAddress(common.HexToAddress(DefaultKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return key
+}
+
 func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
-	keys, err := store.Keys()
-	require.NoError(t, err)
-	require.Len(t, keys, 1)
-	key := keys[0]
-	return key.Address.Address()
+	return MustGetFixtureKey(t, store).Address.Address()
 }
 
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
