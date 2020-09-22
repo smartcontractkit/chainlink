@@ -205,7 +205,7 @@ func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 }
 
 func logConfigVariables(store *strpkg.Store) error {
-	wlc, err := presenters.NewConfigWhitelist(store)
+	wlc, err := presenters.NewConfigPrinter(store)
 	if err != nil {
 		return err
 	}

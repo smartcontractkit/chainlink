@@ -4,7 +4,7 @@ export default configOptions => {
   return decamelizeKeys({
     data: {
       id: 'someConfigId',
-      type: 'configWhitelists',
+      type: 'configPrinters',
       attributes: configOptions,
     },
   })

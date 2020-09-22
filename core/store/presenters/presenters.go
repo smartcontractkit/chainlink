@@ -119,17 +119,17 @@ func (a *AccountBalance) SetID(value string) error {
 	return nil
 }
 
-// ConfigWhitelist are the non-secret values of the node
+// ConfigPrinter are the non-secret values of the node
 //
-// If you add an entry here, you should update NewConfigWhitelist and
-// ConfigWhitelist#String accordingly.
-type ConfigWhitelist struct {
+// If you add an entry here, you should update NewConfigPrinter and
+// ConfigPrinter#String accordingly.
+type ConfigPrinter struct {
 	AccountAddress string `json:"accountAddress"`
-	Whitelist
+	EnvPrinter
 }
 
-// Whitelist contains the supported environment variables
-type Whitelist struct {
+// EnvPrinter contains the supported environment variables
+type EnvPrinter struct {
 	AllowOrigins                     string          `json:"allowOrigins"`
 	BlockBackfillDepth               uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL                string          `json:"bridgeResponseURL,omitempty"`
@@ -185,21 +185,21 @@ type Whitelist struct {
 	TxAttemptLimit                   uint16          `json:"txAttemptLimit"`
 }
 
-// NewConfigWhitelist creates an instance of ConfigWhitelist
-func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
+// NewConfigPrinter creates an instance of ConfigPrinter
+func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	config := store.Config
 	account, err := store.KeyStore.GetFirstAccount()
 	if err != nil {
-		return ConfigWhitelist{}, err
+		return ConfigPrinter{}, err
 	}
 
 	explorerURL := ""
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
-	return ConfigWhitelist{
+	return ConfigPrinter{
 		AccountAddress: account.Address.Hex(),
-		Whitelist: Whitelist{
+		EnvPrinter: EnvPrinter{
 			AllowOrigins:                     config.AllowOrigins(),
 			BlockBackfillDepth:               config.BlockBackfillDepth(),
 			BridgeResponseURL:                config.BridgeResponseURL().String(),
@@ -258,14 +258,14 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 }
 
 // String returns the values as a newline delimited string
-func (c ConfigWhitelist) String() string {
+func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
-	cwlT := reflect.TypeOf(c.Whitelist)
-	cwlV := reflect.ValueOf(c.Whitelist)
+	cwlT := reflect.TypeOf(c.EnvPrinter)
+	cwlV := reflect.ValueOf(c.EnvPrinter)
 
 	for index := 0; index < cwlT.NumField(); index++ {
 		item := cwlT.FieldByIndex([]int{index})
@@ -296,13 +296,13 @@ func (c ConfigWhitelist) String() string {
 }
 
 // GetID generates a new ID for jsonapi serialization.
-func (c ConfigWhitelist) GetID() string {
+func (c ConfigPrinter) GetID() string {
 	return utils.NewBytes32ID()
 }
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (c *ConfigWhitelist) SetID(value string) error {
+func (c *ConfigPrinter) SetID(value string) error {
 	return nil
 }
 
