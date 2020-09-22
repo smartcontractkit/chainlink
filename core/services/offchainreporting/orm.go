@@ -6,21 +6,20 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
 // database is an abstraction that conforms to the Database interface in the
 // offchain reporting prototype, which is unaware of job IDs.
 type orm struct {
-	db        *gorm.DB
-	jobSpecID models.ID
+	db    *gorm.DB
+	jobID int32
 }
 
 var _ ocrtypes.Database = orm{}
 
 type persistentState struct {
-	JobSpecID                models.ID `gorm:"primary_key"`
+	JobSpecID                int32 `gorm:"primary_key"`
 	ConfigDigest             ocrtypes.ConfigDigest
 	ocrtypes.PersistentState `gorm:"embedded"`
 }
@@ -28,7 +27,7 @@ type persistentState struct {
 func (o orm) ReadState(configDigest ocrtypes.ConfigDigest) (*ocrtypes.PersistentState, error) {
 	var state persistentState
 	err := o.db.
-		Where("job_spec_id = ? AND config_digest = ?", o.jobSpecID, configDigest).
+		Where("job_spec_id = ? AND config_digest = ?", o.jobID, configDigest).
 		Find(&state).
 		Error
 	if err != nil {
@@ -47,14 +46,14 @@ func (o orm) WriteState(configDigest ocrtypes.ConfigDigest, state ocrtypes.Persi
         UPDATE SET epoch = EXCLUDED.epoch, highest_sent_epoch = EXCLUDED.highest_sent_epoch,
             highest_received_epoch = EXCLUDED.highest_received_epoch
         WHERE job_spec_id = ? AND config_digest = ?
-    `, o.jobSpecID, configDigest, state.Epoch, state.HighestSentEpoch, state.HighestReceivedEpoch,
+    `, o.jobID, configDigest, state.Epoch, state.HighestSentEpoch, state.HighestReceivedEpoch,
 		state.Epoch, state.HighestSentEpoch, state.HighestReceivedEpoch,
-		o.jobSpecID, configDigest,
+		o.jobID, configDigest,
 	).Error
 }
 
 type contractConfig struct {
-	JobSpecID    models.ID             `gorm:"primary_key"`
+	JobSpecID    int32                 `gorm:"primary_key"`
 	ConfigDigest ocrtypes.ConfigDigest `gorm:"type:bytea"`
 	Signers      []common.Address      `gorm:"type:bytea[]"`
 	Transmitters []common.Address      `gorm:"type:bytea[]"`
@@ -65,7 +64,7 @@ type contractConfig struct {
 func (o orm) ReadConfig() (*ocrtypes.ContractConfig, error) {
 	var config contractConfig
 	err := o.db.
-		Where("job_spec_id = ?", o.jobSpecID).
+		Where("job_spec_id = ?", o.jobID).
 		Find(&config).
 		Error
 	if err != nil {
@@ -92,8 +91,8 @@ func (o orm) WriteConfig(config ocrtypes.ContractConfig) error {
         SET signers = EXCLUDED.signers, transmitters = EXCLUDED.transmitters, threshold = EXCLUDED.threshold,
             encoded = EXCLUDED.encoded
         WHERE job_spec_id = ? AND config_digest = ?
-    `, o.jobSpecID, config.ConfigDigest, config.Signers, config.Transmitters, config.Threshold, config.Encoded,
-		o.jobSpecID, config.ConfigDigest,
+    `, o.jobID, config.ConfigDigest, config.Signers, config.Transmitters, config.Threshold, config.Encoded,
+		o.jobID, config.ConfigDigest,
 	).Error
 	if err != nil {
 		return err
@@ -117,8 +116,8 @@ func (o orm) StorePendingTransmission(
             round = EXCLUDED.round, time = EXCLUDED.time, median = EXCLUDED.median,
             serialized_report = EXCLUDED.serialized_report, rs = EXCLUDED.rs, ss = EXCLUDED.ss, vs = EXCLUDED.vs
         WHERE job_spec_id = ? AND config_digest = ? AND epoch = ? AND round = ?
-    `, o.jobSpecID, key.ConfigDigest, key.Epoch, key.Round, t.Time, t.Median, t.SerializedReport, t.Rs,
-		t.Ss, t.Vs, o.jobSpecID, key.ConfigDigest, key.Epoch, key.Round).
+    `, o.jobID, key.ConfigDigest, key.Epoch, key.Round, t.Time, t.Median, t.SerializedReport, t.Rs,
+		t.Ss, t.Vs, o.jobID, key.ConfigDigest, key.Epoch, key.Round).
 		Error
 }
 
@@ -170,12 +169,12 @@ func (o orm) DeletePendingTransmission(key ocrtypes.PendingTransmissionKey) erro
 	return o.db.Exec(`
         DELETE FROM offchain_reporting_pending_transmissions
         WHERE job_id = ? AND config_digest = ? AND epoch = ? AND round = ?
-    `, o.jobSpecID, key.ConfigDigest, key.Epoch, key.Round).Error
+    `, o.jobID, key.ConfigDigest, key.Epoch, key.Round).Error
 }
 
 func (o orm) DeletePendingTransmissionsOlderThan(t time.Time) error {
 	return o.db.Exec(`
         DELETE FROM offchain_reporting_pending_transmissions
         WHERE job_spec_id = ? AND time < ?
-    `, o.jobSpecID, t).Error
+    `, o.jobID, t).Error
 }

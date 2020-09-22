@@ -15,7 +15,7 @@ type (
 	Runner interface {
 		Start()
 		Stop()
-		CreateRun(jobSpecID int32) (int64, error)
+		CreateRun(jobID int32) (int64, error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(runID int64) ([]Result, error)
 	}
@@ -65,8 +65,8 @@ func (r *runner) Stop() {
 	<-r.chDone
 }
 
-func (r *runner) CreateRun(jobSpecID int32) (int64, error) {
-	runID, err := r.orm.CreateRun(jobSpecID)
+func (r *runner) CreateRun(jobID int32) (int64, error) {
+	runID, err := r.orm.CreateRun(jobID)
 	if err != nil {
 		return 0, err
 	}
@@ -86,9 +86,9 @@ func (r *runner) ResultsForRun(runID int64) ([]Result, error) {
 // the one that originally added the task runs.
 func (r *runner) processIncompleteTaskRuns() {
 	for {
-		var runID int64
+		// var runID int64
 		err := r.orm.WithNextUnclaimedTaskRun(func(taskRun TaskRun, predecessors []TaskRun) Result {
-			runID = taskRun.RunID
+			// runID = taskRun.PipelineRunID
 
 			inputs := make([]Result, len(predecessors))
 			for i, predecessor := range predecessors {
@@ -114,9 +114,9 @@ func (r *runner) processIncompleteTaskRuns() {
 			return
 		}
 
-		err = r.orm.NotifyCompletion(runID)
-		if err != nil {
-			logger.Errorf("Error calling pg_notify for run %v: %v", runID, err)
-		}
+		// err = r.orm.NotifyCompletion(runID)
+		// if err != nil {
+		// 	logger.Errorf("Error calling pg_notify for run %v: %v", runID, err)
+		// }
 	}
 }

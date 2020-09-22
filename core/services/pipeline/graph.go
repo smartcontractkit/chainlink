@@ -27,11 +27,14 @@ func (g *TaskDAG) NewNode() graph.Node {
 }
 
 func (g *TaskDAG) UnmarshalText(bs []byte) error {
+	if g.DirectedGraph == nil {
+		g.DirectedGraph = simple.NewDirectedGraph()
+	}
 	bs = append([]byte("digraph {\n"), bs...)
 	bs = append(bs, []byte("\n}")...)
 	err := dot.Unmarshal(bs, g)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.TaskDAG")
 	}
 	g.DOTSource = string(bs)
 	return nil

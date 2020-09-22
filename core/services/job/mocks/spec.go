@@ -6,8 +6,6 @@ import (
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
-
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -17,16 +15,14 @@ type Spec struct {
 }
 
 // JobID provides a mock function with given fields:
-func (_m *Spec) JobID() *models.ID {
+func (_m *Spec) JobID() int32 {
 	ret := _m.Called()
 
-	var r0 *models.ID
-	if rf, ok := ret.Get(0).(func() *models.ID); ok {
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.ID)
-		}
+		r0 = ret.Get(0).(int32)
 	}
 
 	return r0
