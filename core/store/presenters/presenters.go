@@ -144,7 +144,8 @@ type EnvPrinter struct {
 	EthBalanceMonitorBlockDelay      uint16
 	EthereumDisabled                 bool
 	EthFinalityDepth                 uint
-	EthGasBumpThreshold              uint64   `json:"ethGasBumpThreshold"`
+	EthGasBumpThreshold              uint64 `json:"ethGasBumpThreshold"`
+	EthGasBumpTxDepth                uint16
 	EthGasBumpWei                    *big.Int `json:"ethGasBumpWei"`
 	EthGasLimitDefault               uint64
 	EthGasPriceDefault               *big.Int `json:"ethGasPriceDefault"`
@@ -215,6 +216,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthereumDisabled:                 config.EthereumDisabled(),
 			EthFinalityDepth:                 config.EthFinalityDepth(),
 			EthGasBumpThreshold:              config.EthGasBumpThreshold(),
+			EthGasBumpTxDepth:                config.EthGasBumpTxDepth(),
 			EthGasBumpWei:                    config.EthGasBumpWei(),
 			EthGasLimitDefault:               config.EthGasLimitDefault(),
 			EthGasPriceDefault:               config.EthGasPriceDefault(),
