@@ -9,7 +9,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -19,7 +19,7 @@ type ORM interface {
 	CreateRun(jobSpecID int32) (int64, error)
 	WithNextUnclaimedTaskRun(f func(ptRun TaskRun, predecessors []TaskRun) Result) error
 	AwaitRun(ctx context.Context, runID int64) error
-	NotifyCompletion(pipelineRunID int64) error
+	// NotifyCompletion(pipelineRunID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
 
 	// BridgeTask
@@ -42,7 +42,7 @@ func NewORM(db *gorm.DB) *orm {
 // cluster.
 func (o *orm) CreateRun(jobSpecID int32) (int64, error) {
 	var runID int64
-	err := ormpkg.GormTransaction(o.db, func(tx *gorm.DB) error {
+	err := utils.GormTransaction(o.db, func(tx *gorm.DB) error {
 		// Fetch the spec ID
 		var spec Spec
 		err := o.db.
@@ -55,8 +55,8 @@ func (o *orm) CreateRun(jobSpecID int32) (int64, error) {
 
 		// Create the job run
 		run := Run{
-			SpecID:    spec.ID,
-			CreatedAt: time.Now(),
+			PipelineSpecID: spec.ID,
+			CreatedAt:      time.Now(),
 		}
 
 		err = tx.Create(&run).Error
@@ -74,7 +74,7 @@ func (o *orm) CreateRun(jobSpecID int32) (int64, error) {
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?
-        `, run.ID, run.SpecID).Error
+        `, run.ID, run.PipelineSpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
 	return runID, err
@@ -83,7 +83,7 @@ func (o *orm) CreateRun(jobSpecID int32) (int64, error) {
 // WithNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) WithNextUnclaimedTaskRun(fn func(ptRun TaskRun, predecessors []TaskRun) Result) error {
-	return ormpkg.GormTransaction(o.db, func(tx *gorm.DB) error {
+	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
 		var ptRun TaskRun
 		var predecessors []TaskRun
 
@@ -139,7 +139,7 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 		}
 
 		var done bool
-		err := o.db.Exec(`
+		err := o.db.Raw(`
             SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
             FROM pipeline_job_runs
             JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id
@@ -157,17 +157,17 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 	}
 }
 
-func (o *orm) NotifyCompletion(runID int64) error {
-	return o.db.Exec(`
-    $$
-    BEGIN
-        IF (SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL) FROM pipeline_job_runs JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id WHERE pipeline_job_runs.id = $1)
-            PERFORM pg_notify('pipeline_job_run_completed', $1::text);
-        END IF;
-    END;
-    $$ LANGUAGE plpgsql;
-    )`, runID).Error
-}
+// func (o *orm) NotifyCompletion(runID int64) error {
+// 	return o.db.Exec(`
+//     $$
+//     BEGIN
+//         IF (SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL) FROM pipeline_job_runs JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id WHERE pipeline_job_runs.id = $1)
+//             PERFORM pg_notify('pipeline_job_run_completed', $1::text);
+//         END IF;
+//     END;
+//     $$ LANGUAGE plpgsql;
+//     )`, runID).Error
+// }
 
 func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 	var taskRuns []TaskRun
@@ -175,7 +175,7 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 		Where("pipeline_job_run_id = ?", runID).
 		Where("error IS NOT NULL OR output IS NOT NULL").
 		Where("successor_id IS NULL").
-		Scan(&taskRuns).
+		Find(&taskRuns).
 		Error
 	if err != nil {
 		return nil, err

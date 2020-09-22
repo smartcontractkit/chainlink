@@ -1,32 +1,25 @@
 package offchainreporting
 
 import (
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// OracleSpec is a wrapper for `models.OffchainReportingOracleSpec`, the DB
+// representation of the OCR job spec.  It fulfills the job.Spec interface
+// and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type OracleSpec struct {
 	models.OffchainReportingOracleSpec
-	ObservationSource pipeline.TaskDAG `toml:"observationSource"`
+	jobID    int32
+	Pipeline pipeline.TaskDAG `toml:"observationSource"` // This field is only used during unmarshaling
 }
-
-type KeyBundle models.OffchainReportingKeyBundle
-
-func (OracleSpec) TableName() string { return "offchainreporting_oracle_specs" }
-func (KeyBundle) TableName() string  { return "offchainreporting_key_bundles" }
-
-const JobType job.Type = "offchainreporting"
 
 // OracleSpec conforms to the job.Spec interface
 var _ job.Spec = OracleSpec{}
 
 func (spec OracleSpec) JobID() int32 {
-	return spec.JID
+	return spec.jobID
 }
 
 func (spec OracleSpec) JobType() job.Type {
@@ -34,5 +27,5 @@ func (spec OracleSpec) JobType() job.Type {
 }
 
 func (spec OracleSpec) TaskDAG() pipeline.TaskDAG {
-	return spec.ObservationSource
+	return spec.Pipeline
 }
