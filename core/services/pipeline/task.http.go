@@ -50,45 +50,100 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (f *HTTPTask) Run(inputs []Result) Result {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
+func getBodyFromInput(input interface{}) (HttpRequestData, error) {
+	var data HttpRequestData
+	switch val := input.(type) {
+	case []byte:
+		err := json.Unmarshal(val, &data)
+		return data, err
+	case string:
+		err := json.Unmarshal([]byte(val), &data)
+		return data, err
+	case map[string]interface{}:
+		return HttpRequestData(val), nil
+	default:
+		return nil, nil
+	}
+}
+
+func mergeMaps(one, two HttpRequestData) HttpRequestData {
+	if one == nil {
+		return two
+	} else if two == nil {
+		return one
+	}
+	m := make(HttpRequestData)
+	for k, v := range one {
+		m[k] = v
+	}
+	for k, v := range two {
+		m[k] = v
+	}
+	return m
+}
+
+func (t *HTTPTask) Run(inputs []Result) Result {
+	if len(inputs) > 1 {
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 or 1 inputs")}
+	} else if len(inputs) == 1 && inputs[0].Error != nil {
+		// Pass through errors
+		return inputs[0]
 	}
 
 	var contentType string
-	if f.Method == "POST" {
-		contentType = "application/json"
-	}
-
 	var body io.Reader
-	if f.RequestData != nil {
-		bs, err := json.Marshal(f.RequestData)
-		if err != nil {
-			return Result{Error: err}
+	if strings.ToUpper(t.Method) == "POST" {
+		contentType = "application/json"
+
+		var inputBody HttpRequestData
+		var err error
+		if t.RequestData != nil {
+			inputBody = t.RequestData
+		} else if len(inputs) == 1 {
+			inputBody, err = getBodyFromInput(inputs[0].Value)
+			if err != nil {
+				logger.Errorw("HTTPTask: error decoding input for POST request body", "error", err, "input", inputs[0].Value)
+			}
 		}
-		body = bytes.NewBuffer(bs)
+
+		if inputBody != nil {
+			bs, err := json.Marshal(inputBody)
+			if err != nil {
+				return Result{Error: err}
+			}
+			body = bytes.NewReader(bs)
+		}
 	}
 
-	request, err := http.NewRequest(f.Method, f.URL.String(), body)
+	request, err := t.Request(contentType, body)
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	appendExtendedPath(request, f.ExtendedPath)
-	appendQueryParams(request, f.QueryParams)
-	setHeaders(request, http.Header(f.Headers), contentType)
 	httpConfig := httpRequestConfig{
-		f.config.DefaultHTTPTimeout().Duration(),
-		f.config.DefaultMaxHTTPAttempts(),
-		f.config.DefaultHTTPLimit(),
+		t.config.DefaultHTTPTimeout().Duration(),
+		t.config.DefaultMaxHTTPAttempts(),
+		t.config.DefaultHTTPLimit(),
 		false,
 	}
-	httpConfig.allowUnrestrictedNetworkAccess = f.AllowUnrestrictedNetworkAccess
+
+	httpConfig.allowUnrestrictedNetworkAccess = t.AllowUnrestrictedNetworkAccess
 	resp, err := sendRequest(request, httpConfig)
 	if err != nil {
 		return Result{Error: err}
 	}
 	return Result{Value: resp}
+}
+
+func (t HTTPTask) Request(contentType string, body io.Reader) (*http.Request, error) {
+	request, err := http.NewRequest(t.Method, t.URL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+	appendExtendedPath(request, t.ExtendedPath)
+	appendQueryParams(request, t.QueryParams)
+	setHeaders(request, http.Header(t.Headers), contentType)
+	return request, nil
 }
 
 func appendExtendedPath(request *http.Request, extPath ExtendedPath) {
@@ -199,8 +254,8 @@ func makeHTTPCall(
 	source := newMaxBytesReader(r.Body, config.sizeLimit)
 	bytes, err := ioutil.ReadAll(source)
 	if err != nil {
-		logger.Errorf("http fetcher error reading body: %v", e.Error())
-		return nil, statusCode, e
+		logger.Errorf("http fetcher error reading body: %v", err)
+		return nil, statusCode, err
 	}
 	elapsed = time.Since(start)
 	logger.Debugw(fmt.Sprintf("http fetcher finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)

@@ -1,14 +1,17 @@
-observationTimeout = "10s"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pBootstrapNodes  = [
+p2pPeerID          = "<libp2p-node-id>"
+p2pBootstrapPeers  = [
     {peerId = "<peer id 1>", multiAddr = "<multiaddr1>"},
     {peerId = "<peer id 2>", multiAddr = "<multiaddr2>"},
 ]
-p2pNodeID          = "<libp2p-node-id>"
-keyBundle          = "<identifier for keybundle consisting of onchain sig key, offchain sig key, config decryption key>"
+keyBundle          = {}
 monitoringEndpoint = "<ip:port>"
-nodeAddress        = "0x1234..."
-observation_source = """
+transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
+observationTimeout = "10s"
+blockchainTimeout  = "10s"
+contractConfigTrackerPollInterval = "1m"
+contractConfigConfirmations = 3
+observationSource = """
     // data source 1
     ds1          [type=bridge name=voter_turnout];
     ds1_parse    [type=jsonparse path="one,two"];

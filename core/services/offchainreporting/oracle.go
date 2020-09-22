@@ -2,6 +2,8 @@ package offchainreporting
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -16,6 +18,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
 )
 
+const JobType job.Type = "offchainreporting"
+
 func RegisterJobType(
 	db *gorm.DB,
 	jobSpawner job.Spawner,
@@ -23,50 +27,88 @@ func RegisterJobType(
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
 ) {
-	jobSpawner.RegisterJobType(job.Registration{
-		JobType: JobType,
-		Spec:    &OracleSpec{},
-		ServicesFactory: func(jobSpec job.Spec) ([]job.Service, error) {
-			concreteSpec, ok := jobSpec.(*OracleSpec)
-			if !ok {
-				return nil, errors.Errorf("expected an offchainreporting.OracleSpec, got %T", jobSpec)
-			} else if concreteSpec.JobID() == nil {
-				return nil, errors.New("offchainreporting: got nil job ID")
-			}
+	jobSpawner.RegisterDelegate(
+		NewJobSpawnerDelegate(
+			db,
+			pipelineRunner,
+			ethClient,
+			logBroadcaster,
+		),
+	)
+}
 
-			aggregator, err := ocrcontracts.NewOffchainReportingAggregator(
-				concreteSpec.ContractAddress,
-				ethClient,
-				logBroadcaster,
-				*concreteSpec.JobID(),
-				nil, // auth *bind.TransactOpts,
-				"",  // rpcURL string,
-			)
-			if err != nil {
-				return nil, err
-			}
+type jobSpawnerDelegate struct {
+	db             *gorm.DB
+	pipelineRunner pipeline.Runner
+	ethClient      eth.Client
+	logBroadcaster eth.LogBroadcaster
+}
 
-			service := ocr.NewOracle(ocr.OracleArgs{
-				LocalConfig: ocrtypes.LocalConfig{
-					DataSourceTimeout:                 concreteSpec.ObservationTimeout,
-					BlockchainTimeout:                 concreteSpec.BlockchainTimeout,
-					ContractConfigTrackerPollInterval: concreteSpec.ContractConfigTrackerPollInterval,
-					ContractConfigConfirmations:       concreteSpec.ContractConfigConfirmations,
-				},
-				Database:              orm{jobSpecID: *concreteSpec.JobID(), db: db},
-				Datasource:            dataSource{jobSpecID: *concreteSpec.JobID(), pipelineRunner: pipelineRunner},
-				ContractTransmitter:   aggregator,
-				ContractConfigTracker: aggregator,
-				PrivateKeys:           ocrtypes.PrivateKeys(nil),
-				NetEndpointFactory:    ocrtypes.BinaryNetworkEndpointFactory(nil),
-				MonitoringEndpoint:    ocrtypes.MonitoringEndpoint(nil),
-				Logger:                ocrtypes.Logger(nil),
-				Bootstrappers:         []string{},
-			})
+func NewJobSpawnerDelegate(
+	db *gorm.DB,
+	pipelineRunner pipeline.Runner,
+	ethClient eth.Client,
+	logBroadcaster eth.LogBroadcaster,
+) *jobSpawnerDelegate {
+	return &jobSpawnerDelegate{db, pipelineRunner, ethClient, logBroadcaster}
+}
 
-			return []job.Service{service}, nil
+func (d jobSpawnerDelegate) JobType() job.Type {
+	return JobType
+}
+
+func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
+	concreteSpec, ok := spec.(*OracleSpec)
+	if !ok {
+		panic(fmt.Sprintf("expected an *offchainreporting.OracleSpec, got %T", spec))
+	}
+	return models.JobSpecV2{OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec}
+}
+
+func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
+	if spec.OffchainreportingOracleSpec == nil {
+		return nil
+	}
+	return &OracleSpec{
+		OffchainReportingOracleSpec: *spec.OffchainreportingOracleSpec,
+		jobID:                       spec.ID,
+	}
+}
+
+func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
+	concreteSpec := spec.(*OracleSpec)
+
+	aggregator, err := ocrcontracts.NewOffchainReportingAggregator(
+		concreteSpec.ContractAddress,
+		d.ethClient,
+		d.logBroadcaster,
+		models.ID{}, //concreteSpec.JobID(),
+		nil,         // auth *bind.TransactOpts,
+		"",          // rpcURL string,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	service := ocr.NewOracle(ocr.OracleArgs{
+		LocalConfig: ocrtypes.LocalConfig{
+			DataSourceTimeout:                 time.Duration(concreteSpec.ObservationTimeout),
+			BlockchainTimeout:                 time.Duration(concreteSpec.BlockchainTimeout),
+			ContractConfigTrackerPollInterval: time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
+			ContractConfigConfirmations:       concreteSpec.ContractConfigConfirmations,
 		},
+		Database:              orm{jobID: concreteSpec.JobID(), db: d.db},
+		Datasource:            dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+		ContractTransmitter:   aggregator,
+		ContractConfigTracker: aggregator,
+		PrivateKeys:           ocrtypes.PrivateKeys(nil),
+		NetEndpointFactory:    ocrtypes.BinaryNetworkEndpointFactory(nil),
+		MonitoringEndpoint:    ocrtypes.MonitoringEndpoint(nil),
+		Logger:                ocrtypes.Logger(nil),
+		Bootstrappers:         []string{},
 	})
+
+	return []job.Service{service}, nil
 }
 
 // dataSource is an abstraction over the process of initiating a pipeline run
@@ -74,13 +116,13 @@ func RegisterJobType(
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
 	pipelineRunner pipeline.Runner
-	jobSpecID      models.ID
+	jobID          int32
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	runID, err := ds.pipelineRunner.CreateRun(ds.jobSpecID)
+	runID, err := ds.pipelineRunner.CreateRun(ds.jobID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +136,7 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	if err != nil {
 		return nil, err
 	} else if len(results) != 1 {
-		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobSpecID, runID)
+		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
 	}
 	result := results[0]
 	if result.Error != nil {

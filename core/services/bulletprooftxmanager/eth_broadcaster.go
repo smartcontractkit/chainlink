@@ -204,7 +204,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 }
 
 func (eb *ethBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
-	return withAdvisoryLock(eb.store, orm.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
+	return withAdvisoryLock(eb.store, utils.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
 		return eb.processUnstartedEthTxs(key.Address.Address())
 	})
 }

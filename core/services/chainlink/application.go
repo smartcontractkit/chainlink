@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/gobuffalo/packr"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -106,7 +105,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	jobORM := job.NewORM(store.ORM.DB)
+	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL())
 	jobSpawner := job.NewSpawner(jobORM)
 	pipelineORM := pipeline.NewORM(store.ORM.DB)
 	pipelineRunner := pipeline.NewRunner(pipelineORM, store.Config)
@@ -282,11 +281,8 @@ func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	return app.Store.ArchiveJob(ID)
 }
 
-func (app *ChainlinkApplication) ArchiveJobV2(job job.Spec) error {
-	if job.JobID() == nil {
-		return errors.New("ArchiveJobV2: got nil job ID")
-	}
-	return app.JobSpawner.DeleteJob(job)
+func (app *ChainlinkApplication) ArchiveJobV2(ctx context.Context, job job.Spec) error {
+	return app.JobSpawner.DeleteJob(ctx, job)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs

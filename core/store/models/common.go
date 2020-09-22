@@ -8,17 +8,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/assets"
-
+	"github.com/BurntSushi/toml"
 	"github.com/araddon/dateparse"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
+	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// CronParser is the global parser for crontabs.
+// It accepts the standard 5 field cron syntax as well as an optional 6th field
+// at the front to represent seconds.
 
 // CronParser is the global parser for crontabs.
 // It accepts the standard 5 field cron syntax as well as an optional 6th field
@@ -198,6 +201,27 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 		return j.Bytes(), nil
 	}
 	return []byte("{}"), nil
+}
+
+func (j *JSON) UnmarshalTOML(val interface{}) error {
+	var bs []byte
+	switch v := val.(type) {
+	case string:
+		bs = []byte(v)
+	case []byte:
+		bs = v
+	}
+	var unmarshaled interface{}
+	err := toml.Unmarshal(bs, &unmarshaled)
+	if err != nil {
+		return err
+	}
+	bs, err = json.Marshal(unmarshaled)
+	if err != nil {
+		return err
+	}
+	*j, err = ParseJSON(bs)
+	return err
 }
 
 // Bytes returns the raw JSON.
@@ -541,6 +565,37 @@ func (d Duration) Value() (driver.Value, error) {
 	return int64(d.d), nil
 }
 
+// Interval represents a time.Duration stored as a Postgres interval type
+type Interval time.Duration
+
+// MarshalText implements the text.Marshaler interface.
+func (d Interval) MarshalText() ([]byte, error) {
+	return []byte(time.Duration(d).String()), nil
+}
+
+// UnmarshalText implements the text.Unmarshaler interface.
+func (d *Interval) UnmarshalText(input []byte) error {
+	v, err := time.ParseDuration(string(input))
+	if err != nil {
+		return err
+	}
+	*d = Interval(v)
+	return nil
+}
+
+func (i *Interval) Scan(v interface{}) error {
+	asInt64, is := v.(int64)
+	if !is {
+		return errors.Errorf("models.Interval#Scan() wanted int64, got %T", v)
+	}
+	*i = Interval(time.Duration(asInt64) * time.Nanosecond)
+	return nil
+}
+
+func (i Interval) Value() (driver.Value, error) {
+	return time.Duration(i).Nanoseconds(), nil
+}
+
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	DestinationAddress common.Address `json:"address"`
@@ -636,3 +691,22 @@ func Merge(inputs ...JSON) (JSON, error) {
 
 // Explicit type indicating a 32-byte sha256 hash
 type Sha256Hash [32]byte
+
+func (s *Sha256Hash) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("Failed to unmarshal Sha256Hash value: %v", value)
+	}
+	if s == nil {
+		*s = Sha256Hash{}
+	}
+	copy((*s)[:], bytes)
+	return nil
+}
+
+func (s Sha256Hash) Value() (driver.Value, error) {
+	b := make([]byte, 32)
+	copy(b, s[:])
+	fmt.Println("VALUEEEEEEE ~>", b)
+	return b, nil
+}

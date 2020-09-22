@@ -30,20 +30,20 @@ func (_m *ORM) AwaitRun(ctx context.Context, runID int64) error {
 	return r0
 }
 
-// CreateRun provides a mock function with given fields: specID
-func (_m *ORM) CreateRun(specID int64) (int64, error) {
-	ret := _m.Called(specID)
+// CreateRun provides a mock function with given fields: jobSpecID
+func (_m *ORM) CreateRun(jobSpecID int32) (int64, error) {
+	ret := _m.Called(jobSpecID)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(int64) int64); ok {
-		r0 = rf(specID)
+	if rf, ok := ret.Get(0).(func(int32) int64); ok {
+		r0 = rf(jobSpecID)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int64) error); ok {
-		r1 = rf(specID)
+	if rf, ok := ret.Get(1).(func(int32) error); ok {
+		r1 = rf(jobSpecID)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -3,6 +3,8 @@
 package mocks
 
 import (
+	context "context"
+
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 	mock "github.com/stretchr/testify/mock"
 )
@@ -26,13 +28,13 @@ func (_m *Spawner) CreateJob(spec job.Spec) error {
 	return r0
 }
 
-// DeleteJob provides a mock function with given fields: spec
-func (_m *Spawner) DeleteJob(spec job.Spec) error {
-	ret := _m.Called(spec)
+// DeleteJob provides a mock function with given fields: ctx, spec
+func (_m *Spawner) DeleteJob(ctx context.Context, spec job.Spec) error {
+	ret := _m.Called(ctx, spec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(job.Spec) error); ok {
-		r0 = rf(spec)
+	if rf, ok := ret.Get(0).(func(context.Context, job.Spec) error); ok {
+		r0 = rf(ctx, spec)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -40,9 +42,9 @@ func (_m *Spawner) DeleteJob(spec job.Spec) error {
 	return r0
 }
 
-// RegisterJobType provides a mock function with given fields: registration
-func (_m *Spawner) RegisterJobType(registration job.Registration) {
-	_m.Called(registration)
+// RegisterDelegate provides a mock function with given fields: delegate
+func (_m *Spawner) RegisterDelegate(delegate job.Delegate) {
+	_m.Called(delegate)
 }
 
 // Start provides a mock function with given fields:
