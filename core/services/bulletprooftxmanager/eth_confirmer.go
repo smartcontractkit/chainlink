@@ -18,6 +18,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 )
 
 var (
@@ -90,7 +91,11 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 	logger.Debugw("EthConfirmer: finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	if err := ec.BumpGasWhereNecessary(ctx, head.Number); err != nil {
+	keys, err := ec.store.Keys()
+	if err != nil {
+		return errors.Wrap(err, "could not fetch keys")
+	}
+	if err := ec.BumpGasWhereNecessary(ctx, keys, head.Number); err != nil {
 		return errors.Wrap(err, "BumpGasWhereNecessary failed")
 	}
 
@@ -101,7 +106,7 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 		logger.Debugw("EthConfirmer: finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	}()
 
-	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(ctx, head), "EnsureConfirmedTransactionsInLongestChain failed")
+	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(ctx, keys, head), "EnsureConfirmedTransactionsInLongestChain failed")
 }
 
 func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
@@ -123,7 +128,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context) error {
 	if len(unconfirmedEtxs) > 0 {
 		logger.Debugf("EthConfirmer: %v unconfirmed transactions", len(unconfirmedEtxs))
 	}
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(receiptFetcherWorkerCount)
 	chEthTxes := make(chan models.EthTx)
 	for i := 0; i < receiptFetcherWorkerCount; i++ {
@@ -225,12 +230,40 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 	})
 }
 
-func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, blockHeight int64) error {
-	if err := ec.handleAnyInProgressAttempts(ctx, blockHeight); err != nil {
+func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, keys []models.Key, blockHeight int64) error {
+	var wg sync.WaitGroup
+
+	// It is safe to process separate keys concurrently
+	// NOTE: This design will block one key if another takes a really long time to execute
+	wg.Add(len(keys))
+	errors := []error{}
+	var errMu sync.Mutex
+	for _, key := range keys {
+		go func(fromAddress gethCommon.Address) {
+			if err := ec.bumpGasWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
+				errMu.Lock()
+				errors = append(errors, err)
+				errMu.Unlock()
+				logger.Errorw("Error in BumpGasWhereNecessary", "error", err, "fromAddress", fromAddress)
+			}
+
+			wg.Done()
+		}(key.Address.Address())
+	}
+
+	wg.Wait()
+
+	return multierr.Combine(errors...)
+}
+
+func (ec *ethConfirmer) bumpGasWhereNecessary(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
+	if err := ec.handleAnyInProgressAttempts(ctx, address, blockHeight); err != nil {
 		return errors.Wrap(err, "handleAnyInProgressAttempts failed")
 	}
 
-	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, blockHeight, int64(ec.config.EthGasBumpThreshold()))
+	threshold := int64(ec.config.EthGasBumpThreshold())
+	depth := int64(ec.config.EthGasBumpTxDepth())
+	etxs, err := FindEthTxsRequiringNewAttempt(ec.store.DB, address, blockHeight, threshold, depth)
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
 	}
@@ -256,8 +289,8 @@ func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, blockHeight i
 
 // "in_progress" attempts were left behind after a crash/restart and may or may not have been sent
 // We should try to ensure they get on-chain so we can fetch a receipt for them
-func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ec.store)
+func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
+	attempts, err := getInProgressEthTxAttempts(ec.store, address)
 	if err != nil {
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
@@ -269,32 +302,39 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, blockHe
 	return nil
 }
 
-func getInProgressEthTxAttempts(s *store.Store) ([]models.EthTxAttempt, error) {
+func getInProgressEthTxAttempts(s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
 	var attempts []models.EthTxAttempt
 	err := s.DB.
 		Preload("EthTx").
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'unconfirmed')").
 		Where("eth_tx_attempts.state = 'in_progress'").
+		Where("eth_txes.from_address = ?", address).
 		Find(&attempts).Error
 	return attempts, errors.Wrap(err, "getInProgressEthTxAttempts failed")
 }
 
 // FindEthTxsRequiringNewAttempt returns transactions that have all
-// attempts which are unconfirmed for at least gasBumpThreshold blocks
-func FindEthTxsRequiringNewAttempt(db *gorm.DB, blockNum int64, gasBumpThreshold int64) ([]models.EthTx, error) {
-	var etxs []models.EthTx
-	err := db.
+// attempts which are unconfirmed for at least gasBumpThreshold blocks,
+// limited by limit pending transactions
+func FindEthTxsRequiringNewAttempt(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
+	q := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
 		Joins("LEFT JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id "+
 			"AND eth_tx_attempts.state != 'insufficient_eth' "+
 			"AND (broadcast_before_block_num > ? OR broadcast_before_block_num IS NULL OR eth_tx_attempts.state != 'broadcast')", blockNum-gasBumpThreshold).
-		Order("nonce ASC").
-		Where("eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL").
-		Find(&etxs).Error
+		Where("eth_txes.state = 'unconfirmed' AND eth_tx_attempts.id IS NULL")
 
-	return etxs, errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
+	if depth > 0 {
+		q = q.Where("eth_txes.id IN (SELECT id FROM eth_txes WHERE state = 'unconfirmed' AND from_address = ? ORDER BY nonce ASC LIMIT ?)", address, depth)
+	}
+
+	err = q.Order("nonce ASC").Find(&etxs).Error
+
+	err = errors.Wrap(err, "FindEthTxsRequiringNewAttempt failed")
+
+	return
 }
 
 func (ec *ethConfirmer) newAttemptWithGasBump(etx models.EthTx) (attempt models.EthTxAttempt, err error) {
@@ -550,7 +590,7 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error
 //
 // If any of the confirmed transactions does not have a receipt in the chain, it has been
 // re-org'd out and will be rebroadcast.
-func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head models.Head) error {
+func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, keys []models.Key, head models.Head) error {
 	etxs, err := findTransactionsConfirmedAtOrAboveBlockHeight(ec.store.DB, head.EarliestInChain().Number)
 	if err != nil {
 		return errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
@@ -564,8 +604,28 @@ func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 		}
 	}
 
-	// Send all the attempts we may have marked for rebroadcast (in_progress state)
-	return ec.handleAnyInProgressAttempts(ctx, head.Number)
+	// It is safe to process separate keys concurrently
+	// NOTE: This design will block one key if another takes a really long time to execute
+	var wg sync.WaitGroup
+	errors := []error{}
+	var errMu sync.Mutex
+	wg.Add(len(keys))
+	for _, key := range keys {
+		go func(fromAddress gethCommon.Address) {
+			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.Number); err != nil {
+				errMu.Lock()
+				errors = append(errors, err)
+				errMu.Unlock()
+				logger.Errorw("Error in BumpGasWhereNecessary", "error", err, "fromAddress", fromAddress)
+			}
+
+			wg.Done()
+		}(key.Address.Address())
+	}
+
+	wg.Wait()
+
+	return multierr.Combine(errors...)
 }
 
 func findTransactionsConfirmedAtOrAboveBlockHeight(db *gorm.DB, blockNumber int64) ([]models.EthTx, error) {

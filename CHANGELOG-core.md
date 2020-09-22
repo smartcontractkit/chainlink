@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.16] - 2020-09-18
+
+### Added
+
+- The chainlink node now will bump a limited configurable number of transactions at once. This is configured with the ETH_GAS_BUMP_TX_DEPTH variable which is 10 by default. Set to 0 to disable (the old behaviour).
+
+### Fixed
+
+- ETH_DISABLED flag works again
+
 ## [0.8.15] - 2020-09-14
 
 ### Added
