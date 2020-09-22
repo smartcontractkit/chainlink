@@ -75,6 +75,11 @@ const (
 	AllowUnstarted = "allow_unstarted"
 )
 
+var (
+	// DefaultKeyAddress is the address of the fixture key
+	DefaultKeyAddress = common.HexToAddress(DefaultKey)
+)
+
 var storeCounter uint64
 
 var minimumContractPayment = assets.NewLink(100)
