@@ -16,14 +16,17 @@ declare module 'core/store/presenters' {
     linkBalance: Pointer<assets.Link>
   }
 
-  export interface ConfigWhitelist extends Whitelist {
+  /**
+   * ConfigPrinter are the non-secret values of the node configuration
+   */
+  export interface ConfigPrinter extends EnvPrinter {
     accountAddress: string
   }
 
   /**
-   * ConfigWhitelist are the non-secret values of the node
+   * EnvPrinter are the non-secret values of the node environment
    */
-  interface Whitelist {
+  interface EnvPrinter {
     allowOrigins: string
     bridgeResponseURL?: string
     ethChainId: number

@@ -75,7 +75,7 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
-	case *presenters.ConfigWhitelist:
+	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
@@ -92,20 +92,20 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	return nil
 }
 
-func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) error {
+func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
 
 	table.Append([]string{
 		"ACCOUNT_ADDRESS",
-		cwl.AccountAddress,
+		cp.AccountAddress,
 	})
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
-	cwlT := reflect.TypeOf(cwl.Whitelist)
-	cwlV := reflect.ValueOf(cwl.Whitelist)
+	cpT := reflect.TypeOf(cp.EnvPrinter)
+	cpV := reflect.ValueOf(cp.EnvPrinter)
 
-	for index := 0; index < cwlT.NumField(); index++ {
-		item := cwlT.FieldByIndex([]int{index})
+	for index := 0; index < cpT.NumField(); index++ {
+		item := cpT.FieldByIndex([]int{index})
 		schemaItem, ok := schemaT.FieldByName(item.Name)
 		if !ok {
 			logger.Panicf("Field %s missing from store.Schema", item.Name)
@@ -114,7 +114,7 @@ func (rt RendererTable) renderConfiguration(cwl presenters.ConfigWhitelist) erro
 		if !ok {
 			continue
 		}
-		field := cwlV.FieldByIndex(item.Index)
+		field := cpV.FieldByIndex(item.Index)
 
 		if stringer, ok := field.Interface().(fmt.Stringer); ok {
 			if stringer != reflect.Zero(reflect.TypeOf(stringer)).Interface() {
