@@ -12,6 +12,7 @@ import (
 
 const tableName = "p2p_peerstore"
 
+// NewPeerstore creates a new database-backed peerstore
 // NOTE: You can get sql.DB from store with store.DB.DB()
 func NewPeerstore(ctx context.Context, db *sql.DB) (p2ppeerstore.Peerstore, error) {
 	queries := pgqueries.NewQueries(tableName)
