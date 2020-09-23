@@ -55,7 +55,7 @@ func (NoopStatsPusher) GetStatus() ConnectionStatus { return ConnectionStatusDis
 
 type statsPusher struct {
 	ORM            *orm.ORM
-	WSClient       ExplorerClient
+	ExplorerClient ExplorerClient
 	Period         time.Duration
 	cancel         context.CancelFunc
 	clock          utils.Afterer
@@ -69,7 +69,7 @@ const (
 )
 
 // NewStatsPusher returns a new StatsPusher service
-func NewStatsPusher(orm *orm.ORM, wsclient ExplorerClient, afters ...utils.Afterer) StatsPusher {
+func NewStatsPusher(orm *orm.ORM, explorerClient ExplorerClient, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -78,10 +78,10 @@ func NewStatsPusher(orm *orm.ORM, wsclient ExplorerClient, afters ...utils.After
 	}
 
 	return &statsPusher{
-		ORM:      orm,
-		WSClient: wsclient,
-		Period:   30 * time.Minute,
-		clock:    clock,
+		ORM:            orm,
+		ExplorerClient: explorerClient,
+		Period:         30 * time.Minute,
+		clock:          clock,
 		backoffSleeper: backoff.Backoff{
 			Min: 1 * time.Second,
 			Max: 5 * time.Minute,
@@ -92,12 +92,12 @@ func NewStatsPusher(orm *orm.ORM, wsclient ExplorerClient, afters ...utils.After
 
 // GetURL returns the URL where stats are being pushed
 func (sp *statsPusher) GetURL() url.URL {
-	return sp.WSClient.Url()
+	return sp.ExplorerClient.Url()
 }
 
-// GetStatus returns the WSClient connection status
+// GetStatus returns the ExplorerClient connection status
 func (sp *statsPusher) GetStatus() ConnectionStatus {
-	return sp.WSClient.Status()
+	return sp.ExplorerClient.Status()
 }
 
 // Start starts the stats pusher
@@ -206,12 +206,12 @@ func (sp *statsPusher) pushEvents() error {
 }
 
 func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
-	sp.WSClient.Send([]byte(event.Body))
+	sp.ExplorerClient.Send([]byte(event.Body))
 	numberEventsSent.Inc()
 
-	message, err := sp.WSClient.Receive()
+	message, err := sp.ExplorerClient.Receive()
 	if err != nil {
-		return errors.Wrap(err, "syncEvent#WSClient.Receive failed")
+		return errors.Wrap(err, "syncEvent#ExplorerClient.Receive failed")
 	}
 
 	var resp response

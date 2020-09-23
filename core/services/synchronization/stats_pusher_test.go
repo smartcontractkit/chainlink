@@ -20,11 +20,11 @@ func TestStatsPusher(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	err := wsclient.Start()
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, wsclient)
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -48,11 +48,11 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	defer wscleanup()
 
 	clock := cltest.NewTriggerClock(t)
-	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	err := wsclient.Start()
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, wsclient, clock)
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient, clock)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -77,11 +77,11 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	err := wsclient.Start()
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, wsclient)
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -103,11 +103,11 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	defer wscleanup()
 
 	clock := cltest.NewTriggerClock(t)
-	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	err := wsclient.Start()
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, wsclient, clock)
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient, clock)
 	pusher.Start()
 	defer pusher.Close()
 

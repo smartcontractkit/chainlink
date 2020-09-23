@@ -62,8 +62,8 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	wsclient := synchronization.NoopExplorerClient{}
-	pusher := synchronization.NewStatsPusher(store.ORM, wsclient)
+	explorerClient := synchronization.NoopExplorerClient{}
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 
