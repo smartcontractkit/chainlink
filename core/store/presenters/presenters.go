@@ -119,29 +119,47 @@ func (a *AccountBalance) SetID(value string) error {
 	return nil
 }
 
-// ConfigWhitelist are the non-secret values of the node
+// ConfigPrinter are the non-secret values of the node
 //
-// If you add an entry here, you should update NewConfigWhitelist and
-// ConfigWhitelist#String accordingly.
-type ConfigWhitelist struct {
+// If you add an entry here, you should update NewConfigPrinter and
+// ConfigPrinter#String accordingly.
+type ConfigPrinter struct {
 	AccountAddress string `json:"accountAddress"`
-	Whitelist
+	EnvPrinter
 }
 
-// Whitelist contains the supported environment variables
-type Whitelist struct {
+// EnvPrinter contains the supported environment variables
+type EnvPrinter struct {
 	AllowOrigins                     string          `json:"allowOrigins"`
 	BlockBackfillDepth               uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL                string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                          *big.Int        `json:"ethChainId"`
 	ClientNodeURL                    string          `json:"clientNodeUrl"`
 	DatabaseTimeout                  models.Duration `json:"databaseTimeout"`
+	DefaultHTTPLimit                 int64           `json:"defaultHttpLimit"`
+	DefaultHTTPTimeout               models.Duration `json:"defaultHttpTimeout"`
 	Dev                              bool            `json:"chainlinkDev"`
-	EthereumURL                      string          `json:"ethUrl"`
+	EnableBulletproofTxManager       bool            `json:"enableBulletproofTxManager"`
+	EnableExperimentalAdapters       bool            `json:"enableExperimentalAdapters"`
+	EthBalanceMonitorBlockDelay      uint16          `json:"ethBalanceMonitorBlockDelay"`
+	EthereumDisabled                 bool            `json:"ethereumDisabled"`
+	EthFinalityDepth                 uint            `json:"ethFinalityDepth"`
 	EthGasBumpThreshold              uint64          `json:"ethGasBumpThreshold"`
+	EthGasBumpTxDepth                uint16          `json:"ethGasBumpTxDepth"`
 	EthGasBumpWei                    *big.Int        `json:"ethGasBumpWei"`
+	EthGasLimitDefault               uint64          `json:"ethGasLimitDefault"`
 	EthGasPriceDefault               *big.Int        `json:"ethGasPriceDefault"`
+	EthHeadTrackerHistoryDepth       uint            `json:"ethHeadTrackerHistoryDepth"`
+	EthHeadTrackerMaxBufferSize      uint            `json:"ethHeadTrackerMaxBufferSize"`
+	EthMaxGasPriceWei                *big.Int        `json:"ethMaxGasPriceWei"`
+	EthereumURL                      string          `json:"ethUrl"`
 	ExplorerURL                      string          `json:"explorerUrl"`
+	FeatureExternalInitiators        bool            `json:"featureExternalInitiators"`
+	FeatureFluxMonitor               bool            `json:"featureFluxMonitor"`
+	GasUpdaterBlockDelay             uint16          `json:"gasUpdaterBlockDelay"`
+	GasUpdaterBlockHistorySize       uint16          `json:"gasUpdaterBlockHistorySize"`
+	GasUpdaterEnabled                bool            `json:"gasUpdaterEnabled"`
+	GasUpdaterTransactionPercentile  uint16          `json:"gasUpdaterTransactionPercentile"`
 	JSONConsole                      bool            `json:"jsonConsole"`
 	LinkContractAddress              string          `json:"linkContractAddress"`
 	LogLevel                         orm.LogLevel    `json:"logLevel"`
@@ -149,15 +167,18 @@ type Whitelist struct {
 	LogSQLStatements                 bool            `json:"logSqlStatements"`
 	LogToDisk                        bool            `json:"logToDisk"`
 	MaxRPCCallsPerSecond             uint64          `json:"maxRPCCallsPerSecond"`
-	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
-	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
+	MaximumServiceDuration           models.Duration `json:"maximumServiceDuration"`
 	MinIncomingConfirmations         uint32          `json:"minIncomingConfirmations"`
 	MinRequiredOutgoingConfirmations uint64          `json:"minOutgoingConfirmations"`
+	MinimumServiceDuration           models.Duration `json:"minimumServiceDuration"`
+	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
+	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
 	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
 	Port                             uint16          `json:"chainlinkPort"`
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
 	RootDir                          string          `json:"root"`
+	SecureCookies                    bool            `json:"secureCookies"`
 	SessionTimeout                   models.Duration `json:"sessionTimeout"`
 	TLSHost                          string          `json:"chainlinkTLSHost"`
 	TLSPort                          uint16          `json:"chainlinkTLSPort"`
@@ -165,49 +186,70 @@ type Whitelist struct {
 	TxAttemptLimit                   uint16          `json:"txAttemptLimit"`
 }
 
-// NewConfigWhitelist creates an instance of ConfigWhitelist
-func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
+// NewConfigPrinter creates an instance of ConfigPrinter
+func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	config := store.Config
 	account, err := store.KeyStore.GetFirstAccount()
 	if err != nil {
-		return ConfigWhitelist{}, err
+		return ConfigPrinter{}, err
 	}
 
 	explorerURL := ""
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
-	return ConfigWhitelist{
+	return ConfigPrinter{
 		AccountAddress: account.Address.Hex(),
-		Whitelist: Whitelist{
+		EnvPrinter: EnvPrinter{
 			AllowOrigins:                     config.AllowOrigins(),
 			BlockBackfillDepth:               config.BlockBackfillDepth(),
 			BridgeResponseURL:                config.BridgeResponseURL().String(),
 			ChainID:                          config.ChainID(),
 			ClientNodeURL:                    config.ClientNodeURL(),
-			Dev:                              config.Dev(),
 			DatabaseTimeout:                  config.DatabaseTimeout(),
-			EthereumURL:                      config.EthereumURL(),
+			DefaultHTTPLimit:                 config.DefaultHTTPLimit(),
+			DefaultHTTPTimeout:               config.DefaultHTTPTimeout(),
+			Dev:                              config.Dev(),
+			EnableBulletproofTxManager:       config.EnableBulletproofTxManager(),
+			EnableExperimentalAdapters:       config.EnableExperimentalAdapters(),
+			EthBalanceMonitorBlockDelay:      config.EthBalanceMonitorBlockDelay(),
+			EthereumDisabled:                 config.EthereumDisabled(),
+			EthFinalityDepth:                 config.EthFinalityDepth(),
 			EthGasBumpThreshold:              config.EthGasBumpThreshold(),
+			EthGasBumpTxDepth:                config.EthGasBumpTxDepth(),
 			EthGasBumpWei:                    config.EthGasBumpWei(),
+			EthGasLimitDefault:               config.EthGasLimitDefault(),
 			EthGasPriceDefault:               config.EthGasPriceDefault(),
+			EthHeadTrackerHistoryDepth:       config.EthHeadTrackerHistoryDepth(),
+			EthHeadTrackerMaxBufferSize:      config.EthHeadTrackerMaxBufferSize(),
+			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
+			EthereumURL:                      config.EthereumURL(),
+			ExplorerURL:                      explorerURL,
+			FeatureExternalInitiators:        config.FeatureExternalInitiators(),
+			FeatureFluxMonitor:               config.FeatureFluxMonitor(),
+			GasUpdaterBlockDelay:             config.GasUpdaterBlockDelay(),
+			GasUpdaterBlockHistorySize:       config.GasUpdaterBlockHistorySize(),
+			GasUpdaterEnabled:                config.GasUpdaterEnabled(),
+			GasUpdaterTransactionPercentile:  config.GasUpdaterTransactionPercentile(),
 			JSONConsole:                      config.JSONConsole(),
 			LinkContractAddress:              config.LinkContractAddress(),
-			ExplorerURL:                      explorerURL,
 			LogLevel:                         config.LogLevel(),
-			LogToDisk:                        config.LogToDisk(),
-			LogSQLStatements:                 config.LogSQLStatements(),
 			LogSQLMigrations:                 config.LogSQLMigrations(),
+			LogSQLStatements:                 config.LogSQLStatements(),
+			LogToDisk:                        config.LogToDisk(),
 			MaxRPCCallsPerSecond:             config.MaxRPCCallsPerSecond(),
-			MinimumContractPayment:           config.MinimumContractPayment(),
-			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
+			MaximumServiceDuration:           config.MaximumServiceDuration(),
 			MinIncomingConfirmations:         config.MinIncomingConfirmations(),
 			MinRequiredOutgoingConfirmations: config.MinRequiredOutgoingConfirmations(),
+			MinimumServiceDuration:           config.MinimumServiceDuration(),
+			MinimumContractPayment:           config.MinimumContractPayment(),
+			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
 			OracleContractAddress:            config.OracleContractAddress(),
 			Port:                             config.Port(),
 			ReaperExpiration:                 config.ReaperExpiration(),
 			ReplayFromBlock:                  config.ReplayFromBlock(),
 			RootDir:                          config.RootDir(),
+			SecureCookies:                    config.SecureCookies(),
 			SessionTimeout:                   config.SessionTimeout(),
 			TLSHost:                          config.TLSHost(),
 			TLSPort:                          config.TLSPort(),
@@ -218,14 +260,14 @@ func NewConfigWhitelist(store *store.Store) (ConfigWhitelist, error) {
 }
 
 // String returns the values as a newline delimited string
-func (c ConfigWhitelist) String() string {
+func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
 	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
-	cwlT := reflect.TypeOf(c.Whitelist)
-	cwlV := reflect.ValueOf(c.Whitelist)
+	cwlT := reflect.TypeOf(c.EnvPrinter)
+	cwlV := reflect.ValueOf(c.EnvPrinter)
 
 	for index := 0; index < cwlT.NumField(); index++ {
 		item := cwlT.FieldByIndex([]int{index})
@@ -256,13 +298,13 @@ func (c ConfigWhitelist) String() string {
 }
 
 // GetID generates a new ID for jsonapi serialization.
-func (c ConfigWhitelist) GetID() string {
+func (c ConfigPrinter) GetID() string {
 	return utils.NewBytes32ID()
 }
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (c *ConfigWhitelist) SetID(value string) error {
+func (c *ConfigPrinter) SetID(value string) error {
 	return nil
 }
 

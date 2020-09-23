@@ -287,7 +287,7 @@ export type ConfigurationAttribute = string | number | null
 export interface UpsertConfigurationAction
   extends Action<ResourceActionType.UPSERT_CONFIGURATION> {
   data: {
-    configWhitelists: Record<string, any>
+    configPrinters: Record<string, any>
   }
 }
 

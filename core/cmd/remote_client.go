@@ -662,7 +662,7 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	cwl := presenters.ConfigWhitelist{}
+	cwl := presenters.ConfigPrinter{}
 	err = cli.renderAPIResponse(resp, &cwl)
 	return err
 }
