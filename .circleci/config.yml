@@ -231,7 +231,7 @@ jobs:
       - run:
           name: Docker push, if applicable
           command: |
-            tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}"
+            tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" "${CIRCLE_SHA1}"
   build-chainlink-sgx:
     resource_class: xlarge
     machine:
