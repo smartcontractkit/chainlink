@@ -15,36 +15,32 @@ This cli tool is currently used within `@chainlink/contracts` for the usage of r
 build and development tools across multiple solidity contract versions.
 
 <!-- toc -->
-
-- [Usage](#usage)
-- [Commands](#commands)
-  <!-- tocstop -->
+* [Usage](#usage)
+* [Commands](#commands)
+<!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g @chainlink/belt
 $ belt COMMAND
 running command...
 $ belt (-v|--version|version)
-@chainlink/belt/0.0.1 linux-x64 node-v10.16.3
+@chainlink/belt/0.0.3 darwin-x64 node-v10.16.3
 $ belt --help [COMMAND]
 USAGE
   $ belt COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
-
-- [`belt box [PATH]`](#belt-box-path)
-- [`belt compile [COMPILER]`](#belt-compile-compiler)
-- [`belt help [COMMAND]`](#belt-help-command)
+* [`belt box [PATH]`](#belt-box-path)
+* [`belt compile [COMPILER]`](#belt-compile-compiler)
+* [`belt help [COMMAND]`](#belt-help-command)
 
 ## `belt box [PATH]`
 
@@ -72,7 +68,7 @@ EXAMPLES
   belt box -l
 ```
 
-_See code: [src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/box.ts)_
+_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/box.ts)_
 
 ## `belt compile [COMPILER]`
 
@@ -104,7 +100,7 @@ EXAMPLE
   ...
 ```
 
-_See code: [src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/compile.ts)_
+_See code: [src/src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/compile.ts)_
 
 ## `belt help [COMMAND]`
 
@@ -122,5 +118,4 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
-
 <!-- commandsstop -->

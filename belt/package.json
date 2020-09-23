@@ -2,7 +2,7 @@
   "name": "@chainlink/belt",
   "private": false,
   "description": "A toolbelt for performing various commands on chainlink smart contracts.",
-  "version": "0.0.1",
+  "version": "0.0.3",
   "author": "Chainlink Devs",
   "bin": {
     "belt": "./bin/run"
