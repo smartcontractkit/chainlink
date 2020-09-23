@@ -998,13 +998,13 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewExplorerClient(cltest.MustParseURL("http://localhost"), "", "")
-	err := wsclient.Start()
+	explorerClient := synchronization.NewExplorerClient(cltest.MustParseURL("http://localhost"), "", "")
+	err := explorerClient.Start()
 	require.NoError(t, err)
-	defer wsclient.Close()
+	defer explorerClient.Close()
 
 	orm := store.ORM
-	statsPusher := synchronization.NewStatsPusher(orm, wsclient)
+	statsPusher := synchronization.NewStatsPusher(orm, explorerClient)
 	require.NoError(t, statsPusher.Start())
 	defer statsPusher.Close()
 

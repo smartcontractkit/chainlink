@@ -84,7 +84,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	monitoringEndpoint       telemetry.MonitoringEndpoint
-	wsclient                 synchronization.ExplorerClient
+	explorerClient           synchronization.ExplorerClient
 }
 
 // NewApplication initializes a new store if one is not already
@@ -96,14 +96,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 	store := strpkg.NewStore(config, ethClient, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
-	wsclient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
+	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	telemetryAgent := telemetry.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if config.ExplorerURL() != nil {
-		wsclient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
-		statsPusher = synchronization.NewStatsPusher(store.ORM, wsclient)
-		telemetryAgent = telemetry.NewAgent(wsclient)
+		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
+		statsPusher = synchronization.NewStatsPusher(store.ORM, explorerClient)
+		telemetryAgent = telemetry.NewAgent(explorerClient)
 	}
 
 	// TODO: Remove this, it's just to manually test the explorer integration
@@ -159,7 +159,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		monitoringEndpoint:       telemetryAgent,
-		wsclient:                 wsclient,
+		explorerClient:           explorerClient,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -263,7 +263,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
-		merr = multierr.Append(merr, app.wsclient.Close())
+		merr = multierr.Append(merr, app.explorerClient.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		app.pipelineRunner.Stop()
 		app.jobSpawner.Stop()
