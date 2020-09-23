@@ -49,12 +49,15 @@ type Client interface {
 type GethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
@@ -239,6 +242,25 @@ func (client *client) PendingNonceAt(ctx context.Context, account common.Address
 		"account", account,
 	)
 	return client.GethClient.PendingNonceAt(ctx, account)
+}
+
+func (client *client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	logger.Debugw("eth.Client#PendingCodeAt(...)",
+		"account", account,
+	)
+	return client.GethClient.PendingCodeAt(ctx, account)
+}
+
+func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	logger.Debugw("eth.Client#EstimateGas(...)",
+		"call", call,
+	)
+	return client.GethClient.EstimateGas(ctx, call)
+}
+
+func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	logger.Debugw("eth.Client#SuggestGasPrice()")
+	return client.GethClient.SuggestGasPrice(ctx)
 }
 
 func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
