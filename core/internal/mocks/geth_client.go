@@ -135,6 +135,27 @@ func (_m *GethClient) CodeAt(ctx context.Context, account common.Address, blockN
 	return r0, r1
 }
 
+// EstimateGas provides a mock function with given fields: ctx, call
+func (_m *GethClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	ret := _m.Called(ctx, call)
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func(context.Context, ethereum.CallMsg) uint64); ok {
+		r0 = rf(ctx, call)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, ethereum.CallMsg) error); ok {
+		r1 = rf(ctx, call)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FilterLogs provides a mock function with given fields: ctx, q
 func (_m *GethClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	ret := _m.Called(ctx, q)
@@ -151,6 +172,29 @@ func (_m *GethClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, ethereum.FilterQuery) error); ok {
 		r1 = rf(ctx, q)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// PendingCodeAt provides a mock function with given fields: ctx, account
+func (_m *GethClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	ret := _m.Called(ctx, account)
+
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) []byte); ok {
+		r0 = rf(ctx, account)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address) error); ok {
+		r1 = rf(ctx, account)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -209,6 +253,29 @@ func (_m *GethClient) SubscribeFilterLogs(ctx context.Context, q ethereum.Filter
 	var r1 error
 	if rf, ok := ret.Get(1).(func(context.Context, ethereum.FilterQuery, chan<- types.Log) error); ok {
 		r1 = rf(ctx, q, ch)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// SuggestGasPrice provides a mock function with given fields: ctx
+func (_m *GethClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	ret := _m.Called(ctx)
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func(context.Context) *big.Int); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}

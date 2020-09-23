@@ -464,6 +464,27 @@ func (mock *EthMock) PendingNonceAt(ctx context.Context, account common.Address)
 	return uint64(result), err
 }
 
+func (mock *EthMock) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	var result hexutil.Bytes
+	err := mock.CallContext(ctx, &result, "eth_getCode", account, "pending")
+	return result, err
+}
+func (mock *EthMock) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	var hex hexutil.Uint64
+	err := mock.CallContext(ctx, &hex, "eth_estimateGas", toCallArg(call))
+	if err != nil {
+		return 0, err
+	}
+	return uint64(hex), nil
+}
+func (mock *EthMock) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	var hex hexutil.Big
+	if err := mock.CallContext(ctx, &hex, "eth_gasPrice"); err != nil {
+		return nil, err
+	}
+	return (*big.Int)(&hex), nil
+}
+
 func (mock *EthMock) SendTransaction(ctx context.Context, tx *gethTypes.Transaction) error {
 	data, err := rlp.EncodeToBytes(tx)
 	if err != nil {
@@ -1005,4 +1026,24 @@ type MockPasswordPrompter struct {
 
 func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
+}
+
+func toCallArg(msg ethereum.CallMsg) interface{} {
+	arg := map[string]interface{}{
+		"from": msg.From,
+		"to":   msg.To,
+	}
+	if len(msg.Data) > 0 {
+		arg["data"] = hexutil.Bytes(msg.Data)
+	}
+	if msg.Value != nil {
+		arg["value"] = (*hexutil.Big)(msg.Value)
+	}
+	if msg.Gas != 0 {
+		arg["gas"] = hexutil.Uint64(msg.Gas)
+	}
+	if msg.GasPrice != nil {
+		arg["gasPrice"] = (*hexutil.Big)(msg.GasPrice)
+	}
+	return arg
 }
