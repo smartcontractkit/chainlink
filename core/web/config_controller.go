@@ -20,7 +20,7 @@ type ConfigController struct {
 // Example:
 //  "<application>/config"
 func (cc *ConfigController) Show(c *gin.Context) {
-	cw, err := presenters.NewConfigWhitelist(cc.App.GetStore())
+	cw, err := presenters.NewConfigPrinter(cc.App.GetStore())
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to build config whitelist: %+v", err))
 		return

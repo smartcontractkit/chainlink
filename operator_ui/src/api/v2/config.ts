@@ -17,12 +17,12 @@ export class Config {
    */
   @boundMethod
   public getConfiguration(): Promise<
-    jsonapi.ApiResponse<presenters.ConfigWhitelist>
+    jsonapi.ApiResponse<presenters.ConfigPrinter>
   > {
     return this.show()
   }
 
-  private show = this.api.fetchResource<{}, presenters.ConfigWhitelist, {}>(
+  private show = this.api.fetchResource<{}, presenters.ConfigPrinter, {}>(
     SHOW_ENDPOINT,
   )
 }

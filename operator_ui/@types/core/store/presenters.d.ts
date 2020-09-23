@@ -16,47 +16,63 @@ declare module 'core/store/presenters' {
     linkBalance: Pointer<assets.Link>
   }
 
-  export interface ConfigWhitelist extends Whitelist {
+  /**
+   * ConfigPrinter are the non-secret values of the node configuration
+   */
+  export interface ConfigPrinter extends EnvPrinter {
     accountAddress: string
   }
 
   /**
-   * ConfigWhitelist are the non-secret values of the node
+   * EnvPrinter are the non-secret values of the node environment
    */
-  interface Whitelist {
+  interface EnvPrinter {
     allowOrigins: string
-    bridgeResponseURL?: string
-    ethChainId: number
-    clientNodeUrl: string
-    chainlinkDev: boolean
-    databaseTimeout: time.Duration
-    ethUrl: string
-    /**
-     * FIXME -- precision loss
-     */
-    ethGasBumpThreshold: number
-    ethGasBumpWei: Pointer<big.Int>
-    ethGasPriceDefault: Pointer<big.Int>
-    jsonConsole: boolean
-    linkContractAddress: string
     blockBackfillDepth: string
-    explorerUrl: string
-    logLevel: orm.LogLevel
-    logToDisk: boolean
-    minimumContractPayment: Pointer<assets.Link>
-    /**
-     * FIXME -- precision loss
-     */
-    minimumRequestExpiration: number
-    minIncomingConfirmations: number
-    minOutgoingConfirmations: number
-    oracleContractAddress: Pointer<common.Address>
+    bridgeResponseURL?: string
+    chainlinkDev: boolean
     chainlinkPort: number
-    reaperExpiration: time.Duration
-    root: string
-    sessionTimeout: time.Duration
     chainlinkTLSHost: string
     chainlinkTLSPort: number
+    clientNodeUrl: string
+    databaseTimeout: time.Duration
+    defaultHttpLimit: number
+    defaultHttpTimeout: time.Duration
+    enableBulletproofTxManager: boolean
+    enableExperimentalAdapters: boolean
+    ethChainId: number
+    ethFinalityDepth: number
+    ethGasBumpThreshold: number /** * FIXME -- precision loss */
+    ethGasBumpTxDepth: number
+    ethGasBumpWei: Pointer<big.Int>
+    ethGasLimitDefault: number
+    ethGasPriceDefault: Pointer<big.Int>
+    ethHeadTrackerHistoryDepth: number
+    ethHeadTrackerMaxBufferSize: number
+    ethUrl: string
+    ethereumDisabled: boolean
+    explorerUrl: string
+    featureExternalInitiators: boolean
+    featureFluxMonitor: boolean
+    jsonConsole: boolean
+    linkContractAddress: string
+    logLevel: orm.LogLevel
+    logSqlMigrations: boolean
+    logSqlStatements: boolean
+    logToDisk: boolean
+    maxRPCCallsPerSecond: number
+    maximumServiceDuration: time.Duration
+    minIncomingConfirmations: number
+    minOutgoingConfirmations: number
+    minimumContractPayment: Pointer<assets.Link>
+    minimumRequestExpiration: number /** * FIXME -- precision loss */
+    minimumServiceDuration: time.Duration
+    oracleContractAddress: Pointer<common.Address>
+    reaperExpiration: time.Duration
+    replayFromBlock: number
+    root: string
+    secureCookies: boolean
+    sessionTimeout: time.Duration
     txAttemptLimit: number
   }
 
