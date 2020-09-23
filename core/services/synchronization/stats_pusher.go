@@ -45,6 +45,14 @@ type StatsPusher interface {
 	GetStatus() ConnectionStatus
 }
 
+type NoopStatsPusher struct{}
+
+func (NoopStatsPusher) Start() error                { return nil }
+func (NoopStatsPusher) Close() error                { return nil }
+func (NoopStatsPusher) PushNow()                    {}
+func (NoopStatsPusher) GetURL() url.URL             { return url.URL{} }
+func (NoopStatsPusher) GetStatus() ConnectionStatus { return ConnectionStatusDisconnected }
+
 type statsPusher struct {
 	ORM            *orm.ORM
 	WSClient       WebSocketClient
@@ -60,9 +68,8 @@ const (
 	updateCallbackName = "sync:run_after_update"
 )
 
-// NewStatsPusher returns a new event queuer
+// NewStatsPusher returns a new StatsPusher service
 func NewStatsPusher(orm *orm.ORM, wsclient WebSocketClient, afters ...utils.Afterer) StatsPusher {
-	//func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -70,7 +77,7 @@ func NewStatsPusher(orm *orm.ORM, wsclient WebSocketClient, afters ...utils.Afte
 		clock = afters[0]
 	}
 
-	sp := &statsPusher{
+	return &statsPusher{
 		ORM:      orm,
 		WSClient: wsclient,
 		Period:   30 * time.Minute,
@@ -81,33 +88,31 @@ func NewStatsPusher(orm *orm.ORM, wsclient WebSocketClient, afters ...utils.Afte
 		},
 		waker: make(chan struct{}, 1),
 	}
-
-	if wsclient.Url().Scheme != "" {
-		gormCallbacksMutex.Lock()
-		_ = orm.RawDB(func(db *gorm.DB) error {
-			db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, orm))
-			db.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp, orm))
-			return nil
-		})
-		gormCallbacksMutex.Unlock()
-	}
-	return sp
 }
 
+// GetURL returns the URL where stats are being pushed
 func (sp *statsPusher) GetURL() url.URL {
 	return sp.WSClient.Url()
 }
 
+// GetStatus returns the WSClient connection status
 func (sp *statsPusher) GetStatus() ConnectionStatus {
 	return sp.WSClient.Status()
 }
 
 // Start starts the stats pusher
 func (sp *statsPusher) Start() error {
-	err := sp.WSClient.Start()
+	gormCallbacksMutex.Lock()
+	err := sp.ORM.RawDB(func(db *gorm.DB) error {
+		db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, sp.ORM))
+		db.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp, sp.ORM))
+		return nil
+	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating statsPusher orm callbacks")
 	}
+	gormCallbacksMutex.Unlock()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	sp.cancel = cancel
 	go sp.eventLoop(ctx)
@@ -119,14 +124,19 @@ func (sp *statsPusher) Close() error {
 	if sp.cancel != nil {
 		sp.cancel()
 	}
+
 	gormCallbacksMutex.Lock()
-	_ = sp.ORM.RawDB(func(db *gorm.DB) error {
+	err := sp.ORM.RawDB(func(db *gorm.DB) error {
 		db.Callback().Create().Remove(createCallbackName)
 		db.Callback().Update().Remove(updateCallbackName)
 		return nil
 	})
+	if err != nil {
+		logger.Errorw("error removing gorm statsPusher callbacks on shutdown", "error", err)
+	}
 	gormCallbacksMutex.Unlock()
-	return sp.WSClient.Close()
+
+	return nil
 }
 
 // PushNow wakes up the stats pusher, asking it to push all queued events immediately.

@@ -1001,9 +1001,12 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	wsclient := synchronization.NewWebSocketClient(cltest.MustParseURL("http://localhost"), "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
+	defer wsclient.Close()
 
 	orm := store.ORM
-	synchronization.NewStatsPusher(orm, wsclient)
+	statsPusher := synchronization.NewStatsPusher(orm, wsclient)
+	require.NoError(t, statsPusher.Start())
+	defer statsPusher.Close()
 
 	// Create two events via job run callback
 	job := cltest.NewJobWithWebInitiator()

@@ -83,7 +83,8 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
-	telemetryAgent           telemetry.Agent
+	monitoringEndpoint       telemetry.MonitoringEndpoint
+	wsclient                 synchronization.WebSocketClient
 }
 
 // NewApplication initializes a new store if one is not already
@@ -95,13 +96,15 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 	store := strpkg.NewStore(config, ethClient, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
-	var wsclient synchronization.WebSocketClient
-	wsclient = &synchronization.NoopWebSocketClient{}
+	wsclient := synchronization.WebSocketClient(&synchronization.NoopWebSocketClient{})
+	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
+	telemetryAgent := telemetry.MonitoringEndpoint(&telemetry.NoopAgent{})
+
 	if config.ExplorerURL() != nil {
 		wsclient = synchronization.NewWebSocketClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
+		statsPusher = synchronization.NewStatsPusher(store.ORM, wsclient)
+		telemetryAgent = telemetry.NewAgent(wsclient)
 	}
-	statsPusher := synchronization.NewStatsPusher(store.ORM, wsclient)
-	telemetryAgent := telemetry.NewAgent(wsclient)
 
 	// TODO: Remove this, it's just to manually test the explorer integration
 	go func() {
@@ -155,7 +158,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
-		telemetryAgent:           *telemetryAgent,
+		monitoringEndpoint:       telemetryAgent,
+		wsclient:                 wsclient,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -209,6 +213,7 @@ func (app *ChainlinkApplication) Start() error {
 
 	subtasks := []func() error{
 		app.Store.Start,
+		app.wsclient.Start,
 		app.StatsPusher.Start,
 		app.RunQueue.Start,
 		app.RunManager.ResumeAllInProgress,
@@ -258,6 +263,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
+		merr = multierr.Append(merr, app.wsclient.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		app.pipelineRunner.Stop()
 		app.jobSpawner.Stop()
