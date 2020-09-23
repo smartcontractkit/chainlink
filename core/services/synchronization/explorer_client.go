@@ -91,46 +91,46 @@ func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 }
 
 // Url returns the URL the client was initialized with
-func (w *explorerClient) Url() url.URL {
-	return *w.url
+func (ec *explorerClient) Url() url.URL {
+	return *ec.url
 }
 
 // Status returns the current connection status
-func (w *explorerClient) Status() ConnectionStatus {
-	w.statusMtx.RLock()
-	defer w.statusMtx.RUnlock()
-	return w.status
+func (ec *explorerClient) Status() ConnectionStatus {
+	ec.statusMtx.RLock()
+	defer ec.statusMtx.RUnlock()
+	return ec.status
 }
 
 // Start starts a write pump over a websocket.
-func (w *explorerClient) Start() error {
-	w.boot.Lock()
-	defer w.boot.Unlock()
+func (ec *explorerClient) Start() error {
+	ec.boot.Lock()
+	defer ec.boot.Unlock()
 
-	if w.started {
+	if ec.started {
 		return nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	w.cancel = cancel
+	ec.cancel = cancel
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
-	go w.connectAndWritePump(ctx, wg)
+	go ec.connectAndWritePump(ctx, wg)
 	wg.Wait()
-	w.started = true
+	ec.started = true
 	return nil
 }
 
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
-func (w *explorerClient) Send(data []byte) {
-	w.send <- data
+func (ec *explorerClient) Send(data []byte) {
+	ec.send <- data
 }
 
 // Receive blocks the caller while waiting for a response from the server,
 // returning the raw response bytes
-func (w *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
+func (ec *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
 	duration := defaultReceiveTimeout
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -139,7 +139,7 @@ func (w *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error
 	select {
 	case <-time.After(duration):
 		return nil, ErrReceiveTimeout
-	case data := <-w.receive:
+	case data := <-ec.receive:
 		return data, nil
 	}
 }
@@ -163,10 +163,10 @@ const (
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
 // lexical confinement of done chan allows multiple connectAndWritePump routines
-// to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
-func (w *explorerClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
+// to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
+func (ec *explorerClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	doneWaiting := false
-	logger.Infow("Connecting to explorer", "url", w.url)
+	logger.Infow("Connecting to explorer", "url", ec.url)
 
 	for {
 		select {
@@ -175,74 +175,74 @@ func (w *explorerClient) connectAndWritePump(parentCtx context.Context, wg *sync
 				wg.Done()
 			}
 			return
-		case <-time.After(w.sleeper.After()):
+		case <-time.After(ec.sleeper.After()):
 			connectionCtx, cancel := context.WithCancel(parentCtx)
 			defer cancel()
 
-			if err := w.connect(connectionCtx); err != nil {
-				w.setStatus(ConnectionStatusError)
+			if err := ec.connect(connectionCtx); err != nil {
+				ec.setStatus(ConnectionStatusError)
 				if !doneWaiting {
 					wg.Done()
 				}
-				logger.Warn("Failed to connect to explorer (", w.url.String(), "): ", err)
+				logger.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
 				break
 			}
 
-			w.setStatus(ConnectionStatusConnected)
+			ec.setStatus(ConnectionStatusConnected)
 
 			if !doneWaiting {
 				wg.Done()
 			}
-			logger.Infow("Connected to explorer", "url", w.url)
-			w.sleeper.Reset()
-			go w.readPump(cancel)
-			w.writePump(connectionCtx)
+			logger.Infow("Connected to explorer", "url", ec.url)
+			ec.sleeper.Reset()
+			go ec.readPump(cancel)
+			ec.writePump(connectionCtx)
 		}
 
 		doneWaiting = true
 	}
 }
 
-func (w *explorerClient) setStatus(s ConnectionStatus) {
-	w.statusMtx.Lock()
-	defer w.statusMtx.Unlock()
-	w.status = s
+func (ec *explorerClient) setStatus(s ConnectionStatus) {
+	ec.statusMtx.Lock()
+	defer ec.statusMtx.Unlock()
+	ec.status = s
 }
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L82
-func (w *explorerClient) writePump(ctx context.Context) {
+func (ec *explorerClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		w.wrapConnErrorIf(w.conn.Close()) // exclusive responsibility to close ws conn
+		ec.wrapConnErrorIf(ec.conn.Close()) // exclusive responsibility to close ws conn
 	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case message, open := <-w.send:
+		case message, open := <-ec.send:
 			if !open { // channel closed
-				w.wrapConnErrorIf(w.conn.WriteMessage(websocket.CloseMessage, []byte{}))
+				ec.wrapConnErrorIf(ec.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 			}
 
-			err := w.writeMessage(message)
+			err := ec.writeMessage(message)
 			if err != nil {
 				logger.Error("websocketStatsPusher: ", err)
 				return
 			}
 		case <-ticker.C:
-			w.wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
-			if err := w.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				w.wrapConnErrorIf(err)
+			ec.wrapConnErrorIf(ec.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+			if err := ec.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				ec.wrapConnErrorIf(err)
 				return
 			}
 		}
 	}
 }
 
-func (w *explorerClient) writeMessage(message []byte) error {
-	w.wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
-	writer, err := w.conn.NextWriter(websocket.TextMessage)
+func (ec *explorerClient) writeMessage(message []byte) error {
+	ec.wrapConnErrorIf(ec.conn.SetWriteDeadline(time.Now().Add(writeWait)))
+	writer, err := ec.conn.NextWriter(websocket.TextMessage)
 	if err != nil {
 		return err
 	}
@@ -254,19 +254,19 @@ func (w *explorerClient) writeMessage(message []byte) error {
 	return writer.Close()
 }
 
-func (w *explorerClient) connect(ctx context.Context) error {
+func (ec *explorerClient) connect(ctx context.Context) error {
 	authHeader := http.Header{}
-	authHeader.Add("X-Explore-Chainlink-Accesskey", w.accessKey)
-	authHeader.Add("X-Explore-Chainlink-Secret", w.secret)
+	authHeader.Add("X-Explore-Chainlink-Accesskey", ec.accessKey)
+	authHeader.Add("X-Explore-Chainlink-Secret", ec.secret)
 	authHeader.Add("X-Explore-Chainlink-Core-Version", store.Version)
 	authHeader.Add("X-Explore-Chainlink-Core-Sha", store.Sha)
 
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, w.url.String(), authHeader)
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, ec.url.String(), authHeader)
 	if err != nil {
 		return fmt.Errorf("websocketStatsPusher#connect: %v", err)
 	}
 
-	w.conn = conn
+	ec.conn = conn
 	return nil
 }
 
@@ -280,25 +280,25 @@ const CloseTimeout = 100 * time.Millisecond
 // For more details on how disconnection messages are handled, see:
 //  * https://stackoverflow.com/a/48181794/639773
 //  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
-func (w *explorerClient) readPump(cancel context.CancelFunc) {
+func (ec *explorerClient) readPump(cancel context.CancelFunc) {
 	defer cancel()
 
-	w.conn.SetReadLimit(maxMessageSize)
-	_ = w.conn.SetReadDeadline(time.Now().Add(pongWait))
-	w.conn.SetPongHandler(func(string) error {
-		_ = w.conn.SetReadDeadline(time.Now().Add(pongWait))
+	ec.conn.SetReadLimit(maxMessageSize)
+	_ = ec.conn.SetReadDeadline(time.Now().Add(pongWait))
+	ec.conn.SetPongHandler(func(string) error {
+		_ = ec.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 
 	for {
-		messageType, message, err := w.conn.ReadMessage()
+		messageType, message, err := ec.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 				logger.Warn(fmt.Sprintf("readPump: %v", err))
 			}
 			select {
-			case <-w.closeRequested:
-				w.closed <- struct{}{}
+			case <-ec.closeRequested:
+				ec.closed <- struct{}{}
 			case <-time.After(CloseTimeout):
 				logger.Warn("websocket readPump failed to notify closer")
 			}
@@ -307,29 +307,29 @@ func (w *explorerClient) readPump(cancel context.CancelFunc) {
 
 		switch messageType {
 		case websocket.TextMessage:
-			w.receive <- message
+			ec.receive <- message
 		}
 	}
 }
 
-func (w *explorerClient) wrapConnErrorIf(err error) {
+func (ec *explorerClient) wrapConnErrorIf(err error) {
 	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
-		w.setStatus(ConnectionStatusError)
+		ec.setStatus(ConnectionStatusError)
 		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
 	}
 }
 
-func (w *explorerClient) Close() error {
-	w.boot.Lock()
-	defer w.boot.Unlock()
+func (ec *explorerClient) Close() error {
+	ec.boot.Lock()
+	defer ec.boot.Unlock()
 
-	if w.started {
-		w.cancel()
+	if ec.started {
+		ec.cancel()
 	}
-	w.started = false
+	ec.started = false
 	select {
-	case w.closeRequested <- struct{}{}:
-		<-w.closed
+	case ec.closeRequested <- struct{}{}:
+		<-ec.closed
 	case <-time.After(CloseTimeout):
 		logger.Warn("websocketClient.Close failed to be notified from readPump")
 	}
