@@ -72,9 +72,9 @@ type explorerClient struct {
 	statusMtx sync.RWMutex
 }
 
-// NewWebSocketClient returns a stats pusher using a websocket for
+// NewExplorerClient returns a stats pusher using a websocket for
 // delivery.
-func NewWebSocketClient(url *url.URL, accessKey, secret string) ExplorerClient {
+func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 	return &explorerClient{
 		url:       url,
 		send:      make(chan []byte),
