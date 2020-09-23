@@ -96,7 +96,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 	store := strpkg.NewStore(config, ethClient, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
-	wsclient := synchronization.ExplorerClient(&synchronization.NoopWebSocketClient{})
+	wsclient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
 	telemetryAgent := telemetry.MonitoringEndpoint(&telemetry.NoopAgent{})
 
