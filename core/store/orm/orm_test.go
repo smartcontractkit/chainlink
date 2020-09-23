@@ -998,8 +998,12 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	wsclient := synchronization.NewWebSocketClient(cltest.MustParseURL("http://localhost"), "", "")
+	err := wsclient.Start()
+	require.NoError(t, err)
+
 	orm := store.ORM
-	synchronization.NewStatsPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
+	synchronization.NewStatsPusher(orm, wsclient)
 
 	// Create two events via job run callback
 	job := cltest.NewJobWithWebInitiator()
@@ -1008,7 +1012,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 
 	oldIncompleteRun := cltest.NewJobRun(job)
 	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
-	err := orm.CreateJobRun(&oldIncompleteRun)
+	err = orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)

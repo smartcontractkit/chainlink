@@ -44,14 +44,14 @@ type WebSocketClient interface {
 	Receive(...time.Duration) ([]byte, error)
 }
 
-type noopWebSocketClient struct{}
+type NoopWebSocketClient struct{}
 
-func (noopWebSocketClient) Url() url.URL                             { return url.URL{} }
-func (noopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
-func (noopWebSocketClient) Start() error                             { return nil }
-func (noopWebSocketClient) Close() error                             { return nil }
-func (noopWebSocketClient) Send([]byte)                              {}
-func (noopWebSocketClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
+func (NoopWebSocketClient) Url() url.URL                             { return url.URL{} }
+func (NoopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
+func (NoopWebSocketClient) Start() error                             { return nil }
+func (NoopWebSocketClient) Close() error                             { return nil }
+func (NoopWebSocketClient) Send([]byte)                              {}
+func (NoopWebSocketClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type websocketClient struct {
 	boot      *sync.Mutex
@@ -193,7 +193,7 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 			if !doneWaiting {
 				wg.Done()
 			}
-			logger.Info("Connected to explorer at ", w.url.String())
+			logger.Infow("Connected to explorer", "url", w.url)
 			w.sleeper.Reset()
 			go w.readPump(cancel)
 			w.writePump(connectionCtx)
