@@ -33,9 +33,9 @@ const (
 	ConnectionStatusError = ConnectionStatus("error")
 )
 
-// WebSocketClient encapsulates all the functionality needed to
+// ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
-type WebSocketClient interface {
+type ExplorerClient interface {
 	Url() url.URL
 	Status() ConnectionStatus
 	Start() error
@@ -74,7 +74,7 @@ type websocketClient struct {
 
 // NewWebSocketClient returns a stats pusher using a websocket for
 // delivery.
-func NewWebSocketClient(url *url.URL, accessKey, secret string) WebSocketClient {
+func NewWebSocketClient(url *url.URL, accessKey, secret string) ExplorerClient {
 	return &websocketClient{
 		url:       url,
 		send:      make(chan []byte),

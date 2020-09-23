@@ -3,12 +3,12 @@ package telemetry
 import "github.com/smartcontractkit/chainlink/core/services/synchronization"
 
 type Agent struct {
-	wsclient synchronization.WebSocketClient
+	wsclient synchronization.ExplorerClient
 }
 
 // NewAgent returns a Agent which is just a thin wrapper over
 // the wsclient for now
-func NewAgent(wsclient synchronization.WebSocketClient) *Agent {
+func NewAgent(wsclient synchronization.ExplorerClient) *Agent {
 	return &Agent{wsclient}
 }
 

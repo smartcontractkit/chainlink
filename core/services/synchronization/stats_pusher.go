@@ -55,7 +55,7 @@ func (NoopStatsPusher) GetStatus() ConnectionStatus { return ConnectionStatusDis
 
 type statsPusher struct {
 	ORM            *orm.ORM
-	WSClient       WebSocketClient
+	WSClient       ExplorerClient
 	Period         time.Duration
 	cancel         context.CancelFunc
 	clock          utils.Afterer
@@ -69,7 +69,7 @@ const (
 )
 
 // NewStatsPusher returns a new StatsPusher service
-func NewStatsPusher(orm *orm.ORM, wsclient WebSocketClient, afters ...utils.Afterer) StatsPusher {
+func NewStatsPusher(orm *orm.ORM, wsclient ExplorerClient, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
