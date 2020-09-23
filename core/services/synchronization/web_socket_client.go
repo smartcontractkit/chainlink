@@ -53,7 +53,7 @@ func (NoopExplorerClient) Close() error                             { return nil
 func (NoopExplorerClient) Send([]byte)                              {}
 func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
-type websocketClient struct {
+type explorerClient struct {
 	boot      *sync.Mutex
 	conn      *websocket.Conn
 	cancel    context.CancelFunc
@@ -75,7 +75,7 @@ type websocketClient struct {
 // NewWebSocketClient returns a stats pusher using a websocket for
 // delivery.
 func NewWebSocketClient(url *url.URL, accessKey, secret string) ExplorerClient {
-	return &websocketClient{
+	return &explorerClient{
 		url:       url,
 		send:      make(chan []byte),
 		receive:   make(chan []byte),
@@ -91,19 +91,19 @@ func NewWebSocketClient(url *url.URL, accessKey, secret string) ExplorerClient {
 }
 
 // Url returns the URL the client was initialized with
-func (w *websocketClient) Url() url.URL {
+func (w *explorerClient) Url() url.URL {
 	return *w.url
 }
 
 // Status returns the current connection status
-func (w *websocketClient) Status() ConnectionStatus {
+func (w *explorerClient) Status() ConnectionStatus {
 	w.statusMtx.RLock()
 	defer w.statusMtx.RUnlock()
 	return w.status
 }
 
 // Start starts a write pump over a websocket.
-func (w *websocketClient) Start() error {
+func (w *explorerClient) Start() error {
 	w.boot.Lock()
 	defer w.boot.Unlock()
 
@@ -124,13 +124,13 @@ func (w *websocketClient) Start() error {
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
-func (w *websocketClient) Send(data []byte) {
+func (w *explorerClient) Send(data []byte) {
 	w.send <- data
 }
 
 // Receive blocks the caller while waiting for a response from the server,
 // returning the raw response bytes
-func (w *websocketClient) Receive(durationParams ...time.Duration) ([]byte, error) {
+func (w *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
 	duration := defaultReceiveTimeout
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -164,7 +164,7 @@ const (
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
 // lexical confinement of done chan allows multiple connectAndWritePump routines
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not w.done.
-func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
+func (w *explorerClient) connectAndWritePump(parentCtx context.Context, wg *sync.WaitGroup) {
 	doneWaiting := false
 	logger.Infow("Connecting to explorer", "url", w.url)
 
@@ -203,14 +203,14 @@ func (w *websocketClient) connectAndWritePump(parentCtx context.Context, wg *syn
 	}
 }
 
-func (w *websocketClient) setStatus(s ConnectionStatus) {
+func (w *explorerClient) setStatus(s ConnectionStatus) {
 	w.statusMtx.Lock()
 	defer w.statusMtx.Unlock()
 	w.status = s
 }
 
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L82
-func (w *websocketClient) writePump(ctx context.Context) {
+func (w *explorerClient) writePump(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -240,7 +240,7 @@ func (w *websocketClient) writePump(ctx context.Context) {
 	}
 }
 
-func (w *websocketClient) writeMessage(message []byte) error {
+func (w *explorerClient) writeMessage(message []byte) error {
 	w.wrapConnErrorIf(w.conn.SetWriteDeadline(time.Now().Add(writeWait)))
 	writer, err := w.conn.NextWriter(websocket.TextMessage)
 	if err != nil {
@@ -254,7 +254,7 @@ func (w *websocketClient) writeMessage(message []byte) error {
 	return writer.Close()
 }
 
-func (w *websocketClient) connect(ctx context.Context) error {
+func (w *explorerClient) connect(ctx context.Context) error {
 	authHeader := http.Header{}
 	authHeader.Add("X-Explore-Chainlink-Accesskey", w.accessKey)
 	authHeader.Add("X-Explore-Chainlink-Secret", w.secret)
@@ -280,7 +280,7 @@ const CloseTimeout = 100 * time.Millisecond
 // For more details on how disconnection messages are handled, see:
 //  * https://stackoverflow.com/a/48181794/639773
 //  * https://github.com/gorilla/websocket/blob/master/examples/chat/client.go#L56
-func (w *websocketClient) readPump(cancel context.CancelFunc) {
+func (w *explorerClient) readPump(cancel context.CancelFunc) {
 	defer cancel()
 
 	w.conn.SetReadLimit(maxMessageSize)
@@ -312,14 +312,14 @@ func (w *websocketClient) readPump(cancel context.CancelFunc) {
 	}
 }
 
-func (w *websocketClient) wrapConnErrorIf(err error) {
+func (w *explorerClient) wrapConnErrorIf(err error) {
 	if err != nil && websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 		w.setStatus(ConnectionStatusError)
 		logger.Error(fmt.Sprintf("websocketStatsPusher: %v", err))
 	}
 }
 
-func (w *websocketClient) Close() error {
+func (w *explorerClient) Close() error {
 	w.boot.Lock()
 	defer w.boot.Unlock()
 
