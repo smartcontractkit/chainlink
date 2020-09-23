@@ -44,14 +44,14 @@ type ExplorerClient interface {
 	Receive(...time.Duration) ([]byte, error)
 }
 
-type NoopWebSocketClient struct{}
+type NoopExplorerClient struct{}
 
-func (NoopWebSocketClient) Url() url.URL                             { return url.URL{} }
-func (NoopWebSocketClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
-func (NoopWebSocketClient) Start() error                             { return nil }
-func (NoopWebSocketClient) Close() error                             { return nil }
-func (NoopWebSocketClient) Send([]byte)                              {}
-func (NoopWebSocketClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
+func (NoopExplorerClient) Url() url.URL                             { return url.URL{} }
+func (NoopExplorerClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
+func (NoopExplorerClient) Start() error                             { return nil }
+func (NoopExplorerClient) Close() error                             { return nil }
+func (NoopExplorerClient) Send([]byte)                              {}
+func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type websocketClient struct {
 	boot      *sync.Mutex
