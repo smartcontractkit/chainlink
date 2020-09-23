@@ -61,11 +61,16 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	pusher := synchronization.NewStatsPusher(store.ORM, cltest.MustParseURL("http://localhost:4201"), "", "")
+
+	wsclient := synchronization.NewWebSocketClient(cltest.MustParseURL("http://localhost:4201"), "", "")
+	err := wsclient.Start()
+	require.NoError(t, err)
+
+	pusher := synchronization.NewStatsPusher(store.ORM, wsclient)
 	defer pusher.Close()
 
 	job := cltest.NewJobWithWebInitiator()
-	err := store.CreateJob(&job)
+	err = store.CreateJob(&job)
 	assert.NoError(t, err)
 
 	jr := cltest.NewJobRun(job)

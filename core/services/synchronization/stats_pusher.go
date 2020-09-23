@@ -61,7 +61,8 @@ const (
 )
 
 // NewStatsPusher returns a new event queuer
-func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) StatsPusher {
+func NewStatsPusher(orm *orm.ORM, wsclient WebSocketClient, afters ...utils.Afterer) StatsPusher {
+	//func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -71,7 +72,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 
 	sp := &statsPusher{
 		ORM:      orm,
-		WSClient: noopWebSocketClient{},
+		WSClient: wsclient,
 		Period:   30 * time.Minute,
 		clock:    clock,
 		backoffSleeper: backoff.Backoff{
@@ -81,8 +82,7 @@ func NewStatsPusher(orm *orm.ORM, url *url.URL, accessKey, secret string, afters
 		waker: make(chan struct{}, 1),
 	}
 
-	if url != nil {
-		sp.WSClient = NewWebSocketClient(url, accessKey, secret)
+	if wsclient.Url().Scheme != "" {
 		gormCallbacksMutex.Lock()
 		_ = orm.RawDB(func(db *gorm.DB) error {
 			db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, orm))
