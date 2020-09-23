@@ -1303,6 +1303,12 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 	return keys, orm.DB.Find(&keys).Error
 }
 
+func (orm *ORM) GetFundingKey() (*Key, error) {
+	var key models.Key
+	err := orm.DB.Where("is_funding = TRUE").First(&key).Error
+	return key, err
+}
+
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
 // This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
 // addresses in the database.
@@ -1436,7 +1442,7 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 // - deletes in 'run_requests' will cascade into 'job_runs'.
 // - deletes in 'eth_txes' will cascade into 'eth_tx_attempts' and 'eth_task_run_txes'.
 // - deletes in 'eth_tx_attempts' will cascade into 'eth_receipts'.
-const truncateDBQuery = `
+const removeUnstartedTransactionsQuery = `
 WITH
 unstarted_job_runs AS (
 	DELETE FROM job_runs
@@ -1472,8 +1478,65 @@ USING linked_eth_txes AS let
 WHERE let.id = eta.eth_tx_id
 `
 
-func (orm *ORM) TruncateDatabase() error {
-	return orm.DB.Exec(truncateDBQuery).Error
+func (orm *ORM) RemoveUnstartedTransactions() error {
+	return orm.DB.Exec(removeUnstartedTransactionsQuery).Error
+}
+
+const findAndCancelPendingTransactionsQuery = `
+WITH
+cancel_job_runs AS (
+	UPDATE job_runs
+	SET status = 'cancelled'
+	WHERE status LIKE 'pending%'
+		OR status = 'in_progress'
+	RETURNING id
+),
+linked_txes AS (
+	SELECT et.id
+	FROM eth_txes AS et
+	JOIN eth_task_run_txes AS etrt ON et.id = etrt.eth_tx_id
+	JOIN task_runs AS tr ON etrt.task_run_id = tr.id
+	JOIN job_runs AS jr ON jr.id = tr.job_run_id
+	JOIN cancel_job_runs AS cjr ON cjr.id = jr.id
+),
+cancel_eth_txes AS (
+	UPDATE eth_txes AS et
+	SET et.state = 'fatal_error'
+	FROM linked_txes AS lt
+	WHERE et.id = lt.id
+	RETURNING et.id
+),
+SELECT et.*
+FROM eth_txes AS et
+JOIN cancel_eth_txes AS cet ON et.id = cet.id
+`
+
+func (orm *ORM) CancelPendingTransactions() ([]*models.Tx, error) {
+	rows, err := orm.DB.Raw(findAndCancelPendingTransactionsQuery).Rows()
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	txes := []*models.Tx{}
+	for rows.Next() {
+		tx := models.Tx{}
+		rows.Scan(&tx)
+		txes = append(txes, &tx)
+	}
+	return txes, nil
+}
+
+const findGasPriceForCancelTransactionsQuery = `
+SELECT max(eta.gas_price)
+FROM eth_tx_attempts AS eta
+JOIN eth_txes AS et ON eta.eth_tx_id = et.id
+WHERE et.state = 'cancelled'
+`
+
+func (orm *ORM) GetGasPrice() (int, error) {
+	var result int
+	err := orm.DB.Raw(findGasPriceForCancelTransactionsQuery).Scan(&result)
+	return result, err
 }
 
 // Copied directly from geth - see: https://github.com/ethereum/go-ethereum/blob/32d35c9c088463efac49aeb0f3e6d48cfb373a40/accounts/keystore/key.go#L217

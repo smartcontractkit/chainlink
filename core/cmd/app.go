@@ -373,8 +373,8 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:   "hard-reset",
-							Usage:  "Clean all the state in the production DB. Use with caution!",
-							Action: client.HardResetDatabase,
+							Usage:  "Removes unstarted transactions and attempts to cancel pending transactions. Use with caution, this command cannot be reverted! Only execute when the node is not started! You must have a funding address ready to use",
+							Action: client.HardReset,
 							Flags:  []cli.Flag{},
 						},
 						{

@@ -16,6 +16,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 )
 
@@ -161,6 +162,23 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		}
 	}
 	return merr
+}
+
+func (s *Store) CreateFundingKeyIfNotExists(pwd string) error {
+	ethAccount, err := s.KeyStore.NewAccount(pwd)
+	if err != nil {
+		return err
+	}
+	exportedJSON, err := s.KeyStore.Export(ethAccount, pwd, pwd)
+	if err != nil {
+		return err
+	}
+	return s.CreateKeyIfNotExists(models.Key{
+		Address:   models.EIP55Address(ethAccount.Address.Hex()),
+		IsFunding: true,
+		JSON:      models.JSON(gjson.ParseBytes(exportedJSON)),
+		NextNonce: 1
+	})
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {

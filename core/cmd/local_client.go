@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -80,6 +81,12 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
 			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
 		}
+	}
+	fundingAddress, err := store.CreateFundingKeyIfNotExists(pwd)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "failed to generate funding address"))
+	} else {
+		logger.Infow("Funding address ready, make sure it is funded, hash=%s", fundingAddress.address)
 	}
 
 	var user models.User
@@ -366,42 +373,101 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	return nil
 }
 
-func (cli *Client) HardResetDatabase(c *clipkg.Context) error {
+func (cli *Client) HardReset(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 
+	if !confirmHardReset() {
+		return nil
+	}
+
+	app, cleanupFn, err := cli.makeApp()
+	defer cleanupFn()
+	storeInstance := app.GetStore()
+	ormInstance := storeInstance.ORM
+
+	// Ensure that the CL node is down by trying to acquire the global advisory lock.
+	// This method will panic if it can't get the lock.
+	ormInstance.MustEnsureAdvisoryLock()
+
+	fundingKey, err := ormInstance.GetFundingKey()
+	if err != nil {
+		return err
+	}
+	if fundingKey == nil {
+		return fmt.Errorf("Must create a funding address and fund it with sufficient ether")
+	}
+
+	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
+		logger.Errorw("failed to remove unstarted transactions", "error", err)
+		return err
+	}
+
+	gasPriceWei, err := ormInstance.GetGasPrice()
+
+	if err := cancelPendingTransactions(storeInstance, fundingKey, gasPriceWei); err != nil {
+		logger.Errorw("failed to cancel pending transactions", "error", err)
+		return err
+	}
+
+	return nil
+}
+
+func confirmHardReset() bool {
 	prompt := NewTerminalPrompter()
 	var answer string
 	for {
 		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/No)")
 		if answer == "yes" {
-			break
+			return true
 		} else if answer == "no" {
-			return nil
+			return false
 		} else {
 			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 		}
 	}
-
-	if err := truncateDatabase(); err != nil {
-		logger.Errorw("failed to truncate database", "error", err)
-		return err
-	}
-	return nil
 }
 
-func truncateDatabase() error {
-	cfg := orm.NewConfig()
-	ormInstance, err := orm.NewORM(
-		cfg.DatabaseURL(),
-		cfg.DatabaseTimeout(),
-		gracefulpanic.NewSignal(),
-		cfg.GetDatabaseDialectConfiguredOrDefault(),
-		cfg.GetAdvisoryLockIDConfiguredOrDefault())
+func (cli *Client) makeApp() (*App, func()) {
+	app := cli.AppFactory.NewApplication(cli.Config)
+	return app, func() {
+		if err := app.Stop(); err != nil {
+			logger.Errorw("Failed to stop the application", "error", err)
+		}
+	}()
+}
+
+func cancelPendingTransactions(storeInstance *store.Store, fundingKey *models.Key, gasPriceWei int) error {
+	err = storeInstance.EthClient.Dial(context.TODO())
 	if err != nil {
 		return err
 	}
-
-	return ormInstance.TruncateDatabase()
+	toBeCancelledTxes, err := storeInstance.ORM.CancelPendingTransactions()
+	if err != nil {
+		return err
+	}
+	fundingAccount, err := storeInstance.KeyStore.GetAccountByAddress(fundingKey.Address)
+	if err != nil {
+		return err
+	}
+	_, _ = toBeCancelledTxes, fundingAccount
+	/*
+		gasLimit := 21000
+		for ethTx := range toBeCancelledTxes {
+			to := utils.ZeroAddress
+			value := big.NewInt(0)
+			payload := []byte{}
+			nonce := ethTx.Nonce
+			chainID := storeInstance.Config.ChainID()
+			cancelTx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
+			signedTx, err := storeInstance.KeyStore.SignTx(fundingAccount, cancelTx, chainID)
+			if err != nil {
+				return err
+			}
+			err = storeInstance.EthClient.SendTransaction(context.TODO(), signedTx)
+			return err
+		}
+	*/
+	return nil
 }
 
 // PrepareTestDatabase calls ResetDatabase then loads fixtures required for tests
