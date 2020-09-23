@@ -998,7 +998,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(cltest.MustParseURL("http://localhost"), "", "")
+	wsclient := synchronization.NewExplorerClient(cltest.MustParseURL("http://localhost"), "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
 	defer wsclient.Close()

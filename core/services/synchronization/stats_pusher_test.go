@@ -20,7 +20,7 @@ func TestStatsPusher(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
 
@@ -48,7 +48,7 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	defer wscleanup()
 
 	clock := cltest.NewTriggerClock(t)
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
 
@@ -77,7 +77,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	wsserver, wscleanup := cltest.NewEventWebSocketServer(t)
 	defer wscleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
 
@@ -103,7 +103,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	defer wscleanup()
 
 	clock := cltest.NewTriggerClock(t)
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	err := wsclient.Start()
 	require.NoError(t, err)
 

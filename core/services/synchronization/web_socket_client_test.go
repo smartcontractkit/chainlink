@@ -19,7 +19,7 @@ func TestWebSocketClient_StartCloseStart(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -38,7 +38,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
@@ -56,7 +56,7 @@ func TestWebSocketClient_Send(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	defer wsclient.Close()
 
@@ -77,7 +77,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 
 	url := cltest.MustParseURL(server.URL)
 	url.Scheme = "ws"
-	wsclient := synchronization.NewWebSocketClient(url, "accessKey", "secret")
+	wsclient := synchronization.NewExplorerClient(url, "accessKey", "secret")
 	require.NoError(t, wsclient.Start())
 	defer wsclient.Close()
 
@@ -94,7 +94,7 @@ func TestWebSocketClient_SendWithAck(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	defer wsclient.Close()
 
@@ -117,7 +117,7 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	require.NoError(t, wsclient.Start())
 	defer wsclient.Close()
 
@@ -138,7 +138,7 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
-	wsclient := synchronization.NewWebSocketClient(wsserver.URL, "", "")
+	wsclient := synchronization.NewExplorerClient(wsserver.URL, "", "")
 	defer wsclient.Close()
 	assert.Equal(t, synchronization.ConnectionStatusDisconnected, wsclient.Status())
 
@@ -161,7 +161,7 @@ func TestWebSocketClient_Status_ConnectError(t *testing.T) {
 	badURL, err := url.Parse("http://badhost.com")
 	require.NoError(t, err)
 
-	errorwsclient := synchronization.NewWebSocketClient(badURL, "", "")
+	errorwsclient := synchronization.NewExplorerClient(badURL, "", "")
 	require.NoError(t, errorwsclient.Start())
 	time.Sleep(100 * time.Millisecond)
 
