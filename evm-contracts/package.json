@@ -17,7 +17,7 @@
     "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
   },
   "devDependencies": {
-    "@chainlink/belt": "0.0.2",
+    "@chainlink/belt": "0.0.3",
     "@chainlink/test-helpers": "0.0.5",
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
