@@ -37,6 +37,29 @@ func (_m *KeyStoreInterface) Accounts() []accounts.Account {
 	return r0
 }
 
+// Export provides a mock function with given fields: a, passphrase, newPassphrase
+func (_m *KeyStoreInterface) Export(a accounts.Account, passphrase string, newPassphrase string) ([]byte, error) {
+	ret := _m.Called(a, passphrase, newPassphrase)
+
+	var r0 []byte
+	if rf, ok := ret.Get(0).(func(accounts.Account, string, string) []byte); ok {
+		r0 = rf(a, passphrase, newPassphrase)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(accounts.Account, string, string) error); ok {
+		r1 = rf(a, passphrase, newPassphrase)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetAccountByAddress provides a mock function with given fields: _a0
 func (_m *KeyStoreInterface) GetAccountByAddress(_a0 common.Address) (accounts.Account, error) {
 	ret := _m.Called(_a0)
