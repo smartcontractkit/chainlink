@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -290,4 +292,64 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
+	t.Parallel()
+
+	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+
+	_, url, cleanup := cltest.NewWSServer(`{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": "`+tx.Hash().Hex()+`"
+}`, func(data []byte) {
+		resp := cltest.ParseJSON(t, bytes.NewReader(data))
+		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
+		require.True(t, resp.Get("params").IsArray())
+	})
+	defer cleanup()
+
+	ethClient, err := eth.NewClient(url)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
+	require.NoError(t, err)
+
+	err = ethClient.SendTransaction(context.Background(), tx)
+	assert.NoError(t, err)
+}
+
+func TestEthClient_SendTransaction_WithSecondaryURL(t *testing.T) {
+	t.Parallel()
+
+	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+
+	response := `{
+  "id": 1,
+  "jsonrpc": "2.0",
+  "result": "` + tx.Hash().Hex() + `"
+}`
+
+	_, url, cleanup := cltest.NewWSServer(response, func(data []byte) {
+		resp := cltest.ParseJSON(t, bytes.NewReader(data))
+		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
+		require.True(t, resp.Get("params").IsArray())
+	})
+	defer cleanup()
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte(response))
+		require.NoError(t, err)
+
+	})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	ethClient, err := eth.NewClient(url, server.URL)
+	require.NoError(t, err)
+	err = ethClient.Dial(context.Background())
+	require.NoError(t, err)
+
+	err = ethClient.SendTransaction(context.Background(), tx)
+	assert.NoError(t, err)
 }

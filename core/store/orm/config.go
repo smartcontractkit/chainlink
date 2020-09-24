@@ -339,6 +339,13 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
+// EthereumSecondaryURL is an optional backup RPC URL
+// Must be http(s) format
+// If specified, transactions will also be broadcast to this ethereum node
+func (c Config) EthereumSecondaryURL() string {
+	return c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
+}
+
 // EthereumDisabled shows whether Ethereum interactions are supported.
 func (c Config) EthereumDisabled() bool {
 	return c.viper.GetBool(EnvVarName("EthereumDisabled"))

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -80,13 +81,16 @@ type Subscription interface {
 type client struct {
 	GethClient
 	RPCClient
-	url    string // For reestablishing the connection after a disconnect
-	mocked bool
+	url                 string // For reestablishing the connection after a disconnect
+	SecondaryGethClient GethClient
+	SecondaryRPCClient  RPCClient
+	secondaryURL        string
+	mocked              bool
 }
 
 var _ Client = (*client)(nil)
 
-func NewClient(rpcUrl string) (*client, error) {
+func NewClient(rpcUrl string, secondaryRPCURLs ...string) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -94,7 +98,19 @@ func NewClient(rpcUrl string) (*client, error) {
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
-	return &client{url: rpcUrl}, nil
+
+	var secondaryRPCURL string
+	if len(secondaryRPCURLs) > 0 && secondaryRPCURLs[0] != "" {
+		secondaryRPCURL = secondaryRPCURLs[0]
+		secondaryParsed, err := url.ParseRequestURI(secondaryRPCURL)
+		if err != nil {
+			return nil, err
+		}
+		if secondaryParsed.Scheme != "http" && secondaryParsed.Scheme != "https" {
+			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", secondaryParsed.String())
+		}
+	}
+	return &client{url: rpcUrl, secondaryURL: secondaryRPCURL}, nil
 }
 
 // This alternate constructor exists for testing purposes.
@@ -120,6 +136,15 @@ func (client *client) Dial(ctx context.Context) error {
 	}
 	client.RPCClient = &rpcClientWrapper{rpcClient}
 	client.GethClient = ethclient.NewClient(rpcClient)
+
+	if client.secondaryURL != "" {
+		secondaryRPCClient, err := rpc.DialContext(ctx, client.secondaryURL)
+		if err != nil {
+			return err
+		}
+		client.SecondaryRPCClient = &rpcClientWrapper{secondaryRPCClient}
+		client.SecondaryGethClient = ethclient.NewClient(secondaryRPCClient)
+	}
 	return nil
 }
 
@@ -181,10 +206,31 @@ func (client *client) ChainID(ctx context.Context) (*big.Int, error) {
 	return client.GethClient.ChainID(ctx)
 }
 
+// SendTransaction also uses the secondary HTTP RPC URL if set
 func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	logger.Debugw("eth.Client#SendTransaction(...)",
 		"tx", tx,
 	)
+
+	if client.secondaryURL != "" {
+		// Parallel send to secondary node
+
+		logger.Debugw("eth.SecondaryClient#SendTransaction(...)",
+			"tx", tx,
+		)
+
+		var wg sync.WaitGroup
+		defer wg.Wait()
+		wg.Add(1)
+		go func() {
+			err := client.SecondaryGethClient.SendTransaction(ctx, tx)
+			if err != nil {
+				logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			}
+			wg.Done()
+		}()
+	}
+
 	return client.GethClient.SendTransaction(ctx, tx)
 }
 
