@@ -12,7 +12,7 @@ import (
 )
 
 type MedianTask struct {
-	BaseTask
+	BaseTask `mapstructure:",squash"`
 }
 
 var _ Task = (*MedianTask)(nil)

@@ -11,7 +11,7 @@ import (
 )
 
 type BridgeTask struct {
-	BaseTask
+	BaseTask `mapstructure:",squash"`
 
 	Name        string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData"`

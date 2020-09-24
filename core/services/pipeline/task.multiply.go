@@ -8,8 +8,8 @@ import (
 )
 
 type MultiplyTask struct {
-	BaseTask
-	Times decimal.Decimal `json:"times"`
+	BaseTask `mapstructure:",squash"`
+	Times    decimal.Decimal `json:"times"`
 }
 
 var _ Task = (*MultiplyTask)(nil)

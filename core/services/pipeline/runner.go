@@ -4,9 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/jinzhu/gorm"
-	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -85,9 +82,11 @@ func (r *runner) ResultsForRun(runID int64) ([]Result, error) {
 // NOTE: This could potentially run on a different machine in the cluster than
 // the one that originally added the task runs.
 func (r *runner) processIncompleteTaskRuns() {
-	for {
+	var done bool
+	var err error
+	for !done {
 		// var runID int64
-		err := r.orm.WithNextUnclaimedTaskRun(func(taskRun TaskRun, predecessors []TaskRun) Result {
+		done, err = r.orm.WithNextUnclaimedTaskRun(func(taskRun TaskRun, predecessors []TaskRun) Result {
 			// runID = taskRun.PipelineRunID
 
 			inputs := make([]Result, len(predecessors))
@@ -95,7 +94,7 @@ func (r *runner) processIncompleteTaskRuns() {
 				inputs[i] = predecessor.Result()
 			}
 
-			task, err := UnmarshalTask(taskRun.TaskSpec.Type, taskRun.TaskSpec.JSON.Value, r.orm, r.config)
+			task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, "", r.orm, r.config)
 			if err != nil {
 				return Result{Error: err}
 			}
@@ -106,10 +105,7 @@ func (r *runner) processIncompleteTaskRuns() {
 			}
 			return result
 		})
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// All task runs complete
-			break
-		} else if err != nil {
+		if err != nil {
 			logger.Errorf("Error processing incomplete task runs: %v", err)
 			return
 		}

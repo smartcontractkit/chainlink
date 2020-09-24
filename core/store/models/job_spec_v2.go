@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 )
 
@@ -41,7 +42,7 @@ type (
 	}
 
 	OffchainReportingKeyBundle struct {
-		ID                     Sha256Hash `toml:"-" gorm:"primary_key;type:bytea"`
+		ID                     Sha256Hash `toml:"-"                      gorm:"primary_key;type:bytea"`
 		EncryptedPrivKeyBundle JSON       `toml:"encryptedPrivKeyBundle" gorm:"type:jsonb"`
 		CreatedAt              time.Time  `toml:"-"`
 	}
@@ -78,15 +79,19 @@ func (p *OffchainReportingP2PBootstrapPeers) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, p)
 }
 
-func (b *OffchainReportingKeyBundle) BeforeSave() error {
+func (b *OffchainReportingKeyBundle) BeforeSave(scope *gorm.Scope) error {
 	hash := sha256.New()
 	copy(b.ID[:], hash.Sum(b.EncryptedPrivKeyBundle.Bytes()))
+	scope.SetColumn("id", b.ID)
+	scope.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id")
 	return nil
 }
 
-func (b *OffchainReportingKeyBundle) BeforeCreate() error {
+func (b *OffchainReportingKeyBundle) BeforeCreate(scope *gorm.Scope) error {
 	hash := sha256.New()
 	copy(b.ID[:], hash.Sum(b.EncryptedPrivKeyBundle.Bytes()))
 	b.CreatedAt = time.Now()
+	scope.SetColumn("id", b.ID)
+	scope.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET id = EXCLUDED.id")
 	return nil
 }

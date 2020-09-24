@@ -1,9 +1,11 @@
 package pipeline
 
 import (
+	"database/sql/driver"
 	"encoding/json"
 	"net/url"
 	"reflect"
+	"strconv"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -18,9 +20,11 @@ import (
 type (
 	Task interface {
 		Type() TaskType
+		DotID() string
 		Run(inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
+		OutputIndex() int32
 	}
 
 	Result struct {
@@ -40,25 +44,44 @@ var (
 )
 
 type BaseTask struct {
-	outputTask Task `json:"-"`
+	outputTask Task   `json:"-"`
+	dotID      string `json:"-" mapstructure:"-"`
+	Index      int32  `json:"-" mapstructure:"index"`
 }
 
+func (t BaseTask) DotID() string                  { return t.dotID }
+func (t BaseTask) OutputIndex() int32             { return t.Index }
 func (t BaseTask) OutputTask() Task               { return t.outputTask }
 func (t *BaseTask) SetOutputTask(outputTask Task) { t.outputTask = outputTask }
 
 type JSONSerializable struct {
-	Value interface{}
+	Val interface{}
 }
 
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
-	return json.Unmarshal(bs, &js.Value)
+	return json.Unmarshal(bs, &js.Val)
 }
 
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
-	return json.Marshal(js.Value)
+	return json.Marshal(js.Val)
+}
+
+func (js *JSONSerializable) Scan(value interface{}) error {
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("JSONSerializable#Scan received a value of type %T", value)
+	}
+	if js == nil {
+		*js = JSONSerializable{}
+	}
+	return json.Unmarshal(bytes, &js.Val)
+}
+
+func (js JSONSerializable) Value() (driver.Value, error) {
+	return json.Marshal(js.Val)
 }
 
 type TaskType string
@@ -71,25 +94,25 @@ const (
 	TaskTypeJSONParse TaskType = "jsonparse"
 )
 
-func UnmarshalTask(taskType TaskType, taskMap interface{}, orm ORM, config Config) (Task, error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, orm ORM, config Config) (Task, error) {
 	switch taskMap.(type) {
 	default:
-		return nil, errors.New("UnmarshalTask only accepts a map[string]interface{} or a map[string]string")
+		return nil, errors.New("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
 	case map[string]interface{}, map[string]string:
 	}
 
 	var task Task
 	switch taskType {
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config}
+		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{orm: orm, config: config}
+		task = &BridgeTask{orm: orm, config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
-		task = &MedianTask{}
+		task = &MedianTask{BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{}
+		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{}
+		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -115,6 +138,10 @@ func UnmarshalTask(taskType TaskType, taskMap interface{}, orm ORM, config Confi
 
 					case reflect.TypeOf(decimal.Decimal{}):
 						return decimal.NewFromString(data.(string))
+
+					case reflect.TypeOf(int32(0)):
+						i, err := strconv.Atoi(data.(string))
+						return int32(i), err
 					}
 				}
 				return data, nil

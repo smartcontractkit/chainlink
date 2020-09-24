@@ -23,29 +23,29 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	orm := job.NewORM(db, config.DatabaseURL())
+	orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db))
 	defer orm.Close()
 
-	_, dbSpec, pipelineSpec := makeOCRJobSpec(t)
+	ocrSpec, dbSpec := makeOCRJobSpec(t)
 
 	t.Run("it creates job specs", func(t *testing.T) {
-		err := orm.CreateJob(dbSpec, pipelineSpec)
+		err := orm.CreateJob(dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
-		var dbSpec models.JobSpecV2
+		var returnedSpec models.JobSpecV2
 		err = db.
 			Preload("OffchainreportingOracleSpec").
 			Preload("OffchainreportingOracleSpec.OffchainreportingKeyBundle").
-			Where("id = ?", dbSpec.ID).First(&dbSpec).Error
+			Where("id = ?", dbSpec.ID).First(&returnedSpec).Error
 		require.NoError(t, err)
-		compareOCRJobSpecs(t, dbSpec, dbSpec)
+		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
 	})
 
 	db2, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
 	require.NoError(t, err)
 	defer db2.Close()
 
-	orm2 := job.NewORM(db2, config.DatabaseURL())
+	orm2 := job.NewORM(db2, config.DatabaseURL(), pipeline.NewORM(db2))
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
@@ -96,7 +96,4 @@ func TestORM(t *testing.T) {
 		err = db.Find(&pipelineTaskSpecs).Error
 		require.Len(t, pipelineTaskSpecs, 0)
 	})
-
-	err = db.Exec(`DELETE FROM offchainreporting_key_bundles`).Error
-	require.NoError(t, err)
 }

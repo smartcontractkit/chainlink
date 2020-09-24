@@ -2,163 +2,319 @@ package pipeline_test
 
 import (
 	"context"
+	"math/rand"
+	"net/url"
 	"testing"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-var jobSpec = []byte(`
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "<libp2p-node-id>"
-p2pBootstrapPeers  = [
-    {peerID = "<peer id 1>", multiAddr = "<multiaddr1>"},
-    {peerID = "<peer id 2>", multiAddr = "<multiaddr2>"},
-]
-keyBundle          = {encryptedPrivKeyBundle = {asdf = 123}}
-monitoringEndpoint = "<ip:port>"
-transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
-observationTimeout = "10s"
-blockchainTimeout  = "10s"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
-observationSource = """
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
+func TestORM(t *testing.T) {
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
 
-    // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\":\\"hello\\"}"];
-    ds2_parse    [type=jsonparse path="three,four"];
-    ds2_multiply [type=multiply times=4.56];
+	db, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
+	require.NoError(t, err)
+	defer db.Close()
 
-    answer1 [type=median];
+	orm := pipeline.NewORM(db)
 
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
-    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+	var specID int32
 
-    answer2 [type=bridge name=election_winner];
-"""
-`)
+	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
+	require.NoError(t, err)
 
-// `require.Equal` currently has broken handling of `time.Time` values, so we have
-// to do equality comparisons of these structs manually.
-//
-// https://github.com/stretchr/testify/issues/984
-// func compareJobSpecs(t *testing.T, expected, actual models.JobSpecV2) {
-//     require.Equal(t, expected.ID, actual.ID)
-//     require.Equal(t, expected.OffchainreportingOracleSpecID, actual.OffchainreportingOracleSpecID)
-//     require.Equal(t, expected.PipelineSpecID, actual.PipelineSpecID)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.ID, actual.OffchainreportingOracleSpec.ID)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundleID, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundleID)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundle.ID, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundle.ID)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundle.EncryptedPrivKeyBundle, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundle.EncryptedPrivKeyBundle)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.MonitoringEndpoint, actual.OffchainreportingOracleSpec.MonitoringEndpoint)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.TransmitterAddress, actual.OffchainreportingOracleSpec.TransmitterAddress)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.ObservationTimeout, actual.OffchainreportingOracleSpec.ObservationTimeout)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.BlockchainTimeout, actual.OffchainreportingOracleSpec.BlockchainTimeout)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval)
-//     require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
-// }
+	answer1 := &pipeline.MedianTask{
+		BaseTask: pipeline.NewBaseTask("answer1", nil, 0),
+	}
+	answer2 := &pipeline.BridgeTask{
+		Name:     "election_winner",
+		BaseTask: pipeline.NewBaseTask("answer2", nil, 1),
+	}
+	ds1_multiply := &pipeline.MultiplyTask{
+		Times:    decimal.NewFromFloat(1.23),
+		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0),
+	}
+	ds1_parse := &pipeline.JSONParseTask{
+		Path:     []string{"one", "two"},
+		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0),
+	}
+	ds1 := &pipeline.BridgeTask{
+		Name:     "voter_turnout",
+		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0),
+	}
+	ds2_multiply := &pipeline.MultiplyTask{
+		Times:    decimal.NewFromFloat(4.56),
+		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0),
+	}
+	ds2_parse := &pipeline.JSONParseTask{
+		Path:     []string{"three", "four"},
+		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0),
+	}
+	ds2 := &pipeline.HTTPTask{
+		URL:         models.WebURL(*u),
+		Method:      "GET",
+		RequestData: pipeline.HttpRequestData{"hi": "hello"},
+		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0),
+	}
+	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+	var expectedTaskSpecs []pipeline.TaskSpec
+	for _, task := range expectedTasks {
+		expectedTaskSpecs = append(expectedTaskSpecs, pipeline.TaskSpec{
+			DotID:          task.DotID(),
+			PipelineSpecID: specID,
+			Type:           task.Type(),
+			JSON:           pipeline.JSONSerializable{task},
+			Index:          task.OutputIndex(),
+		})
+	}
 
-// func TestORM(t *testing.T) {
-//     config, cleanup := cltest.NewConfig(t)
-//     defer cleanup()
+	t.Run("creates task DAGs", func(t *testing.T) {
+		g := pipeline.NewTaskDAG()
+		err := g.UnmarshalText([]byte(dotStr))
+		require.NoError(t, err)
 
-//     db, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
-//     require.NoError(t, err)
-//     defer db.Close()
+		specID, err = orm.CreateSpec(*g)
+		require.NoError(t, err)
 
-//     orm := job.NewORM(db, config.DatabaseURL())
-//     defer orm.Close()
+		var specs []pipeline.Spec
+		err = db.Find(&specs).Error
+		require.NoError(t, err)
+		require.Len(t, specs, 1)
+		require.Equal(t, specID, specs[0].ID)
+		require.Equal(t, dotStr, specs[0].DotDagSource)
 
-//     var ocrspec offchainreporting.OracleSpec
-//     err = toml.Unmarshal(jobSpec, &ocrspec)
-//     require.NoError(t, err)
+		var taskSpecs []pipeline.TaskSpec
+		err = db.Find(&taskSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, taskSpecs, len(expectedTaskSpecs))
 
-//     spec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
-//     pipelineSpec, err := ocrspec.TaskDAG().ToPipelineSpec()
-//     require.NoError(t, err)
+		type equalser interface {
+			ExportedEquals(otherTask pipeline.Task) bool
+		}
 
-//     t.Run("it creates job specs", func(t *testing.T) {
-//         err := orm.CreateJob(&spec, &pipelineSpec)
-//         require.NoError(t, err)
+		for _, taskSpec := range taskSpecs {
+			taskSpec.JSON.Val.(map[string]interface{})["index"] = taskSpec.Index
+			taskSpec.JSON.Val, err = pipeline.UnmarshalTaskFromMap(taskSpec.Type, taskSpec.JSON.Val, taskSpec.DotID, nil, nil)
+			require.NoError(t, err)
 
-//         var dbSpec models.JobSpecV2
-//         err = db.
-//             Preload("OffchainreportingOracleSpec").
-//             Preload("OffchainreportingOracleSpec.OffchainreportingKeyBundle").
-//             Where("id = ?", spec.ID).First(&dbSpec).Error
-//         require.NoError(t, err)
-//         compareJobSpecs(t, spec, dbSpec)
-//     })
+			var found bool
+			for _, expected := range expectedTaskSpecs {
+				if taskSpec.PipelineSpecID == specID &&
+					taskSpec.Type == expected.Type &&
+					taskSpec.Index == expected.Index &&
+					taskSpec.JSON.Val.(equalser).ExportedEquals(expected.JSON.Val.(pipeline.Task)) {
+					found = true
+					break
+				}
+			}
+			require.True(t, found)
+		}
 
-//     db2, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
-//     require.NoError(t, err)
-//     defer db2.Close()
+		require.NoError(t, db.Exec(`DELETE FROM pipeline_specs`).Error)
+	})
 
-//     orm2 := job.NewORM(db2, config.DatabaseURL())
-//     defer orm2.Close()
+	var runID int64
+	t.Run("creates runs", func(t *testing.T) {
+		jobORM := job.NewORM(db, config.DatabaseURL(), orm)
+		defer jobORM.Close()
 
-//     t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
-//         ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-//         defer cancel()
+		ocrSpec, dbSpec := makeOCRJobSpec(t)
 
-//         unclaimed, err := orm.UnclaimedJobs(ctx)
-//         require.NoError(t, err)
-//         require.Len(t, unclaimed, 1)
-//         compareJobSpecs(t, spec, unclaimed[0])
+		// Need a job in order to create a run
+		err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+		require.NoError(t, err)
 
-//         ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-//         defer cancel2()
+		var pipelineSpecs []pipeline.Spec
+		err = db.Find(&pipelineSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, pipelineSpecs, 1)
+		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)
+		pipelineSpecID := pipelineSpecs[0].ID
 
-//         unclaimed, err = orm2.UnclaimedJobs(ctx2)
-//         require.NoError(t, err)
-//         require.Len(t, unclaimed, 0)
-//     })
+		var taskSpecs []pipeline.TaskSpec
+		err = db.Find(&taskSpecs).Error
+		require.NoError(t, err)
 
-//     t.Run("it cannot delete jobs claimed by other nodes", func(t *testing.T) {
-//         ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-//         defer cancel()
+		var taskSpecIDs []int32
+		for _, taskSpec := range taskSpecs {
+			taskSpecIDs = append(taskSpecIDs, taskSpec.ID)
+		}
 
-//         err := orm2.DeleteJob(ctx, spec.ID)
-//         require.Error(t, err)
-//     })
+		// Create the run
+		runID, err = orm.CreateRun(dbSpec.ID)
+		require.NoError(t, err)
 
-//     t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
-//         ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-//         defer cancel()
+		// Check the DB for the pipeline.Run
+		var pipelineRuns []pipeline.Run
+		err = db.Find(&pipelineRuns).Error
+		require.NoError(t, err)
+		require.Len(t, pipelineRuns, 1)
+		require.Equal(t, pipelineSpecID, pipelineRuns[0].PipelineSpecID)
+		require.Equal(t, runID, pipelineRuns[0].ID)
 
-//         err := orm.DeleteJob(ctx, spec.ID)
-//         require.NoError(t, err)
+		// Check the DB for the pipeline.TaskRuns
+		var taskRuns []pipeline.TaskRun
+		err = db.Find(&taskRuns).Error
+		require.NoError(t, err)
+		require.Len(t, taskRuns, len(taskSpecIDs))
 
-//         var dbSpecs []models.JobSpecV2
-//         err = db.Find(&dbSpecs).Error
-//         require.Len(t, dbSpecs, 0)
+		for _, taskRun := range taskRuns {
+			require.Equal(t, runID, taskRun.PipelineRunID)
+			require.Contains(t, taskSpecIDs, taskRun.PipelineTaskSpecID)
+			require.Nil(t, taskRun.Output)
+			require.True(t, taskRun.Error.IsZero())
+		}
+	})
 
-//         var oracleSpecs []models.OffchainReportingOracleSpec
-//         err = db.Find(&oracleSpecs).Error
-//         require.Len(t, oracleSpecs, 0)
+	var (
+		answers      = make(map[string]float64)
+		taskRuns     = make(map[string]pipeline.TaskRun)
+		predecessors = make(map[string][]pipeline.TaskRun)
+	)
 
-//         var pipelineSpecs []pipeline.Spec
-//         err = db.Find(&pipelineSpecs).Error
-//         require.Len(t, pipelineSpecs, 0)
+	t.Run("processes runs and awaits their completion", func(t *testing.T) {
+		// Set up a goroutine to await the run's completion
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		chRunComplete := make(chan struct{})
+		go func() {
+			err := orm.AwaitRun(ctx, runID)
+			require.NoError(t, err)
+			close(chRunComplete)
+		}()
 
-//         var pipelineTaskSpecs []pipeline.TaskSpec
-//         err = db.Find(&pipelineTaskSpecs).Error
-//         require.Len(t, pipelineTaskSpecs, 0)
-//     })
-// }
+		// First, "claim" one of the output task runs to ensure that `WithNextUnclaimedTaskRun` doesn't return it
+		chClaimed := make(chan struct{})
+		chBlock := make(chan struct{})
+		chUnlocked := make(chan struct{})
+		var locked pipeline.TaskRun
+		go func() {
+			err := utils.GormTransaction(db, func(tx *gorm.DB) error {
+				err := tx.Raw(`
+                    SELECT * FROM pipeline_task_runs
+                    INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
+                    WHERE pipeline_task_specs.type = 'median'
+                    FOR UPDATE OF pipeline_task_runs
+                `).Scan(&locked).Error
+				require.NoError(t, err)
+
+				close(chClaimed)
+				<-chBlock
+				return nil
+			})
+			require.NoError(t, err)
+			close(chUnlocked)
+		}()
+		<-chClaimed
+
+		// Process all of the unclaimed task runs
+		{
+			var done bool
+			for !done {
+				done, err = orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					// Ensure we don't fetch the locked task run
+					require.NotEqual(t, locked.ID, taskRun.ID)
+
+					// Ensure the predecessors' answers match what we expect
+					for _, p := range predecessorRuns {
+						require.Equal(t, answers[p.DotID], p.Output.Val)
+						require.True(t, p.Error.IsZero())
+					}
+
+					taskRuns[taskRun.DotID] = taskRun
+					answers[taskRun.DotID] = rand.Float64()
+					predecessors[taskRun.DotID] = predecessorRuns
+					return pipeline.Result{Value: answers[taskRun.DotID]}
+				})
+				require.NoError(t, err)
+			}
+		}
+
+		// Ensure the run isn't considered complete yet
+		{
+			time.Sleep(3 * time.Second)
+			require.Len(t, taskRuns, len(expectedTasks)-1)
+			select {
+			case <-chRunComplete:
+				t.Fatal("run completed too early")
+			default:
+			}
+		}
+
+		// Now, release the claim and make sure we can process the final task run
+		{
+			close(chBlock)
+			<-chUnlocked
+			time.Sleep(3 * time.Second)
+
+			done, err := orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+				// Ensure the predecessors' answers match what we expect
+				for _, p := range predecessorRuns {
+					require.Equal(t, answers[p.DotID], p.Output.Val)
+					require.True(t, p.Error.IsZero())
+				}
+
+				val := rand.Float64()
+				taskRuns[taskRun.DotID] = taskRun
+				answers[taskRun.DotID] = val
+				predecessors[taskRun.DotID] = predecessorRuns
+				return pipeline.Result{Value: val}
+			})
+			require.NoError(t, err)
+			require.False(t, done)
+		}
+
+		// Ensure that the ORM doesn't think there are more runs
+		{
+			done, err := orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+				val := rand.Float64()
+				taskRuns[taskRun.DotID] = taskRun
+				answers[taskRun.DotID] = val
+				predecessors[taskRun.DotID] = predecessorRuns
+				return pipeline.Result{Value: val}
+			})
+			require.NoError(t, err)
+			require.True(t, done)
+		}
+
+		// Ensure the run is now considered complete
+		{
+			select {
+			case <-time.After(5 * time.Second):
+				t.Fatal("run did not complete as expected")
+			case <-chRunComplete:
+			}
+
+			var finishedRuns []pipeline.TaskRun
+			err = db.Find(&finishedRuns).Error
+			require.NoError(t, err)
+			require.Len(t, finishedRuns, len(expectedTasks))
+
+			for _, run := range finishedRuns {
+				require.Equal(t, answers[run.DotID], run.Output.Val.(float64))
+			}
+		}
+	})
+
+	t.Run("it fetches run results", func(t *testing.T) {
+		results, err := orm.ResultsForRun(runID)
+		require.NoError(t, err)
+		require.Len(t, results, 2)
+
+		require.Equal(t, answers["answer1"], results[0].Value)
+		require.Equal(t, answers["answer2"], results[1].Value)
+		require.NoError(t, results[0].Error)
+		require.NoError(t, results[1].Error)
+	})
+}

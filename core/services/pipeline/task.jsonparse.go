@@ -10,8 +10,8 @@ import (
 )
 
 type JSONParseTask struct {
-	BaseTask
-	Path JSONPath `json:"path"`
+	BaseTask `mapstructure:",squash"`
+	Path     JSONPath `json:"path"`
 }
 
 var _ Task = (*JSONParseTask)(nil)

@@ -11,15 +11,16 @@ type (
 	Spec struct {
 		ID           int32 `gorm:"primary_key"`
 		DotDagSource string
-		TaskSpecs    []TaskSpec
 		CreatedAt    time.Time
 	}
 
 	TaskSpec struct {
 		ID             int32 `gorm:"primary_key"`
+		DotID          string
 		PipelineSpecID int32
 		Type           TaskType
 		JSON           JSONSerializable `gorm:"type:jsonb"`
+		Index          int32
 		SuccessorID    null.Int
 		CreatedAt      time.Time
 	}
@@ -31,14 +32,16 @@ type (
 	}
 
 	TaskRun struct {
-		ID            int64 `gorm:"primary_key"`
-		PipelineRunID int64
-		Output        *JSONSerializable `gorm:"type:jsonb"`
-		Error         null.String
-		TaskSpecID    int32
-		TaskSpec      TaskSpec
-		CreatedAt     time.Time
-		FinishedAt    time.Time
+		ID                 int64 `gorm:"primary_key"`
+		DotID              string
+		PipelineRunID      int64
+		Output             *JSONSerializable `gorm:"type:jsonb"`
+		Error              null.String
+		Index              int32
+		PipelineTaskSpecID int32
+		PipelineTaskSpec   TaskSpec
+		CreatedAt          time.Time
+		FinishedAt         time.Time
 	}
 )
 
@@ -51,8 +54,8 @@ func (r TaskRun) Result() Result {
 	var result Result
 	if !r.Error.IsZero() {
 		result.Error = errors.New(r.Error.ValueOrZero())
-	} else if r.Output != nil && r.Output.Value != nil {
-		result.Value = r.Output.Value
+	} else if r.Output != nil && r.Output.Val != nil {
+		result.Value = r.Output.Val
 	}
 	return result
 }

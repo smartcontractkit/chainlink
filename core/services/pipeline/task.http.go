@@ -24,7 +24,7 @@ import (
 )
 
 type HTTPTask struct {
-	BaseTask
+	BaseTask `mapstructure:",squash"`
 
 	Method                         string          `json:"method"`
 	URL                            models.WebURL   `json:"url"`
