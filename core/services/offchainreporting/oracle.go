@@ -28,12 +28,7 @@ func RegisterJobType(
 	logBroadcaster eth.LogBroadcaster,
 ) {
 	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(
-			db,
-			pipelineRunner,
-			ethClient,
-			logBroadcaster,
-		),
+		NewJobSpawnerDelegate(db, pipelineRunner, ethClient, logBroadcaster),
 	)
 }
 
@@ -97,7 +92,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			ContractConfigTrackerPollInterval: time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
 			ContractConfigConfirmations:       concreteSpec.ContractConfigConfirmations,
 		},
-		Database:              orm{jobID: concreteSpec.JobID(), db: d.db},
+		Database:              nil, //orm{jobID: concreteSpec.JobID(), db: d.db},
 		Datasource:            dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
 		ContractTransmitter:   aggregator,
 		ContractConfigTracker: aggregator,

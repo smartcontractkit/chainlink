@@ -1,18 +1,19 @@
 package job_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/BurntSushi/toml"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var ocrJobSpecText = []byte(`
-contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+var ocrJobSpecText = `
+contractAddress    = "%s"
 p2pPeerID          = "<libp2p-node-id>"
 p2pBootstrapPeers  = [
     {peerID = "<peer id 1>", multiAddr = "<multiaddr1>"},
@@ -43,21 +44,20 @@ observationSource = """
 
     answer2 [type=bridge name=election_winner];
 """
-`)
+`
 
-func makeOCRJobSpec(t *testing.T) (*offchainreporting.OracleSpec, *models.JobSpecV2, *pipeline.Spec) {
+func makeOCRJobSpec(t *testing.T) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex())
+	fmt.Println(jobSpecText)
+
 	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal(ocrJobSpecText, &ocrspec)
+	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
-
-	pipelineSpec, err := ocrspec.TaskDAG().ToPipelineSpec()
-	require.NoError(t, err)
-
-	return &ocrspec, &dbSpec, &pipelineSpec
+	return &ocrspec, &dbSpec
 }
 
 // `require.Equal` currently has broken handling of `time.Time` values, so we have
