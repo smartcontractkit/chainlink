@@ -310,6 +310,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 					nil,
 					rm,
 					fetcher,
+					nil,
 					func() {},
 				)
 				require.NoError(t, err)
@@ -354,6 +355,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 		nil,
 		rm,
 		fetcher,
+		nil,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -450,6 +452,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		nil,
 		rm,
 		fetcher,
+		nil,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -536,6 +539,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				nil,
 				runManager,
 				fetcher,
+				nil,
 				func() {},
 			)
 			require.NoError(t, err)
@@ -620,6 +624,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		nil,
 		runManager,
 		fetcher,
+		nil,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -689,6 +694,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		nil,
 		runManager,
 		fetcher,
+		nil,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -867,6 +873,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				nil,
 				rm,
 				fetcher,
+				nil,
 				func() {},
 			)
 			require.NoError(t, err)
@@ -1071,6 +1078,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 				minJobPayment,
 				rm,
 				fetcher,
+				nil,
 				func() {},
 			)
 			require.NoError(t, err)
@@ -1335,6 +1343,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			nil,
 			rm,
 			fetcher,
+			nil,
 			func() {},
 		)
 		require.NoError(t, err)
@@ -1416,6 +1425,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			nil,
 			rm,
 			fetcher,
+			nil,
 			func() {},
 		)
 		require.NoError(t, err)
@@ -1456,3 +1466,14 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		fluxAggregator.AssertExpectations(t)
 	})
 }
+
+// func TestFluxMonitor_PollingDeviationChecker_Hibernate(t *testing.T) {
+// 	store, cleanup := cltest.NewStore(t)
+// 	defer cleanup()
+
+// 	p := cltest.NewPollingDeviationChecker(t, store)
+// 	require.True(p.IsActive())
+// 	// TODO - RYAN - test that timers are ticking
+// 	p.Hibernate()
+// 	require.False(p.IsActive())
+// }
