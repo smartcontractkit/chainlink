@@ -28,7 +28,7 @@ import (
 	"github.com/tevino/abool"
 )
 
-var addressZero = [common.AddressLength]byte{}
+var AddressZero = common.Address([common.AddressLength]byte{})
 
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
@@ -456,7 +456,7 @@ func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
 		Pending: false,
 		Context: nil,
 	}
-	flags, err := p.flagsContract.GetFlags(&callOpts, []common.Address{addressZero, p.initr.Address})
+	flags, err := p.flagsContract.GetFlags(&callOpts, []common.Address{AddressZero, p.initr.Address})
 	if err != nil {
 		return false, err
 	}

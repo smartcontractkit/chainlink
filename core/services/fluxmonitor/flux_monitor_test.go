@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -22,7 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -568,8 +571,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 				// idleDuration 2
 				roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+				idleDurationOccured <- struct{}{}
 				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
-					idleDurationOccured <- struct{}{}
 				})
 				require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 			}
@@ -1467,13 +1470,75 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 	})
 }
 
-// func TestFluxMonitor_PollingDeviationChecker_Hibernate(t *testing.T) {
-// 	store, cleanup := cltest.NewStore(t)
-// 	defer cleanup()
+func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
+	t.Parallel()
 
-// 	p := cltest.NewPollingDeviationChecker(t, store)
-// 	require.True(p.IsActive())
-// 	// TODO - RYAN - test that timers are ticking
-// 	p.Hibernate()
-// 	require.False(p.IsActive())
-// }
+	falseFalse := "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+	falseTrue := "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001"
+	trueFalse := "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000"
+	trueTrue := "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
+
+	tests := []struct {
+		name           string
+		getFlagsResult string
+		expected       bool
+	}{
+		{"both lowered", falseFalse, false},
+		{"contract raised", falseTrue, true},
+		{"global raised", trueFalse, true},
+		{"both raised", trueTrue, true},
+	}
+
+	for _, tt := range tests {
+		test := tt
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+
+			gethClient := new(mocks.GethClient)
+			cltest.MockEthOnStore(t, store,
+				eth.NewClientWith(nil, gethClient),
+			)
+
+			fluxAggregator := new(mocks.FluxAggregator)
+			rm := new(mocks.RunManager)
+			fetcher := new(mocks.Fetcher)
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+
+			flagsContractAddress := cltest.NewAddress()
+			flagsContract, err := flags_wrapper.NewFlags(flagsContractAddress, store.EthClient)
+			if err != nil {
+				panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
+			}
+
+			getFlagsResultBytes, err := hexutil.Decode(test.getFlagsResult)
+
+			gethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					payload := args.Get(1).(ethereum.CallMsg).Data[4:] // omit signature bytes
+					address1 := common.BytesToAddress(payload[64:96])  // first address
+					address2 := common.BytesToAddress(payload[96:])    // second address
+					require.Equal(t, fluxmonitor.AddressZero, address1)
+					require.Equal(t, initr.Address, address2)
+				}).
+				Return(getFlagsResultBytes, nil)
+
+			checker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				initr,
+				nil,
+				rm,
+				fetcher,
+				flagsContract,
+				func() {},
+			)
+
+			result, err := checker.ExportedIsFlagRaised()
+			require.NoError(t, err)
+			require.Equal(t, test.expected, result)
+		})
+	}
+}
