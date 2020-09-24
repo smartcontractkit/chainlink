@@ -36,6 +36,11 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
 	store.Config.Set("CHAINLINK_PORT", 6688)
 
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+	store.EthClient = ethClient
+
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("Start").Return(nil)
@@ -122,6 +127,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
+
 			_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
 			require.NoError(t, err)
 
@@ -189,6 +199,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
 
 			callback := func(*strpkg.Store, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
