@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new env variable ETH_SECONDARY_URL. Default is unset. You may optionally set this to an http(s) ethereum RPC client URL. If set, transactions will also be broadcast to this secondary ethereum node. This allows transaction broadcasting to be more robust in the face of primary ethereum node bugs or failures.
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
+- At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
 
 ### Fixed
 
@@ -154,7 +155,7 @@ This release contains a number of features aimed at improving the node's reliabi
 
 ### Env var changes
 
-- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager 
+- `ENABLE_BULLETPROOF_TX_MANAGER` - set this to true to enable the experimental new transaction manager
 - `ETH_GAS_BUMP_PERCENT` default value has been increased from 10% to 20%
 - `ETH_GAS_BUMP_THRESHOLD` default value has been decreased from 12 to 3
 - `ETH_FINALITY_DEPTH` specifies how deep protection should be against re-orgs. The default is 50. It only applies if BulletproofTxManager is enabled. It is not recommended to change this setting.
