@@ -707,6 +707,5 @@ func (s *Sha256Hash) Scan(value interface{}) error {
 func (s Sha256Hash) Value() (driver.Value, error) {
 	b := make([]byte, 32)
 	copy(b, s[:])
-	fmt.Println("VALUEEEEEEE ~>", b)
 	return b, nil
 }

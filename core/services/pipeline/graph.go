@@ -7,7 +7,6 @@ import (
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
-	"gopkg.in/guregu/null.v4"
 )
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
@@ -30,13 +29,13 @@ func (g *TaskDAG) UnmarshalText(bs []byte) error {
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
 	}
+	g.DOTSource = string(bs)
 	bs = append([]byte("digraph {\n"), bs...)
 	bs = append(bs, []byte("\n}")...)
 	err := dot.Unmarshal(bs, g)
 	if err != nil {
 		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.TaskDAG")
 	}
-	g.DOTSource = string(bs)
 	return nil
 }
 
@@ -58,7 +57,7 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		task, err := UnmarshalTask(TaskType(node.attrs["type"]), node.attrs, nil, nil)
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -79,40 +78,6 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 		visited[node.ID()] = true
 	}
 	return tasks, nil
-}
-
-func (g TaskDAG) ToPipelineSpec() (Spec, error) {
-	tasks, err := g.TasksInDependencyOrder()
-	if err != nil {
-		return Spec{}, err
-	}
-
-	// Convert the task DAG into TaskSpec DB rows.  We walk the TaskDAG backwards,
-	// from final outputs to inputs, to ensure that each task's successor is
-	// already in the `taskSpecIDs` map.
-	taskSpecs := []TaskSpec{}
-	taskSpecIDs := make(map[Task]int32)
-	for _, task := range tasks {
-		var successorID null.Int
-		if task.OutputTask() != nil {
-			successor := task.OutputTask()
-			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
-		}
-
-		taskSpec := TaskSpec{
-			Type:        task.Type(),
-			JSON:        JSONSerializable{Value: task},
-			SuccessorID: successorID,
-		}
-
-		taskSpecIDs[task] = taskSpec.ID
-		taskSpecs = append(taskSpecs, taskSpec)
-	}
-
-	return Spec{
-		DotDagSource: g.DOTSource,
-		TaskSpecs:    taskSpecs,
-	}, nil
 }
 
 func (g *TaskDAG) inputs() []*taskDAGNode {

@@ -14,7 +14,7 @@ import (
 
 type ORM interface {
 	UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
-	CreateJob(jobSpec *models.JobSpecV2, pipelineSpec *pipeline.Spec) error
+	CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
 	Close() error
 }
@@ -22,12 +22,13 @@ type ORM interface {
 type orm struct {
 	db           *gorm.DB
 	advisoryLock *utils.PostgresAdvisoryLock
+	pipelineORM  pipeline.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(o *gorm.DB, uri string) *orm {
-	return &orm{o, &utils.PostgresAdvisoryLock{URI: uri}}
+func NewORM(db *gorm.DB, uri string, pipelineORM pipeline.ORM) *orm {
+	return &orm{db, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM}
 }
 
 func (o *orm) Close() error {
@@ -57,19 +58,19 @@ func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 	return unclaimedJobs, err
 }
 
-func (o *orm) CreateJob(jobSpec *models.JobSpecV2, pipelineSpec *pipeline.Spec) error {
+func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
 	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
-		err := tx.Create(pipelineSpec).Error
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(taskDAG)
 		if err != nil {
 			return err
 		}
-		jobSpec.PipelineSpecID = pipelineSpec.ID
-		err = tx.Create(jobSpec.OffchainreportingOracleSpec.OffchainreportingKeyBundle).Error
-		if err != nil {
+		jobSpec.PipelineSpecID = pipelineSpecID
+
+		err = tx.Create(jobSpec).Error
+		if err != nil && err.Error() != "sql: no rows in result set" {
 			return err
 		}
-		jobSpec.OffchainreportingOracleSpec.OffchainreportingKeyBundleID = jobSpec.OffchainreportingOracleSpec.OffchainreportingKeyBundle.ID
-		return tx.Create(jobSpec).Error
+		return nil
 	})
 }
 

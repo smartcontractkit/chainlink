@@ -105,10 +105,10 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL())
-	jobSpawner := job.NewSpawner(jobORM)
 	pipelineORM := pipeline.NewORM(store.ORM.DB)
 	pipelineRunner := pipeline.NewRunner(pipelineORM, store.Config)
+	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL(), pipelineORM)
+	jobSpawner := job.NewSpawner(jobORM)
 
 	offchainreporting.RegisterJobType(store.ORM.DB, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
 
@@ -271,7 +271,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 }
 
 func (app *ChainlinkApplication) AddJobV2(job job.Spec) error {
-	return app.JobSpawner.CreateJob(job)
+	_, err := app.JobSpawner.CreateJob(job)
+	return err
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.

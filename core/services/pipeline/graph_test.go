@@ -1,4 +1,4 @@
-package pipeline
+package pipeline_test
 
 import (
 	"net/url"
@@ -6,29 +6,12 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
-
-const dotStr = `
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="one,two"];
-    ds1_multiply [type=multiply times=1.23];
-
-    // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}"];
-    ds2_parse    [type=jsonparse path="three,four"];
-    ds2_multiply [type=multiply times=4.56];
-
-    answer1 [type=median];
-
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
-    ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-    answer2 [type=bridge name=election_winner];
-`
 
 func TestGraph_Decode(t *testing.T) {
 	expected := map[string]map[string]bool{
@@ -114,14 +97,17 @@ func TestGraph_Decode(t *testing.T) {
 		},
 	}
 
-	g := NewTaskDAG()
+	g := pipeline.NewTaskDAG()
 	err := g.UnmarshalText([]byte(dotStr))
 	require.NoError(t, err)
 
 	nodes := make(map[string]int64)
 	iter := g.Nodes()
 	for iter.Next() {
-		n := iter.Node().(*taskDAGNode)
+		n := iter.Node().(interface {
+			graph.Node
+			DOTID() string
+		})
 		nodes[n.DOTID()] = n.ID()
 	}
 
@@ -133,40 +119,45 @@ func TestGraph_Decode(t *testing.T) {
 }
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
-	g := NewTaskDAG()
+	g := pipeline.NewTaskDAG()
 	err := g.UnmarshalText([]byte(dotStr))
 	require.NoError(t, err)
 
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
-	answer1 := &MedianTask{}
-	answer2 := &BridgeTask{Name: "election_winner"}
-	ds1_multiply := &MultiplyTask{
+	answer1 := &pipeline.MedianTask{
+		BaseTask: pipeline.NewBaseTask("answer1", nil, 0),
+	}
+	answer2 := &pipeline.BridgeTask{
+		Name:     "election_winner",
+		BaseTask: pipeline.NewBaseTask("answer2", nil, 1),
+	}
+	ds1_multiply := &pipeline.MultiplyTask{
 		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: BaseTask{outputTask: answer1},
+		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0),
 	}
-	ds1_parse := &JSONParseTask{
+	ds1_parse := &pipeline.JSONParseTask{
 		Path:     []string{"one", "two"},
-		BaseTask: BaseTask{outputTask: ds1_multiply},
+		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0),
 	}
-	ds1 := &BridgeTask{
+	ds1 := &pipeline.BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: BaseTask{outputTask: ds1_parse},
+		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0),
 	}
-	ds2_multiply := &MultiplyTask{
+	ds2_multiply := &pipeline.MultiplyTask{
 		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: BaseTask{outputTask: answer1},
+		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0),
 	}
-	ds2_parse := &JSONParseTask{
+	ds2_parse := &pipeline.JSONParseTask{
 		Path:     []string{"three", "four"},
-		BaseTask: BaseTask{outputTask: ds2_multiply},
+		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0),
 	}
-	ds2 := &HTTPTask{
+	ds2 := &pipeline.HTTPTask{
 		URL:         models.WebURL(*u),
 		Method:      "GET",
-		RequestData: HttpRequestData{"hi": "hello"},
-		BaseTask:    BaseTask{outputTask: ds2_parse},
+		RequestData: pipeline.HttpRequestData{"hi": "hello"},
+		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0),
 	}
 
 	tasks, err := g.TasksInDependencyOrder()
@@ -179,7 +170,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		}
 	}
 
-	expected := []Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
+	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	require.Len(t, tasks, len(expected))
 
 	for _, task := range expected {
@@ -188,12 +179,12 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 }
 
 func TestGraph_HasCycles(t *testing.T) {
-	g := NewTaskDAG()
+	g := pipeline.NewTaskDAG()
 	err := g.UnmarshalText([]byte(dotStr))
 	require.NoError(t, err)
 	require.False(t, g.HasCycles())
 
-	g = NewTaskDAG()
+	g = pipeline.NewTaskDAG()
 	err = dot.Unmarshal([]byte(`
         digraph {
             a [type=bridge];

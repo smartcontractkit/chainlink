@@ -13,12 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 type delegate struct {
-	jobType  job.Type
-	services []job.Service
+	jobType                    job.Type
+	services                   []job.Service
+	jobID                      int32
+	chContinueCreatingServices chan struct{}
 	job.Delegate
 }
 
@@ -27,10 +30,20 @@ func (d delegate) JobType() job.Type {
 }
 
 func (d delegate) ServicesForSpec(js job.Spec) ([]job.Service, error) {
+	if js.JobType() != d.jobType {
+		return nil, nil
+	}
 	return d.services, nil
 }
 
 func (d delegate) FromDBRow(dbRow models.JobSpecV2) job.Spec {
+	if d.chContinueCreatingServices != nil {
+		<-d.chContinueCreatingServices
+	}
+	if dbRow.ID != d.jobID {
+		return nil
+	}
+
 	// Wrap
 	inner := d.Delegate.FromDBRow(dbRow)
 	return &spec{inner, d.jobType}
@@ -55,8 +68,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	jobTypeA := job.Type("AAA")
 	jobTypeB := job.Type("BBB")
 
-	innerJobSpecA, _, _ := makeOCRJobSpec(t)
-	innerJobSpecB, _, _ := makeOCRJobSpec(t)
+	innerJobSpecA, _ := makeOCRJobSpec(t)
+	innerJobSpecB, _ := makeOCRJobSpec(t)
 	jobSpecA := &spec{innerJobSpecA, jobTypeA}
 	jobSpecB := &spec{innerJobSpecB, jobTypeB}
 
@@ -64,7 +77,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL())
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 		spawner.Start()
@@ -75,13 +88,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
 
-		delegateA := delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
-		err := spawner.CreateJob(jobSpecA)
+		jobSpecIDA, err := spawner.CreateJob(jobSpecA)
 		require.NoError(t, err)
+		delegateA.jobID = jobSpecIDA
+		close(delegateA.chContinueCreatingServices)
 
-		eventuallyA.AwaitOrFail(t, 10*time.Second)
+		eventuallyA.AwaitOrFail(t, 20*time.Second)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		eventuallyB := cltest.NewAwaiter()
@@ -90,13 +105,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB1.On("Start").Return(nil).Once()
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		delegateB := delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateB)
 
-		err = spawner.CreateJob(jobSpecB)
+		jobSpecIDB, err := spawner.CreateJob(jobSpecB)
 		require.NoError(t, err)
+		delegateB.jobID = jobSpecIDB
+		close(delegateB.chContinueCreatingServices)
 
-		eventuallyB.AwaitOrFail(t, 10*time.Second)
+		eventuallyB.AwaitOrFail(t, 20*time.Second)
 		mock.AssertExpectationsForObjects(t, serviceB1, serviceB2)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -117,68 +134,68 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB2.AssertExpectations(t)
 	})
 
-	// t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
-	// 	eventually := cltest.NewAwaiter()
-	// 	serviceA1 := new(mocks.Service)
-	// 	serviceA2 := new(mocks.Service)
-	// 	serviceA1.On("Start").Return(nil).Once()
-	// 	serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
+	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
 
-	// 	orm := mockORM(jobSpecA)
-	// 	spawner := job.NewSpawner(orm)
+		eventually := cltest.NewAwaiter()
+		serviceA1 := new(mocks.Service)
+		serviceA2 := new(mocks.Service)
+		serviceA1.On("Start").Return(nil).Once()
+		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-	// 	delegateA := new(mocks.Delegate)
-	// 	delegateA.On("JobType").Return(jobTypeA)
-	// 	delegateA.On("FromDBRow", mock.Anything).Return(jobSpecA)
-	// 	delegateA.On("ServicesForSpec", mock.Anything).Run(func(args mock.Arguments) {
-	// 		jobSpec := args.Get(0).(job.Spec)
-	// 		require.Equal(t, jobIDA, jobSpec.JobID())
-	// 		require.Equal(t, jobTypeA, jobSpec.JobType())
-	// 	}).Return([]job.Service{serviceA1, serviceA2})
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
+		defer orm.Close()
+		spawner := job.NewSpawner(orm)
 
-	// 	spawner.RegisterDelegate(delegateA)
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		spawner.RegisterDelegate(delegateA)
 
-	// 	spawner.Start()
-	// 	defer spawner.Stop()
+		jobSpecIDA, err := spawner.CreateJob(jobSpecA)
+		require.NoError(t, err)
+		delegateA.jobID = jobSpecIDA
 
-	// 	eventually.AwaitOrFail(t, 10*time.Second)
-	// 	mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
+		spawner.Start()
+		defer spawner.Stop()
 
-	// 	serviceA1.On("Stop").Return(nil).Once()
-	// 	serviceA2.On("Stop").Return(nil).Once()
-	// })
+		eventually.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
-	// t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-	// 	eventually := cltest.NewAwaiter()
-	// 	serviceA1 := new(mocks.Service)
-	// 	serviceA2 := new(mocks.Service)
-	// 	serviceA1.On("Start").Return(nil).Once()
-	// 	serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
+		serviceA1.On("Stop").Return(nil).Once()
+		serviceA2.On("Stop").Return(nil).Once()
+	})
 
-	// 	orm := mockORM(jobSpecA)
-	// 	spawner := job.NewSpawner(orm)
+	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
+		store, cleanup := cltest.NewStore(t)
+		defer cleanup()
 
-	// 	delegateA := new(mocks.Delegate)
-	// 	delegateA.On("JobType").Return(jobTypeA)
-	// 	delegateA.On("FromDBRow", mock.Anything).Return(jobSpecA)
-	// 	delegateA.On("ServicesForSpec", mock.Anything).Run(func(args mock.Arguments) {
-	// 		jobSpec := args.Get(0).(job.Spec)
-	// 		require.Equal(t, jobIDA, jobSpec.JobID())
-	// 		require.Equal(t, jobTypeA, jobSpec.JobType())
-	// 	}).Return([]job.Service{serviceA1, serviceA2})
+		eventually := cltest.NewAwaiter()
+		serviceA1 := new(mocks.Service)
+		serviceA2 := new(mocks.Service)
+		serviceA1.On("Start").Return(nil).Once()
+		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-	// 	spawner.RegisterDelegate(delegateA)
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
+		defer orm.Close()
+		spawner := job.NewSpawner(orm)
 
-	// 	spawner.Start()
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		spawner.RegisterDelegate(delegateA)
 
-	// 	eventually.AwaitOrFail(t, 10*time.Second)
-	// 	mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
+		jobSpecIDA, err := spawner.CreateJob(jobSpecA)
+		require.NoError(t, err)
+		delegateA.jobID = jobSpecIDA
 
-	// 	serviceA1.On("Stop").Return(nil).Once()
-	// 	serviceA2.On("Stop").Return(nil).Once()
+		spawner.Start()
 
-	// 	spawner.Stop()
+		eventually.AwaitOrFail(t, 10*time.Second)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
-	// 	mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
-	// })
+		serviceA1.On("Stop").Return(nil).Once()
+		serviceA2.On("Stop").Return(nil).Once()
+
+		spawner.Stop()
+
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
+	})
 }

@@ -17,9 +17,11 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TABLE pipeline_task_specs (
             id SERIAL PRIMARY KEY,
+            dot_id TEXT,
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
-            task_type TEXT NOT NULL,
-            task_json jsonb NOT NULL,
+            type TEXT NOT NULL,
+            json jsonb NOT NULL,
+            index INT NOT NULL DEFAULT 0,
             successor_id INT REFERENCES pipeline_task_specs (id),
             created_at timestamptz NOT NULL
         );
@@ -40,10 +42,12 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TABLE pipeline_task_runs (
             id BIGSERIAL PRIMARY KEY,
+            dot_id TEXT,
             pipeline_run_id BIGINT NOT NULL REFERENCES pipeline_runs (id) ON DELETE CASCADE,
             output JSONB,
             error TEXT,
             pipeline_task_spec_id BIGINT NOT NULL REFERENCES pipeline_task_specs (id) ON DELETE CASCADE,
+            index INT NOT NULL DEFAULT 0,
             created_at timestamptz NOT NULL,
             finished_at timestamptz,
             CONSTRAINT chk_pipeline_task_run_fsm CHECK (
@@ -128,56 +132,5 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
         CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
-
     `).Error
-
-	// err = tx.Exec(`
-	//        CREATE TABLE offchain_reporting_persistent_states (
-	//            id SERIAL PRIMARY KEY,
-	//            job_spec_id uuid NOT NULL,
-	//            group_id bytea NOT NULL,
-	//            epoch integer NOT NULL,
-	//            highest_sent_epoch integer NOT NULL,
-	//            highest_received_epoch integer[31] NOT NULL
-	//        );
-	//        ALTER TABLE offchain_reporting_persistent_states ADD CONSTRAINT "ocr_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES offchain_reporting_job_specs ("id") ON DELETE CASCADE;
-	//        ALTER TABLE offchain_reporting_persistent_states ADD CONSTRAINT chk_group_id_length CHECK (
-	//            octet_length(group_id) = 32
-	//        );
-	//        CREATE UNIQUE INDEX ocr_persistent_states_unique_idx ON offchain_reporting_persistent_states ("job_id", "group_id");
-	//    `).Error
-	// if err != nil {
-	//  return err
-	// }
-
-	// err = tx.Exec(`
-	//        CREATE TABLE offchain_reporting_configs (
-	//            id SERIAL PRIMARY KEY,
-	//            job_spec_id uuid NOT NULL,
-	//            group_id bytea NOT NULL,
-	//            oracles jsonb NOT NULL,
-	//            secret bytea NOT NULL,
-	//            f integer NOT NULL,
-	//            delta_progress integer NOT NULL,
-	//            delta_resend integer NOT NULL,
-	//            delta_round integer NOT NULL,
-	//            delta_observe integer NOT NULL,
-	//            delta_c integer NOT NULL,
-	//            alpha float NOT NULL,
-	//            r_max integer NOT NULL,
-	//            delta_stage integer NOT NULL,
-	//            schedule integer[] NOT NULL
-	//        );
-	//        ALTER TABLE offchain_reporting_configs ADD CONSTRAINT "ocr_job_spec_id_fkey" FOREIGN KEY ("job_spec_id") REFERENCES offchain_reporting_job_specs ("id") ON DELETE CASCADE;
-	//        ALTER TABLE offchain_reporting_configs ADD CONSTRAINT chk_group_id_length CHECK (
-	//            octet_length(group_id) = 27
-	//        );
-	//        ALTER TABLE offchain_reporting_configs ADD CONSTRAINT chk_secret_length CHECK (
-	//            octet_length(secret) = 16
-	//        );
-	//        CREATE UNIQUE INDEX ocr_configs_unique_idx ON offchain_reporting_configs ("job_id", "group_id");
-	//   `).Error
-	// if err != nil {
-	//  return err
-	// }
 }
