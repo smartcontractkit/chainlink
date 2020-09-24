@@ -274,6 +274,30 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				cli.Command{
+					Name:   "ocr",
+					Usage:  "Local commands for administering the node's off chain reporting keys",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create an OCR key bundle, encrypted with password from the
+               password file, and store it in the database`),
+							Flags:  flags("password, p"),
+							Action: client.CreateOCRKeyBundle,
+						},
+						{
+							Name:   "delete",
+							Usage:  format(`Deletes the encrypted OCR key bundle matching the given ID`),
+							Action: client.DeleteOCRKeyBundle,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available OCR key bundles`),
+							Action: client.ListOCRKeyBundles,
+						},
+					},
+				},
+				cli.Command{
 					Name: "vrf",
 					Usage: format(`Local commands for administering the database of VRF proof
            keys. These commands will not affect the extant in-memory keys of
