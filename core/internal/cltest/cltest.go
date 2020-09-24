@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -326,16 +325,10 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	chainId := int(backend.Blockchain().Config().ChainID.Int64())
 	tc.Config.Set("ETH_CHAIN_ID", chainId)
 
-	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	client := &SimulatedBackendClient{b: backend, t: t, chainId: chainId}
+	flagsAndDeps = append(flagsAndDeps, client)
 
-	var client SimulatedBackendClient
-	if txm, ok := app.Store.TxManager.(*strpkg.EthTxManager); ok {
-		client = SimulatedBackendClient{b: backend, t: t, chainId: chainId}
-		txm.Client = &client
-	} else {
-		log.Panic("SimulatedBackend only works on EthTxManager")
-	}
-	app.Store.EthClient = &client
+	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
 
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]

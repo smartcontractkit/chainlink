@@ -620,7 +620,8 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 			},
 		},
 	}
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, nil, runManager, fetcher, func() {})
+	// TODO - RYAN - this should be a mock
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, nil, runManager, fetcher, nil, func() {})
 	require.NoError(t, err)
 	return checker
 }

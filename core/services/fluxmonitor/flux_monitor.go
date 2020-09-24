@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -18,12 +19,16 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
 )
+
+var addressZero = [common.AddressLength]byte{}
 
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
@@ -285,6 +290,12 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
+	flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
+	flagsContract, err := flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
+	if err != nil {
+		panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
+	}
+
 	return NewPollingDeviationChecker(
 		f.store,
 		fluxAggregator,
@@ -292,6 +303,7 @@ func (f pollingDeviationCheckerFactory) New(
 		minJobPayment,
 		runManager,
 		fetcher,
+		flagsContract,
 		func() { f.logBroadcaster.DependentReady() },
 	)
 }
@@ -316,7 +328,7 @@ func ExtractFeedURLs(feeds models.Feeds, orm *orm.ORM) ([]*url.URL, error) {
 		case map[string]interface{}: // named feed - ex: {"bridge": "bridgeName"}
 			bridgeName, ok := feed["bridge"].(string)
 			if !ok {
-				return nil, errors.New("failed to convert bright type into string")
+				return nil, errors.New("failed to convert bridge type into string")
 			}
 			bridgeURL, err = GetBridgeURLFromName(bridgeName, orm) // XXX: currently an n query
 		default:
@@ -356,6 +368,7 @@ type PollingDeviationChecker struct {
 	fluxAggregator contracts.FluxAggregator
 	runManager     RunManager
 	fetcher        Fetcher
+	flagsContract  *flags_wrapper.Flags
 
 	initr         models.Initiator
 	minJobPayment *assets.Link
@@ -382,12 +395,14 @@ func NewPollingDeviationChecker(
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
+	flagsContract *flags_wrapper.Flags,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
 		readyForLogs:   readyForLogs,
 		store:          store,
 		fluxAggregator: fluxAggregator,
+		flagsContract:  flagsContract,
 		initr:          initr,
 		minJobPayment:  minJobPayment,
 		requestData:    initr.RequestData,
@@ -423,7 +438,29 @@ func (p *PollingDeviationChecker) Start() {
 		"initr", p.initr.ID,
 	)
 
-	go p.consume()
+	isFlagRaised, err := p.isFlagRaised()
+	if err != nil {
+		panic(err)
+	}
+
+	if isFlagRaised {
+		go p.consumeHibernate()
+	} else {
+		go p.consume()
+	}
+
+}
+
+func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
+	callOpts := bind.CallOpts{
+		Pending: false,
+		Context: nil,
+	}
+	flags, err := p.flagsContract.GetFlags(&callOpts, []common.Address{addressZero, p.initr.Address})
+	if err != nil {
+		return false, err
+	}
+	return flags[0] || flags[1], nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
@@ -548,6 +585,41 @@ func (p *PollingDeviationChecker) consume() {
 	}
 }
 
+func (p *PollingDeviationChecker) consumeHibernate() {
+	defer close(p.waitOnStop)
+
+	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
+	defer unsubscribeLogs()
+
+	if connected {
+		p.connected.Set()
+	} else {
+		p.connected.UnSet()
+	}
+
+	p.readyForLogs()
+
+	p.idleTimer = time.After(24 * time.Hour)
+
+	for {
+		select {
+		case <-p.chStop:
+			return
+
+		case <-p.chProcessLogs:
+			p.processLogs()
+
+		case <-p.idleTimer:
+			logger.Debugw("Idle ticker fired",
+				"pollPeriod", p.initr.PollTimer.Period,
+				"idleDuration", p.initr.IdleTimer.Duration,
+				"contract", p.initr.Address.Hex(),
+			)
+			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
+		}
+	}
+}
+
 func (p *PollingDeviationChecker) processLogs() {
 	for !p.backlog.Empty() {
 		maybeBroadcast := p.backlog.Take()
@@ -583,6 +655,11 @@ func (p *PollingDeviationChecker) processLogs() {
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
+		// TODO - RYAN
+		// case *contracts.FlagRaised:
+		// ...
+		// case *contracts.FlagLowered:
+		// ...
 
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
@@ -1046,6 +1123,12 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 func (p *PollingDeviationChecker) JobID() *models.ID {
 	return p.initr.JobSpecID
 }
+
+// func (p *PollingDeviationChecker) isFlagRaisedForContract() bool {
+// 	addressZero := [common.AddressLength]byte{}
+
+// 	return p.initr.Address
+// }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.
