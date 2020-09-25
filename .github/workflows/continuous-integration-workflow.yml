@@ -59,7 +59,11 @@ jobs:
         run: go run ./core local db preparetest
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }}
-
+      - name: Print postgres logs
+        if: always()
+        uses: docker://docker:latest
+        with:
+          args: logs ${{ job.services.postgres.id }}
   rust:
     name: Rust
     runs-on: ubuntu-latest
