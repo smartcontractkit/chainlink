@@ -12,6 +12,34 @@ type Task struct {
 	mock.Mock
 }
 
+// DotID provides a mock function with given fields:
+func (_m *Task) DotID() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// OutputIndex provides a mock function with given fields:
+func (_m *Task) OutputIndex() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	return r0
+}
+
 // OutputTask provides a mock function with given fields:
 func (_m *Task) OutputTask() pipeline.Task {
 	ret := _m.Called()

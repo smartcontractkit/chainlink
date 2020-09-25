@@ -8,9 +8,12 @@ import (
 	"github.com/lib/pq"
 	"github.com/tevino/abool"
 	"sync"
+	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -219,4 +222,97 @@ func (lock *PostgresAdvisoryLock) Unlock(ctx context.Context, classID int32, obj
 	}
 	_, err := lock.conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1, $2)", classID, objectID)
 	return errors.Wrap(err, "AdvisoryUnlock failed")
+}
+
+type PostgresEventListener struct {
+	URI                  string
+	Event                string
+	PayloadFilter        string
+	MinReconnectInterval time.Duration
+	MaxReconnectDuration time.Duration
+
+	listener *pq.Listener
+	started  abool.AtomicBool
+	stopped  abool.AtomicBool
+	chEvents chan string
+	chStop   chan struct{}
+	chDone   chan struct{}
+}
+
+func (p *PostgresEventListener) Start() error {
+	if !p.started.SetToIf(false, true) {
+		panic("PostgresEventListener can only be started once")
+	}
+
+	if p.MinReconnectInterval == time.Duration(0) {
+		p.MinReconnectInterval = 1 * time.Second
+	}
+	if p.MaxReconnectDuration == time.Duration(0) {
+		p.MaxReconnectDuration = 1 * time.Minute
+	}
+
+	p.chEvents = make(chan string)
+	p.chStop = make(chan struct{})
+	p.chDone = make(chan struct{})
+
+	p.listener = pq.NewListener(p.URI, p.MinReconnectInterval, p.MaxReconnectDuration, func(ev pq.ListenerEventType, err error) {
+		// These are always connection-related events, and the pq library
+		// automatically handles reconnecting to the DB.  Therefore, we do
+		// not need to terminate `AwaitRun`, but rather simply log these
+		// events for node operators' sanity.
+		switch ev {
+		case pq.ListenerEventConnected:
+			logger.Debug("Postgres listener: connected")
+		case pq.ListenerEventDisconnected:
+			logger.Warnw("Postgres listener: disconnected, trying to reconnect...", "error", err)
+		case pq.ListenerEventReconnected:
+			logger.Debug("Postgres listener: reconnected")
+		case pq.ListenerEventConnectionAttemptFailed:
+			logger.Warnw("Postgres listener: reconnect attempt failed, trying again...", "error", err)
+		}
+	})
+	err := p.listener.Listen(p.Event)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer close(p.chDone)
+
+		for {
+			select {
+			case <-p.chStop:
+				return
+			case notification, open := <-p.listener.NotificationChannel():
+				if !open {
+					return
+				}
+				logger.Debugw("Postgres listener: received notification",
+					"channel", notification.Channel,
+					"payload", notification.Extra,
+				)
+				if p.PayloadFilter == "" || p.PayloadFilter == notification.Extra {
+					p.chEvents <- notification.Extra
+				}
+			}
+		}
+	}()
+	return nil
+}
+
+func (p *PostgresEventListener) Stop() error {
+	if !p.started.IsSet() {
+		panic("PostgresEventListener cannot stop before starting")
+	}
+	if !p.stopped.SetToIf(false, true) {
+		panic("PostgresEventListener can only be stopped once")
+	}
+	err := p.listener.Close()
+	close(p.chStop)
+	<-p.chDone
+	return err
+}
+
+func (p *PostgresEventListener) Events() <-chan string {
+	return p.chEvents
 }
