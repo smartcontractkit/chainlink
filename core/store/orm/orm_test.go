@@ -1256,7 +1256,7 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 
 	require.NoError(t, orm.CreateKeyIfNotExists(later))
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 2)
@@ -1265,7 +1265,7 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	assert.Equal(t, keys[1].Address, laterAddress)
 }
 
-func TestORM_SendingKeys(t *testing.T) {
+func TestORM_SendKeys(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := store.ORM
@@ -1285,11 +1285,11 @@ func TestORM_SendingKeys(t *testing.T) {
 
 	require.NoError(t, orm.CreateKeyIfNotExists(funding))
 
-	keys, err := store.Keys()
+	keys, err := store.AllKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 2)
 
-	keys, err = store.SendingKeys()
+	keys, err = store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 }
@@ -1304,7 +1304,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	require.NoError(t, os.RemoveAll(keysDir))
 	require.NoError(t, store.DeleteKey(hexutil.MustDecode("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")))
 	// Fixture key is deleted
-	dbkeys, err := store.Keys()
+	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 0)
 
@@ -1316,7 +1316,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
 	require.NoError(t, err)
 
-	dbkeys, err = store.Keys()
+	dbkeys, err = store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 1)
 
@@ -1680,7 +1680,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	defer cleanup()
 
 	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
-	keys, err := orm.Keys()
+	keys, err := orm.SendKeys()
 	require.NoError(t, err)
 	fromAddress := keys[0].Address.Address()
 

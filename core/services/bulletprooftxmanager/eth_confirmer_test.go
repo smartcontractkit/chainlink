@@ -1115,7 +1115,7 @@ func TestEthConfirmer_BumpGasWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	// Use the real KeyStore loaded from database fixtures
 	store.KeyStore.Unlock(cltest.Password)
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	config, cleanup := cltest.NewConfig(t)
@@ -1220,7 +1220,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	config, cleanup := cltest.NewConfig(t)
