@@ -8,6 +8,7 @@ env:
 jobs:
   core:
     strategy:
+      fail-fast: false
       matrix:
         cmd: ['go_core_tests', 'go_core_race_tests']
     name: Core Tests
