@@ -1542,3 +1542,8 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 		})
 	}
 }
+
+// TODO - RYAN - test these
+// * performInitialPoll
+// * setPollTimer
+// * setIdleTimer
