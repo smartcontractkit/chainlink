@@ -2,12 +2,10 @@ package pipeline
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"strconv"
+	"fmt"
 	"time"
 
 	"github.com/jinzhu/gorm"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
@@ -17,31 +15,25 @@ import (
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	CreateSpec(taskDAG TaskDAG) (int32, error)
 	CreateRun(jobID int32) (int64, error)
 	ProcessNextUnclaimedTaskRun(f func(jobID int32, taskRun TaskRun, predecessors []TaskRun) Result) (bool, error)
 	AwaitRun(ctx context.Context, runID int64) error
-	// NotifyCompletion(pipelineRunID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
 
 type orm struct {
-	db *gorm.DB
+	db  *gorm.DB
+	uri string
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB) *orm {
-	return &orm{db}
+func NewORM(db *gorm.DB, uri string) *orm {
+	return &orm{db, uri}
 }
 
 func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
@@ -126,6 +118,8 @@ func (o *orm) CreateRun(jobID int32) (int64, error) {
 		}
 
 		runID = run.ID
+
+		// o.AwaitRun(ctx, runID)
 
 		// Create the task runs
 		err = tx.Exec(`
@@ -236,26 +230,14 @@ const postgresChannelAwaitRun = "pipeline_job_run_completed"
 // has completed:
 //    1) periodic polling
 //    2) Postgres notifications
-func (o *orm) AwaitRun(ctx context.Context, runID int64) (err error) {
-	defer utils.LogIfError(&err, "TaskDAG#AwaitRun: %v")
-
+func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	sendOrTimeout := func(ctx context.Context, ch chan error, err error) {
-		select {
-		case ch <- err:
-		case <-ctx.Done():
-		}
-	}
-
-	var (
-		chPoll   = make(chan error)
-		chNotify = make(chan error)
-	)
-
-	// Poll
+	// This goroutine polls the DB at a set interval
+	chPoll := make(chan error)
 	go func() {
+		var err error
 		for {
 			select {
 			case <-ctx.Done():
@@ -263,86 +245,48 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) (err error) {
 			default:
 			}
 
-			done, err := runFinished(o.db, runID)
+			var done bool
+			done, err = runFinished(o.db, runID)
 			if err != nil {
-				sendOrTimeout(ctx, chPoll, err)
-				return
+				break
 			} else if done {
-				sendOrTimeout(ctx, chPoll, nil)
-				return
+				break
 			}
 			time.Sleep(1 * time.Second)
 		}
-	}()
 
-	// Notify
-	go func() {
-		listener := pq.NewListener(conninfo, 1*time.Second, time.Minute, func(ev pq.ListenerEventType, err error) {
-			// These are always connection-related events, and the pq library
-			// automatically handles reconnecting to the DB.  Therefore, we do
-			// not need to terminate `AwaitRun`, but rather simply log these
-			// events for node operators' sanity.
-			switch ev {
-			case pq.ListenerEventConnected:
-				logger.Debug("Pipeline runner: Postgres listener connected")
-			case pq.ListenerEventDisconnected:
-				logger.Warnw("Pipeline runner: Postgres listener disconnected, trying to reconnect...", "error", err)
-			case pq.ListenerEventReconnected:
-				logger.Debug("Pipeline runner: Postgres listener reconnected")
-			case pq.ListenerEventConnectionAttemptFailed:
-				logger.Warnw("Pipeline runner: Postgres listener reconnect attempt failed, trying again...", "error", err)
-			}
-		})
-		err = listener.Listen(postgresChannelAwaitRun)
-		if err != nil {
-			sendOrTimeout(ctx, chNotify, err)
-			return
-		}
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case notification := <-listener.Notify:
-				eventRunIDStr := notification.Extra
-				eventRunID, err := strconv.Atoi(eventRunIDStr)
-				if err != nil {
-					logger.Warnf("Pipeline runner: Postgres listener got bad event metadata: '%v'", notification.Extra)
-				} else if eventRunID == runID {
-					// This is the notification we want.  Kill the goroutine and return.
-					sendOrTimeout(ctx, chNotify, nil)
-					return
-				}
-			}
+		select {
+		case chPoll <- err:
+		case <-ctx.Done():
 		}
 	}()
+
+	listener := utils.PostgresEventListener{
+		URI:                  o.uri,
+		Event:                postgresChannelAwaitRun,
+		PayloadFilter:        fmt.Sprintf("%v", runID),
+		MinReconnectInterval: 1 * time.Second,
+		MaxReconnectDuration: 1 * time.Minute,
+	}
+	err := listener.Start()
+	if err != nil {
+		return err
+	}
+	defer listener.Stop()
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-chPoll:
 		return err
-	case err := <-chNotify:
-		return err
+	case <-listener.Events():
+		return nil
 	}
-}
-
-func (o *orm) NotifyCompletion(runID int64) error {
-	return o.db.Exec(`
-        $$
-        BEGIN
-            IF (SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL) FROM pipeline_job_runs JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_job_run_id = pipeline_job_runs.id WHERE pipeline_job_runs.id = $1)
-                PERFORM pg_notify('`+postgresChannelAwaitRun+`', $1::text);
-            END IF;
-        END;
-        $$ LANGUAGE plpgsql;
-    )`, runID).Error
 }
 
 func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 	var results []Result
 	err := utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
-
 		done, err := runFinished(tx, runID)
 		if err != nil {
 			return err

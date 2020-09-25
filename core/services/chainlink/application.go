@@ -105,7 +105,7 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB)
+	pipelineORM := pipeline.NewORM(store.ORM.DB, config.DatabaseURL())
 	pipelineRunner := pipeline.NewRunner(pipelineORM, store.Config)
 	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL(), pipelineORM)
 	jobSpawner := job.NewSpawner(jobORM)

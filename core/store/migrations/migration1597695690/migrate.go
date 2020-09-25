@@ -59,6 +59,30 @@ func Migrate(tx *gorm.DB) error {
             )
         );
 
+        CREATE OR REPLACE FUNCTION notifyJobRunCompletion() RETURNS TRIGGER AS $_$
+        DECLARE done BOOLEAN;
+        BEGIN
+            SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
+                INTO done
+                FROM pipeline_runs
+                JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
+                WHERE pipeline_runs.id = NEW.pipeline_run_id;
+
+            RAISE WARNING 'done done done is %, new is %', done, NEW.pipeline_run_id;
+
+            IF done = TRUE THEN
+                PERFORM pg_notify('pipeline_job_run_completed', NEW.pipeline_run_id::text);
+            END IF;
+            RETURN NEW;
+        END
+        $_$ LANGUAGE 'plpgsql';
+
+        CREATE TRIGGER notify_job_run_completion
+        AFTER UPDATE ON pipeline_task_runs
+        FOR EACH ROW EXECUTE PROCEDURE notifyJobRunCompletion();
+
+
+
         -- NOTE: This table is large and insert/update heavy so we must be efficient with indexes
 
         CREATE INDEX idx_pipeline_task_runs ON pipeline_task_runs USING BRIN (created_at);

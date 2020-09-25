@@ -27,7 +27,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	orm := pipeline.NewORM(db)
+	orm := pipeline.NewORM(db, config.DatabaseURL())
 
 	var specID int32
 
