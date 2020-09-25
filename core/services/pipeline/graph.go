@@ -7,6 +7,8 @@ import (
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
+
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
@@ -25,14 +27,16 @@ func (g *TaskDAG) NewNode() graph.Node {
 	return &taskDAGNode{Node: g.DirectedGraph.NewNode(), g: g}
 }
 
-func (g *TaskDAG) UnmarshalText(bs []byte) error {
+func (g *TaskDAG) UnmarshalText(bs []byte) (err error) {
+	defer utils.LogIfError(&err, "TaskDAG#UnmarshalText: %+v")
+	defer utils.WrapIfError(&err, "MedianTask errored")
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
 	}
 	g.DOTSource = string(bs)
 	bs = append([]byte("digraph {\n"), bs...)
 	bs = append(bs, []byte("\n}")...)
-	err := dot.Unmarshal(bs, g)
+	err = dot.Unmarshal(bs, g)
 	if err != nil {
 		return errors.Wrap(err, "could not unmarshal DOT into a pipeline.TaskDAG")
 	}
@@ -43,6 +47,9 @@ func (g *TaskDAG) HasCycles() bool {
 	return len(topo.DirectedCyclesIn(g)) > 0
 }
 
+// Returns a slice of Tasks starting at the outputs of the DAG and ending at
+// the inputs.  As you iterate through this slice, you can expect that any individual
+// Task's outputs will already have been traversed.
 func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 	visited := make(map[int64]bool)
 	stack := g.outputs()

@@ -26,39 +26,48 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (f *BridgeTask) Run(inputs []Result) Result {
+func (t *BridgeTask) Run(inputs []Result) (result Result) {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
 	}
 
-	url, err := f.getBridgeURLFromName()
+	url, err := t.getBridgeURLFromName()
 	if err != nil {
 		return Result{Error: err}
 	}
 
-	// client := &http.Client{Timeout: f.config.DefaultHTTPTimeout().Duration(), Transport: http.DefaultTransport}
+	// client := &http.Client{Timeout: t.config.DefaultHTTPTimeout().Duration(), Transport: http.DefaultTransport}
 	// client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
 	// client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
 
 	// add an arbitrary "id" field to the request json
 	// this is done in order to keep request payloads consistent in format
 	// between flux monitor polling requests and http/bridge adapters
-	f.RequestData["id"] = models.NewID()
+	if t.RequestData == nil {
+		t.RequestData = HttpRequestData{}
+	}
+	t.RequestData["id"] = models.NewID()
 
-	result := (&HTTPTask{URL: models.WebURL(url), Method: "POST", RequestData: f.RequestData}).Run(inputs)
+	result = (&HTTPTask{
+		URL:                            models.WebURL(url),
+		Method:                         "POST",
+		RequestData:                    t.RequestData,
+		AllowUnrestrictedNetworkAccess: true,
+		config:                         t.config,
+	}).Run(inputs)
 	if result.Error != nil {
 		return result
 	}
 	logger.Debugw("Bridge: fetched answer",
-		"answer", result,
+		"answer", string(result.Value.([]byte)),
 		"url", url.String(),
 	)
 	return result
 }
 
-func (f BridgeTask) getBridgeURLFromName() (url.URL, error) {
-	task := models.TaskType(f.Name)
-	bridge, err := f.orm.FindBridge(task)
+func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
+	task := models.TaskType(t.Name)
+	bridge, err := t.orm.FindBridge(task)
 	if err != nil {
 		return url.URL{}, err
 	}

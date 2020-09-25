@@ -2,12 +2,12 @@ package pipeline_test
 
 import (
 	"context"
-	"math/rand"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
@@ -157,7 +157,7 @@ func TestORM(t *testing.T) {
 
 		// Check the DB for the pipeline.Run
 		var pipelineRuns []pipeline.Run
-		err = db.Find(&pipelineRuns).Error
+		err = db.Where("id = ?", runID).Find(&pipelineRuns).Error
 		require.NoError(t, err)
 		require.Len(t, pipelineRuns, 1)
 		require.Equal(t, pipelineSpecID, pipelineRuns[0].PipelineSpecID)
@@ -165,7 +165,7 @@ func TestORM(t *testing.T) {
 
 		// Check the DB for the pipeline.TaskRuns
 		var taskRuns []pipeline.TaskRun
-		err = db.Find(&taskRuns).Error
+		err = db.Where("pipeline_run_id = ?", runID).Find(&taskRuns).Error
 		require.NoError(t, err)
 		require.Len(t, taskRuns, len(taskSpecIDs))
 
@@ -177,144 +177,191 @@ func TestORM(t *testing.T) {
 		}
 	})
 
-	var (
-		answers      = make(map[string]float64)
-		taskRuns     = make(map[string]pipeline.TaskRun)
-		predecessors = make(map[string][]pipeline.TaskRun)
-	)
-
 	t.Run("processes runs and awaits their completion", func(t *testing.T) {
-		// Set up a goroutine to await the run's completion
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		chRunComplete := make(chan struct{})
-		go func() {
-			err := orm.AwaitRun(ctx, runID)
-			require.NoError(t, err)
-			close(chRunComplete)
-		}()
+		tests := []struct {
+			name    string
+			answers map[string]pipeline.Result
+		}{
+			{
+				"all succeeded",
+				map[string]pipeline.Result{
+					"ds1":          {Value: float64(1)},
+					"ds1_parse":    {Value: float64(2)},
+					"ds1_multiply": {Value: float64(3)},
+					"ds2":          {Value: float64(4)},
+					"ds2_parse":    {Value: float64(5)},
+					"ds2_multiply": {Value: float64(6)},
+					"answer1":      {Value: float64(7)},
+					"answer2":      {Value: float64(8)},
+				},
+			},
+			{
+				"all failed",
+				map[string]pipeline.Result{
+					"ds1":          {Error: errors.New("fail 1")},
+					"ds1_parse":    {Error: errors.New("fail 2")},
+					"ds1_multiply": {Error: errors.New("fail 3")},
+					"ds2":          {Error: errors.New("fail 4")},
+					"ds2_parse":    {Error: errors.New("fail 5")},
+					"ds2_multiply": {Error: errors.New("fail 6")},
+					"answer1":      {Error: errors.New("fail 7")},
+					"answer2":      {Error: errors.New("fail 8")},
+				},
+			},
+			{
+				"some succeeded, some failed",
+				map[string]pipeline.Result{
+					"ds1":          {Value: float64(1)},
+					"ds1_parse":    {Error: errors.New("fail 1")},
+					"ds1_multiply": {Error: errors.New("fail 2")},
+					"ds2":          {Value: float64(2)},
+					"ds2_parse":    {Value: float64(3)},
+					"ds2_multiply": {Value: float64(4)},
+					"answer1":      {Error: errors.New("fail 3")},
+					"answer2":      {Value: float64(5)},
+				},
+			},
+		}
 
-		// First, "claim" one of the output task runs to ensure that `WithNextUnclaimedTaskRun` doesn't return it
-		chClaimed := make(chan struct{})
-		chBlock := make(chan struct{})
-		chUnlocked := make(chan struct{})
-		var locked pipeline.TaskRun
-		go func() {
-			err := utils.GormTransaction(db, func(tx *gorm.DB) error {
-				err := tx.Raw(`
-                    SELECT * FROM pipeline_task_runs
-                    INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-                    WHERE pipeline_task_specs.type = 'median'
-                    FOR UPDATE OF pipeline_task_runs
-                `).Scan(&locked).Error
-				require.NoError(t, err)
+		for _, test := range tests {
+			test := test
+			t.Run(test.name, func(t *testing.T) {
+				var (
+					taskRuns     = make(map[string]pipeline.TaskRun)
+					predecessors = make(map[string][]pipeline.TaskRun)
+				)
 
-				close(chClaimed)
-				<-chBlock
-				return nil
-			})
-			require.NoError(t, err)
-			close(chUnlocked)
-		}()
-		<-chClaimed
+				// Set up a goroutine to await the run's completion
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				chRunComplete := make(chan struct{})
+				go func() {
+					err := orm.AwaitRun(ctx, runID)
+					require.NoError(t, err)
+					close(chRunComplete)
+				}()
 
-		// Process all of the unclaimed task runs
-		{
-			var done bool
-			for !done {
-				done, err = orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
-					// Ensure we don't fetch the locked task run
-					require.NotEqual(t, locked.ID, taskRun.ID)
+				// First, "claim" one of the output task runs to ensure that `ProcessNextUnclaimedTaskRun` doesn't return it
+				chClaimed := make(chan struct{})
+				chBlock := make(chan struct{})
+				chUnlocked := make(chan struct{})
+				var locked pipeline.TaskRun
+				go func() {
+					err := utils.GormTransaction(db, func(tx *gorm.DB) error {
+						err := tx.Raw(`
+                            SELECT * FROM pipeline_task_runs
+                            INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
+                            WHERE pipeline_task_specs.type = 'median'
+                            FOR UPDATE OF pipeline_task_runs
+                        `).Scan(&locked).Error
+						require.NoError(t, err)
 
-					// Ensure the predecessors' answers match what we expect
-					for _, p := range predecessorRuns {
-						require.Equal(t, answers[p.DotID], p.Output.Val)
-						require.True(t, p.Error.IsZero())
+						close(chClaimed)
+						<-chBlock
+						return nil
+					})
+					require.NoError(t, err)
+					close(chUnlocked)
+				}()
+				<-chClaimed
+
+				// Process all of the unclaimed task runs
+				{
+					var done bool
+					for !done {
+						done, err = orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+							// Ensure we don't fetch the locked task run
+							require.NotEqual(t, locked.ID, taskRun.ID)
+
+							// Ensure the predecessors' answers match what we expect
+							for _, p := range predecessorRuns {
+								require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+								if !p.Error.IsZero() {
+									require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
+								}
+							}
+
+							taskRuns[taskRun.DotID] = taskRun
+							predecessors[taskRun.DotID] = predecessorRuns
+							return test.answers[taskRun.DotID]
+						})
+						require.NoError(t, err)
 					}
-
-					taskRuns[taskRun.DotID] = taskRun
-					answers[taskRun.DotID] = rand.Float64()
-					predecessors[taskRun.DotID] = predecessorRuns
-					return pipeline.Result{Value: answers[taskRun.DotID]}
-				})
-				require.NoError(t, err)
-			}
-		}
-
-		// Ensure the run isn't considered complete yet
-		{
-			time.Sleep(3 * time.Second)
-			require.Len(t, taskRuns, len(expectedTasks)-1)
-			select {
-			case <-chRunComplete:
-				t.Fatal("run completed too early")
-			default:
-			}
-		}
-
-		// Now, release the claim and make sure we can process the final task run
-		{
-			close(chBlock)
-			<-chUnlocked
-			time.Sleep(3 * time.Second)
-
-			done, err := orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
-				// Ensure the predecessors' answers match what we expect
-				for _, p := range predecessorRuns {
-					require.Equal(t, answers[p.DotID], p.Output.Val)
-					require.True(t, p.Error.IsZero())
 				}
 
-				val := rand.Float64()
-				taskRuns[taskRun.DotID] = taskRun
-				answers[taskRun.DotID] = val
-				predecessors[taskRun.DotID] = predecessorRuns
-				return pipeline.Result{Value: val}
+				// Ensure the run isn't considered complete yet
+				{
+					time.Sleep(3 * time.Second)
+					require.Len(t, taskRuns, len(expectedTasks)-1)
+					select {
+					case <-chRunComplete:
+						t.Fatal("run completed too early")
+					default:
+					}
+				}
+
+				// Now, release the claim and make sure we can process the final task run
+				{
+					close(chBlock)
+					<-chUnlocked
+					time.Sleep(3 * time.Second)
+
+					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						// Ensure the predecessors' answers match what we expect
+						for _, p := range predecessorRuns {
+							require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+							if !p.Error.IsZero() {
+								require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
+							}
+						}
+
+						taskRuns[taskRun.DotID] = taskRun
+						predecessors[taskRun.DotID] = predecessorRuns
+						return test.answers[taskRun.DotID]
+					})
+					require.NoError(t, err)
+					require.False(t, done)
+				}
+
+				// Ensure that the ORM doesn't think there are more runs
+				{
+					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						t.Fatal("this callback should never be reached")
+						return pipeline.Result{}
+					})
+					require.NoError(t, err)
+					require.True(t, done)
+				}
+
+				// Ensure the run is now considered complete
+				{
+					select {
+					case <-time.After(5 * time.Second):
+						t.Fatal("run did not complete as expected")
+					case <-chRunComplete:
+					}
+
+					var finishedRuns []pipeline.TaskRun
+					err = db.Find(&finishedRuns).Error
+					require.NoError(t, err)
+					require.Len(t, finishedRuns, len(expectedTasks))
+
+					for _, run := range finishedRuns {
+						require.Equal(t, test.answers[run.DotID].Value, run.Output.Val)
+						if !run.Error.IsZero() {
+							require.Equal(t, test.answers[run.DotID].Error.Error(), run.Error.ValueOrZero())
+						}
+					}
+				}
+
+				// Make sure we can retrieve the correct results by calling .ResultsForRun
+				results, err := orm.ResultsForRun(runID)
+				require.NoError(t, err)
+				require.Len(t, results, 2)
+
+				require.Equal(t, test.answers["answer1"], results[0])
+				require.Equal(t, test.answers["answer2"], results[1])
 			})
-			require.NoError(t, err)
-			require.False(t, done)
 		}
-
-		// Ensure that the ORM doesn't think there are more runs
-		{
-			done, err := orm.WithNextUnclaimedTaskRun(func(taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
-				val := rand.Float64()
-				taskRuns[taskRun.DotID] = taskRun
-				answers[taskRun.DotID] = val
-				predecessors[taskRun.DotID] = predecessorRuns
-				return pipeline.Result{Value: val}
-			})
-			require.NoError(t, err)
-			require.True(t, done)
-		}
-
-		// Ensure the run is now considered complete
-		{
-			select {
-			case <-time.After(5 * time.Second):
-				t.Fatal("run did not complete as expected")
-			case <-chRunComplete:
-			}
-
-			var finishedRuns []pipeline.TaskRun
-			err = db.Find(&finishedRuns).Error
-			require.NoError(t, err)
-			require.Len(t, finishedRuns, len(expectedTasks))
-
-			for _, run := range finishedRuns {
-				require.Equal(t, answers[run.DotID], run.Output.Val.(float64))
-			}
-		}
-	})
-
-	t.Run("it fetches run results", func(t *testing.T) {
-		results, err := orm.ResultsForRun(runID)
-		require.NoError(t, err)
-		require.Len(t, results, 2)
-
-		require.Equal(t, answers["answer1"], results[0].Value)
-		require.Equal(t, answers["answer2"], results[1].Value)
-		require.NoError(t, results[0].Error)
-		require.NoError(t, results[1].Error)
 	})
 }

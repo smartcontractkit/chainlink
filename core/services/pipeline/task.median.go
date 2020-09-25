@@ -7,7 +7,6 @@ import (
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -21,7 +20,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (f *MedianTask) Run(inputs []Result) Result {
+func (f *MedianTask) Run(inputs []Result) (result Result) {
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -33,7 +32,6 @@ func (f *MedianTask) Run(inputs []Result) Result {
 
 		answer, err := utils.ToDecimal(input.Value)
 		if err != nil {
-			logger.Error(err)
 			fetchErrors = append(fetchErrors, err)
 			continue
 		}
