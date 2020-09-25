@@ -122,9 +122,8 @@ func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error) (err error) {
 	tx := db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			err = errors.Errorf("%s", r)
+			err = errors.Errorf("%+v", r)
 			tx.Rollback()
-			return
 		}
 	}()
 

@@ -109,8 +109,8 @@ func (_m *ORM) ResultsForRun(runID int64) ([]pipeline.Result, error) {
 	return r0, r1
 }
 
-// WithNextUnclaimedTaskRun provides a mock function with given fields: f
-func (_m *ORM) WithNextUnclaimedTaskRun(f func(pipeline.TaskRun, []pipeline.TaskRun) pipeline.Result) error {
+// ProcessNextUnclaimedTaskRun provides a mock function with given fields: f
+func (_m *ORM) ProcessNextUnclaimedTaskRun(f func(pipeline.TaskRun, []pipeline.TaskRun) pipeline.Result) error {
 	ret := _m.Called(f)
 
 	var r0 error

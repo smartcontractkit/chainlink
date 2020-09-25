@@ -20,20 +20,21 @@ type (
 	}
 
 	OffchainReportingOracleSpec struct {
-		ID                                int32                              `toml:"-"                 gorm:"primary_key"`
-		ContractAddress                   common.Address                     `toml:"contractAddress"`
-		P2PPeerID                         string                             `toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
-		P2PBootstrapPeers                 OffchainReportingP2PBootstrapPeers `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:jsonb"`
-		OffchainreportingKeyBundleID      Sha256Hash                         `toml:"-"                 gorm:"type:bytea"`
-		OffchainreportingKeyBundle        *OffchainReportingKeyBundle        `toml:"keyBundle"         gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
-		MonitoringEndpoint                string                             `toml:"monitoringEndpoint"`
-		TransmitterAddress                common.Address                     `toml:"transmitterAddress"`
-		ObservationTimeout                Interval                           `toml:"observationTimeout" gorm:"type:bigint"`
-		BlockchainTimeout                 Interval                           `toml:"blockchainTimeout" gorm:"type:bigint"`
-		ContractConfigTrackerPollInterval Interval                           `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
-		ContractConfigConfirmations       uint16                             `toml:"contractConfigConfirmations"`
-		CreatedAt                         time.Time                          `toml:"-"`
-		UpdatedAt                         time.Time                          `toml:"-"`
+		ID                           int32                              `toml:"-"                 gorm:"primary_key"`
+		ContractAddress              common.Address                     `toml:"contractAddress"`
+		P2PPeerID                    string                             `toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
+		P2PBootstrapPeers            OffchainReportingP2PBootstrapPeers `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:jsonb"`
+		OffchainreportingKeyBundleID Sha256Hash                         `toml:"-"                 gorm:"type:bytea"`
+		OffchainreportingKeyBundle   *OffchainReportingKeyBundle        `toml:"keyBundle"         gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+		MonitoringEndpoint           string                             `toml:"monitoringEndpoint"`
+		TransmitterAddress           common.Address                     `toml:"transmitterAddress"`
+		ObservationTimeout           Interval                           `toml:"observationTimeout" gorm:"type:bigint"`
+		BlockchainTimeout            Interval                           `toml:"blockchainTimeout" gorm:"type:bigint"`
+		// ContractConfigTrackerSubscribeInterval Interval                           `toml:"contractConfigTrackerSubscribeInterval"`
+		ContractConfigTrackerPollInterval Interval  `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
+		ContractConfigConfirmations       uint16    `toml:"contractConfigConfirmations"`
+		CreatedAt                         time.Time `toml:"-"`
+		UpdatedAt                         time.Time `toml:"-"`
 	}
 
 	OffchainReportingP2PBootstrapPeer struct {

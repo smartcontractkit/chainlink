@@ -47,42 +47,13 @@ type httpRequestConfig struct {
 }
 
 func (t *HTTPTask) Type() TaskType {
+	if t.AllowUnrestrictedNetworkAccess {
+		return TaskTypeHTTPUnrestricted
+	}
 	return TaskTypeHTTP
 }
 
-func getBodyFromInput(input interface{}) (HttpRequestData, error) {
-	var data HttpRequestData
-	switch val := input.(type) {
-	case []byte:
-		err := json.Unmarshal(val, &data)
-		return data, err
-	case string:
-		err := json.Unmarshal([]byte(val), &data)
-		return data, err
-	case map[string]interface{}:
-		return HttpRequestData(val), nil
-	default:
-		return nil, nil
-	}
-}
-
-func mergeMaps(one, two HttpRequestData) HttpRequestData {
-	if one == nil {
-		return two
-	} else if two == nil {
-		return one
-	}
-	m := make(HttpRequestData)
-	for k, v := range one {
-		m[k] = v
-	}
-	for k, v := range two {
-		m[k] = v
-	}
-	return m
-}
-
-func (t *HTTPTask) Run(inputs []Result) Result {
+func (t *HTTPTask) Run(inputs []Result) (result Result) {
 	if len(inputs) > 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 or 1 inputs")}
 	} else if len(inputs) == 1 && inputs[0].Error != nil {
@@ -133,6 +104,38 @@ func (t *HTTPTask) Run(inputs []Result) Result {
 		return Result{Error: err}
 	}
 	return Result{Value: resp}
+}
+
+func getBodyFromInput(input interface{}) (HttpRequestData, error) {
+	var data HttpRequestData
+	switch val := input.(type) {
+	case []byte:
+		err := json.Unmarshal(val, &data)
+		return data, err
+	case string:
+		err := json.Unmarshal([]byte(val), &data)
+		return data, err
+	case map[string]interface{}:
+		return HttpRequestData(val), nil
+	default:
+		return nil, nil
+	}
+}
+
+func mergeMaps(one, two HttpRequestData) HttpRequestData {
+	if one == nil {
+		return two
+	} else if two == nil {
+		return one
+	}
+	m := make(HttpRequestData)
+	for k, v := range one {
+		m[k] = v
+	}
+	for k, v := range two {
+		m[k] = v
+	}
+	return m
 }
 
 func (t HTTPTask) Request(contentType string, body io.Reader) (*http.Request, error) {

@@ -87,8 +87,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 
 	service := ocr.NewOracle(ocr.OracleArgs{
 		LocalConfig: ocrtypes.LocalConfig{
-			DataSourceTimeout:                 time.Duration(concreteSpec.ObservationTimeout),
-			BlockchainTimeout:                 time.Duration(concreteSpec.BlockchainTimeout),
+			DataSourceTimeout: time.Duration(concreteSpec.ObservationTimeout),
+			BlockchainTimeout: time.Duration(concreteSpec.BlockchainTimeout),
+			// ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
 			ContractConfigTrackerPollInterval: time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
 			ContractConfigConfirmations:       concreteSpec.ContractConfigConfirmations,
 		},

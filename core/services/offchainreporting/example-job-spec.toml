@@ -9,6 +9,7 @@ monitoringEndpoint = "<ip:port>"
 transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
 observationTimeout = "10s"
 blockchainTimeout  = "10s"
+contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
