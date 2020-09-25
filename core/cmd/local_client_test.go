@@ -303,7 +303,7 @@ func TestClient_ImportKey(t *testing.T) {
 	// importing again simply upserts
 	require.NoError(t, client.ImportKey(c))
 
-	keys, err := app.GetStore().Keys()
+	keys, err := app.GetStore().SendKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 2)
