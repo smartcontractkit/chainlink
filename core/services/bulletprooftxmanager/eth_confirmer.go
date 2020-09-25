@@ -92,7 +92,7 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 	logger.Debugw("EthConfirmer: finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	keys, err := ec.store.Keys()
+	keys, err := ec.store.SendingKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch keys")
 	}
