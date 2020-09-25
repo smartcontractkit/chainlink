@@ -20,7 +20,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(inputs []Result) Result {
+func (t *JSONParseTask) Run(inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")}
 	} else if inputs[0].Error != nil {

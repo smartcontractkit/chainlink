@@ -11,7 +11,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //go:generate mockery --name Task --output ./mocks/ --case=underscore
@@ -66,7 +68,14 @@ func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
 }
 
 func (js JSONSerializable) MarshalJSON() ([]byte, error) {
-	return json.Marshal(js.Val)
+	switch x := js.Val.(type) {
+	case []byte:
+		return json.Marshal(string(x))
+	case nil:
+		return nil, nil
+	default:
+		return json.Marshal(js.Val)
+	}
 }
 
 func (js *JSONSerializable) Scan(value interface{}) error {
@@ -77,24 +86,27 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 	if js == nil {
 		*js = JSONSerializable{}
 	}
-	return json.Unmarshal(bytes, &js.Val)
+	return js.UnmarshalJSON(bytes)
 }
 
 func (js JSONSerializable) Value() (driver.Value, error) {
-	return json.Marshal(js.Val)
+	return js.MarshalJSON()
 }
 
 type TaskType string
 
 const (
-	TaskTypeHTTP      TaskType = "http"
-	TaskTypeBridge    TaskType = "bridge"
-	TaskTypeMedian    TaskType = "median"
-	TaskTypeMultiply  TaskType = "multiply"
-	TaskTypeJSONParse TaskType = "jsonparse"
+	TaskTypeHTTP             TaskType = "http"
+	TaskTypeHTTPUnrestricted TaskType = "httpunrestricted"
+	TaskTypeBridge           TaskType = "bridge"
+	TaskTypeMedian           TaskType = "median"
+	TaskTypeMultiply         TaskType = "multiply"
+	TaskTypeJSONParse        TaskType = "jsonparse"
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, orm ORM, config Config) (Task, error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, orm ORM, config Config) (_ Task, err error) {
+	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
+
 	switch taskMap.(type) {
 	default:
 		return nil, errors.New("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
@@ -105,6 +117,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	switch taskType {
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
+	case TaskTypeHTTPUnrestricted:
+		task = &HTTPTask{config: config, AllowUnrestrictedNetworkAccess: true, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
 		task = &BridgeTask{orm: orm, config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
@@ -118,6 +132,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	}
 
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToSliceHookFunc(","),
 			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
@@ -147,7 +162,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 				return data, nil
 			},
 		),
-		Result: task,
 	})
 	if err != nil {
 		return nil, err
@@ -158,4 +172,11 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		return nil, err
 	}
 	return task, nil
+}
+
+func WrapResultIfError(result *Result, msg string, args ...interface{}) {
+	if result.Error != nil {
+		logger.Errorf(msg+": %+v", append(args, result.Error)...)
+		result.Error = errors.Wrapf(result.Error, msg, args...)
+	}
 }

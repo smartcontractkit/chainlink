@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -697,6 +698,23 @@ func (q *BoundedPriorityQueue) Empty() bool {
 func WrapIfError(err *error, msg string) {
 	if *err != nil {
 		*err = errors.Wrap(*err, msg)
+	}
+}
+
+func LogIfError(err *error, msg string) {
+	if *err != nil {
+		logger.Errorf(msg+": %+v", *err)
+	}
+}
+
+func DebugPanic() {
+	if err := recover(); err != nil {
+		pc := make([]uintptr, 10) // at least 1 entry needed
+		runtime.Callers(5, pc)
+		f := runtime.FuncForPC(pc[0])
+		file, line := f.FileLine(pc[0])
+		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
+		panic(err)
 	}
 }
 

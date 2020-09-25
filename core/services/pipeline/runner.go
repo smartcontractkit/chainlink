@@ -9,6 +9,9 @@ import (
 )
 
 type (
+	// Runner polls the DB occasionally for incomplete TaskRuns and runs them.
+	// For a TaskRun to be eligible to be run, its parent/input tasks must
+	// already all be complete.
 	Runner interface {
 		Start()
 		Stop()
@@ -86,22 +89,33 @@ func (r *runner) processIncompleteTaskRuns() {
 	var err error
 	for !done {
 		// var runID int64
-		done, err = r.orm.WithNextUnclaimedTaskRun(func(taskRun TaskRun, predecessors []TaskRun) Result {
+		done, err = r.orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun TaskRun, predecessors []TaskRun) (result Result) {
 			// runID = taskRun.PipelineRunID
+
+			loggerFields := []interface{}{
+				"jobID", jobID,
+				"taskName", taskRun.DotID,
+				"taskID", taskRun.PipelineTaskSpecID,
+				"runID", taskRun.PipelineRunID,
+				"taskRunID", taskRun.ID,
+			}
+
+			logger.Infow("Running pipeline task", loggerFields...)
 
 			inputs := make([]Result, len(predecessors))
 			for i, predecessor := range predecessors {
 				inputs[i] = predecessor.Result()
 			}
 
-			task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, "", r.orm, r.config)
+			task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, taskRun.DotID, r.orm, r.config)
 			if err != nil {
+				logger.Errorw("Pipeline task run errored", append(loggerFields, "error", err)...)
 				return Result{Error: err}
 			}
 
-			result := task.Run(inputs)
+			result = task.Run(inputs)
 			if result.Error != nil {
-				logger.Errorw("Pipeline task run errored", "error", result.Error)
+				logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 			}
 			return result
 		})
