@@ -88,10 +88,7 @@ func (r *runner) processIncompleteTaskRuns() {
 	var done bool
 	var err error
 	for !done {
-		// var runID int64
 		done, err = r.orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun TaskRun, predecessors []TaskRun) (result Result) {
-			// runID = taskRun.PipelineRunID
-
 			loggerFields := []interface{}{
 				"jobID", jobID,
 				"taskName", taskRun.DotID,
@@ -123,10 +120,5 @@ func (r *runner) processIncompleteTaskRuns() {
 			logger.Errorf("Error processing incomplete task runs: %v", err)
 			return
 		}
-
-		// err = r.orm.NotifyCompletion(runID)
-		// if err != nil {
-		// 	logger.Errorf("Error calling pg_notify for run %v: %v", runID, err)
-		// }
 	}
 }
