@@ -1520,7 +1520,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 					payload := args.Get(1).(ethereum.CallMsg).Data[4:] // omit signature bytes
 					address1 := common.BytesToAddress(payload[64:96])  // first address
 					address2 := common.BytesToAddress(payload[96:])    // second address
-					require.Equal(t, fluxmonitor.AddressZero, address1)
+					require.Equal(t, utils.ZeroAddress, address1)
 					require.Equal(t, initr.Address, address2)
 				}).
 				Return(getFlagsResultBytes, nil)
