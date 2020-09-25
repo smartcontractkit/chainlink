@@ -1235,10 +1235,18 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	})
 }
 
-// Keys returns all of the keys recorded in the database.
+// Keys returns all of the keys recorded in the database including the funding key.
+// This method is deprecated! You should use SendingKeys() to retrieve all but the funding keys.
 func (orm *ORM) Keys() ([]models.Key, error) {
 	var keys []models.Key
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
+}
+
+// SendingKeys will return only the keys that are not is_funding=true.
+func (orm *ORM) SendingKeys() ([]models.Key, error) {
+	var keys []models.Key
+	err := orm.DB.Where("is_funding = FALSE").Order("created_at ASC, address ASC").Find(&keys).Error
+	return keys, err
 }
 
 // KeyByAddress returns the key matching provided address

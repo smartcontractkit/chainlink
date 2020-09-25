@@ -1265,6 +1265,35 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	assert.Equal(t, keys[1].Address, laterAddress)
 }
 
+func TestORM_SendingKeys(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := store.ORM
+
+	testJSON := cltest.JSONFromString(t, "{}")
+
+	sendingAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
+	require.NoError(t, err)
+	sending := models.Key{Address: sendingAddress, JSON: testJSON}
+
+	require.NoError(t, orm.CreateKeyIfNotExists(sending))
+	time.Sleep(10 * time.Millisecond)
+
+	fundingAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
+	require.NoError(t, err)
+	funding := models.Key{Address: fundingAddress, JSON: testJSON, IsFunding: true}
+
+	require.NoError(t, orm.CreateKeyIfNotExists(funding))
+
+	keys, err := store.Keys()
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+
+	keys, err = store.SendingKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+}
+
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
