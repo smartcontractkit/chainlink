@@ -120,7 +120,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 	for {
 		pollDBTimer := time.NewTimer(databasePollInterval)
 
-		keys, err := eb.store.Keys()
+		keys, err := eb.store.SendingKeys()
 
 		if err != nil {
 			logger.Error(errors.Wrap(err, "monitorEthTxs failed getting key"))
