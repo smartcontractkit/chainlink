@@ -147,7 +147,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store.KeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	fromAddress := key.Address.Address()

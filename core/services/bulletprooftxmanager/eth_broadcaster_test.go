@@ -60,7 +60,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	defaultFromAddress := key.Address.Address()
@@ -278,7 +278,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	defaultFromAddress := key.Address.Address()
@@ -344,7 +344,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 		require.Equal(t, int64(ethNodeNonce), *ethTx.Nonce)
 
 		// Check key to make sure it has correct nonce assigned
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 
@@ -373,7 +373,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -422,7 +422,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -468,7 +468,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -514,7 +514,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -559,7 +559,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -606,7 +606,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -656,7 +656,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.Config.Set("ETH_GAS_PRICE_DEFAULT", 500000000000)
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-		keys, err := store.Keys()
+		keys, err := store.SendKeys()
 		require.NoError(t, err)
 		key := keys[0]
 		defaultFromAddress := key.Address.Address()
@@ -718,7 +718,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	defer cleanup()
 	// Use the real KeyStore loaded from database fixtures
 	store.KeyStore.Unlock(cltest.Password)
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	defaultFromAddress := key.Address.Address()
@@ -1080,7 +1080,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	kst := new(mocks.KeyStoreInterface)
 	// Use a mock keystore for this test
 	store.KeyStore = kst
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	defaultFromAddress := key.Address.Address()
@@ -1192,7 +1192,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	defer cleanup()
 	eb2 := bulletprooftxmanager.NewEthBroadcaster(store2, config)
 
-	keys, err := store1.Keys()
+	keys, err := store1.SendKeys()
 	require.NoError(t, err)
 	key := keys[0]
 	defaultFromAddress := key.Address.Address()

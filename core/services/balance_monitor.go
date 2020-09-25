@@ -100,7 +100,7 @@ type worker struct {
 }
 
 func (w *worker) Work() {
-	keys, err := w.bm.store.Keys()
+	keys, err := w.bm.store.SendKeys()
 	if err != nil {
 		logger.Error("BalanceMonitor: error getting keys", err)
 	}
