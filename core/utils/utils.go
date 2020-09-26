@@ -532,6 +532,10 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 		return decimal.NewFromFloat32(v), nil
 	case *big.Int:
 		return decimal.NewFromBigInt(v, 0), nil
+	case decimal.Decimal:
+		return v, nil
+	case *decimal.Decimal:
+		return *v, nil
 	default:
 		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal", input)
 	}

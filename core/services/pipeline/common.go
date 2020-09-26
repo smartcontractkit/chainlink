@@ -43,6 +43,7 @@ type (
 
 var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
+	ErrBadInput              = errors.New("bad input for task")
 )
 
 type BaseTask struct {

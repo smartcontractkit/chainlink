@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -79,4 +80,10 @@ func makeOCRJobSpecWithHTTPURL(t *testing.T, url string) (*offchainreporting.Ora
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
 	return &ocrspec, &dbSpec
+}
+
+func mustDecimal(t *testing.T, arg string) *decimal.Decimal {
+	ret, err := decimal.NewFromString(arg)
+	require.NoError(t, err)
+	return &ret
 }

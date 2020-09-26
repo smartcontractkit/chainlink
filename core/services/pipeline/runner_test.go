@@ -6,26 +6,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 func TestRunner(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
-	db, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
-	require.NoError(t, err)
-	defer db.Close()
-
-	// store, cleanup := cltest.NewStore(t)
-	// defer cleanup()
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_runner", true)
+	defer cleanupDB()
+	db := oldORM.DB
 
 	var httpURL string
 	{
@@ -56,7 +48,7 @@ func TestRunner(t *testing.T) {
 
 	// Need a job in order to create a run
 	ocrSpec, dbSpec := makeOCRJobSpecWithHTTPURL(t, httpURL)
-	err = jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+	err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
 	require.NoError(t, err)
 
 	runner.Start()
