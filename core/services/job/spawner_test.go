@@ -77,7 +77,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 		spawner.Start()
@@ -144,7 +144,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 
@@ -175,7 +175,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB))
+		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 

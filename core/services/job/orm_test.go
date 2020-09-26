@@ -16,14 +16,11 @@ import (
 )
 
 func TestORM(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_runner", true)
+	defer cleanupDB()
+	db := oldORM.DB
 
-	db, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
-	require.NoError(t, err)
-	defer db.Close()
-
-	orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db))
+	orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 	defer orm.Close()
 
 	ocrSpec, dbSpec := makeOCRJobSpec(t)
@@ -45,7 +42,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db2.Close()
 
-	orm2 := job.NewORM(db2, config.DatabaseURL(), pipeline.NewORM(db2))
+	orm2 := job.NewORM(db2, config.DatabaseURL(), pipeline.NewORM(db2, config.DatabaseURL()))
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {

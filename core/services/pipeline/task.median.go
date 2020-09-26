@@ -21,6 +21,10 @@ func (t *MedianTask) Type() TaskType {
 }
 
 func (f *MedianTask) Run(inputs []Result) (result Result) {
+	if len(inputs) == 0 {
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")}
+	}
+
 	answers := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -41,7 +45,7 @@ func (f *MedianTask) Run(inputs []Result) (result Result) {
 
 	errorRate := float64(len(fetchErrors)) / float64(len(answers)+len(fetchErrors))
 	if errorRate >= 0.5 {
-		return Result{Error: errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")}
+		return Result{Error: errors.Wrap(ErrBadInput, "majority of fetchers in median failed: "+multierr.Combine(fetchErrors...).Error())}
 	}
 
 	sort.Slice(answers, func(i, j int) bool {
