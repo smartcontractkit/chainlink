@@ -10,10 +10,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -49,7 +51,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	}
 
 	for _, initr := range initrs {
-		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, ReceiveLogRequest)
+		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, store.Config, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
 		} else {
@@ -89,10 +91,11 @@ func NewInitiatorSubscription(
 	client eth.Client,
 	runManager RunManager,
 	nextHead *big.Int,
+	config orm.ConfigReader,
 	callback func(RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
 
-	filter, err := models.FilterQueryFactory(initr, nextHead)
+	filter, err := models.FilterQueryFactory(initr, nextHead, []common.Address{config.OracleContractAddress()})
 	if err != nil {
 		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}

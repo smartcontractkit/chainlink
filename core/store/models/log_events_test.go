@@ -171,7 +171,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(42)
-		filter, err := models.FilterQueryFactory(i, fromBlock)
+		filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
@@ -206,7 +206,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(124)
-		filter, err := models.FilterQueryFactory(i, fromBlock)
+		filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
@@ -240,8 +240,29 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(999)
-		_, err := models.FilterQueryFactory(i, fromBlock)
+		_, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
 		assert.Error(t, err)
+	}
+
+	// With an additional address param
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address: common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			},
+		}
+		filter, err := models.FilterQueryFactory(i, nil, []common.Address{common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff")})
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			Addresses: []common.Address{
+				common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff"),
+			},
+			Topics: [][]common.Hash{},
+		}
+		assert.Equal(t, want, filter)
 	}
 }
 
@@ -255,7 +276,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		JobSpecID: id,
 	}
 	fromBlock := big.NewInt(42)
-	filter, err := models.FilterQueryFactory(i, fromBlock)
+	filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
 	assert.NoError(t, err)
 
 	want := ethereum.FilterQuery{

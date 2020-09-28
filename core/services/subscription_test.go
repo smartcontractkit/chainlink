@@ -39,7 +39,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	fromBlock := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, fromBlock.NextInt(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, fromBlock.NextInt(), store.Config, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -64,7 +64,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, nil, callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, nil, store.Config, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
@@ -91,7 +91,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	head := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, head.NextInt(), callback)
+	sub, err := services.NewInitiatorSubscription(initr, store.TxManager, jm, head.NextInt(), store.Config, callback)
 	assert.NoError(t, err)
 	defer sub.Unsubscribe()
 
