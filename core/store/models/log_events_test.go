@@ -171,7 +171,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(42)
-		filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
+		filter, err := models.FilterQueryFactory(i, fromBlock)
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
@@ -206,7 +206,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(124)
-		filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
+		filter, err := models.FilterQueryFactory(i, fromBlock)
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
@@ -240,7 +240,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 			},
 		}
 		fromBlock := big.NewInt(999)
-		_, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
+		_, err := models.FilterQueryFactory(i, fromBlock)
 		assert.Error(t, err)
 	}
 
@@ -252,7 +252,7 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 				Address: common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
 			},
 		}
-		filter, err := models.FilterQueryFactory(i, nil, []common.Address{common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff")})
+		filter, err := models.FilterQueryFactory(i, nil, common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff"))
 		assert.NoError(t, err)
 
 		want := ethereum.FilterQuery{
@@ -276,7 +276,7 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		JobSpecID: id,
 	}
 	fromBlock := big.NewInt(42)
-	filter, err := models.FilterQueryFactory(i, fromBlock, []common.Address{})
+	filter, err := models.FilterQueryFactory(i, fromBlock)
 	assert.NoError(t, err)
 
 	want := ethereum.FilterQuery{

@@ -94,7 +94,7 @@ func JobSpecIDTopics(jsID *ID) []common.Hash {
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *big.Int, addresses []common.Address) (q ethereum.FilterQuery, err error) {
+func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address) (q ethereum.FilterQuery, err error) {
 	q.FromBlock = from
 	filterAddresses := append([]common.Address{i.Address}, addresses...)
 	q.Addresses = utils.WithoutZeroAddresses(filterAddresses)

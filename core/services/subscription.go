@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
@@ -95,7 +94,7 @@ func NewInitiatorSubscription(
 	callback func(RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
 
-	filter, err := models.FilterQueryFactory(initr, nextHead, []common.Address{config.OperatorContractAddress()})
+	filter, err := models.FilterQueryFactory(initr, nextHead, config.OperatorContractAddress())
 	if err != nil {
 		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}
