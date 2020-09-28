@@ -1245,7 +1245,7 @@ func (orm *ORM) AllKeys() ([]models.Key, error) {
 // SendKeys will return only the keys that are not is_funding=true.
 func (orm *ORM) SendKeys() ([]models.Key, error) {
 	var keys []models.Key
-	err := orm.DB.Where("is_funding = FALSE").Order("created_at ASC, address ASC").Find(&keys).Error
+	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
 	return keys, err
 }
 

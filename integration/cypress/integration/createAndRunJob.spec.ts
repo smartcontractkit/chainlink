@@ -23,7 +23,7 @@ context('End to end', function() {
     cy.contains('a > p', 'JSON').click()
 
     // Wait for job run to complete
-    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 500 })
+    cy.reloadUntilFound('h5:contains(Completed)', { waitTime: 1500 })
     cy.contains('h5', 'Completed').should('exist')
 
     // Navigate to transactions page
