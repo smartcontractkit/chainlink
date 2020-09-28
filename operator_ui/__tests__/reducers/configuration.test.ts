@@ -7,7 +7,7 @@ import {
 describe('reducers/configuration', () => {
   it('UPSERT_CONFIGURATION sets the config attributes', () => {
     const data = {
-      configWhitelists: {
+      configPrinters: {
         idA: { attributes: { attributeA: 'ValueA' } },
       },
     }

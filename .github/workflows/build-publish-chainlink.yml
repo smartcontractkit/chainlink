@@ -1,0 +1,51 @@
+on:
+  push:
+    branches:
+      - 'releases/**'
+    tags:
+      - '**'
+
+jobs:
+  build-publish-chainlink:
+    name: Build chainlink image
+    runs-on: self-hosted
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: '${{ secrets.GHA_AWS_ACCESS_KEY_ID }}'
+          aws-secret-access-key: '${{ secrets.GHA_AWS_SECRET_ACCESS_KEY }}'
+          aws-region: '${{ secrets.AWS_DEFAULT_REGION }}'
+          role-to-assume: '${{ secrets.GHA_AWS_ROLE_TO_ASSUME }}'
+          role-duration-seconds: 1200
+          role-session-name: 'temp-session'
+          role-skip-session-tagging: true
+      - name: Docker login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
+      # https://github.com/docker/build-push-action/issues/20
+      - name: Get ecr password
+        id: get-ecr-password
+        run: |
+          aws ecr get-login-password \
+          | {
+            read PASSWORD
+            echo "::add-mask::$PASSWORD"
+            echo "::set-output name=password::$PASSWORD"
+          }
+      - name: Build & Push image
+        uses: docker/build-push-action@v1
+        with:
+          registry: ${{ steps.login-ecr.outputs.registry }}
+          repository: ${{ secrets.ECR_REPO }}
+          username: AWS # temporary
+          password: ${{ steps.get-ecr-password.outputs.password }} # temporary
+          dockerfile: core/chainlink.Dockerfile
+          build_args: COMMIT_SHA=${{ github.sha }},SGX_SIMULATION=false,ENVIRONMENT=release
+          tags: githubactions
+          add_git_labels: true
+          tag_with_ref: true
+          tag_with_sha: true
+          push: false # Left disabled for now until suitable runner env is found

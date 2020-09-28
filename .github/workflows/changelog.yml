@@ -1,5 +1,5 @@
 #
-# This action checks PRs to see if any CHANGELOG* files were updated. 
+# This action checks PRs to see if any CHANGELOG* files were updated.
 # If none were, it will add a message to the PR asking if it would make sense to do so.
 #
 name: Changelog
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check for changed files
-        id: changedfiles 
+        id: changedfiles
         uses: futuratrepadeira/changed-files@186b5b30b1f5e44ed655a59652746c3ce00d53ef # Version v3.1.1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -21,7 +21,7 @@ jobs:
         uses: unsplash/comment-on-pr@d1a1d5dd1eb1bb657a01f4d92dd5e4d5bb7857d3 # Version v1.2.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        if: 
+        if:
           contains(steps.changedfiles.outputs.files_updated, 'CHANGELOG') != true && contains(steps.changedfiles.outputs.files_created, 'CHANGELOG') != true
         with:
           msg: "I see that you haven't updated any CHANGELOG files. Would it make sense to do so?"

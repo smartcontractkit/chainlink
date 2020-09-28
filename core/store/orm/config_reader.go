@@ -34,7 +34,7 @@ type ConfigReader interface {
 	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
-	EthGasBumpTxDepth() uint64
+	EthGasBumpTxDepth() uint16
 	EthGasBumpWei() *big.Int
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
@@ -44,6 +44,7 @@ type ConfigReader interface {
 	EthHeadTrackerMaxBufferSize() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
+	EthereumSecondaryURL() string
 	GasUpdaterBlockDelay() uint16
 	GasUpdaterBlockHistorySize() uint16
 	GasUpdaterTransactionPercentile() uint16

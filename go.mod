@@ -31,7 +31,7 @@ require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/guregu/null v3.5.0+incompatible
-	github.com/ipfs/go-datastore v0.4.4
+	github.com/ipfs/go-datastore v0.4.5
 	github.com/ipfs/go-ds-sql v0.2.0
 	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
@@ -66,6 +66,7 @@ require (
 	go.uber.org/multierr v1.5.0
 	go.uber.org/zap v1.15.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/text v0.3.3
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
@@ -73,4 +74,5 @@ require (
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/guregu/null.v3 v3.5.0
+	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 )

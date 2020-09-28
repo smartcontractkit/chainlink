@@ -14,7 +14,7 @@ module.exports = {
     'prettier/@typescript-eslint',
   ],
   rules: {
-    'radix': ['error', 'always'],
+    radix: ['error', 'always'],
     'object-shorthand': ['error', 'always'],
     'prettier/prettier': [
       'error',
@@ -46,15 +46,7 @@ module.exports = {
     },
     // add react linting for all of our react projects
     {
-      files: [
-        'explorer/client/**/*',
-        'operator_ui/**/*',
-        'feeds/**/*',
-        'styleguide/**/*',
-        'tools/json-api-client/**/*',
-        'tools/local-storage/**/*',
-        'tools/redux/**/*',
-      ],
+      files: ['operator_ui/**/*'],
       plugins: ['react-hooks'],
       extends: ['plugin:react/recommended'],
       env: {

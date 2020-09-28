@@ -1,11 +1,10 @@
 <br/>
 <p align="center">
 <a href="https://chain.link" target="_blank">
-<img src="./styleguide/static/images/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
+<img src="https://raw.githubusercontent.com/smartcontractkit/chainlink/develop/docs/logo-chainlink-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
-
 
 ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)
 [![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
@@ -40,16 +39,20 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
 is the primary communication channel used for day to day communication,
 answering development questions, and aggregating Chainlink related content. Take
-a look at the [community docs](../docs/COMMUNITY.md) for more information 
+a look at the [community docs](../docs/COMMUNITY.md) for more information
 regarding Chainlink social accounts, news, and networking.
 
 ## Install
 
-1. [Install Go 1.14](https://golang.org/doc/install#install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
-2. Install [NodeJS](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+1. [Install Go 1.14](https://golang.org/doc/install?download=go1.14.9.darwin-amd64.pkg), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
+   - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go` 
+2. Install [NodeJS 10.16](https://nodejs.org/en/download/package-manager/) & [Yarn](https://yarnpkg.com/lang/en/docs/install/)
+   -  It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects: `nvm install 10.16 && nvm use 10.16`
 3. Install [Postgres (>= 9.6)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
+   - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection
 4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
 5. Build and install Chainlink: `make install`
+   - If you got any errors regarding locked yarn package, try running `yarn install` before this step
 6. Run the node: `chainlink help`
 
 ### Ethereum Node Requirements
@@ -95,17 +98,15 @@ You can configure your node's behavior by setting environment variables which ca
 
 ## Project Structure
 
-Chainlink is a monorepo containing several logicaly separatable and relatable 
+Chainlink is a monorepo containing several logicaly separatable and relatable
 projects.
 
 - [core](./core) - the core Chainlink node
 - [@chainlink/belt](./belt) - tools for performing commands on Chainlink smart contracts
 - [@chainlink/contracts](./evm-contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
-- [explorer](./explorer) - [Mainnet Chainlink Explorer](https://explorer.chain.link/)
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
 - [sgx](./core/sgx) - an optional and experimental Chainlink module to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
-- [styleguide](./styleguide) - Chainlink style guide
 - [tools](./tools) - Chainlink tools
 
 ## External Adapters
@@ -159,6 +160,7 @@ export CHAINLINK_DEV=true # I prefer to use direnv and skip this
 ```
 
 6.  Drop/Create test database and run migrations:
+
 ```
 go run ./core/main.go local db preparetest
 ```
@@ -170,7 +172,6 @@ If you do end up modifying the migrations for the database, you will need to rer
 ```bash
 go test -parallel=1 ./...
 ```
-
 
 ### Solidity Development
 
@@ -207,4 +208,3 @@ Thank you!
 ## License
 
 [MIT](https://choosealicense.com/licenses/mit/)
-

@@ -272,27 +272,6 @@ func (_m *TxManager) Connected() bool {
 	return r0
 }
 
-// ContractLINKBalance provides a mock function with given fields: wr
-func (_m *TxManager) ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error) {
-	ret := _m.Called(wr)
-
-	var r0 assets.Link
-	if rf, ok := ret.Get(0).(func(models.WithdrawalRequest) assets.Link); ok {
-		r0 = rf(wr)
-	} else {
-		r0 = ret.Get(0).(assets.Link)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(models.WithdrawalRequest) error); ok {
-		r1 = rf(wr)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // CreateTx provides a mock function with given fields: to, data
 func (_m *TxManager) CreateTx(to common.Address, data []byte) (*models.Tx, error) {
 	ret := _m.Called(to, data)

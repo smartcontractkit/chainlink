@@ -10,12 +10,24 @@ if [ -z $CI ]; then
   export DOCKER_BUILDKIT=1
 fi
 
+# Export Explorer docker tag to be used in docker-compose files
+if [ -z $EXPLORER_DOCKER_TAG ]; then
+  export EXPLORER_DOCKER_TAG="develop"
+fi
+
 base_files="-f docker-compose.yaml -f docker-compose.postgres.yaml"
 # Allow for choosing between geth or parity
 if [ $GETH_MODE ]; then
   base_files="$base_files -f docker-compose.gethnet.yaml"
 else
   base_files="$base_files -f docker-compose.paritynet.yaml"
+fi
+
+# Build Explorer from source if path is set
+if [ $EXPLORER_SOURCE_PATH ]; then
+  base_files="$base_files -f docker-compose.explorer-source.yaml"
+else
+  base_files="$base_files -f docker-compose.explorer.yaml"
 fi
 
 base="docker-compose $base_files"                                       # base config, used standalone for acceptance
@@ -37,7 +49,7 @@ clean_docker() {
 
 # Executed before command line args are parsed
 pre_hook() {
-  if [ "$CI" ]; then
+  if [ "$CI" ] && [ -z "$CI_SKIP_PRE_HOOK" ]; then
     # If this script is running in CI, clean up our state before running tests
     clean_docker
   fi
@@ -93,6 +105,9 @@ clean)
   ;;
 logs)
   $base logs -f ${@:2}
+  ;;
+logs:test:save)
+  save_test_logs
   ;;
 cld)
   $dev build

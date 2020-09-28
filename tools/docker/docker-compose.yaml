@@ -68,23 +68,6 @@ services:
       - apicredentials
       - keystore
 
-  explorer:
-    container_name: chainlink-explorer
-    image: chainlink/explorer
-    build:
-      context: ../../
-      dockerfile: explorer/Dockerfile
-    entrypoint: yarn workspace @chainlink/explorer dev:compose
-    restart: always
-    ports:
-      - 8080:3001
-    depends_on:
-      - explorer-db
-    environment:
-      - EXPLORER_COOKIE_SECRET
-      - EXPLORER_SERVER_PORT
-      - PGPASSWORD=$EXPLORER_PGPASSWORD
-
   explorer-db:
     container_name: chainlink-explorer-db
     image: postgres:11.6
@@ -96,23 +79,6 @@ services:
       POSTGRES_DB: $EXPLORER_DB_NAME
       POSTGRES_PASSWORD: $EXPLORER_PGPASSWORD
 
-  ingester:
-    container_name: chainlink-ingester
-    image: chainlink/ingester
-    build:
-      context: ../../
-      dockerfile: ingester/ingester.Dockerfile
-    restart: always
-    depends_on:
-      - explorer-db
-    environment:
-      - ETH_CHAIN_ID
-      - ETH_URL
-      - DB_HOST=$INGESTER_DB_HOST
-      - DB_NAME=$EXPLORER_DB_NAME
-      - DB_PORT=$EXPLORER_DB_PORT
-      - DB_USERNAME=$INGESTER_DB_USERNAME
-      - DB_PASSWORD=$EXPLORER_PGPASSWORD
 # TODO
 # - replace clroot with secrets
 # - extract explorer and tools into separate docker-compose files

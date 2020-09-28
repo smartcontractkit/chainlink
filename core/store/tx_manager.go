@@ -77,7 +77,6 @@ type TxManager interface {
 
 	BumpGasUntilSafe(hash common.Hash) (*types.Receipt, AttemptState, error)
 
-	ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error)
 	GetLINKBalance(address common.Address) (*assets.Link, error)
 	NextActiveAccount() *ManagedAccount
 
@@ -501,28 +500,6 @@ func (txm *EthTxManager) GetAvailableAccount(from common.Address) *ManagedAccoun
 	return nil
 }
 
-// ContractLINKBalance returns the balance for the contract associated with this
-// withdrawal request, or any errors
-func (txm *EthTxManager) ContractLINKBalance(wr models.WithdrawalRequest) (assets.Link, error) {
-	contractAddress := &wr.ContractAddress
-	if (*contractAddress == common.Address{}) {
-		if txm.config.OracleContractAddress() == nil {
-			return assets.Link{}, errors.New(
-				"OracleContractAddress not set; cannot check LINK balance")
-		}
-		contractAddress = txm.config.OracleContractAddress()
-	}
-
-	linkBalance, err := txm.GetLINKBalance(*contractAddress)
-	if err != nil {
-		return assets.Link{}, multierr.Combine(
-			fmt.Errorf("could not check LINK balance for %v",
-				contractAddress),
-			err)
-	}
-	return *linkBalance, nil
-}
-
 // CheckAttempt retrieves a receipt for a TxAttempt, and check if it meets the
 // minimum number of confirmations
 func (txm *EthTxManager) CheckAttempt(txAttempt *models.TxAttempt, blockHeight uint64) (*types.Receipt, AttemptState, error) {
@@ -708,14 +685,15 @@ func (txm *EthTxManager) handleSafe(
 }
 
 func (txm *EthTxManager) BumpGasByIncrement(originalGasPrice *big.Int) *big.Int {
-	return BumpGas(txm.config, originalGasPrice)
+	gasPrice, _ := BumpGas(txm.config, originalGasPrice)
+	return gasPrice
 }
 
 // BumpGas computes the next gas price to attempt as the largest of:
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
+func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, error) {
 	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
 
 	var priceByPercentage = new(big.Int)
@@ -727,10 +705,17 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) *big.Int {
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
-		logger.Warnf("bumped gas price of %s would exceed ETH_MAX_GAS_PRICE_WEI (%s), capping to %s. ACTION REQUIRED: Your gas cap is not high enough, you should consider increasing ETH_MAX_GAS_PRICE_WEI", bumpedGasPrice.String(), config.EthMaxGasPriceWei().String(), config.EthMaxGasPriceWei().String())
-		return config.EthMaxGasPriceWei()
+		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s)",
+			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String())
+	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
+		// NOTE: This really shouldn't happen since we enforce minimums for
+		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
+		// but it's here anyway for a "belts and braces" approach
+		return bumpedGasPrice, errors.Errorf("bumped gas price of %s is equal to original gas price of %s."+
+			" ACTION REQUIRED: This is a configuration error, you must increase either "+
+			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
 	}
-	return bumpedGasPrice
+	return bumpedGasPrice, nil
 }
 
 func max(a, b *big.Int) *big.Int {

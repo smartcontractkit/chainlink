@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -133,6 +135,11 @@ func TestHighestPricedTxAttemptPerTx(t *testing.T) {
 	assert.True(t, items[1].GasPrice.ToInt().Cmp(big.NewInt(12211)) == 0)
 }
 
+func TestEthTx_GetID(t *testing.T) {
+	tx := models.EthTx{ID: math.MinInt64}
+	assert.Equal(t, "-9223372036854775808", tx.GetID())
+}
+
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -227,7 +234,7 @@ func TestSafeByteSlice_Success(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		t.Run(string(i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			actual, err := test.ary.SafeByteSlice(test.start, test.end)
 			assert.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
@@ -249,7 +256,7 @@ func TestSafeByteSlice_Error(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		t.Run(string(i), func(t *testing.T) {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			actual, err := test.ary.SafeByteSlice(test.start, test.end)
 			assert.EqualError(t, err, "out of bounds slice access")
 			var expected []byte
