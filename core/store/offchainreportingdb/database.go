@@ -16,18 +16,17 @@ import (
 type (
 	db struct {
 		*sql.DB
-		ctx          context.Context
 		oracleSpecID int
 	}
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(ctx context.Context, sqldb *sql.DB, oracleSpecID int) ocrtypes.Database {
-	return &db{sqldb, ctx, oracleSpecID}
+func NewDB(sqldb *sql.DB, oracleSpecID int) ocrtypes.Database {
+	return &db{sqldb, oracleSpecID}
 }
 
-func (d *db) ReadState(cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
-	q := d.QueryRowContext(d.ctx, `
+func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrtypes.PersistentState, err error) {
+	q := d.QueryRowContext(ctx, `
 SELECT epoch, highest_sent_epoch, highest_received_epoch
 FROM offchainreporting_persistent_states
 WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
@@ -51,12 +50,12 @@ LIMIT 1`, d.oracleSpecID, cd)
 	return ps, nil
 }
 
-func (d *db) WriteState(cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
+func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
 	var highestReceivedEpoch []int64
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
-	_, err := d.ExecContext(d.ctx, `
+	_, err := d.ExecContext(ctx, `
 INSERT INTO offchainreporting_persistent_states (offchainreporting_oracle_spec_id, config_digest, epoch, highest_sent_epoch, highest_received_epoch, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
 ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
@@ -73,8 +72,8 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
 	return errors.Wrap(err, "WriteState failed")
 }
 
-func (d *db) ReadConfig() (c *ocrtypes.ContractConfig, err error) {
-	q := d.QueryRowContext(d.ctx, `
+func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
+	q := d.QueryRowContext(ctx, `
 SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
 FROM offchainreporting_contract_configs
 WHERE offchainreporting_oracle_spec_id = $1
@@ -102,7 +101,7 @@ LIMIT 1`, d.oracleSpecID)
 	return
 }
 
-func (d *db) WriteConfig(c ocrtypes.ContractConfig) error {
+func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	var signers [][]byte
 	var transmitters [][]byte
 	for _, s := range c.Signers {
@@ -111,7 +110,7 @@ func (d *db) WriteConfig(c ocrtypes.ContractConfig) error {
 	for _, t := range c.Transmitters {
 		transmitters = append(transmitters, t.Bytes())
 	}
-	_, err := d.ExecContext(d.ctx, `
+	_, err := d.ExecContext(ctx, `
 INSERT INTO offchainreporting_contract_configs (offchainreporting_oracle_spec_id, config_digest, signers, transmitters, threshold, encoded_config_version, encoded, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
 ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
@@ -127,7 +126,7 @@ ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
 	return errors.Wrap(err, "WriteConfig failed")
 }
 
-func (d *db) StorePendingTransmission(k ocrtypes.PendingTransmissionKey, p ocrtypes.PendingTransmission) error {
+func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey, p ocrtypes.PendingTransmission) error {
 	median := utils.NewBig(p.Median)
 	var rs [][]byte
 	var ss [][]byte
@@ -138,7 +137,7 @@ func (d *db) StorePendingTransmission(k ocrtypes.PendingTransmissionKey, p ocrty
 		ss = append(ss, v[:])
 	}
 
-	_, err := d.ExecContext(d.ctx, `
+	_, err := d.ExecContext(ctx, `
 INSERT INTO offchainreporting_pending_transmissions (
 	offchainreporting_oracle_spec_id,
 	config_digest,
@@ -167,8 +166,8 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest, epoch, round) DO U
 	return errors.Wrap(err, "StorePendingTransmission failed")
 }
 
-func (d *db) PendingTransmissionsWithConfigDigest(cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
-	rows, err := d.QueryContext(d.ctx, `
+func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
+	rows, err := d.QueryContext(ctx, `
 SELECT 
 	config_digest,
 	epoch,
@@ -224,8 +223,8 @@ WHERE offchainreporting_oracle_spec_id = $1 AND config_digest = $2
 	return m, nil
 }
 
-func (d *db) DeletePendingTransmission(k ocrtypes.PendingTransmissionKey) (err error) {
-	_, err = d.ExecContext(d.ctx, `
+func (d *db) DeletePendingTransmission(ctx context.Context, k ocrtypes.PendingTransmissionKey) (err error) {
+	_, err = d.ExecContext(ctx, `
 DELETE FROM offchainreporting_pending_transmissions
 WHERE offchainreporting_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = $3 AND round = $4
 `, d.oracleSpecID, k.ConfigDigest, k.Epoch, k.Round)
@@ -235,8 +234,8 @@ WHERE offchainreporting_oracle_spec_id = $1 AND  config_digest = $2 AND epoch = 
 	return
 }
 
-func (d *db) DeletePendingTransmissionsOlderThan(t time.Time) (err error) {
-	_, err = d.ExecContext(d.ctx, `
+func (d *db) DeletePendingTransmissionsOlderThan(ctx context.Context, t time.Time) (err error) {
+	_, err = d.ExecContext(ctx, `
 DELETE FROM offchainreporting_pending_transmissions
 WHERE offchainreporting_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
