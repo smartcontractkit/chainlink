@@ -173,7 +173,7 @@ type EnvPrinter struct {
 	MinimumServiceDuration           models.Duration `json:"minimumServiceDuration"`
 	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
-	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
+	OracleContractAddress            common.Address  `json:"oracleContractAddress"`
 	Port                             uint16          `json:"chainlinkPort"`
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
