@@ -53,7 +53,7 @@ type ConfigReader interface {
 	ExplorerURL() *url.URL
 	ExplorerAccessKey() string
 	ExplorerSecret() string
-	OracleContractAddress() common.Address
+	OperatorContractAddress() common.Address
 	LogLevel() LogLevel
 	LogToDisk() bool
 	LogSQLStatements() bool

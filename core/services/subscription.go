@@ -95,7 +95,7 @@ func NewInitiatorSubscription(
 	callback func(RunManager, models.LogRequest),
 ) (InitiatorSubscription, error) {
 
-	filter, err := models.FilterQueryFactory(initr, nextHead, []common.Address{config.OracleContractAddress()})
+	filter, err := models.FilterQueryFactory(initr, nextHead, []common.Address{config.OperatorContractAddress()})
 	if err != nil {
 		return InitiatorSubscription{}, errors.Wrap(err, "NewInitiatorSubscription#FilterQueryFactory")
 	}
