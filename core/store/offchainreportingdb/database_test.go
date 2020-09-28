@@ -25,71 +25,71 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
 			HighestReceivedEpoch: []uint32{3},
 		}
 
-		err := db.WriteState(configDigest, state)
+		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := db.ReadState(configDigest)
+		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, state, *readState)
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
 			HighestReceivedEpoch: []uint32{4, 5},
 		}
 
-		err := db.WriteState(configDigest, newState)
+		err := db.WriteState(ctx, configDigest, newState)
 		require.NoError(t, err)
 
-		readState, err := db.ReadState(configDigest)
+		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Equal(t, newState, *readState)
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
 			HighestReceivedEpoch: []uint32{5, 6},
 		}
 
-		err := db.WriteState(configDigest, state)
+		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
 		// db with different spec
-		db = offchainreportingdb.NewDB(ctx, sqldb, -1)
+		db = offchainreportingdb.NewDB(sqldb, -1)
 
-		readState, err := db.ReadState(configDigest)
+		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
 			HighestReceivedEpoch: []uint32{6, 7},
 		}
 
-		err := db.WriteState(configDigest, state)
+		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := db.ReadState(ocrtypes.BytesToConfigDigest([]byte{43}))
+		readState, err := db.ReadState(ctx, ocrtypes.BytesToConfigDigest([]byte{43}))
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -112,19 +112,19 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 
-		err := db.WriteConfig(config)
+		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig()
+		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
 
 		require.Equal(t, config, *readConfig)
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest:         ocrtypes.BytesToConfigDigest([]byte{43}),
@@ -135,24 +135,24 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 			Encoded:              []byte{2, 3, 4, 5, 6},
 		}
 
-		err := db.WriteConfig(newConfig)
+		err := db.WriteConfig(ctx, newConfig)
 		require.NoError(t, err)
 
-		readConfig, err := db.ReadConfig()
+		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
 
 		require.Equal(t, newConfig, *readConfig)
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
+		db := offchainreportingdb.NewDB(sqldb, spec.ID)
 
-		err := db.WriteConfig(config)
+		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		db = offchainreportingdb.NewDB(ctx, sqldb, -1)
+		db = offchainreportingdb.NewDB(sqldb, -1)
 
-		readConfig, err := db.ReadConfig()
+		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
 
 		require.Nil(t, readConfig)
@@ -166,8 +166,8 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	sqldb := store.DB.DB()
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, store)
-	db := offchainreportingdb.NewDB(ctx, sqldb, spec.ID)
-	db2 := offchainreportingdb.NewDB(ctx, sqldb, spec2.ID)
+	db := offchainreportingdb.NewDB(sqldb, spec.ID)
+	db2 := offchainreportingdb.NewDB(sqldb, spec2.ID)
 	configDigest := ocrtypes.BytesToConfigDigest([]byte{42})
 
 	k := ocrtypes.PendingTransmissionKey{
@@ -191,7 +191,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               cltest.Random32Byte(),
 		}
 
-		err := db.StorePendingTransmission(k, p)
+		err := db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
 
 		// Now overwrite value for k to prove that updating works
@@ -203,7 +203,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
-		err = db.StorePendingTransmission(k, p)
+		err = db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
 
 		p2 := ocrtypes.PendingTransmission{
@@ -215,7 +215,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               cltest.Random32Byte(),
 		}
 
-		err = db.StorePendingTransmission(k2, p2)
+		err = db.StorePendingTransmission(ctx, k2, p2)
 		require.NoError(t, err)
 
 		kRedHerring := ocrtypes.PendingTransmissionKey{
@@ -232,10 +232,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               cltest.Random32Byte(),
 		}
 
-		err = db.StorePendingTransmission(kRedHerring, pRedHerring)
+		err = db.StorePendingTransmission(ctx, kRedHerring, pRedHerring)
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(configDigest)
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Len(t, m, 2)
@@ -255,7 +255,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Equal(t, p2, m[k2])
 
 		// No keys for this oracleSpecID yet
-		m, err = db2.PendingTransmissionsWithConfigDigest(configDigest)
+		m, err = db2.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 0)
 	})
@@ -269,20 +269,20 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
-		err := db.StorePendingTransmission(k, p)
+		err := db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
-		err = db2.StorePendingTransmission(k, p)
-		require.NoError(t, err)
-
-		err = db.DeletePendingTransmission(k)
+		err = db2.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(configDigest)
+		err = db.DeletePendingTransmission(ctx, k)
+		require.NoError(t, err)
+
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Did not affect other oracleSpecID
-		m, err = db2.PendingTransmissionsWithConfigDigest(configDigest)
+		m, err = db2.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})
@@ -296,10 +296,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
-		err := db.StorePendingTransmission(k2, p)
+		err := db.StorePendingTransmission(ctx, k2, p)
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(configDigest)
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 		require.Equal(t, p.Median, m[k2].Median)
@@ -315,7 +315,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               cltest.Random32Byte(),
 		}
 
-		err := db.StorePendingTransmission(k, p)
+		err := db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
 
 		p2 := ocrtypes.PendingTransmission{
@@ -326,7 +326,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Ss:               [][32]byte{cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
-		err = db.StorePendingTransmission(k2, p2)
+		err = db.StorePendingTransmission(ctx, k2, p2)
 		require.NoError(t, err)
 
 		p2 = ocrtypes.PendingTransmission{
@@ -338,19 +338,19 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Vs:               cltest.Random32Byte(),
 		}
 
-		err = db.StorePendingTransmission(k2, p2)
+		err = db.StorePendingTransmission(ctx, k2, p2)
 		require.NoError(t, err)
 
-		err = db.DeletePendingTransmissionsOlderThan(time.Unix(900, 0))
+		err = db.DeletePendingTransmissionsOlderThan(ctx, time.Unix(900, 0))
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(configDigest)
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = offchainreportingdb.NewDB(ctx, sqldb, spec2.ID)
-		m, err = db.PendingTransmissionsWithConfigDigest(configDigest)
+		db = offchainreportingdb.NewDB(sqldb, spec2.ID)
+		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 	})
