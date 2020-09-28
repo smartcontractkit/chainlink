@@ -1245,7 +1245,7 @@ func (orm *ORM) AllKeys() ([]models.Key, error) {
 // SendKeys will return only the keys that are not is_funding=true.
 func (orm *ORM) SendKeys() ([]models.Key, error) {
 	var keys []models.Key
-	err := orm.DB.Where("is_funding = FALSE").Order("created_at ASC, address ASC").Find(&keys).Error
+	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
 	return keys, err
 }
 
@@ -1349,6 +1349,7 @@ func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
 	err = orm.Transaction(func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		q = q.Where("is_funding != FALSE")
 		if len(addresses) > 0 {
 			q = q.Where("address in (?)", addresses)
 		}
