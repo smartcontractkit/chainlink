@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -23,19 +24,19 @@ import (
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
 type Fetcher interface {
-	Fetch() (decimal.Decimal, error)
+	Fetch(map[string]interface{}) (decimal.Decimal, error)
 }
 
 // httpFetcher retrieves data via HTTP from an external price adapter source.
 type httpFetcher struct {
 	client      *http.Client
 	url         *url.URL
-	requestData string
+	requestData map[string]interface{}
 }
 
 func newHTTPFetcher(
 	timeout models.Duration,
-	requestData string,
+	requestData map[string]interface{},
 	url *url.URL,
 ) Fetcher {
 	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
@@ -49,12 +50,14 @@ func newHTTPFetcher(
 	}
 }
 
-func (p *httpFetcher) Fetch() (decimal.Decimal, error) {
-	request, err := withRandomID(p.requestData)
+func (p *httpFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
+	request := withIDAndMeta(p.requestData, meta)
+	body, err := json.Marshal(request)
 	if err != nil {
-		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s, cannot add request ID", p.url.String()))
+		return decimal.Decimal{}, errors.Wrap(err, "error encoding request body as JSON")
 	}
-	r, err := p.client.Post(p.url.String(), "application/json", strings.NewReader(request))
+
+	r, err := p.client.Post(p.url.String(), "application/json", bytes.NewReader(body))
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
@@ -90,16 +93,14 @@ func (p *httpFetcher) String() string {
 	return fmt.Sprintf("http price fetcher: %s", p.url.String())
 }
 
-// withRandomID add an arbitrary "id" field to the request json
-// this is done in order to keep request payloads consistent in format
-// between flux monitor polling requests and http/bridge adapters
-func withRandomID(rawReqData string) (string, error) {
-	rawReqData = strings.TrimSpace(rawReqData)
-	valid := json.Valid([]byte(rawReqData))
-	if !valid {
-		return "", errors.New(fmt.Sprintf("invalid raw request json: %s", rawReqData))
+func withIDAndMeta(request, meta map[string]interface{}) map[string]interface{} {
+	output := make(map[string]interface{})
+	for k, v := range request {
+		output[k] = v
 	}
-	return fmt.Sprintf(`{"id":"%s",%s`, models.NewID(), rawReqData[1:]), nil
+	output["id"] = models.NewID()
+	output["meta"] = meta
+	return output
 }
 
 type adapterResponseData struct {
@@ -127,7 +128,7 @@ type medianFetcher struct {
 // from all passed URLs using httpFetcher, and returns the median.
 func newMedianFetcherFromURLs(
 	timeout models.Duration,
-	requestData string,
+	requestData map[string]interface{},
 	priceURLs []*url.URL,
 ) (Fetcher, error) {
 	fetchers := []Fetcher{}
@@ -153,7 +154,7 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	}, nil
 }
 
-func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
+func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -166,7 +167,7 @@ func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 	for _, fetcher := range m.fetchers {
 		fetcher := fetcher
 		go func() {
-			price, err := fetcher.Fetch()
+			price, err := fetcher.Fetch(meta)
 			if err != nil {
 				logger.Error(err)
 				chResults <- result{err: err}
@@ -185,9 +186,12 @@ func (m *medianFetcher) Fetch() (decimal.Decimal, error) {
 		}
 	}
 
-	errorRate := float64(len(fetchErrors)) / float64(len(m.fetchers))
+	fetchersCount := len(m.fetchers)
+	fetchErrorsCount := len(fetchErrors)
+	errorRate := float64(fetchErrorsCount) / float64(fetchersCount)
 	if errorRate >= 0.5 {
-		return decimal.Decimal{}, errors.Wrap(multierr.Combine(fetchErrors...), "majority of fetchers in median failed")
+		err := errors.Wrap(multierr.Combine(fetchErrors...), fmt.Sprintf("at least 50%% of the fetchers in median failed (%d/%d)", fetchErrorsCount, fetchersCount))
+		return decimal.Decimal{}, err
 	}
 
 	sort.Slice(prices, func(i, j int) bool {

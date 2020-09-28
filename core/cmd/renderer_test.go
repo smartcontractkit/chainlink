@@ -45,11 +45,11 @@ func TestRendererTable_RenderConfiguration(t *testing.T) {
 
 	resp, cleanup := client.Get("/v2/config")
 	defer cleanup()
-	cwl := presenters.ConfigWhitelist{}
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cwl))
+	cp := presenters.ConfigPrinter{}
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
 
 	r := cmd.RendererTable{Writer: ioutil.Discard}
-	assert.NoError(t, r.Render(&cwl))
+	assert.NoError(t, r.Render(&cp))
 }
 
 func TestRendererTable_RenderShowJob(t *testing.T) {

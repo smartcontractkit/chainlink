@@ -12,8 +12,8 @@ const INITIAL_STATE: State = {
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case ResourceActionType.UPSERT_CONFIGURATION: {
-      const id = Object.keys(action.data.configWhitelists)[0]
-      const attributes = action.data.configWhitelists[id].attributes
+      const id = Object.keys(action.data.configPrinters)[0]
+      const attributes = action.data.configPrinters[id].attributes
 
       return { ...state, data: attributes }
     }

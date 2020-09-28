@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.17] - 2020-09-28
+
+### Added
+
+- Add new env variable ETH_SECONDARY_URL. Default is unset. You may optionally set this to an http(s) ethereum RPC client URL. If set, transactions will also be broadcast to this secondary ethereum node. This allows transaction broadcasting to be more robust in the face of primary ethereum node bugs or failures.
+
+### Fixed
+
+- Gas bumper no longer hits database constraint error if ETH_MAX_GAS_PRICE_WEI is reached (this was actually mostly harmless, but the errors were annoying)
+
 ## [0.8.16] - 2020-09-18
 
 ### Added
@@ -17,15 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - ETH_DISABLED flag works again
 
+
 ## [0.8.15] - 2020-09-14
 
 ### Added
 
-- Chainlink header images to the following `README.md` files: root, core, 
+- Chainlink header images to the following `README.md` files: root, core,
   evm-contracts, and evm-test-helpers.
 - Database migrations: new log_consumptions records will contain the number of the associated block.
   This migration will allow future version of chainlink to automatically clean up unneeded log_consumption records.
   This migration should execute very fast.
+- External Adapters for the Flux Monitor will now receive the Flux Monitor round state info as the meta payload.
+- Reduce frequency of balance checking.
 
 ### Fixed
 

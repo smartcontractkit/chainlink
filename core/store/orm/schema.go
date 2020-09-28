@@ -42,6 +42,7 @@ type ConfigSchema struct {
 	EthHeadTrackerMaxBufferSize      uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthBalanceMonitorBlockDelay      uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY" default:"1"`
 	EthereumURL                      string          `env:"ETH_URL" default:"ws://localhost:8546"`
+	EthereumSecondaryURL             string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumDisabled                 bool            `env:"ETH_DISABLED" default:"false"`
 	GasUpdaterBlockDelay             uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize       uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`

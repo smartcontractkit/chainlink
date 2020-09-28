@@ -1,7 +1,7 @@
 <br/>
 <p align="center">
 <a href="https://chain.link/" target="_blank" color="#0d2990">
-  <img src="../styleguide/static/images/logo-belt-blue.svg" width="225" alt="Chainlink logo">
+  <img src="https://raw.githubusercontent.com/smartcontractkit/explorer/develop/styleguide/static/images/logo-belt-blue.svg" width="225" alt="Chainlink logo">
 </a>
 </p>
 <br/>
@@ -27,7 +27,7 @@ $ npm install -g @chainlink/belt
 $ belt COMMAND
 running command...
 $ belt (-v|--version|version)
-@chainlink/belt/0.0.1 linux-x64 node-v10.16.3
+@chainlink/belt/0.0.3 darwin-x64 node-v10.16.3
 $ belt --help [COMMAND]
 USAGE
   $ belt COMMAND
@@ -68,7 +68,7 @@ EXAMPLES
   belt box -l
 ```
 
-_See code: [src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/box.ts)_
+_See code: [src/src/commands/box.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/box.ts)_
 
 ## `belt compile [COMPILER]`
 
@@ -100,7 +100,7 @@ EXAMPLE
   ...
 ```
 
-_See code: [src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.1/src/commands/compile.ts)_
+_See code: [src/src/commands/compile.ts](https://github.com/smartcontractkit/chainlink/blob/v0.0.3/src/src/commands/compile.ts)_
 
 ## `belt help [COMMAND]`
 
