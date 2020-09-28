@@ -1350,7 +1350,7 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 	err = orm.Transaction(func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
 		if len(addresses) > 0 {
-			q = q.Where("address in (?)", addresses)
+			q = q.Where("address in (?) AND is_funding != TRUE", addresses)
 		}
 		keys := make([]models.Key, 0)
 		err = q.Find(&keys).Error

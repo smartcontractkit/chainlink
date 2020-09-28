@@ -69,6 +69,7 @@ func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOu
 	if trtx != nil {
 		return e.checkForConfirmation(*trtx, input, store)
 	}
+	logger.Warn("!!!!!!!!!!! perform")
 	return e.insertEthTx(input, store)
 }
 
@@ -85,16 +86,21 @@ func (e *EthTx) checkForConfirmation(trtx models.EthTaskRunTx,
 }
 
 func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (common.Address, error) {
+	logger.Warn("!!!!!!!!!!!!!!!!!!! ROUND ROBIN 0")
 	if len(e.FromAddresses) > 0 {
 		if e.FromAddress != utils.ZeroAddress {
 			logger.Warnf("task spec for task run %s specified both fromAddress and fromAddresses."+
 				" fromAddress is deprecated, it will be ignored and fromAddresses used instead. "+
 				"Specifying both of these keys in a job spec may result in an error in future versions of Chainlink", input.TaskRunID())
 		}
-		return store.GetRoundRobinAddress(e.FromAddresses...)
+		addr, err := store.GetRoundRobinAddress(e.FromAddresses...)
+		logger.Warnw("!!!!!!!! 1 ROUND ROBIN ADDRESS", "address", addr.String(), "err", err)
+		return addr, err
 	}
 	if e.FromAddress == utils.ZeroAddress {
-		return store.GetRoundRobinAddress()
+		addr, err := store.GetRoundRobinAddress()
+		logger.Warnw("!!!!!!!! 2 ROUND ROBIN ADDRESS", "address", addr.String(), "err", err)
+		return addr, err
 	}
 	logger.Warnf(`DEPRECATION WARNING: task spec for task run %s specified a fromAddress of %s. fromAddress has been deprecated and will be removed in a future version of Chainlink. Please use fromAddresses instead. You can pin a job to one address simply by using only one element, like so:
 {
@@ -106,6 +112,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 }
 
 func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	logger.Warn("!!!!!!!!!!!!! insert EthTx")
 	txData, err := getTxData(e, input)
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
@@ -197,6 +204,7 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 }
 
 func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
+	logger.Warn("!!!!!!!!!!! legacy perform")
 	if !store.TxManager.Connected() {
 		return pendingOutgoingConfirmationsOrConnection(input)
 	}
