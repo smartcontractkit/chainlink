@@ -173,7 +173,7 @@ type EnvPrinter struct {
 	MinimumServiceDuration           models.Duration `json:"minimumServiceDuration"`
 	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
-	OracleContractAddress            common.Address  `json:"oracleContractAddress"`
+	OperatorContractAddress          common.Address  `json:"oracleContractAddress"`
 	Port                             uint16          `json:"chainlinkPort"`
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
@@ -244,7 +244,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			MinimumServiceDuration:           config.MinimumServiceDuration(),
 			MinimumContractPayment:           config.MinimumContractPayment(),
 			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
-			OracleContractAddress:            config.OracleContractAddress(),
+			OperatorContractAddress:          config.OperatorContractAddress(),
 			Port:                             config.Port(),
 			ReaperExpiration:                 config.ReaperExpiration(),
 			ReplayFromBlock:                  config.ReplayFromBlock(),

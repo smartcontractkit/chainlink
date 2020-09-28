@@ -684,7 +684,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 
 func setupWithdrawalsApplication(t *testing.T, config *cltest.TestConfig) (*cltest.TestApplication, func()) {
 	oca := common.HexToAddress("0xDEADB3333333F")
-	config.Set("ORACLE_CONTRACT_ADDRESS", &oca)
+	config.Set("OPERATOR_CONTRACT_ADDRESS", &oca)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,

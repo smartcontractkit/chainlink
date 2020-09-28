@@ -415,12 +415,12 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
-// OracleContractAddress represents the deployed Oracle contract's address.
-func (c Config) OracleContractAddress() common.Address {
-	if c.viper.GetString(EnvVarName("OracleContractAddress")) == "" {
+// OperatorContractAddress represents the deployed Oracle contract's address.
+func (c Config) OperatorContractAddress() common.Address {
+	if c.viper.GetString(EnvVarName("OperatorContractAddress")) == "" {
 		return common.Address{}
 	}
-	return c.getWithFallback("OracleContractAddress", parseAddress).(common.Address)
+	return c.getWithFallback("OperatorContractAddress", parseAddress).(common.Address)
 }
 
 // LogLevel represents the maximum level of log messages to output.
