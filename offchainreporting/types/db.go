@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"database/sql/driver"
 	"time"
 
@@ -10,16 +11,16 @@ import (
 // Database persistently stores information on-disk.
 // All its functions should be thread-safe.
 type Database interface {
-	ReadState(configDigest ConfigDigest) (*PersistentState, error)
-	WriteState(configDigest ConfigDigest, state PersistentState) error
+	ReadState(ctx context.Context, configDigest ConfigDigest) (*PersistentState, error)
+	WriteState(ctx context.Context, configDigest ConfigDigest, state PersistentState) error
 
-	ReadConfig() (*ContractConfig, error)
-	WriteConfig(config ContractConfig) error
+	ReadConfig(ctx context.Context) (*ContractConfig, error)
+	WriteConfig(ctx context.Context, config ContractConfig) error
 
-	StorePendingTransmission(PendingTransmissionKey, PendingTransmission) error
-	PendingTransmissionsWithConfigDigest(ConfigDigest) (map[PendingTransmissionKey]PendingTransmission, error)
-	DeletePendingTransmission(PendingTransmissionKey) error
-	DeletePendingTransmissionsOlderThan(time.Time) error
+	StorePendingTransmission(context.Context, PendingTransmissionKey, PendingTransmission) error
+	PendingTransmissionsWithConfigDigest(context.Context, ConfigDigest) (map[PendingTransmissionKey]PendingTransmission, error)
+	DeletePendingTransmission(context.Context, PendingTransmissionKey) error
+	DeletePendingTransmissionsOlderThan(context.Context, time.Time) error
 }
 
 type PendingTransmissionKey struct {
