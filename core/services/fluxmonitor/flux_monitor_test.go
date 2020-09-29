@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -1530,7 +1529,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 			initr := job.Initiators[0]
 
 			flagsContractAddress := cltest.NewAddress()
-			flagsContract, err := flags_wrapper.NewFlags(flagsContractAddress, store.EthClient)
+			flagsContract, err := contracts.NewFlagsContract(flagsContractAddress, store.EthClient)
 			if err != nil {
 				panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
 			}
