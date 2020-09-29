@@ -722,6 +722,7 @@ func DebugPanic() {
 	}
 }
 
+<<<<<<< HEAD
 type PausableTicker struct {
 	ticker   *time.Ticker
 	duration time.Duration
@@ -809,4 +810,35 @@ func EVMBytesToUint64(buf []byte) uint64 {
 		result = result<<8 + uint64(b)
 	}
 	return result
+}
+
+type StartStopOnce struct {
+	state int
+	sync.Mutex
+}
+
+const (
+	ssoState_Unstarted int = iota
+	ssoState_Started
+	ssoState_Stopped
+)
+
+func (once *StartStopOnce) AssertNeverStarted() {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != ssoState_Unstarted {
+		panic("not unstarted")
+	}
+	once.state = ssoState_Started
+}
+
+func (once *StartStopOnce) AssertNeverStopped() {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != ssoState_Started {
+		panic("not started")
+	}
+	once.state = ssoState_Stopped
 }

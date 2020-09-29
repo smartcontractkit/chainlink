@@ -35,7 +35,9 @@ type (
 		jobTypeDelegates   map[Type]Delegate
 		jobTypeDelegatesMu sync.RWMutex
 		services           map[int32][]Service
-		chStopJob          chan int32
+		chStopJob              chan int32
+
+		utils.StartStopOnce
 		chStop             chan struct{}
 		chDone             chan struct{}
 	}
@@ -63,10 +65,12 @@ func NewSpawner(orm ORM) *spawner {
 }
 
 func (js *spawner) Start() {
+	js.AssertNeverStarted()
 	go js.runLoop()
 }
 
 func (js *spawner) Stop() {
+	js.AssertNeverStopped()
 	close(js.chStop)
 	<-js.chDone
 }
