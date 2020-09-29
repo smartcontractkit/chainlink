@@ -15,19 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func TestORM(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-
-	db, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
-	require.NoError(t, err)
-	defer db.Close()
-
-	orm := pipeline.NewORM(db, config.DatabaseURL())
 
 	var specID int32
 
@@ -80,6 +71,12 @@ func TestORM(t *testing.T) {
 	}
 
 	t.Run("creates task DAGs", func(t *testing.T) {
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
+		defer cleanupDB()
+		db := oldORM.DB
+
+		orm := pipeline.NewORM(db, config.DatabaseURL())
+
 		g := pipeline.NewTaskDAG()
 		err := g.UnmarshalText([]byte(dotStr))
 		require.NoError(t, err)
@@ -126,6 +123,12 @@ func TestORM(t *testing.T) {
 
 	var runID int64
 	t.Run("creates runs", func(t *testing.T) {
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
+		defer cleanupDB()
+		db := oldORM.DB
+
+		orm := pipeline.NewORM(db, config.DatabaseURL())
+
 		jobORM := job.NewORM(db, config.DatabaseURL(), orm)
 		defer jobORM.Close()
 
@@ -226,13 +229,31 @@ func TestORM(t *testing.T) {
 		for _, test := range tests {
 			test := test
 			t.Run(test.name, func(t *testing.T) {
+				config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
+				defer cleanupDB()
+				db := oldORM.DB
+
+				orm := pipeline.NewORM(db, config.DatabaseURL())
+				jobORM := job.NewORM(db, config.DatabaseURL(), orm)
+				defer jobORM.Close()
+
 				var (
 					taskRuns     = make(map[string]pipeline.TaskRun)
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
+				ocrSpec, dbSpec := makeOCRJobSpec(t)
+
+				// Need a job in order to create a run
+				err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+				require.NoError(t, err)
+
+				// Create the run
+				runID, err = orm.CreateRun(dbSpec.ID)
+				require.NoError(t, err)
+
 				// Set up a goroutine to await the run's completion
-				ctx, cancel := context.WithCancel(context.Background())
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 				defer cancel()
 				chRunComplete := make(chan struct{})
 				go func() {
@@ -242,10 +263,12 @@ func TestORM(t *testing.T) {
 				}()
 
 				// First, "claim" one of the output task runs to ensure that `ProcessNextUnclaimedTaskRun` doesn't return it
-				chClaimed := make(chan struct{})
-				chBlock := make(chan struct{})
-				chUnlocked := make(chan struct{})
-				var locked pipeline.TaskRun
+				var (
+					chClaimed  = make(chan struct{})
+					chBlock    = make(chan struct{})
+					chUnlocked = make(chan struct{})
+					locked     pipeline.TaskRun
+				)
 				go func() {
 					err := utils.GormTransaction(db, func(tx *gorm.DB) error {
 						err := tx.Raw(`
@@ -275,8 +298,12 @@ func TestORM(t *testing.T) {
 
 							// Ensure the predecessors' answers match what we expect
 							for _, p := range predecessorRuns {
-								require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
-								if !p.Error.IsZero() {
+								_, exists := test.answers[p.DotID]
+								require.True(t, exists)
+								require.True(t, p.Output != nil || !p.Error.IsZero())
+								if p.Output != nil {
+									require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+								} else if !p.Error.IsZero() {
 									require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
 								}
 							}
@@ -309,8 +336,12 @@ func TestORM(t *testing.T) {
 					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
-							require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
-							if !p.Error.IsZero() {
+							_, exists := test.answers[p.DotID]
+							require.True(t, exists)
+							require.True(t, p.Output != nil || !p.Error.IsZero())
+							if p.Output != nil {
+								require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+							} else if !p.Error.IsZero() {
 								require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
 							}
 						}
@@ -333,7 +364,7 @@ func TestORM(t *testing.T) {
 					require.True(t, done)
 				}
 
-				// Ensure the run is now considered complete
+				// Ensure that the run is now considered complete
 				{
 					select {
 					case <-time.After(5 * time.Second):
@@ -347,20 +378,31 @@ func TestORM(t *testing.T) {
 					require.Len(t, finishedRuns, len(expectedTasks))
 
 					for _, run := range finishedRuns {
-						require.Equal(t, test.answers[run.DotID].Value, run.Output.Val)
-						if !run.Error.IsZero() {
+						require.True(t, run.Output != nil || !run.Error.IsZero())
+						if run.Output != nil {
+							require.Equal(t, test.answers[run.DotID].Value, run.Output.Val)
+						} else if !run.Error.IsZero() {
 							require.Equal(t, test.answers[run.DotID].Error.Error(), run.Error.ValueOrZero())
 						}
 					}
 				}
 
-				// Make sure we can retrieve the correct results by calling .ResultsForRun
+				// Ensure that we can retrieve the correct results by calling .ResultsForRun
 				results, err := orm.ResultsForRun(runID)
 				require.NoError(t, err)
 				require.Len(t, results, 2)
 
-				require.Equal(t, test.answers["answer1"], results[0])
-				require.Equal(t, test.answers["answer2"], results[1])
+				if test.answers["answer1"].Value != nil {
+					require.Equal(t, test.answers["answer1"], results[0])
+				} else {
+					require.Equal(t, test.answers["answer1"].Error.Error(), results[0].Error.Error())
+				}
+
+				if test.answers["answer2"].Value != nil {
+					require.Equal(t, test.answers["answer2"], results[1])
+				} else {
+					require.Equal(t, test.answers["answer2"].Error.Error(), results[1].Error.Error())
+				}
 			})
 		}
 	})
