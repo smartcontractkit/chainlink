@@ -59,7 +59,28 @@ func Migrate(tx *gorm.DB) error {
             )
         );
 
-        CREATE OR REPLACE FUNCTION notifyJobRunCompletion() RETURNS TRIGGER AS $_$
+
+        ---
+        --- Notify the Chainlink node when a new pipeline run has started
+        ---
+
+        CREATE OR REPLACE FUNCTION notifyPipelineRunStarted() RETURNS TRIGGER AS $_$
+        BEGIN
+            PERFORM pg_notify('pipeline_run_started', NEW.id::text);
+            RETURN NEW;
+        END
+        $_$ LANGUAGE 'plpgsql';
+
+        CREATE TRIGGER notify_pipeline_run_started
+        AFTER INSERT ON pipeline_runs
+        FOR EACH ROW EXECUTE PROCEDURE notifyPipelineRunStarted();
+
+
+        ---
+        --- Notify the Chainlink node when a pipeline run has completed
+        ---
+
+        CREATE OR REPLACE FUNCTION notifyPipelineRunCompleted() RETURNS TRIGGER AS $_$
         DECLARE done BOOLEAN;
         BEGIN
             SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
@@ -68,18 +89,16 @@ func Migrate(tx *gorm.DB) error {
                 JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
                 WHERE pipeline_runs.id = NEW.pipeline_run_id;
 
-            RAISE WARNING 'done done done is %, new is %', done, NEW.pipeline_run_id;
-
             IF done = TRUE THEN
-                PERFORM pg_notify('pipeline_job_run_completed', NEW.pipeline_run_id::text);
+                PERFORM pg_notify('pipeline_run_completed', NEW.pipeline_run_id::text);
             END IF;
             RETURN NEW;
         END
         $_$ LANGUAGE 'plpgsql';
 
-        CREATE TRIGGER notify_job_run_completion
+        CREATE TRIGGER notify_pipeline_run_completed
         AFTER UPDATE ON pipeline_task_runs
-        FOR EACH ROW EXECUTE PROCEDURE notifyJobRunCompletion();
+        FOR EACH ROW EXECUTE PROCEDURE notifyPipelineRunCompleted();
 
 
 

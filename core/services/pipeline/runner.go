@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,8 +22,8 @@ type (
 	}
 
 	runner struct {
-		processTasks utils.SleeperTask
-		orm          ORM
+		processIncompleteTaskRuns utils.SleeperTask
+		orm                       ORM
 		config                    Config
 
 		utils.StartStopOnce
@@ -38,8 +39,8 @@ func NewRunner(orm ORM, config Config) *runner {
 		chStop: make(chan struct{}),
 		chDone: make(chan struct{}),
 	}
-	r.processTasks = utils.NewSleeperTask(
-		utils.SleeperTaskFuncWorker(r.processIncompleteTaskRuns),
+	r.processIncompleteTaskRuns = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(r.processIncompleteTaskRunsWorker),
 	)
 	return r
 }
@@ -56,33 +57,44 @@ func (r *runner) Stop() {
 }
 
 func (r *runner) runLoop() {
-		defer close(r.chDone)
+	defer close(r.chDone)
 
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
+	newRunListener, err := r.orm.ListenForNewRuns()
+	if err != nil {
+		logger.Errorw(`Pipeline runner failed to subscribe to "new run" events, falling back to polling`, "error", err)
+	}
 
-		for {
-			select {
-			case <-r.chStop:
-				return
-			case <-ticker.C:
-				r.processIncompleteTaskRuns()
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-r.chStop:
+			if newRunListener != nil {
+				err := newRunListener.Stop()
+				if err != nil {
+					logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
+				}
 			}
-		}
-	}()
-}
+			r.processIncompleteTaskRuns.Stop()
+			return
 
-func (r *runner) Stop() {
-	close(r.chStop)
-	<-r.chDone
+		case <-newRunListener.Events():
+			r.processIncompleteTaskRuns.WakeUp()
+		case <-ticker.C:
+			r.processIncompleteTaskRuns.WakeUp()
+		}
+	}
 }
 
 func (r *runner) CreateRun(jobID int32) (int64, error) {
+	logger.Infow("Creating new pipeline run", "jobID", jobID)
+
 	runID, err := r.orm.CreateRun(jobID)
 	if err != nil {
+		logger.Errorw("Error creating new pipeline run", "jobID", jobID, "error", err)
 		return 0, err
 	}
-	r.processTasks.WakeUp()
 	return runID, nil
 }
 
