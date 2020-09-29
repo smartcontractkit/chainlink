@@ -443,6 +443,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(mocks.LogBroadcaster)
+	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
@@ -453,6 +454,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	rm.On("Create", job.ID, &initr, mock.Anything, matchRunRequestForRoundID(4)).Return(&run, nil).Once().
 		Run(func(mock.Arguments) { close(chSafeToAssert) })
 
+	flags := cltest.NewFlagsContractWithNoneRaised(t)
+
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
@@ -461,7 +464,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		nil,
 		rm,
 		fetcher,
-		nil,
+		flags,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -515,8 +518,11 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
 			fluxAggregator := new(mocks.FluxAggregator)
-			logBroadcaster := new(mocks.LogBroadcaster)
 			logBroadcast := new(mocks.LogBroadcast)
+			logBroadcaster := new(mocks.LogBroadcaster)
+
+			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
+			logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
@@ -542,6 +548,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 			}
 
+			flags := cltest.NewFlagsContractWithNoneRaised(t)
+
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				fluxAggregator,
@@ -550,7 +558,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				nil,
 				runManager,
 				fetcher,
-				nil,
+				flags,
 				func() {},
 			)
 			require.NoError(t, err)
@@ -607,6 +615,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	runManager := new(mocks.RunManager)
 	fluxAggregator := new(mocks.FluxAggregator)
 	logBroadcaster := new(mocks.LogBroadcaster)
+	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
+	logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -629,6 +639,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		Run(func(mock.Arguments) { close(ch) }).
 		Once()
 
+	flags := cltest.NewFlagsContractWithNoneRaised(t)
+
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
@@ -637,7 +649,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		nil,
 		runManager,
 		fetcher,
-		nil,
+		flags,
 		func() {},
 	)
 	require.NoError(t, err)
@@ -665,6 +677,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	runManager := new(mocks.RunManager)
 	fluxAggregator := new(mocks.FluxAggregator)
 	logBroadcaster := new(mocks.LogBroadcaster)
+
+	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
+	logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -701,6 +716,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		Run(func(mock.Arguments) { close(chRoundState2) }).
 		Once()
 
+	flags := cltest.NewFlagsContractWithNoneRaised(t)
+
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
@@ -709,7 +726,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		nil,
 		runManager,
 		fetcher,
-		nil,
+		flags,
 		func() {},
 	)
 	require.NoError(t, err)
