@@ -467,7 +467,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	for i := 1; i <= 4; i++ {
 		logBroadcast := new(mocks.LogBroadcast)
-		logBroadcast.On("Log").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
+		logBroadcast.On("DecodedLog").Return(&contracts.LogNewRound{RoundId: big.NewInt(int64(i)), StartedAt: big.NewInt(0)})
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
 		logBroadcast.On("MarkConsumed").Return(nil)
 		logBroadcasts = append(logBroadcasts, logBroadcast)
@@ -562,7 +562,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				})
 
 				decodedLog := contracts.LogNewRound{RoundId: big.NewInt(2), StartedAt: big.NewInt(0)}
-				logBroadcast.On("Log").Return(&decodedLog)
+				logBroadcast.On("DecodedLog").Return(&decodedLog)
 				logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
 				logBroadcast.On("MarkConsumed").Return(nil).Once()
 				deviationChecker.HandleLog(logBroadcast, nil)
@@ -571,8 +571,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 				// idleDuration 2
 				roundState3 := contracts.FluxAggregatorRoundState{ReportableRoundID: 3, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
-				idleDurationOccured <- struct{}{}
 				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
+					idleDurationOccured <- struct{}{}
 				})
 				require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
 			}
@@ -1246,17 +1246,17 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 	var logAnswerUpdated *contracts.LogAnswerUpdated
 	var randomType interface{}
 
-	logBroadcast.On("Log").Return(logNewRound).Once()
+	logBroadcast.On("DecodedLog").Return(logNewRound).Once()
 	assert.NotPanics(t, func() {
 		p.HandleLog(logBroadcast, nil)
 	})
 
-	logBroadcast.On("Log").Return(logAnswerUpdated).Once()
+	logBroadcast.On("DecodedLog").Return(logAnswerUpdated).Once()
 	assert.NotPanics(t, func() {
 		p.HandleLog(logBroadcast, nil)
 	})
 
-	logBroadcast.On("Log").Return(randomType).Once()
+	logBroadcast.On("DecodedLog").Return(randomType).Once()
 	assert.NotPanics(t, func() {
 		p.HandleLog(logBroadcast, nil)
 	})
@@ -1273,7 +1273,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
 
 	logBroadcast := new(mocks.LogBroadcast)
 	logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
-	logBroadcast.On("Log").Return(&contracts.LogAnswerUpdated{})
+	logBroadcast.On("DecodedLog").Return(&contracts.LogAnswerUpdated{})
 	logBroadcast.On("MarkConsumed").Return(nil).Once()
 
 	p.ExportedBacklog().Add(fluxmonitor.PriorityNewRoundLog, logBroadcast)
