@@ -1,10 +1,10 @@
 package pipeline
 
 import (
+	"fmt"
 	"net/url"
 
 	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,7 +26,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(inputs []Result) (result Result) {
+func (t *BridgeTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
 	}
@@ -36,17 +36,26 @@ func (t *BridgeTask) Run(inputs []Result) (result Result) {
 		return Result{Error: err}
 	}
 
-	// add an arbitrary "id" field to the request json
-	// this is done in order to keep request payloads consistent in format
-	// between flux monitor polling requests and http/bridge adapters
-	requestData := withIDAndMeta(t.RequestData, meta)
+	var meta map[string]interface{}
+	switch v := taskRun.PipelineRun.Meta.Val.(type) {
+	case map[string]interface{}:
+		meta = v
+	case nil:
+	default:
+		logger.Warnw(`"meta" field on task run is malformed, discarding`,
+			"jobID", taskRun.PipelineRun.PipelineSpecID,
+			"taskRunID", taskRun.ID,
+			"task", taskRun.DotID,
+			"meta", taskRun.PipelineRun.Meta.Val,
+		)
+	}
 
 	result = (&HTTPTask{
 		URL:         models.WebURL(url),
 		Method:      "POST",
-		RequestData: requestData,
+		RequestData: withIDAndMeta(t.RequestData, taskRun.PipelineRunID, meta),
 		config:      t.config,
-	}).Run(inputs)
+	}).Run(taskRun, inputs)
 	if result.Error != nil {
 		return result
 	}
@@ -67,12 +76,12 @@ func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	return bridgeURL, nil
 }
 
-func withIDAndMeta(request, meta map[string]interface{}) map[string]interface{} {
-	output := make(map[string]interface{})
+func withIDAndMeta(request HttpRequestData, runID int64, meta HttpRequestData) HttpRequestData {
+	output := make(HttpRequestData)
 	for k, v := range request {
 		output[k] = v
 	}
-	output["id"] = models.NewID()
+	output["id"] = fmt.Sprintf("%d", runID)
 	output["meta"] = meta
 	return output
 }

@@ -28,12 +28,14 @@ type (
 	Run struct {
 		ID             int64 `gorm:"primary_key"`
 		PipelineSpecID int32
+		Meta           JSONSerializable
 		CreatedAt      time.Time
 	}
 
 	TaskRun struct {
 		ID                 int64 `gorm:"primary_key"`
 		DotID              string
+		PipelineRun        Run
 		PipelineRunID      int64
 		Output             *JSONSerializable `gorm:"type:jsonb"`
 		Error              null.String

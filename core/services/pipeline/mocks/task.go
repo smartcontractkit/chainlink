@@ -56,13 +56,13 @@ func (_m *Task) OutputTask() pipeline.Task {
 	return r0
 }
 
-// Run provides a mock function with given fields: inputs
-func (_m *Task) Run(inputs []pipeline.Result) pipeline.Result {
-	ret := _m.Called(inputs)
+// Run provides a mock function with given fields: taskRun, inputs
+func (_m *Task) Run(taskRun pipeline.TaskRun, inputs []pipeline.Result) pipeline.Result {
+	ret := _m.Called(taskRun, inputs)
 
 	var r0 pipeline.Result
-	if rf, ok := ret.Get(0).(func([]pipeline.Result) pipeline.Result); ok {
-		r0 = rf(inputs)
+	if rf, ok := ret.Get(0).(func(pipeline.TaskRun, []pipeline.Result) pipeline.Result); ok {
+		r0 = rf(taskRun, inputs)
 	} else {
 		r0 = ret.Get(0).(pipeline.Result)
 	}

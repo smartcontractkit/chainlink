@@ -57,7 +57,7 @@ func TestMedian(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			task := pipeline.MedianTask{}
-			output := task.Run(test.inputs)
+			output := task.Run(pipeline.TaskRun{}, test.inputs)
 			if output.Error != nil {
 				require.Equal(t, test.want.Error, errors.Cause(output.Error))
 				require.Nil(t, output.Value)
