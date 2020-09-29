@@ -3,8 +3,8 @@ package pipeline
 import (
 	"net/url"
 
-	// "github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -36,29 +36,21 @@ func (t *BridgeTask) Run(inputs []Result) (result Result) {
 		return Result{Error: err}
 	}
 
-	// client := &http.Client{Timeout: t.config.DefaultHTTPTimeout().Duration(), Transport: http.DefaultTransport}
-	// client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
-	// client.Transport = instrumentRoundTripperReponseSize(promFMResponseSize, client.Transport)
-
 	// add an arbitrary "id" field to the request json
 	// this is done in order to keep request payloads consistent in format
 	// between flux monitor polling requests and http/bridge adapters
-	if t.RequestData == nil {
-		t.RequestData = HttpRequestData{}
-	}
-	t.RequestData["id"] = models.NewID()
+	requestData := withIDAndMeta(t.RequestData, meta)
 
 	result = (&HTTPTask{
-		URL:                            models.WebURL(url),
-		Method:                         "POST",
-		RequestData:                    t.RequestData,
-		AllowUnrestrictedNetworkAccess: true,
-		config:                         t.config,
+		URL:         models.WebURL(url),
+		Method:      "POST",
+		RequestData: requestData,
+		config:      t.config,
 	}).Run(inputs)
 	if result.Error != nil {
 		return result
 	}
-	logger.Debugw("Bridge: fetched answer",
+	logger.Debugw("Bridge task: fetched answer",
 		"answer", string(result.Value.([]byte)),
 		"url", url.String(),
 	)
@@ -73,4 +65,14 @@ func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	}
 	bridgeURL := url.URL(bridge.URL)
 	return bridgeURL, nil
+}
+
+func withIDAndMeta(request, meta map[string]interface{}) map[string]interface{} {
+	output := make(map[string]interface{})
+	for k, v := range request {
+		output[k] = v
+	}
+	output["id"] = models.NewID()
+	output["meta"] = meta
+	return output
 }
