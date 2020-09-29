@@ -386,6 +386,12 @@ func (c Config) GasUpdaterEnabled() bool {
 	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
 }
 
+// PipelineRunnerParallelism controls how many workers the pipeline.Runner
+// uses in parallel
+func (c Config) PipelineRunnerParallelism() uint8 {
+	return c.getWithFallback("PipelineRunnerParallelism", parseUint8).(uint8)
+}
+
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
@@ -671,6 +677,11 @@ func parseLogLevel(str string) (interface{}, error) {
 func parseUint16(str string) (interface{}, error) {
 	d, err := strconv.ParseUint(str, 10, 16)
 	return uint16(d), err
+}
+
+func parseUint8(str string) (interface{}, error) {
+	d, err := strconv.ParseUint(str, 10, 8)
+	return uint8(d), err
 }
 
 func parseURL(s string) (interface{}, error) {

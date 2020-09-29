@@ -27,8 +27,8 @@ type (
 		config                    Config
 
 		utils.StartStopOnce
-		chStop       chan struct{}
-		chDone       chan struct{}
+		chStop chan struct{}
+		chDone chan struct{}
 	}
 )
 
@@ -108,41 +108,53 @@ func (r *runner) ResultsForRun(runID int64) ([]Result, error) {
 
 // NOTE: This could potentially run on a different machine in the cluster than
 // the one that originally added the task runs.
-func (r *runner) processIncompleteTaskRuns() {
-	var done bool
-	var err error
-	for !done {
-		done, err = r.orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun TaskRun, predecessors []TaskRun) (result Result) {
-			loggerFields := []interface{}{
-				"jobID", jobID,
-				"taskName", taskRun.DotID,
-				"taskID", taskRun.PipelineTaskSpecID,
-				"runID", taskRun.PipelineRunID,
-				"taskRunID", taskRun.ID,
-			}
+func (r *runner) processIncompleteTaskRunsWorker() {
+	threads := int(r.config.PipelineRunnerParallelism())
 
-			logger.Infow("Running pipeline task", loggerFields...)
+	var wg sync.WaitGroup
+	wg.Add(threads)
 
-			inputs := make([]Result, len(predecessors))
-			for i, predecessor := range predecessors {
-				inputs[i] = predecessor.Result()
-			}
+	for i := 0; i < threads; i++ {
+		go func() {
+			defer wg.Done()
 
-			task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, taskRun.DotID, r.orm, r.config)
-			if err != nil {
-				logger.Errorw("Pipeline task run errored", append(loggerFields, "error", err)...)
-				return Result{Error: err}
-			}
+			var done bool
+			var err error
+			for !done {
+				done, err = r.orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
+					loggerFields := []interface{}{
+						"jobID", jobID,
+						"taskName", taskRun.DotID,
+						"taskID", taskRun.PipelineTaskSpecID,
+						"runID", taskRun.PipelineRunID,
+						"taskRunID", taskRun.ID,
+					}
 
-			result = task.Run(inputs)
-			if result.Error != nil {
-				logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
+					logger.Infow("Running pipeline task", loggerFields...)
+
+					inputs := make([]Result, len(predecessors))
+					for i, predecessor := range predecessors {
+						inputs[i] = predecessor.Result()
+					}
+
+					task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, taskRun.DotID, r.orm, r.config)
+					if err != nil {
+						logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
+						return Result{Error: err}
+					}
+
+					result := task.Run(inputs)
+					if result.Error != nil {
+						logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
+					}
+					return result
+				})
+				if err != nil {
+					logger.Errorf("Error processing incomplete task runs: %v", err)
+					return
+				}
 			}
-			return result
-		})
-		if err != nil {
-			logger.Errorf("Error processing incomplete task runs: %v", err)
-			return
-		}
+		}()
 	}
+	wg.Wait()
 }
