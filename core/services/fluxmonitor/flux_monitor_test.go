@@ -253,6 +253,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				rm := new(mocks.RunManager)
 				fetcher := new(mocks.Fetcher)
 				fluxAggregator := new(mocks.FluxAggregator)
+				logBroadcaster := new(mocks.LogBroadcaster)
 
 				job := cltest.NewJobWithFluxMonitorInitiator()
 				initr := job.Initiators[0]
@@ -309,6 +310,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				checker, err := fluxmonitor.NewPollingDeviationChecker(
 					store,
 					fluxAggregator,
+					logBroadcaster,
 					initr,
 					nil,
 					rm,
@@ -342,6 +344,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	fluxAggregator := new(mocks.FluxAggregator)
+	logBroadcaster := new(mocks.LogBroadcaster)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -354,6 +357,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
+		logBroadcaster,
 		initr,
 		nil,
 		rm,
@@ -439,6 +443,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fetcher := new(mocks.Fetcher)
 	fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
+	logBroadcaster := new(mocks.LogBroadcaster)
+
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
 	require.NoError(t, store.CreateJobRun(&run))
@@ -451,6 +457,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	checker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
+		logBroadcaster,
 		initr,
 		nil,
 		rm,
@@ -509,6 +516,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
 			fluxAggregator := new(mocks.FluxAggregator)
+			logBroadcaster := new(mocks.LogBroadcaster)
 			logBroadcast := new(mocks.LogBroadcast)
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
@@ -538,6 +546,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				fluxAggregator,
+				logBroadcaster,
 				initr,
 				nil,
 				runManager,
@@ -598,6 +607,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
 	fluxAggregator := new(mocks.FluxAggregator)
+	logBroadcaster := new(mocks.LogBroadcaster)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -623,6 +633,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
+		logBroadcaster,
 		initr,
 		nil,
 		runManager,
@@ -654,6 +665,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
 	fluxAggregator := new(mocks.FluxAggregator)
+	logBroadcaster := new(mocks.LogBroadcaster)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -693,6 +705,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
 		store,
 		fluxAggregator,
+		logBroadcaster,
 		initr,
 		nil,
 		runManager,
@@ -829,6 +842,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
+			logBroadcaster := new(mocks.LogBroadcaster)
 
 			paymentAmount := store.Config.MinimumContractPayment().ToInt()
 			var availableFunds *big.Int
@@ -872,6 +886,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				fluxAggregator,
+				logBroadcaster,
 				initr,
 				nil,
 				rm,
@@ -1034,6 +1049,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	fluxAggregator := new(mocks.FluxAggregator)
+	logBroadcaster := new(mocks.LogBroadcaster)
 
 	var payment int64 = 10
 	var eq = payment
@@ -1077,6 +1093,7 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				fluxAggregator,
+				logBroadcaster,
 				initr,
 				minJobPayment,
 				rm,
@@ -1330,6 +1347,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		rm := new(mocks.RunManager)
 		fetcher := new(mocks.Fetcher)
 		fluxAggregator := new(mocks.FluxAggregator)
+		logBroadcaster := new(mocks.LogBroadcaster)
 
 		paymentAmount := store.Config.MinimumContractPayment().ToInt()
 		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
@@ -1342,6 +1360,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		checker, err := fluxmonitor.NewPollingDeviationChecker(
 			store,
 			fluxAggregator,
+			logBroadcaster,
 			initr,
 			nil,
 			rm,
@@ -1412,6 +1431,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		rm := new(mocks.RunManager)
 		fetcher := new(mocks.Fetcher)
 		fluxAggregator := new(mocks.FluxAggregator)
+		logBroadcaster := new(mocks.LogBroadcaster)
 
 		paymentAmount := store.Config.MinimumContractPayment().ToInt()
 		availableFunds := big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
@@ -1424,6 +1444,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		checker, err := fluxmonitor.NewPollingDeviationChecker(
 			store,
 			fluxAggregator,
+			logBroadcaster,
 			initr,
 			nil,
 			rm,
@@ -1504,6 +1525,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 			fluxAggregator := new(mocks.FluxAggregator)
 			rm := new(mocks.RunManager)
 			fetcher := new(mocks.Fetcher)
+			logBroadcaster := new(mocks.LogBroadcaster)
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
 
@@ -1528,6 +1550,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 			checker, err := fluxmonitor.NewPollingDeviationChecker(
 				store,
 				fluxAggregator,
+				logBroadcaster,
 				initr,
 				nil,
 				rm,
