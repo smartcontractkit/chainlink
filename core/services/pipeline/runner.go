@@ -23,7 +23,9 @@ type (
 	runner struct {
 		processTasks utils.SleeperTask
 		orm          ORM
-		config       Config
+		config                    Config
+
+		utils.StartStopOnce
 		chStop       chan struct{}
 		chDone       chan struct{}
 	}
@@ -43,7 +45,17 @@ func NewRunner(orm ORM, config Config) *runner {
 }
 
 func (r *runner) Start() {
-	go func() {
+	r.AssertNeverStarted()
+	go r.runLoop()
+}
+
+func (r *runner) Stop() {
+	r.AssertNeverStopped()
+	close(r.chStop)
+	<-r.chDone
+}
+
+func (r *runner) runLoop() {
 		defer close(r.chDone)
 
 		ticker := time.NewTicker(5 * time.Second)
