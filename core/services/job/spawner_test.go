@@ -74,10 +74,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	jobSpecB := &spec{innerJobSpecB, jobTypeB}
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
+		defer cleanupDB()
+		db := oldORM.DB
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
+		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 		spawner.Start()
@@ -135,8 +136,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
+		defer cleanupDB()
+		db := oldORM.DB
 
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -144,7 +146,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
+		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 
@@ -166,8 +168,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
+		defer cleanupDB()
+		db := oldORM.DB
 
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
@@ -175,7 +178,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipeline.NewORM(store.ORM.DB, store.Config.DatabaseURL()))
+		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
 		spawner := job.NewSpawner(orm)
 

@@ -16,7 +16,7 @@ import (
 )
 
 func TestORM(t *testing.T) {
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_runner", true)
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_orm", true)
 	defer cleanupDB()
 	db := oldORM.DB
 

@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"time"
 
 	"github.com/jinzhu/gorm"
 
@@ -13,6 +14,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
+	ListenForNewJobs() (*utils.PostgresEventListener, error)
 	UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
 	CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
@@ -21,6 +23,7 @@ type ORM interface {
 
 type orm struct {
 	db           *gorm.DB
+	uri          string
 	advisoryLock *utils.PostgresAdvisoryLock
 	pipelineORM  pipeline.ORM
 }
@@ -28,11 +31,29 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *gorm.DB, uri string, pipelineORM pipeline.ORM) *orm {
-	return &orm{db, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM}
+	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM}
 }
 
 func (o *orm) Close() error {
 	return o.advisoryLock.Close()
+}
+
+const (
+	postgresChannelJobCreated = "job_created"
+)
+
+func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
+	listener := &utils.PostgresEventListener{
+		URI:                  o.uri,
+		Event:                postgresChannelJobCreated,
+		MinReconnectInterval: 1 * time.Second,
+		MaxReconnectDuration: 1 * time.Minute,
+	}
+	err := listener.Start()
+	if err != nil {
+		return nil, err
+	}
+	return listener, nil
 }
 
 func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {

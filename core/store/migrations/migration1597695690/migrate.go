@@ -154,7 +154,27 @@ func Migrate(tx *gorm.DB) error {
             )
         );
 
-        CREATE FUNCTION deleteConcreteSpecs() RETURNS TRIGGER AS $_$
+        ---
+        --- Notify the Chainlink node when a new job spec is created
+        ---
+
+        CREATE OR REPLACE FUNCTION notifyJobCreated() RETURNS TRIGGER AS $_$
+        BEGIN
+            PERFORM pg_notify('job_created', NEW.id::text);
+            RETURN NEW;
+        END
+        $_$ LANGUAGE 'plpgsql';
+
+        CREATE TRIGGER notify_job_created
+        AFTER INSERT ON jobs
+        FOR EACH ROW EXECUTE PROCEDURE notifyJobCreated();
+
+
+        ---
+        --- Delete job specs from their respective tables when a row from 'jobs' is deleted
+        ---
+
+        CREATE OR REPLACE FUNCTION deleteConcreteSpecs() RETURNS TRIGGER AS $_$
         BEGIN
             DELETE FROM offchainreporting_oracle_specs WHERE offchainreporting_oracle_specs.id = OLD.offchainreporting_oracle_spec_id;
             DELETE FROM pipeline_specs WHERE pipeline_specs.id = OLD.pipeline_spec_id;
@@ -163,8 +183,7 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TRIGGER delete_job_components
         AFTER DELETE ON jobs
-        FOR EACH ROW
-        EXECUTE PROCEDURE deleteConcreteSpecs();
+        FOR EACH ROW EXECUTE PROCEDURE deleteConcreteSpecs();
 
         CREATE UNIQUE INDEX idx_jobs_unique_offchainreporting_oracle_spec_ids ON jobs (offchainreporting_oracle_spec_id);
 
