@@ -1,39 +1,5 @@
 version: 2.1
 jobs:
-  core-go-test-race:
-    resource_class: xlarge
-    docker:
-      - image: smartcontract/builder:1.0.33
-      - image: circleci/postgres:12-alpine
-        environment:
-          POSTGRES_USER: circleci_postgres
-          POSTGRES_DB: circleci_test
-    environment:
-      DATABASE_URL: postgres://circleci_postgres@localhost:5432/circleci_test?sslmode=disable
-    steps:
-      - checkout
-      - run: echo $CACHE_VERSION > cache.version
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-      - run: make yarndep
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: v{{ checksum "cache.version" }}-yarn-vendor-{{ checksum "yarn.lock" }}
-          paths:
-            - /usr/local/share/.cache/yarn
-      - restore_cache:
-          name: Restore Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-      - run: go mod download
-      - save_cache:
-          name: Save Go Vendor Cache
-          key: go-mod-{{ checksum "go.sum" }}
-          paths:
-            - '/go/pkg/mod'
-      - run: yarn setup:contracts
-      - run: go run ./core local db preparetest
-      - run: go test -race -timeout 1800s -v -p 4 -parallel 4 ./...
   core-go-test:
     resource_class: xlarge
     docker:
@@ -82,81 +48,6 @@ jobs:
           exit $EXITCODE
       - store_artifacts:
           path: ./output.txt
-
-  rust:
-    docker:
-      - image: smartcontract/builder:1.0.33
-    steps:
-      - checkout
-      - run: ./tools/ci/rust_test
-  geth-postgres:
-    resource_class: 2xlarge
-    environment:
-      GETH_MODE: true
-    machine:
-      image: ubuntu-1604:201903-01
-      docker_layer_caching: true
-    working_directory: ~/chainlink
-    steps:
-      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
-      - run: sudo rm -rf /usr/share/emacs
-      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
-      - run: sudo rm -rf /home/circleci/.npm
-      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
-      - checkout
-      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
-      - store_artifacts:
-          path: ./tools/docker/logs
-  geth-postgres-ts:
-    resource_class: 2xlarge
-    environment:
-      GETH_MODE: true
-    machine:
-      image: ubuntu-1604:201903-01
-      docker_layer_caching: true
-    working_directory: ~/chainlink
-    steps:
-      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
-      - run: sudo rm -rf /usr/share/emacs
-      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
-      - run: sudo rm -rf /home/circleci/.npm
-      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
-      - checkout
-      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
-      - store_artifacts:
-          path: ./tools/docker/logs
-  parity-postgres:
-    resource_class: 2xlarge
-    machine:
-      image: ubuntu-1604:201903-01
-      docker_layer_caching: true
-    working_directory: ~/chainlink
-    steps:
-      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
-      - run: sudo rm -rf /usr/share/emacs
-      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
-      - run: sudo rm -rf /home/circleci/.npm
-      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
-      - checkout
-      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test
-      - store_artifacts:
-          path: ./tools/docker/logs
-  parity-postgres-ts:
-    resource_class: 2xlarge
-    machine:
-      image: ubuntu-1604:201903-01
-      docker_layer_caching: true
-    working_directory: ~/chainlink
-    steps:
-      - run: sudo rm -rf /usr/local/{gradle-1.10,go,android-ndk}
-      - run: sudo rm -rf /usr/share/emacs
-      - run: sudo rm -rf /usr/lib/{jvm,google-cloud-sdk,heroku}
-      - run: sudo rm -rf /home/circleci/.npm
-      - run: sudo rm -rf /opt/{google-cloud-sdk,google,firefox,circleci}
-      - checkout
-      - run: cd ./tools/docker && timeout --foreground 1200s ./compose test:ts
-      - store_artifacts:
-          path: ./tools/docker/logs
   solidity:
     resource_class: xlarge
     docker:
@@ -232,21 +123,6 @@ jobs:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" "${CIRCLE_SHA1}"
-  build-chainlink-sgx:
-    resource_class: xlarge
-    machine:
-      image: circleci/classic:201808-01
-      docker_layer_caching: true
-    steps:
-      - checkout
-      - run:
-          name: Docker login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
-      - run:
-          name: Docker build
-          command: |
-            SGX_ENABLED=yes DOCKER_TAG=circleci make docker
   build-publish-integration:
     resource_class: large
     machine:
@@ -407,10 +283,6 @@ workflows:
                 - /^release\/.*/
                 - master
                 - /^hotfix\/.*/
-      - core-go-test-race:
-          filters:
-            tags:
-              only: /^v.*/
       - core-go-test:
           filters:
             tags:
@@ -419,27 +291,7 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - geth-postgres:
-          filters:
-            tags:
-              only: /^v.*/
-      - geth-postgres-ts:
-          filters:
-            tags:
-              only: /^v.*/
-      - parity-postgres:
-          filters:
-            tags:
-              only: /^v.*/
-      - parity-postgres-ts:
-          filters:
-            tags:
-              only: /^v.*/
       - operator-ui:
-          filters:
-            tags:
-              only: /^v.*/
-      - rust:
           filters:
             tags:
               only: /^v.*/
@@ -455,17 +307,10 @@ workflows:
               only:
                 - /^v.*/
                 - /^explorer-v.*/
-      - build-chainlink-sgx:
-          filters:
-            tags:
-              only: /^v.*/
       - build-publish-chainlink:
           requires:
             - core-go-test
-            - geth-postgres
-            - parity-postgres
             - operator-ui
-            - rust
           filters:
             tags:
               only: /^v.*/
@@ -494,7 +339,6 @@ workflows:
             - core-go-test
             - solidity
             - operator-ui
-            - rust
           filters:
             tags:
               ignore:
