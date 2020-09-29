@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrcontracts "github.com/smartcontractkit/offchain-reporting-design/prototype/contracts"
-	ocr "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting"
-	ocrtypes "github.com/smartcontractkit/offchain-reporting-design/prototype/offchainreporting/types"
+	ocr "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	ocrcontracts "github.com/smartcontractkit/offchain-reporting/lib/prototype/contracts"
 )
 
 const JobType job.Type = "offchainreporting"
@@ -77,9 +77,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		concreteSpec.ContractAddress,
 		d.ethClient,
 		d.logBroadcaster,
-		models.ID{}, //concreteSpec.JobID(),
-		nil,         // auth *bind.TransactOpts,
-		"",          // rpcURL string,
+		concreteSpec.JobID(),
+		nil, // auth *bind.TransactOpts,
+		"",  // rpcURL string,
 	)
 	if err != nil {
 		return nil, err

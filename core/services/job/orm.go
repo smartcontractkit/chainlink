@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -80,6 +81,9 @@ func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 }
 
 func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
+	if taskDAG.HasCycles() {
+		return errors.New("task DAG has cycles, which are not permitted")
+	}
 	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(taskDAG)
 		if err != nil {
