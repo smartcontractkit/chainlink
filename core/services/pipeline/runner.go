@@ -16,7 +16,7 @@ type (
 	Runner interface {
 		Start()
 		Stop()
-		CreateRun(jobID int32) (int64, error)
+		CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(runID int64) ([]Result, error)
 	}
@@ -87,10 +87,10 @@ func (r *runner) runLoop() {
 	}
 }
 
-func (r *runner) CreateRun(jobID int32) (int64, error) {
+func (r *runner) CreateRun(jobID int32, meta map[string]interface{}) (int64, error) {
 	logger.Infow("Creating new pipeline run", "jobID", jobID)
 
-	runID, err := r.orm.CreateRun(jobID)
+	runID, err := r.orm.CreateRun(jobID, meta)
 	if err != nil {
 		logger.Errorw("Error creating new pipeline run", "jobID", jobID, "error", err)
 		return 0, err
@@ -143,7 +143,7 @@ func (r *runner) processIncompleteTaskRunsWorker() {
 						return Result{Error: err}
 					}
 
-					result := task.Run(inputs)
+					result := task.Run(taskRun, inputs)
 					if result.Error != nil {
 						logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 					}

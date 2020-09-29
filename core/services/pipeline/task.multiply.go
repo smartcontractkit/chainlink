@@ -18,7 +18,7 @@ func (t *MultiplyTask) Type() TaskType {
 	return TaskTypeMultiply
 }
 
-func (t *MultiplyTask) Run(inputs []Result) (result Result) {
+func (t *MultiplyTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}
 	} else if inputs[0].Error != nil {

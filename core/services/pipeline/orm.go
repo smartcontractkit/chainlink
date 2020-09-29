@@ -18,11 +18,12 @@ import (
 
 type ORM interface {
 	CreateSpec(taskDAG TaskDAG) (int32, error)
-	CreateRun(jobID int32) (int64, error)
+	CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 	ProcessNextUnclaimedTaskRun(f func(jobID int32, taskRun TaskRun, predecessors []TaskRun) Result) (bool, error)
 	ListenForNewRuns() (*utils.PostgresEventListener, error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
+	// Runs(jobID int32, offset, limit int) ([]Run, error)
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
@@ -94,7 +95,7 @@ func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
 // per TaskSpec associated with the given Spec.  Processing of the
 // TaskRuns is maximally parallelized across all of the Chainlink nodes in the
 // cluster.
-func (o *orm) CreateRun(jobID int32) (int64, error) {
+func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error) {
 	var runID int64
 	err := utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
 		// Fetch the spec ID from the job
@@ -114,6 +115,7 @@ func (o *orm) CreateRun(jobID int32) (int64, error) {
 		// Create the job run
 		run := Run{
 			PipelineSpecID: spec.ID,
+			Meta:           JSONSerializable{Val: meta},
 			CreatedAt:      time.Now(),
 		}
 		err = tx.Create(&run).Error
@@ -170,7 +172,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "error finding next task run")
 		}
 
-		// Fill in the TaskSpec, as gorm can't seem to .Preload() it in the query above
+		// Fill in the TaskSpec
 		err = tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error
 		if gorm.IsRecordNotFoundError(err) {
 			// done = true
@@ -179,7 +181,16 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "error finding next task run's spec")
 		}
 
-		// Find all the predecessors
+		// Fill in the PipelineRun
+		err = tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error
+		if gorm.IsRecordNotFoundError(err) {
+			// done = true
+			return err
+		} else if err != nil {
+			return errors.Wrap(err, "error finding next task run's pipeline.Run")
+		}
+
+		// Find all the predecessor task runs
 		err = tx.Raw(`
                 SELECT pipeline_task_runs.* FROM pipeline_task_runs
                 LEFT JOIN pipeline_task_specs AS specs_right ON specs_right.id = pipeline_task_runs.pipeline_task_spec_id
@@ -203,7 +214,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "error finding job ID")
 		}
 
-		// Call the callback and convert its output to a format appropriate for the DB
+		// Call the callback
 		result := fn(job.ID, ptRun, predecessors)
 
 		// Update the task run record with the output and error

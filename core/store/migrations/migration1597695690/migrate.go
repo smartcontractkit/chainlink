@@ -33,6 +33,7 @@ func Migrate(tx *gorm.DB) error {
         CREATE TABLE pipeline_runs (
             id BIGSERIAL PRIMARY KEY,
             pipeline_spec_id BIGINT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
+            meta jsonb,
             created_at timestamptz NOT NULL
             -- NOTE: Could denormalize here with finished_at/output/error of last task_run if that proves necessary for performance
         );

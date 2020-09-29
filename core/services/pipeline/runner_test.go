@@ -52,7 +52,7 @@ func TestRunner(t *testing.T) {
 	runner.Start()
 	defer runner.Stop()
 
-	runID, err := runner.CreateRun(dbSpec.ID)
+	runID, err := runner.CreateRun(dbSpec.ID, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
