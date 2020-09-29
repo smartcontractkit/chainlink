@@ -299,6 +299,7 @@ func (f pollingDeviationCheckerFactory) New(
 	return NewPollingDeviationChecker(
 		f.store,
 		fluxAggregator,
+		f.logBroadcaster,
 		initr,
 		minJobPayment,
 		runManager,
@@ -367,6 +368,7 @@ type PollingDeviationChecker struct {
 	store          *store.Store
 	fluxAggregator contracts.FluxAggregator
 	runManager     RunManager
+	logBroadcaster eth.LogBroadcaster
 	fetcher        Fetcher
 	flagsContract  *flags_wrapper.Flags
 
@@ -392,6 +394,7 @@ type PollingDeviationChecker struct {
 func NewPollingDeviationChecker(
 	store *store.Store,
 	fluxAggregator contracts.FluxAggregator,
+	logBroadcaster eth.LogBroadcaster,
 	initr models.Initiator,
 	minJobPayment *assets.Link,
 	runManager RunManager,
@@ -402,6 +405,7 @@ func NewPollingDeviationChecker(
 	return &PollingDeviationChecker{
 		readyForLogs:   readyForLogs,
 		store:          store,
+		logBroadcaster: logBroadcaster,
 		fluxAggregator: fluxAggregator,
 		flagsContract:  flagsContract,
 		initr:          initr,
@@ -502,10 +506,8 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 	switch log := log.(type) {
 	case *contracts.LogNewRound:
 		p.backlog.Add(PriorityNewRoundLog, broadcast)
-
 	case *contracts.LogAnswerUpdated:
 		p.backlog.Add(PriorityAnswerUpdatedLog, broadcast)
-
 	default:
 		logger.Warnf("unexpected log type %T", log)
 		return
@@ -520,22 +522,13 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
-	connected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
-	defer unsubscribeLogs()
-
-	// TODO - RYAN - register flags contract listener
-
-	if connected {
-		p.connected.Set()
-	} else {
-		p.connected.UnSet()
-	}
-
+	unsubscribe := p.subscribeToContractLogs()
+	defer unsubscribe()
 	p.readyForLogs()
 	p.performInitialPoll()
-	stopTimer := p.setPollTimer()
-	defer stopTimer()
-	p.setIdleTimer()
+	stopPollTicker := p.setPollTicker()
+	defer stopPollTicker()
+	p.resetIdleTimer(uint64(time.Now().Unix()))
 
 	for {
 		select {
@@ -587,29 +580,25 @@ func (p *PollingDeviationChecker) performInitialPoll() {
 	}
 }
 
-func (p *PollingDeviationChecker) setPollTimer() func() {
+func (p *PollingDeviationChecker) subscribeToContractLogs() func() {
+	fluxAggConnected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
+
+	if fluxAggConnected {
+		p.connected.Set()
+	} else {
+		p.connected.UnSet()
+	}
+
+	return func() { unsubscribeLogs() }
+}
+
+func (p *PollingDeviationChecker) setPollTicker() func() {
 	if !p.initr.PollTimer.Disabled && !p.isHibernating {
 		ticker := time.NewTicker(p.initr.PollTimer.Period.Duration())
 		p.pollTicker = ticker.C
 		return ticker.Stop
 	}
 	return func() {}
-}
-
-func (p *PollingDeviationChecker) setIdleTimer() {
-	if p.isHibernating {
-		p.idleTimer = time.After(hibernationPollPeriod)
-	} else if !p.initr.IdleTimer.Disabled {
-		p.idleTimer = time.After(p.initr.IdleTimer.Duration.Duration())
-	}
-}
-
-// Hibernate restarts the PollingDeviationChecker in hibernation mode
-func (p *PollingDeviationChecker) Hibernate() {
-}
-
-// Reactivate restarts the PollingDeviationChecker without hibernation moce
-func (p *PollingDeviationChecker) Reactivate() {
 }
 
 func (p *PollingDeviationChecker) processLogs() {
@@ -647,11 +636,6 @@ func (p *PollingDeviationChecker) processLogs() {
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
-		// TODO - RYAN
-		// case *contracts.FlagRaised:
-		// ...
-		// case *contracts.FlagLowered:
-		// ...
 
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
