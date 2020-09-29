@@ -13,7 +13,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/tevino/abool"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -31,17 +30,15 @@ type PostgresEventListener struct {
 	MaxReconnectDuration time.Duration
 
 	listener *pq.Listener
-	started  abool.AtomicBool
-	stopped  abool.AtomicBool
 	chEvents chan string
-	chStop   chan struct{}
-	chDone   chan struct{}
+
+	StartStopOnce
+	chStop chan struct{}
+	chDone chan struct{}
 }
 
 func (p *PostgresEventListener) Start() error {
-	if !p.started.SetToIf(false, true) {
-		panic("PostgresEventListener can only be started once")
-	}
+	p.AssertNeverStarted()
 
 	if p.MinReconnectInterval == time.Duration(0) {
 		p.MinReconnectInterval = 1 * time.Second
@@ -86,7 +83,7 @@ func (p *PostgresEventListener) Start() error {
 				if !open {
 					return
 				}
-				logger.Debugw("Postgres listener: received notification",
+				logger.Infow("Postgres listener: received notification",
 					"channel", notification.Channel,
 					"payload", notification.Extra,
 				)
@@ -100,12 +97,8 @@ func (p *PostgresEventListener) Start() error {
 }
 
 func (p *PostgresEventListener) Stop() error {
-	if !p.started.IsSet() {
-		panic("PostgresEventListener cannot stop before starting")
-	}
-	if !p.stopped.SetToIf(false, true) {
-		panic("PostgresEventListener can only be stopped once")
-	}
+	p.AssertNeverStopped()
+
 	err := p.listener.Close()
 	close(p.chStop)
 	<-p.chDone
@@ -262,13 +255,13 @@ func (p *PostgresEventListener) Start() error {
 		// events for node operators' sanity.
 		switch ev {
 		case pq.ListenerEventConnected:
-			logger.Debug("Postgres listener: connected")
+			logger.Infow("Postgres listener: connected", "channel", p.Event)
 		case pq.ListenerEventDisconnected:
-			logger.Warnw("Postgres listener: disconnected, trying to reconnect...", "error", err)
+			logger.Warnw("Postgres listener: disconnected, trying to reconnect...", "channel", p.Event, "error", err)
 		case pq.ListenerEventReconnected:
-			logger.Debug("Postgres listener: reconnected")
+			logger.Info("Postgres listener: reconnected", "channel", p.Event)
 		case pq.ListenerEventConnectionAttemptFailed:
-			logger.Warnw("Postgres listener: reconnect attempt failed, trying again...", "error", err)
+			logger.Warnw("Postgres listener: reconnect attempt failed, trying again...", "channel", p.Event, "error", err)
 		}
 	})
 	err := p.listener.Listen(p.Event)

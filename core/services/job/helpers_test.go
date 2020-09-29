@@ -50,7 +50,6 @@ func makeOCRJobSpec(t *testing.T) (*offchainreporting.OracleSpec, *models.JobSpe
 	t.Helper()
 
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex())
-	fmt.Println(jobSpecText)
 
 	var ocrspec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
