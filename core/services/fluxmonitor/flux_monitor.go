@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
@@ -291,7 +290,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-	flagsContract, err := flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
+	flagsContract, err := contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
 	if err != nil {
 		panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
 	}
@@ -370,7 +369,7 @@ type PollingDeviationChecker struct {
 	runManager     RunManager
 	logBroadcaster eth.LogBroadcaster
 	fetcher        Fetcher
-	flagsContract  *flags_wrapper.Flags
+	flagsContract  *contracts.Flags
 
 	initr         models.Initiator
 	minJobPayment *assets.Link
@@ -399,7 +398,7 @@ func NewPollingDeviationChecker(
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	flagsContract *flags_wrapper.Flags,
+	flagsContract *contracts.Flags,
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
