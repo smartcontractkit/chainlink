@@ -3,9 +3,11 @@ package offchainreporting_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"testing"
 
+	"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
@@ -16,7 +18,12 @@ import (
 )
 
 func TestJobSpec_Unmarshal(t *testing.T) {
+	bs, err := ioutil.ReadFile("./example-job-spec.toml")
+	require.NoError(t, err)
 
+	var spec offchainreporting.OracleSpec
+	err = toml.Unmarshal(bs, &spec)
+	require.NoError(t, err)
 }
 
 func TestJobSpec_FetchFromDB(t *testing.T) {
@@ -62,7 +69,7 @@ func TestJobSpec_FetchFromDB(t *testing.T) {
 	}
 
 	err = store.ORM.RawDB(func(db *gorm.DB) error {
-		result := db.Debug().Create(jobSpec.ForDB())
+		result := db.Create(jobSpec.ForDB())
 		require.NoError(t, result.Error)
 
 		var returnedSpec offchainreporting.JobSpecDBRow
