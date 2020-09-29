@@ -30,12 +30,10 @@ func TestRunner(t *testing.T) {
 
 		_, bridgeER := cltest.NewBridgeType(t, "election_winner", mockElectionWinner.URL)
 		err := db.Create(bridgeER).Error
-		// err := store.CreateBridgeType(bridgeER)
 		require.NoError(t, err)
 
 		_, bridgeVT := cltest.NewBridgeType(t, "voter_turnout", mockVoterTurnout.URL)
 		err = db.Create(bridgeVT).Error
-		// err = store.CreateBridgeType(bridgeVT)
 		require.NoError(t, err)
 
 		httpURL = mockHTTP.URL
