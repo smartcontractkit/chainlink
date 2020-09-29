@@ -38,6 +38,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPLimit() int64
+		PipelineRunnerParallelism() uint8
+		BridgeResponseURL() url.URL
 	}
 )
 
@@ -180,4 +182,36 @@ func WrapResultIfError(result *Result, msg string, args ...interface{}) {
 		logger.Errorf(msg+": %+v", append(args, result.Error)...)
 		result.Error = errors.Wrapf(result.Error, msg, args...)
 	}
+}
+
+func getBodyFromInput(input interface{}) (HttpRequestData, error) {
+	var data HttpRequestData
+	switch val := input.(type) {
+	case []byte:
+		err := json.Unmarshal(val, &data)
+		return data, err
+	case string:
+		err := json.Unmarshal([]byte(val), &data)
+		return data, err
+	case map[string]interface{}:
+		return HttpRequestData(val), nil
+	default:
+		return nil, nil
+	}
+}
+
+func mergeRequestData(one, two HttpRequestData) HttpRequestData {
+	if one == nil {
+		return two
+	} else if two == nil {
+		return one
+	}
+	m := make(HttpRequestData)
+	for k, v := range one {
+		m[k] = v
+	}
+	for k, v := range two {
+		m[k] = v
+	}
+	return m
 }
