@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -23,7 +24,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(inputs []Result) Result
+		Run(taskRun TaskRun, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -39,7 +40,7 @@ type (
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPLimit() int64
 		PipelineRunnerParallelism() uint8
-		BridgeResponseURL() url.URL
+		BridgeResponseURL() *url.URL
 	}
 )
 
@@ -116,12 +117,14 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	case map[string]interface{}, map[string]string:
 	}
 
+	taskType = TaskType(strings.ToLower(string(taskType)))
+
 	var task Task
 	switch taskType {
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeHTTPUnrestricted:
-		task = &HTTPTask{config: config, AllowUnrestrictedNetworkAccess: true, BaseTask: BaseTask{dotID: dotID}}
+		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
 		task = &BridgeTask{orm: orm, config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
@@ -199,6 +202,12 @@ func getBodyFromInput(input interface{}) (HttpRequestData, error) {
 		return nil, nil
 	}
 }
+
+type HttpRequestData map[string]interface{}
+
+func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
+func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
+func (h HttpRequestData) AsMap() map[string]interface{} { return h }
 
 func mergeRequestData(one, two HttpRequestData) HttpRequestData {
 	if one == nil {

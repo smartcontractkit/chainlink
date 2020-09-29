@@ -122,7 +122,7 @@ func TestJSONParseTask(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			task := JSONParseTask{Path: test.path}
-			result := task.Run([]Result{{Value: test.input}})
+			result := task.Run(TaskRun{}, []Result{{Value: test.input}})
 
 			if test.wantResultError {
 				require.Error(t, result.Error)

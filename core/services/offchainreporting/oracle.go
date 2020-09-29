@@ -118,7 +118,7 @@ type dataSource struct {
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	runID, err := ds.pipelineRunner.CreateRun(ds.jobID)
+	runID, err := ds.pipelineRunner.CreateRun(ds.jobID, nil)
 	if err != nil {
 		return nil, err
 	}

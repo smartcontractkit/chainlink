@@ -155,7 +155,7 @@ func TestORM(t *testing.T) {
 		}
 
 		// Create the run
-		runID, err = orm.CreateRun(dbSpec.ID)
+		runID, err = orm.CreateRun(dbSpec.ID, nil)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run
@@ -249,7 +249,7 @@ func TestORM(t *testing.T) {
 				require.NoError(t, err)
 
 				// Create the run
-				runID, err = orm.CreateRun(dbSpec.ID)
+				runID, err = orm.CreateRun(dbSpec.ID, nil)
 				require.NoError(t, err)
 
 				// Set up a goroutine to await the run's completion

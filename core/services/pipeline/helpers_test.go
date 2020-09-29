@@ -12,6 +12,11 @@ func (t *HTTPTask) HelperSetConfig(config Config) {
 	t.config = config
 }
 
+func (t *BridgeTask) HelperSetConfigAndORM(config Config, orm ORM) {
+	t.config = config
+	t.orm = orm
+}
+
 func (t MultiplyTask) ExportedEquals(otherTask Task) bool {
 	other, ok := otherTask.(*MultiplyTask)
 	if !ok {
@@ -54,12 +59,12 @@ func (t HTTPTask) ExportedEquals(otherTask Task) bool {
 		return false
 	} else if t.Method != other.Method {
 		return false
-	} else if !reflect.DeepEqual(t.ExtendedPath, other.ExtendedPath) {
-		return false
-	} else if !reflect.DeepEqual(t.Headers, other.Headers) {
-		return false
-	} else if !reflect.DeepEqual(t.QueryParams, other.QueryParams) {
-		return false
+		// } else if !reflect.DeepEqual(t.ExtendedPath, other.ExtendedPath) {
+		// 	return false
+		// } else if !reflect.DeepEqual(t.Headers, other.Headers) {
+		// 	return false
+		// } else if !reflect.DeepEqual(t.QueryParams, other.QueryParams) {
+		// 	return false
 	} else if !reflect.DeepEqual(t.RequestData, other.RequestData) {
 		return false
 	}

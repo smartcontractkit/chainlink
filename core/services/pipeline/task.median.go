@@ -20,7 +20,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (f *MedianTask) Run(inputs []Result) (result Result) {
+func (f *MedianTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) == 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")}
 	}
