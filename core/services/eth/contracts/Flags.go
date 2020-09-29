@@ -1,25 +1,14 @@
 package contracts
 
 import (
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
-var FlagsABI = getFlagsABI()
-
-func getFlagsABI() abi.ABI {
-	abi, err := abi.JSON(strings.NewReader(flags_wrapper.FlagsABI))
-	if err != nil {
-		panic("could not parse OffchainAggregator ABI: " + err.Error())
-	}
-	return abi
-}
+var flagsABI = getABI(flags_wrapper.FlagsABI)
 
 type Flags struct {
 	Address common.Address
@@ -69,12 +58,13 @@ func (ll flagsDecodingLogListener) HandleLog(lb eth.LogBroadcast, err error) {
 	var decodedLog interface{}
 
 	switch eventID {
-	case FlagsABI.Events["FlagRaised"].ID:
+	case flagsABI.Events["FlagRaised"].ID:
 		decodedLog, err = ll.contract.ParseFlagRaised(rawLog)
-	case FlagsABI.Events["FlagLowered"].ID:
+	case flagsABI.Events["FlagLowered"].ID:
 		decodedLog, err = ll.contract.ParseFlagLowered(rawLog)
 	default:
-		err = errors.Errorf("Unknown topic for Flags contract: %s", eventID.Hex())
+		logger.Warnf("Unknown topic for Flags contract: %s", eventID.Hex())
+		return // don't pass on unknown/unexpectred events
 	}
 
 	lb.SetDecodedLog(decodedLog)
