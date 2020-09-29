@@ -13,7 +13,7 @@ import (
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
-// calling `TaskDAG#Tasks()` will return
+// calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
 type TaskDAG struct {
 	*simple.DirectedGraph
 	DOTSource string

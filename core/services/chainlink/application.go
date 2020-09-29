@@ -69,8 +69,8 @@ type ChainlinkApplication struct {
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           eth.LogBroadcaster
-	JobSpawner               job.Spawner
-	PipelineRunner           pipeline.Runner
+	jobSpawner               job.Spawner
+	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
@@ -121,8 +121,8 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
-		JobSpawner:               jobSpawner,
-		PipelineRunner:           pipelineRunner,
+		jobSpawner:               jobSpawner,
+		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
 		StatsPusher:              statsPusher,
 		RunManager:               runManager,
@@ -185,8 +185,8 @@ func (app *ChainlinkApplication) Start() error {
 		}
 	}
 
-	app.JobSpawner.Start()
-	app.PipelineRunner.Start()
+	app.jobSpawner.Start()
+	app.pipelineRunner.Start()
 
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
@@ -240,8 +240,8 @@ func (app *ChainlinkApplication) Stop() error {
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		app.JobSpawner.Stop()
-		app.PipelineRunner.Stop()
+		app.jobSpawner.Stop()
+		app.pipelineRunner.Stop()
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr
@@ -277,7 +277,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 }
 
 func (app *ChainlinkApplication) AddJobV2(job job.Spec) error {
-	_, err := app.JobSpawner.CreateJob(job)
+	_, err := app.jobSpawner.CreateJob(job)
 	return err
 }
 
@@ -289,7 +289,7 @@ func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 }
 
 func (app *ChainlinkApplication) ArchiveJobV2(ctx context.Context, job job.Spec) error {
-	return app.JobSpawner.DeleteJob(ctx, job)
+	return app.jobSpawner.DeleteJob(ctx, job)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs
