@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,6 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -800,4 +803,19 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) mo
 	spec := models.OffchainreportingOracleSpec{}
 	require.NoError(t, store.DB.Create(&spec).Error)
 	return spec
+}
+
+var falseFalsePayload = "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+
+func NewFlagsContractWithNoneRaised(t *testing.T) *contracts.Flags {
+	gethClient := new(mocks.GethClient)
+	backend := eth.NewClientWith(nil, gethClient)
+	address := NewAddress()
+	getFlagsResultBytes, err := hexutil.Decode(falseFalsePayload)
+	require.NoError(t, err)
+	gethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).
+		Return(getFlagsResultBytes, nil)
+	flags, err := contracts.NewFlagsContract(address, backend)
+	require.NoError(t, err)
+	return flags
 }
