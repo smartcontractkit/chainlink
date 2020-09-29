@@ -493,7 +493,7 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 		return
 	}
 
-	log := broadcast.Log()
+	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		logger.Error("HandleLog: ignoring nil value")
 		return
@@ -631,7 +631,7 @@ func (p *PollingDeviationChecker) processLogs() {
 			continue
 		}
 
-		switch log := broadcast.Log().(type) {
+		switch log := broadcast.DecodedLog().(type) {
 		case *contracts.LogNewRound:
 			p.respondToNewRoundLog(*log)
 
