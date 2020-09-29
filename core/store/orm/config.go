@@ -415,7 +415,8 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
-// OperatorContractAddress represents the deployed Oracle contract's address.
+// OperatorContractAddress represents the address where the Operator.sol
+// contract is deployed, this is used for filtering RunLog requests
 func (c Config) OperatorContractAddress() common.Address {
 	if c.viper.GetString(EnvVarName("OperatorContractAddress")) == "" {
 		return common.Address{}
