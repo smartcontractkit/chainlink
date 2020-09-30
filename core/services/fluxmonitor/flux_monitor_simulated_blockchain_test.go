@@ -457,4 +457,23 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// node doesn't submit initial response, because flag is up
 	cltest.AssertRunsStays(t, job, app.Store, 0)
+
+	// raise contract's flag
+	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.backend.Commit()
+
+	// lower global kill switch flag
+	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	fa.backend.Commit()
+	cltest.AssertRunsStays(t, job, app.Store, 0)
+
+	// lower contract's flag - should trigger job run
+	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
+	fa.backend.Commit()
+	cltest.WaitForRuns(t, job, app.Store, 1)
+
+	// raise contract's flag
+	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.backend.Commit()
+	cltest.AssertRunsStays(t, job, app.Store, 1)
 }
