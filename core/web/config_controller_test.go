@@ -48,6 +48,6 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, orm.NewConfig().LinkContractAddress(), cp.LinkContractAddress)
 	assert.Equal(t, orm.NewConfig().BlockBackfillDepth(), cp.BlockBackfillDepth)
 	assert.Equal(t, assets.NewLink(100), cp.MinimumContractPayment)
-	assert.Equal(t, (*common.Address)(nil), cp.OracleContractAddress)
+	assert.Equal(t, common.Address{}, cp.OperatorContractAddress)
 	assert.Equal(t, time.Millisecond*500, cp.DatabaseTimeout.Duration())
 }
