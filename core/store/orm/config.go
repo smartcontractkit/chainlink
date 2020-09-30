@@ -421,7 +421,8 @@ func (c Config) OperatorContractAddress() common.Address {
 	if c.viper.GetString(EnvVarName("OperatorContractAddress")) == "" {
 		return common.Address{}
 	}
-	return c.getWithFallback("OperatorContractAddress", parseAddress).(common.Address)
+	address := c.getWithFallback("OperatorContractAddress", parseAddress).(*common.Address)
+	return *address
 }
 
 // LogLevel represents the maximum level of log messages to output.
