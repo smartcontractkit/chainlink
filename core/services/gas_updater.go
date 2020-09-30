@@ -34,7 +34,7 @@ var (
 		Name: "gas_updater_set_gas_price",
 		Help: "Gas updater set gas price (in Wei)",
 	},
-		[]string{"percentile", "block_num"},
+		[]string{"percentile"},
 	)
 )
 
@@ -113,7 +113,7 @@ func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 				logger.Error("GasUpdater error setting gas price: ", err)
 				return
 			}
-			promGasUpdaterSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", gu.percentile), fmt.Sprintf("%d", blockToFetch)).Set(float64(percentileGasPrice))
+			promGasUpdaterSetGasPrice.WithLabelValues(fmt.Sprintf("%v%%", gu.percentile)).Set(float64(percentileGasPrice))
 		} else {
 			logger.Debugw(fmt.Sprintf("GasUpdater: waiting for blocks: %v/%v", len(gu.rollingBlockHistory), gu.rollingBlockHistorySize), "inHistory", len(gu.rollingBlockHistory), "required", gu.rollingBlockHistorySize)
 		}
