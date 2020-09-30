@@ -292,10 +292,13 @@ func (f pollingDeviationCheckerFactory) New(
 
 	// TODO DEV: the flags contract is created here, rather than created once on the factory and
 	// passed as a pointer to the PDC, because of the geth client test config in the simulated backend
-	flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-	flagsContract, err := contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
-	if err != nil {
-		panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
+	var flagsContract *contracts.Flags
+	if f.store.Config.FlagsContractAddress() != "" {
+		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
+		flagsContract, err = contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
+		if err != nil {
+			panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
+		}
 	}
 
 	return NewPollingDeviationChecker(
@@ -452,14 +455,18 @@ func (p *PollingDeviationChecker) Start() {
 		"initr", p.initr.ID,
 	)
 
-	// TODO - RYAN - async error here instead of panic
-	var err error
-	p.isHibernating, err = p.isFlagRaised()
-	if err != nil {
-		panic(err)
-	}
-
+	p.setIsHibernatingStatus()
 	go p.consume()
+}
+
+func (p *PollingDeviationChecker) setIsHibernatingStatus() {
+	if p.flagsContract != nil {
+		isHibernating, err := p.isFlagRaised()
+		if err != nil {
+			panic(err)
+		}
+		p.isHibernating = isHibernating
+	}
 }
 
 func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
@@ -549,8 +556,22 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
-	unsubscribe := p.subscribeToContractLogs()
-	defer unsubscribe()
+	// subscribe to contract logs
+	isConnected, unsubscribeFALogs := p.fluxAggregator.SubscribeToLogs(p)
+	defer unsubscribeFALogs()
+	if p.flagsContract != nil {
+		flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
+		flagsConnected := p.logBroadcaster.Register(p.flagsContract.Address, flagsLogListener)
+		isConnected = isConnected && flagsConnected
+		defer func() { p.logBroadcaster.Unregister(p.flagsContract.Address, flagsLogListener) }()
+	}
+
+	if isConnected {
+		p.connected.Set()
+	} else {
+		p.connected.UnSet()
+	}
+
 	p.readyForLogs()
 	p.performInitialPoll()
 	p.setPollTicker()
@@ -594,23 +615,6 @@ func (p *PollingDeviationChecker) consume() {
 				Abs: float64(p.initr.AbsoluteThreshold),
 			})
 		}
-	}
-}
-
-func (p *PollingDeviationChecker) subscribeToContractLogs() (unsubscribe func()) {
-	fluxAggConnected, unsubscribeLogs := p.fluxAggregator.SubscribeToLogs(p)
-	flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
-	flagsConnected := p.logBroadcaster.Register(p.flagsContract.Address, flagsLogListener)
-
-	if fluxAggConnected && flagsConnected {
-		p.connected.Set()
-	} else {
-		p.connected.UnSet()
-	}
-
-	return func() {
-		unsubscribeLogs()
-		p.logBroadcaster.Unregister(p.flagsContract.Address, flagsLogListener)
 	}
 }
 
