@@ -213,7 +213,42 @@ jobs:
         run: make yarndep
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
-
+  prepublish_npm_staging:
+    name: Prepublish NPM staging
+    runs-on: [self-hosted, sdlc-ghr-staging]
+    container: smartcontract/builder:1.0.34
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v1
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ env.CACHE_VERSION }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Run prepublish NPM test
+        run: ./tools/ci/prepublish_npm_test
+  prepublish_npm_prod:
+    name: Prepublish NPM staging
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container: smartcontract/builder:1.0.34
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v1
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ env.CACHE_VERSION }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Run prepublish NPM test
+        run: ./tools/ci/prepublish_npm_test
   build-chainlink:
     name: Build chainlink image
     runs-on: self-hosted
