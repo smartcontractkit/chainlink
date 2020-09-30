@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Gas bumper no longer hits database constraint error if ETH_MAX_GAS_PRICE_WEI is reached (this was actually mostly harmless, but the errors were annoying)
 
+### Changes
+
+- ETH_MAX_GAS_PRICE_WEI now defaults to 1500 gwei
+
 ## [0.8.16] - 2020-09-18
 
 ### Added
