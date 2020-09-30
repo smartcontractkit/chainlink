@@ -26,11 +26,12 @@ type EthTxState string
 type EthTxAttemptState string
 
 const (
-	EthTxUnstarted   = EthTxState("unstarted")
-	EthTxInProgress  = EthTxState("in_progress")
-	EthTxFatalError  = EthTxState("fatal_error")
-	EthTxUnconfirmed = EthTxState("unconfirmed")
-	EthTxConfirmed   = EthTxState("confirmed")
+	EthTxUnstarted               = EthTxState("unstarted")
+	EthTxInProgress              = EthTxState("in_progress")
+	EthTxFatalError              = EthTxState("fatal_error")
+	EthTxUnconfirmed             = EthTxState("unconfirmed")
+	EthTxConfirmed               = EthTxState("confirmed")
+	EthTxConfirmedMissingReceipt = EthTxState("confirmed_missing_receipt")
 
 	EthTxAttemptInProgress      = EthTxAttemptState("in_progress")
 	EthTxAttemptInsufficientEth = EthTxAttemptState("insufficient_eth")

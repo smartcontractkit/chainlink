@@ -731,10 +731,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
 
-	t.Run("external wallet sent a transaction from the account and now the nonce is one higher than it should be", func(t *testing.T) {
+	t.Run("if external wallet sent a transaction from the account and now the nonce is one higher than it should be and we got replacement underpriced then we assume a previous transaction of ours was the one that succeeded, and hand off to EthConfirmer", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
 		require.Equal(t, 0, int(localNextNonce))
-		remoteNextNonce := uint64(1)
 
 		etx := models.EthTx{
 			FromAddress:    defaultFromAddress,
@@ -752,68 +751,36 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}
 		require.NoError(t, store.DB.Save(&ethTaskRunTx).Error)
 
-		// First send, nonce too low
+		// First send, replacement underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNextNonce
-		})).Return(errors.New("nonce too low")).Once()
-
-		// Second send with higher nonce
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == remoteNextNonce
-		})).Return(nil).Once()
+		})).Return(errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
 		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 
-		// Check that two transactions were sent
 		ethClient.AssertExpectations(t)
 
-		// Check the 'nonce too low' transaction was saved correctly with its attempt
+		// Check that the transaction was saved correctly with its attempt
+		// We assume success and hand off to eth confirmer to eventually mark it as failed
+		var latestID int64
 		var etx1 models.EthTx
-		etx1, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, store.DB.Raw("SELECT max(id) FROM eth_txes").Row().Scan(&latestID))
+		etx1, err = store.FindEthTxWithAttempts(latestID)
 		require.NoError(t, err)
 		require.NotNil(t, etx1.BroadcastAt)
+		assert.NotEqual(t, etx1.CreatedAt, *etx1.BroadcastAt)
 		require.NotNil(t, etx1.Nonce)
 		assert.Equal(t, int64(localNextNonce), *etx1.Nonce)
 		assert.Nil(t, etx1.Error)
 		assert.Len(t, etx1.EthTxAttempts, 1)
 
-		// Check that the second transaction was saved correctly with its attempt
-		var latestID int64
-		var etx2 models.EthTx
-		require.NoError(t, store.DB.Raw("SELECT max(id) FROM eth_txes").Row().Scan(&latestID))
-		etx2, err = store.FindEthTxWithAttempts(latestID)
-		require.NoError(t, err)
-		require.NotNil(t, etx2.BroadcastAt)
-		assert.NotEqual(t, etx2.CreatedAt, *etx2.BroadcastAt)
-		require.NotNil(t, etx2.Nonce)
-		assert.Equal(t, int64(localNextNonce+1), *etx2.Nonce)
-		assert.Nil(t, etx2.Error)
-		assert.Len(t, etx2.EthTxAttempts, 1)
-
-		// Check that the second transaction is later than the first but otherwise identical
-		assert.Greater(t, (*etx2.BroadcastAt).UnixNano(), (*etx1.BroadcastAt).UnixNano())
-		assert.Equal(t, etx1.FromAddress, etx2.FromAddress)
-		assert.Equal(t, etx1.ToAddress, etx2.ToAddress)
-		assert.Equal(t, etx1.EncodedPayload, etx2.EncodedPayload)
-		assert.Equal(t, etx1.Value, etx2.Value)
-		assert.Equal(t, etx1.GasLimit, etx2.GasLimit)
-		assert.Greater(t, etx2.CreatedAt.UnixNano(), etx1.CreatedAt.UnixNano())
-
-		// Check that the eth_task_run_tx was re-assigned
-		res := store.DB.Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx.ID)
-		require.NoError(t, res.Error)
-		require.Equal(t, int64(0), res.RowsAffected)
-		res = store.DB.Exec(`SELECT * FROM eth_task_run_txes WHERE eth_tx_id = ?`, etx2.ID)
-		require.NoError(t, res.Error)
-		require.Equal(t, int64(1), res.RowsAffected)
-
-		// Check that the local nonce was incremented by two
+		// Check that the local nonce was incremented by one
 		var finalNextNonce *int64
 		finalNextNonce, err = bulletprooftxmanager.GetNextNonce(store.DB, defaultFromAddress)
 		require.NoError(t, err)
 		require.NotNil(t, finalNextNonce)
-		require.Equal(t, int64(2), *finalNextNonce)
+		require.Equal(t, int64(1), *finalNextNonce)
 	})
 
 	t.Run("geth client returns an error in the fatal errors category", func(t *testing.T) {

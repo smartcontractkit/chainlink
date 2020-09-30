@@ -70,6 +70,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1600504870"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1600765286"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1600881493"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1601459029"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -348,6 +349,10 @@ func init() {
 			ID:       "1600881493",
 			Migrate:  migration1600881493.Migrate,
 			Rollback: migration1600881493.Rollback,
+		},
+		{
+			ID:      "1601459029",
+			Migrate: migration1601459029.Migrate,
 		},
 	}
 }
