@@ -225,7 +225,8 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		go func() {
 			err := client.SecondaryGethClient.SendTransaction(ctx, tx)
 			if err != nil {
-				logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+				// We don't care if it errors since this is fire-and-forget
+				logger.Debugw("secondary eth client returned error", "err", err, "tx", tx)
 			}
 			wg.Done()
 		}()
