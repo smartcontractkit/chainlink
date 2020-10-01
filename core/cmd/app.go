@@ -386,7 +386,12 @@ func NewApp(client *Client) *cli.App {
 					Name:   "hard-reset",
 					Usage:  "Removes unstarted transactions and attempts to cancel pending transactions. Use with caution, this command cannot be reverted! Only execute when the node is not started! You must have a funding address ready to use",
 					Action: client.HardReset,
-					Flags:  []cli.Flag{},
+					Flags: []cli.Flag{
+						cli.Uint64Flag{
+							Name:  "gasPriceWei, g",
+							Usage: "OPTIONAL: gas price (in Wei) to send the cancel transactions at",
+						},
+					},
 				},
 				{
 					Name:        "db",

@@ -411,6 +411,16 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 		return err
 	}
 
+	var err error
+	gasPriceWei := c.Uint64("gasPriceWei")
+	if gasPriceWei == 0 {
+		gasPriceWei, err = storeInstance.CalculateGasPriceToCancelTx()
+		if err != nil {
+			return err
+		}
+	}
+	_ = gasPriceWei
+
 	logger.Info("successfully reset the node state in the database")
 	return nil
 }
