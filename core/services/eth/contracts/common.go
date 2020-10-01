@@ -9,7 +9,7 @@ import (
 func getABI(json string) abi.ABI {
 	abi, err := abi.JSON(strings.NewReader(json))
 	if err != nil {
-		panic("could not parse OffchainAggregator ABI: " + err.Error())
+		panic("could not parse ABI: " + err.Error())
 	}
 	return abi
 }

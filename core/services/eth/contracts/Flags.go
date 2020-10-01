@@ -43,7 +43,6 @@ func NewFlagsDecodingLogListener(
 	}
 }
 
-//  TODO - RYAN - test this
 func (ll flagsDecodingLogListener) HandleLog(lb eth.LogBroadcast, err error) {
 	if err != nil {
 		ll.LogListener.HandleLog(lb, err)

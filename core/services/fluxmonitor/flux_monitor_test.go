@@ -1538,6 +1538,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 			}
 
 			getFlagsResultBytes, err := hexutil.Decode(test.getFlagsResult)
+			require.NoError(t, err)
 
 			gethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
@@ -1560,6 +1561,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 				flagsContract,
 				func() {},
 			)
+			require.NoError(t, err)
 
 			result, err := checker.ExportedIsFlagRaised()
 			require.NoError(t, err)
