@@ -1,4 +1,4 @@
-package bulletprooftxmanager
+package eth
 
 import (
 	"regexp"
@@ -8,16 +8,16 @@ import (
 )
 
 // fatal means this transaction can never be accepted even with a different nonce or higher gas price
-type sendError struct {
+type SendError struct {
 	fatal bool
 	err   error
 }
 
-func (s *sendError) Error() string {
+func (s *SendError) Error() string {
 	return s.err.Error()
 }
 
-func (s *sendError) StrPtr() *string {
+func (s *SendError) StrPtr() *string {
 	e := s.err.Error()
 	return &e
 }
@@ -25,7 +25,7 @@ func (s *sendError) StrPtr() *string {
 // Fatal indicates whether the error should be considered fatal or not
 // Fatal errors mean that no matter how many times the send is retried, no node
 // will ever accept it
-func (s *sendError) Fatal() bool {
+func (s *SendError) Fatal() bool {
 	return s != nil && s.fatal
 }
 
@@ -53,30 +53,30 @@ var (
 )
 
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
-func (s *sendError) IsReplacementUnderpriced() bool {
+func (s *SendError) IsReplacementUnderpriced() bool {
 	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
 }
 
-func (s *sendError) IsNonceTooLowError() bool {
+func (s *SendError) IsNonceTooLowError() bool {
 	return s != nil && s.err != nil && ((s.Error() == "nonce too low") || s.Error() == parOld)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
-func (s *sendError) IsTransactionAlreadyInMempool() bool {
+func (s *SendError) IsTransactionAlreadyInMempool() bool {
 	return s != nil && s.err != nil && (strings.HasPrefix(strings.ToLower(s.Error()), "known transaction") || s.Error() == "already known" || s.Error() == parAlreadyImported)
 }
 
 // IsTerminallyUnderpriced indicates that this transaction is so far
 // underpriced the node won't even accept it in the first place
-func (s *sendError) IsTerminallyUnderpriced() bool {
+func (s *SendError) IsTerminallyUnderpriced() bool {
 	return s != nil && s.err != nil && (s.Error() == "transaction underpriced" || parInsufficientGasPrice.MatchString(s.Error()))
 }
 
-func (s *sendError) IsTemporarilyUnderpriced() bool {
+func (s *SendError) IsTemporarilyUnderpriced() bool {
 	return s != nil && s.err != nil && s.Error() == parLimitReached
 }
 
-func (s *sendError) IsInsufficientEth() bool {
+func (s *SendError) IsInsufficientEth() bool {
 	if s == nil || s.err == nil {
 		return false
 	}
@@ -90,27 +90,27 @@ func (s *sendError) IsInsufficientEth() bool {
 	}
 }
 
-func NewFatalSendError(s string) *sendError {
-	return &sendError{err: errors.New(s), fatal: true}
+func NewFatalSendErrorS(s string) *SendError {
+	return &SendError{err: errors.New(s), fatal: true}
 }
 
-func FatalSendError(e error) *sendError {
+func NewFatalSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
-	return &sendError{err: errors.WithStack(e), fatal: true}
+	return &SendError{err: errors.WithStack(e), fatal: true}
 }
 
-func NewSendError(s string) *sendError {
-	return SendError(errors.New(s))
+func NewSendErrorS(s string) *SendError {
+	return NewSendError(errors.New(s))
 }
 
-func SendError(e error) *sendError {
+func NewSendError(e error) *SendError {
 	if e == nil {
 		return nil
 	}
 	fatal := isFatalSendError(e)
-	return &sendError{err: errors.WithStack(e), fatal: fatal}
+	return &SendError{err: errors.WithStack(e), fatal: fatal}
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
@@ -149,6 +149,6 @@ func isParityFatal(s string) bool {
 // client raises an error since this is a required field. There is no easy way
 // to ignore the error or pass in a custom struct, so we use this hack to
 // detect it instead.
-func isParityQueriedReceiptTooEarly(e error) bool {
+func IsParityQueriedReceiptTooEarly(e error) bool {
 	return e != nil && e.Error() == "missing required field 'transactionHash' for Log"
 }

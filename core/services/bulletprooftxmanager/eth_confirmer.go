@@ -184,7 +184,7 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 			// expense of slightly higher load for the remote eth node, by
 			// batch requesting all receipts at once
 			receipt, err := ec.fetchReceipt(ctx, attempt.Hash)
-			if isParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
+			if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
 				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
 				break
 			} else if err != nil {
