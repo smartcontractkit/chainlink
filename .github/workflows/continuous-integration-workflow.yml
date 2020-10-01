@@ -13,7 +13,7 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
@@ -68,7 +68,7 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.36
+      image: smartcontract/builder:1.0.34
       env:
         CARGO_HOME: /root/.cargo
         RUSTUP_HOME: /root/.rustup
@@ -109,7 +109,7 @@ jobs:
   solidity:
     name: Solidity
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -133,7 +133,7 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -157,7 +157,7 @@ jobs:
   reportcoverage:
     name: Report test coverage
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     needs: [core, solidity, operator-ui, rust]
     steps:
       - name: Checkout the repo
@@ -184,7 +184,7 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -203,7 +203,7 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: self-hosted
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.34
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
