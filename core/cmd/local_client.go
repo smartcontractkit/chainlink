@@ -388,6 +388,57 @@ func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, end
 	return nil
 }
 
+// HardReset will remove all non-started transactions if any are found.
+func (cli *Client) HardReset(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+
+	if !confirmHardReset() {
+		return nil
+	}
+
+	app, cleanupFn := cli.makeApp()
+	defer cleanupFn()
+	storeInstance := app.GetStore()
+	ormInstance := storeInstance.ORM
+
+	// Ensure that the CL node is down by trying to acquire the global advisory lock.
+	// This method will panic if it can't get the lock.
+	logger.Info("Make sure the Chainlink node is not running")
+	ormInstance.MustEnsureAdvisoryLock()
+
+	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
+		logger.Errorw("failed to remove unstarted transactions", "error", err)
+		return err
+	}
+
+	logger.Info("successfully reset the node state in the database")
+	return nil
+}
+
+func confirmHardReset() bool {
+	prompt := NewTerminalPrompter()
+	var answer string
+	for {
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/No)")
+		if answer == "yes" {
+			return true
+		} else if answer == "no" {
+			return false
+		} else {
+			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
+		}
+	}
+}
+
+func (cli *Client) makeApp() (chainlink.Application, func()) {
+	app := cli.AppFactory.NewApplication(cli.Config)
+	return app, func() {
+		if err := app.Stop(); err != nil {
+			logger.Errorw("Failed to stop the application on hard reset", "error", err)
+		}
+	}
+}
+
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
 // This is useful to setup the database for testing
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
