@@ -1330,6 +1330,31 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	assert.Equal(t, key.JSON.String(), content)
 }
 
+func TestORM_RemoveUnstartedTransaction(t *testing.T) {
+	storeInstance, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ormInstance := storeInstance.ORM
+
+	runJob := cltest.NewJobWithRunLogInitiator()
+	require.NoError(t, storeInstance.CreateJob(&runJob))
+
+	for _, status := range []models.RunStatus{
+		models.RunStatusInProgress,
+		models.RunStatusUnstarted,
+	} {
+		jobRun := cltest.NewJobRun(runJob)
+		jobRun.Status = status
+		require.NoError(t, storeInstance.CreateJobRun(&jobRun))
+	}
+
+	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
+
+	jobRuns, err := ormInstance.JobRunsFor(runJob.ID, 10)
+	assert.NoError(t, err)
+	assert.Len(t, jobRuns, 1, "expected only one jobrun to be left in the db")
+	assert.Equal(t, jobRuns[0].Status, models.RunStatusInProgress)
+}
+
 func TestORM_UpdateBridgeType(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
