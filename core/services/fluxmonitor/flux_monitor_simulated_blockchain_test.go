@@ -49,7 +49,6 @@ type fluxAggregatorUniverse struct {
 	backend       *backends.SimulatedBackend
 	aggregatorABI abi.ABI
 	// Cast of participants
-	// TODO - RYAN - add Carol the contract creator
 	sergey  *bind.TransactOpts // Owns all the LINK initially
 	neil    *bind.TransactOpts // Node operator Flux Monitor Oracle
 	ned     *bind.TransactOpts // Node operator Flux Monitor Oracle
