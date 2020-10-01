@@ -181,3 +181,16 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
 }
+
+const calculateGasPriceToCancelTxQuery = `
+SELECT MAX(eta.gas_price) * 1.1 AS gas_price_to_cancel_tx
+FROM eth_tx_attempts AS eta
+JOIN eth_txes AS et ON et.id = eta.eth_tx_id
+WHERE et.state = 'in_progress'
+`
+
+func (s *Store) CalculateGasPriceToCancelTx() (uint64, error) {
+	var result int64 = 0
+	err := s.DB.Raw(calculateGasPriceToCancelTxQuery).Scan(&result).Error
+	return uint64(result), err
+}

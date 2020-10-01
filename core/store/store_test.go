@@ -8,8 +8,11 @@ import (
 	"strings"
 	"testing"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -169,4 +172,44 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())
+}
+
+func TestStore_CalculateGasPriceToCancelTx(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	storeInstance := app.GetStore()
+
+	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	value := assets.NewEthValue(142)
+	gasLimit := uint64(21000)
+	encodedPayload := []byte{0}
+
+	for _, attemptGasPrice := range []*utils.Big{
+		utils.NewBigI(100), utils.NewBigI(200),
+	} {
+		key := cltest.MustInsertRandomKey(t, storeInstance)
+
+		var nonce int64 = 1
+		etx := cltest.NewEthTx(t, storeInstance)
+		etx.FromAddress = key.Address.Address()
+		etx.Nonce = &nonce
+		etx.ToAddress = toAddress
+		etx.State = models.EthTxInProgress
+		etx.GasLimit = gasLimit
+		etx.Value = value
+		etx.EncodedPayload = encodedPayload
+		require.NoError(t, storeInstance.DB.Save(&etx).Error)
+
+		attempt := cltest.NewEthTxAttempt(t, etx.ID)
+		attempt.State = models.EthTxAttemptInProgress
+		attempt.GasPrice = *attemptGasPrice
+		require.NoError(t, storeInstance.DB.Save(&attempt).Error)
+	}
+
+	gasPrice, err := storeInstance.CalculateGasPriceToCancelTx()
+	require.NoError(t, err)
+	require.Equal(t, gasPrice, 220)
 }
