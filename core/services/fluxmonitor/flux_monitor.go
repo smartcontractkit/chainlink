@@ -290,8 +290,6 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	// TODO DEV: the flags contract is created here, rather than created once on the factory and
-	// passed as a pointer to the PDC, because of the geth client test config in the simulated backend
 	var flagsContract *contracts.Flags
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
@@ -1172,12 +1170,6 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 func (p *PollingDeviationChecker) JobID() *models.ID {
 	return p.initr.JobSpecID
 }
-
-// func (p *PollingDeviationChecker) isFlagRaisedForContract() bool {
-// 	addressZero := [common.AddressLength]byte{}
-
-// 	return p.initr.Address
-// }
 
 // OutsideDeviation checks whether the next price is outside the threshold.
 // If both thresholds are zero (default value), always returns true.

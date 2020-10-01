@@ -935,7 +935,7 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-// AssertRunsStays asserts that the number of job runs for a particular job remains at the provided valuea
+// AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
 func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
