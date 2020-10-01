@@ -626,6 +626,9 @@ func (p *PollingDeviationChecker) performInitialPoll() {
 }
 
 func (p *PollingDeviationChecker) setPollTicker() {
+	if p.pollTicker != nil {
+		p.pollTicker.Stop()
+	}
 	if !p.initr.PollTimer.Disabled && !p.isHibernating {
 		p.pollTicker = time.NewTicker(p.initr.PollTimer.Period.Duration())
 		p.chPollTicker = p.pollTicker.C
@@ -636,9 +639,7 @@ func (p *PollingDeviationChecker) setPollTicker() {
 func (p *PollingDeviationChecker) Hibernate() {
 	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
-	if p.pollTicker != nil {
-		p.pollTicker.Stop()
-	}
+	p.setPollTicker()
 	p.idleTimer = time.After(hibernationPollPeriod)
 	p.roundTimer = nil
 }
@@ -649,7 +650,7 @@ func (p *PollingDeviationChecker) Reactivate() {
 	p.isHibernating = false
 	p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 	if p.pollTicker != nil {
-		p.pollTicker.Reset(p.initr.PollTimer.Period.Duration())
+		p.pollTicker.Stop()
 	}
 	p.resetIdleTimer(uint64(time.Now().Unix()))
 }
