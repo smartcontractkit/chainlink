@@ -36,6 +36,11 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
 	store.Config.Set("CHAINLINK_PORT", 6688)
 
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+	store.EthClient = ethClient
+
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
 	app.On("Start").Return(nil)
@@ -122,6 +127,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
+
 			_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
 			require.NoError(t, err)
 
@@ -159,6 +169,56 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	}
 }
 
+func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	// Clear out fixture
+	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Start").Maybe().Return(nil)
+	app.On("Stop").Maybe().Return(nil)
+
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	store.EthClient = ethClient
+
+	_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
+	require.NoError(t, err)
+
+	callback := func(store *strpkg.Store, phrase string) (string, error) {
+		unlockErr := store.KeyStore.Unlock(phrase)
+		return phrase, unlockErr
+	}
+	auth := cltest.CallbackAuthenticator{Callback: callback}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	var fundingKey = models.Key{}
+	_ = store.DB.Where("is_funding = TRUE").First(&fundingKey).Error
+	assert.Empty(t, fundingKey.ID, "expected no funding key")
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	ctx := cli.NewContext(nil, set, nil)
+
+	assert.NoError(t, client.RunNode(ctx))
+
+	assert.NoError(t, store.DB.Where("is_funding = TRUE").First(&fundingKey).Error)
+	assert.NotEmpty(t, fundingKey.ID, "expected a new funding key")
+}
+
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	t.Parallel()
 
@@ -189,6 +249,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
 
 			callback := func(*strpkg.Store, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
@@ -238,7 +303,7 @@ func TestClient_ImportKey(t *testing.T) {
 	// importing again simply upserts
 	require.NoError(t, client.ImportKey(c))
 
-	keys, err := app.GetStore().Keys()
+	keys, err := app.GetStore().SendKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 2)

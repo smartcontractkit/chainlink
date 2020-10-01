@@ -1235,10 +1235,18 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	})
 }
 
-// Keys returns all of the keys recorded in the database.
-func (orm *ORM) Keys() ([]models.Key, error) {
+// AllKeys returns all of the keys recorded in the database including the funding key.
+// This method is deprecated! You should use SendKeys() to retrieve all but the funding keys.
+func (orm *ORM) AllKeys() ([]models.Key, error) {
 	var keys []models.Key
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
+}
+
+// SendKeys will return only the keys that are not is_funding=true.
+func (orm *ORM) SendKeys() ([]models.Key, error) {
+	var keys []models.Key
+	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
+	return keys, err
 }
 
 // KeyByAddress returns the key matching provided address
@@ -1341,6 +1349,7 @@ func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
 	err = orm.Transaction(func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		q = q.Where("is_funding = FALSE")
 		if len(addresses) > 0 {
 			q = q.Where("address in (?)", addresses)
 		}
@@ -1447,7 +1456,7 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 		return err
 	}
 
-	keys, err := orm.Keys()
+	keys, err := orm.AllKeys()
 	if err != nil {
 		return err
 	}

@@ -64,7 +64,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB())
 
 	// assert creation in db is successful
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	// New key in addition to fixture key gives 2
 	require.Len(t, keys, 2)
@@ -109,7 +109,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB())
 
 	// assert creation in db is successful
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 2)
 
@@ -154,7 +154,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	store := app.GetStore()
 
 	// assert sync worked on NewApplication
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1, "key should already exist because of Application#Start")
 
@@ -165,7 +165,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB()) // sync
 
 	// assert no change in db
-	keys, err = store.Keys()
+	keys, err = store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())

@@ -1256,13 +1256,42 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 
 	require.NoError(t, orm.CreateKeyIfNotExists(later))
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 2)
 
 	assert.Equal(t, keys[0].Address, earlierAddress)
 	assert.Equal(t, keys[1].Address, laterAddress)
+}
+
+func TestORM_SendKeys(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := store.ORM
+
+	testJSON := cltest.JSONFromString(t, "{}")
+
+	sendingAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
+	require.NoError(t, err)
+	sending := models.Key{Address: sendingAddress, JSON: testJSON}
+
+	require.NoError(t, orm.CreateKeyIfNotExists(sending))
+	time.Sleep(10 * time.Millisecond)
+
+	fundingAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
+	require.NoError(t, err)
+	funding := models.Key{Address: fundingAddress, JSON: testJSON, IsFunding: true}
+
+	require.NoError(t, orm.CreateKeyIfNotExists(funding))
+
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 2)
+
+	keys, err = store.SendKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
 }
 
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
@@ -1275,7 +1304,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	require.NoError(t, os.RemoveAll(keysDir))
 	require.NoError(t, store.DeleteKey(hexutil.MustDecode("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")))
 	// Fixture key is deleted
-	dbkeys, err := store.Keys()
+	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 0)
 
@@ -1287,7 +1316,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
 	require.NoError(t, err)
 
-	dbkeys, err = store.Keys()
+	dbkeys, err = store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 1)
 
@@ -1651,7 +1680,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	defer cleanup()
 
 	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
-	keys, err := orm.Keys()
+	keys, err := orm.SendKeys()
 	require.NoError(t, err)
 	fromAddress := keys[0].Address.Address()
 
@@ -1959,10 +1988,12 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	fundingKey := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`), IsFunding: true}
 	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
 	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
 
+	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	require.NoError(t, store.CreateKeyIfNotExists(k1))
 	require.NoError(t, store.CreateKeyIfNotExists(k2))
 
