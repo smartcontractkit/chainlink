@@ -1,5 +1,5 @@
 // Package logger is used to store details of events in the node.
-// Events can be categorized by Debug, Info, Error, Fatal, and Panic.
+// Events can be categorized by Trace, Debug, Info, Error, Fatal, and Panic.
 package logger
 
 import (
