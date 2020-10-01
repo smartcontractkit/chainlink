@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.18] - 2020-10-01
+
+### Fixed
+
+- Prometheus gas_updater_set_gas_price metric now only shows last gas price instead of every block since restart
+
 ## [0.8.17] - 2020-09-28
 
 ### Added
