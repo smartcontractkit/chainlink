@@ -1988,10 +1988,12 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	fundingKey := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`), IsFunding: true}
 	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
 	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
 
+	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	require.NoError(t, store.CreateKeyIfNotExists(k1))
 	require.NoError(t, store.CreateKeyIfNotExists(k2))
 
