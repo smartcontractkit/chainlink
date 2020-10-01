@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
 - At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
+- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
 
 ### Fixed
 
