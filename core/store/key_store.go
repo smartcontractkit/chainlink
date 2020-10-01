@@ -31,6 +31,7 @@ type KeyStoreInterface interface {
 	NewAccount(passphrase string) (accounts.Account, error)
 	SignHash(hash common.Hash) (models.Signature, error)
 	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
+	Export(a accounts.Account, passphrase, newPassphrase string) ([]byte, error)
 	GetAccounts() []accounts.Account
 	GetAccountByAddress(common.Address) (accounts.Account, error)
 

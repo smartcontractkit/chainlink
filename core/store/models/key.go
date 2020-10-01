@@ -28,6 +28,9 @@ type Key struct {
 	NextNonce *int64
 	// LastUsed is the time that the address was last assigned to a transaction
 	LastUsed *time.Time
+	// IsFunding marks the address as being used for rescuing the  node and the pending transactions
+	// Only one key can be IsFunding=true at a time.
+	IsFunding bool
 }
 
 // NewKeyFromFile creates an instance in memory from a key file on disk.
