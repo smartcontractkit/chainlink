@@ -1333,6 +1333,76 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	assert.Equal(t, key.JSON.String(), content)
 }
 
+const linkEthTxWithTaskRunQuery = `
+INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)
+`
+
+func TestORM_RemoveUnstartedTransaction(t *testing.T) {
+	storeInstance, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ormInstance := storeInstance.ORM
+
+	jobSpec := cltest.NewJobWithRunLogInitiator()
+	require.NoError(t, storeInstance.CreateJob(&jobSpec))
+
+	for _, status := range []models.RunStatus{
+		"in_progress",
+		"unstarted",
+	} {
+		jobRun := cltest.NewJobRun(jobSpec)
+		jobRun.Status = status
+		jobRun.TaskRuns = []models.TaskRun{
+			{
+				ID:         models.NewID(),
+				Status:     models.RunStatusUnstarted,
+				TaskSpecID: jobSpec.Tasks[0].ID,
+			},
+		}
+		runRequest := models.NewRunRequest(models.JSON{})
+		require.NoError(t, storeInstance.DB.Create(&runRequest).Error)
+		jobRun.RunRequest = *runRequest
+		require.NoError(t, storeInstance.CreateJobRun(&jobRun))
+
+		key := cltest.MustInsertRandomKey(t, storeInstance)
+		ethTx := cltest.NewEthTx(t, storeInstance, key.Address.Address())
+		ethTx.State = models.EthTxState(status)
+		if status == "in_progress" {
+			var nonce int64 = 1
+			ethTx.Nonce = &nonce
+		}
+		require.NoError(t, storeInstance.DB.Save(&ethTx).Error)
+
+		ethTxAttempt := cltest.NewEthTxAttempt(t, ethTx.ID)
+		ethTxAttempt.State = models.EthTxAttemptInProgress
+		require.NoError(t, storeInstance.DB.Save(&ethTxAttempt).Error)
+
+		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID.UUID(), ethTx.ID).Error)
+	}
+
+	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
+
+	jobRuns, err := ormInstance.JobRunsFor(jobSpec.ID, 10)
+	assert.NoError(t, err)
+	assert.Len(t, jobRuns, 1, "expected only one JobRun to be left in the db")
+	assert.Equal(t, jobRuns[0].Status, models.RunStatusInProgress)
+
+	taskRuns := []models.TaskRun{}
+	assert.NoError(t, storeInstance.DB.Find(&taskRuns).Error)
+	assert.Len(t, taskRuns, 1, "expected only one TaskRun to be left in the db")
+
+	runRequests := []models.RunRequest{}
+	assert.NoError(t, storeInstance.DB.Find(&runRequests).Error)
+	assert.Len(t, runRequests, 1, "expected only one RunRequest to be left in the db")
+
+	ethTxes := []models.EthTx{}
+	assert.NoError(t, storeInstance.DB.Find(&ethTxes).Error)
+	assert.Len(t, ethTxes, 1, "expected only one EthTx to be left in the db")
+
+	ethTxAttempts := []models.EthTxAttempt{}
+	assert.NoError(t, storeInstance.DB.Find(&ethTxAttempts).Error)
+	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
+}
+
 func TestORM_UpdateBridgeType(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
