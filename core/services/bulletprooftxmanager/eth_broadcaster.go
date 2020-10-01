@@ -393,7 +393,7 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 	})
 }
 
-func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *sendError, etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
+func (eb *ethBroadcaster) tryAgainWithHigherGasPrice(sendError *eth.SendError, etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
 	bumpedGasPrice, err := BumpGas(eb.config, attempt.GasPrice.ToInt())
 	if err != nil {
 		return errors.Wrap(err, "tryAgainWithHigherGasPrice failed")

@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -225,7 +224,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := bulletprooftxmanager.SendError(client.SecondaryGethClient.SendTransaction(ctx, tx))
+			err := NewSendError(client.SecondaryGethClient.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
 				// Nonce too low or transaction known errors are expected since
 				// the primary SendTransaction may well have succeeded already
