@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -18,10 +19,6 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
-
-// CronParser is the global parser for crontabs.
-// It accepts the standard 5 field cron syntax as well as an optional 6th field
-// at the front to represent seconds.
 
 // CronParser is the global parser for crontabs.
 // It accepts the standard 5 field cron syntax as well as an optional 6th field
@@ -691,6 +688,40 @@ func Merge(inputs ...JSON) (JSON, error) {
 
 // Explicit type indicating a 32-byte sha256 hash
 type Sha256Hash [32]byte
+
+func Sha256HashFromHex(x string) (Sha256Hash, error) {
+	bs, err := hex.DecodeString(x)
+	if err != nil {
+		return Sha256Hash{}, err
+	}
+	var hash Sha256Hash
+	copy(hash[:], bs)
+	return hash, nil
+}
+
+func MustSha256HashFromHex(x string) Sha256Hash {
+	bs, err := hex.DecodeString(x)
+	if err != nil {
+		panic(err)
+	}
+	var hash Sha256Hash
+	copy(hash[:], bs)
+	return hash
+}
+
+func (s Sha256Hash) String() string {
+	return hex.EncodeToString(s[:])
+}
+
+func (s *Sha256Hash) UnmarshalText(bs []byte) error {
+	x, err := hex.DecodeString(string(bs))
+	if err != nil {
+		return err
+	}
+	*s = Sha256Hash{}
+	copy((*s)[:], x)
+	return nil
+}
 
 func (s *Sha256Hash) Scan(value interface{}) error {
 	bytes, ok := value.([]byte)

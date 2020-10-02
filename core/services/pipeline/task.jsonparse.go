@@ -87,6 +87,11 @@ func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 
 type JSONPath []string
 
+func (p *JSONPath) UnmarshalText(bs []byte) error {
+	*p = strings.Split(string(bs), ",")
+	return nil
+}
+
 func (p *JSONPath) Scan(value interface{}) error {
 	return json.Unmarshal(value.([]byte), p)
 }
