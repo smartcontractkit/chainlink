@@ -19,9 +19,8 @@ func NewOCRLogger(internal *Logger) ocrtypes.Logger {
 	}
 }
 
-// TODO: Change this to Trace in https://github.com/smartcontractkit/chainlink/pull/3407
 func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Debugw(msg, toKeysAndValues(fields))
+	ol.internal.Tracew(msg, toKeysAndValues(fields))
 }
 
 func (ol *ocrLogger) Debug(msg string, fields ocrtypes.LogFields) {
@@ -38,6 +37,11 @@ func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
 
 func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Errorw(msg, toKeysAndValues(fields))
+}
+
+func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
+	// @@TODO ???
+	ol.internal.Debugw(msg, toKeysAndValues(fields))
 }
 
 // Helpers
