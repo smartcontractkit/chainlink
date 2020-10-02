@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
@@ -46,17 +46,9 @@ func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := ocrkey.NewKeyBundle()
+	key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
 	if err != nil {
-		return errors.Wrapf(err, "while generating the new OCR key bundle")
-	}
-	encryptedKey, err := key.Encrypt(string(password))
-	if err != nil {
-		return errors.Wrapf(err, "while encrypting the new OCR key bundle")
-	}
-	err = store.CreateEncryptedOCRKeyBundle(encryptedKey)
-	if err != nil {
-		return errors.Wrapf(err, "while persisting the new encrypted OCR key bundle")
+		return err
 	}
 	addressOnChain := key.PublicKeyAddressOnChain()
 	fmt.Printf(
@@ -71,7 +63,7 @@ func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
 func (cli *Client) listOCRKeyBundles(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	keys, err := store.FindEncryptedOCRKeyBundles()
+	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		return errors.Wrapf(err, "while fetching encrypted OCR key bundles")
 	}
@@ -102,19 +94,24 @@ func (cli *Client) deleteOCRKeyBundle(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return errors.New("Must pass the ID of the OCR key bundle to delete")
 	}
-	id := c.Args().First()
+	idStr := c.Args().First()
 
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 
-	key, err := store.FindEncryptedOCRKeyBundleByID(id)
+	id, err := models.Sha256HashFromHex(idStr)
+	if err != nil {
+		return errors.Wrap(err, "while decoding key ID")
+	}
+
+	key, err := store.OCRKeyStore.FindEncryptedOCRKeyBundleByID(id)
 	if gorm.IsRecordNotFoundError(err) {
 		return errors.New("Unable to find the OCR key bundle with the provided ID")
 	} else if err != nil {
 		return errors.Wrapf(err, "while fetching the OCR key bundle")
 	}
 
-	err = store.DeleteEncryptedOCRKeyBundle(key)
+	err = store.OCRKeyStore.DeleteEncryptedOCRKeyBundle(&key)
 	if err != nil {
 		return errors.Wrapf(err, "while deleting the OCR key bundle")
 	}
