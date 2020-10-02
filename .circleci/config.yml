@@ -3,7 +3,7 @@ jobs:
   core-go-test:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: circleci_postgres
@@ -51,7 +51,7 @@ jobs:
   solidity:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -70,7 +70,7 @@ jobs:
   operator-ui:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -216,7 +216,7 @@ jobs:
             tools/ci/push_image "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" test-external-adapter
   reportcoverage:
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
     steps:
       - checkout
       - run: ./tools/ci/init_gcloud
@@ -233,7 +233,7 @@ jobs:
     resource_class: large
     working_directory: ~/chainlink
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
     steps:
       - checkout
       - run: echo $CACHE_VERSION > cache.version
@@ -250,7 +250,7 @@ jobs:
   prepublish_npm:
     resource_class: xlarge
     docker:
-      - image: smartcontract/builder:1.0.33
+      - image: smartcontract/builder:1.0.36
     environment:
       NODE_OPTIONS: --max_old_space_size=512
     steps:
