@@ -794,10 +794,10 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	return k
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainreportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainReportingOracleSpec {
 	t.Helper()
 
-	spec := models.OffchainreportingOracleSpec{}
+	spec := models.OffchainReportingOracleSpec{}
 	require.NoError(t, store.DB.Create(&spec).Error)
 	return spec
 }

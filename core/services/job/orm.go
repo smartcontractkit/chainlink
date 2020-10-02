@@ -63,7 +63,6 @@ func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 		var maybeJobs []models.JobSpecV2
 		err := o.db.
 			Preload("OffchainreportingOracleSpec").
-			Preload("OffchainreportingOracleSpec.OffchainreportingKeyBundle").
 			Find(&maybeJobs).Error
 		if err != nil {
 			return err
