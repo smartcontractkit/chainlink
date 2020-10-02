@@ -7,8 +7,6 @@ import (
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
@@ -28,8 +26,6 @@ func (g *TaskDAG) NewNode() graph.Node {
 }
 
 func (g *TaskDAG) UnmarshalText(bs []byte) (err error) {
-	defer utils.LogIfError(&err, "TaskDAG#UnmarshalText: %+v")
-	defer utils.WrapIfError(&err, "MedianTask errored")
 	if g.DirectedGraph == nil {
 		g.DirectedGraph = simple.NewDirectedGraph()
 	}

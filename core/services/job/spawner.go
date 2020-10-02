@@ -88,7 +88,7 @@ func (js *spawner) RegisterDelegate(delegate Delegate) {
 	if _, exists := js.jobTypeDelegates[delegate.JobType()]; exists {
 		panic("registered job type " + string(delegate.JobType()) + " more than once")
 	}
-	logger.Infof("Registered new job type '%v'", delegate.JobType())
+	logger.Infof("Registered job type '%v'", delegate.JobType())
 	js.jobTypeDelegates[delegate.JobType()] = delegate
 }
 
