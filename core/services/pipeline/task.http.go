@@ -39,7 +39,6 @@ func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
 
-	buf := &bytes.Buffer{}
 	var bodyReader io.Reader
 	if t.RequestData != nil {
 		bodyBytes, err := json.Marshal(t.RequestData)
