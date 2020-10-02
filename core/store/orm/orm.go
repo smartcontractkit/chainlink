@@ -1353,10 +1353,36 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 	return exists, nil
 }
 
+// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
+func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
+	query := "SELECT exists (" +
+		"SELECT id FROM log_consumptions " +
+		"WHERE block_hash=$1 " +
+		"AND log_index=$2 " +
+		"AND job_id_v2=$3" +
+		")"
+
+	var exists bool
+	err := orm.DB.DB().
+		QueryRow(query, blockHash, logIndex, jobID).
+		Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
+}
+
 // MarkLogConsumed creates a new LogConsumption record
 func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, 0, blockNumber)
+	return orm.DB.Create(&lc).Error
+}
+
+// MarkLogConsumedV2 creates a new LogConsumption record
+func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
+	orm.MustEnsureAdvisoryLock()
+	lc := models.NewLogConsumption(blockHash, logIndex, nil, jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
