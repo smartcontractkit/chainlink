@@ -18,6 +18,7 @@ COPY belt/package.json ./belt/
 COPY belt/bin ./belt/bin
 COPY evm-test-helpers/package.json ./evm-test-helpers/
 COPY evm-contracts/package.json ./evm-contracts/
+COPY tools/bin/restore-solc-cache ./tools/bin/restore-solc-cache
 RUN make yarndep
 
 
