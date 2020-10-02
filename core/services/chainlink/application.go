@@ -110,7 +110,9 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL(), pipelineORM)
 	jobSpawner := job.NewSpawner(jobORM)
 
-	offchainreporting.RegisterJobType(store.ORM.DB, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
+	if config.Dev() || config.FeatureOffchainReporting() {
+		offchainreporting.RegisterJobType(store.ORM.DB, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
+	}
 
 	store.NotifyNewEthTx = ethBroadcaster
 
