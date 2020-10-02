@@ -30,6 +30,7 @@ type ConfigSchema struct {
 	EnableBulletproofTxManager       bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"true"`
 	FeatureExternalInitiators        bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor               bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
+	FeatureOffchainReporting         bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	MaximumServiceDuration           models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration           models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold              uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
