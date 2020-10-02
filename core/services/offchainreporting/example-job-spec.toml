@@ -1,14 +1,14 @@
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "<libp2p-node-id>"
+p2pPeerID          = "12D3KooWF4p6MwJy3G3mhncjDRmyTUwFcKHqqJ8XwKFxNz1RwjGh"
 p2pBootstrapPeers  = [
-    {peerId = "<peer id 1>", multiAddr = "<multiaddr1>"},
-    {peerId = "<peer id 2>", multiAddr = "<multiaddr2>"},
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
-keyBundle          = {}
-monitoringEndpoint = "<ip:port>"
+isBootstrapPeer    = false
+keyBundleID        = "f81428b255a642376222c7096efd0e374da82953548735bc764e4f9e44adb755"
+monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
 observationTimeout = "10s"
-blockchainTimeout  = "10s"
+blockchainTimeout  = "20s"
 contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
@@ -19,7 +19,7 @@ observationSource = """
     ds1_multiply [type=multiply times=1.23];
 
     // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}"];
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
     ds2_parse    [type=jsonparse path="three,four"];
     ds2_multiply [type=multiply times=4.56];
 
