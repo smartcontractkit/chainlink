@@ -22,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -1304,56 +1302,6 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 		anonWhere = append(anonWhere, &c)
 	}
 	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
-}
-
-func (orm *ORM) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Set("gorm:insert_option", "ON CONFLICT (pub_key) DO UPDATE SET encrypted_priv_key=EXCLUDED.encrypted_priv_key, updated_at=NOW()").Create(k).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
-	return keys, orm.DB.Find(&keys).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
-	key := p2pkey.EncryptedP2PKey{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-func (orm *ORM) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Delete(key).Error
-}
-
-// CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
-	return orm.DB.Create(keys).Error
-}
-
-// FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
-	err = orm.DB.Find(&keys).Error
-	if err != nil {
-		return nil, err
-	}
-	return keys, nil
-}
-
-// FindEncryptedOCRKeyBundleByID finds an EncryptedKeyBundle bundle by it's ID
-func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBundle, error) {
-	key := ocrkey.EncryptedKeyBundle{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-// DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
-func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
-	return orm.DB.Delete(key).Error
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
