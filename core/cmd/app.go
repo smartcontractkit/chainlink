@@ -194,6 +194,11 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Show a specific Job's details",
 					Action: client.ShowJobSpec,
 				},
+				{
+					Name:   "createocr",
+					Usage:  "Create an offchain reporting job",
+					Action: client.CreateOCRJobSpec,
+				},
 			},
 		},
 
