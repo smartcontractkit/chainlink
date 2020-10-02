@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -38,6 +39,7 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
+	OCRKeyStore    *offchainreporting.KeyStore
 	TxManager      TxManager
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
@@ -81,13 +83,14 @@ func newStoreWithKeyStore(
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
 
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		EthClient: ethClient,
-		closeOnce: &sync.Once{},
+		Clock:       utils.Clock{},
+		Config:      config,
+		KeyStore:    keyStore,
+		OCRKeyStore: offchainreporting.NewKeyStore(orm.DB),
+		ORM:         orm,
+		TxManager:   txManager,
+		EthClient:   ethClient,
+		closeOnce:   &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
