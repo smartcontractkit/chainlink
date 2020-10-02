@@ -6,10 +6,10 @@ import (
 	"strconv"
 
 	"github.com/jinzhu/gorm"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
@@ -47,23 +47,11 @@ func (cli *Client) createP2PKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	k, err := p2pkey.CreateKey()
+	_, enc, err := store.OCRKeyStore.GenerateEncryptedP2PKey(string(password))
 	if err != nil {
-		return errors.Wrapf(err, "while generating new p2p key")
+		return errors.Wrap(err, "while generating encrypted p2p key")
 	}
-	enc, err := k.ToEncryptedP2PKey(string(password))
-	if err != nil {
-		return errors.Wrapf(err, "while encrypting p2p key")
-	}
-	err = store.UpsertEncryptedP2PKey(&enc)
-	if err != nil {
-		return errors.Wrapf(err, "while inserting p2p key")
-	}
-	peerID, err := k.GetPeerID()
-	if err != nil {
-		return errors.Wrapf(err, "while getting peer ID")
-	}
-	fmt.Printf(createKeyMsg, enc.ID, enc.PubKey, peerID.Pretty())
+	fmt.Printf(createKeyMsg, enc.ID, enc.PubKey, peer.ID(enc.PeerID).Pretty())
 	return nil
 }
 
