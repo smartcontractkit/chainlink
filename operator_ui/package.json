@@ -4,7 +4,7 @@
   "private": true,
   "license": "MIT",
   "engines": {
-    "node": "~10.16"
+    "node": "^12.0.0"
   },
   "scripts": {
     "start": "NODE_ENV=development webpack-dev-server --open",
@@ -19,10 +19,10 @@
   },
   "dependencies": {
     "@babel/polyfill": "7.7.0",
-    "@chainlink/json-api-client": "0.0.1",
-    "@chainlink/local-storage": "0.0.1",
-    "@chainlink/redux": "0.0.1",
-    "@chainlink/styleguide": "0.0.1",
+    "@chainlink/json-api-client": "0.0.2",
+    "@chainlink/local-storage": "0.0.2",
+    "@chainlink/redux": "0.0.2",
+    "@chainlink/styleguide": "0.0.2",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "autobind-decorator": "^2.4.0",
@@ -68,7 +68,7 @@
     "@babel/preset-env": "7.8.2",
     "@babel/preset-react": "7.0.0",
     "@babel/preset-typescript": "7.9.0",
-    "@chainlink/ts-helpers": "0.0.1",
+    "@chainlink/ts-helpers": "0.0.3",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.3.3",
     "@types/enzyme": "^3.10.5",
