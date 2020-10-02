@@ -421,7 +421,10 @@ func (c Config) OperatorContractAddress() common.Address {
 	if c.viper.GetString(EnvVarName("OperatorContractAddress")) == "" {
 		return common.Address{}
 	}
-	address := c.getWithFallback("OperatorContractAddress", parseAddress).(*common.Address)
+	address, ok := c.getWithFallback("OperatorContractAddress", parseAddress).(*common.Address)
+	if !ok {
+		return common.Address{}
+	}
 	return *address
 }
 
