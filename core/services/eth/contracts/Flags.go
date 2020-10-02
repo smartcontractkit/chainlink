@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 )
 
-var flagsABI = getABI(flags_wrapper.FlagsABI)
+var flagsABI = mustGetABI(flags_wrapper.FlagsABI)
 
 type Flags struct {
 	Address common.Address

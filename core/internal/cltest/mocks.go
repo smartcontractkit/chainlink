@@ -469,6 +469,7 @@ func (mock *EthMock) PendingCodeAt(ctx context.Context, account common.Address) 
 	err := mock.CallContext(ctx, &result, "eth_getCode", account, "pending")
 	return result, err
 }
+
 func (mock *EthMock) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
 	var hex hexutil.Uint64
 	err := mock.CallContext(ctx, &hex, "eth_estimateGas", toCallArg(call))
