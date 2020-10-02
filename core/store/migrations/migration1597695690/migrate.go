@@ -195,5 +195,17 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
         CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
+
+
+        ALTER TABLE log_consumptions ADD COLUMN job_id_v2 INT REFERENCES jobs (id) ON DELETE CASCADE;
+        ALTER TABLE log_consumptions ALTER job_id DROP NOT NULL;
+        ALTER TABLE log_consumptions ADD CONSTRAINT chk_log_consumptions_exactly_one_job_id CHECK (
+            job_id IS NOT NULL AND job_id_v2 IS NULL
+            OR
+            job_id_v2 IS NOT NULL AND job_id IS NULL
+        );
+        DROP INDEX log_consumptions_unique_idx;
+        CREATE UNIQUE INDEX log_consumptions_unique_idx ON log_consumptions ("job_id", "job_id_v2", "block_hash", "log_index");
+
     `).Error
 }
