@@ -40,11 +40,15 @@ type LogListener interface {
 	OnDisconnect()
 	HandleLog(lb LogBroadcast, err error)
 	JobID() *models.ID
+	JobIDV2() int32
+	IsV2Job() bool
 }
 
 type ormInterface interface {
 	HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error)
+	HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error)
 	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error
+	MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error
 }
 
 type logBroadcaster struct {
@@ -80,7 +84,7 @@ func NewLogBroadcaster(ethClient Client, orm ormInterface, backfillDepth uint64)
 	}
 }
 
-// The LogBroadcast type wraps an models.Log but provides additional functionality
+// The LogBroadcast type wraps a models.Log but provides additional functionality
 // for determining whether or not the log has been consumed and for marking
 // the log as consumed
 type LogBroadcast interface {
@@ -95,7 +99,9 @@ type logBroadcast struct {
 	orm        ormInterface
 	decodedLog interface{}
 	rawLog     types.Log
-	consumerID *models.ID
+	jobID      *models.ID
+	jobIDV2    int32
+	isV2       bool
 }
 
 func (lb *logBroadcast) DecodedLog() interface{} {
@@ -111,13 +117,21 @@ func (lb *logBroadcast) SetDecodedLog(newLog interface{}) {
 }
 
 func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
-	rawLog := lb.RawLog()
-	return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.consumerID)
+	rawLog := lb.rawLog
+	if lb.isV2 {
+		return lb.orm.HasConsumedLogV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2)
+	} else {
+		return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.jobID)
+	}
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	rawLog := lb.RawLog()
-	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.consumerID, rawLog.BlockNumber)
+	rawLog := lb.log.RawLog()
+	if lb.isV2 {
+		return lb.orm.MarkLogConsumedV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2, rawLog.BlockNumber)
+	} else {
+		return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.jobID, rawLog.BlockNumber)
+	}
 }
 
 // A `registration` represents a LogListener's subscription to the logs of a
@@ -344,7 +358,13 @@ func (b *logBroadcaster) onRawLog(rawLog types.Log) {
 
 		// Deep copy the log so that subscribers aren't sharing any state
 		rawLogCopy := copyLog(rawLog)
-		lb := &logBroadcast{rawLog: rawLogCopy, orm: b.orm, consumerID: listener.JobID()}
+		lb := &logBroadcast{
+			rawLog:  rawLogCopy,
+			orm:     b.orm,
+			jobID:   listener.JobID(),
+			jobIDV2: listener.JobIDV2(),
+			isV2:    listener.IsV2Job(),
+		}
 		listener.HandleLog(lb, nil)
 	}
 }
