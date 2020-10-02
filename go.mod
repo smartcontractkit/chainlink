@@ -49,6 +49,7 @@ require (
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
 	github.com/smartcontractkit/libocr v0.0.0-20201005183205-2bc25cc917d1
+	github.com/smartcontractkit/offchain-reporting/lib v0.0.0-00010101000000-000000000000
 	github.com/spf13/afero v1.2.1 // indirect
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1

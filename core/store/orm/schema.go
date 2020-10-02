@@ -3,8 +3,10 @@ package orm
 import (
 	"log"
 	"math/big"
+	"net"
 	"net/url"
 	"reflect"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -66,6 +68,12 @@ type ConfigSchema struct {
 	MinimumContractPayment           assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration         uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MaxRPCCallsPerSecond             uint64          `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
+	OCRListenIP                      net.IP          `env:"OCR_LISTEN_IP"`
+	OCRListenPort                    uint16          `env:"OCR_LISTEN_PORT"`
+	OCRIncomingMessageBufferSize     int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCROutgoingMessageBufferSize     int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
+	OCRNewStreamTimeout              time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
+	OCRDHTLookupInterval             int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10s"`
 	OperatorContractAddress          common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	Port                             uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                 models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
