@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
@@ -28,18 +29,22 @@ const JobType job.Type = "offchainreporting"
 
 func RegisterJobType(
 	db *gorm.DB,
+	config *orm.Config,
+	keyStore *KeyStore,
 	jobSpawner job.Spawner,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
 ) {
 	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, pipelineRunner, ethClient, logBroadcaster),
+		NewJobSpawnerDelegate(db, config, keyStore, pipelineRunner, ethClient, logBroadcaster),
 	)
 }
 
 type jobSpawnerDelegate struct {
 	db             *gorm.DB
+	config         *orm.Config
+	keyStore       *KeyStore
 	pipelineRunner pipeline.Runner
 	ethClient      eth.Client
 	logBroadcaster eth.LogBroadcaster
@@ -47,11 +52,13 @@ type jobSpawnerDelegate struct {
 
 func NewJobSpawnerDelegate(
 	db *gorm.DB,
+	config *orm.Config,
+	keyStore *KeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
 ) *jobSpawnerDelegate {
-	return &jobSpawnerDelegate{db, pipelineRunner, ethClient, logBroadcaster}
+	return &jobSpawnerDelegate{db, config, keyStore, pipelineRunner, ethClient, logBroadcaster}
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
@@ -59,9 +66,9 @@ func (d jobSpawnerDelegate) JobType() job.Type {
 }
 
 func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
-	concreteSpec, ok := spec.(*OracleSpec)
+	concreteSpec, ok := spec.(OracleSpec)
 	if !ok {
-		panic(fmt.Sprintf("expected an *offchainreporting.OracleSpec, got %T", spec))
+		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
 	}
 	return models.JobSpecV2{OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec}
 }
@@ -91,27 +98,65 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, err
 	}
 
-	service := ocr.NewOracle(ocr.OracleArgs{
-		LocalConfig: ocrtypes.LocalConfig{
-			DataSourceTimeout: time.Duration(concreteSpec.ObservationTimeout),
-			BlockchainTimeout: time.Duration(concreteSpec.BlockchainTimeout),
-			// ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
-			ContractConfigTrackerPollInterval: time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
-			ContractConfigConfirmations:       concreteSpec.ContractConfigConfirmations,
+	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(concreteSpec.P2PPeerID))
+	if !exists {
+		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
+	}
+
+	ocrkey, exists := d.keyStore.DecryptedOCRKey(concreteSpec.EncryptedOCRKeyBundleID)
+	if !exists {
+		return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
+	}
+
+	logger := logger.NewOCRLogger(logger.Default)
+
+	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
+		PrivKey:    p2pkey.PrivKey,
+		ListenPort: d.config.OCRListenPort(),
+		ListenIP:   d.config.OCRListenIP(),
+		Logger:     logger,
+		Peerstore:  pstoremem.NewPeerstore(),
+		EndpointConfig: ocrnetworking.EndpointConfig{
+			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
+			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
+			NewStreamTimeout:          d.config.OCRNewStreamTimeout(),
+			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
 		},
-		Database:              nil, //orm{jobID: concreteSpec.JobID(), db: d.db},
-		Datasource:            dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
-		ContractTransmitter:   aggregator,
-		ContractConfigTracker: aggregator,
-		PrivateKeys:           ocrtypes.PrivateKeys(nil),
-		NetEndpointFactory:    ocrtypes.BinaryNetworkEndpointFactory(nil),
-		MonitoringEndpoint:    ocrtypes.MonitoringEndpoint(nil),
-		Logger:                ocrtypes.Logger(nil),
-		Bootstrappers:         []string{},
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	oracle, err := ocr.NewOracle(ocr.OracleArgs{
+		LocalConfig: ocrtypes.LocalConfig{
+			DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
+			BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
+			ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
+			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
+			ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
+		},
+		Database:                     offchainreportingdb.NewDB(d.db.DB(), int(concreteSpec.ID)),
+		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+		ContractTransmitter:          aggregator,
+		ContractConfigTracker:        aggregator,
+		PrivateKeys:                  &ocrkey,
+		BinaryNetworkEndpointFactory: peer,
+		MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
+		Logger:                       logger,
+		Bootstrappers:                concreteSpec.P2PBootstrapPeers,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	service := oracleService{oracle}
 
 	return []job.Service{service}, nil
 }
+
+type oracleService struct{ *ocr.Oracle }
+
+func (o oracleService) Stop() error { return o.Oracle.Close() }
 
 // dataSource is an abstraction over the process of initiating a pipeline run
 // and capturing the result.  Additionally, it converts the result to an
