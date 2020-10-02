@@ -1533,9 +1533,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 
 			flagsContractAddress := cltest.NewAddress()
 			flagsContract, err := contracts.NewFlagsContract(flagsContractAddress, store.EthClient)
-			if err != nil {
-				panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
-			}
+			require.NoError(t, err)
 
 			getFlagsResultBytes, err := hexutil.Decode(test.getFlagsResult)
 			require.NoError(t, err)

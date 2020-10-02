@@ -294,9 +294,8 @@ func (f pollingDeviationCheckerFactory) New(
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
 		flagsContract, err = contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
-		if err != nil {
-			panic(fmt.Sprintf("unable to start flux monitor, error creating Flags contract: %v", err))
-		}
+		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
+		logger.ErrorIf(err, errorMsg)
 	}
 
 	return NewPollingDeviationChecker(
