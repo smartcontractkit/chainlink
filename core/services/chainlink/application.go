@@ -50,6 +50,7 @@ type Application interface {
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
+	AddJobV2(job job.Spec) (int32, error)
 	ArchiveJob(*models.ID) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
@@ -278,9 +279,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(job job.Spec) error {
-	_, err := app.jobSpawner.CreateJob(job)
-	return err
+func (app *ChainlinkApplication) AddJobV2(job job.Spec) (int32, error) {
+	return app.jobSpawner.CreateJob(job)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
