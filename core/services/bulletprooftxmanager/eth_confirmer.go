@@ -310,7 +310,9 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 	for rows.Next() {
 		var ethTxID, nonce int64
 		var fromAddress gethCommon.Address
-		rows.Scan(&ethTxID, &nonce, &fromAddress)
+		if err = rows.Scan(&ethTxID, &nonce, &fromAddress); err != nil {
+			return errors.Wrap(err, "error scanning row")
+		}
 
 		logger.Errorf("EthConfirmer: eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
 			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
