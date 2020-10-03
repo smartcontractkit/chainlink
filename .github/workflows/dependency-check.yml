@@ -7,6 +7,6 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: Check
-      uses: sonatype-nexus-community/nancy-github-action@76cc24d43c279e8f357d4dccf5ce226835f8385f
+      uses: sonatype-nexus-community/nancy-github-action@b492e6567a301a914bd227d44bf10dcfe85438ad
       with:
         target: go.sum
