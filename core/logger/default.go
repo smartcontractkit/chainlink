@@ -66,6 +66,12 @@ func Debugw(msg string, keysAndValues ...interface{}) {
 	Default.Debugw(msg, keysAndValues...)
 }
 
+// Tracew is a shim stand-in for when we have real trace-level logging support
+func Tracew(msg string, keysAndValues ...interface{}) {
+	// Zap does not support trace logging just yet
+	Default.Debugw("TRACE: "+msg, keysAndValues...)
+}
+
 // Warnw logs a debug message and any additional given information.
 func Warnw(msg string, keysAndValues ...interface{}) {
 	Default.Warnw(msg, keysAndValues...)
@@ -87,6 +93,11 @@ func Debugf(format string, values ...interface{}) {
 	Default.Debug(fmt.Sprintf(format, values...))
 }
 
+// Tracef is a shim stand-in for when we have real trace-level logging support
+func Tracef(format string, values ...interface{}) {
+	Default.Debug("TRACE: " + fmt.Sprintf(format, values...))
+}
+
 // Warnf formats and then logs the message as Warn.
 func Warnf(format string, values ...interface{}) {
 	Default.Warn(fmt.Sprintf(format, values...))
@@ -105,6 +116,11 @@ func Info(args ...interface{}) {
 // Debug logs a debug message.
 func Debug(args ...interface{}) {
 	Default.Debug(args...)
+}
+
+// Trace is a shim stand-in for when we have real trace-level logging support
+func Trace(args ...interface{}) {
+	Default.Debug(append([]interface{}{"TRACE: "}, args...))
 }
 
 // Warn logs a message at the warn level.

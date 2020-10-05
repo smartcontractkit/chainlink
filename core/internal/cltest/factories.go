@@ -682,7 +682,7 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) 
 	if len(fromAddress) > 0 {
 		address = fromAddress[0]
 	} else {
-		address = GetDefaultFromAddress(t, store)
+		address = DefaultKeyAddress
 	}
 
 	return models.EthTx{
