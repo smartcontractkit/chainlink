@@ -6,6 +6,7 @@ import (
 	"time"
 
 	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -18,10 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrcontracts "github.com/smartcontractkit/offchain-reporting/lib/gethwrappers"
-	ocrnetworking "github.com/smartcontractkit/offchain-reporting/lib/networking"
-	ocr "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting"
-	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 const JobType job.Type = "offchainreporting"
@@ -85,13 +85,20 @@ func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
 func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
 	concreteSpec := spec.(*OracleSpec)
 
-	aggregator, err := ocrcontracts.NewOffchainReportingAggregator(
+	// FIXME: Use proper values
+	fromAddress := common.Address{}
+	gasLimit := uint64(0)
+
+	transmitter := NewTransmitter(d.db.DB(), fromAddress, gasLimit)
+
+	ocrContract, err := NewOCRContract(
 		concreteSpec.ContractAddress,
 		d.ethClient,
 		d.logBroadcaster,
 		concreteSpec.JobID(),
-		nil, // auth *bind.TransactOpts,
-		"",  // rpcURL string,
+		transmitter,
+		// FIXME: Not sure if this is the right way to pass in logger?
+		*logger.Default,
 	)
 	if err != nil {
 		return nil, err
@@ -107,12 +114,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
 	}
 
-	logger := logger.NewOCRLogger(logger.Default)
-
 	peerstore, err := networking.NewPeerstore(context.Background(), d.db.DB())
 	if err != nil {
-		return errors.Wrap(err, "could not make new peerstore")
+		return nil, errors.Wrap(err, "could not make new peerstore")
 	}
+
+	logger := logger.NewOCRLogger(logger.Default)
 
 	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 		PrivKey:    p2pkey.PrivKey,
@@ -141,8 +148,8 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		},
 		Database:                     NewDB(d.db.DB(), int(concreteSpec.ID)),
 		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
-		ContractTransmitter:          aggregator,
-		ContractConfigTracker:        aggregator,
+		ContractTransmitter:          ocrContract,
+		ContractConfigTracker:        ocrContract,
 		PrivateKeys:                  &ocrkey,
 		BinaryNetworkEndpointFactory: peer,
 		MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
