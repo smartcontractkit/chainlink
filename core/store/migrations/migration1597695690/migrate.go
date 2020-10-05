@@ -47,7 +47,7 @@ func Migrate(tx *gorm.DB) error {
             pipeline_run_id BIGINT NOT NULL REFERENCES pipeline_runs (id) ON DELETE CASCADE,
             output JSONB,
             error TEXT,
-            pipeline_task_spec_id BIGINT NOT NULL REFERENCES pipeline_task_specs (id) ON DELETE CASCADE,
+            pipeline_task_spec_id INT NOT NULL REFERENCES pipeline_task_specs (id) ON DELETE CASCADE,
             index INT NOT NULL DEFAULT 0,
             created_at timestamptz NOT NULL,
             finished_at timestamptz,
