@@ -1,4 +1,4 @@
-package offchainreportingdb_test
+package offchainreporting_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/offchainreportingdb"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"github.com/stretchr/testify/require"
@@ -25,7 +25,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 
 	t.Run("reads and writes state", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                1,
 			HighestSentEpoch:     2,
@@ -42,7 +42,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("updates state", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 		newState := ocrtypes.PersistentState{
 			Epoch:                2,
 			HighestSentEpoch:     3,
@@ -59,7 +59,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                3,
 			HighestSentEpoch:     4,
@@ -70,7 +70,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		require.NoError(t, err)
 
 		// db with different spec
-		db = offchainreportingdb.NewDB(sqldb, -1)
+		db = offchainreporting.NewDB(sqldb, -1)
 
 		readState, err := db.ReadState(ctx, configDigest)
 		require.NoError(t, err)
@@ -79,7 +79,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong config digest", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 		state := ocrtypes.PersistentState{
 			Epoch:                4,
 			HighestSentEpoch:     5,
@@ -112,7 +112,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 
 	t.Run("reads and writes config", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
@@ -124,7 +124,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("updates config", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest:         ocrtypes.BytesToConfigDigest([]byte{43}),
@@ -145,12 +145,12 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {
-		db := offchainreportingdb.NewDB(sqldb, spec.ID)
+		db := offchainreporting.NewDB(sqldb, spec.ID)
 
 		err := db.WriteConfig(ctx, config)
 		require.NoError(t, err)
 
-		db = offchainreportingdb.NewDB(sqldb, -1)
+		db = offchainreporting.NewDB(sqldb, -1)
 
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
@@ -166,8 +166,8 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	sqldb := store.DB.DB()
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, store)
-	db := offchainreportingdb.NewDB(sqldb, spec.ID)
-	db2 := offchainreportingdb.NewDB(sqldb, spec2.ID)
+	db := offchainreporting.NewDB(sqldb, spec.ID)
+	db2 := offchainreporting.NewDB(sqldb, spec2.ID)
 	configDigest := ocrtypes.BytesToConfigDigest([]byte{42})
 
 	k := ocrtypes.PendingTransmissionKey{
@@ -349,7 +349,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		require.Len(t, m, 1)
 
 		// Didn't affect other oracleSpecIDs
-		db = offchainreportingdb.NewDB(sqldb, spec2.ID)
+		db = offchainreporting.NewDB(sqldb, spec2.ID)
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -1254,6 +1255,8 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 }
 
 func TestEthBroadcaster_Trigger(t *testing.T) {
+	t.Parallel()
+
 	// Simple sanity check to make sure it doesn't block
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -1264,4 +1267,24 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	eb.Trigger()
 	eb.Trigger()
 	eb.Trigger()
+}
+
+func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
+	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "eth_tx_triggers", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgres
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+	store.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config)
+	bulletprooftxmanager.ExportedMustStartEthTxInsertListener(eb)
+
+	// Give it some time to start listening
+	time.Sleep(100 * time.Millisecond)
+
+	mustInsertUnstartedEthTx(t, store)
+	gomega.NewGomegaWithT(t).Eventually(bulletprooftxmanager.ExportedTriggerChan(eb)).Should(gomega.Receive())
+
 }

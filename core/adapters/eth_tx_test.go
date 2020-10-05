@@ -520,9 +520,6 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	defer cleanup()
 	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
 	store, cleanup := cltest.NewStoreWithConfig(config)
-	notifier := new(mocks.NotifyNewEthTx)
-	notifier.On("Trigger").Return()
-	store.NotifyNewEthTx = notifier
 	defer cleanup()
 
 	toAddress := cltest.NewAddress()
@@ -554,8 +551,6 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Equal(t, "70a08231888888880000000000000000000000000000000000000000000000000000009786856756", hex.EncodeToString(etrt.EthTx.EncodedPayload))
 		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
 		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
-
-		notifier.AssertExpectations(t)
 	})
 
 	t.Run("if FromAddresses is provided but no key matches, returns job error", func(t *testing.T) {
@@ -807,5 +802,4 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Equal(t, models.RunStatusErrored, runOutput.Status())
 		assert.Equal(t, "", runOutput.Result().String())
 	})
-
 }
