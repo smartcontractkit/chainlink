@@ -4,9 +4,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-// ocrLogger is an implemenation of the Logger interface for OCR
-// See: https://github.com/smartcontractkit/offchain-reporting-design/blob/master/prototype/offchainreporting/types/logger.go#L3
-
 var _ ocrtypes.Logger = &ocrLogger{}
 
 type ocrLogger struct {
