@@ -79,7 +79,7 @@ require (
 	golang.org/x/text v0.3.3
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
 	gonum.org/v1/gonum v0.8.1
-	google.golang.org/api v0.13.0
+	google.golang.org/api v0.13.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
