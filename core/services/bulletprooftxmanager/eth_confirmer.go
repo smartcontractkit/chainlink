@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -308,7 +309,8 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 	}
 
 	for rows.Next() {
-		var ethTxID, nonce int64
+		var ethTxID int64
+		var nonce null.Int64
 		var fromAddress gethCommon.Address
 		if err = rows.Scan(&ethTxID, &nonce, &fromAddress); err != nil {
 			return errors.Wrap(err, "error scanning row")
@@ -318,7 +320,7 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
 			"This can happen if an external wallet has been used to send a transaction from account %s with nonce %v."+
 			" Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
-			ethTxID, blockNum, fromAddress.Hex(), nonce)
+			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64)
 	}
 
 	return errors.Wrap(rows.Close(), "markOldTxesMissingReceiptAsErrored failed to close rows")
