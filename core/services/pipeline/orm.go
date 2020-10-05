@@ -23,7 +23,6 @@ type ORM interface {
 	ListenForNewRuns() (*utils.PostgresEventListener, error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(runID int64) ([]Result, error)
-	// Runs(jobID int32, offset, limit int) ([]Run, error)
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 }
@@ -105,16 +104,9 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 			return err
 		}
 
-		// Ensure the spec exists
-		var spec Spec
-		err = o.db.Where("id = ?", job.PipelineSpecID).First(&spec).Error
-		if err != nil {
-			return err
-		}
-
 		// Create the job run
 		run := Run{
-			PipelineSpecID: spec.ID,
+			PipelineSpecID: job.PipelineSpecID,
 			Meta:           JSONSerializable{Val: meta},
 			CreatedAt:      time.Now(),
 		}
@@ -140,13 +132,12 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
-func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result) (_ bool, err error) {
-	var done bool
+func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result) (done bool, err error) {
 	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
 		var ptRun TaskRun
 		var predecessors []TaskRun
 
-		// Find the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
+		// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
 		err = tx.Raw(`
             SELECT * from pipeline_task_runs WHERE id IN (
                 SELECT pipeline_task_runs.id FROM pipeline_task_runs

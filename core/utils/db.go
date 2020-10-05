@@ -120,6 +120,8 @@ func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error) (err error) {
 		if r := recover(); r != nil {
 			err = errors.Errorf("%+v", r)
 			tx.Rollback()
+			// Rethrow the panic in case the calling code finds that desirable
+			panic(r)
 		}
 	}()
 

@@ -52,6 +52,7 @@ type Application interface {
 	AddJob(job models.JobSpec) error
 	AddJobV2(job job.Spec) (int32, error)
 	ArchiveJob(*models.ID) error
+	DeleteJobV2(ctx context.Context, jobID int32) error
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
 	services.RunManager
@@ -106,10 +107,12 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
 	balanceMonitor := services.NewBalanceMonitor(store)
 
-	pipelineORM := pipeline.NewORM(store.ORM.DB, config.DatabaseURL())
-	pipelineRunner := pipeline.NewRunner(pipelineORM, store.Config)
-	jobORM := job.NewORM(store.ORM.DB, config.DatabaseURL(), pipelineORM)
-	jobSpawner := job.NewSpawner(jobORM)
+	var (
+		pipelineORM    = pipeline.NewORM(store.ORM.DB, config.DatabaseURL())
+		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
+		jobORM         = job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipelineORM)
+		jobSpawner     = job.NewSpawner(jobORM, store.Config)
+	)
 
 	if config.Dev() || config.FeatureOffchainReporting() {
 		offchainreporting.RegisterJobType(store.ORM.DB, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
@@ -284,8 +287,8 @@ func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
 	return app.Store.ArchiveJob(ID)
 }
 
-func (app *ChainlinkApplication) ArchiveJobV2(ctx context.Context, job job.Spec) error {
-	return app.jobSpawner.DeleteJob(ctx, job)
+func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {
+	return app.jobSpawner.DeleteJob(ctx, jobID)
 }
 
 // AddServiceAgreement adds a Service Agreement which includes a job that needs

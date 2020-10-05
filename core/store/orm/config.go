@@ -393,10 +393,14 @@ func (c Config) GasUpdaterEnabled() bool {
 	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
 }
 
-// PipelineRunnerParallelism controls how many workers the pipeline.Runner
+func (c Config) JobPipelineDBPollInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+}
+
+// JobPipelineParallelism controls how many workers the pipeline.Runner
 // uses in parallel
-func (c Config) PipelineRunnerParallelism() uint8 {
-	return c.getWithFallback("PipelineRunnerParallelism", parseUint8).(uint8)
+func (c Config) JobPipelineParallelism() uint8 {
+	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
 }
 
 // JSONConsole enables the JSON console.

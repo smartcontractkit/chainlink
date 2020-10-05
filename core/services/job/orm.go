@@ -40,7 +40,7 @@ func (o *orm) Close() error {
 }
 
 const (
-	postgresChannelJobCreated = "job_created"
+	postgresChannelJobCreated = "insert_on_jobs"
 )
 
 func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
@@ -76,7 +76,7 @@ func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 		}
 		return nil
 	})
-	return unclaimedJobs, err
+	return unclaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
 }
 
 func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
@@ -109,6 +109,11 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 		}
 		defer o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
 		defer o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
-		return o.db.Where("id = ?", id).Delete(models.JobSpecV2{}).Error
+		return o.db.Exec(`
+            WITH deleted_jobs AS (
+                DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id
+            )
+            DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT id FROM deleted_jobs)
+        `, id).Error
 	})
 }

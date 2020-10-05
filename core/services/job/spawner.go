@@ -27,12 +27,13 @@ type (
 		Start()
 		Stop()
 		CreateJob(spec Spec) (int32, error)
-		DeleteJob(ctx context.Context, spec Spec) error
+		DeleteJob(ctx context.Context, jobID int32) error
 		RegisterDelegate(delegate Delegate)
 	}
 
 	spawner struct {
 		orm                    ORM
+		config                 Config
 		jobTypeDelegates       map[Type]Delegate
 		jobTypeDelegatesMu     sync.RWMutex
 		startUnclaimedServices utils.SleeperTask
@@ -55,9 +56,10 @@ type (
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM) *spawner {
+func NewSpawner(orm ORM, config Config) *spawner {
 	s := &spawner{
 		orm:              orm,
+		config:           config,
 		jobTypeDelegates: make(map[Type]Delegate),
 		services:         make(map[int32][]Service),
 		chStopJob:        make(chan int32),
@@ -105,7 +107,7 @@ func (js *spawner) runLoop() {
 	}
 
 	// Initialize the DB poll ticker
-	dbPollTicker := time.NewTicker(1 * time.Second)
+	dbPollTicker := time.NewTicker(js.config.JobPipelineDBPollInterval())
 	defer dbPollTicker.Stop()
 
 	js.startUnclaimedServices.WakeUp()
@@ -224,17 +226,17 @@ func (js *spawner) CreateJob(spec Spec) (int32, error) {
 	return specDBRow.ID, err
 }
 
-func (js *spawner) DeleteJob(ctx context.Context, spec Spec) error {
-	err := js.orm.DeleteJob(ctx, spec.JobID())
+func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
+	err := js.orm.DeleteJob(ctx, jobID)
 	if err != nil {
-		logger.Errorw("Error deleting job", "type", spec.JobType(), "jobID", spec.JobID(), "error", err)
+		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err
 	}
-	logger.Infow("Deleted job", "type", spec.JobType(), "jobID", spec.JobID())
+	logger.Infow("Deleted job", "jobID", jobID)
 
 	select {
 	case <-js.chStop:
-	case js.chStopJob <- spec.JobID():
+	case js.chStopJob <- jobID:
 	}
 
 	return nil

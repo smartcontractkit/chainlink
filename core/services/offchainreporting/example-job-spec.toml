@@ -1,10 +1,12 @@
+type               = "offchainreporting"
+schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pPeerID          = "12D3KooWF4p6MwJy3G3mhncjDRmyTUwFcKHqqJ8XwKFxNz1RwjGh"
+p2pPeerID          = "12D3KooWQdWaTyCnAoRLFiWZWe58VfKAuFrVoeKkkktE4fZAuq6t"
 p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
 isBootstrapPeer    = false
-keyBundleID        = "f81428b255a642376222c7096efd0e374da82953548735bc764e4f9e44adb755"
+keyBundleID        = "bc91a746c01906ea36f293b2eda17aeb903777318f410b8e778552f542d26c6b"
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
 observationTimeout = "10s"

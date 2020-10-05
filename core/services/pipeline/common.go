@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -39,7 +40,8 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPLimit() int64
-		PipelineRunnerParallelism() uint8
+		JobPipelineParallelism() uint8
+		JobPipelineDBPollInterval() time.Duration
 		BridgeResponseURL() *url.URL
 	}
 )

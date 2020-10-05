@@ -199,6 +199,11 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Create an offchain reporting job",
 					Action: client.CreateOCRJobSpec,
 				},
+				{
+					Name:   "deletev2",
+					Usage:  "Delete a v2 job",
+					Action: client.DeleteJobV2,
+				},
 			},
 		},
 
