@@ -215,7 +215,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 	if client.secondaryURL != "" {
 		// Parallel send to secondary node
 
-		logger.Debugw("eth.SecondaryClient#SendTransaction(...)",
+		logger.Tracew("eth.SecondaryClient#SendTransaction(...)",
 			"tx", tx,
 		)
 
@@ -223,11 +223,14 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		defer wg.Wait()
 		wg.Add(1)
 		go func() {
-			err := client.SecondaryGethClient.SendTransaction(ctx, tx)
-			if err != nil {
-				logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			defer wg.Done()
+			err := NewSendError(client.SecondaryGethClient.SendTransaction(ctx, tx))
+			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
+				// Nonce too low or transaction known errors are expected since
+				// the primary SendTransaction may well have succeeded already
+				return
 			}
-			wg.Done()
+			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
 		}()
 	}
 

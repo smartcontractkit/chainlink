@@ -85,10 +85,10 @@ func signTx(keyStore strpkg.KeyStoreInterface, account gethAccounts.Account, tx 
 
 // send broadcasts the transaction to the ethereum network, writes any relevant
 // data onto the attempt and returns an error (or nil) depending on the status
-func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *sendError {
+func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAttempt) *eth.SendError {
 	signedTx, err := a.GetSignedTx()
 	if err != nil {
-		return FatalSendError(err)
+		return eth.NewFatalSendError(err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
@@ -97,12 +97,12 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 	err = errors.WithStack(err)
 
 	logger.Debugw("BulletproofTxManager: Broadcasting transaction", "ethTxAttemptID", a.ID, "txHash", signedTx.Hash(), "gasPriceWei", a.GasPrice.ToInt().Int64())
-	sendErr := SendError(err)
+	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
 		return nil
 	}
-	return SendError(err)
+	return eth.NewSendError(err)
 }
 
 // sendEmptyTransaction sends a transaction with 0 Eth and an empty payload to the burn address
