@@ -471,6 +471,7 @@ func (c Config) OperatorContractAddress() common.Address {
 	if !ok {
 		return common.Address{}
 	}
+	return *address
 }
 
 // LogLevel represents the maximum level of log messages to output.
