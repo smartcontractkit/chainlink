@@ -34,7 +34,7 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		contractAddress  gethCommon.Address
 		logBroadcaster   eth.LogBroadcaster
-		jobID            models.ID
+		jobID            int32
 		transmitter      Transmitter
 		contractABI      abi.ABI
 		logger           logger.Logger
@@ -53,7 +53,7 @@ var (
 	_ eth.LogListener                     = &OCRContractConfigSubscription{}
 )
 
-func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID models.ID, transmitter Transmitter, logger logger.Logger) (o *OCRContract, err error) {
+func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, transmitter Transmitter, logger logger.Logger) (o *OCRContract, err error) {
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(address, ethClient)
 	if err != nil {
 		return o, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
@@ -217,10 +217,19 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err err
 	}
 }
 
+// IsV2Job complies with LogListener interface
+func (sub *OCRContractConfigSubscription) IsV2Job() bool {
+	return true
+}
+
+// JobIDV2 complies with LogListener interface
+func (sub *OCRContractConfigSubscription) JobIDV2() int32 {
+	return sub.oc.jobID
+}
+
 // JobID complies with LogListener interface
 func (sub *OCRContractConfigSubscription) JobID() *models.ID {
-	jobID := sub.oc.jobID
-	return &jobID
+	return &models.ID{}
 }
 
 // Configs complies with ContractConfigSubscription interface

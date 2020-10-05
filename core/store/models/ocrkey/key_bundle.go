@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // KeyBundle represents the bundle of keys needed for OCR

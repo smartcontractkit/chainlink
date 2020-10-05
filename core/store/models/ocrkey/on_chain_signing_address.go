@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
