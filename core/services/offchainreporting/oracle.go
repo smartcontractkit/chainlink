@@ -19,10 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/offchainreportingdb"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrcontracts "github.com/smartcontractkit/offchain-reporting/lib/gethwrappers"
 	ocrnetworking "github.com/smartcontractkit/offchain-reporting/lib/networking"
 	ocr "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
-	ocrcontracts "github.com/smartcontractkit/offchain-reporting/lib/prototype/contracts"
 )
 
 const JobType job.Type = "offchainreporting"
