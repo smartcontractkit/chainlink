@@ -1,0 +1,88 @@
+syntax="proto3";
+
+package serialization;
+option go_package = ".;serialization";
+
+message MessageNewEpoch {
+    uint64 epoch = 1;
+}
+
+message MessageObserveReq {
+    uint64 round = 1;
+    uint64 epoch = 2;
+}
+
+message ReportingContext {
+	bytes configDigest = 1;
+	uint64 epoch = 2;
+	uint64 round = 3;
+}
+
+message ObservationValue {
+  bytes value = 1;
+}
+
+message Observation {
+    ReportingContext ctx = 1;
+    ObservationValue value = 2;
+    bytes signature = 3;
+        uint32 oracleID = 4;
+}
+
+message MessageObserve {
+    uint64 epoch = 1;
+    uint64 round = 2;
+    Observation obs = 3;
+}
+
+message MessageReportReq {
+    uint64 round = 1;
+    uint64 epoch = 2;
+    repeated Observation observations = 3;
+}
+
+message Signature {
+    bytes signature = 1;
+}
+
+message OracleValue {
+	uint32 oracleID = 1;
+	ObservationValue value = 2;
+}
+
+message ContractReport {
+    ReportingContext ctx = 1;
+    repeated OracleValue values = 2;
+    bytes sig = 3;
+}
+
+message MessageReport {
+	uint64 epoch = 1;
+    uint64 round = 2;
+    ContractReport contractReport = 3;
+}
+
+message ContractReportWithSignatures {
+    ContractReport contractReport = 1;
+    repeated Signature signatures = 2;
+}
+
+message MessageFinal {
+    uint64 epoch = 1;
+    uint64 round = 2;
+    ContractReportWithSignatures report = 3;
+}
+
+message MessageFinalEcho { MessageFinal Final = 1; }
+
+message MessageWrapper {
+    oneof msg {
+        MessageNewEpoch messageNewEpoch = 2;
+        MessageObserveReq messageObserveReq = 3;
+        MessageObserve messageObserve = 4;
+        MessageReportReq messageReportReq = 5;
+        MessageReport messageReport = 6;
+        MessageFinal messageFinal = 7;
+        MessageFinalEcho messageFinalEcho = 8;
+    }
+}

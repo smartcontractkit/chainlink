@@ -34,8 +34,13 @@ require (
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/leanovate/gopter v0.2.8
 	github.com/lib/pq v1.8.0
+	github.com/libp2p/go-libp2p v0.11.0
 	github.com/libp2p/go-libp2p-core v0.7.0
+	github.com/libp2p/go-libp2p-kad-dht v0.10.0
+	github.com/libp2p/go-libp2p-kbucket v0.4.7
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
+	github.com/libp2p/go-libp2p-swarm v0.3.1
+	github.com/libp2p/go-libp2p-tls v0.1.3
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/multiformats/go-multiaddr v0.3.1

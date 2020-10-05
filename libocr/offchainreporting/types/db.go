@@ -8,8 +8,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Database persistently stores information on-disk.
-// All its functions should be thread-safe.
 type Database interface {
 	ReadState(ctx context.Context, configDigest ConfigDigest) (*PersistentState, error)
 	WriteState(ctx context.Context, configDigest ConfigDigest, state PersistentState) error
@@ -41,14 +39,9 @@ type PendingTransmission struct {
 type PersistentState struct {
 	Epoch                uint32
 	HighestSentEpoch     uint32
-	HighestReceivedEpoch []uint32 // length: at most MaxOracles
+	HighestReceivedEpoch []uint32
 }
 
-//
-// database/sql/driver interface functions for ConfigDigest
-//
-
-// Scan complies with sql Scanner interface
 func (c *ConfigDigest) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
@@ -61,7 +54,6 @@ func (c *ConfigDigest) Scan(value interface{}) error {
 	return nil
 }
 
-// Value returns this instance serialized for database storage.
 func (c ConfigDigest) Value() (driver.Value, error) {
 	return c[:], nil
 }

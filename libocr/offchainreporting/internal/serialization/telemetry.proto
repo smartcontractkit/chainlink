@@ -1,0 +1,45 @@
+syntax="proto3";
+
+import "messages.proto";
+
+package serialization;
+option go_package = ".;serialization";
+
+
+message TelemetryMessageReceived {
+    bytes configDigest = 1;
+    MessageWrapper msg = 2;
+    uint32 sender = 3;
+}
+
+message TelemetryMessageSent {
+    bytes configDigest = 1;
+    MessageWrapper msg = 2;
+    uint32 receiver = 3;
+}
+
+
+
+message TelemetryAssertionViolation {
+    oneof e {
+        TelemetryAssertionViolationInvalidSignature invalidSignature = 1;
+    }
+}
+
+message TelemetryAssertionViolationInvalidSignature {
+    bytes configDigest = 1;
+    MessageWrapper msg = 2;
+    uint32 sender = 3;
+}
+
+
+
+
+message TelemetryStateUpdate {
+    bytes configDigest = 1;
+    uint64 epoch = 2;
+    uint64 round = 3;
+    uint64 time = 4;
+}
+
+// - rounds don't reach roundMax (i.e. leader is rotated early)
