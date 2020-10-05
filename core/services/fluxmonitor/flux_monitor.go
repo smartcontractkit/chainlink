@@ -379,14 +379,14 @@ type PollingDeviationChecker struct {
 	requestData   models.JSON
 	precision     int32
 
-	isHibernating bool
-	connected     *abool.AtomicBool
-	backlog       *utils.BoundedPriorityQueue
-	chProcessLogs chan struct{}
-	pollTicker    *time.Ticker
-	chPollTicker  <-chan time.Time
-	idleTimer     <-chan time.Time
-	roundTimer    <-chan time.Time
+	isHibernating     bool
+	connected         *abool.AtomicBool
+	backlog           *utils.BoundedPriorityQueue
+	chProcessLogs     chan struct{}
+	pollTicker        utils.PausableTicker
+	hibernationTicker utils.PausableTicker
+	idleTimer         utils.ResettableTimer
+	roundTimer        utils.ResettableTimer
 
 	readyForLogs func()
 	chStop       chan struct{}
@@ -406,30 +406,29 @@ func NewPollingDeviationChecker(
 	readyForLogs func(),
 ) (*PollingDeviationChecker, error) {
 	return &PollingDeviationChecker{
-		readyForLogs:   readyForLogs,
-		store:          store,
-		logBroadcaster: logBroadcaster,
-		fluxAggregator: fluxAggregator,
-		flagsContract:  flagsContract,
-		initr:          initr,
-		minJobPayment:  minJobPayment,
-		requestData:    initr.RequestData,
-		precision:      initr.Precision,
-		runManager:     runManager,
-		fetcher:        fetcher,
-		pollTicker:     nil,
-		chPollTicker:   nil,
-		idleTimer:      nil,
-		roundTimer:     nil,
-		isHibernating:  false,
-		connected:      abool.New(),
+		readyForLogs:      readyForLogs,
+		store:             store,
+		logBroadcaster:    logBroadcaster,
+		fluxAggregator:    fluxAggregator,
+		flagsContract:     flagsContract,
+		initr:             initr,
+		minJobPayment:     minJobPayment,
+		requestData:       initr.RequestData,
+		precision:         initr.Precision,
+		runManager:        runManager,
+		fetcher:           fetcher,
+		pollTicker:        utils.NewPausableTicker(initr.PollTimer.Period.Duration()),
+		hibernationTicker: utils.NewPausableTicker(hibernationPollPeriod),
+		idleTimer:         utils.NewResettableTimer(),
+		roundTimer:        utils.NewResettableTimer(),
+		isHibernating:     false,
+		connected:         abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
 			PriorityNewRoundLog:      2,
 			PriorityAnswerUpdatedLog: 1,
-			PriorityFlagRaisedLog:    1,
-			PriorityFlagLoweredLog:   1,
+			PriorityFlagChangedLog:   1,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
@@ -438,10 +437,9 @@ func NewPollingDeviationChecker(
 }
 
 const (
-	PriorityFlagRaisedLog    uint = 0
+	PriorityFlagChangedLog   uint = 0
 	PriorityNewRoundLog      uint = 1
 	PriorityAnswerUpdatedLog uint = 2
-	PriorityFlagLoweredLog   uint = 3
 )
 
 // Start begins the CSP consumer in a single goroutine to
@@ -451,8 +449,6 @@ func (p *PollingDeviationChecker) Start() {
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID,
 	)
-
-	p.setIsHibernatingStatus()
 	go p.consume()
 }
 
@@ -483,9 +479,10 @@ func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
 
 // Stop stops this instance from polling, cleaning up resources.
 func (p *PollingDeviationChecker) Stop() {
-	if p.pollTicker != nil {
-		p.pollTicker.Stop()
-	}
+	p.pollTicker.Destroy()
+	p.hibernationTicker.Destroy()
+	p.idleTimer.Stop()
+	p.roundTimer.Stop()
 	close(p.chStop)
 	<-p.waitOnStop
 }
@@ -526,17 +523,13 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 		p.backlog.Add(PriorityAnswerUpdatedLog, broadcast)
 
 	case *flags_wrapper.FlagsFlagRaised:
-		if !p.isHibernating {
-			if log.Subject == utils.ZeroAddress || log.Subject == p.initr.Address {
-				p.backlog.Add(PriorityFlagRaisedLog, broadcast)
-			}
+		if log.Subject == utils.ZeroAddress || log.Subject == p.initr.Address {
+			p.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
 	case *flags_wrapper.FlagsFlagLowered:
-		if p.isHibernating {
-			if log.Subject == utils.ZeroAddress || log.Subject == p.initr.Address {
-				p.backlog.Add(PriorityFlagLoweredLog, broadcast)
-			}
+		if log.Subject == utils.ZeroAddress || log.Subject == p.initr.Address {
+			p.backlog.Add(PriorityFlagChangedLog, broadcast)
 		}
 
 	default:
@@ -556,6 +549,7 @@ func (p *PollingDeviationChecker) consume() {
 	// subscribe to contract logs
 	isConnected, unsubscribeFALogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeFALogs()
+
 	if p.flagsContract != nil {
 		flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
 		flagsConnected := p.logBroadcaster.Register(p.flagsContract.Address, flagsLogListener)
@@ -570,9 +564,11 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	p.readyForLogs()
+	p.setIsHibernatingStatus()
+	p.resetTickers(contracts.FluxAggregatorRoundState{
+		StartedAt: uint64(time.Now().Unix()),
+	})
 	p.performInitialPoll()
-	p.setPollTicker()
-	p.resetIdleTimer(uint64(time.Now().Unix()))
 
 	for {
 		select {
@@ -582,7 +578,7 @@ func (p *PollingDeviationChecker) consume() {
 		case <-p.chProcessLogs:
 			p.processLogs()
 
-		case <-p.chPollTicker:
+		case <-p.pollTicker.Ticks():
 			logger.Debugw("Poll ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
@@ -593,7 +589,7 @@ func (p *PollingDeviationChecker) consume() {
 				Abs: float64(p.initr.AbsoluteThreshold),
 			})
 
-		case <-p.idleTimer:
+		case <-p.idleTimer.Ticks():
 			logger.Debugw("Idle ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
@@ -601,7 +597,7 @@ func (p *PollingDeviationChecker) consume() {
 			)
 			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 
-		case <-p.roundTimer:
+		case <-p.roundTimer.Ticks():
 			logger.Debugw("Round timeout ticker fired",
 				"pollPeriod", p.initr.PollTimer.Period,
 				"idleDuration", p.initr.IdleTimer.Duration,
@@ -611,6 +607,9 @@ func (p *PollingDeviationChecker) consume() {
 				Rel: float64(p.initr.Threshold),
 				Abs: float64(p.initr.AbsoluteThreshold),
 			})
+
+		case <-p.hibernationTicker.Ticks():
+			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 		}
 	}
 }
@@ -624,34 +623,21 @@ func (p *PollingDeviationChecker) performInitialPoll() {
 	}
 }
 
-func (p *PollingDeviationChecker) setPollTicker() {
-	if p.pollTicker != nil {
-		p.pollTicker.Stop()
-	}
-	if !p.initr.PollTimer.Disabled && !p.isHibernating {
-		p.pollTicker = time.NewTicker(p.initr.PollTimer.Period.Duration())
-		p.chPollTicker = p.pollTicker.C
-	}
-}
-
 // Hibernate restarts the PollingDeviationChecker in hibernation mode
-func (p *PollingDeviationChecker) Hibernate() {
+func (p *PollingDeviationChecker) hibernate() {
 	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
-	p.setPollTicker()
-	p.idleTimer = time.After(hibernationPollPeriod)
-	p.roundTimer = nil
+	p.resetTickers(contracts.FluxAggregatorRoundState{})
 }
 
 // Reactivate restarts the PollingDeviationChecker without hibernation moce
-func (p *PollingDeviationChecker) Reactivate() {
+func (p *PollingDeviationChecker) reactivate() {
 	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
+	p.resetTickers(contracts.FluxAggregatorRoundState{
+		StartedAt: uint64(time.Now().Unix()),
+	})
 	p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
-	if p.pollTicker != nil {
-		p.pollTicker.Stop()
-	}
-	p.resetIdleTimer(uint64(time.Now().Unix()))
 }
 
 func (p *PollingDeviationChecker) processLogs() {
@@ -689,7 +675,7 @@ func (p *PollingDeviationChecker) processLogs() {
 			}
 
 		case *flags_wrapper.FlagsFlagRaised:
-			p.Hibernate()
+			p.hibernate()
 
 		case *flags_wrapper.FlagsFlagLowered:
 			// check the contract before reactivating, because one flag could be lowered
@@ -698,7 +684,7 @@ func (p *PollingDeviationChecker) processLogs() {
 			if err != nil {
 				logger.Errorf("Error determining if flag is still raised: %v", err)
 			} else if !raised {
-				p.Reactivate()
+				p.reactivate()
 			}
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
@@ -1023,45 +1009,64 @@ func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggr
 	}
 
 	// Update our tickers to reflect the current on-chain round
-	p.resetRoundTimeoutTicker(roundState)
-	p.resetIdleTimer(roundState.StartedAt)
+	p.resetTickers(roundState)
 
 	return roundState, nil
 }
 
-func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundState contracts.FluxAggregatorRoundState) {
+func (p *PollingDeviationChecker) resetTickers(roundState contracts.FluxAggregatorRoundState) {
+	p.resetPollTicker()
+	p.resetHibernationTicker()
+	p.resetIdleTimer(roundState.StartedAt)
+	p.resetRoundTimeoutTicker(roundState.TimesOutAt())
+}
+
+func (p *PollingDeviationChecker) resetPollTicker() {
+	if !p.initr.PollTimer.Disabled && !p.isHibernating {
+		p.pollTicker.Resume()
+	} else {
+		p.pollTicker.Pause()
+	}
+}
+
+func (p *PollingDeviationChecker) resetHibernationTicker() {
+	if !p.isHibernating {
+		p.hibernationTicker.Resume()
+	} else {
+		p.hibernationTicker.Pause()
+	}
+}
+
+func (p *PollingDeviationChecker) resetRoundTimeoutTicker(roundTimesOutAt uint64) {
 	if p.isHibernating {
-		p.roundTimer = nil
+		p.roundTimer.Stop()
 		return
 	}
 
-	loggerFields := p.loggerFields("timesOutAt", roundState.TimesOutAt())
+	loggerFields := p.loggerFields("timesOutAt", roundTimesOutAt)
 
-	if roundState.TimesOutAt() == 0 {
-		p.roundTimer = nil
+	if roundTimesOutAt == 0 {
+		p.roundTimer.Stop()
 		logger.Debugw("disabling roundTimer, no active round", loggerFields...)
 
 	} else {
-		timesOutAt := time.Unix(int64(roundState.TimesOutAt()), 0)
+		timesOutAt := time.Unix(int64(roundTimesOutAt), 0)
 		timeUntilTimeout := time.Until(timesOutAt)
 
 		if timeUntilTimeout <= 0 {
-			p.roundTimer = nil
+			p.roundTimer.Stop()
 			logger.Debugw("roundTimer has run down; disabling", loggerFields...)
 		} else {
-			p.roundTimer = time.After(timeUntilTimeout)
-			loggerFields = append(loggerFields, "value", roundState.TimesOutAt())
+			p.roundTimer.Reset(timeUntilTimeout)
+			loggerFields = append(loggerFields, "value", roundTimesOutAt)
 			logger.Debugw("updating roundState.TimesOutAt", loggerFields...)
 		}
 	}
 }
 
 func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
-	if p.isHibernating {
-		p.idleTimer = time.After(hibernationPollPeriod)
-		return
-	} else if p.initr.IdleTimer.Disabled {
-		p.idleTimer = nil
+	if p.isHibernating || p.initr.IdleTimer.Disabled {
+		p.idleTimer.Stop()
 		return
 	} else if roundStartedAtUTC == 0 {
 		// There is no active round, so keep using the idleTimer we already have
@@ -1080,7 +1085,7 @@ func (p *PollingDeviationChecker) resetIdleTimer(roundStartedAtUTC uint64) {
 		logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
 		return
 	}
-	p.idleTimer = time.After(timeUntilIdleDeadline)
+	p.idleTimer.Reset(timeUntilIdleDeadline)
 	logger.Debugw("resetting idleTimer", loggerFields...)
 }
 
