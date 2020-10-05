@@ -1275,6 +1275,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	defer cleanup()
 	config.Config.Dialect = orm.DialectPostgres
 	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
 	store.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config)
