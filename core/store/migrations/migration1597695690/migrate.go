@@ -106,33 +106,34 @@ func Migrate(tx *gorm.DB) error {
         -- NOTE: This table is large and insert/update heavy so we must be efficient with indexes
 
         CREATE INDEX idx_pipeline_task_runs ON pipeline_task_runs USING BRIN (created_at);
-        -- CREATE INDEX idx_pipeline_task_runs_finished_at ON pipeline_task_runs WHERE finished_at IS NOT NULL USING BRIN (finished_at);
+        CREATE INDEX idx_pipeline_task_runs_finished_at ON pipeline_task_runs WHERE finished_at IS NOT NULL USING BRIN (finished_at);
 
         -- This query is used in the runner to find unstarted task runs
-        -- CREATE INDEX idx_pipeline_task_runs_unfinished ON pipeline_task_runs (finished_at) WHERE finished_at IS NULL;
+        CREATE INDEX idx_pipeline_task_runs_unfinished ON pipeline_task_runs (finished_at) WHERE finished_at IS NULL;
 
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN contract_address bytea NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN p2p_peer_id text NOT NULL REFERENCES encrypted_p2p_keys (peer_id);
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN p2p_bootstrap_peers text[] NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN is_bootstrap_peer bool NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN encrypted_ocr_key_bundle_id bytea NOT NULL REFERENCES encrypted_ocr_key_bundles (id);
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN monitoring_endpoint TEXT;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN transmitter_address bytea;  -- NOT NULL REFERENCES keys (address)
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN observation_timeout bigint NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN blockchain_timeout bigint NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN contract_config_tracker_subscribe_interval bigint NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN contract_config_tracker_poll_interval bigint NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN contract_config_confirmations INT NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN created_at timestamptz NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD COLUMN updated_at timestamptz NOT NULL;
-        ALTER TABLE offchainreporting_oracle_specs ADD CONSTRAINT chk_contract_address_length CHECK (octet_length(contract_address) = 20);
+        ALTER TABLE offchainreporting_oracle_specs
+			ADD COLUMN contract_address bytea NOT NULL,
+			ADD COLUMN p2p_peer_id text NOT NULL REFERENCES encrypted_p2p_keys (peer_id),
+			ADD COLUMN p2p_bootstrap_peers text[] NOT NULL,
+			ADD COLUMN is_bootstrap_peer bool NOT NULL,
+			ADD COLUMN encrypted_ocr_key_bundle_id bytea NOT NULL REFERENCES encrypted_ocr_key_bundles (id),
+			ADD COLUMN monitoring_endpoint TEXT,
+			ADD COLUMN transmitter_address bytea NOT NULL REFERENCES keys (address),
+			ADD COLUMN observation_timeout bigint NOT NULL,
+			ADD COLUMN blockchain_timeout bigint NOT NULL,
+			ADD COLUMN contract_config_tracker_subscribe_interval bigint NOT NULL,
+			ADD COLUMN contract_config_tracker_poll_interval bigint NOT NULL,
+			ADD COLUMN contract_config_confirmations INT NOT NULL,
+			ADD COLUMN created_at timestamptz NOT NULL,
+			ADD COLUMN updated_at timestamptz NOT NULL,
+			ADD CONSTRAINT chk_contract_address_length CHECK (octet_length(contract_address) = 20);
 
         -- NOTE: This will be extended with new IDs when we bring directrequest and fluxmonitor under the new jobspawner umbrella
         -- Only ONE id should ever be present
         CREATE TABLE jobs (
             id SERIAL PRIMARY KEY,
-            pipeline_spec_id INT REFERENCES pipeline_specs (id),
-            offchainreporting_oracle_spec_id INT REFERENCES offchainreporting_oracle_specs (id),
+            pipeline_spec_id INT REFERENCES pipeline_specs (id) ON DELETE CASCADE,
+            offchainreporting_oracle_spec_id INT REFERENCES offchainreporting_oracle_specs (id) ON DELETE CASCADE,
             CONSTRAINT chk_valid CHECK (
                 offchainreporting_oracle_spec_id IS NOT NULL
             )
@@ -153,14 +154,12 @@ func Migrate(tx *gorm.DB) error {
         AFTER INSERT ON jobs
         FOR EACH ROW EXECUTE PROCEDURE notifyJobCreated();
 
-
-
         CREATE UNIQUE INDEX idx_jobs_unique_offchainreporting_oracle_spec_ids ON jobs (offchainreporting_oracle_spec_id);
 
         CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_key_bundles ON offchainreporting_oracle_specs (encrypted_ocr_key_bundle_id, contract_address);
         CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_peer_ids ON offchainreporting_oracle_specs (p2p_peer_id, contract_address);
-        -- CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_job_ids ON offchainreporting_oracle_specs (job_id);
-        -- CREATE INDEX idx_offchainreporting_oracle_specs_data_fetch_pipeline_spec_id ON offchainreporting_oracle_specs (data_fetch_pipeline_spec_id);
+        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_job_ids ON offchainreporting_oracle_specs (job_id);
+        CREATE INDEX idx_offchainreporting_oracle_specs_data_fetch_pipeline_spec_id ON offchainreporting_oracle_specs (data_fetch_pipeline_spec_id);
 
         CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
         CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
@@ -175,6 +174,5 @@ func Migrate(tx *gorm.DB) error {
         );
         DROP INDEX log_consumptions_unique_idx;
         CREATE UNIQUE INDEX log_consumptions_unique_idx ON log_consumptions ("job_id", "job_id_v2", "block_hash", "log_index");
-
     `).Error
 }
