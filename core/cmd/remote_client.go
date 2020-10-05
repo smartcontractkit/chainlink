@@ -242,10 +242,19 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		}
 		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
 		return cli.errorOut(err)
-	} else {
-		fmt.Printf("Job added (job ID: %v).\n")
+	}
+
+	type responseBody struct {
+		JobID int32 `json:"jobID"`
+	}
+	var body responseBody
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	if err != nil {
 		return cli.errorOut(err)
 	}
+
+	fmt.Printf("Job added (job ID: %v).\n", body.JobID)
+	return nil
 }
 
 // ArchiveJobSpec soft deletes a job and its associated runs.
@@ -254,6 +263,21 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 		return cli.errorOut(errors.New("Must pass the job id to be archived"))
 	}
 	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to be archived"))
+	}
+	resp, err := cli.HTTP.Delete("/v2/specs_v2/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}

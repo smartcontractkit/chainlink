@@ -68,19 +68,19 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	jobTypeA := job.Type("AAA")
 	jobTypeB := job.Type("BBB")
 
-	innerJobSpecA, _ := makeOCRJobSpec(t)
-	innerJobSpecB, _ := makeOCRJobSpec(t)
-	jobSpecA := &spec{innerJobSpecA, jobTypeA}
-	jobSpecB := &spec{innerJobSpecB, jobTypeB}
-
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
 		defer cleanupDB()
 		db := oldORM.DB
 
+		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		innerJobSpecB, _ := makeOCRJobSpec(t, db)
+		jobSpecA := &spec{innerJobSpecA, jobTypeA}
+		jobSpecB := &spec{innerJobSpecB, jobTypeB}
+
 		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
-		spawner := job.NewSpawner(orm)
+		spawner := job.NewSpawner(orm, config)
 		spawner.Start()
 
 		eventuallyA := cltest.NewAwaiter()
@@ -89,7 +89,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(jobSpecA)
@@ -106,7 +106,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB1.On("Start").Return(nil).Once()
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateB)
 
 		jobSpecIDB, err := spawner.CreateJob(jobSpecB)
@@ -122,11 +122,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Stop").Return(nil).Once()
 		serviceA2.On("Stop").Return(nil).Once()
-		spawner.DeleteJob(ctx, jobSpecA)
+		spawner.DeleteJob(ctx, jobSpecA.JobID())
 
 		serviceB1.On("Stop").Return(nil).Once()
 		serviceB2.On("Stop").Return(nil).Once()
-		spawner.DeleteJob(ctx, jobSpecB)
+		spawner.DeleteJob(ctx, jobSpecB.JobID())
 
 		spawner.Stop()
 		serviceA1.AssertExpectations(t)
@@ -140,6 +140,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		defer cleanupDB()
 		db := oldORM.DB
 
+		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		jobSpecA := &spec{innerJobSpecA, jobTypeA}
+
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
@@ -148,9 +151,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
-		spawner := job.NewSpawner(orm)
+		spawner := job.NewSpawner(orm, config)
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(jobSpecA)
@@ -172,6 +175,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		defer cleanupDB()
 		db := oldORM.DB
 
+		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		jobSpecA := &spec{innerJobSpecA, jobTypeA}
+
 		eventually := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
@@ -180,9 +186,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 		defer orm.Close()
-		spawner := job.NewSpawner(orm)
+		spawner := job.NewSpawner(orm, config)
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(jobSpecA)

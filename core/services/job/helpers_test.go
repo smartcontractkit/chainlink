@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -13,17 +14,20 @@ import (
 )
 
 var ocrJobSpecText = `
+type               = "offchainreporting"
+schemaVersion      = 1
 contractAddress    = "%s"
-p2pPeerID          = "<libp2p-node-id>"
+p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
-    {peerID = "<peer id 1>", multiAddr = "<multiaddr1>"},
-    {peerID = "<peer id 2>", multiAddr = "<multiaddr2>"},
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
-keyBundle          = {encryptedPrivKeyBundle = {asdf = 123}}
-monitoringEndpoint = "<ip:port>"
+isBootstrapPeer    = false
+keyBundleID        = "%s"
+monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
 observationTimeout = "10s"
-blockchainTimeout  = "10s"
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
@@ -33,26 +37,34 @@ observationSource = """
     ds1_multiply [type=multiply times=1.23];
 
     // data source 2
-    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\":\\"hello\\"}"];
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
     ds2_parse    [type=jsonparse path="three,four"];
     ds2_multiply [type=multiply times=4.56];
-
-    answer1 [type=median];
 
     ds1 -> ds1_parse -> ds1_multiply -> answer1;
     ds2 -> ds2_parse -> ds2_multiply -> answer1;
 
-    answer2 [type=bridge name=election_winner];
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name=election_winner index=1];
 """
 `
 
-func makeOCRJobSpec(t *testing.T) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex())
+	// Insert keys into the store
+	keystore := offchainreporting.NewKeyStore(db)
+	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
+	require.NoError(t, err)
+	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
+	require.NoError(t, err)
+	peerID, err := p2pkey.GetPeerID()
+	require.NoError(t, err)
+
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID, ocrkey.ID)
 
 	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
+	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
@@ -71,13 +83,13 @@ func compareOCRJobSpecs(t *testing.T, expected, actual models.JobSpecV2) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundleID, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundleID)
-	require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundle.ID, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundle.ID)
-	require.Equal(t, expected.OffchainreportingOracleSpec.OffchainreportingKeyBundle.EncryptedPrivKeyBundle, actual.OffchainreportingOracleSpec.OffchainreportingKeyBundle.EncryptedPrivKeyBundle)
+	require.Equal(t, expected.OffchainreportingOracleSpec.IsBootstrapPeer, actual.OffchainreportingOracleSpec.IsBootstrapPeer)
+	require.Equal(t, expected.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, actual.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 	require.Equal(t, expected.OffchainreportingOracleSpec.MonitoringEndpoint, actual.OffchainreportingOracleSpec.MonitoringEndpoint)
 	require.Equal(t, expected.OffchainreportingOracleSpec.TransmitterAddress, actual.OffchainreportingOracleSpec.TransmitterAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ObservationTimeout, actual.OffchainreportingOracleSpec.ObservationTimeout)
 	require.Equal(t, expected.OffchainreportingOracleSpec.BlockchainTimeout, actual.OffchainreportingOracleSpec.BlockchainTimeout)
+	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval, actual.OffchainreportingOracleSpec.ContractConfigTrackerPollInterval)
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }

@@ -64,7 +64,7 @@ func (r *runner) runLoop() {
 		logger.Errorw(`Pipeline runner failed to subscribe to "new run" events, falling back to polling`, "error", err)
 	}
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(r.config.JobPipelineDBPollInterval())
 	defer ticker.Stop()
 
 	for {
@@ -109,7 +109,7 @@ func (r *runner) ResultsForRun(runID int64) ([]Result, error) {
 // NOTE: This could potentially run on a different machine in the cluster than
 // the one that originally added the task runs.
 func (r *runner) processIncompleteTaskRunsWorker() {
-	threads := int(r.config.PipelineRunnerParallelism())
+	threads := int(r.config.JobPipelineParallelism())
 
 	var wg sync.WaitGroup
 	wg.Add(threads)
