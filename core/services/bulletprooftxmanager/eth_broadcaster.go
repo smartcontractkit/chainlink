@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
@@ -22,10 +23,15 @@ import (
 const (
 	// databasePollInterval indicates how long to wait each time before polling
 	// the database for new eth_txes to send
+	//
+	// This poll is really just a fallback in case the trigger fails for some reason
 	databasePollInterval = 5 * time.Second
 
 	// EthBroadcaster advisory lock class ID
 	ethBroadcasterAdvisoryLockClassID = 0
+
+	// Postgres channel to listen for new eth_txes
+	postgresInsertOnEthTx = "insert_on_eth_txes"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -58,11 +64,13 @@ type ethBroadcaster struct {
 	started    bool
 	stateMutex sync.RWMutex
 
+	ethTxInsertListener *utils.PostgresEventListener
+
 	// trigger allows other goroutines to force ethBroadcaster to rescan the
 	// database early (before the next poll interval)
 	trigger chan struct{}
 	chStop  chan struct{}
-	chDone  chan struct{}
+	wg      sync.WaitGroup
 }
 
 // NewEthBroadcaster returns a new concrete ethBroadcaster
@@ -73,7 +81,13 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcast
 		ethClient: store.EthClient,
 		trigger:   make(chan struct{}, 1),
 		chStop:    make(chan struct{}),
-		chDone:    make(chan struct{}),
+		wg:        sync.WaitGroup{},
+		ethTxInsertListener: &utils.PostgresEventListener{
+			URI:                  config.DatabaseURL(),
+			Event:                postgresInsertOnEthTx,
+			MinReconnectInterval: 1 * time.Second,
+			MaxReconnectDuration: 1 * time.Minute,
+		},
 	}
 }
 
@@ -89,7 +103,19 @@ func (eb *ethBroadcaster) Start() error {
 	if eb.started {
 		return errors.New("already started")
 	}
+	eb.wg.Add(1)
 	go eb.monitorEthTxs()
+
+	err := eb.ethTxInsertListener.Start()
+	if err != nil {
+		close(eb.chStop)
+		eb.wg.Wait()
+		return err
+	}
+
+	eb.wg.Add(1)
+	go eb.ethTxInsertTriggerer()
+
 	eb.started = true
 
 	return nil
@@ -101,9 +127,13 @@ func (eb *ethBroadcaster) Stop() error {
 	if !eb.started {
 		return nil
 	}
-	eb.started = false
+	if err := eb.ethTxInsertListener.Stop(); err != nil {
+		return err
+	}
 	close(eb.chStop)
-	<-eb.chDone
+	eb.wg.Wait()
+
+	eb.started = false
 
 	return nil
 }
@@ -115,8 +145,20 @@ func (eb *ethBroadcaster) Trigger() {
 	}
 }
 
+func (eb *ethBroadcaster) ethTxInsertTriggerer() {
+	defer eb.wg.Done()
+	for {
+		select {
+		case <-eb.ethTxInsertListener.Events():
+			eb.Trigger()
+		case <-eb.chStop:
+			return
+		}
+	}
+}
+
 func (eb *ethBroadcaster) monitorEthTxs() {
-	defer close(eb.chDone)
+	defer eb.wg.Done()
 	for {
 		pollDBTimer := time.NewTimer(databasePollInterval)
 

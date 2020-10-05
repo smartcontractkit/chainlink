@@ -1,4 +1,4 @@
-package offchainreportingdb
+package offchainreporting
 
 import (
 	"context"
