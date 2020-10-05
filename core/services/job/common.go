@@ -1,6 +1,8 @@
 package job
 
 import (
+	"time"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
@@ -20,5 +22,10 @@ type (
 	Service interface {
 		Start() error
 		Stop() error
+	}
+
+	Config interface {
+		JobPipelineDBPollInterval() time.Duration
+		JobPipelineParallelism() uint8
 	}
 )

@@ -52,7 +52,8 @@ type ConfigSchema struct {
 	GasUpdaterBlockHistorySize       uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile  uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
-	PipelineRunnerParallelism        uint8           `env:"PIPELINE_RUNNER_PARALLELISM" default:"4"`
+	JobPipelineDBPollInterval        time.Duration   `env:"JOB_PIPELINE_DB_POLL_INTERVAL" default:"10s"`
+	JobPipelineParallelism           uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
 	JSONConsole                      bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                      *url.URL        `env:"EXPLORER_URL"`

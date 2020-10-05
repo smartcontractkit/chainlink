@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -187,6 +188,26 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 
 	err = jsc.App.ArchiveJob(id)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+}
+
+func (jsc *JobSpecsController) DestroyV2(c *gin.Context) {
+	jobID, err := strconv.Atoi(c.Param("SpecID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	err = jsc.App.DeleteJobV2(c.Request.Context(), int32(jobID))
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return

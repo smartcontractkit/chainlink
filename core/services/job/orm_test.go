@@ -23,7 +23,7 @@ func TestORM(t *testing.T) {
 	orm := job.NewORM(db, config.DatabaseURL(), pipeline.NewORM(db, config.DatabaseURL()))
 	defer orm.Close()
 
-	ocrSpec, dbSpec := makeOCRJobSpec(t)
+	ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 	t.Run("it creates job specs", func(t *testing.T) {
 		err := orm.CreateJob(dbSpec, ocrSpec.TaskDAG())
@@ -32,7 +32,6 @@ func TestORM(t *testing.T) {
 		var returnedSpec models.JobSpecV2
 		err = db.
 			Preload("OffchainreportingOracleSpec").
-			Preload("OffchainreportingOracleSpec.OffchainreportingKeyBundle").
 			Where("id = ?", dbSpec.ID).First(&returnedSpec).Error
 		require.NoError(t, err)
 		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
