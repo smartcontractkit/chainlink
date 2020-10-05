@@ -664,3 +664,84 @@ func WrapIfError(err *error, msg string) {
 		*err = errors.Wrap(*err, msg)
 	}
 }
+
+type PausableTicker struct {
+	ticker   *time.Ticker
+	duration time.Duration
+	mu       *sync.RWMutex
+}
+
+func NewPausableTicker(duration time.Duration) PausableTicker {
+	return PausableTicker{
+		duration: duration,
+		mu:       &sync.RWMutex{},
+	}
+}
+
+func (t PausableTicker) Ticks() <-chan time.Time {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.ticker == nil {
+		return nil
+	}
+	return t.ticker.C
+}
+
+func (t *PausableTicker) Pause() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ticker != nil {
+		t.ticker.Stop()
+		t.ticker = nil
+	}
+}
+
+func (t *PausableTicker) Resume() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.ticker == nil {
+		t.ticker = time.NewTicker(t.duration)
+	}
+}
+
+func (t *PausableTicker) Destroy() {
+	t.Pause()
+}
+
+type ResettableTimer struct {
+	timer *time.Timer
+	mu    *sync.RWMutex
+}
+
+func NewResettableTimer() ResettableTimer {
+	return ResettableTimer{
+		mu: &sync.RWMutex{},
+	}
+}
+
+func (t ResettableTimer) Ticks() <-chan time.Time {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	if t.timer == nil {
+		return nil
+	}
+	return t.timer.C
+}
+
+func (t *ResettableTimer) Stop() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.timer != nil {
+		t.timer.Stop()
+		t.timer = nil
+	}
+}
+
+func (t *ResettableTimer) Reset(duration time.Duration) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.timer != nil {
+		t.timer.Stop()
+	}
+	t.timer = time.NewTimer(duration)
+}
