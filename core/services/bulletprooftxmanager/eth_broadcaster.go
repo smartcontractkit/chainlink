@@ -127,10 +127,13 @@ func (eb *ethBroadcaster) Stop() error {
 	if !eb.started {
 		return nil
 	}
-	eb.started = false
-	eb.ethTxInsertListener.Stop()
+	if err := eb.ethTxInsertListener.Stop(); err != nil {
+		return err
+	}
 	close(eb.chStop)
 	eb.wg.Wait()
+
+	eb.started = false
 
 	return nil
 }
