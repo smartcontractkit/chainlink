@@ -8,15 +8,14 @@ import (
 	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/networking"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/offchainreportingdb"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrcontracts "github.com/smartcontractkit/offchain-reporting/lib/gethwrappers"
@@ -110,12 +109,17 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 
 	logger := logger.NewOCRLogger(logger.Default)
 
+	peerstore, err := networking.NewPeerstore(context.Background(), d.db.DB())
+	if err != nil {
+		return errors.Wrap(err, "could not make new peerstore")
+	}
+
 	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 		PrivKey:    p2pkey.PrivKey,
 		ListenPort: d.config.OCRListenPort(),
 		ListenIP:   d.config.OCRListenIP(),
 		Logger:     logger,
-		Peerstore:  pstoremem.NewPeerstore(),
+		Peerstore:  peerstore,
 		EndpointConfig: ocrnetworking.EndpointConfig{
 			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
 			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
@@ -135,7 +139,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
 			ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
 		},
-		Database:                     offchainreportingdb.NewDB(d.db.DB(), int(concreteSpec.ID)),
+		Database:                     NewDB(d.db.DB(), int(concreteSpec.ID)),
 		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
 		ContractTransmitter:          aggregator,
 		ContractConfigTracker:        aggregator,
