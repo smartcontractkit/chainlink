@@ -714,9 +714,14 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	)
 	require.NoError(t, err)
 
-	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
+
+	logBroadcast := new(mocks.LogBroadcast)
+	logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
+	logBroadcast.On("DecodedLog").Return(&contracts.LogNewRound{RoundId: big.NewInt(0), StartedAt: big.NewInt(time.Now().UTC().Unix())})
+	logBroadcast.On("MarkConsumed").Return(nil)
+	deviationChecker.HandleLog(logBroadcast, nil)
 
 	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
 	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
