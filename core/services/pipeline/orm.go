@@ -210,6 +210,8 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 
+		// TODO: check if pipeline_task_run is now completed
+
 		// FIXME: Can there be more than one terminal task? If so this won't work
 		if ptRun.PipelineTaskSpec.SuccessorID.IsZero() {
 			// No more successors means this was the last task in the run
@@ -222,6 +224,12 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		}
 		return nil
 	})
+
+	// HERE
+	// add a state to pipeline_run
+	// have they all completed? If so:
+	// finished_at (null => something)
+	// emit event
 
 	return done, err
 }
