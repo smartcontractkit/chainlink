@@ -1,7 +1,6 @@
 package eth_test
 
 import (
-	"errors"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -215,12 +215,12 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		{Address: addr2, BlockNumber: 6, BlockHash: cltest.NewHash()},
 	}
 
-	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []interface{}
+	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []types.Log
 
 	listener1 := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			addr1Logs1 = append(addr1Logs1, lb.Log())
+			addr1Logs1 = append(addr1Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		createJob(t, store).ID,
@@ -228,7 +228,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener2 := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			addr1Logs2 = append(addr1Logs2, lb.Log())
+			addr1Logs2 = append(addr1Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		createJob(t, store).ID,
@@ -236,7 +236,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener3 := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			addr2Logs1 = append(addr2Logs1, lb.Log())
+			addr2Logs1 = append(addr2Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		createJob(t, store).ID,
@@ -244,7 +244,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	listener4 := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			addr2Logs2 = append(addr2Logs2, lb.Log())
+			addr2Logs2 = append(addr2Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		createJob(t, store).ID,
@@ -273,12 +273,12 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	lb.Stop()
 
 	for i := range addr1SentLogs {
-		require.Equal(t, addr1SentLogs[i], addr1Logs1[i].(eth.GethRawLog).Log)
-		require.Equal(t, addr1SentLogs[i], addr1Logs2[i].(eth.GethRawLog).Log)
+		require.Equal(t, addr1SentLogs[i], addr1Logs1[i])
+		require.Equal(t, addr1SentLogs[i], addr1Logs2[i])
 	}
 	for i := range addr2SentLogs {
-		require.Equal(t, addr2SentLogs[i], addr2Logs1[i].(eth.GethRawLog).Log)
-		require.Equal(t, addr2SentLogs[i], addr2Logs2[i].(eth.GethRawLog).Log)
+		require.Equal(t, addr2SentLogs[i], addr2Logs1[i])
+		require.Equal(t, addr2SentLogs[i], addr2Logs2[i])
 	}
 
 	ethClient.AssertExpectations(t)
@@ -388,7 +388,7 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 }
 
 type LogNewRound struct {
-	eth.GethRawLog
+	types.Log
 	RoundId   *big.Int
 	StartedBy common.Address
 	StartedAt *big.Int
@@ -401,7 +401,7 @@ func TestDecodingLogListener(t *testing.T) {
 	contract, err := eth.GetV6ContractCodec("FluxAggregator")
 	require.NoError(t, err)
 
-	logTypes := map[common.Hash]eth.Log{
+	logTypes := map[common.Hash]interface{}{
 		eth.MustGetV6ContractEventID("FluxAggregator", "NewRound"): &LogNewRound{},
 	}
 
@@ -410,25 +410,25 @@ func TestDecodingLogListener(t *testing.T) {
 	listener := simpleLogListener{
 		func(lb eth.LogBroadcast, innerErr error) {
 			err = innerErr
-			decodedLog = lb.Log()
+			decodedLog = lb.DecodedLog()
 		},
 		createJob(t, store).ID,
 	}
 
 	decodingListener := eth.NewDecodingLogListener(contract, logTypes, &listener)
-	rawLog := eth.GethRawLog{cltest.LogFromFixture(t, "../testdata/new_round_log.json")}
+	rawLog := cltest.LogFromFixture(t, "../testdata/new_round_log.json")
 	logBroadcast := new(mocks.LogBroadcast)
 
-	logBroadcast.On("Log").Return(rawLog).Once()
-	logBroadcast.On("UpdateLog", mock.Anything).Run(func(args mock.Arguments) {
-		logBroadcast.On("Log").Return(args.Get(0))
+	logBroadcast.On("RawLog").Return(rawLog)
+	logBroadcast.On("SetDecodedLog", mock.Anything).Run(func(args mock.Arguments) {
+		logBroadcast.On("DecodedLog").Return(args.Get(0))
 	})
 
 	decodingListener.HandleLog(logBroadcast, nil)
 	require.NoError(t, err)
 	newRoundLog := decodedLog.(*LogNewRound)
 
-	require.Equal(t, newRoundLog.Log, rawLog.Log)
+	require.Equal(t, newRoundLog.Log, rawLog)
 	require.True(t, newRoundLog.RoundId.Cmp(big.NewInt(1)) == 0)
 	require.Equal(t, newRoundLog.StartedBy, common.HexToAddress("f17f52151ebef6c7334fad080c5704d77216b732"))
 	require.True(t, newRoundLog.StartedAt.Cmp(big.NewInt(15)) == 0)
@@ -546,7 +546,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			lb.Start()
 
 			recvdMutex := new(sync.RWMutex)
-			var recvd []eth.GethRawLog
+			var recvd []types.Log
 
 			handleLog := func(lb eth.LogBroadcast, err error) {
 				require.NoError(t, err)
@@ -554,7 +554,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.NoError(t, err)
 				if !consumed {
 					recvdMutex.Lock()
-					recvd = append(recvd, lb.Log().(eth.GethRawLog))
+					recvd = append(recvd, lb.RawLog())
 					recvdMutex.Unlock()
 					err = lb.MarkConsumed()
 					require.NoError(t, err)
@@ -581,7 +581,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			recvdMutex.Lock()
 			for i, logNum := range test.batch1 {
-				require.Equal(t, recvd[i].Log, logs[logNum])
+				require.Equal(t, recvd[i], logs[logNum])
 			}
 			recvdMutex.Unlock()
 
@@ -608,7 +608,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			recvdMutex.Lock()
 			for i, logNum := range test.expectedFinal {
-				require.Equal(t, recvd[i].Log, logs[logNum])
+				require.Equal(t, recvd[i], logs[logNum])
 			}
 			recvdMutex.Unlock()
 
@@ -779,14 +779,14 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0},
 	}
 
-	var recvd []eth.GethRawLog
+	var recvd []types.Log
 	recvdMutex := new(sync.RWMutex)
 
 	job := createJob(t, store)
 	listener := simpleLogListener{
 		func(lb eth.LogBroadcast, err error) {
 			require.NoError(t, err)
-			ethLog := lb.Log().(eth.GethRawLog)
+			ethLog := lb.RawLog()
 			recvdMutex.Lock()
 			recvd = append(recvd, ethLog)
 			recvdMutex.Unlock()
@@ -813,7 +813,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	recvdMutex.Lock()
 	defer recvdMutex.Unlock()
 	for idx, receivedLog := range recvd {
-		require.Equal(t, receivedLog.Log, logs[idx])
+		require.Equal(t, receivedLog, logs[idx])
 	}
 
 	ethClient.AssertExpectations(t)

@@ -270,9 +270,21 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 }
 
 func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.CallContract(ctx, msg, blockNumber)
 }
 
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	panic("unimplemented")
 }

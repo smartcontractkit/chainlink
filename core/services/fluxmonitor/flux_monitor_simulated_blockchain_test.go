@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -26,12 +28,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const description = "exactly thirty-three characters!!"
+const decimals = 8
+const fee = int64(100) // Amount paid by FA contract, in LINK-wei
+const faTimeout = uint32(1)
+
+var pollTimerPeriod = 200 * time.Millisecond // if failing due to timeouts, increase this
+var oneEth = big.NewInt(1000000000000000000)
+var emptyList = []common.Address{}
+
 // fluxAggregatorUniverse represents the universe with which the aggregator
 // contract interacts
 type fluxAggregatorUniverse struct {
 	aggregatorContract        *faw.FluxAggregator
 	aggregatorContractAddress common.Address
 	linkContract              *link_token_interface.LinkToken
+	flagsContract             *flags_wrapper.Flags
+	flagsContractAddress      common.Address
 	// Abstraction representation of the ethereum blockchain
 	backend       *backends.SimulatedBackend
 	aggregatorABI abi.ABI
@@ -42,8 +55,6 @@ type fluxAggregatorUniverse struct {
 	nallory *bind.TransactOpts // Node operator Flux Monitor Oracle (Baddie.)
 }
 
-var emptyList = []common.Address{}
-
 // newIdentity returns a go-ethereum abstraction of an ethereum account for
 // interacting with contract golang wrappers
 func newIdentity(t *testing.T) *bind.TransactOpts {
@@ -52,14 +63,10 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 	return bind.NewKeyedTransactor(key)
 }
 
-var oneEth = big.NewInt(1000000000000000000)
-var fee = int64(100) // Amount paid by FA contract, in LINK-wei
-
-// deployFluxAggregator returns a fully initialized fluxAggregator universe. The
+// setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
-func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
-	decimals uint8, description string) fluxAggregatorUniverse {
+func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
 	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
@@ -81,13 +88,16 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 	linkAddress, _, f.linkContract, err = link_token_interface.DeployLinkToken(f.sergey, f.backend)
 	require.NoError(t, err, "failed to deploy link contract to simulated ethereum blockchain")
 
+	f.flagsContractAddress, _, f.flagsContract, err = flags_wrapper.DeployFlags(f.sergey, f.backend, f.sergey.From)
+	require.NoError(t, err, "failed to deploy flags contract to simulated ethereum blockchain")
+
 	f.backend.Commit()
 
 	// FluxAggregator contract subtracts timeout from block timestamp, which will
 	// be less than the timeout, leading to a SafeMath error. Wait for longer than
 	// the timeout... Golang is unpleasant about mixing int64 and time.Duration in
 	// arithmetic operations, so do everything as int64 and then convert.
-	waitTimeMs := int64(timeout * 5000)
+	waitTimeMs := int64(faTimeout * 5000)
 	time.Sleep(time.Duration((waitTimeMs + waitTimeMs/20) * int64(time.Millisecond)))
 	oldGasLimit := f.sergey.GasLimit
 	f.sergey.GasLimit = gasLimit
@@ -97,8 +107,8 @@ func deployFluxAggregator(t *testing.T, paymentAmount int64, timeout uint32,
 		f.sergey,
 		f.backend,
 		linkAddress,
-		big.NewInt(paymentAmount),
-		timeout,
+		big.NewInt(fee),
+		faTimeout,
 		common.Address{},
 		minSubmissionValue,
 		maxSubmissionValue,
@@ -242,17 +252,15 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
 	// - deploy a brand new FM contract
-	description := "exactly thirty-three characters!!"
-	fa := deployFluxAggregator(t, fee, 1, 8, description)
+	fa := setupFluxAggregatorUniverse(t)
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-	timeout := 200 * time.Millisecond // if failing due to timeouts, increase this
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect(), "failed to start chainlink")
+	require.NoError(t, app.StartAndConnect())
 	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+
 		"least match MinimumContractPayment (%s). (Which is currently set in "+
@@ -301,7 +309,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
 	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
-	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(timeout)
+	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(pollTimerPeriod)
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
@@ -311,7 +319,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select { // block until FluxAggregator contract acknowledges chainlink message
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
-	case <-time.After(timeout):
+	case <-time.After(pollTimerPeriod):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
 	checkSubmission(t,
@@ -333,7 +341,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select {
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
-	case <-time.After(2 * timeout):
+	case <-time.After(2 * pollTimerPeriod):
 		t.Fatalf("chainlink failed to submit answer to FluxAggregator contract")
 	}
 	newRound := roundId + 1
@@ -371,7 +379,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	select {
 	case <-submissionReceived:
 		t.Fatalf("FA allowed chainlink node to start a new round early")
-	case <-time.After(5 * timeout):
+	case <-time.After(5 * pollTimerPeriod):
 	}
 	// Remove the record of the submitted round, or else FM's reorg protection will cause the test to fail
 	err = app.Store.DeleteFluxMonitorRoundsBackThrough(fa.aggregatorContractAddress, uint32(newRound))
@@ -393,7 +401,77 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	atomic.StoreInt64(&reportPrice, reportPrice+3)
 	select {
 	case <-submissionReceived:
-	case <-time.After(5 * timeout):
+	case <-time.After(5 * pollTimerPeriod):
 		t.Fatalf("could not start a new round, even though delay has passed")
 	}
+}
+
+func TestFluxMonitor_HibernationMode(t *testing.T) {
+	fa := setupFluxAggregatorUniverse(t)
+
+	// raise flag
+	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	fa.backend.Commit()
+
+	// Set up chainlink app
+	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
+	defer cleanup()
+	require.NoError(t, app.StartAndConnect(), "failed to start chainlink")
+
+	// // create mock server
+	reportPrice := int64(1)
+	priceResponse := func() string {
+		return fmt.Sprintf(`{"data":{"result": %d}}`, atomic.LoadInt64(&reportPrice))
+	}
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
+	defer mockServer.Close()
+
+	// // When event appears on submissionReceived, flux monitor job run is complete
+	submissionReceived := make(chan *faw.FluxAggregatorSubmissionReceived)
+	subscription, err := fa.aggregatorContract.WatchSubmissionReceived(
+		nil,
+		submissionReceived,
+		[]*big.Int{},
+		[]uint32{},
+		[]common.Address{fa.nallory.From},
+	)
+	require.NoError(t, err, "failed to subscribe to SubmissionReceived events")
+	defer subscription.Unsubscribe()
+
+	// // Create FM Job, and wait for job run to start (the above UpdateAnswer call
+	// // to FluxAggregator contract initiates a run.)
+	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	require.NoError(t, json.Unmarshal(buffer, &job))
+	initr := &job.Initiators[0]
+	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(pollTimerPeriod)
+	initr.InitiatorParams.Address = fa.aggregatorContractAddress
+	job = cltest.CreateJobSpecViaWeb(t, app, job)
+
+	// node doesn't submit initial response, because flag is up
+	cltest.AssertRunsStays(t, job, app.Store, 0)
+
+	// raise contract's flag
+	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.backend.Commit()
+
+	// lower global kill switch flag
+	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
+	fa.backend.Commit()
+	cltest.AssertRunsStays(t, job, app.Store, 0)
+
+	// lower contract's flag - should trigger job run
+	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
+	fa.backend.Commit()
+	cltest.WaitForRuns(t, job, app.Store, 1)
+
+	// raise contract's flag
+	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.backend.Commit()
+	cltest.AssertRunsStays(t, job, app.Store, 1)
 }

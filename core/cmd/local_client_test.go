@@ -34,6 +34,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
 	store.Config.Set("CHAINLINK_PORT", 6688)
 
 	ethClient := new(mocks.Client)
@@ -86,6 +87,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
 	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
 	assert.Contains(t, logs, "ETH_URL: ws://")
+	assert.Contains(t, logs, "FLAGS_CONTRACT_ADDRESS: 0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6\\n")
 	assert.Contains(t, logs, "JSON_CONSOLE: false")
 	assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
