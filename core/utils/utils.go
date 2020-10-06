@@ -666,82 +666,108 @@ func WrapIfError(err *error, msg string) {
 }
 
 type PausableTicker struct {
-	ticker   *time.Ticker
 	duration time.Duration
 	mu       *sync.RWMutex
+	chTicks  chan time.Time
+	chStop   chan struct{}
 }
 
 func NewPausableTicker(duration time.Duration) PausableTicker {
 	return PausableTicker{
 		duration: duration,
 		mu:       &sync.RWMutex{},
+		chTicks:  make(chan time.Time),
+		chStop:   make(chan struct{}),
 	}
 }
 
-func (t PausableTicker) Ticks() <-chan time.Time {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
-	if t.ticker == nil {
-		return nil
-	}
-	return t.ticker.C
+func (t *PausableTicker) Ticks() <-chan time.Time {
+	return t.chTicks
 }
 
 func (t *PausableTicker) Pause() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.ticker != nil {
-		t.ticker.Stop()
-		t.ticker = nil
-	}
-}
-
-func (t *PausableTicker) Resume() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.ticker == nil {
-		t.ticker = time.NewTicker(t.duration)
-	}
+	t.stopIfRunning()
 }
 
 func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+func (t *PausableTicker) Resume() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.stopIfRunning()
+
+	ticker := time.NewTicker(t.duration)
+	go func() {
+		for {
+			select {
+			case <-t.chStop:
+				ticker.Stop()
+				return
+			case time := <-ticker.C:
+				t.chTicks <- time
+			}
+		}
+	}()
+}
+
+func (t PausableTicker) stopIfRunning() {
+	select {
+	case t.chStop <- struct{}{}:
+	default:
+	}
+}
+
 type ResettableTimer struct {
-	timer *time.Timer
-	mu    *sync.RWMutex
+	mu      *sync.RWMutex
+	chTicks chan time.Time
+	chStop  chan struct{}
 }
 
 func NewResettableTimer() ResettableTimer {
 	return ResettableTimer{
-		mu: &sync.RWMutex{},
+		mu:      &sync.RWMutex{},
+		chTicks: make(chan time.Time),
 	}
 }
 
-func (t ResettableTimer) Ticks() <-chan time.Time {
+func (t *ResettableTimer) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	if t.timer == nil {
-		return nil
-	}
-	return t.timer.C
+	return t.chTicks
 }
 
 func (t *ResettableTimer) Stop() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.timer != nil {
-		t.timer.Stop()
-		t.timer = nil
-	}
+	t.stopIfRunning()
 }
 
 func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.timer != nil {
-		t.timer.Stop()
+	t.stopIfRunning()
+
+	timer := time.NewTimer(duration)
+	go func() {
+		for {
+			select {
+			case <-t.chStop:
+				timer.Stop()
+				return
+			case time := <-timer.C:
+				t.chTicks <- time
+			}
+		}
+	}()
+}
+
+func (t ResettableTimer) stopIfRunning() {
+	select {
+	case t.chStop <- struct{}{}:
+	default:
 	}
-	t.timer = time.NewTimer(duration)
 }
