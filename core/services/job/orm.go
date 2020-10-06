@@ -36,7 +36,7 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *gorm.DB, uri string, pipelineORM pipeline.ORM) *orm {
-	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM, make([]models.JobSpecV2, 0), new(sync.Mutex)}
+	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM, make([]models.JobSpecV2, 0), &sync.Mutex{}}
 }
 
 func (o *orm) Close() error {
@@ -110,7 +110,8 @@ func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) err
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
-		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
+		err = tx.Create(jobSpec).Error
+		return errors.Wrap(err, "failed to create job")
 	})
 }
 
@@ -123,10 +124,10 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	for i, job := range o.claimedJobs {
 		if job.ID == id {
 			if _, err := o.db.DB().ExecContext(ctx, `
-WITH deleted_jobs AS (
-	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
-)
-DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+                WITH deleted_jobs AS (
+                	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
+                )
+                DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
 			`, id); err != nil {
 				return errors.Wrap(err, "DeleteJob failed to delete job")
 			}

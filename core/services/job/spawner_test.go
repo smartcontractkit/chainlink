@@ -2,7 +2,6 @@ package job_test
 
 import (
 	"context"
-	// "sync"
 	"testing"
 	"time"
 
