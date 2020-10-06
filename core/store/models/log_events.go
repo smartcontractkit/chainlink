@@ -12,7 +12,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/whisper/whisperv6"
+	"github.com/ethereum/whisper"
 	"github.com/pkg/errors"
 )
 
@@ -403,7 +403,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 	if err != nil {
 		return JSON{}, err
 	}
-	dataLength := whisperv6.BytesToUintBigEndian(dataLengthBytes)
+	dataLength := whisper.BytesToUintBigEndian(dataLengthBytes)
 
 	if len(log.Data) < cborStart+int(dataLength) {
 		return JSON{}, errors.New("cbor too short")
