@@ -16,7 +16,7 @@ import (
 
 type ORM interface {
 	ListenForNewJobs() (*utils.PostgresEventListener, error)
-	UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
+	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
 	CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
 	Close() error
@@ -52,12 +52,13 @@ func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
 	}
 	err := listener.Start()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not start postgres event listener")
 	}
 	return listener, nil
 }
 
-func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
+// ClaimUnclaimedJobs returns all currently unlocked jobs, with the lock taken
+func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 	var unclaimedJobs []models.JobSpecV2
 	err := utils.GormTransaction(o.db, func(tx *gorm.DB) error {
 		var maybeJobs []models.JobSpecV2
@@ -65,7 +66,7 @@ func (o *orm) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 			Preload("OffchainreportingOracleSpec").
 			Find(&maybeJobs).Error
 		if err != nil {
-			return err
+			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
 		}
 
 		for _, job := range maybeJobs {
