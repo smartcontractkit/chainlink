@@ -17,7 +17,7 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TABLE pipeline_task_specs (
             id SERIAL PRIMARY KEY,
-            dot_id TEXT,
+            dot_id TEXT NOT NULL,
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
             type TEXT NOT NULL,
             json jsonb NOT NULL,
@@ -25,6 +25,8 @@ func Migrate(tx *gorm.DB) error {
             successor_id INT REFERENCES pipeline_task_specs (id),
             created_at timestamptz NOT NULL
         );
+
+		COMMENT ON COLUMN pipeline_task_specs.dot_id IS 'Dot ID is included to help in debugging';
 
         CREATE INDEX idx_pipeline_task_specs_pipeline_spec_id ON pipeline_task_specs (pipeline_spec_id);
         CREATE INDEX idx_pipeline_task_specs_successor_id ON pipeline_task_specs (successor_id);
@@ -43,7 +45,7 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TABLE pipeline_task_runs (
             id BIGSERIAL PRIMARY KEY,
-            dot_id TEXT,
+            dot_id TEXT NOT NULL,
             pipeline_run_id BIGINT NOT NULL REFERENCES pipeline_runs (id) ON DELETE CASCADE,
             output JSONB,
             error TEXT,
@@ -60,6 +62,7 @@ func Migrate(tx *gorm.DB) error {
             )
         );
 
+		COMMENT ON COLUMN pipeline_task_runs.dot_id IS 'Dot ID is included to help in debugging';
 
         ---
         --- Notify the Chainlink node when a new pipeline run has started
@@ -76,35 +79,7 @@ func Migrate(tx *gorm.DB) error {
         AFTER INSERT ON pipeline_runs
         FOR EACH ROW EXECUTE PROCEDURE notifyPipelineRunStarted();
 
-
-        ---
-        --- Notify the Chainlink node when a pipeline run has completed
-        ---
-
-        CREATE OR REPLACE FUNCTION notifyPipelineRunCompleted() RETURNS TRIGGER AS $_$
-        DECLARE done BOOLEAN;
-        BEGIN
-            SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL)
-                INTO done
-                FROM pipeline_runs
-                JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-                WHERE pipeline_runs.id = NEW.pipeline_run_id;
-
-            IF done = TRUE THEN
-                PERFORM pg_notify('pipeline_run_completed', NEW.pipeline_run_id::text);
-            END IF;
-            RETURN NEW;
-        END
-        $_$ LANGUAGE 'plpgsql';
-
-        CREATE TRIGGER notify_pipeline_run_completed
-        AFTER UPDATE ON pipeline_task_runs
-        FOR EACH ROW EXECUTE PROCEDURE notifyPipelineRunCompleted();
-
-
-
         -- NOTE: This table is large and insert/update heavy so we must be efficient with indexes
-
         CREATE INDEX idx_pipeline_task_runs ON pipeline_task_runs USING BRIN (created_at);
 
         -- This query is used in the runner to find unstarted task runs
@@ -127,6 +102,13 @@ func Migrate(tx *gorm.DB) error {
 			ADD COLUMN updated_at timestamptz NOT NULL,
 			ADD CONSTRAINT chk_contract_address_length CHECK (octet_length(contract_address) = 20);
 
+        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_key_bundles ON offchainreporting_oracle_specs (encrypted_ocr_key_bundle_id, contract_address);
+        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_peer_ids ON offchainreporting_oracle_specs (p2p_peer_id, contract_address);
+
+        CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
+        CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
+
+
         -- NOTE: This will be extended with new IDs when we bring directrequest and fluxmonitor under the new jobspawner umbrella
         -- Only ONE id should ever be present
         CREATE TABLE jobs (
@@ -137,6 +119,8 @@ func Migrate(tx *gorm.DB) error {
                 offchainreporting_oracle_spec_id IS NOT NULL
             )
         );
+		CREATE UNIQUE INDEX idx_jobs_unique_offchain_reporting_oracle_spec_id ON jobs (offchainreporting_oracle_spec_id);
+		CREATE UNIQUE INDEX idx_jobs_unique_pipeline_spec_id ON jobs (pipeline_spec_id);
 
         ---
         --- Notify the Chainlink node when a new job spec is created
@@ -153,16 +137,6 @@ func Migrate(tx *gorm.DB) error {
         AFTER INSERT ON jobs
         FOR EACH ROW EXECUTE PROCEDURE notifyJobCreated();
 
-        CREATE UNIQUE INDEX idx_jobs_unique_offchainreporting_oracle_spec_ids ON jobs (offchainreporting_oracle_spec_id);
-
-        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_key_bundles ON offchainreporting_oracle_specs (encrypted_ocr_key_bundle_id, contract_address);
-        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_peer_ids ON offchainreporting_oracle_specs (p2p_peer_id, contract_address);
-        CREATE UNIQUE INDEX idx_offchainreporting_oracle_specs_unique_job_ids ON offchainreporting_oracle_specs (job_id);
-        CREATE INDEX idx_offchainreporting_oracle_specs_data_fetch_pipeline_spec_id ON offchainreporting_oracle_specs (data_fetch_pipeline_spec_id);
-
-        CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
-        CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
-
         ALTER TABLE log_consumptions
 			ADD COLUMN job_id_v2 INT REFERENCES jobs (id) ON DELETE CASCADE,
         	ALTER COLUMN job_id DROP NOT NULL,
@@ -172,6 +146,7 @@ func Migrate(tx *gorm.DB) error {
 				job_id_v2 IS NOT NULL AND job_id IS NULL
 			);
         DROP INDEX log_consumptions_unique_idx;
-        CREATE UNIQUE INDEX log_consumptions_unique_idx ON log_consumptions ("job_id", "job_id_v2", "block_hash", "log_index");
+        CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON log_consumptions (job_id, block_hash, log_index);
+        CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_consumptions (job_id_v2, block_hash, log_index);
     `).Error
 }
