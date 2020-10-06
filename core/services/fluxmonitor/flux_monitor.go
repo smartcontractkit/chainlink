@@ -623,15 +623,15 @@ func (p *PollingDeviationChecker) performInitialPoll() {
 	}
 }
 
-// Hibernate restarts the PollingDeviationChecker in hibernation mode
+// hibernate restarts the PollingDeviationChecker in hibernation mode
 func (p *PollingDeviationChecker) hibernate() {
 	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
 	p.resetTickers(contracts.FluxAggregatorRoundState{})
 }
 
-// Reactivate restarts the PollingDeviationChecker without hibernation mode
-func (p *PollingDeviationChecker) Reactivate() {
+// reactivate restarts the PollingDeviationChecker without hibernation mode
+func (p *PollingDeviationChecker) reactivate() {
 	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
 	p.resetTickers(contracts.FluxAggregatorRoundState{
