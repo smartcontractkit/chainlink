@@ -141,7 +141,7 @@ func (js *spawner) startUnclaimedServicesWorker() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	specDBRows, err := js.orm.UnclaimedJobs(ctx)
+	specDBRows, err := js.orm.ClaimUnclaimedJobs(ctx)
 	if err != nil {
 		logger.Errorf("Couldn't fetch unclaimed jobs: %v", err)
 		return
@@ -151,7 +151,7 @@ func (js *spawner) startUnclaimedServicesWorker() {
 	defer js.jobTypeDelegatesMu.RUnlock()
 
 	for _, specDBRow := range specDBRows {
-		// `UnclaimedJobs` guarantees that we won't try to start jobs that other
+		// `ClaimUnclaimedJobs` guarantees that we won't try to start jobs that other
 		// nodes in the cluster are already running, but because Postgres
 		// advisory locks are session-scoped, we have to manually guard against
 		// trying to start jobs that we're already running locally.

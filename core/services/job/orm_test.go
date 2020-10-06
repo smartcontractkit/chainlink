@@ -48,7 +48,7 @@ func TestORM(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		unclaimed, err := orm.UnclaimedJobs(ctx)
+		unclaimed, err := orm.ClaimUnclaimedJobs(ctx)
 		require.NoError(t, err)
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
@@ -56,7 +56,7 @@ func TestORM(t *testing.T) {
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel2()
 
-		unclaimed, err = orm2.UnclaimedJobs(ctx2)
+		unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
 		require.NoError(t, err)
 		require.Len(t, unclaimed, 0)
 	})
