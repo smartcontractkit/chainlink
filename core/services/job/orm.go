@@ -2,9 +2,11 @@ package job
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -23,16 +25,18 @@ type ORM interface {
 }
 
 type orm struct {
-	db           *gorm.DB
-	uri          string
-	advisoryLock *utils.PostgresAdvisoryLock
-	pipelineORM  pipeline.ORM
+	db            *gorm.DB
+	uri           string
+	advisoryLock  *utils.PostgresAdvisoryLock
+	pipelineORM   pipeline.ORM
+	claimedJobs   []models.JobSpecV2
+	claimedJobsMu *sync.Mutex
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *gorm.DB, uri string, pipelineORM pipeline.ORM) *orm {
-	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM}
+	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM, make([]models.JobSpecV2, 0), new(sync.Mutex)}
 }
 
 func (o *orm) Close() error {
@@ -57,27 +61,39 @@ func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
 	return listener, nil
 }
 
-// ClaimUnclaimedJobs returns all currently unlocked jobs, with the lock taken
+// ClaimUnclaimedJobs locks all currently unlocked jobs and returns all jobs locked by this process
 func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
-	var unclaimedJobs []models.JobSpecV2
-	err := utils.GormTransaction(o.db, func(tx *gorm.DB) error {
-		var maybeJobs []models.JobSpecV2
-		err := o.db.
-			Preload("OffchainreportingOracleSpec").
-			Find(&maybeJobs).Error
-		if err != nil {
-			return errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
-		}
+	o.claimedJobsMu.Lock()
+	defer o.claimedJobsMu.Unlock()
 
-		for _, job := range maybeJobs {
-			err = o.advisoryLock.TryLock(ctx, utils.AdvisoryLockClassID_JobSpawner, job.ID)
-			if err == nil {
-				unclaimedJobs = append(unclaimedJobs, job)
-			}
-		}
-		return nil
-	})
-	return unclaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
+	var newlyClaimedJobs []models.JobSpecV2
+	err := o.db.
+		Joins(`
+			INNER JOIN (
+				SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
+				FROM (
+					SELECT id FROM jobs WHERE id != ANY(?)
+				) not_claimed_by_us
+			) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
+			`, utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs)).
+		Preload("OffchainreportingOracleSpec").
+		Find(&newlyClaimedJobs).Error
+	if err != nil {
+		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
+	}
+
+	for _, job := range newlyClaimedJobs {
+		o.claimedJobs = append(o.claimedJobs, job)
+	}
+
+	return o.claimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
+}
+
+func (o *orm) claimedJobIDs() (ids []int32) {
+	for _, job := range o.claimedJobs {
+		ids = append(ids, job.ID)
+	}
+	return
 }
 
 func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
@@ -87,34 +103,39 @@ func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) err
 	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(taskDAG)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
-		err = tx.Create(jobSpec).Error
-		if err != nil && err.Error() != "sql: no rows in result set" {
-			return err
-		}
-		return nil
+		return errors.Wrap(tx.Create(jobSpec).Error, "failed to create job")
 	})
 }
 
+// DeleteJob removes a job that is claimed by this orm
+// NOTE: It may be nice to extend this in future so it can delete any job and other nodes handle it gracefully
 func (o *orm) DeleteJob(ctx context.Context, id int32) error {
-	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
-		// If we can take the advisory lock, that means either we own this job or
-		// nobody does.  That gives us permission to delete the job.  Note that we
-		// have to unlock twice at the end (as we already have it).
-		err := o.advisoryLock.TryLock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
-		if err != nil {
-			return err
+	o.claimedJobsMu.Lock()
+	defer o.claimedJobsMu.Unlock()
+
+	for i, job := range o.claimedJobs {
+		if job.ID == id {
+			if _, err := o.db.DB().ExecContext(ctx, `
+WITH deleted_jobs AS (
+	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
+)
+DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+			`, id); err != nil {
+				return errors.Wrap(err, "DeleteJob failed to delete job")
+			}
+			if err := o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id); err != nil {
+				return errors.Wrap(err, "DeleteJob failed to unlock job")
+			}
+			// Delete the current job from the claimedJobs list
+			o.claimedJobs[i] = o.claimedJobs[len(o.claimedJobs)-1] // Copy last element to current position
+			o.claimedJobs = o.claimedJobs[:len(o.claimedJobs)-1]   // Truncate slice.
+			return nil
 		}
-		defer o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
-		defer o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
-		return o.db.Exec(`
-            WITH deleted_jobs AS (
-                DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id
-            )
-            DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT id FROM deleted_jobs)
-        `, id).Error
-	})
+	}
+
+	return errors.New("cannot delete job that is not claimed by this orm")
 }
