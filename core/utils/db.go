@@ -138,10 +138,13 @@ type PostgresAdvisoryLock struct {
 	URI  string
 	conn *sql.Conn
 	db   *sql.DB
-	mu   sync.Mutex
+	mu   *sync.Mutex
 }
 
 func (lock *PostgresAdvisoryLock) Close() error {
+	lock.mu.Lock()
+	defer lock.mu.Unlock()
+
 	var connErr, dbErr error
 
 	if lock.conn != nil {

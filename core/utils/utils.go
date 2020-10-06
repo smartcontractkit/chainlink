@@ -815,6 +815,7 @@ func EVMBytesToUint64(buf []byte) uint64 {
 type StartStopOnce struct {
 	state int
 	sync.Mutex
+	sync.WaitGroup
 }
 
 const (
