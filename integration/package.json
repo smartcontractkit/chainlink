@@ -4,7 +4,7 @@
   "version": "0.6.0",
   "license": "MIT",
   "engines": {
-    "node": "~10.16"
+    "node": "^12.0.0"
   },
   "scripts": {
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
