@@ -41,12 +41,9 @@ func NewORM(db *gorm.DB, uri string) *orm {
 func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
 	var specID int32
 	err := utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
-		now := time.Now()
-
 		// Create the pipeline spec
 		spec := Spec{
 			DotDagSource: taskDAG.DOTSource,
-			CreatedAt:    now,
 		}
 		err = tx.Create(&spec).Error
 		if err != nil {
@@ -76,7 +73,6 @@ func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
 				JSON:           JSONSerializable{task},
 				Index:          task.OutputIndex(),
 				SuccessorID:    successorID,
-				CreatedAt:      now,
 			}
 			err = tx.Create(&taskSpec).Error
 			if err != nil {
@@ -221,6 +217,9 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 		return nil
+
+		// TODO: Notify if completed
+		// NOTIFY pipeline_run_completed, ?::text;
 	})
 	return done, err
 }

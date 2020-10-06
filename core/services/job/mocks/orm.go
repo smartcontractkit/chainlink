@@ -59,8 +59,8 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 	return r0
 }
 
-// UnclaimedJobs provides a mock function with given fields: ctx
-func (_m *ORM) UnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
+// ClaimUnclaimedJobs provides a mock function with given fields: ctx
+func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 	ret := _m.Called(ctx)
 
 	var r0 []models.JobSpecV2
