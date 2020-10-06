@@ -1,7 +1,7 @@
 pragma solidity ^0.6.0;
 
 import { CBOR as CBOR_Chainlink } from "./vendor/CBOR.sol";
-import { BufferChainlink as Buffer_Chainlink } from "./vendor/BufferChainlink.sol";
+import { BufferChainlink } from "./vendor/BufferChainlink.sol";
 
 /**
  * @title Library for common Chainlink functions
@@ -10,14 +10,14 @@ import { BufferChainlink as Buffer_Chainlink } from "./vendor/BufferChainlink.so
 library Chainlink {
   uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
-  using CBOR_Chainlink for Buffer_Chainlink.buffer;
+  using CBOR_Chainlink for BufferChainlink.buffer;
 
   struct Request {
     bytes32 id;
     address callbackAddress;
     bytes4 callbackFunctionId;
     uint256 nonce;
-    Buffer_Chainlink.buffer buf;
+    BufferChainlink.buffer buf;
   }
 
   /**
@@ -35,7 +35,7 @@ library Chainlink {
     address _callbackAddress,
     bytes4 _callbackFunction
   ) internal pure returns (Chainlink.Request memory) {
-    Buffer_Chainlink.init(self.buf, defaultBufferSize);
+    BufferChainlink.init(self.buf, defaultBufferSize);
     self.id = _id;
     self.callbackAddress = _callbackAddress;
     self.callbackFunctionId = _callbackFunction;
@@ -51,8 +51,8 @@ library Chainlink {
   function setBuffer(Request memory self, bytes memory _data)
     internal pure
   {
-    Buffer_Chainlink.init(self.buf, _data.length);
-    Buffer_Chainlink.append(self.buf, _data);
+    BufferChainlink.init(self.buf, _data.length);
+    BufferChainlink.append(self.buf, _data);
   }
 
   /**
