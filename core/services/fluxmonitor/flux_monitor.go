@@ -428,7 +428,7 @@ func NewPollingDeviationChecker(
 			// that hasn't hit maxAnswers yet, as well as the newest round.
 			PriorityNewRoundLog:      2,
 			PriorityAnswerUpdatedLog: 1,
-			PriorityFlagChangedLog:   1,
+			PriorityFlagChangedLog:   2,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
