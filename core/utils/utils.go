@@ -807,6 +807,7 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 type StartStopOnce struct {
 	state int
 	sync.Mutex
+	sync.WaitGroup
 }
 
 const (
