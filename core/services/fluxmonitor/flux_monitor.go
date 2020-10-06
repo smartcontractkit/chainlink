@@ -630,8 +630,8 @@ func (p *PollingDeviationChecker) hibernate() {
 	p.resetTickers(contracts.FluxAggregatorRoundState{})
 }
 
-// Reactivate restarts the PollingDeviationChecker without hibernation moce
-func (p *PollingDeviationChecker) reactivate() {
+// Reactivate restarts the PollingDeviationChecker without hibernation mode
+func (p *PollingDeviationChecker) Reactivate() {
 	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
 	p.resetTickers(contracts.FluxAggregatorRoundState{
