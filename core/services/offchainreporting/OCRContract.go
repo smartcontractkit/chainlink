@@ -188,13 +188,13 @@ func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err error) {
-	topics := lb.Log().RawLog().Topics
+	topics := lb.RawLog().Topics
 	if len(topics) == 0 {
 		return
 	}
 	switch topics[0] {
 	case OCRContractConfigSet:
-		raw := lb.Log().RawLog()
+		raw := lb.RawLog()
 		if raw.Address != sub.contractAddress {
 			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
 			return
@@ -204,7 +204,7 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err err
 			sub.logger.Errorw("could not parse config set", "err", err)
 			return
 		}
-		configSet.Raw = lb.Log().RawLog()
+		configSet.Raw = lb.RawLog()
 		cc := confighelper.ContractConfigFromConfigSetEvent(*configSet)
 		select {
 		// NOTE: This is thread-safe because HandleLog cannot be called concurrently with Unregister due to the design of LogBroadcaster
