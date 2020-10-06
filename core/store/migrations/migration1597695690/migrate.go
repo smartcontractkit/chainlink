@@ -28,6 +28,7 @@ func Migrate(tx *gorm.DB) error {
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
             type TEXT NOT NULL,
             json jsonb NOT NULL,
+            index INT NOT NULL DEFAULT 0,
             successor_id INT REFERENCES pipeline_task_specs (id),
             created_at timestamptz NOT NULL
         );
@@ -44,9 +45,10 @@ func Migrate(tx *gorm.DB) error {
 		
         CREATE TABLE pipeline_runs (
             id BIGSERIAL PRIMARY KEY,
-            pipeline_spec_id BIGINT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
-            created_at timestamptz NOT NULL
-            -- NOTE: Could denormalize here with finished_at/output/error of last task_run if that proves necessary for performance
+            pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
+            meta jsonb NOT NULL DEFAULT '{}',
+            created_at timestamptz NOT NULL,
+			finished_at timestamptz
         );
 
         CREATE INDEX idx_pipeline_runs_pipeline_spec_id ON pipeline_runs (pipeline_spec_id);
@@ -58,7 +60,6 @@ func Migrate(tx *gorm.DB) error {
 
         CREATE TABLE pipeline_task_runs (
             id BIGSERIAL PRIMARY KEY,
-            dot_id TEXT NOT NULL,
             pipeline_run_id BIGINT NOT NULL REFERENCES pipeline_runs (id) ON DELETE CASCADE,
             output JSONB,
             error TEXT,
