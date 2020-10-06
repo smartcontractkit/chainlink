@@ -68,11 +68,14 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 
 	var newlyClaimedJobs []models.JobSpecV2
 	err := o.db.
+		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
+		// but prevents the optimiser from trying to pull the where condition
+		// up out of the subquery
 		Joins(`
 			INNER JOIN (
 				SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
 				FROM (
-					SELECT id FROM jobs WHERE id != ANY(?)
+					SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0
 				) not_claimed_by_us
 			) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
 			`, utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs)).

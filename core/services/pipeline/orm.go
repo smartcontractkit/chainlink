@@ -93,34 +93,28 @@ func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
 func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error) {
 	var runID int64
 	err := utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
-		// Fetch the spec ID from the job
-		var job models.JobSpecV2
-		err = o.db.Where("id = ?", jobID).First(&job).Error
-		if err != nil {
-			return err
-		}
-
 		// Create the job run
-		run := Run{
-			PipelineSpecID: job.PipelineSpecID,
-			Meta:           JSONSerializable{Val: meta},
-			CreatedAt:      time.Now(),
-		}
-		err = tx.Create(&run).Error
+		run := Run{}
+
+		err = tx.Raw(`
+INSERT INTO job_runs (pipeline_spec_id, meta, created_at)
+SELECT pipeline_spec_id, $1, NOW()
+FROM jobs WHERE id = $2
+RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 		if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
 		}
+
 		runID = run.ID
 
 		// Create the task runs
 		err = tx.Exec(`
-            INSERT INTO pipeline_task_runs (
-                pipeline_run_id, pipeline_task_spec_id, index, dot_id, created_at
-            )
-            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, index, dot_id, NOW() AS created_at
-            FROM pipeline_task_specs
-            WHERE pipeline_spec_id = ?
-        `, run.ID, run.PipelineSpecID).Error
+INSERT INTO pipeline_task_runs (
+	pipeline_run_id, pipeline_task_spec_id, index, dot_id, created_at
+)
+SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, index, dot_id, NOW() AS created_at
+FROM pipeline_task_specs
+WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
 	return runID, err
@@ -132,6 +126,12 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
 		var ptRun TaskRun
 		var predecessors []TaskRun
+
+		// NOTE: Manual loads below can probably be replaced with Joins in
+		// gormv2.
+		//
+		// Further optimisations (condensing into fewer queries) are
+		// probably possible if this turns out to be a hot path
 
 		// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
 		err = tx.Raw(`
@@ -159,28 +159,20 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "error finding next task run")
 		}
 
-		// Fill in the TaskSpec
-		err = tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error
-		if gorm.IsRecordNotFoundError(err) {
-			// done = true
-			return err
-		} else if err != nil {
+		// Load the TaskSpec
+		if err := tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
 			return errors.Wrap(err, "error finding next task run's spec")
 		}
 
-		// Fill in the PipelineRun
-		err = tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error
-		if gorm.IsRecordNotFoundError(err) {
-			// done = true
-			return err
-		} else if err != nil {
+		// Load the PipelineRun
+		if err := tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
 			return errors.Wrap(err, "error finding next task run's pipeline.Run")
 		}
 
 		// Find all the predecessor task runs
 		err = tx.Raw(`
                 SELECT pipeline_task_runs.* FROM pipeline_task_runs
-                LEFT JOIN pipeline_task_specs AS specs_right ON specs_right.id = pipeline_task_runs.pipeline_task_spec_id
+                INNER JOIN pipeline_task_specs AS specs_right ON specs_right.id = pipeline_task_runs.pipeline_task_spec_id
                 LEFT JOIN pipeline_task_specs AS specs_left ON specs_left.id = specs_right.successor_id
                 LEFT JOIN pipeline_task_runs AS successors ON successors.pipeline_task_spec_id = specs_left.id
                       AND successors.pipeline_run_id = pipeline_task_runs.pipeline_run_id
@@ -205,15 +197,15 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		result := fn(job.ID, ptRun, predecessors)
 
 		// Update the task run record with the output and error
+		var out *JSONSerializable
+		var errString null.String
 		if result.Value != nil {
-			out := &JSONSerializable{Val: result.Value}
-			err = tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = NULL, finished_at = ? WHERE id = ?`, out, time.Now(), ptRun.ID).Error
+			out = &JSONSerializable{Val: result.Value}
 		} else if result.Error != nil {
 			logger.Errorw("Error in pipeline task", "error", result.Error)
-			errString := null.StringFrom(result.Error.Error())
-			err = tx.Exec(`UPDATE pipeline_task_runs SET output = NULL, error = ?, finished_at = ? WHERE id = ?`, errString, time.Now(), ptRun.ID).Error
+			errString = null.StringFrom(result.Error.Error())
 		}
-		if err != nil {
+		if err := tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error; err != nil {
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 		return nil
