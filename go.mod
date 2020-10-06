@@ -13,6 +13,7 @@ require (
 	github.com/codegangsta/negroni v1.0.0 // indirect
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
 	github.com/ethereum/go-ethereum v1.9.22
+	github.com/ethereum/whisper v0.0.0-20200825140239-ab128926758d
 	github.com/fatih/color v1.9.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
