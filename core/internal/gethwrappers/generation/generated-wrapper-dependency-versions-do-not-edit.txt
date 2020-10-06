@@ -1,4 +1,4 @@
-GETH_VERSION: 1.9.20
+GETH_VERSION: 1.9.22
 flags_wrapper: ../../../evm-contracts/abi/v0.6/Flags.json 279350a8fa9c3288650affd7b18c053832943a7082eaf7dcf906484d044e000b
 flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 21f633c47d1e49b9e49ed5789a7efaa5a9afdc500f3602277e2ade8a2f58a419
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
