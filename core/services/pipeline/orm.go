@@ -97,10 +97,10 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 		run := Run{}
 
 		err = tx.Raw(`
-INSERT INTO job_runs (pipeline_spec_id, meta, created_at)
-SELECT pipeline_spec_id, $1, NOW()
-FROM jobs WHERE id = $2
-RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
+            INSERT INTO job_runs (pipeline_spec_id, meta, created_at)
+            SELECT pipeline_spec_id, $1, NOW()
+            FROM jobs WHERE id = $2
+            RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 		if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
 		}
@@ -109,12 +109,12 @@ RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 
 		// Create the task runs
 		err = tx.Exec(`
-INSERT INTO pipeline_task_runs (
-	pipeline_run_id, pipeline_task_spec_id, index, dot_id, created_at
-)
-SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, index, dot_id, NOW() AS created_at
-FROM pipeline_task_specs
-WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
+            INSERT INTO pipeline_task_runs (
+            	pipeline_run_id, pipeline_task_spec_id, index, dot_id, created_at
+            )
+            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, index, dot_id, NOW() AS created_at
+            FROM pipeline_task_specs
+            WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
 	return runID, err

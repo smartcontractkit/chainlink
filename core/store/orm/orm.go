@@ -7,7 +7,6 @@ import (
 	"encoding"
 	"encoding/hex"
 
-	// "encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"

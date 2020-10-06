@@ -53,12 +53,17 @@ func TestORM(t *testing.T) {
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
 
+		ocrSpec2, dbSpec2 := makeOCRJobSpec(t, db)
+		err = orm.CreateJob(dbSpec2, ocrSpec2.TaskDAG())
+		require.NoError(t, err)
+
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel2()
 
 		unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
 		require.NoError(t, err)
-		require.Len(t, unclaimed, 0)
+		require.Len(t, unclaimed, 1)
+		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
 	})
 
 	t.Run("it cannot delete jobs claimed by other nodes", func(t *testing.T) {
@@ -78,18 +83,22 @@ func TestORM(t *testing.T) {
 
 		var dbSpecs []models.JobSpecV2
 		err = db.Find(&dbSpecs).Error
+		require.NoError(t, err)
 		require.Len(t, dbSpecs, 0)
 
 		var oracleSpecs []models.OffchainReportingOracleSpec
 		err = db.Find(&oracleSpecs).Error
+		require.NoError(t, err)
 		require.Len(t, oracleSpecs, 0)
 
 		var pipelineSpecs []pipeline.Spec
 		err = db.Find(&pipelineSpecs).Error
+		require.NoError(t, err)
 		require.Len(t, pipelineSpecs, 0)
 
 		var pipelineTaskSpecs []pipeline.TaskSpec
 		err = db.Find(&pipelineTaskSpecs).Error
+		require.NoError(t, err)
 		require.Len(t, pipelineTaskSpecs, 0)
 	})
 }
