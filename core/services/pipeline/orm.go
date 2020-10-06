@@ -123,8 +123,9 @@ WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result) (done bool, err error) {
+	var ptRun TaskRun
+
 	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
-		var ptRun TaskRun
 		var predecessors []TaskRun
 
 		// NOTE: Manual loads below can probably be replaced with Joins in
@@ -208,11 +209,20 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		if err := tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error; err != nil {
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
-		return nil
 
-		// TODO: Notify if completed
-		// NOTIFY pipeline_run_completed, ?::text;
+		// FIXME: Can there be more than one terminal task? If so this won't work
+		if ptRun.PipelineTaskSpec.SuccessorID.IsZero() {
+			// No more successors means this was the last task in the run
+			err = tx.Exec(`
+				NOTIFY pipeline_run_completed, ?::text
+			`, ptRun.ID).Error
+			if err != nil {
+				return errors.Wrap(err, "could not notify pipeline_run_completed")
+			}
+		}
+		return nil
 	})
+
 	return done, err
 }
 
@@ -307,7 +317,7 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 		err = o.db.
 			Joins("LEFT JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id").
 			Where("pipeline_run_id = ?", runID).
-			Where("error IS NOT NULL OR output IS NOT NULL").
+			Where("finished_at IS NOT NULL").
 			Where("pipeline_task_specs.successor_id IS NULL").
 			Order("index ASC").
 			Find(&taskRuns).
@@ -328,10 +338,9 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 func runFinished(tx *gorm.DB, runID int64) (bool, error) {
 	var done struct{ Done bool }
 	err := tx.Raw(`
-        SELECT bool_and(pipeline_task_runs.error IS NOT NULL OR pipeline_task_runs.output IS NOT NULL) AS done
-        FROM pipeline_runs
-        JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-        WHERE pipeline_runs.id = $1
+        SELECT bool_and(finished_at) AS done
+        FROM pipeline_task_runs
+        WHERE pipeline_run_id = $1
     `, runID).Scan(&done).Error
 	return done.Done, err
 }
