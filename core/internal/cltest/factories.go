@@ -825,11 +825,11 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) mo
 
 	spec := models.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
-		P2PPeerID:                              models.PeerID(NewPeerID()),
+		P2PPeerID:                              models.PeerID(DefaultP2PPeerID),
 		P2PBootstrapPeers:                      []string{},
 		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                0,
-		TransmitterAddress:                     DefaultKeyAddress,
+		EncryptedOCRKeyBundleID:                DefaultOCRKeyBundleIDSha256,
+		TransmitterAddress:                     DefaultKeyAddressEIP55,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
 		ContractConfigTrackerSubscribeInterval: 0,

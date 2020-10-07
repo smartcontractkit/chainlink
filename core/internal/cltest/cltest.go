@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -70,13 +71,22 @@ const (
 	SessionSecret = "clsession_test_secret"
 	// DefaultKey is the address of the fixture key
 	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	// DefaultPeerID is the peer ID of the fixture p2p key
+	DefaultPeerID = "12D3KooWGKbY6ymznHbQtqYq28Bdk9eifkxskuYoG4bHgccRoLvc"
+	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleID = "1119b1811c471df8738ecaace1224eeaf2fecaf82edb1fa345e3ddc3f8882e80"
 	// AllowUnstarted enable an application that can be used in tests without being started
 	AllowUnstarted = "allow_unstarted"
 )
 
 var (
 	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress = common.HexToAddress(DefaultKey)
+	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
+	DefaultKeyAddressEIP55 models.EIP55Address
+	// DefaultP2PPeerID is the peer ID of the fixture p2p key
+	DefaultP2PPeerID p2ppeer.ID
+	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
 
 var storeCounter uint64
@@ -115,6 +125,19 @@ func init() {
 	seed := time.Now().UTC().UnixNano()
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
+
+	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func logLevelFromEnv() zapcore.Level {

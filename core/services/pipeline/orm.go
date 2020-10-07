@@ -254,8 +254,9 @@ func (o *orm) maybeCompletePipelineRun(pipelineRunID int64) (err error) {
 	// Make sure all terminal tasks are done
 	err = o.db.Raw(`
 			SELECT bool_and(pipeline_task_runs.finished_at IS NOT NULL) AS done
-			FROM pipeline_runs
-			WHERE pipeline_runs.pipeline_task_run_id = ? AND successor_id IS NULL
+			FROM pipeline_task_runs
+			INNER JOIN pipeline_task_specs ON pipeline_task_specs.id = pipeline_task_runs.pipeline_task_spec_id
+			WHERE pipeline_task_runs.pipeline_run_id = ? AND successor_id IS NULL
 		`, pipelineRunID).Scan(&pipelineDone).Error
 	if err != nil {
 		return errors.Wrapf(err, "could not determine if pipeline run (id: %v) is done", pipelineRunID)
