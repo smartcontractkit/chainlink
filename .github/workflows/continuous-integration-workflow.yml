@@ -12,7 +12,7 @@ jobs:
       matrix:
         cmd: ['go_core_tests']
     name: Core Tests
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     container: smartcontract/builder:1.0.36
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
@@ -80,7 +80,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         test: ['test', 'test:ts']
@@ -108,7 +108,7 @@ jobs:
 
   solidity:
     name: Solidity
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
@@ -202,7 +202,7 @@ jobs:
 
   prepublish_npm:
     name: Prepublish NPM
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
@@ -221,7 +221,7 @@ jobs:
 
   build-chainlink:
     name: Build chainlink image
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         dockerfile: [core/chainlink.Dockerfile, core/chainlink-sgx.Dockerfile]
