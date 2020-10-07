@@ -437,20 +437,24 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
-func (c Config) OCRIncomingMessageBufferSize() int {
-	return c.viper.GetInt(EnvVarName("OCRIncomingMessageBufferSize"))
+func (c Config) OCRBootstrapCheckInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("OCRBootstrapCheckInterval"))
 }
 
-func (c Config) OCROutgoingMessageBufferSize() int {
-	return c.viper.GetInt(EnvVarName("OCROutgoingMessageBufferSize"))
+func (c Config) OCRContractTransmitterTransmitTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("OCRContractTransmitterTransmitTimeout"))
 }
 
-func (c Config) OCRNewStreamTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRNewStreamTimeout"))
+func (c Config) OCRDatabaseTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("OCRDatabaseTimeout"))
 }
 
 func (c Config) OCRDHTLookupInterval() int {
 	return c.viper.GetInt(EnvVarName("OCRDHTLookupInterval"))
+}
+
+func (c Config) OCRIncomingMessageBufferSize() int {
+	return c.viper.GetInt(EnvVarName("OCRIncomingMessageBufferSize"))
 }
 
 func (c Config) OCRListenIP() net.IP {
@@ -459,6 +463,14 @@ func (c Config) OCRListenIP() net.IP {
 
 func (c Config) OCRListenPort() uint16 {
 	return c.getWithFallback("OCRListenPort", parseUint16).(uint16)
+}
+
+func (c Config) OCRNewStreamTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("OCRNewStreamTimeout"))
+}
+
+func (c Config) OCROutgoingMessageBufferSize() int {
+	return c.viper.GetInt(EnvVarName("OCROutgoingMessageBufferSize"))
 }
 
 // OperatorContractAddress represents the address where the Operator.sol

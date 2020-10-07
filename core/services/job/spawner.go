@@ -142,7 +142,6 @@ func (js *spawner) runLoop() {
 			}
 			js.stopAllServices()
 			return
-
 		}
 	}
 }
