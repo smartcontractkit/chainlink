@@ -72,7 +72,7 @@ func TestORM(t *testing.T) {
 	}
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
+		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm_test", true, true)
 		defer cleanupDB()
 		db := oldORM.DB
 
