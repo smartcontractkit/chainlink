@@ -38,6 +38,10 @@ type (
 	PeerID peer.ID
 )
 
+func (p PeerID) String() string {
+	return peer.ID(p).String()
+}
+
 func (p *PeerID) UnmarshalText(bs []byte) error {
 	peerID, err := peer.IDB58Decode(string(bs))
 	if err != nil {

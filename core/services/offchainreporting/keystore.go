@@ -1,6 +1,7 @@
 package offchainreporting
 
 import (
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"sync"
 
 	"github.com/jinzhu/gorm"
@@ -45,12 +46,14 @@ func (ks *KeyStore) Unlock(password string) error {
 		peerID, err := k.GetPeerID()
 		errs = multierr.Append(errs, err)
 		ks.p2pkeys[models.PeerID(peerID)] = k
+		logger.Debugw("Unlocked P2P key", "peerID", peerID)
 	}
 	for _, ek := range ocrkeys {
 		k, err := ek.Decrypt(password)
 		errs = multierr.Append(errs, err)
 		if k != nil {
 			ks.ocrkeys[k.ID] = *k
+			logger.Debugw("Unlocked OCR key", "hash", k.ID)
 		}
 	}
 	return errs

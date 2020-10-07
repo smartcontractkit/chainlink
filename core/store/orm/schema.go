@@ -70,8 +70,8 @@ type ConfigSchema struct {
 	MinimumContractPayment           assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration         uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MaxRPCCallsPerSecond             uint64          `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
-	OCRListenIP                      net.IP          `env:"OCR_LISTEN_IP"`
-	OCRListenPort                    uint16          `env:"OCR_LISTEN_PORT"`
+	OCRListenIP                      net.IP          `env:"OCR_LISTEN_IP" default:"0.0.0.0"`
+	OCRListenPort                    uint16          `env:"OCR_LISTEN_PORT" default:"6690"`
 	OCRIncomingMessageBufferSize     int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCROutgoingMessageBufferSize     int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout              time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`

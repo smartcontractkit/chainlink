@@ -260,6 +260,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "vrfpassword, vp",
 							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
 						},
+						cli.StringFlag{
+							Name:  "ocrpassword, op",
+							Usage: "textfile holding the password for the ocr keys",
+						},
 						cli.Int64Flag{
 							Name:  "replay-from-block, r",
 							Usage: "historical block height from which to replay log-initiated jobs",
