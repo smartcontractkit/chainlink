@@ -76,28 +76,27 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
-	var where string
+	var from string
 	var args []interface{}
 	if len(o.claimedJobIDs()) > 0 {
-		where = "WHERE id != ANY(?)"
+		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
+		// but prevents the optimiser from trying to pull the where condition
+		// up out of the subquery
+		from = "(SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0)"
 		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())}
 	} else {
+		from = "jobs"
 		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner}
 	}
 
 	var newlyClaimedJobs []models.JobSpecV2
 	err := o.db.
-		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
-		// but prevents the optimiser from trying to pull the where condition
-		// up out of the subquery
 		Joins(fmt.Sprintf(`
 			INNER JOIN (
 				SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
-				FROM (
-					SELECT id FROM jobs %v OFFSET 0
-				) not_claimed_by_us
+				FROM %s not_claimed_by_us
 			) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
-			`, where), args...).
+			`, from), args...).
 		Preload("OffchainreportingOracleSpec").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
@@ -139,10 +138,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
-	fmt.Println("claimedJobs", o.claimedJobs)
-	fmt.Println("deleting ID", id)
 	for i, job := range o.claimedJobs {
-		fmt.Println("loop job.ID, id", job.ID, id)
 		if job.ID == id {
 			if _, err := o.db.DB().ExecContext(ctx, `
                 WITH deleted_jobs AS (
