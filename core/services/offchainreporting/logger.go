@@ -21,23 +21,23 @@ func NewLogger(internal *logger.Logger) ocrtypes.Logger {
 
 // TODO(sam): Zap does not support trace level logging yet
 func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Debugw(msg, toKeysAndValues(fields))
+	ol.internal.Debugw(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Debug(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Debugw(msg, toKeysAndValues(fields))
+	ol.internal.Debugw(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Info(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Infow(msg, toKeysAndValues(fields))
+	ol.internal.Infow(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Warnw(msg, toKeysAndValues(fields))
+	ol.internal.Warnw(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Errorw(msg, toKeysAndValues(fields))
+	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
 }
 
 // Helpers

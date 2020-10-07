@@ -130,6 +130,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
 			NewStreamTimeout:          d.config.OCRNewStreamTimeout(),
 			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
+			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
 		},
 	})
 	if err != nil {
@@ -138,11 +139,13 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 
 	oracle, err := ocr.NewOracle(ocr.OracleArgs{
 		LocalConfig: ocrtypes.LocalConfig{
-			DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
 			BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
-			ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
-			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
 			ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
+			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
+			ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
+			ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
+			DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
+			DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
 		},
 		Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
