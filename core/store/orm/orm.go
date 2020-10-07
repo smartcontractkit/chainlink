@@ -1312,6 +1312,19 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 	return keys, orm.DB.Find(&keys).Error
 }
 
+func (orm *ORM) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
+	key := p2pkey.EncryptedP2PKey{}
+	err := orm.DB.Where("id = ?", id).First(&key).Error
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+func (orm *ORM) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
+	return orm.DB.Delete(key).Error
+}
+
 // CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
 func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
 	return orm.DB.Create(keys).Error
@@ -1338,7 +1351,7 @@ func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBu
 
 // DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
 func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
-	return orm.DB.Delete(&key).Error
+	return orm.DB.Delete(key).Error
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
