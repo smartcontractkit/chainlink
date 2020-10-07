@@ -61,11 +61,6 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 	require.NoError(t, err)
 	peerID, err := p2pkey.GetPeerID()
 	require.NoError(t, err)
-	err = db.Create(&models.Key{
-		Address: cltest.DefaultKey,
-		JSON:    cltest.JSONFromString(t, "{}"),
-	}).Error
-	require.NoError(t, err)
 
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrkey.ID, cltest.DefaultKey)
 

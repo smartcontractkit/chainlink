@@ -233,6 +233,9 @@ func (js *spawner) CreateJob(spec Spec) (int32, error) {
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
+	if jobID == 0 {
+		return errors.New("will not delete job with 0 ID")
+	}
 	err := js.orm.DeleteJob(ctx, jobID)
 	if err != nil {
 		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
