@@ -39,13 +39,13 @@ func TestRunner(t *testing.T) {
 		httpURL = mockHTTP.URL
 	}
 
-	pipelineORM := pipeline.NewORM(db, config.DatabaseURL())
+	pipelineORM := pipeline.NewORM(db, config)
 	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config.DatabaseURL(), pipelineORM)
+	jobORM := job.NewORM(db, config, pipelineORM)
 	defer jobORM.Close()
 
 	// Need a job in order to create a run
-	ocrSpec, dbSpec := makeOCRJobSpecWithHTTPURL(t, httpURL)
+	ocrSpec, dbSpec := makeOCRJobSpecWithHTTPURL(t, db, httpURL)
 	err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
 	require.NoError(t, err)
 
@@ -73,29 +73,32 @@ func TestRunner(t *testing.T) {
 
 	// Verify individual task results
 	var runs []pipeline.TaskRun
-	err = db.Where("pipeline_run_id = ?", runID).Find(&runs).Error
+	err = db.
+		Preload("PipelineTaskSpec").
+		Where("pipeline_run_id = ?", runID).
+		Find(&runs).Error
 	assert.NoError(t, err)
 	assert.Len(t, runs, 8)
 
 	for _, run := range runs {
-		if run.DotID == "answer2" {
+		if run.DotID() == "answer2" {
 			assert.Equal(t, "Hal Finney", run.Output.Val)
-		} else if run.DotID == "ds2" {
+		} else if run.DotID() == "ds2" {
 			assert.Equal(t, `{"turnout": 61.942}`, run.Output.Val)
-		} else if run.DotID == "ds2_parse" {
+		} else if run.DotID() == "ds2_parse" {
 			assert.Equal(t, float64(61.942), run.Output.Val)
-		} else if run.DotID == "ds2_multiply" {
+		} else if run.DotID() == "ds2_multiply" {
 			assert.Equal(t, "6194.2", run.Output.Val)
-		} else if run.DotID == "ds1" {
+		} else if run.DotID() == "ds1" {
 			assert.Equal(t, `{"data": {"result": 62.57}}`, run.Output.Val)
-		} else if run.DotID == "ds1_parse" {
+		} else if run.DotID() == "ds1_parse" {
 			assert.Equal(t, float64(62.57), run.Output.Val)
-		} else if run.DotID == "ds1_multiply" {
+		} else if run.DotID() == "ds1_multiply" {
 			assert.Equal(t, "6257", run.Output.Val)
-		} else if run.DotID == "answer1" {
+		} else if run.DotID() == "answer1" {
 			assert.Equal(t, "6225.6", run.Output.Val)
 		} else {
-			t.Fatal("unknown task")
+			t.Fatalf("unknown task '%v'", run.DotID())
 		}
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	// "github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -92,12 +91,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 	transmitter := NewTransmitter(d.db.DB(), fromAddress, gasLimit)
 
 	ocrContract, err := NewOCRContract(
-		concreteSpec.ContractAddress,
+		concreteSpec.ContractAddress.Address(),
 		d.ethClient,
 		d.logBroadcaster,
 		concreteSpec.JobID(),
 		transmitter,
-		// FIXME: Not sure if this is the right way to pass in logger?
 		*logger.Default,
 	)
 	if err != nil {
@@ -119,13 +117,13 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "could not make new peerstore")
 	}
 
-	logger := logger.NewOCRLogger(logger.Default)
+	ocrLogger := NewLogger(logger.Default)
 
 	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 		PrivKey:    p2pkey.PrivKey,
 		ListenPort: d.config.OCRListenPort(),
 		ListenIP:   d.config.OCRListenIP(),
-		Logger:     logger,
+		Logger:     ocrLogger,
 		Peerstore:  peerstore,
 		EndpointConfig: ocrnetworking.EndpointConfig{
 			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
@@ -153,7 +151,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		PrivateKeys:                  &ocrkey,
 		BinaryNetworkEndpointFactory: peer,
 		MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
-		Logger:                       logger,
+		Logger:                       ocrLogger,
 		Bootstrappers:                concreteSpec.P2PBootstrapPeers,
 	})
 	if err != nil {

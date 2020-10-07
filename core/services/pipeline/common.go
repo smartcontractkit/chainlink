@@ -37,6 +37,7 @@ type (
 	}
 
 	Config interface {
+		DatabaseURL() string
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPLimit() int64

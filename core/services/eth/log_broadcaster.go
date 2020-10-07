@@ -126,7 +126,7 @@ func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	rawLog := lb.log.RawLog()
+	rawLog := lb.rawLog
 	if lb.isV2 {
 		return lb.orm.MarkLogConsumedV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2, rawLog.BlockNumber)
 	} else {

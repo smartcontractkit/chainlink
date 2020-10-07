@@ -25,6 +25,7 @@ type (
 	}
 
 	Config interface {
+		DatabaseURL() string
 		JobPipelineDBPollInterval() time.Duration
 		JobPipelineParallelism() uint8
 	}

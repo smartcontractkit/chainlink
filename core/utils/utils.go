@@ -722,7 +722,6 @@ func DebugPanic() {
 	}
 }
 
-<<<<<<< HEAD
 type PausableTicker struct {
 	ticker   *time.Ticker
 	duration time.Duration
@@ -807,7 +806,6 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 type StartStopOnce struct {
 	state int
 	sync.Mutex
-	sync.WaitGroup
 }
 
 const (
@@ -816,22 +814,24 @@ const (
 	ssoState_Stopped
 )
 
-func (once *StartStopOnce) AssertNeverStarted() {
+func (once *StartStopOnce) OkayToStart() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
 
 	if once.state != ssoState_Unstarted {
-		panic("not unstarted")
+		return false
 	}
 	once.state = ssoState_Started
+	return true
 }
 
-func (once *StartStopOnce) AssertNeverStopped() {
+func (once *StartStopOnce) OkayToStop() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
 
 	if once.state != ssoState_Started {
-		panic("not started")
+		return false
 	}
 	once.state = ssoState_Stopped
+	return true
 }

@@ -34,8 +34,8 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, uri string) *orm {
-	return &orm{db, uri}
+func NewORM(db *gorm.DB, config Config) *orm {
+	return &orm{db, config.DatabaseURL()}
 }
 
 func (o *orm) CreateSpec(taskDAG TaskDAG) (int32, error) {
@@ -97,7 +97,7 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 		run := Run{}
 
 		err = tx.Raw(`
-            INSERT INTO job_runs (pipeline_spec_id, meta, created_at)
+            INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
             SELECT pipeline_spec_id, $1, NOW()
             FROM jobs WHERE id = $2
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
@@ -110,9 +110,9 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 		// Create the task runs
 		err = tx.Exec(`
             INSERT INTO pipeline_task_runs (
-            	pipeline_run_id, pipeline_task_spec_id, index, dot_id, created_at
+            	pipeline_run_id, pipeline_task_spec_id, created_at
             )
-            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, index, dot_id, NOW() AS created_at
+            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
@@ -171,13 +171,17 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		}
 
 		// Find all the predecessor task runs
-		err = tx.Raw(`
+		err = tx.
+			Preload("PipelineTaskSpec").
+			Raw(`
                 SELECT pipeline_task_runs.* FROM pipeline_task_runs
                 INNER JOIN pipeline_task_specs AS specs_right ON specs_right.id = pipeline_task_runs.pipeline_task_spec_id
                 LEFT JOIN pipeline_task_specs AS specs_left ON specs_left.id = specs_right.successor_id
                 LEFT JOIN pipeline_task_runs AS successors ON successors.pipeline_task_spec_id = specs_left.id
                       AND successors.pipeline_run_id = pipeline_task_runs.pipeline_run_id
-                WHERE successors.id = ?`, ptRun.ID).Find(&predecessors).Error
+                WHERE successors.id = ?`,
+				ptRun.ID).
+			Find(&predecessors).Error
 		if err != nil {
 			return errors.Wrap(err, "error finding task run predecessors")
 		}
@@ -198,7 +202,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		result := fn(job.ID, ptRun, predecessors)
 
 		// Update the task run record with the output and error
-		var out *JSONSerializable
+		var out interface{}
 		var errString null.String
 		if result.Value != nil {
 			out = &JSONSerializable{Val: result.Value}
@@ -206,22 +210,13 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			logger.Errorw("Error in pipeline task", "error", result.Error)
 			errString = null.StringFrom(result.Error.Error())
 		}
-		if err := tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error; err != nil {
+		err = tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error
+		if err != nil {
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 
 		// TODO: check if pipeline_task_run is now completed
 
-		// FIXME: Can there be more than one terminal task? If so this won't work
-		if ptRun.PipelineTaskSpec.SuccessorID.IsZero() {
-			// No more successors means this was the last task in the run
-			err = tx.Exec(`
-				NOTIFY pipeline_run_completed, ?::text
-			`, ptRun.ID).Error
-			if err != nil {
-				return errors.Wrap(err, "could not notify pipeline_run_completed")
-			}
-		}
 		return nil
 	})
 
@@ -230,6 +225,31 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 	// have they all completed? If so:
 	// finished_at (null => something)
 	// emit event
+
+	var pipelineDone struct{ Done bool }
+	err = o.db.Raw(`
+        SELECT bool_and(pipeline_task_runs.finished_at IS NOT NULL) AS done
+        FROM pipeline_runs
+        JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
+        WHERE pipeline_runs.id = ?
+    `, ptRun.PipelineRunID).Scan(&pipelineDone).Error
+	if err != nil {
+		return false, errors.Wrapf(err, "could not determine if pipeline run (id: %v) is done", ptRun.PipelineRunID)
+	}
+
+	if pipelineDone.Done {
+		err = o.db.Exec(`UPDATE pipeline_runs SET finished_at = ? WHERE id = ?`, time.Now(), ptRun.PipelineRunID).Error
+		if err != nil {
+			return false, errors.Wrap(err, "could not update pipeline_runs.finished_at")
+		}
+
+		err = o.db.Exec(`
+            SELECT pg_notify('pipeline_run_completed', ?::text);
+        `, ptRun.ID).Error
+		if err != nil {
+			return false, errors.Wrap(err, "could not notify pipeline_run_completed")
+		}
+	}
 
 	return done, err
 }
@@ -323,11 +343,12 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 
 		var taskRuns []TaskRun
 		err = o.db.
+			Preload("PipelineTaskSpec").
 			Joins("LEFT JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id").
 			Where("pipeline_run_id = ?", runID).
 			Where("finished_at IS NOT NULL").
 			Where("pipeline_task_specs.successor_id IS NULL").
-			Order("index ASC").
+			Order("pipeline_task_specs.index ASC").
 			Find(&taskRuns).
 			Error
 		if err != nil {
@@ -346,7 +367,7 @@ func (o *orm) ResultsForRun(runID int64) ([]Result, error) {
 func runFinished(tx *gorm.DB, runID int64) (bool, error) {
 	var done struct{ Done bool }
 	err := tx.Raw(`
-        SELECT bool_and(finished_at) AS done
+        SELECT bool_and(finished_at IS NOT NULL) AS done
         FROM pipeline_task_runs
         WHERE pipeline_run_id = $1
     `, runID).Scan(&done).Error

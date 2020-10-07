@@ -108,9 +108,9 @@ func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application))
 	balanceMonitor := services.NewBalanceMonitor(store)
 
 	var (
-		pipelineORM    = pipeline.NewORM(store.ORM.DB, config.DatabaseURL())
+		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
-		jobORM         = job.NewORM(store.ORM.DB, store.Config.DatabaseURL(), pipelineORM)
+		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM)
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
