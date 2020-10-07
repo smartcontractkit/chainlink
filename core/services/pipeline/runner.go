@@ -46,12 +46,18 @@ func NewRunner(orm ORM, config Config) *runner {
 }
 
 func (r *runner) Start() {
-	r.AssertNeverStarted()
+	if !r.OkayToStart() {
+		logger.Error("Pipeline runner has already been started")
+		return
+	}
 	go r.runLoop()
 }
 
 func (r *runner) Stop() {
-	r.AssertNeverStopped()
+	if !r.OkayToStop() {
+		logger.Error("Pipeline runner has already been stopped")
+		return
+	}
 	close(r.chStop)
 	<-r.chDone
 }
@@ -124,7 +130,7 @@ func (r *runner) processIncompleteTaskRunsWorker() {
 				done, err = r.orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
 					loggerFields := []interface{}{
 						"jobID", jobID,
-						"taskName", taskRun.DotID,
+						"taskName", taskRun.PipelineTaskSpec.DotID,
 						"taskID", taskRun.PipelineTaskSpecID,
 						"runID", taskRun.PipelineRunID,
 						"taskRunID", taskRun.ID,
@@ -137,7 +143,13 @@ func (r *runner) processIncompleteTaskRunsWorker() {
 						inputs[i] = predecessor.Result()
 					}
 
-					task, err := UnmarshalTaskFromMap(taskRun.PipelineTaskSpec.Type, taskRun.PipelineTaskSpec.JSON.Val, taskRun.DotID, r.orm, r.config)
+					task, err := UnmarshalTaskFromMap(
+						taskRun.PipelineTaskSpec.Type,
+						taskRun.PipelineTaskSpec.JSON.Val,
+						taskRun.PipelineTaskSpec.DotID,
+						r.orm,
+						r.config,
+					)
 					if err != nil {
 						logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 						return Result{Error: err}

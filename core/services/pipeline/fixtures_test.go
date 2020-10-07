@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/jinzhu/gorm"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -37,17 +39,20 @@ const dotStr = `
 `
 
 const ocrJobSpecText = `
+type               = "offchainreporting"
+schemaVersion      = 1
 contractAddress    = "%s"
-p2pPeerID          = "<libp2p-node-id>"
+p2pPeerID          = "%s"
 p2pBootstrapPeers  = [
-    {peerID = "<peer id 1>", multiAddr = "<multiaddr1>"},
-    {peerID = "<peer id 2>", multiAddr = "<multiaddr2>"},
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
-keyBundle          = {encryptedPrivKeyBundle = {asdf = 123}}
-monitoringEndpoint = "<ip:port>"
-transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer    = false
+keyBundleID        = "%s"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "%s"
 observationTimeout = "10s"
-blockchainTimeout  = "10s"
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
@@ -57,7 +62,7 @@ observationSource = """
     ds1_multiply [type=multiply times=100];
 
     // data source 2
-    ds2          [type=httpunrestricted method=POST url="%s" requestData="{\\"hi\\":\\"hello\\"}"];
+    ds2          [type=http method=POST url="%s" requestData="{\\"hi\\": \\"hello\\"}"];
     ds2_parse    [type=jsonparse path="turnout"];
     ds2_multiply [type=multiply times=100];
 
@@ -69,18 +74,32 @@ observationSource = """
 """
 `
 
-func makeOCRJobSpec(t *testing.T) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
-	return makeOCRJobSpecWithHTTPURL(t, "https://chain.link/voter_turnout/USA-2020")
+	return makeOCRJobSpecWithHTTPURL(t, db, "https://chain.link/voter_turnout/USA-2020")
 }
 
-func makeOCRJobSpecWithHTTPURL(t *testing.T, url string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpUrl string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), url)
+	// Insert keys into the store
+	keystore := offchainreporting.NewKeyStore(db)
+	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
+	require.NoError(t, err)
+	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
+	require.NoError(t, err)
+	peerID, err := p2pkey.GetPeerID()
+	require.NoError(t, err)
+	err = db.Create(&models.Key{
+		Address: cltest.DefaultKey,
+		JSON:    cltest.JSONFromString(t, "{}"),
+	}).Error
+	require.NoError(t, err)
+
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrkey.ID, cltest.DefaultKey, httpUrl)
 
 	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
+	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}

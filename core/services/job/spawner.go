@@ -2,9 +2,10 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -32,13 +33,13 @@ type (
 	}
 
 	spawner struct {
-		orm                    ORM
-		config                 Config
-		jobTypeDelegates       map[Type]Delegate
-		jobTypeDelegatesMu     sync.RWMutex
-		startUnclaimedServices utils.SleeperTask
-		services               map[int32][]Service
-		chStopJob              chan int32
+		orm                          ORM
+		config                       Config
+		jobTypeDelegates             map[Type]Delegate
+		jobTypeDelegatesMu           sync.RWMutex
+		startUnclaimedServicesWorker utils.SleeperTask
+		services                     map[int32][]Service
+		chStopJob                    chan int32
 
 		utils.StartStopOnce
 		chStop chan struct{}
@@ -66,19 +67,26 @@ func NewSpawner(orm ORM, config Config) *spawner {
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
 	}
-	s.startUnclaimedServices = utils.NewSleeperTask(
-		utils.SleeperTaskFuncWorker(s.startUnclaimedServicesWorker),
+	s.startUnclaimedServicesWorker = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(s.startUnclaimedServices),
 	)
 	return s
 }
 
 func (js *spawner) Start() {
-	js.AssertNeverStarted()
+	if !js.OkayToStart() {
+		logger.Error("Job spawner has already been started")
+		return
+	}
 	go js.runLoop()
 }
 
 func (js *spawner) Stop() {
-	js.AssertNeverStopped()
+	if !js.OkayToStop() {
+		logger.Error("Job spawner has already been stopped")
+		return
+	}
+	js.startUnclaimedServicesWorker.Stop()
 	close(js.chStop)
 	<-js.chDone
 }
@@ -110,14 +118,14 @@ func (js *spawner) runLoop() {
 	dbPollTicker := time.NewTicker(js.config.JobPipelineDBPollInterval())
 	defer dbPollTicker.Stop()
 
-	js.startUnclaimedServices.WakeUp()
+	js.startUnclaimedServicesWorker.WakeUp()
 	for {
 		select {
 		case <-chNewJobs:
-			js.startUnclaimedServices.WakeUp()
+			js.startUnclaimedServicesWorker.WakeUp()
 
 		case <-dbPollTicker.C:
-			js.startUnclaimedServices.WakeUp()
+			js.startUnclaimedServicesWorker.WakeUp()
 
 		case jobID := <-js.chStopJob:
 			js.stopService(jobID)
@@ -129,7 +137,7 @@ func (js *spawner) runLoop() {
 					logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
 				}
 			}
-			js.startUnclaimedServices.Stop()
+			js.startUnclaimedServicesWorker.Stop()
 			js.stopAllServices()
 			return
 
@@ -137,7 +145,7 @@ func (js *spawner) runLoop() {
 	}
 }
 
-func (js *spawner) startUnclaimedServicesWorker() {
+func (js *spawner) startUnclaimedServices() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -151,11 +159,8 @@ func (js *spawner) startUnclaimedServicesWorker() {
 	defer js.jobTypeDelegatesMu.RUnlock()
 
 	for _, specDBRow := range specDBRows {
-		// `ClaimUnclaimedJobs` guarantees that we won't try to start jobs that other
-		// nodes in the cluster are already running, but because Postgres
-		// advisory locks are session-scoped, we have to manually guard against
-		// trying to start jobs that we're already running locally.
 		if _, exists := js.services[specDBRow.ID]; exists {
+			logger.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", specDBRow.ID)
 			continue
 		}
 
@@ -212,7 +217,8 @@ func (js *spawner) CreateJob(spec Spec) (int32, error) {
 
 	delegate, exists := js.jobTypeDelegates[spec.JobType()]
 	if !exists {
-		panic(fmt.Sprintf("job type '%s' has not been registered with the job.Spawner", spec.JobType()))
+		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
+		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
 	}
 
 	specDBRow := delegate.ToDBRow(spec)

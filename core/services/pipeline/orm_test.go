@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"testing"
 	"time"
@@ -75,7 +76,7 @@ func TestORM(t *testing.T) {
 		defer cleanupDB()
 		db := oldORM.DB
 
-		orm := pipeline.NewORM(db, config.DatabaseURL())
+		orm := pipeline.NewORM(db, config)
 
 		g := pipeline.NewTaskDAG()
 		err := g.UnmarshalText([]byte(dotStr))
@@ -127,12 +128,11 @@ func TestORM(t *testing.T) {
 		defer cleanupDB()
 		db := oldORM.DB
 
-		orm := pipeline.NewORM(db, config.DatabaseURL())
-
-		jobORM := job.NewORM(db, config.DatabaseURL(), orm)
+		orm := pipeline.NewORM(db, config)
+		jobORM := job.NewORM(db, config, orm)
 		defer jobORM.Close()
 
-		ocrSpec, dbSpec := makeOCRJobSpec(t)
+		ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
@@ -233,8 +233,8 @@ func TestORM(t *testing.T) {
 				defer cleanupDB()
 				db := oldORM.DB
 
-				orm := pipeline.NewORM(db, config.DatabaseURL())
-				jobORM := job.NewORM(db, config.DatabaseURL(), orm)
+				orm := pipeline.NewORM(db, config)
+				jobORM := job.NewORM(db, config, orm)
 				defer jobORM.Close()
 
 				var (
@@ -242,7 +242,7 @@ func TestORM(t *testing.T) {
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
-				ocrSpec, dbSpec := makeOCRJobSpec(t)
+				ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 				// Need a job in order to create a run
 				err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
@@ -298,19 +298,20 @@ func TestORM(t *testing.T) {
 
 							// Ensure the predecessors' answers match what we expect
 							for _, p := range predecessorRuns {
-								_, exists := test.answers[p.DotID]
+								fmt.Println("DOT ID ~> ", p.DotID(), p.PipelineTaskSpec)
+								_, exists := test.answers[p.DotID()]
 								require.True(t, exists)
 								require.True(t, p.Output != nil || !p.Error.IsZero())
 								if p.Output != nil {
-									require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+									require.Equal(t, test.answers[p.DotID()].Value, p.Output.Val)
 								} else if !p.Error.IsZero() {
-									require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
+									require.Equal(t, test.answers[p.DotID()].Error.Error(), p.Error.ValueOrZero())
 								}
 							}
 
-							taskRuns[taskRun.DotID] = taskRun
-							predecessors[taskRun.DotID] = predecessorRuns
-							return test.answers[taskRun.DotID]
+							taskRuns[taskRun.DotID()] = taskRun
+							predecessors[taskRun.DotID()] = predecessorRuns
+							return test.answers[taskRun.DotID()]
 						})
 						require.NoError(t, err)
 					}
@@ -336,19 +337,19 @@ func TestORM(t *testing.T) {
 					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
-							_, exists := test.answers[p.DotID]
+							_, exists := test.answers[p.DotID()]
 							require.True(t, exists)
 							require.True(t, p.Output != nil || !p.Error.IsZero())
 							if p.Output != nil {
-								require.Equal(t, test.answers[p.DotID].Value, p.Output.Val)
+								require.Equal(t, test.answers[p.DotID()].Value, p.Output.Val)
 							} else if !p.Error.IsZero() {
-								require.Equal(t, test.answers[p.DotID].Error.Error(), p.Error.ValueOrZero())
+								require.Equal(t, test.answers[p.DotID()].Error.Error(), p.Error.ValueOrZero())
 							}
 						}
 
-						taskRuns[taskRun.DotID] = taskRun
-						predecessors[taskRun.DotID] = predecessorRuns
-						return test.answers[taskRun.DotID]
+						taskRuns[taskRun.DotID()] = taskRun
+						predecessors[taskRun.DotID()] = predecessorRuns
+						return test.answers[taskRun.DotID()]
 					})
 					require.NoError(t, err)
 					require.False(t, done)
@@ -373,16 +374,16 @@ func TestORM(t *testing.T) {
 					}
 
 					var finishedRuns []pipeline.TaskRun
-					err = db.Find(&finishedRuns).Error
+					err = db.Preload("PipelineTaskSpec").Find(&finishedRuns).Error
 					require.NoError(t, err)
 					require.Len(t, finishedRuns, len(expectedTasks))
 
 					for _, run := range finishedRuns {
 						require.True(t, run.Output != nil || !run.Error.IsZero())
 						if run.Output != nil {
-							require.Equal(t, test.answers[run.DotID].Value, run.Output.Val)
+							require.Equal(t, test.answers[run.DotID()].Value, run.Output.Val)
 						} else if !run.Error.IsZero() {
-							require.Equal(t, test.answers[run.DotID].Error.Error(), run.Error.ValueOrZero())
+							require.Equal(t, test.answers[run.DotID()].Error.Error(), run.Error.ValueOrZero())
 						}
 					}
 				}

@@ -1,16 +1,17 @@
-package logger
+package offchainreporting
 
 import (
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 var _ ocrtypes.Logger = &ocrLogger{}
 
 type ocrLogger struct {
-	internal *Logger
+	internal *logger.Logger
 }
 
-func NewOCRLogger(internal *Logger) ocrtypes.Logger {
+func NewLogger(internal *logger.Logger) ocrtypes.Logger {
 	return &ocrLogger{
 		internal: internal,
 	}

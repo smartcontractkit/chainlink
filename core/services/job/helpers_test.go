@@ -6,6 +6,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
+	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -24,7 +25,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = false
 keyBundleID        = "%s"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterAddress = "%s"
 observationTimeout = "10s"
 blockchainTimeout  = "20s"
 contractConfigTrackerSubscribeInterval = "2m"
@@ -60,8 +61,13 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 	require.NoError(t, err)
 	peerID, err := p2pkey.GetPeerID()
 	require.NoError(t, err)
+	err = db.Create(&models.Key{
+		Address: cltest.DefaultKey,
+		JSON:    cltest.JSONFromString(t, "{}"),
+	}).Error
+	require.NoError(t, err)
 
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID, ocrkey.ID)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrkey.ID, cltest.DefaultKey)
 
 	var ocrspec offchainreporting.OracleSpec
 	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)

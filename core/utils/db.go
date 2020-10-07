@@ -34,7 +34,9 @@ type PostgresEventListener struct {
 }
 
 func (p *PostgresEventListener) Start() error {
-	p.AssertNeverStarted()
+	if !p.OkayToStart() {
+		return errors.Errorf("Postgres event listener has already been started (event: %v, filter: %v)", p.Event, p.PayloadFilter)
+	}
 
 	if p.MinReconnectInterval == time.Duration(0) {
 		p.MinReconnectInterval = 1 * time.Second
@@ -93,8 +95,9 @@ func (p *PostgresEventListener) Start() error {
 }
 
 func (p *PostgresEventListener) Stop() error {
-	p.AssertNeverStopped()
-
+	if !p.OkayToStop() {
+		return errors.Errorf("Postgres event listener has already been stopped (event: %v, filter: %v)", p.Event, p.PayloadFilter)
+	}
 	err := p.listener.Close()
 	close(p.chStop)
 	<-p.chDone
@@ -139,6 +142,13 @@ type PostgresAdvisoryLock struct {
 	conn *sql.Conn
 	db   *sql.DB
 	mu   *sync.Mutex
+}
+
+func NewPostgresAdvisoryLock(uri string) *PostgresAdvisoryLock {
+	return &PostgresAdvisoryLock{
+		URI: uri,
+		mu:  &sync.Mutex{},
+	}
 }
 
 func (lock *PostgresAdvisoryLock) Close() error {

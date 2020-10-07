@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
+
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
@@ -35,8 +38,15 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, uri string, pipelineORM pipeline.ORM) *orm {
-	return &orm{db, uri, &utils.PostgresAdvisoryLock{URI: uri}, pipelineORM, make([]models.JobSpecV2, 0), &sync.Mutex{}}
+func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM) *orm {
+	return &orm{
+		db:            db,
+		uri:           config.DatabaseURL(),
+		advisoryLock:  utils.NewPostgresAdvisoryLock(config.DatabaseURL()),
+		pipelineORM:   pipelineORM,
+		claimedJobs:   make([]models.JobSpecV2, 0),
+		claimedJobsMu: &sync.Mutex{},
+	}
 }
 
 func (o *orm) Close() error {
@@ -66,8 +76,28 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
+	var ids []int32
+	err := o.db.Raw(`SELECT id FROM jobs`).Scan(&ids).Error
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("111 ~>", ids)
+
+	var jobs []models.JobSpecV2
+	err = o.db.Find(&jobs).Error
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("222 ~>", jobs)
+
+	err = o.db.Raw(`SELECT id FROM jobs WHERE id NOT IN (1, 2, 3)`).Scan(&ids).Error
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("111 ~>", ids)
+
 	var newlyClaimedJobs []models.JobSpecV2
-	err := o.db.
+	err = o.db.
 		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
 		// but prevents the optimiser from trying to pull the where condition
 		// up out of the subquery
@@ -75,21 +105,19 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 			INNER JOIN (
 				SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
 				FROM (
-					SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0
+					SELECT id FROM jobs WHERE id != ANY(ARRAY[9, 10]) OFFSET 0
 				) not_claimed_by_us
 			) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
-			`, utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs)).
+			`, utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())).
 		Preload("OffchainreportingOracleSpec").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
 	}
 
-	for _, job := range newlyClaimedJobs {
-		o.claimedJobs = append(o.claimedJobs, job)
-	}
+	o.claimedJobs = append(o.claimedJobs, newlyClaimedJobs...)
 
-	return o.claimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
+	return newlyClaimedJobs, errors.Wrap(err, "Job Spawner ORM could not load unclaimed job specs")
 }
 
 func (o *orm) claimedJobIDs() (ids []int32) {

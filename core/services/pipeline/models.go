@@ -34,12 +34,10 @@ type (
 
 	TaskRun struct {
 		ID                 int64 `gorm:"primary_key"`
-		DotID              string
 		PipelineRun        Run
 		PipelineRunID      int64
 		Output             *JSONSerializable `gorm:"type:jsonb"`
 		Error              null.String
-		Index              int32
 		PipelineTaskSpecID int32
 		PipelineTaskSpec   TaskSpec
 		CreatedAt          time.Time
@@ -51,6 +49,10 @@ func (Spec) TableName() string     { return "pipeline_specs" }
 func (Run) TableName() string      { return "pipeline_runs" }
 func (TaskSpec) TableName() string { return "pipeline_task_specs" }
 func (TaskRun) TableName() string  { return "pipeline_task_runs" }
+
+func (r TaskRun) DotID() string {
+	return r.PipelineTaskSpec.DotID
+}
 
 func (r TaskRun) Result() Result {
 	var result Result
