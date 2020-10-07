@@ -139,7 +139,10 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
+	fmt.Println("claimedJobs", o.claimedJobs)
+	fmt.Println("deleting ID", id)
 	for i, job := range o.claimedJobs {
+		fmt.Println("loop job.ID, id", job.ID, id)
 		if job.ID == id {
 			if _, err := o.db.DB().ExecContext(ctx, `
                 WITH deleted_jobs AS (
