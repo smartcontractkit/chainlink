@@ -193,10 +193,12 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 		var job struct{ ID int32 }
 		err = tx.Raw(`
             SELECT jobs.id FROM pipeline_task_runs
-            LEFT JOIN pipeline_task_specs ON pipeline_task_specs.id = pipeline_task_runs.pipeline_task_spec_id
-            LEFT JOIN jobs ON jobs.pipeline_spec_id = pipeline_task_specs.pipeline_spec_id
+            INNER JOIN pipeline_task_specs ON pipeline_task_specs.id = pipeline_task_runs.pipeline_task_spec_id
+            INNER JOIN jobs ON jobs.pipeline_spec_id = pipeline_task_specs.pipeline_spec_id
             WHERE pipeline_task_runs.id = ?
+			LIMIT 1
         `, ptRun.ID).Scan(&job).Error
+		// TODO: Needs test, what happens if it can't find the job?!
 		if err != nil {
 			return errors.Wrap(err, "error finding job ID")
 		}

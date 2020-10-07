@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -317,6 +318,23 @@ func NewHash() common.Hash {
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
+}
+
+func NewEIP55Address() models.EIP55Address {
+	a := NewAddress()
+	e, err := models.NewEIP55Address(a.Hex())
+	if err != nil {
+		panic(err)
+	}
+	return e
+}
+
+func NewPeerID() p2ppeer.ID {
+	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func randomBytes(n int) []byte {
@@ -797,7 +815,19 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainReportingOracleSpec {
 	t.Helper()
 
-	spec := models.OffchainReportingOracleSpec{}
+	spec := models.OffchainReportingOracleSpec{
+		ContractAddress:                        NewEIP55Address(),
+		P2PPeerID:                              models.PeerID(NewPeerID()),
+		P2PBootstrapPeers:                      []string{},
+		IsBootstrapPeer:                        false,
+		EncryptedOCRKeyBundleID:                0,
+		TransmitterAddress:                     DefaultKeyAddress,
+		ObservationTimeout:                     0,
+		BlockchainTimeout:                      0,
+		ContractConfigTrackerSubscribeInterval: 0,
+		ContractConfigTrackerPollInterval:      0,
+		ContractConfigConfirmations:            0,
+	}
 	require.NoError(t, store.DB.Create(&spec).Error)
 	return spec
 }
