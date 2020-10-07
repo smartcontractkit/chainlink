@@ -11,7 +11,7 @@ import (
 
 type (
 	JobSpecV2 struct {
-		ID                            int32 `gorm: "primary_key"`
+		ID                            int32 `gorm:"primary_key"`
 		OffchainreportingOracleSpecID int32
 		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
 		PipelineSpecID                int32

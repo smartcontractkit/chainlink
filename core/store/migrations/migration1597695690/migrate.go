@@ -46,6 +46,7 @@ func Migrate(tx *gorm.DB) error {
         CREATE TABLE pipeline_runs (
             id BIGSERIAL PRIMARY KEY,
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
+			-- FIXME: I propose to leave meta out of it for the purposes of cutting scope on this PR
             meta jsonb NOT NULL DEFAULT '{}',
             created_at timestamptz NOT NULL
         );
