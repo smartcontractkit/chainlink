@@ -21,3 +21,7 @@ jobs:
       uses: sonatype-nexus-community/nancy-github-action@b492e6567a301a914bd227d44bf10dcfe85438ad
       with:
         nancyCommand: sleuth -e bba60acb-c7b5-4621-af69-f4085a8301d0,d373dc3f-aa88-483b-b501-20fe5382cc80,4a444740-66e6-4268-9191-c12780af5d4e,5def94e5-b89c-4a94-b9c6-ae0e120784c2
+        # Check the dependency by entering the OSS index UUID here:
+        # https://ossindex.sonatype.org/vuln/bba60acb-c7b5-4621-af69-f4085a8301d0
+        #
+        # To get more detail locally run `go list -json -m all | nancy sleuth`
