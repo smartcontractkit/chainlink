@@ -15,6 +15,9 @@ import (
 //go:generate mockery --name Spawner --output ./mocks/ --case=underscore
 //go:generate mockery --name Delegate --output ./mocks/ --case=underscore
 
+//go:generate mockery --name Spawner --output ./mocks/ --case=underscore
+//go:generate mockery --name Delegate --output ./mocks/ --case=underscore
+
 type (
 	// The job spawner manages the spinning up and spinning down of the long-running
 	// services that perform the work described by job specs.  Each active job spec
@@ -137,7 +140,6 @@ func (js *spawner) runLoop() {
 					logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
 				}
 			}
-			js.startUnclaimedServicesWorker.Stop()
 			js.stopAllServices()
 			return
 

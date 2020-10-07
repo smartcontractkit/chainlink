@@ -17,8 +17,6 @@ import (
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
-//go:generate mockery --name ORM --output ./mocks/ --case=underscore
-
 type ORM interface {
 	ListenForNewJobs() (*utils.PostgresEventListener, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
