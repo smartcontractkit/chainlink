@@ -24,7 +24,7 @@ import (
 	"gopkg.in/guregu/null.v3"
 )
 
-func TestTxManager_CreateTx_Success(t *testing.T) {
+func TestLegacyTxManager_CreateTx_Success(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -68,7 +68,7 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
+func TestLegacyTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -138,7 +138,7 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
+func TestLegacyTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -204,7 +204,7 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
+func TestLegacyTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
 	config, configCleanup := cltest.NewConfig(t)
@@ -263,7 +263,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
+func TestLegacyTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -316,7 +316,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	}
 }
 
-func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
+func TestLegacyTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -349,7 +349,7 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
+func TestLegacyTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -363,7 +363,7 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
-func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -401,7 +401,7 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -440,7 +440,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -495,7 +495,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -541,7 +541,7 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsR
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -580,7 +580,7 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -625,7 +625,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	app.EthMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -684,7 +684,7 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 	}
 }
 
-func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -728,7 +728,7 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	app.EthMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
@@ -810,7 +810,7 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	}
 }
 
-func TestTxManager_CheckAttempt(t *testing.T) {
+func TestLegacyTxManager_CheckAttempt(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -869,7 +869,7 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CheckAttempt_error(t *testing.T) {
+func TestLegacyTxManager_CheckAttempt_error(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -899,7 +899,7 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_Register(t *testing.T) {
+func TestLegacyTxManager_Register(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -926,7 +926,7 @@ func TestTxManager_Register(t *testing.T) {
 	assert.Equal(t, uint64(0x2d0), aa.Nonce())
 }
 
-func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
+func TestLegacyTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -965,7 +965,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	assert.Equal(t, a0, a2)
 }
 
-func TestTxManager_ReloadNonce(t *testing.T) {
+func TestLegacyTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethClient := new(mocks.Client)
@@ -1026,7 +1026,7 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 	assert.Equal(t, uint64(0), managedAccount.Nonce())
 }
 
-func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
+func TestLegacyTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -1085,7 +1085,7 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTxWithGas(t *testing.T) {
+func TestLegacyTxManager_CreateTxWithGas(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -1142,7 +1142,7 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	}
 }
 
-func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
+func TestLegacyTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -1184,7 +1184,7 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_BumpGasByIncrement(t *testing.T) {
+func TestLegacyTxManager_BumpGasByIncrement(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
