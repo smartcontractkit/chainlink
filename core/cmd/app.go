@@ -271,6 +271,16 @@ func NewApp(client *Client) *cli.App {
 							Flags:  flags("password, p"),
 							Action: client.CreateP2PKey,
 						},
+						{
+							Name:   "delete",
+							Usage:  format(`Deletes the encrypted P2P key matching the given ID`),
+							Action: client.DeleteP2PKey,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available P2P keys`),
+							Action: client.ListP2PKeys,
+						},
 					},
 				},
 				cli.Command{
