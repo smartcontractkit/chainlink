@@ -48,7 +48,6 @@ func Migrate(tx *gorm.DB) error {
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
             meta jsonb NOT NULL DEFAULT '{}',
             created_at timestamptz NOT NULL,
-			finished_at timestamptz
         );
 
         CREATE INDEX idx_pipeline_runs_pipeline_spec_id ON pipeline_runs (pipeline_spec_id);

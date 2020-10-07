@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -215,43 +216,56 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 
-		// TODO: check if pipeline_task_run is now completed
+		// NOTE: maybeCompletePipelineRun will most likely cause serialization
+		// anomalies if multiple nodes are simultaneously processing the same
+		// pipeline run, where the pipeline run has more than one terminal
+		// task.
+		//
+		// I believe given how the locking is currently set up, that the
+		// maximum number of serialization anomalies that can occur for a
+		// particular pipeline run is N where N is max(nodes, terminal task
+		// runs)-1, but I could be wrong.
+		//
+		// This is rather difficult to reason about so we ought to track/log
+		// serialization anomalies in practice since it could potentially
+		// result in some nasty lock contention. If this becomes a problem, we
+		// may need to rethink the design and lock around the pipeline run
+		// rather than pipeline task runs.
+		//
+		// In case of a serialization anomaly, the safest thing to do is return
+		// no error and a not done job. Another node will pick it up
+		// immediately and it ought to work the next time around.
+		return o.maybeCompletePipelineRun(ptRun.PipelineRunID)
+	}, sql.TxOptions{Isolation: sql.LevelSerializable})
 
-		return nil
-	})
+	// TODO: Handle case where err is a serialization anomaly here
 
-	// HERE
-	// add a state to pipeline_run
-	// have they all completed? If so:
-	// finished_at (null => something)
-	// emit event
+	return done, err
+}
 
+// maybeCompletePipelineRun checks to see if all tasks in this pipeline run have been finished
+// If so, it emits a 'pipeline_run_completed' event
+func (o *orm) maybeCompletePipelineRun(pipelineRunID int64) (err error) {
 	var pipelineDone struct{ Done bool }
+	// Make sure all terminal tasks are done
 	err = o.db.Raw(`
-        SELECT bool_and(pipeline_task_runs.finished_at IS NOT NULL) AS done
-        FROM pipeline_runs
-        JOIN pipeline_task_runs ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-        WHERE pipeline_runs.id = ?
-    `, ptRun.PipelineRunID).Scan(&pipelineDone).Error
+			SELECT bool_and(pipeline_task_runs.finished_at IS NOT NULL) AS done
+			FROM pipeline_runs
+			WHERE pipeline_runs.pipeline_task_run_id = ? AND successor_id IS NULL
+		`, pipelineRunID).Scan(&pipelineDone).Error
 	if err != nil {
-		return false, errors.Wrapf(err, "could not determine if pipeline run (id: %v) is done", ptRun.PipelineRunID)
+		return errors.Wrapf(err, "could not determine if pipeline run (id: %v) is done", pipelineRunID)
 	}
 
 	if pipelineDone.Done {
-		err = o.db.Exec(`UPDATE pipeline_runs SET finished_at = ? WHERE id = ?`, time.Now(), ptRun.PipelineRunID).Error
-		if err != nil {
-			return false, errors.Wrap(err, "could not update pipeline_runs.finished_at")
-		}
-
 		err = o.db.Exec(`
-            SELECT pg_notify('pipeline_run_completed', ?::text);
-        `, ptRun.ID).Error
+				SELECT pg_notify('pipeline_run_completed', ?::text);
+			`, pipelineRunID).Error
 		if err != nil {
-			return false, errors.Wrap(err, "could not notify pipeline_run_completed")
+			return errors.Wrap(err, "could not notify pipeline_run_completed")
 		}
 	}
-
-	return done, err
+	return nil
 }
 
 const (
