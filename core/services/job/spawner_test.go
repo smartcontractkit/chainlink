@@ -51,7 +51,7 @@ func (d delegate) FromDBRow(dbRow models.JobSpecV2) job.Spec {
 func (d delegate) ToDBRow(js job.Spec) models.JobSpecV2 {
 	// Unwrap
 	inner := js.(*spec).Spec.(*offchainreporting.OracleSpec)
-	return d.Delegate.ToDBRow(inner)
+	return d.Delegate.ToDBRow(*inner)
 }
 
 type spec struct {
@@ -67,11 +67,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	jobTypeA := job.Type("AAA")
 	jobTypeB := job.Type("BBB")
 
-	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
-		defer cleanupDB()
-		db := oldORM.DB
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_spawner", true, true)
+	defer cleanupDB()
+	db := oldORM.DB
 
+	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
+		// FIXME(sam): Why does JobSpecV2 not just conform to the job.Spec interface and avoid all this confusion?
 		innerJobSpecA, _ := makeOCRJobSpec(t, db)
 		innerJobSpecB, _ := makeOCRJobSpec(t, db)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
@@ -121,11 +122,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		serviceA1.On("Stop").Return(nil).Once()
 		serviceA2.On("Stop").Return(nil).Once()
-		spawner.DeleteJob(ctx, jobSpecA.JobID())
+		require.NoError(t, spawner.DeleteJob(ctx, jobSpecA.JobID()))
 
 		serviceB1.On("Stop").Return(nil).Once()
 		serviceB2.On("Stop").Return(nil).Once()
-		spawner.DeleteJob(ctx, jobSpecB.JobID())
+		require.NoError(t, spawner.DeleteJob(ctx, jobSpecB.JobID()))
 
 		spawner.Stop()
 		serviceA1.AssertExpectations(t)
@@ -135,10 +136,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
-		defer cleanupDB()
-		db := oldORM.DB
-
 		innerJobSpecA, _ := makeOCRJobSpec(t, db)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 
@@ -170,10 +167,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_job_spawner", true)
-		defer cleanupDB()
-		db := oldORM.DB
-
 		innerJobSpecA, _ := makeOCRJobSpec(t, db)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 
