@@ -55,6 +55,7 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 
 	// Insert keys into the store
 	keystore := offchainreporting.NewKeyStore(db)
+	// FIXME: Don't do this, use the fixture keys instead
 	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
 	require.NoError(t, err)
 	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
