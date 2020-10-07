@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import { CBOR as CBOR_Chainlink } from "./vendor/CBOR.sol";
+import { CBORChainlink } from "./vendor/CBORChainlink.sol";
 import { BufferChainlink } from "./vendor/BufferChainlink.sol";
 
 /**
@@ -10,7 +10,7 @@ import { BufferChainlink } from "./vendor/BufferChainlink.sol";
 library Chainlink {
   uint256 internal constant defaultBufferSize = 256; // solhint-disable-line const-name-snakecase
 
-  using CBOR_Chainlink for BufferChainlink.buffer;
+  using CBORChainlink for BufferChainlink.buffer;
 
   struct Request {
     bytes32 id;

@@ -2,7 +2,7 @@ pragma solidity ^0.6.0;
 
 import { BufferChainlink } from "./BufferChainlink.sol";
 
-library CBOR {
+library CBORChainlink {
   using BufferChainlink for BufferChainlink.buffer;
 
   uint8 private constant MAJOR_TYPE_INT = 0;
