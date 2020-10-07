@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -638,6 +640,48 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	e := keys[0]
 	_, err = e.Decrypt(cltest.Password)
 	require.NoError(t, err)
+}
+
+func TestClient_P2P_DeleteKey(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	key, err := p2pkey.CreateKey()
+	require.NoError(t, err)
+	encKey, err := key.ToEncryptedP2PKey("password")
+	require.NoError(t, err)
+	err = store.UpsertEncryptedP2PKey(&encKey)
+	require.NoError(t, err)
+
+	keys, err := store.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	strID := strconv.FormatInt(int64(encKey.ID), 10)
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{strID})
+	c := cli.NewContext(nil, set, nil)
+
+	err = client.DeleteP2PKey(c)
+	require.NoError(t, err)
+
+	keys, err = store.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
 }
 
 func TestClient_CreateOCRKeyBundle(t *testing.T) {

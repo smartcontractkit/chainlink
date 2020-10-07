@@ -25,8 +25,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 
 }
 
-// ListOCRKeyBundles creates a key and inserts it into encrypted_ocr_keys,
-// protected by the password in the password file
+// ListOCRKeyBundles lists the available OCR Key Bundles
 func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
 	return cli.errorOut(cli.listOCRKeyBundles(c))
 }
@@ -120,6 +119,6 @@ func (cli *Client) deleteOCRKeyBundle(c *clipkg.Context) error {
 		return errors.Wrapf(err, "while deleting the OCR key bundle")
 	}
 
-	fmt.Printf("Successfully deleted OCR key bundle %s", key.ID)
+	fmt.Printf("Successfully deleted OCR key bundle %s\n", key.ID)
 	return nil
 }
