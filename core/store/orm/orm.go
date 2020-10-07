@@ -1614,11 +1614,6 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		return nil, err
 	}
 
-	// Use the strictest transaction isolation level by default
-	if err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error; err != nil {
-		return nil, err
-	}
-
 	return db, nil
 }
 
