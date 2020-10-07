@@ -16,11 +16,11 @@ import (
 
 type db struct {
 	*sql.DB
-	oracleSpecID int
+	oracleSpecID int32
 }
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int) ocrtypes.Database {
+func NewDB(sqldb *sql.DB, oracleSpecID int32) ocrtypes.Database {
 	return &db{sqldb, oracleSpecID}
 }
 

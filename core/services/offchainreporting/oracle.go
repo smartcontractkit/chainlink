@@ -144,7 +144,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
 			ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
 		},
-		Database:                     NewDB(d.db.DB(), int(concreteSpec.ID)),
+		Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
 		ContractTransmitter:          ocrContract,
 		ContractConfigTracker:        ocrContract,
