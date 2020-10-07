@@ -126,7 +126,7 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result) (done bool, err error) {
 	var ptRun TaskRun
 
-	// TODO: Add some sort of maximum execution time bound to jobs. We MUST avoid accidentally holding transactions open forever since this can be disastrous.
+	// TODO: Add some sort of maximum execution time bound to tasks. We MUST avoid accidentally holding transactions open forever since this can be disastrous.
 
 	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
 		var predecessors []TaskRun
@@ -243,6 +243,9 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 	}, sql.TxOptions{Isolation: sql.LevelSerializable})
 
 	// TODO: Handle case where err is a serialization anomaly here
+	// TODO(spook): Add constraint that all pipeline runs must have exactly one
+	// termination task so we can use successor_id to determine if we are the
+	// last task
 
 	return done, err
 }

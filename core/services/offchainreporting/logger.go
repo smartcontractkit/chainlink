@@ -11,6 +11,8 @@ type ocrLogger struct {
 	internal *logger.Logger
 }
 
+// TODO(sam): We probably want to hide DEBUG and TRACE logs behind some sort of env
+// var because otherwise the logs will become unusably flooded
 func NewLogger(internal *logger.Logger) ocrtypes.Logger {
 	return &ocrLogger{
 		internal: internal,
@@ -18,7 +20,6 @@ func NewLogger(internal *logger.Logger) ocrtypes.Logger {
 }
 
 // TODO(sam): Zap does not support trace level logging yet
-// NOTE: We may want to disable this
 func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
 	ol.internal.Debugw(msg, toKeysAndValues(fields))
 }

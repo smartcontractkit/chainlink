@@ -5,6 +5,10 @@ package mocks
 import (
 	big "math/big"
 
+	context "context"
+
+	job "github.com/smartcontractkit/chainlink/core/services/job"
+
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -21,18 +25,39 @@ type Application struct {
 	mock.Mock
 }
 
-// AddJob provides a mock function with given fields: job
-func (_m *Application) AddJob(job models.JobSpec) error {
-	ret := _m.Called(job)
+// AddJob provides a mock function with given fields: _a0
+func (_m *Application) AddJob(_a0 models.JobSpec) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(models.JobSpec) error); ok {
-		r0 = rf(job)
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
 
 	return r0
+}
+
+// AddJobV2 provides a mock function with given fields: _a0
+func (_m *Application) AddJobV2(_a0 job.Spec) (int32, error) {
+	ret := _m.Called(_a0)
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func(job.Spec) int32); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(job.Spec) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // AddServiceAgreement provides a mock function with given fields: _a0
@@ -130,6 +155,20 @@ func (_m *Application) CreateErrored(jobSpecID *models.ID, initiator models.Init
 	}
 
 	return r0, r1
+}
+
+// DeleteJobV2 provides a mock function with given fields: ctx, jobID
+func (_m *Application) DeleteJobV2(ctx context.Context, jobID int32) error {
+	ret := _m.Called(ctx, jobID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, jobID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // GetStatsPusher provides a mock function with given fields:
