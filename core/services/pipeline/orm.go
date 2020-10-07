@@ -126,6 +126,8 @@ func (o *orm) CreateRun(jobID int32, meta map[string]interface{}) (int64, error)
 func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result) (done bool, err error) {
 	var ptRun TaskRun
 
+	// TODO: Add some sort of maximum execution time bound to jobs. We MUST avoid accidentally holding transactions open forever since this can be disastrous.
+
 	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
 		var predecessors []TaskRun
 

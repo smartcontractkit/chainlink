@@ -114,7 +114,11 @@ const (
 )
 
 var (
-	DefaultSqlTxOptions = sql.TxOptions{}
+	DefaultSqlTxOptions = sql.TxOptions{
+		// NOTE: This is the default level in Postgres anyway, we just make it
+		// explicit here
+		Isolation: sql.LevelReadCommitted,
+	}
 )
 
 func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
