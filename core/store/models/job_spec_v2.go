@@ -4,7 +4,6 @@ import (
 	"database/sql/driver"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -20,13 +19,13 @@ type (
 
 	OffchainReportingOracleSpec struct {
 		ID                                     int32          `toml:"-"                 gorm:"primary_key"`
-		ContractAddress                        common.Address `toml:"contractAddress"`
+		ContractAddress                        EIP55Address   `toml:"contractAddress"`
 		P2PPeerID                              PeerID         `toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
 		P2PBootstrapPeers                      pq.StringArray `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
 		IsBootstrapPeer                        bool           `toml:"isBootstrapPeer"`
 		EncryptedOCRKeyBundleID                Sha256Hash     `toml:"keyBundleID"                 gorm:"type:bytea"`
 		MonitoringEndpoint                     string         `toml:"monitoringEndpoint"`
-		TransmitterAddress                     common.Address `toml:"transmitterAddress"`
+		TransmitterAddress                     EIP55Address   `toml:"transmitterAddress"`
 		ObservationTimeout                     Interval       `toml:"observationTimeout" gorm:"type:bigint"`
 		BlockchainTimeout                      Interval       `toml:"blockchainTimeout" gorm:"type:bigint"`
 		ContractConfigTrackerSubscribeInterval Interval       `toml:"contractConfigTrackerSubscribeInterval"`
