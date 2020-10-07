@@ -111,6 +111,7 @@ func (p *PostgresEventListener) Events() <-chan string {
 const (
 	AdvisoryLockClassID_EthBroadcaster int32 = 0
 	AdvisoryLockClassID_JobSpawner     int32 = 1
+	AdvisoryLockClassID_EthConfirmer   int32 = 2
 )
 
 var (
