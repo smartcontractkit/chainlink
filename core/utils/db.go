@@ -113,8 +113,18 @@ const (
 	AdvisoryLockClassID_JobSpawner     int32 = 1
 )
 
-func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error) (err error) {
-	tx := db.Begin()
+var (
+	DefaultSqlTxOptions = sql.TxOptions{}
+)
+
+func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
+	var txOpts sql.TxOptions
+	if len(txOptss) > 0 {
+		txOpts = txOptss[0]
+	} else {
+		txOpts = DefaultSqlTxOptions
+	}
+	tx := db.BeginTx(context.Background(), &txOpts)
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("%+v", r)
