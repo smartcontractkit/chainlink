@@ -29,10 +29,17 @@ func TestRendererJSON_RenderJobs(t *testing.T) {
 
 func TestRendererTable_RenderJobs(t *testing.T) {
 	t.Parallel()
-	r := cmd.RendererTable{Writer: ioutil.Discard}
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
 	job := cltest.NewJob()
 	jobs := []models.JobSpec{job}
 	assert.NoError(t, r.Render(&jobs))
+
+	fmt.Println(buffer)
+	output := buffer.String()
+	assert.Regexp(t, regexp.MustCompile("Job[a-f0-9]{32}"), output)
+	assert.Contains(t, output, "noop")
 }
 
 func TestRendererTable_RenderConfiguration(t *testing.T) {
