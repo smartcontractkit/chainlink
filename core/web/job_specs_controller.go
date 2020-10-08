@@ -1,8 +1,10 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -85,9 +87,22 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		return
 	}
 	if err := jsc.App.AddJob(js); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
+		switch err.(type) {
+		case *pq.Error:
+			var apiErr error
+			if err.(*pq.Error).Constraint == "job_specs_name_key" {
+				apiErr = fmt.Errorf("Job Spec name '%s' already taken", js.Name)
+			} else {
+				apiErr = err
+			}
+			jsonAPIError(c, http.StatusConflict, apiErr)
+			return
+		default:
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
 	}
+
 	// TODO: https://www.pivotaltracker.com/story/show/171169052
 	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
