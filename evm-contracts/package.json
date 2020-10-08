@@ -24,7 +24,7 @@
     "ethers": "^4.0.45",
     "jest": "^25.1.0",
     "ts-jest": "^25.2.0",
-    "typescript": "^3.7.5"
+    "typescript": "^4.0.3"
   },
   "files": [
     "abi/**/*",

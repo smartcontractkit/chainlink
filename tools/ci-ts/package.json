@@ -29,6 +29,6 @@
     "jest": "^25.1.0",
     "link_token": "^1.0.6",
     "ts-jest": "^25.2.1",
-    "typescript": "^3.7.5"
+    "typescript": "^4.0.3"
   }
 }

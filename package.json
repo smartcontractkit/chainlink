@@ -37,7 +37,7 @@
     "patch-package": "^6.2.1",
     "postinstall-postinstall": "^2.0.0",
     "prettier": "^1.19.1",
-    "typescript": "^3.7.4",
+    "typescript": "^4.0.3",
     "wsrun": "^5.2.0"
   },
   "resolutions": {
