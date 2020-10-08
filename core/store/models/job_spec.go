@@ -44,6 +44,7 @@ type TaskSpecRequest struct {
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
 	ID         *ID            `json:"id,omitempty" gorm:"primary_key;not null"`
+	Name       string         `json:"name" gorm:"index;unique;not null"`
 	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
 	Initiators []Initiator    `json:"initiators"`
 	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
@@ -73,8 +74,10 @@ func (j *JobSpec) SetID(value string) error {
 // NewJob initializes a new job by generating a unique ID and setting
 // the CreatedAt field to the time of invokation.
 func NewJob() JobSpec {
+	id := NewID()
 	return JobSpec{
-		ID:        NewID(),
+		ID:        id,
+		Name:      fmt.Sprintf("Job%s", id),
 		CreatedAt: time.Now(),
 	}
 }
