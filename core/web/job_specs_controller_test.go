@@ -207,6 +207,46 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, httpGet.GetURL(), "https://bitstamp.net/api/ticker/")
 }
 
+func TestJobSpecsController_Create_CustomName(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	fixtureBytes := cltest.MustReadFile(t, "testdata/hello_world_job.json")
+	jsr := cltest.JSONFromBytes(t, fixtureBytes)
+	jsr, err := jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
+	require.NoError(t, err)
+	requestBody, err := json.Marshal(jsr)
+	require.NoError(t, err)
+
+	t.Run("it creates the job spec with the specified custom name", func(t *testing.T) {
+		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+		// Check Response
+		var j models.JobSpec
+		err = cltest.ParseJSONAPIResponse(t, resp, &j)
+		require.NoError(t, err)
+
+		// Check ORM
+		orm := app.GetStore().ORM
+		j, err = orm.FindJob(j.ID)
+		require.NoError(t, err)
+		assert.Equal(t, j.Name, "CustomJobName")
+	})
+
+	t.Run("it rejects an already taken name", func(t *testing.T) {
+		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
+		defer cleanup()
+		cltest.AssertServerResponse(t, resp, http.StatusConflict)
+	})
+}
+
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 

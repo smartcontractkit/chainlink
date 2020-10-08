@@ -19,6 +19,7 @@ import (
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
 type JobSpecRequest struct {
+	Name       string             `json:"name"`
 	Initiators []InitiatorRequest `json:"initiators"`
 	Tasks      []TaskSpecRequest  `json:"tasks"`
 	StartAt    null.Time          `json:"startAt"`
@@ -86,6 +87,7 @@ func NewJob() JobSpec {
 // JobSpecRequest
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
+	jobSpec.Name = jsr.Name
 	for _, initr := range jsr.Initiators {
 		init := NewInitiatorFromRequest(initr, jobSpec)
 		jobSpec.Initiators = append(jobSpec.Initiators, init)
