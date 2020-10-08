@@ -27,6 +27,7 @@ As a side-effect, we now no longer handle the case where an external wallet used
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
 - At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
+- Add support for a custom job name, must be unique. A default one will be generated if not supplied.
 
 ### Fixed
 
