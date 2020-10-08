@@ -91,7 +91,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		case *pq.Error:
 			var apiErr error
 			if err.Constraint == "job_specs_name_key" {
-				apiErr = fmt.Errorf("Job Spec name '%s' already taken", js.Name)
+				apiErr = fmt.Errorf("name '%s' already taken", js.Name)
 			} else {
 				apiErr = err
 			}
