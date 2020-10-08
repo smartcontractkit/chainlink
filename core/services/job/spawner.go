@@ -202,7 +202,7 @@ func (js *spawner) stopAllServices() {
 
 func (js *spawner) stopService(jobID int32) {
 	for _, service := range js.services[jobID] {
-		err := service.Stop()
+		err := service.Close()
 		if err != nil {
 			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err)
 		} else {
