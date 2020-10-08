@@ -83,7 +83,7 @@ func (rt RendererTable) Render(v interface{}) error {
 }
 
 func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Created At", "Initiators", "Tasks"})
+	table := rt.newTable([]string{"ID", "Name", "Created At", "Initiators", "Tasks"})
 	for _, v := range jobs {
 		table.Append(jobRowToStrings(v))
 	}
@@ -149,6 +149,7 @@ func jobRowToStrings(job models.JobSpec) []string {
 	p := presenters.JobSpec{JobSpec: job}
 	return []string{
 		p.ID.String(),
+		p.Name,
 		p.FriendlyCreatedAt(),
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
@@ -217,9 +218,10 @@ func (rt RendererTable) renderJobRun(run presenters.JobRun) error {
 }
 
 func (rt RendererTable) renderJobSingles(j presenters.JobSpec) error {
-	table := rt.newTable([]string{"ID", "Created At", "Start At", "End At", "Min Payment"})
+	table := rt.newTable([]string{"ID", "Name", "Created At", "Start At", "End At", "Min Payment"})
 	table.Append([]string{
 		j.ID.String(),
+		j.Name,
 		j.FriendlyCreatedAt(),
 		j.FriendlyStartAt(),
 		j.FriendlyEndAt(),
