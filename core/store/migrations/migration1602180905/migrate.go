@@ -3,11 +3,12 @@ package migration1602180905
 import "github.com/jinzhu/gorm"
 
 const up = `
-ALTER TABLE job_specs
-ADD COLUMN name VARCHAR(255) UNIQUE;
+ALTER TABLE job_specs ADD COLUMN name VARCHAR(255);
+CREATE UNIQUE INDEX job_specs_name_index on job_specs (LOWER(name));
 `
 
 const down = `
+DROP INDEX job_specs_name_index;
 ALTER TABLE job_specs REMOVE FIELD name;
 `
 
