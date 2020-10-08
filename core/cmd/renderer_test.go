@@ -36,7 +36,6 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 	jobs := []models.JobSpec{job}
 	assert.NoError(t, r.Render(&jobs))
 
-	fmt.Println(buffer)
 	output := buffer.String()
 	assert.Regexp(t, regexp.MustCompile("Job[a-f0-9]{32}"), output)
 	assert.Contains(t, output, "noop")
