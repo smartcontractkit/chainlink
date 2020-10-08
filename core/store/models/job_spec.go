@@ -87,7 +87,9 @@ func NewJob() JobSpec {
 // JobSpecRequest
 func NewJobFromRequest(jsr JobSpecRequest) JobSpec {
 	jobSpec := NewJob()
-	jobSpec.Name = jsr.Name
+	if jsr.Name != "" {
+		jobSpec.Name = jsr.Name
+	}
 	for _, initr := range jsr.Initiators {
 		init := NewInitiatorFromRequest(initr, jobSpec)
 		jobSpec.Initiators = append(jobSpec.Initiators, init)
