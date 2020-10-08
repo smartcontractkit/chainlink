@@ -466,3 +466,12 @@ func TestBoundedPriorityQueue(t *testing.T) {
 	iface = q.Take()
 	require.Nil(t, iface)
 }
+
+func TestEVMBytesToUint64(t *testing.T) {
+	require.Equal(t, uint64(257), utils.EVMBytesToUint64([]byte{0x01, 0x01}))
+	require.Equal(t, uint64(257), utils.EVMBytesToUint64([]byte{0x00, 0x00, 0x01, 0x01}))
+	require.Equal(t, uint64(299140445700113), utils.EVMBytesToUint64([]byte{0x00, 0x01, 0x10, 0x11, 0x10, 0x01, 0x00, 0x11}))
+
+	// overflows without erroring
+	require.Equal(t, uint64(17), utils.EVMBytesToUint64([]byte{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11}))
+}

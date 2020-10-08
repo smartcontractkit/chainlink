@@ -745,3 +745,11 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 	}
 	t.timer = time.NewTimer(duration)
 }
+
+func EVMBytesToUint64(buf []byte) uint64 {
+	var result uint64
+	for _, b := range buf {
+		result = result<<8 + uint64(b)
+	}
+	return result
+}
