@@ -87,10 +87,10 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		return
 	}
 	if err := jsc.App.AddJob(js); err != nil {
-		switch err.(type) {
+		switch err := err.(type) {
 		case *pq.Error:
 			var apiErr error
-			if err.(*pq.Error).Constraint == "job_specs_name_key" {
+			if err.Constraint == "job_specs_name_key" {
 				apiErr = fmt.Errorf("Job Spec name '%s' already taken", js.Name)
 			} else {
 				apiErr = err
