@@ -261,6 +261,11 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 	})
 
 	t.Run("it rejects an already taken name", func(t *testing.T) {
+		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
+		require.NoError(t, err)
+		requestBody, err = json.Marshal(jsr)
+		require.NoError(t, err)
+
 		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusConflict)
