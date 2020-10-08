@@ -239,12 +239,12 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 	})
 
 	t.Run("it replaces a blank name with a generated one", func(t *testing.T) {
-		jsr, err := jsr.MultiAdd(map[string]interface{}{"name": ""})
+		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": ""})
 		require.NoError(t, err)
-		requestBody, err := json.Marshal(jsr)
+		requestBody, err = json.Marshal(jsr)
 		require.NoError(t, err)
 
-		client := app.NewHTTPClient()
+		client = app.NewHTTPClient()
 		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
 		defer cleanup()
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
