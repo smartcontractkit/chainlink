@@ -58,7 +58,7 @@ func (cli *Client) createP2PKey(c *clipkg.Context) error {
 func (cli *Client) listP2PKeys(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	keys, err := store.FindEncryptedP2PKeys()
+	keys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
 	if err != nil {
 		return errors.Wrapf(err, "while fetching encrypted OCR key bundles")
 	}
@@ -99,14 +99,14 @@ func (cli *Client) deleteP2PKey(c *clipkg.Context) error {
 	cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 
-	key, err := store.FindEncryptedP2PKeyByID(int32(id))
+	key, err := store.OCRKeyStore.FindEncryptedP2PKeyByID(int32(id))
 	if gorm.IsRecordNotFoundError(err) {
 		return errors.New("Unable to find the P2P key with the provided ID")
 	} else if err != nil {
 		return errors.Wrapf(err, "while fetching the P2P key")
 	}
 
-	err = store.DeleteEncryptedP2PKey(key)
+	err = store.OCRKeyStore.DeleteEncryptedP2PKey(key)
 	if err != nil {
 		return errors.Wrapf(err, "while deleting the P2P key")
 	}
