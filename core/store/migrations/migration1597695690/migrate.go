@@ -108,6 +108,13 @@ func Migrate(tx *gorm.DB) error {
         CREATE INDEX idx_offchainreporting_oracle_specs_created_at ON offchainreporting_oracle_specs USING BRIN (created_at);
         CREATE INDEX idx_offchainreporting_oracle_specs_updated_at ON offchainreporting_oracle_specs USING BRIN (updated_at);
 
+        ALTER TABLE offchainreporting_persistent_states DROP CONSTRAINT offchainreporting_persistent__offchainreporting_oracle_spe_fkey;
+        ALTER TABLE offchainreporting_persistent_states ADD CONSTRAINT offchainreporting_persistent__offchainreporting_oracle_spe_fkey FOREIGN KEY (offchainreporting_oracle_spec_id) REFERENCES offchainreporting_oracle_specs (id) ON DELETE CASCADE;
+        ALTER TABLE offchainreporting_contract_configs DROP CONSTRAINT offchainreporting_contract_co_offchainreporting_oracle_spe_fkey;
+        ALTER TABLE offchainreporting_contract_configs ADD CONSTRAINT offchainreporting_contract_co_offchainreporting_oracle_spe_fkey FOREIGN KEY (offchainreporting_oracle_spec_id) REFERENCES offchainreporting_oracle_specs (id) ON DELETE CASCADE;
+        ALTER TABLE offchainreporting_pending_transmissions DROP CONSTRAINT offchainreporting_pending_tra_offchainreporting_oracle_spe_fkey;
+        ALTER TABLE offchainreporting_pending_transmissions ADD CONSTRAINT offchainreporting_pending_tra_offchainreporting_oracle_spe_fkey FOREIGN KEY (offchainreporting_oracle_spec_id) REFERENCES offchainreporting_oracle_specs (id) ON DELETE CASCADE;
+
 		--
 		-- Jobs
 		--
