@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -85,10 +84,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 	concreteSpec := spec.(*OracleSpec)
 
 	// FIXME: Use proper values
-	fromAddress := common.Address{}
-	gasLimit := uint64(0)
+	gasLimit := uint64(500000)
 
-	transmitter := NewTransmitter(d.db.DB(), fromAddress, gasLimit)
+	transmitter := NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), gasLimit)
 
 	ocrContract, err := NewOCRContract(
 		concreteSpec.ContractAddress.Address(),
@@ -137,38 +135,56 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, err
 	}
 
-	oracle, err := ocr.NewOracle(ocr.OracleArgs{
-		LocalConfig: ocrtypes.LocalConfig{
-			BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
-			ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
-			ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
-			ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
-			ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
-			DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
-			DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
-		},
-		Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-		Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
-		ContractTransmitter:          ocrContract,
-		ContractConfigTracker:        ocrContract,
-		PrivateKeys:                  &ocrkey,
-		BinaryNetworkEndpointFactory: peer,
-		MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
-		Logger:                       ocrLogger,
-		Bootstrappers:                concreteSpec.P2PBootstrapPeers,
-	})
-	if err != nil {
-		return nil, err
-	}
+	var service job.Service
+	if concreteSpec.IsBootstrapPeer {
+		service, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
+			BootstrapperFactory:   peer,
+			Bootstrappers:         concreteSpec.P2PBootstrapPeers,
+			ContractConfigTracker: ocrContract,
+			Database:              NewDB(d.db.DB(), concreteSpec.ID),
+			LocalConfig: ocrtypes.LocalConfig{
+				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
+				ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
+				ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
+				ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
+				ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
+				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
+				DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
+			},
+			Logger: ocrLogger,
+		})
+		if err != nil {
+			return nil, err
+		}
 
-	service := oracleService{oracle}
+	} else {
+		service, err = ocr.NewOracle(ocr.OracleArgs{
+			LocalConfig: ocrtypes.LocalConfig{
+				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
+				ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
+				ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
+				ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
+				ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
+				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
+				DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
+			},
+			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
+			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+			ContractTransmitter:          ocrContract,
+			ContractConfigTracker:        ocrContract,
+			PrivateKeys:                  &ocrkey,
+			BinaryNetworkEndpointFactory: peer,
+			MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
+			Logger:                       ocrLogger,
+			Bootstrappers:                concreteSpec.P2PBootstrapPeers,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return []job.Service{service}, nil
 }
-
-type oracleService struct{ *ocr.Oracle }
-
-func (o oracleService) Stop() error { return o.Oracle.Close() }
 
 // dataSource is an abstraction over the process of initiating a pipeline run
 // and capturing the result.  Additionally, it converts the result to an

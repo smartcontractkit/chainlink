@@ -21,7 +21,7 @@ type (
 
 	Service interface {
 		Start() error
-		Stop() error
+		Close() error
 	}
 
 	Config interface {
