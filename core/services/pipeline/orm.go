@@ -128,17 +128,18 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
 
 	// TODO: Add some sort of maximum execution time bound to tasks. We MUST avoid accidentally holding transactions open forever since this can be disastrous.
 
-	err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
-		var predecessors []TaskRun
+	for {
+		err = utils.GormTransaction(o.db, func(tx *gorm.DB) (err error) {
+			var predecessors []TaskRun
 
-		// NOTE: Manual loads below can probably be replaced with Joins in
-		// gormv2.
-		//
-		// Further optimisations (condensing into fewer queries) are
-		// probably possible if this turns out to be a hot path
+			// NOTE: Manual loads below can probably be replaced with Joins in
+			// gormv2.
+			//
+			// Further optimisations (condensing into fewer queries) are
+			// probably possible if this turns out to be a hot path
 
-		// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
-		err = tx.Raw(`
+			// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
+			err = tx.Raw(`
             SELECT * from pipeline_task_runs WHERE id IN (
                 SELECT pipeline_task_runs.id FROM pipeline_task_runs
                     INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
@@ -156,91 +157,98 @@ func (o *orm) ProcessNextUnclaimedTaskRun(fn func(jobID int32, ptRun TaskRun, pr
             LIMIT 1
             FOR UPDATE OF pipeline_task_runs SKIP LOCKED;
         `).Scan(&ptRun).Error
-		if gorm.IsRecordNotFoundError(err) {
-			done = true
-			return nil
-		} else if err != nil {
-			return errors.Wrap(err, "error finding next task run")
-		}
+			if gorm.IsRecordNotFoundError(err) {
+				err = nil
+				done = true
+				return nil
+			} else if err != nil {
+				return errors.Wrap(err, "error finding next task run")
+			}
 
-		// Load the TaskSpec
-		if err := tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
-			return errors.Wrap(err, "error finding next task run's spec")
-		}
+			// Load the TaskSpec
+			if err := tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
+				return errors.Wrap(err, "error finding next task run's spec")
+			}
 
-		// Load the PipelineRun
-		if err := tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
-			return errors.Wrap(err, "error finding next task run's pipeline.Run")
-		}
+			// Load the PipelineRun
+			if err := tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
+				return errors.Wrap(err, "error finding next task run's pipeline.Run")
+			}
 
-		// Find all the predecessor task runs
-		err = tx.
-			Preload("PipelineTaskSpec").
-			Raw(`
+			// Find all the predecessor task runs
+			err = tx.
+				Preload("PipelineTaskSpec").
+				Raw(`
                 SELECT pipeline_task_runs.* FROM pipeline_task_runs
                 INNER JOIN pipeline_task_specs AS specs_right ON specs_right.id = pipeline_task_runs.pipeline_task_spec_id
                 LEFT JOIN pipeline_task_specs AS specs_left ON specs_left.id = specs_right.successor_id
                 LEFT JOIN pipeline_task_runs AS successors ON successors.pipeline_task_spec_id = specs_left.id
                       AND successors.pipeline_run_id = pipeline_task_runs.pipeline_run_id
                 WHERE successors.id = ?`,
-				ptRun.ID).
-			Find(&predecessors).Error
-		if err != nil {
-			return errors.Wrap(err, "error finding task run predecessors")
-		}
+					ptRun.ID).
+				Find(&predecessors).Error
+			if err != nil {
+				return errors.Wrap(err, "error finding task run predecessors")
+			}
 
-		// Get the job ID
-		var job struct{ ID int32 }
-		err = tx.Raw(`
+			// Get the job ID
+			var job struct{ ID int32 }
+			err = tx.Raw(`
             SELECT jobs.id FROM pipeline_task_runs
             INNER JOIN pipeline_task_specs ON pipeline_task_specs.id = pipeline_task_runs.pipeline_task_spec_id
             INNER JOIN jobs ON jobs.pipeline_spec_id = pipeline_task_specs.pipeline_spec_id
             WHERE pipeline_task_runs.id = ?
 			LIMIT 1
         `, ptRun.ID).Scan(&job).Error
-		// TODO: Needs test, what happens if it can't find the job?!
-		if err != nil {
-			return errors.Wrap(err, "error finding job ID")
-		}
+			// TODO: Needs test, what happens if it can't find the job?!
+			if err != nil {
+				return errors.Wrap(err, "error finding job ID")
+			}
 
-		// Call the callback
-		result := fn(job.ID, ptRun, predecessors)
+			// Call the callback
+			result := fn(job.ID, ptRun, predecessors)
 
-		// Update the task run record with the output and error
-		var out interface{}
-		var errString null.String
-		if result.Value != nil {
-			out = &JSONSerializable{Val: result.Value}
-		} else if result.Error != nil {
-			logger.Errorw("Error in pipeline task", "error", result.Error)
-			errString = null.StringFrom(result.Error.Error())
-		}
-		err = tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error
-		if err != nil {
-			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
-		}
+			// Update the task run record with the output and error
+			var out interface{}
+			var errString null.String
+			if result.Value != nil {
+				out = &JSONSerializable{Val: result.Value}
+			} else if result.Error != nil {
+				logger.Errorw("Error in pipeline task", "error", result.Error)
+				errString = null.StringFrom(result.Error.Error())
+			}
+			err = tx.Exec(`UPDATE pipeline_task_runs SET output = ?, error = ?, finished_at = ? WHERE id = ?`, out, errString, time.Now(), ptRun.ID).Error
+			if err != nil {
+				return errors.Wrap(err, "could not mark pipeline_task_run as finished")
+			}
 
-		// NOTE: maybeCompletePipelineRun will most likely cause serialization
-		// anomalies if multiple nodes are simultaneously processing the same
-		// pipeline run, where the pipeline run has more than one terminal
-		// task.
-		//
-		// I believe given how the locking is currently set up, that the
-		// maximum number of serialization anomalies that can occur for a
-		// particular pipeline run is N where N is max(nodes, terminal task
-		// runs)-1, but I could be wrong.
-		//
-		// This is rather difficult to reason about so we ought to track/log
-		// serialization anomalies in practice since it could potentially
-		// result in some nasty lock contention. If this becomes a problem, we
-		// may need to rethink the design and lock around the pipeline run
-		// rather than pipeline task runs.
-		//
-		// In case of a serialization anomaly, the safest thing to do is return
-		// no error and a not done job. Another node will pick it up
-		// immediately and it ought to work the next time around.
-		return o.maybeCompletePipelineRun(ptRun.PipelineRunID)
-	}, sql.TxOptions{Isolation: sql.LevelSerializable})
+			// NOTE: maybeCompletePipelineRun will most likely cause serialization
+			// anomalies if multiple nodes are simultaneously processing the same
+			// pipeline run, where the pipeline run has more than one terminal
+			// task.
+			//
+			// I believe given how the locking is currently set up, that the
+			// maximum number of serialization anomalies that can occur for a
+			// particular pipeline run is N where N is max(nodes, terminal task
+			// runs)-1, but I could be wrong.
+			//
+			// This is rather difficult to reason about so we ought to track/log
+			// serialization anomalies in practice since it could potentially
+			// result in some nasty lock contention. If this becomes a problem, we
+			// may need to rethink the design and lock around the pipeline run
+			// rather than pipeline task runs.
+			//
+			// In case of a serialization anomaly, the safest thing to do is return
+			// no error and a not done job. Another node will pick it up
+			// immediately and it ought to work the next time around.
+			return o.maybeCompletePipelineRun(ptRun.PipelineRunID)
+		}, sql.TxOptions{Isolation: sql.LevelSerializable})
+		if err == nil {
+			break
+		} else {
+			logger.Warn(err)
+		}
+	}
 
 	// TODO: Handle case where err is a serialization anomaly here
 	// TODO(spook): Add constraint that all pipeline runs must have exactly one

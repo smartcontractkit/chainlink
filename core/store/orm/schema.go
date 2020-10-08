@@ -78,7 +78,7 @@ type ConfigSchema struct {
 	OCRIncomingMessageBufferSize          int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCROutgoingMessageBufferSize          int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout                   time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
-	OCRDHTLookupInterval                  int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10s"`
+	OCRDHTLookupInterval                  int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
 	OperatorContractAddress               common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	Port                                  uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                      models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
