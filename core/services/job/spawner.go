@@ -15,9 +15,6 @@ import (
 //go:generate mockery --name Spawner --output ./mocks/ --case=underscore
 //go:generate mockery --name Delegate --output ./mocks/ --case=underscore
 
-//go:generate mockery --name Spawner --output ./mocks/ --case=underscore
-//go:generate mockery --name Delegate --output ./mocks/ --case=underscore
-
 type (
 	// The job spawner manages the spinning up and spinning down of the long-running
 	// services that perform the work described by job specs.  Each active job spec
@@ -30,7 +27,7 @@ type (
 	Spawner interface {
 		Start()
 		Stop()
-		CreateJob(spec Spec) (int32, error)
+		CreateJob(ctx context.Context, spec Spec) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		RegisterDelegate(delegate Delegate)
 	}
@@ -147,7 +144,7 @@ func (js *spawner) runLoop() {
 }
 
 func (js *spawner) startUnclaimedServices() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := utils.CombinedContext(js.chStop, 5*time.Second)
 	defer cancel()
 
 	specDBRows, err := js.orm.ClaimUnclaimedJobs(ctx)
@@ -212,7 +209,7 @@ func (js *spawner) stopService(jobID int32) {
 	delete(js.services, jobID)
 }
 
-func (js *spawner) CreateJob(spec Spec) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Spec) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 
@@ -222,8 +219,11 @@ func (js *spawner) CreateJob(spec Spec) (int32, error) {
 		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
 	}
 
+	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
+	defer cancel()
+
 	specDBRow := delegate.ToDBRow(spec)
-	err := js.orm.CreateJob(&specDBRow, spec.TaskDAG())
+	err := js.orm.CreateJob(ctx, &specDBRow, spec.TaskDAG())
 	if err != nil {
 		logger.Errorw("Error creating job", "type", spec.JobType(), "error", err)
 		return 0, err
@@ -237,6 +237,10 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 	if jobID == 0 {
 		return errors.New("will not delete job with 0 ID")
 	}
+
+	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
+	defer cancel()
+
 	err := js.orm.DeleteJob(ctx, jobID)
 	if err != nil {
 		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)

@@ -144,7 +144,7 @@ func (jsc *JobSpecsController) CreateV2(c *gin.Context) {
 		jsonAPIError(c, httpStatus, err)
 		return
 	}
-	jobID, err := jsc.App.AddJobV2(js)
+	jobID, err := jsc.App.AddJobV2(c.Request.Context(), js)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

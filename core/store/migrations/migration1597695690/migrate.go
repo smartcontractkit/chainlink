@@ -38,6 +38,7 @@ func Migrate(tx *gorm.DB) error {
         CREATE INDEX idx_pipeline_task_specs_pipeline_spec_id ON pipeline_task_specs (pipeline_spec_id);
         CREATE INDEX idx_pipeline_task_specs_successor_id ON pipeline_task_specs (successor_id);
         CREATE INDEX idx_pipeline_task_specs_created_at ON pipeline_task_specs USING BRIN (created_at);
+        CREATE UNIQUE INDEX idx_pipeline_task_specs_single_output ON pipeline_task_specs(pipeline_spec_id) WHERE successor_id IS NULL;
 
 		--
 		-- Pipeline Runs
@@ -46,7 +47,6 @@ func Migrate(tx *gorm.DB) error {
         CREATE TABLE pipeline_runs (
             id BIGSERIAL PRIMARY KEY,
             pipeline_spec_id INT NOT NULL REFERENCES pipeline_specs (id) ON DELETE CASCADE,
-			-- FIXME: I propose to leave meta out of it for the purposes of cutting scope on this PR
             meta jsonb NOT NULL DEFAULT '{}',
             created_at timestamptz NOT NULL
         );
@@ -61,6 +61,7 @@ func Migrate(tx *gorm.DB) error {
         CREATE TABLE pipeline_task_runs (
             id BIGSERIAL PRIMARY KEY,
             pipeline_run_id BIGINT NOT NULL REFERENCES pipeline_runs (id) ON DELETE CASCADE,
+            index INT NOT NULL DEFAULT 0,
             output JSONB,
             error TEXT,
             pipeline_task_spec_id INT NOT NULL REFERENCES pipeline_task_specs (id) ON DELETE CASCADE,

@@ -188,6 +188,14 @@ func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err error) {
+	was, err := lb.WasAlreadyConsumed()
+	if err != nil {
+		sub.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		return
+	} else if was {
+		return
+	}
+
 	topics := lb.RawLog().Topics
 	if len(topics) == 0 {
 		return
@@ -214,6 +222,12 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err err
 			sub.logger.Error("OCRContractConfigSubscription HandleLog timed out waiting on receive channel")
 		}
 	default:
+	}
+
+	err = lb.MarkConsumed()
+	if err != nil {
+		sub.logger.Errorw("OCRContract: could not mark log consumed", "error", err)
+		return
 	}
 }
 

@@ -20,14 +20,14 @@ import (
 type ORM interface {
 	ListenForNewJobs() (*utils.PostgresEventListener, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
-	CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
+	CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
 	Close() error
 }
 
 type orm struct {
 	db            *gorm.DB
-	uri           string
+	config        Config
 	advisoryLock  *utils.PostgresAdvisoryLock
 	pipelineORM   pipeline.ORM
 	claimedJobs   []models.JobSpecV2
@@ -39,7 +39,7 @@ var _ ORM = (*orm)(nil)
 func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM) *orm {
 	return &orm{
 		db:            db,
-		uri:           config.DatabaseURL(),
+		config:        config,
 		advisoryLock:  utils.NewPostgresAdvisoryLock(config.DatabaseURL()),
 		pipelineORM:   pipelineORM,
 		claimedJobs:   make([]models.JobSpecV2, 0),
@@ -57,7 +57,7 @@ const (
 
 func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
 	listener := &utils.PostgresEventListener{
-		URI:                  o.uri,
+		URI:                  o.config.DatabaseURL(),
 		Event:                postgresChannelJobCreated,
 		MinReconnectInterval: 1 * time.Second,
 		MaxReconnectDuration: 1 * time.Minute,
@@ -114,12 +114,16 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
-func (o *orm) CreateJob(jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
+func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
 	if taskDAG.HasCycles() {
 		return errors.New("task DAG has cycles, which are not permitted")
 	}
-	return utils.GormTransaction(o.db, func(tx *gorm.DB) error {
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(taskDAG)
+
+	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	defer cancel()
+
+	return utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
@@ -136,25 +140,43 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
-	for i, job := range o.claimedJobs {
-		if job.ID == id {
-			if _, err := o.db.DB().ExecContext(ctx, `
-                WITH deleted_jobs AS (
-                	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
-                )
-                DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
-			`, id); err != nil {
-				return errors.Wrap(err, "DeleteJob failed to delete job")
-			}
-			if err := o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id); err != nil {
-				return errors.Wrap(err, "DeleteJob failed to unlock job")
-			}
-			// Delete the current job from the claimedJobs list
-			o.claimedJobs[i] = o.claimedJobs[len(o.claimedJobs)-1] // Copy last element to current position
-			o.claimedJobs = o.claimedJobs[:len(o.claimedJobs)-1]   // Truncate slice.
-			return nil
+	idx := -1
+	for i, j := range o.claimedJobs {
+		if j.ID == id {
+			idx = i
+			break
 		}
 	}
+	if idx < 0 {
+		return errors.New("cannot delete job that is not claimed by this orm")
+	}
 
-	return errors.New("cannot delete job that is not claimed by this orm")
+	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	defer cancel()
+
+	return utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		err := tx.Exec(`
+            WITH deleted_jobs AS (
+            	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
+            )
+            DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+    	`, id).Error
+		if err != nil {
+			return errors.Wrap(err, "DeleteJob failed to delete job")
+		}
+
+		err = tx.Exec(`DELETE FROM pipeline_specs WHERE id = ?`, o.claimedJobs[idx].PipelineSpecID).Error
+		if err != nil {
+			return errors.Wrap(err, "DeleteJob failed to delete pipeline spec")
+		}
+
+		err = o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
+		if err != nil {
+			return errors.Wrap(err, "DeleteJob failed to unlock job")
+		}
+		// Delete the current job from the claimedJobs list
+		o.claimedJobs[idx] = o.claimedJobs[len(o.claimedJobs)-1] // Copy last element to current position
+		o.claimedJobs = o.claimedJobs[:len(o.claimedJobs)-1]     // Truncate slice.
+		return nil
+	})
 }
