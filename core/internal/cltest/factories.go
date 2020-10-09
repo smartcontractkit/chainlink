@@ -678,6 +678,14 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 	return key
 }
 
+func MustIDFromString(t *testing.T, input string) *models.ID {
+	t.Helper()
+
+	id, err := models.NewIDFromString(input)
+	require.NoError(t, err)
+	return id
+}
+
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {
 	var address common.Address
 	if len(fromAddress) > 0 {
