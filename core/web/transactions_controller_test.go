@@ -24,11 +24,6 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
@@ -67,10 +62,6 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -88,7 +79,6 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	ethMock := app.EthMock
 	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
 		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
-		ethMock.Register("eth_getTransactionCount", "0x100")
 	})
 
 	require.NoError(t, app.Start())
@@ -143,11 +133,6 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()

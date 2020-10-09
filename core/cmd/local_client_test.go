@@ -373,7 +373,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = orm.DialectPostgres
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 	defer connectedCleanup()
 
@@ -514,7 +513,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
+func TestClient_RebroadcastTransactions_OutsideRange_LegacyTxManager(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -538,8 +537,12 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+			store, strCleanup := cltest.NewStoreWithConfig(config)
+			defer strCleanup()
+
 			account, err := store.KeyStore.NewAccount(cltest.Password)
 			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
@@ -576,6 +579,66 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 
 			app.AssertExpectations(t)
 			txManager.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	c := cli.NewContext(nil, set, nil)
+
+	tests := []struct {
+		name  string
+		nonce uint
+	}{
+		{"below beginning", beginningNonce - 1},
+		{"above ending", endingNonce + 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+			account, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Stop").Return(nil)
+
+			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+			client := cmd.Client{
+				Config:                 store.Config,
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator:  auth,
+				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				Runner:                 cltest.EmptyRunner{},
+			}
+
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
+			j := cltest.NewJobWithWebInitiator()
+			require.NoError(t, store.CreateJob(&j))
+			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
+			tx.SurrogateID = null.StringFrom(jr.ID.String())
+			require.NoError(t, store.SaveTx(tx))
+
+			assert.NoError(t, client.RebroadcastTransactions(c))
+
+			jr = cltest.FindJobRun(t, store, jr.ID)
+			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
+
+			app.AssertExpectations(t)
 		})
 	}
 }
