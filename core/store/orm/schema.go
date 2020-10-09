@@ -27,7 +27,7 @@ type ConfigSchema struct {
 	EnableExperimentalAdapters       bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
 	EnableBulletproofTxManager       bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"false"`
 	FeatureExternalInitiators        bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	FeatureFluxMonitor               bool            `env:"FEATURE_FLUX_MONITOR" default:"false"`
+	FeatureFluxMonitor               bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	MaximumServiceDuration           models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration           models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold              uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
@@ -48,7 +48,7 @@ type ConfigSchema struct {
 	GasUpdaterBlockDelay             uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize       uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile  uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
-	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
+	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
 	JSONConsole                      bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                      *url.URL        `env:"EXPLORER_URL"`
