@@ -256,6 +256,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
@@ -417,6 +418,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()

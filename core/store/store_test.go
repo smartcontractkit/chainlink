@@ -20,9 +20,19 @@ import (
 
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	assert.NoError(t, store.Start())
+}
+
+func TestStore_LegacyTxManager_Start(t *testing.T) {
+	t.Parallel()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, storeCleanup := cltest.NewStoreWithConfig(config)
+	defer storeCleanup()
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
@@ -147,7 +157,6 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_getTransactionCount", "0x1")
 		meth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	require.NoError(t, app.StartAndConnect())
