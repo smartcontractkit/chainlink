@@ -153,6 +153,7 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize      uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                      string          `json:"ethUrl"`
+	EthereumSecondaryURL             string          `json:"ethSecondaryURL"`
 	ExplorerURL                      string          `json:"explorerUrl"`
 	FeatureExternalInitiators        bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor               bool            `json:"featureFluxMonitor"`
@@ -225,6 +226,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:      config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
 			EthereumURL:                      config.EthereumURL(),
+			EthereumSecondaryURL:             config.EthereumSecondaryURL(),
 			ExplorerURL:                      explorerURL,
 			FeatureExternalInitiators:        config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:               config.FeatureFluxMonitor(),
