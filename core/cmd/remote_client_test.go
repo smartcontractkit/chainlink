@@ -723,7 +723,6 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "true")
 	defer cleanup()
 	app, cleanup := setupWithdrawalsApplication(t, config)
 	defer cleanup()
