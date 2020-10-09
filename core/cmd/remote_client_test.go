@@ -908,8 +908,6 @@ func TestClient_CreateExtraKey(t *testing.T) {
 	kst.On("Unlock", cltest.Password).Return(nil)
 	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
 	assert.NoError(t, client.CreateExtraKey(c))
-
-	kst.AssertExpectations(t)
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
@@ -919,7 +917,6 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	defer cleanup()
 	app, cleanup := setupWithdrawalsApplication(t, config)
 	defer cleanup()
-	app.EthMock.Register("eth_getTransactionCount", "0x100")
 	require.NoError(t, app.StartAndConnect())
 
 	client, _ := app.NewClientAndRenderer()
@@ -928,7 +925,6 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 
-	// app.EthMock.Register("eth_call", "0xDE0B6B3A7640000")
 	assert.NoError(t, client.SetMinimumGasPrice(c))
 	assert.Equal(t, big.NewInt(8616460799), app.Store.Config.EthGasPriceDefault())
 

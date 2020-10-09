@@ -25,19 +25,16 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-
 	client := app.NewHTTPClient()
-
 	require.NoError(t, app.StartAndConnect())
+
+	sendKeys, err := app.GetStore().SendKeys()
+	from := common.HexToAddress(string(sendKeys[0].Address))
+	require.NoError(t, err)
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        app.Store.TxManager.NextActiveAccount().Address,
+		FromAddress:        from,
 		Amount:             *assets.NewEth(100),
 	}
 
@@ -51,7 +48,9 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	ethMock.AllCalled()
+	count, err := app.GetStore().CountOf(models.EthTx{})
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
 }
 
 func TestTransfersController_TransferError(t *testing.T) {
@@ -64,19 +63,13 @@ func TestTransfersController_TransferError(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-		ethMock.RegisterError("eth_sendRawTransaction", "No dice")
-	})
-
 	client := app.NewHTTPClient()
 
 	assert.NoError(t, app.StartAndConnect())
 
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
-		FromAddress:        app.Store.TxManager.NextActiveAccount().Address,
+		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Amount:             *assets.NewEth(100),
 	}
 
@@ -87,8 +80,6 @@ func TestTransfersController_TransferError(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
-
-	ethMock.AllCalled()
 }
 
 func TestTransfersController_JSONBindingError(t *testing.T) {
@@ -100,20 +91,10 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	client := app.NewHTTPClient()
-
 	assert.NoError(t, app.StartAndConnect())
-
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
-
-	ethMock.AllCalled()
 }

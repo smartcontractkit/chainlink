@@ -123,7 +123,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			ethMock := app.EthMock
 			logs := make(chan models.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
-				meth.Register("eth_getTransactionCount", "0x1")
 				meth.RegisterSubscription("logs", logs)
 			})
 			assert.NoError(t, app.StartAndConnect())

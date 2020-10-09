@@ -782,7 +782,10 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 
 func TestORM_GetLastNonce_Valid(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBalance,
 	)
