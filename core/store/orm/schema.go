@@ -23,6 +23,7 @@ type ConfigSchema struct {
 	ClientNodeURL                         string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
 	DatabaseTimeout                       models.Duration `env:"DATABASE_TIMEOUT" default:"500ms"`
 	DatabaseURL                           string          `env:"DATABASE_URL"`
+	DatabaseMaximumTxDuration             time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DefaultHTTPLimit                      int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout                    models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                                   bool            `env:"CHAINLINK_DEV" default:"false"`
@@ -53,6 +54,7 @@ type ConfigSchema struct {
 	GasUpdaterTransactionPercentile       uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                     bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
 	JobPipelineDBPollInterval             time.Duration   `env:"JOB_PIPELINE_DB_POLL_INTERVAL" default:"10s"`
+	JobPipelineMaxTaskDuration            time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"10m"`
 	JobPipelineParallelism                uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
 	JSONConsole                           bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress                   string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`

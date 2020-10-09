@@ -197,7 +197,7 @@ type dataSource struct {
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	runID, err := ds.pipelineRunner.CreateRun(ds.jobID, nil)
+	runID, err := ds.pipelineRunner.CreateRun(ctx, ds.jobID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -207,18 +207,14 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		return nil, err
 	}
 
-	results, err := ds.pipelineRunner.ResultsForRun(runID)
+	results, err := ds.pipelineRunner.ResultsForRun(ctx, runID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "pipeline error")
 	} else if len(results) != 1 {
 		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
 	}
-	result := results[0]
-	if result.Error != nil {
-		return nil, errors.Wrapf(result.Error, "pipeline error")
-	}
 
-	asDecimal, err := utils.ToDecimal(result.Value)
+	asDecimal, err := utils.ToDecimal(results[0])
 	if err != nil {
 		return nil, err
 	}

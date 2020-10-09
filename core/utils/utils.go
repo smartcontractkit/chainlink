@@ -1,14 +1,15 @@
-// Package utils is used for the common functions for dealing with
-// conversion to and from hex, bytes, and strings, formatting time.
+// Package utils is used for common functions and tools used across the codebase.
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
 	"runtime"
 	"sort"
 	"strconv"
@@ -232,19 +233,18 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
-func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
+func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	sleeper := NewBackoffSleeper()
 	sleeper.Reset()
 	for {
-		err := fn()
-		if err == nil {
-			return false
+		retry := fn()
+		if !retry {
+			return
 		}
 
-		logger.Errorf("%v: %v", errPrefix, err)
 		select {
-		case <-chCancel:
-			return true
+		case <-ctx.Done():
+			return
 		case <-time.After(sleeper.After()):
 			continue
 		}
@@ -541,6 +541,7 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	}
 }
 
+// WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
 func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	chAwait := make(chan struct{})
 	go func() {
@@ -548,6 +549,61 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 		wg.Wait()
 	}()
 	return chAwait
+}
+
+// ContextFromChan creates a context that finishes when the provided channel
+// receives or is closed.
+func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-chStop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
+// CombinedContext creates a context that finishes when any of the provided
+// signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
+// a `time.Duration` (which is transformed into a `context.WithTimeout`).
+func CombinedContext(signals ...interface{}) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if len(signals) == 0 {
+		return ctx, cancel
+	}
+	signals = append(signals, ctx)
+
+	var cases []reflect.SelectCase
+	for _, signal := range signals {
+		var ch reflect.Value
+
+		switch sig := signal.(type) {
+		case context.Context:
+			ch = reflect.ValueOf(sig.Done())
+		case <-chan struct{}:
+			ch = reflect.ValueOf(sig)
+		case chan struct{}:
+			ch = reflect.ValueOf(sig)
+		case time.Duration:
+			ctxTimeout, _ := context.WithTimeout(ctx, sig)
+			ch = reflect.ValueOf(ctxTimeout.Done())
+		default:
+			logger.Errorf("utils.CombinedContext cannot accept a value of type %T, skipping", sig)
+			continue
+		}
+		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
+		// logger.Warnf("COMBINED CONTEXT ~> (%T) %v", signal, signal)
+	}
+
+	go func() {
+		defer cancel()
+		// defer logger.Warnf("COMBINED CONTEXT EXITING")
+		_, _, _ = reflect.Select(cases)
+	}()
+
+	return ctx, cancel
 }
 
 type DependentAwaiter interface {

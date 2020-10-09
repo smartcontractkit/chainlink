@@ -174,6 +174,10 @@ func (c Config) getDuration(s string) models.Duration {
 	return rv
 }
 
+func (c Config) DatabaseMaximumTxDuration() time.Duration {
+	return c.viper.GetDuration(EnvVarName("DatabaseMaximumTxDuration"))
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return c.getDuration("DatabaseTimeout")
@@ -395,6 +399,10 @@ func (c Config) GasUpdaterEnabled() bool {
 
 func (c Config) JobPipelineDBPollInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+}
+
+func (c Config) JobPipelineMaxTaskDuration() time.Duration {
+	return c.viper.GetDuration(EnvVarName("JobPipelineMaxTaskDuration"))
 }
 
 // JobPipelineParallelism controls how many workers the pipeline.Runner

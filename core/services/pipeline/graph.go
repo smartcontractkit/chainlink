@@ -83,19 +83,7 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 	return tasks, nil
 }
 
-func (g *TaskDAG) inputs() []*taskDAGNode {
-	var inputs []*taskDAGNode
-	iter := g.Nodes()
-	for iter.Next() {
-		node := iter.Node().(*taskDAGNode)
-		if g.To(node.ID()) == graph.Empty {
-			inputs = append(inputs, node)
-		}
-	}
-	return inputs
-}
-
-func (g *TaskDAG) outputs() []*taskDAGNode {
+func (g TaskDAG) outputs() []*taskDAGNode {
 	var outputs []*taskDAGNode
 	iter := g.Nodes()
 	for iter.Next() {
