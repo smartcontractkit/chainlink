@@ -37,13 +37,15 @@ type (
 	}
 
 	Config interface {
+		BridgeResponseURL() *url.URL
+		DatabaseMaximumTxDuration() time.Duration
 		DatabaseURL() string
+		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
-		DefaultHTTPLimit() int64
-		JobPipelineParallelism() uint8
 		JobPipelineDBPollInterval() time.Duration
-		BridgeResponseURL() *url.URL
+		JobPipelineMaxTaskDuration() time.Duration
+		JobPipelineParallelism() uint8
 	}
 )
 
@@ -103,13 +105,15 @@ func (js JSONSerializable) Value() (driver.Value, error) {
 type TaskType string
 
 const (
-	TaskTypeHTTP             TaskType = "http"
-	TaskTypeHTTPUnrestricted TaskType = "httpunrestricted"
-	TaskTypeBridge           TaskType = "bridge"
-	TaskTypeMedian           TaskType = "median"
-	TaskTypeMultiply         TaskType = "multiply"
-	TaskTypeJSONParse        TaskType = "jsonparse"
+	TaskTypeHTTP      TaskType = "http"
+	TaskTypeBridge    TaskType = "bridge"
+	TaskTypeMedian    TaskType = "median"
+	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeJSONParse TaskType = "jsonparse"
+	TaskTypeResult    TaskType = "result"
 )
+
+const ResultTaskDotID = "__result__"
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, orm ORM, config Config) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
@@ -126,8 +130,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	switch taskType {
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
-	case TaskTypeHTTPUnrestricted:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
 		task = &BridgeTask{orm: orm, config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
@@ -136,6 +138,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID}}
+	case TaskTypeResult:
+		task = &ResultTask{BaseTask: BaseTask{dotID: ResultTaskDotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}

@@ -3,7 +3,6 @@ package pipeline
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -70,8 +69,6 @@ func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
 		maybeErr := bestEffortExtractError(responseBytes)
 		return Result{Error: errors.Errorf("got error from %s: (status %s) %s", t.URL.String(), response.Status, maybeErr)}
 	}
-
-	fmt.Println("ASDF ~>", string(responseBytes))
 
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),

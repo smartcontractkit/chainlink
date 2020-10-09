@@ -270,7 +270,7 @@ func TestORM(t *testing.T) {
 					locked     pipeline.TaskRun
 				)
 				go func() {
-					err := utils.GormTransaction(db, func(tx *gorm.DB) error {
+					err := utils.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
 						err := tx.Raw(`
                             SELECT * FROM pipeline_task_runs
                             INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id

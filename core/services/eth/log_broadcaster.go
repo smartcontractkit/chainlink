@@ -13,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/tevino/abool"
 )
 
@@ -250,16 +249,20 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 		return ch, false
 	}
 
-	abort = utils.RetryWithBackoff(b.chStop, "backfilling logs", func() error {
+	ctx, cancel := utils.ContextFromChan(b.chStop)
+	defer cancel()
+
+	utils.RetryWithBackoff(ctx, func() (retry bool) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		latestBlock, err := b.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
-			return err
+			logger.Errorw("LogBroadcaster backfill: could not fetch latest block header", "error", err)
+			return true
 		} else if latestBlock == nil {
 			logger.Warn("got nil block header")
-			return errors.New("got nil block header")
+			return true
 		}
 		currentHeight := uint64(latestBlock.Number)
 
@@ -277,14 +280,20 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 
 		logs, err := b.ethClient.FilterLogs(ctx, q)
 		if err != nil {
-			return err
+			logger.Errorw("LogBroadcaster backfill: could not fetch logs", "error", err)
+			return true
 		}
 
 		chBackfilledLogs = make(chan types.Log)
 		go b.deliverBackfilledLogs(logs, chBackfilledLogs)
-		return nil
-
+		return false
 	})
+	select {
+	case <-b.chStop:
+		abort = true
+	default:
+		abort = false
+	}
 	return
 }
 
@@ -422,7 +431,10 @@ func (b *logBroadcaster) createSubscription() (sub managedSubscription, abort bo
 		return newNoopSubscription(), false
 	}
 
-	abort = utils.RetryWithBackoff(b.chStop, "creating subscription to Ethereum node", func() error {
+	ctx, cancel := utils.ContextFromChan(b.chStop)
+	defer cancel()
+
+	utils.RetryWithBackoff(ctx, func() (retry bool) {
 		filterQuery := ethereum.FilterQuery{
 			Addresses: b.addresses(),
 		}
@@ -432,15 +444,22 @@ func (b *logBroadcaster) createSubscription() (sub managedSubscription, abort bo
 		defer cancel()
 		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
 		if err != nil {
-			return err
+			logger.Errorw("LogBroadcaster could not create subscription to Ethereum node", "error", err)
+			return true
 		}
 
 		sub = managedSubscriptionImpl{
 			subscription: innerSub,
 			chRawLogs:    chRawLogs,
 		}
-		return nil
+		return false
 	})
+	select {
+	case <-b.chStop:
+		abort = true
+	default:
+		abort = false
+	}
 	return
 }
 

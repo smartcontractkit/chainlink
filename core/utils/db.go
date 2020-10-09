@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +14,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+func IsSerializationAnomaly(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(errors.Cause(err).Error(), "could not serialize access due to concurrent update")
+}
+
+func IsRecordNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return gorm.IsRecordNotFoundError(errors.Cause(err))
+}
 
 // PostgresEventListener listens to one type of postgres event as emitted by NOTIFY
 // TODO(sam): Currently each new listener opens a new connection. This is
@@ -127,14 +142,14 @@ var (
 	}
 )
 
-func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
+func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxOptions) (err error) {
 	var txOpts sql.TxOptions
 	if len(txOptss) > 0 {
 		txOpts = txOptss[0]
 	} else {
 		txOpts = DefaultSqlTxOptions
 	}
-	tx := db.BeginTx(context.Background(), &txOpts)
+	tx := db.BeginTx(ctx, &txOpts)
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("%+v", r)
@@ -150,7 +165,7 @@ func GormTransaction(db *gorm.DB, fc func(tx *gorm.DB) error, txOptss ...sql.TxO
 		err = errors.WithStack(tx.Commit().Error)
 	}
 
-	// Makesure rollback when Block error or Commit error
+	// Make sure to rollback in case of a Block error or Commit error
 	if err != nil {
 		tx.Rollback()
 	}
