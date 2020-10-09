@@ -24,16 +24,17 @@ import (
 	"gopkg.in/guregu/null.v3"
 )
 
-func TestTxManager_CreateTx_Success(t *testing.T) {
+func TestLegacyTxManager_CreateTx_Success(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -68,16 +69,17 @@ func TestTxManager_CreateTx_Success(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
+func TestLegacyTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 
 	// Add two accounts
 	_, err := keyStore.NewAccount(cltest.Password)
@@ -138,17 +140,18 @@ func TestTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
+func TestLegacyTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -204,10 +207,11 @@ func TestTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
+func TestLegacyTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	t.Parallel()
 
 	config, configCleanup := cltest.NewConfig(t)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
 	defer configCleanup()
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
@@ -263,7 +267,7 @@ func TestTxManager_CreateTx_AttemptErrorDoesNotIncrementNonce(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
+func TestLegacyTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -279,11 +283,13 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+			store, strCleanup := cltest.NewStore(t)
+			defer strCleanup()
 
 			ethClient := new(mocks.Client)
-			config := cltest.NewTestConfig(t)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 			manager := strpkg.NewEthTxManager(ethClient, config, store.KeyStore, store.ORM)
 			manager.Register(store.KeyStore.Accounts())
@@ -316,16 +322,17 @@ func TestTxManager_CreateTx_NonceTooLowReloadSuccess(t *testing.T) {
 	}
 }
 
-func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
+func TestLegacyTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -349,11 +356,14 @@ func TestTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
+func TestLegacyTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 	manager := store.TxManager
 
 	to := cltest.NewAddress()
@@ -363,18 +373,20 @@ func TestTxManager_CreateTx_ErrPendingConnection(t *testing.T) {
 	assert.Contains(t, err.Error(), strpkg.ErrPendingConnection.Error())
 }
 
-func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	config := store.Config
-
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
@@ -401,17 +413,19 @@ func TestTxManager_BumpGasUntilSafe_lessThanGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	config := store.Config
-
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
@@ -440,18 +454,20 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnderpricedTransaction(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	config.Set("ETH_GAS_BUMP_PERCENT", 10)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	config := store.Config
-	config.Set("ETH_GAS_BUMP_PERCENT", 10)
-
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
@@ -495,18 +511,20 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_bumpsGasMoreInCaseOfUnder
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsReached(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	config.Set("ETH_MAX_GAS_PRICE_WEI", 500000000000)
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	store.Config.Set("ETH_MAX_GAS_PRICE_WEI", 500000000000)
-	config := store.Config
-
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
@@ -541,17 +559,19 @@ func TestTxManager_BumpGasUntilSafe_atGasBumpThreshold_CapsAtMaxIfMaxGasPriceIsR
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	config := store.Config
-
 	txm := store.TxManager
 	from := cltest.GetAccountAddress(t, store)
 	sentAt := uint64(23456)
@@ -580,10 +600,14 @@ func TestTxManager_BumpGasUntilSafe_exceedsGasBumpThreshold(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
@@ -591,9 +615,8 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 		meth.Register("eth_getTransactionCount", "0x1")
 		meth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
-	store := app.Store
-	config := store.Config
 
+	store := app.Store
 	sentAt := uint64(23456)
 	nonce := uint64(234)
 	gasThreshold := int64(sentAt + config.EthGasBumpThreshold())
@@ -625,7 +648,7 @@ func TestTxManager_BumpGasUntilSafe_confirmed(t *testing.T) {
 	app.EthMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -641,7 +664,11 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app, cleanup := cltest.NewApplicationWithKey(t,
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 				cltest.EthMockRegisterGetBalance,
 			)
 			defer cleanup()
@@ -650,7 +677,6 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 				meth.Register("eth_chainId", app.Store.Config.ChainID())
 			})
 			store := app.Store
-			config := store.Config
 
 			gasThreshold := int64(sentAt + config.EthGasBumpThreshold())
 			minConfs := config.MinRequiredOutgoingConfirmations() - 1
@@ -684,10 +710,14 @@ func TestTxManager_BumpGasUntilSafe_safe(t *testing.T) {
 	}
 }
 
-func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
@@ -728,10 +758,11 @@ func TestTxManager_BumpGasUntilSafe_laterConfirmedTx(t *testing.T) {
 	app.EthMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
+func TestLegacyTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
 	defer cleanup()
 
 	sentAt1 := uint64(23456)
@@ -810,17 +841,19 @@ func TestTxManager_BumpGasUntilSafe_erroring(t *testing.T) {
 	}
 }
 
-func TestTxManager_CheckAttempt(t *testing.T) {
+func TestLegacyTxManager_CheckAttempt(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
 	store := app.Store
-	config := store.Config
-
 	ethMock := app.EthMock
 	ethMock.Register("eth_getTransactionCount", "0x0")
 	ethMock.Register("eth_chainId", config.ChainID())
@@ -869,10 +902,14 @@ func TestTxManager_CheckAttempt(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_CheckAttempt_error(t *testing.T) {
+func TestLegacyTxManager_CheckAttempt_error(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
@@ -899,16 +936,19 @@ func TestTxManager_CheckAttempt_error(t *testing.T) {
 	ethMock.EventuallyAllCalled(t)
 }
 
-func TestTxManager_Register(t *testing.T) {
+func TestLegacyTxManager_Register(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
 	txm := strpkg.NewEthTxManager(
 		ethClient,
-		orm.NewConfig(),
+		config,
 		nil,
 		store.ORM,
 	)
@@ -926,16 +966,19 @@ func TestTxManager_Register(t *testing.T) {
 	assert.Equal(t, uint64(0x2d0), aa.Nonce())
 }
 
-func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
+func TestLegacyTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
 	txm := strpkg.NewEthTxManager(
 		ethClient,
-		orm.NewConfig(),
+		config,
 		nil,
 		store.ORM,
 	)
@@ -965,7 +1008,7 @@ func TestTxManager_NextActiveAccount_RoundRobin(t *testing.T) {
 	assert.Equal(t, a0, a2)
 }
 
-func TestTxManager_ReloadNonce(t *testing.T) {
+func TestLegacyTxManager_ReloadNonce(t *testing.T) {
 	t.Parallel()
 
 	ethClient := new(mocks.Client)
@@ -1026,16 +1069,17 @@ func TestManagedAccount_GetAndIncrementNonce_DoesNotIncrementWhenCallbackThrowsE
 	assert.Equal(t, uint64(0), managedAccount.Nonce())
 }
 
-func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
+func TestLegacyTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -1085,17 +1129,20 @@ func TestTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_CreateTxWithGas(t *testing.T) {
+func TestLegacyTxManager_CreateTxWithGas(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-	store := app.Store
-	config := store.Config
-	manager := store.TxManager
 
+	store := app.Store
+	manager := store.TxManager
 	to := cltest.NewAddress()
 	data, err := hex.DecodeString("0000abcdef")
 	assert.NoError(t, err)
@@ -1142,17 +1189,18 @@ func TestTxManager_CreateTxWithGas(t *testing.T) {
 	}
 }
 
-func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
+func TestLegacyTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
-	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	_, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -1184,19 +1232,20 @@ func TestTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestTxManager_BumpGasByIncrement(t *testing.T) {
+func TestLegacyTxManager_BumpGasByIncrement(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	ethClient := new(mocks.Client)
-
-	config := cltest.NewTestConfig(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
 	config.Set("CHAINLINK_TX_ATTEMPT_LIMIT", 1)
 	config.Set("ETH_GAS_PRICE_DEFAULT", 1)
 	config.Set("ETH_GAS_BUMP_PERCENT", 10)
-	keyStore := strpkg.NewKeyStore(config.KeysDir())
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	defer strCleanup()
+
+	ethClient := new(mocks.Client)
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
 	txm := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	tests := []struct {

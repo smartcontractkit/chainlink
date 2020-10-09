@@ -24,6 +24,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func newStoreWithLegacyTXManager(t *testing.T) (*strpkg.Store, func()) {
+	config, cfCleanup := cltest.NewConfig(t)
+	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	store, strCleanup := cltest.NewStoreWithConfig(config)
+	return store, func() { cfCleanup(); strCleanup() }
+}
+
 func TestEthTxAdapter_Perform(t *testing.T) {
 	t.Parallel()
 
@@ -83,7 +90,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
+			store, cleanup := newStoreWithLegacyTXManager(t)
 			defer cleanup()
 
 			txManager := new(mocks.TxManager)
@@ -111,7 +118,7 @@ func TestEthTxAdapter_Perform(t *testing.T) {
 func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -141,7 +148,7 @@ func TestEthTxAdapter_Perform_BytesFormatWithDataPrefix(t *testing.T) {
 func TestEthTxAdapter_Perform_Preformatted(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	hexPayload := "b72f443a17edf4a55f766cf3c83469e6f96494b16823a41a4acb25800f30310300000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000001b76616c69646174696f6e2e747769747465722e757365726e616d650000000000000000000000000000000000000000000000000000000000000000000000001c76616c69646174696f6e2e747769747465722e7369676e617475726500000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000a64657261696e6265726b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008430783965353831646633383765376138343433653636336435386663313736303034356433666362376165643234393633376163633737376262653837643561333934326431363130643265386538626437353066643533633230643466633661383536303737623235656439653538356439616161336439646535626365376238316200000000000000000000000000000000000000000000000000000000"
@@ -170,7 +177,7 @@ func TestEthTxAdapter_Perform_Preformatted(t *testing.T) {
 func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -194,7 +201,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_StillPending(t *t
 func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -229,7 +236,7 @@ func TestEthTxAdapter_Perform_FromPendingOutgoingConfirmations_Safe(t *testing.T
 func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -271,7 +278,7 @@ func TestEthTxAdapter_Perform_AppendingTransactionReceipts(t *testing.T) {
 func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -290,7 +297,7 @@ func TestEthTxAdapter_Perform_WithError(t *testing.T) {
 func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithFatalErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -313,7 +320,7 @@ func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithFatalErrorInTxMan
 func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithRecoverableErrorInTxManager(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -337,7 +344,7 @@ func TestEthTxAdapter_Perform_PendingOutgoingConfirmations_WithRecoverableErrorI
 func TestEthTxAdapter_Perform_NotConnectedWhenPendingOutgoingConfirmations(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -358,7 +365,7 @@ func TestEthTxAdapter_Perform_NotConnectedWhenPendingOutgoingConfirmations(t *te
 func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -377,7 +384,7 @@ func TestEthTxAdapter_Perform_NotConnected(t *testing.T) {
 func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -403,7 +410,7 @@ func TestEthTxAdapter_Perform_CreateTxWithGasErrorTreatsAsNotConnected(t *testin
 func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	txManager := new(mocks.TxManager)
@@ -432,7 +439,7 @@ func TestEthTxAdapter_Perform_CheckAttemptErrorTreatsAsNotConnected(t *testing.T
 func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingOutgoingConfirmations(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	from := cltest.NewAddress()
@@ -472,7 +479,7 @@ func TestEthTxAdapter_Perform_CreateTxWithEmptyResponseErrorTreatsAsPendingOutgo
 func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	store, cleanup := newStoreWithLegacyTXManager(t)
 	defer cleanup()
 
 	var sentData []byte
@@ -516,10 +523,7 @@ func TestEthTxAdapter_Perform_NoDoubleSpendOnSendTransactionFail(t *testing.T) {
 func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	toAddress := cltest.NewAddress()

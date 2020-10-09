@@ -23,11 +23,6 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
@@ -63,11 +58,8 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_getTransactionCount", "0x1")
-	})
-	require.NoError(t, app.Start())
 
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
 	defer cleanup()

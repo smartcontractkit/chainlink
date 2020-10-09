@@ -22,10 +22,6 @@ func TestKeysController_CreateSuccess(t *testing.T) {
 	defer cleanup()
 
 	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	client := app.NewHTTPClient()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -55,11 +51,6 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	client := app.NewHTTPClient()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -75,8 +66,6 @@ func TestKeysController_InvalidPassword(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 401)
-
-	ethMock.AllCalled()
 }
 
 func TestKeysController_JSONBindingError(t *testing.T) {
@@ -89,11 +78,6 @@ func TestKeysController_JSONBindingError(t *testing.T) {
 	)
 	defer cleanup()
 
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getTransactionCount", "0x100")
-	})
-
 	client := app.NewHTTPClient()
 
 	assert.NoError(t, app.StartAndConnect())
@@ -102,6 +86,4 @@ func TestKeysController_JSONBindingError(t *testing.T) {
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 422)
-
-	ethMock.AllCalled()
 }

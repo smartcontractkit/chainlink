@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -66,14 +65,16 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		})
 	defer assertCalled()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBlockByNumber,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
-	config := app.Config
 	eth := app.EthMock
 
 	newHeads := make(chan *models.Head)
@@ -122,14 +123,16 @@ func TestIntegration_FeeBump(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
 	defer assertCalled()
 
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	// Must use hardcoded key here since the hash has to match attempt1Hash
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterGetBalance,
 		cltest.EthMockRegisterGetBlockByNumber,
 	)
 	defer cleanup()
-	config := app.Config
 
 	// Put some distance between these two values so we can explore more of the state space
 	config.Set("ETH_GAS_BUMP_THRESHOLD", 10)
@@ -657,7 +660,10 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBlockByNumber,
@@ -716,7 +722,6 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
 	app.Store.KeyStore = kst
 	defer cleanup()
 
@@ -900,7 +905,10 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	rpcClient := new(mocks.RPCClient)
 	sub := new(mocks.Subscription)
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
@@ -1003,7 +1011,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	rpcClient := new(mocks.RPCClient)
 	sub := new(mocks.Subscription)
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
@@ -1126,6 +1137,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	t.Parallel()
 
 	config, cfgCleanup := cltest.NewConfig(t)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
