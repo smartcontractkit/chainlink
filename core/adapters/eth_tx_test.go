@@ -26,7 +26,7 @@ import (
 
 func newStoreWithLegacyTXManager(t *testing.T) (*strpkg.Store, func()) {
 	config, cfCleanup := cltest.NewConfig(t)
-	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	config.Config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	store, strCleanup := cltest.NewStoreWithConfig(config)
 	return store, func() { cfCleanup(); strCleanup() }
 }
