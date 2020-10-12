@@ -271,18 +271,6 @@ workflows:
   version: 2
   test:
     jobs:
-      - check_if_rebase_needed:
-          filters:
-            tags:
-              ignore:
-                - /^v.*/
-                - /^explorer-v.*/
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
-                - /^hotfix\/.*/
       - core-go-test:
           filters:
             tags:
@@ -295,18 +283,6 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - lint:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
-      - prepublish_npm:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
       - build-publish-chainlink:
           requires:
             - core-go-test
