@@ -104,14 +104,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return err
 	}
 
-	fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
-	}
-	if currentBalance.Cmp(big.NewInt(0)) == 0 {
-		logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
-	} else {
-		logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+	if !store.Config.EthereumDisabled() {
+		fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+		if err != nil {
+			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
+		}
+		if currentBalance.Cmp(big.NewInt(0)) == 0 {
+			logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
+		} else {
+			logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+		}
 	}
 
 	return cli.errorOut(cli.Runner.Run(app))
