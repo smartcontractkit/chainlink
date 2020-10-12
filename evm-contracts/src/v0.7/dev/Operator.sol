@@ -48,6 +48,15 @@ contract Operator is
     bytes32 indexed requestId
   );
 
+  event OracleResponse(
+    bytes32 indexed requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes32 data
+  );
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -156,6 +165,13 @@ contract Operator is
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
+    emit OracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration,
+      data);
     return success;
   }
 
