@@ -37,6 +37,8 @@ On-chain Public Address:
   0x%s
 Off-chain Public Key:
   %s
+Config Public Key:
+  %s
 `
 
 func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
@@ -51,11 +53,13 @@ func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
 		return err
 	}
 	addressOnChain := key.PublicKeyAddressOnChain()
+	configPublicKey := key.PublicKeyConfig()
 	fmt.Printf(
 		createMsg,
 		key.ID,
 		hex.EncodeToString(addressOnChain[:]),
 		hex.EncodeToString(key.PublicKeyOffChain()),
+		hex.EncodeToString(configPublicKey[:]),
 	)
 	return nil
 }
