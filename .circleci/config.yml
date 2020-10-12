@@ -290,26 +290,6 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - build-publish-integration:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-ts-integration:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-cypress-job-server:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-echo-server:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-external-adapter:
-          filters:
-            tags:
-              only: /^v.*/
       - reportcoverage:
           requires:
             - core-go-test
