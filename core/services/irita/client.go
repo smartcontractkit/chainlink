@@ -1,19 +1,19 @@
 package irita
 
 import (
-	sdk "github.com/bianjieai/irita-sdk-go"
-	"github.com/bianjieai/irita-sdk-go/types"
-	"github.com/bianjieai/irita-sdk-go/types/store"
+	iservicesdk "github.com/irisnet/service-sdk-go"
+	"github.com/irisnet/service-sdk-go/types"
+	"github.com/irisnet/service-sdk-go/types/store"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 var (
-	Client    sdk.IRITAClient
+	Client    iservicesdk.ServiceClient
 	initiated bool
 	password  string
 )
 
-func GetClient(config *orm.Config) sdk.IRITAClient {
+func GetClient(config *orm.Config) iservicesdk.ServiceClient {
 	if initiated {
 		return Client
 	} else {
@@ -21,7 +21,7 @@ func GetClient(config *orm.Config) sdk.IRITAClient {
 	}
 }
 
-func newClient(config *orm.Config) sdk.IRITAClient {
+func newClient(config *orm.Config) iservicesdk.ServiceClient {
 	options := []types.Option{
 		types.KeyDAOOption(store.NewFileDAO(config.IritaKeyDao())),
 		types.TimeoutOption(10),
@@ -29,6 +29,7 @@ func newClient(config *orm.Config) sdk.IRITAClient {
 
 	cfg, err := types.NewClientConfig(
 		config.IritaURL(),
+		config.IritaGRPCAddr(),
 		config.IritaChainID(),
 		options...,
 	)
@@ -36,11 +37,11 @@ func newClient(config *orm.Config) sdk.IRITAClient {
 		panic(err)
 	}
 
-	return sdk.NewIRITAClient(cfg)
+	return iservicesdk.NewServiceClient(cfg)
 }
 
 func SetPassword(config *orm.Config, pwd string) error {
-	if _, err := GetClient(config).Key.Show(config.IritaKeyName(), pwd); err != nil {
+	if _, err := GetClient(config).Show(config.IritaKeyName(), pwd); err != nil {
 		return err
 	}
 	password = pwd

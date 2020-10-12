@@ -1,8 +1,8 @@
 package adapters
 
 import (
-	"github.com/bianjieai/irita-sdk-go/modules/service"
-	"github.com/bianjieai/irita-sdk-go/types"
+	"github.com/irisnet/service-sdk-go/service"
+	"github.com/irisnet/service-sdk-go/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/irita"

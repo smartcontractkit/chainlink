@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	sdk "github.com/bianjieai/irita-sdk-go"
-	"github.com/bianjieai/irita-sdk-go/modules/service"
-	"github.com/bianjieai/irita-sdk-go/types"
+	"github.com/irisnet/serivce-sdk-go/types"
+	iservicesdk "github.com/irisnet/service-sdk-go"
+	iservice "github.com/irisnet/service-sdk-go/service"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -26,7 +26,7 @@ type IritaServiceTracker struct {
 }
 
 func NewIritaServiceTracker(
-	client sdk.IRITAClient,
+	client iservicesdk.ServiceClient,
 	store *store.Store,
 	runManager RunManager,
 ) *IritaServiceTracker {
@@ -92,7 +92,7 @@ func (ist *IritaServiceTracker) RemoveJob(ID *models.ID) error {
 }
 
 type Service struct {
-	Client           sdk.IRITAClient
+	Client           iservicesdk.ServiceClient
 	Store            *store.Store
 	RunManager       RunManager
 	jobSubscriptions map[string]types.Subscription
@@ -152,7 +152,7 @@ func (s *Service) Subscribe(initiator models.Initiator, job models.JobSpec) {
 		),
 	)
 
-	ch := make(chan service.QueryServiceRequestResponse)
+	ch := make(chan iservice.QueryServiceRequestResponse)
 
 	providerAcc, _ := types.AccAddressFromBech32(initiator.IritaServiceProvider)
 
@@ -210,7 +210,7 @@ func (s *Service) GetServiceResquest(
 	events types.Events,
 	serviceName string,
 	provider types.AccAddress,
-) []service.QueryServiceRequestResponse {
+) []iservice.QueryServiceRequestResponse {
 	var ids []string
 	for _, e := range events.Filter("new_batch_request_provider") {
 		svcName := e.Attributes.GetValue("service_name")
@@ -223,10 +223,10 @@ func (s *Service) GetServiceResquest(
 		}
 	}
 
-	var requests []service.QueryServiceRequestResponse
+	var requests []iservice.QueryServiceRequestResponse
 
 	for _, reqID := range ids {
-		request, _ := s.Client.Service.QueryServiceRequest(reqID)
+		request, _ := s.Client.QueryServiceRequest(reqID)
 		requests = append(requests, request)
 	}
 	return requests

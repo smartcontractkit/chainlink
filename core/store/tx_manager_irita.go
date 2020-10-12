@@ -1,8 +1,8 @@
 package store
 
 import (
-	sdk "github.com/bianjieai/irita-sdk-go"
-	"github.com/bianjieai/irita-sdk-go/types"
+	iservicesdk "github.com/irisnet/service-sdk-go"
+	"github.com/irisnet/service-sdk-go/types"
 )
 
 type TxManagerIrita interface {
@@ -15,14 +15,14 @@ type TxManagerIrita interface {
 		types.Error,
 	)
 
-	IritaClient() sdk.IRITAClient
+	IritaClient() iservicesdk.ServiceClient
 }
 
 type IritaTxManager struct {
-	Client sdk.IRITAClient
+	Client iservicesdk.ServiceClient
 }
 
-func NewIritaTxManager(client sdk.IRITAClient) *IritaTxManager {
+func NewIritaTxManager(client iservicesdk.ServiceClient) *IritaTxManager {
 	return &IritaTxManager{
 		Client: client,
 	}
@@ -39,6 +39,6 @@ func (itxm *IritaTxManager) SendTx(
 	return itxm.Client.Bank.Send(toAddr, amount, baseTx)
 }
 
-func (itxm *IritaTxManager) IritaClient() sdk.IRITAClient {
+func (itxm *IritaTxManager) IritaClient() iservicesdk.ServiceClient {
 	return itxm.Client
 }

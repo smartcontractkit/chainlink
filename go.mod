@@ -7,7 +7,7 @@ require (
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/aristanetworks/goarista v0.0.0-20190204200901-2166578f3448 // indirect
-	github.com/bianjieai/irita-sdk-go v1.0.0
+	github.com/bianjieai/irita-sdk-go v1.1.0
 	github.com/bitly/go-simplejson v0.5.0
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/boj/redistore v0.0.0-20160128113310-fc113767cd6b // indirect
@@ -19,6 +19,7 @@ require (
 	github.com/ethereum/go-ethereum v1.9.18
 	github.com/fatih/color v1.9.0
 	github.com/fxamacker/cbor/v2 v2.2.0
+	github.com/irisnet/service-sdk-go v0.0.0-00010101000000-000000000000
 	github.com/garyburd/redigo v1.6.0 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
 	github.com/gin-contrib/cors v1.3.1
@@ -68,4 +69,8 @@ require (
 	gopkg.in/guregu/null.v3 v3.5.0
 )
 
-replace github.com/tendermint/tendermint => github.com/bianjieai/tendermint v0.33.4-irita-200703
+replace (
+	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.2-alpha.regen.4
+	github.com/irisnet/service-sdk-go => github.com/secret2830/service-sdk-go v0.0.0-20200930025908-91ed6ca17b1b
+	github.com/tendermint/tendermint => github.com/bianjieai/tendermint v0.33.4-irita-200703.0.20200925112439-d4196a88a285
+)

@@ -517,6 +517,10 @@ func (c Config) IritaURL() string {
 	return c.viper.GetString(EnvVarName("IritaURL"))
 }
 
+func (c Config) IritaGRPCAddr() string {
+	return c.viper.GetString(EnvVarName("IritaGRPCAddr"))
+}
+
 func (c Config) IritaChainID() string {
 	return c.viper.GetString(EnvVarName("IritaChainID"))
 }

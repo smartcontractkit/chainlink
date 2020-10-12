@@ -1,11 +1,11 @@
 package store
 
 import (
-	"github.com/bianjieai/irita-sdk-go/modules/service"
+	iservice "github.com/irisnet/service-sdk-go/service"
 )
 
 type ServiceRequset struct {
-	RequestResponse service.QueryServiceRequestResponse
+	RequestResponse iservice.QueryServiceRequestResponse
 	Provider        string
 }
 
