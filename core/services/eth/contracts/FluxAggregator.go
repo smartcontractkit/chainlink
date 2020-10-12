@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -38,7 +39,7 @@ type fluxAggregator struct {
 }
 
 type LogNewRound struct {
-	eth.GethRawLog
+	types.Log
 	RoundId   *big.Int
 	StartedBy common.Address
 	// seconds since unix epoch
@@ -46,13 +47,13 @@ type LogNewRound struct {
 }
 
 type LogAnswerUpdated struct {
-	eth.GethRawLog
+	types.Log
 	Current   *big.Int
 	RoundId   *big.Int
 	UpdatedAt *big.Int
 }
 
-var fluxAggregatorLogTypes = map[common.Hash]eth.Log{
+var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorNewRoundLogTopic20191220:      &LogNewRound{},
 	AggregatorAnswerUpdatedLogTopic20191220: &LogAnswerUpdated{},
 }

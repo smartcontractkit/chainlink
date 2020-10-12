@@ -120,6 +120,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	nonce := int64(0)
 	var err error
+	ctx := context.Background()
+	blockNum := int64(0)
 
 	t.Run("only finds eth_txes in unconfirmed state", func(t *testing.T) {
 		cltest.MustInsertFatalErrorEthTx(t, store)
@@ -130,7 +132,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		mustInsertUnstartedEthTx(t, store)
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 		// No calls
 		ethClient.AssertExpectations(t)
 	})
@@ -148,7 +150,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil, errors.New("not found")).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
 		require.Len(t, etx1.EthTxAttempts, 1)
@@ -174,7 +176,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		// Do the thing
 		// No error because it is merely logged
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		etx, err := store.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
@@ -207,7 +209,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil, errors.New("not found")).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		// Check that the receipt was saved
 		etx, err := store.FindEthTxWithAttempts(etx1.ID)
@@ -261,7 +263,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(&gethReceipt, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		ethClient.AssertExpectations(t)
 
@@ -283,7 +285,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(nil, errors.New("missing required field 'transactionHash' for Log")).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		// No receipt, but no error either
 		etx, err := store.FindEthTxWithAttempts(etx3.ID)
@@ -304,7 +306,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(&receipt, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		// No receipt, but no error either
 		etx, err := store.FindEthTxWithAttempts(etx3.ID)
@@ -330,7 +332,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		})).Return(&gethReceipt, nil).Once()
 
 		// Do the thing
-		require.NoError(t, ec.CheckForReceipts(context.TODO()))
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		// Check that the receipt was unchanged
 		etx, err := store.FindEthTxWithAttempts(etx3.ID)
@@ -349,6 +351,243 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		assert.Equal(t, gethReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
 		ethClient.AssertExpectations(t)
+	})
+}
+
+func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ETH_FINALITY_DEPTH", 50)
+	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	ctx := context.Background()
+
+	// STATE
+	// eth_txes with nonce 0 has two attempts (broadcast before block 21 and 41) the first of which will get a receipt
+	// eth_txes with nonce 1 has two attempts (broadcast before block 21 and 41) neither of which will ever get a receipt
+	// eth_txes with nonce 2 has an attempt (broadcast before block 41) that will not get a receipt on the first try but will get one later
+	// eth_txes with nonce 3 has an attempt (broadcast before block 41) that has been confirmed in block 42
+	// All other attempts were broadcast before block 41
+	b := int64(21)
+
+	etx0 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0)
+	require.Len(t, etx0.EthTxAttempts, 1)
+	attempt0_1 := etx0.EthTxAttempts[0]
+	require.Len(t, attempt0_1.EthReceipts, 0)
+	attempt0_2 := newBroadcastEthTxAttempt(t, etx0.ID, store)
+	// Of course it didn't confirm... we didn't pay anything for gas!
+	attempt0_2.GasPrice = *utils.NewBig(big.NewInt(0))
+	attempt0_2.BroadcastBeforeBlockNum = &b
+	require.NoError(t, store.DB.Create(&attempt0_2).Error)
+
+	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1)
+	require.Len(t, etx1.EthTxAttempts, 1)
+	attempt1_1 := etx1.EthTxAttempts[0]
+	require.Len(t, attempt1_1.EthReceipts, 0)
+	attempt1_2 := newBroadcastEthTxAttempt(t, etx1.ID, store)
+	// Of course it didn't confirm... we didn't pay anything for gas!
+	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(0))
+	attempt1_2.BroadcastBeforeBlockNum = &b
+	require.NoError(t, store.DB.Create(&attempt1_2).Error)
+
+	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2)
+	require.Len(t, etx2.EthTxAttempts, 1)
+	attempt2_1 := etx2.EthTxAttempts[0]
+	require.Len(t, attempt2_1.EthReceipts, 0)
+
+	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 3)
+	require.Len(t, etx3.EthTxAttempts, 1)
+	attempt3_1 := etx3.EthTxAttempts[0]
+	require.Len(t, attempt3_1.EthReceipts, 0)
+
+	_, err := store.ORM.DB.DB().Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
+	require.NoError(t, err)
+
+	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
+		gethReceipt0 := gethTypes.Receipt{
+			TxHash:           attempt0_1.Hash,
+			BlockHash:        cltest.NewHash(),
+			BlockNumber:      big.NewInt(42),
+			TransactionIndex: uint(1),
+		}
+		gethReceipt3 := gethTypes.Receipt{
+			TxHash:           attempt3_1.Hash,
+			BlockHash:        cltest.NewHash(),
+			BlockNumber:      big.NewInt(42),
+			TransactionIndex: uint(1),
+		}
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt3_1.Hash
+		})).Return(&gethReceipt3, nil).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt2_1.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_1.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_2.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt0_1.Hash
+		})).Return(&gethReceipt0, nil).Once()
+
+		// PERFORM
+		// Block num of 43 is one higher than the receipt (as would generally be expected)
+		require.NoError(t, ec.CheckForReceipts(ctx, 43))
+
+		ethClient.AssertExpectations(t)
+
+		// Expected state is that the "top" eth_tx is now confirmed, with the
+		// two below it "confirmed_missing_receipt" and the "bottom" eth_tx also confirmed
+		etx3, err = store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx3.State)
+
+		ethReceipt := etx3.EthTxAttempts[0].EthReceipts[0]
+		require.Equal(t, gethReceipt3.BlockHash, ethReceipt.BlockHash)
+
+		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmedMissingReceipt, etx2.State)
+		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmedMissingReceipt, etx1.State)
+
+		etx0, err = store.FindEthTxWithAttempts(etx0.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx0.State)
+
+		ethReceipt = etx0.EthTxAttempts[0].EthReceipts[0]
+		require.Equal(t, gethReceipt0.BlockHash, ethReceipt.BlockHash)
+	})
+
+	// STATE
+	// eth_txes with nonce 0 is confirmed
+	// eth_txes with nonce 1 is confirmed_missing_receipt
+	// eth_txes with nonce 2 is confirmed_missing_receipt
+	// eth_txes with nonce 3 is confirmed
+
+	t.Run("marks eth_txes with state 'confirmed_missing_receipt' as 'confirmed' if a receipt finally shows up", func(t *testing.T) {
+		gethReceipt := gethTypes.Receipt{
+			TxHash:           attempt2_1.Hash,
+			BlockHash:        cltest.NewHash(),
+			BlockNumber:      big.NewInt(43),
+			TransactionIndex: uint(1),
+		}
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt2_1.Hash
+		})).Return(&gethReceipt, nil).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_1.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_2.Hash
+		})).Return(nil, errors.New("not found")).Once()
+
+		// PERFORM
+		// Block num of 44 is one higher than the receipt (as would generally be expected)
+		require.NoError(t, ec.CheckForReceipts(ctx, 44))
+
+		ethClient.AssertExpectations(t)
+
+		// Expected state is that the "top" two eth_txes are now confirmed, with the
+		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
+		etx3, err = store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx3.State)
+		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx2.State)
+
+		ethReceipt := etx2.EthTxAttempts[0].EthReceipts[0]
+		require.Equal(t, gethReceipt.BlockHash, ethReceipt.BlockHash)
+
+		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmedMissingReceipt, etx1.State)
+		etx0, err = store.FindEthTxWithAttempts(etx0.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx0.State)
+	})
+
+	// STATE
+	// eth_txes with nonce 0 is confirmed
+	// eth_txes with nonce 1 is confirmed_missing_receipt
+	// eth_txes with nonce 2 is confirmed
+	// eth_txes with nonce 3 is confirmed
+
+	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above ETH_FINALITY_DEPTH", func(t *testing.T) {
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_1.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_2.Hash
+		})).Return(nil, errors.New("not found")).Once()
+
+		// PERFORM
+		// Block num of 80 puts the first attempt (21) below threshold but second attempt (41) still above
+		require.NoError(t, ec.CheckForReceipts(ctx, 80))
+
+		ethClient.AssertExpectations(t)
+
+		// Expected state is that the "top" two eth_txes are now confirmed, with the
+		// one below it still "confirmed_missing_receipt" and the bottom one remains confirmed
+		etx3, err = store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx3.State)
+		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx2.State)
+		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmedMissingReceipt, etx1.State)
+		etx0, err = store.FindEthTxWithAttempts(etx0.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx0.State)
+	})
+
+	// STATE
+	// eth_txes with nonce 0 is confirmed
+	// eth_txes with nonce 1 is confirmed_missing_receipt
+	// eth_txes with nonce 2 is confirmed
+	// eth_txes with nonce 3 is confirmed
+
+	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than ETH_FINALITY_DEPTH", func(t *testing.T) {
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_1.Hash
+		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
+			return txHash == attempt1_2.Hash
+		})).Return(nil, errors.New("not found")).Once()
+
+		// PERFORM
+		// Block num of 100 puts the first attempt (21) and second attempt (41) below threshold
+		require.NoError(t, ec.CheckForReceipts(ctx, 100))
+
+		ethClient.AssertExpectations(t)
+
+		// Expected state is that the "top" two eth_txes are now confirmed, with the
+		// one below it marked as "fatal_error" and the bottom one remains confirmed
+		etx3, err = store.FindEthTxWithAttempts(etx3.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx3.State)
+		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx2.State)
+		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxFatalError, etx1.State)
+		etx0, err = store.FindEthTxWithAttempts(etx0.ID)
+		require.NoError(t, err)
+		require.Equal(t, models.EthTxConfirmed, etx0.State)
 	})
 }
 
@@ -742,8 +981,9 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 
 	attempt1_3.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, store.DB.Save(&attempt1_3).Error)
+	var attempt1_4 models.EthTxAttempt
 
-	t.Run("does not save new attempt for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
+	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(36000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
@@ -772,13 +1012,19 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 
 		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
 
-		require.Len(t, etx.EthTxAttempts, 3)
+		// Got the new attempt
+		attempt1_4 = etx.EthTxAttempts[3]
+		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_4.GasPrice.ToInt().Int64())
+
+		require.Len(t, etx.EthTxAttempts, 4)
 		require.Equal(t, attempt1_1.ID, etx.EthTxAttempts[0].ID)
 		require.Equal(t, attempt1_2.ID, etx.EthTxAttempts[1].ID)
 		require.Equal(t, attempt1_3.ID, etx.EthTxAttempts[2].ID)
+		require.Equal(t, attempt1_4.ID, etx.EthTxAttempts[3].ID)
 		require.Equal(t, models.EthTxAttemptBroadcast, etx.EthTxAttempts[0].State)
 		require.Equal(t, models.EthTxAttemptBroadcast, etx.EthTxAttempts[1].State)
 		require.Equal(t, models.EthTxAttemptBroadcast, etx.EthTxAttempts[2].State)
+		require.Equal(t, models.EthTxAttemptBroadcast, etx.EthTxAttempts[3].State)
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
@@ -865,7 +1111,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	attempt2_2.BroadcastBeforeBlockNum = &oldEnough
 	require.NoError(t, store.DB.Save(&attempt2_2).Error)
 
-	t.Run("handles case where nonce is too low but receipt is nil indicating that an external wallet used the nonce (until finalized)", func(t *testing.T) {
+	t.Run("assumes that 'nonce too low' error means success", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(30000000000)
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt2_1.GasPrice.ToInt().Int64())
 
@@ -880,33 +1126,22 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 				ethTx = *tx
 				return true
 			}),
-			mock.Anything).Return(&ethTx, nil).Twice()
+			mock.Anything).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return int64(tx.Nonce()) == n && expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
-		})).Return(errors.New("nonce too low")).Twice()
+		})).Return(errors.New("nonce too low")).Once()
 
-		// Does nothing if currentHead is not high enough
+		// Creates new attempt as normal if currentHead is not high enough
 		require.NoError(t, ec.BumpGasWhereNecessary(context.TODO(), keys, currentHead))
 		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
 		assert.Equal(t, models.EthTxUnconfirmed, etx2.State)
 
-		// No new attempts saved
-		require.Len(t, etx2.EthTxAttempts, 2)
+		// One new attempt saved
+		require.Len(t, etx2.EthTxAttempts, 3)
 		assert.Equal(t, models.EthTxAttemptBroadcast, etx2.EthTxAttempts[0].State)
 		assert.Equal(t, models.EthTxAttemptBroadcast, etx2.EthTxAttempts[1].State)
-
-		// When currentHead reaches the threshold, we save it as failed
-		require.NoError(t, ec.BumpGasWhereNecessary(context.TODO(), keys, currentHead+100))
-
-		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
-		require.NoError(t, err)
-		assert.Equal(t, models.EthTxFatalError, etx2.State)
-
-		// No new attempts saved
-		require.Len(t, etx2.EthTxAttempts, 2)
-		assert.Equal(t, models.EthTxAttemptBroadcast, etx2.EthTxAttempts[0].State)
-		assert.Equal(t, models.EthTxAttemptBroadcast, etx2.EthTxAttempts[1].State)
+		assert.Equal(t, models.EthTxAttemptBroadcast, etx2.EthTxAttempts[2].State)
 
 		ethClient.AssertExpectations(t)
 		kst.AssertExpectations(t)
@@ -1115,7 +1350,7 @@ func TestEthConfirmer_BumpGasWhereNecessary_WhenOutOfEth(t *testing.T) {
 
 	// Use the real KeyStore loaded from database fixtures
 	store.KeyStore.Unlock(cltest.Password)
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	config, cleanup := cltest.NewConfig(t)
@@ -1220,7 +1455,7 @@ func TestEthConfirmer_EnsureConfirmedTransactionsInLongestChain(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 
 	config, cleanup := cltest.NewConfig(t)

@@ -114,7 +114,10 @@ func TestEthTxABIEncodeAdapter_Perform_ConfirmedWithJSON(t *testing.T) {
 
 	expectedAsHex := strings.Join(append(selector, values...), "")
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterGetBalance,
 	)

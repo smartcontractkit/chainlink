@@ -49,12 +49,15 @@ type Client interface {
 type GethClient interface {
 	ChainID(ctx context.Context) (*big.Int, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
+	EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 }
@@ -215,7 +218,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 	if client.secondaryURL != "" {
 		// Parallel send to secondary node
 
-		logger.Debugw("eth.SecondaryClient#SendTransaction(...)",
+		logger.Tracew("eth.SecondaryClient#SendTransaction(...)",
 			"tx", tx,
 		)
 
@@ -223,11 +226,14 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		defer wg.Wait()
 		wg.Add(1)
 		go func() {
-			err := client.SecondaryGethClient.SendTransaction(ctx, tx)
-			if err != nil {
-				logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
+			defer wg.Done()
+			err := NewSendError(client.SecondaryGethClient.SendTransaction(ctx, tx))
+			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
+				// Nonce too low or transaction known errors are expected since
+				// the primary SendTransaction may well have succeeded already
+				return
 			}
-			wg.Done()
+			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
 		}()
 	}
 
@@ -239,6 +245,25 @@ func (client *client) PendingNonceAt(ctx context.Context, account common.Address
 		"account", account,
 	)
 	return client.GethClient.PendingNonceAt(ctx, account)
+}
+
+func (client *client) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	logger.Debugw("eth.Client#PendingCodeAt(...)",
+		"account", account,
+	)
+	return client.GethClient.PendingCodeAt(ctx, account)
+}
+
+func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
+	logger.Debugw("eth.Client#EstimateGas(...)",
+		"call", call,
+	)
+	return client.GethClient.EstimateGas(ctx, call)
+}
+
+func (client *client) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	logger.Debugw("eth.Client#SuggestGasPrice()")
+	return client.GethClient.SuggestGasPrice(ctx)
 }
 
 func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {

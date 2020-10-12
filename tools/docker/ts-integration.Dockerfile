@@ -1,4 +1,4 @@
-FROM node:10.16
+FROM node:12.18
 
 # Install docker and docker compose
 RUN apt-get update \

@@ -16,6 +16,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -66,7 +67,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error reading password: %+v", err))
 	}
-	_, err = cli.KeyStoreAuthenticator.Authenticate(store, pwd)
+	keyStorePwd, err := cli.KeyStoreAuthenticator.Authenticate(store, pwd)
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
@@ -92,6 +93,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 		return cli.errorOut(fmt.Errorf("error creating fallback initializer: %+v", err))
 	}
+
 	logger.Info("API exposed for user ", user.Email)
 	if e := app.Start(); e != nil {
 		return cli.errorOut(fmt.Errorf("error starting app: %+v", e))
@@ -100,6 +102,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	err = logConfigVariables(store)
 	if err != nil {
 		return err
+	}
+
+	fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
+	}
+	if currentBalance.Cmp(big.NewInt(0)) == 0 {
+		logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
+	} else {
+		logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
 	}
 
 	return cli.errorOut(cli.Runner.Run(app))
@@ -212,6 +224,43 @@ func logConfigVariables(store *strpkg.Store) error {
 
 	logger.Debug("Environment variables\n", wlc)
 	return nil
+}
+
+func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*models.Key, *big.Int, error) {
+	key := models.Key{}
+	err := str.DB.Where("is_funding = TRUE").First(&key).Error
+	if err != nil && !gorm.IsRecordNotFoundError(err) {
+		return nil, nil, err
+	}
+	if err == nil && key.ID != 0 {
+		// TODO How to make sure the EthClient is connected?
+		balance, ethErr := str.EthClient.BalanceAt(ctx, gethCommon.HexToAddress(string(key.Address)), nil)
+		return &key, balance, ethErr
+	}
+	// Key record not found so create one.
+	ethAccount, err := str.KeyStore.NewAccount(pwd)
+	if err != nil {
+		return nil, nil, err
+	}
+	exportedJSON, err := str.KeyStore.Export(ethAccount, pwd, pwd)
+	if err != nil {
+		return nil, nil, err
+	}
+	var firstNonce int64 = 0
+	key = models.Key{
+		Address:   models.EIP55Address(ethAccount.Address.Hex()),
+		IsFunding: true,
+		JSON: models.JSON{
+			Result: gjson.ParseBytes(exportedJSON),
+		},
+		NextNonce: &firstNonce,
+	}
+	// The key does not exist at this point, so we're only creating it here.
+	if err = str.CreateKeyIfNotExists(key); err != nil {
+		return nil, nil, err
+	}
+	logger.Infow("New funding address created", "address", key.Address, "balance", 0)
+	return &key, big.NewInt(0), nil
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of

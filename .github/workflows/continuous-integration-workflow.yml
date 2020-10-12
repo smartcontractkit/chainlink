@@ -3,16 +3,17 @@ name: Continuous Integration Workflow
 on: [push]
 
 env:
-  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a5
+  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a6
 
 jobs:
   core:
     strategy:
+      fail-fast: false
       matrix:
-        cmd: ['go_core_tests', 'go_core_race_tests']
+        cmd: ['go_core_tests']
     name: Core Tests
-    runs-on: self-hosted
-    container: smartcontract/builder:1.0.34
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container: smartcontract/builder:1.0.36
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
@@ -58,12 +59,16 @@ jobs:
         run: go run ./core local db preparetest
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }}
-
+      - name: Print postgres logs
+        if: always()
+        uses: docker://docker:latest
+        with:
+          args: logs ${{ job.services.postgres.id }}
   rust:
     name: Rust
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.34
+      image: smartcontract/builder:1.0.36
       env:
         CARGO_HOME: /root/.cargo
         RUSTUP_HOME: /root/.rustup
@@ -75,7 +80,7 @@ jobs:
 
   integration:
     name: Integration tests
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         test: ['test', 'test:ts']
@@ -103,8 +108,8 @@ jobs:
 
   solidity:
     name: Solidity
-    runs-on: self-hosted
-    container: smartcontract/builder:1.0.34
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -128,7 +133,7 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
+    container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -152,7 +157,7 @@ jobs:
   reportcoverage:
     name: Report test coverage
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
+    container: smartcontract/builder:1.0.36
     needs: [core, solidity, operator-ui, rust]
     steps:
       - name: Checkout the repo
@@ -179,7 +184,7 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.34
+    container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -197,8 +202,8 @@ jobs:
 
   prepublish_npm:
     name: Prepublish NPM
-    runs-on: self-hosted
-    container: smartcontract/builder:1.0.34
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container: smartcontract/builder:1.0.36
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -216,7 +221,7 @@ jobs:
 
   build-chainlink:
     name: Build chainlink image
-    runs-on: self-hosted
+    runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         dockerfile: [core/chainlink.Dockerfile, core/chainlink-sgx.Dockerfile]

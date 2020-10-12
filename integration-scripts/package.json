@@ -6,7 +6,7 @@
   "license": "MIT",
   "private": true,
   "engines": {
-    "node": "~10.16"
+    "node": "^12.0.0"
   },
   "scripts": {
     "generate-typings": "typechain --target ethers --outDir src/generated \"dist/artifacts/*\"",

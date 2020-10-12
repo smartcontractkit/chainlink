@@ -25,9 +25,9 @@ type ConfigSchema struct {
 	DefaultHTTPTimeout               models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	Dev                              bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters       bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
-	EnableBulletproofTxManager       bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"false"`
+	EnableBulletproofTxManager       bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"true"`
 	FeatureExternalInitiators        bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
-	FeatureFluxMonitor               bool            `env:"FEATURE_FLUX_MONITOR" default:"false"`
+	FeatureFluxMonitor               bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	MaximumServiceDuration           models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration           models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold              uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
@@ -36,7 +36,7 @@ type ConfigSchema struct {
 	EthGasBumpTxDepth                uint16          `env:"ETH_GAS_BUMP_TX_DEPTH" default:"10"`
 	EthGasLimitDefault               uint64          `env:"ETH_GAS_LIMIT_DEFAULT" default:"500000"`
 	EthGasPriceDefault               big.Int         `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
-	EthMaxGasPriceWei                uint64          `env:"ETH_MAX_GAS_PRICE_WEI" default:"5000000000000"`
+	EthMaxGasPriceWei                uint64          `env:"ETH_MAX_GAS_PRICE_WEI" default:"1500000000000"`
 	EthFinalityDepth                 uint            `env:"ETH_FINALITY_DEPTH" default:"50"`
 	EthHeadTrackerHistoryDepth       uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH" default:"100"`
 	EthHeadTrackerMaxBufferSize      uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
@@ -44,10 +44,11 @@ type ConfigSchema struct {
 	EthereumURL                      string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumSecondaryURL             string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumDisabled                 bool            `env:"ETH_DISABLED" default:"false"`
+	FlagsContractAddress             string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBlockDelay             uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
 	GasUpdaterBlockHistorySize       uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile  uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
-	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"false"`
+	GasUpdaterEnabled                bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
 	JSONConsole                      bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress              string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                      *url.URL        `env:"EXPLORER_URL"`
@@ -64,7 +65,7 @@ type ConfigSchema struct {
 	MinimumContractPayment           assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration         uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	MaxRPCCallsPerSecond             uint64          `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
-	OracleContractAddress            common.Address  `env:"ORACLE_CONTRACT_ADDRESS"`
+	OperatorContractAddress          common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	Port                             uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                 models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                  int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`

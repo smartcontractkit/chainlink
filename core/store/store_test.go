@@ -20,9 +20,19 @@ import (
 
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
-
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	assert.NoError(t, store.Start())
+}
+
+func TestStore_LegacyTxManager_Start(t *testing.T) {
+	t.Parallel()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+	store, storeCleanup := cltest.NewStoreWithConfig(config)
+	defer storeCleanup()
 
 	txManager := new(mocks.TxManager)
 	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
@@ -64,7 +74,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB())
 
 	// assert creation in db is successful
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	// New key in addition to fixture key gives 2
 	require.Len(t, keys, 2)
@@ -109,7 +119,7 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB())
 
 	// assert creation in db is successful
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 2)
 
@@ -147,14 +157,13 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	)
 	defer cleanup()
 	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_getTransactionCount", "0x1")
 		meth.Register("eth_chainId", app.Store.Config.ChainID())
 	})
 	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()
 
 	// assert sync worked on NewApplication
-	keys, err := store.Keys()
+	keys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1, "key should already exist because of Application#Start")
 
@@ -165,7 +174,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, store.SyncDiskKeyStoreToDB()) // sync
 
 	// assert no change in db
-	keys, err = store.Keys()
+	keys, err = store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())

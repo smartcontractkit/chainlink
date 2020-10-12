@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -362,7 +361,6 @@ func TestRunManager_Create_fromRunLog_Happy(t *testing.T) {
 			sub.On("Unsubscribe").Return()
 
 			kst := new(mocks.KeyStoreInterface)
-			kst.On("Accounts").Return([]accounts.Account{})
 			app.Store.KeyStore = kst
 			defer cleanup()
 
@@ -657,7 +655,6 @@ func TestRunManager_Create_fromRunLog_ConnectToLaggingEthNode(t *testing.T) {
 		cltest.EthMockRegisterGetBalance,
 	)
 	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
 	app.Store.KeyStore = kst
 	defer cleanup()
 

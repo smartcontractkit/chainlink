@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -34,7 +36,13 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
 	store.Config.Set("CHAINLINK_PORT", 6688)
+
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+	store.EthClient = ethClient
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
@@ -81,6 +89,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
 	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
 	assert.Contains(t, logs, "ETH_URL: ws://")
+	assert.Contains(t, logs, "FLAGS_CONTRACT_ADDRESS: 0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6\\n")
 	assert.Contains(t, logs, "JSON_CONSOLE: false")
 	assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
 	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
@@ -88,7 +97,7 @@ func TestClient_RunNodeShowsEnv(t *testing.T) {
 	assert.Contains(t, logs, "MIN_INCOMING_CONFIRMATIONS: 1\\n")
 	assert.Contains(t, logs, "MIN_OUTGOING_CONFIRMATIONS: 6\\n")
 	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0.000000000000000100\\n")
-	assert.Contains(t, logs, "ORACLE_CONTRACT_ADDRESS: \\n")
+	assert.Contains(t, logs, "OPERATOR_CONTRACT_ADDRESS: \\n")
 	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 
 	app.AssertExpectations(t)
@@ -121,6 +130,11 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
 
 			_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
 			require.NoError(t, err)
@@ -159,6 +173,56 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	}
 }
 
+func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	// Clear out fixture
+	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Start").Maybe().Return(nil)
+	app.On("Stop").Maybe().Return(nil)
+
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	store.EthClient = ethClient
+
+	_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
+	require.NoError(t, err)
+
+	callback := func(store *strpkg.Store, phrase string) (string, error) {
+		unlockErr := store.KeyStore.Unlock(phrase)
+		return phrase, unlockErr
+	}
+	auth := cltest.CallbackAuthenticator{Callback: callback}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	var fundingKey = models.Key{}
+	_ = store.DB.Where("is_funding = TRUE").First(&fundingKey).Error
+	assert.Empty(t, fundingKey.ID, "expected no funding key")
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	ctx := cli.NewContext(nil, set, nil)
+
+	assert.NoError(t, client.RunNode(ctx))
+
+	assert.NoError(t, store.DB.Where("is_funding = TRUE").First(&fundingKey).Error)
+	assert.NotEmpty(t, fundingKey.ID, "expected a new funding key")
+}
+
 func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 	t.Parallel()
 
@@ -189,6 +253,11 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetStore").Return(store)
 			app.On("Start").Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
+
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+			store.EthClient = ethClient
 
 			callback := func(*strpkg.Store, string) (string, error) { return "", nil }
 			noauth := cltest.CallbackAuthenticator{Callback: callback}
@@ -238,7 +307,7 @@ func TestClient_ImportKey(t *testing.T) {
 	// importing again simply upserts
 	require.NoError(t, client.ImportKey(c))
 
-	keys, err := app.GetStore().Keys()
+	keys, err := app.GetStore().SendKeys()
 	require.NoError(t, err)
 
 	require.Len(t, keys, 2)
@@ -304,7 +373,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = orm.DialectPostgres
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", true)
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 	defer connectedCleanup()
 
@@ -445,7 +513,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	}
 }
 
-func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
+func TestClient_RebroadcastTransactions_OutsideRange_LegacyTxManager(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -469,8 +537,12 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			defer cleanup()
+			config, cfgCleanup := cltest.NewConfig(t)
+			defer cfgCleanup()
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
+			store, strCleanup := cltest.NewStoreWithConfig(config)
+			defer strCleanup()
+
 			account, err := store.KeyStore.NewAccount(cltest.Password)
 			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
@@ -507,6 +579,66 @@ func TestClient_RebroadcastTransactions_OutsideRange(t *testing.T) {
 
 			app.AssertExpectations(t)
 			txManager.AssertExpectations(t)
+		})
+	}
+}
+
+func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
+	beginningNonce := uint(7)
+	endingNonce := uint(10)
+	gasPrice := big.NewInt(100000000000)
+	gasLimit := uint64(3000000)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	set.Uint("beginningNonce", beginningNonce, "")
+	set.Uint("endingNonce", endingNonce, "")
+	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+	set.Uint64("gasLimit", gasLimit, "")
+	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	c := cli.NewContext(nil, set, nil)
+
+	tests := []struct {
+		name  string
+		nonce uint
+	}{
+		{"below beginning", beginningNonce - 1},
+		{"above ending", endingNonce + 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			store, cleanup := cltest.NewStore(t)
+			defer cleanup()
+			account, err := store.KeyStore.NewAccount(cltest.Password)
+			require.NoError(t, err)
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+
+			app := new(mocks.Application)
+			app.On("GetStore").Return(store)
+			app.On("Stop").Return(nil)
+
+			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+			client := cmd.Client{
+				Config:                 store.Config,
+				AppFactory:             cltest.InstanceAppFactory{App: app},
+				KeyStoreAuthenticator:  auth,
+				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+				Runner:                 cltest.EmptyRunner{},
+			}
+
+			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
+			j := cltest.NewJobWithWebInitiator()
+			require.NoError(t, store.CreateJob(&j))
+			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
+			tx.SurrogateID = null.StringFrom(jr.ID.String())
+			require.NoError(t, store.SaveTx(tx))
+
+			assert.NoError(t, client.RebroadcastTransactions(c))
+
+			jr = cltest.FindJobRun(t, store, jr.ID)
+			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
+
+			app.AssertExpectations(t)
 		})
 	}
 }
@@ -571,6 +703,48 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	e := keys[0]
 	_, err = e.Decrypt(cltest.Password)
 	require.NoError(t, err)
+}
+
+func TestClient_P2P_DeleteKey(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+
+	auth := cltest.CallbackAuthenticator{}
+	apiPrompt := &cltest.MockAPIInitializer{}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: apiPrompt,
+		Runner:                 cltest.EmptyRunner{},
+	}
+
+	key, err := p2pkey.CreateKey()
+	require.NoError(t, err)
+	encKey, err := key.ToEncryptedP2PKey("password")
+	require.NoError(t, err)
+	err = store.UpsertEncryptedP2PKey(&encKey)
+	require.NoError(t, err)
+
+	keys, err := store.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	strID := strconv.FormatInt(int64(encKey.ID), 10)
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{strID})
+	c := cli.NewContext(nil, set, nil)
+
+	err = client.DeleteP2PKey(c)
+	require.NoError(t, err)
+
+	keys, err = store.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
 }
 
 func TestClient_CreateOCRKeyBundle(t *testing.T) {

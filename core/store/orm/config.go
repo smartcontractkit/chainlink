@@ -351,6 +351,11 @@ func (c Config) EthereumDisabled() bool {
 	return c.viper.GetBool(EnvVarName("EthereumDisabled"))
 }
 
+// FlagsContractAddress represents the Flags contract address
+func (c Config) FlagsContractAddress() string {
+	return c.viper.GetString(EnvVarName("FlagsContractAddress"))
+}
+
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.
 // E.g. if this is set to 3, and we receive block 10, gas updater will
 // fetch block 7.
@@ -415,12 +420,17 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
-// OracleContractAddress represents the deployed Oracle contract's address.
-func (c Config) OracleContractAddress() *common.Address {
-	if c.viper.GetString(EnvVarName("OracleContractAddress")) == "" {
-		return nil
+// OperatorContractAddress represents the address where the Operator.sol
+// contract is deployed, this is used for filtering RunLog requests
+func (c Config) OperatorContractAddress() common.Address {
+	if c.viper.GetString(EnvVarName("OperatorContractAddress")) == "" {
+		return common.Address{}
 	}
-	return c.getWithFallback("OracleContractAddress", parseAddress).(*common.Address)
+	address, ok := c.getWithFallback("OperatorContractAddress", parseAddress).(*common.Address)
+	if !ok {
+		return common.Address{}
+	}
+	return *address
 }
 
 // LogLevel represents the maximum level of log messages to output.

@@ -135,8 +135,6 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		return models.NewRunOutputError(err)
 	}
 
-	store.NotifyNewEthTx.Trigger()
-
 	return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 }
 

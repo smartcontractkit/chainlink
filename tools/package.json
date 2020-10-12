@@ -6,7 +6,7 @@
     "depcheck": "echo '@chainlink/tools' && depcheck || true"
   },
   "engines": {
-    "node": "~10.16"
+    "node": "^12.0.0"
   },
   "dependencies": {
     "axios": "^0.19.2"
