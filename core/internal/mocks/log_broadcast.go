@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	types "github.com/ethereum/go-ethereum/core/types"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -12,16 +12,16 @@ type LogBroadcast struct {
 	mock.Mock
 }
 
-// Log provides a mock function with given fields:
-func (_m *LogBroadcast) Log() eth.Log {
+// DecodedLog provides a mock function with given fields:
+func (_m *LogBroadcast) DecodedLog() interface{} {
 	ret := _m.Called()
 
-	var r0 eth.Log
-	if rf, ok := ret.Get(0).(func() eth.Log); ok {
+	var r0 interface{}
+	if rf, ok := ret.Get(0).(func() interface{}); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(eth.Log)
+			r0 = ret.Get(0).(interface{})
 		}
 	}
 
@@ -42,8 +42,22 @@ func (_m *LogBroadcast) MarkConsumed() error {
 	return r0
 }
 
-// UpdateLog provides a mock function with given fields: _a0
-func (_m *LogBroadcast) UpdateLog(_a0 eth.Log) {
+// RawLog provides a mock function with given fields:
+func (_m *LogBroadcast) RawLog() types.Log {
+	ret := _m.Called()
+
+	var r0 types.Log
+	if rf, ok := ret.Get(0).(func() types.Log); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(types.Log)
+	}
+
+	return r0
+}
+
+// SetDecodedLog provides a mock function with given fields: _a0
+func (_m *LogBroadcast) SetDecodedLog(_a0 interface{}) {
 	_m.Called(_a0)
 }
 

@@ -123,7 +123,6 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			ethMock := app.EthMock
 			logs := make(chan models.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
-				meth.Register("eth_getTransactionCount", "0x1")
 				meth.RegisterSubscription("logs", logs)
 			})
 			assert.NoError(t, app.StartAndConnect())
@@ -242,6 +241,27 @@ func TestFilterQueryFactory_InitiatorEthLog(t *testing.T) {
 		fromBlock := big.NewInt(999)
 		_, err := models.FilterQueryFactory(i, fromBlock)
 		assert.Error(t, err)
+	}
+
+	// With an additional address param
+	{
+		i := models.Initiator{
+			Type: models.InitiatorEthLog,
+			InitiatorParams: models.InitiatorParams{
+				Address: common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+			},
+		}
+		filter, err := models.FilterQueryFactory(i, nil, common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff"))
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			Addresses: []common.Address{
+				common.HexToAddress("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
+				common.HexToAddress("ffffffffffffffffffffffffffffffffffffffff"),
+			},
+			Topics: [][]common.Hash{},
+		}
+		assert.Equal(t, want, filter)
 	}
 }
 

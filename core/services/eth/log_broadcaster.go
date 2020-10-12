@@ -84,43 +84,39 @@ func NewLogBroadcaster(ethClient Client, orm ormInterface, backfillDepth uint64)
 // for determining whether or not the log has been consumed and for marking
 // the log as consumed
 type LogBroadcast interface {
-	Log() Log
-	UpdateLog(Log)
+	DecodedLog() interface{}
+	RawLog() types.Log
+	SetDecodedLog(interface{})
 	WasAlreadyConsumed() (bool, error)
 	MarkConsumed() error
 }
 
-type Log interface {
-	RawLog() types.Log
-}
-
-type GethRawLog struct {
-	types.Log
-}
-
-func (rl GethRawLog) RawLog() types.Log { return rl.Log }
-
 type logBroadcast struct {
 	orm        ormInterface
-	log        Log
+	decodedLog interface{}
+	rawLog     types.Log
 	consumerID *models.ID
 }
 
-func (lb *logBroadcast) Log() Log {
-	return lb.log
+func (lb *logBroadcast) DecodedLog() interface{} {
+	return lb.decodedLog
 }
 
-func (lb *logBroadcast) UpdateLog(newLog Log) {
-	lb.log = newLog
+func (lb *logBroadcast) RawLog() types.Log {
+	return lb.rawLog
+}
+
+func (lb *logBroadcast) SetDecodedLog(newLog interface{}) {
+	lb.decodedLog = newLog
 }
 
 func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
-	rawLog := lb.log.RawLog()
+	rawLog := lb.RawLog()
 	return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.consumerID)
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
-	rawLog := lb.log.RawLog()
+	rawLog := lb.RawLog()
 	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.consumerID, rawLog.BlockNumber)
 }
 
@@ -348,7 +344,7 @@ func (b *logBroadcaster) onRawLog(rawLog types.Log) {
 
 		// Deep copy the log so that subscribers aren't sharing any state
 		rawLogCopy := copyLog(rawLog)
-		lb := &logBroadcast{log: GethRawLog{rawLogCopy}, orm: b.orm, consumerID: listener.JobID()}
+		lb := &logBroadcast{rawLog: rawLogCopy, orm: b.orm, consumerID: listener.JobID()}
 		listener.HandleLog(lb, nil)
 	}
 }
@@ -478,7 +474,7 @@ type decodingLogListener struct {
 var _ LogListener = (*decodingLogListener)(nil)
 
 // NewDecodingLogListener creates a new decodingLogListener
-func NewDecodingLogListener(codec ContractCodec, nativeLogTypes map[common.Hash]Log, innerListener LogListener) LogListener {
+func NewDecodingLogListener(codec ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {
 		logTypes[eventID] = reflect.TypeOf(logStruct)
@@ -497,10 +493,7 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		return
 	}
 
-	rawLog, is := lb.Log().(GethRawLog)
-	if !is {
-		panic("DecodingLogListener expects to receive a logBroadcast with a GethRawLog")
-	}
+	rawLog := lb.RawLog()
 
 	if len(rawLog.Topics) == 0 {
 		return
@@ -512,20 +505,16 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		return
 	}
 
-	var decodedLog Log
-	var ok bool
+	var decodedLog interface{}
 	if logType.Kind() == reflect.Ptr {
-		decodedLog, ok = reflect.New(logType.Elem()).Interface().(Log)
+		decodedLog = reflect.New(logType.Elem()).Interface()
 	} else {
-		decodedLog, ok = reflect.New(logType).Interface().(Log)
-	}
-	if !ok {
-		panic("DecodingLogListener expects a Rawlog logType")
+		decodedLog = reflect.New(logType).Interface()
 	}
 
 	// Insert the raw log into the ".Log" field
 	logStructV := reflect.ValueOf(decodedLog).Elem()
-	logStructV.FieldByName("GethRawLog").Set(reflect.ValueOf(rawLog))
+	logStructV.FieldByName("Log").Set(reflect.ValueOf(rawLog))
 
 	// Decode the raw log into the struct
 	event, err := l.codec.ABI().EventByID(eventID)
@@ -533,13 +522,13 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 		l.LogListener.HandleLog(nil, err)
 		return
 	}
-	err = l.codec.UnpackLog(decodedLog, event.RawName, rawLog.Log)
+	err = l.codec.UnpackLog(decodedLog, event.RawName, rawLog)
 	if err != nil {
 		l.LogListener.HandleLog(nil, err)
 		return
 	}
 
-	lb.UpdateLog(decodedLog)
+	lb.SetDecodedLog(decodedLog)
 	l.LogListener.HandleLog(lb, nil)
 }
 

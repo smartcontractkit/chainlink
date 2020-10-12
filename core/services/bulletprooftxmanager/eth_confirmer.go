@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -23,8 +24,9 @@ import (
 )
 
 var (
-	// ErrExternalWalletUsedNonce is the error string we save if we come to the conclusion that the transaction nonce was used by an external account
-	ErrExternalWalletUsedNonce = "external wallet used nonce"
+	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
+	// This most likely happened because an external wallet used the account for this nonce
+	ErrCouldNotGetReceipt = "could not get receipt"
 
 	ethConfirmerAdvisoryLockClassID  = int32(1)
 	ethConfirmerAdvisoryLockObjectID = int32(0)
@@ -85,14 +87,14 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 
 	mark := time.Now()
 
-	if err := ec.CheckForReceipts(ctx); err != nil {
+	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
 	logger.Debugw("EthConfirmer: finished CheckForReceipts", "headNum", head.Number, "time", time.Since(mark), "id", "eth_confirmer")
 	mark = time.Now()
 
-	keys, err := ec.store.Keys()
+	keys, err := ec.store.SendKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch keys")
 	}
@@ -121,26 +123,54 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 // workers that will fetch receipts for eth transactions
 const receiptFetcherWorkerCount = 10
 
-func (ec *ethConfirmer) CheckForReceipts(ctx context.Context) error {
-	unconfirmedEtxs, err := ec.findUnconfirmedEthTxs()
+func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
+	etxs, err := ec.findEthTxsRequiringReceiptFetch()
 	if err != nil {
-		return errors.Wrap(err, "findUnconfirmedEthTxs failed")
+		return errors.Wrap(err, "findEthTxsRequiringReceiptFetch failed")
 	}
-	if len(unconfirmedEtxs) > 0 {
-		logger.Debugf("EthConfirmer: %v unconfirmed transactions", len(unconfirmedEtxs))
+	if len(etxs) == 0 {
+		return nil
 	}
+
+	logger.Debugf("EthConfirmer: fetching receipt for %v transactions", len(etxs))
+
+	ec.concurrentlyFetchReceipts(ctx, etxs)
+
+	if err := ec.markConfirmedMissingReceipt(ctx); err != nil {
+		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
+	}
+
+	if err := ec.markOldTxesMissingReceiptAsErrored(ctx, blockNum); err != nil {
+		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
+	}
+
+	return nil
+}
+
+func (ec *ethConfirmer) findEthTxsRequiringReceiptFetch() (etxs []models.EthTx, err error) {
+	err = ec.store.DB.
+		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("eth_tx_attempts.gas_price DESC")
+		}).
+		Order("nonce ASC").
+		Find(&etxs, "state IN ('unconfirmed', 'confirmed_missing_receipt')").Error
+
+	return
+}
+
+func (ec *ethConfirmer) concurrentlyFetchReceipts(ctx context.Context, etxs []models.EthTx) {
 	var wg sync.WaitGroup
 	wg.Add(receiptFetcherWorkerCount)
 	chEthTxes := make(chan models.EthTx)
 	for i := 0; i < receiptFetcherWorkerCount; i++ {
 		go ec.fetchReceipts(ctx, chEthTxes, &wg)
 	}
-	for _, etx := range unconfirmedEtxs {
+	for _, etx := range etxs {
 		chEthTxes <- etx
 	}
 	close(chEthTxes)
 	wg.Wait()
-	return nil
+
 }
 
 func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan models.EthTx, wg *sync.WaitGroup) {
@@ -155,7 +185,7 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 			// expense of slightly higher load for the remote eth node, by
 			// batch requesting all receipts at once
 			receipt, err := ec.fetchReceipt(ctx, attempt.Hash)
-			if isParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
+			if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
 				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
 				break
 			} else if err != nil {
@@ -178,17 +208,6 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 			}
 		}
 	}
-}
-
-func (ec *ethConfirmer) findUnconfirmedEthTxs() ([]models.EthTx, error) {
-	var etxs []models.EthTx
-	err := ec.store.DB.
-		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
-		}).
-		Order("nonce ASC").
-		Find(&etxs, "eth_txes.state = 'unconfirmed'").Error
-	return etxs, err
 }
 
 func (ec *ethConfirmer) fetchReceipt(ctx context.Context, hash gethCommon.Hash) (*gethTypes.Receipt, error) {
@@ -229,6 +248,82 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 
 		return errors.Wrap(err, "saveReceipt failed to save receipt")
 	})
+}
+
+// markConfirmedMissingReceipt
+// It is possible that we can fail to get a receipt for all eth_tx_attempts
+// even though a transaction with this nonce has long since been confirmed (we
+// know this because transactions with higher nonces HAVE returned a receipt).
+//
+// This can probably only happen if an external wallet used the account (or
+// conceivably because of some bug in the remote eth node that prevents it
+// from returning a receipt for a valid transaction).
+//
+// In this case we mark these transactions as 'confirmed_missing_receipt' to
+// prevent gas bumping.
+//
+// We will continue to try to fetch a receipt for these attempts until all
+// attempts are below the finality depth from current head.
+func (ec *ethConfirmer) markConfirmedMissingReceipt(ctx context.Context) (err error) {
+	_, err = ec.store.DB.DB().ExecContext(ctx, `
+UPDATE eth_txes
+SET state = 'confirmed_missing_receipt'
+WHERE state = 'unconfirmed'
+AND nonce < (
+	SELECT MAX(nonce) FROM eth_txes
+	WHERE state = 'confirmed'
+)
+	`)
+	return
+}
+
+// markOldTxesMissingReceiptAsErrored
+//
+// Once eth_tx has all of its attempts broadcast before some cutoff threshold,
+// we mark it as fatally errored (never sent).
+//
+// The job run will also be marked as errored in this case since we never got a
+// receipt and thus cannot pass on any transaction hash
+func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64) error {
+	// cutoff is a block height
+	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
+	// We will not try to query for receipts for this transaction any more
+	cutoff := blockNum - int64(ec.config.EthFinalityDepth())
+	if cutoff <= 0 {
+		return nil
+	}
+	rows, err := ec.store.DB.DB().QueryContext(ctx, `
+UPDATE eth_txes
+SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
+WHERE id IN (
+	SELECT eth_txes.id FROM eth_txes
+	INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id
+	WHERE eth_txes.state = 'confirmed_missing_receipt'
+	GROUP BY eth_txes.id
+	HAVING max(eth_tx_attempts.broadcast_before_block_num) < $2
+)
+RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
+
+	if err != nil {
+		return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
+	}
+
+	for rows.Next() {
+		var ethTxID int64
+		var nonce null.Int64
+		var fromAddress gethCommon.Address
+		if err = rows.Scan(&ethTxID, &nonce, &fromAddress); err != nil {
+			return errors.Wrap(err, "error scanning row")
+		}
+
+		logger.Errorf("EthConfirmer: eth_tx with ID %v expired without ever getting a receipt for any of our attempts. "+
+			"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
+			"This can happen if an external wallet has been used to send a transaction from account %s with nonce %v."+
+			" Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and WILL lead to missed transactions",
+			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64)
+	}
+
+	return errors.Wrap(rows.Close(), "markOldTxesMissingReceiptAsErrored failed to close rows")
 }
 
 func (ec *ethConfirmer) BumpGasWhereNecessary(ctx context.Context, keys []models.Key, blockHeight int64) error {
@@ -281,7 +376,7 @@ func (ec *ethConfirmer) bumpGasWhereNecessary(ctx context.Context, address gethC
 			return errors.Wrap(err, "saveInProgressAttempt failed")
 		}
 
-		if err := ec.handleInProgressAttempt(ctx, etx, attempt, blockHeight, true); err != nil {
+		if err := ec.handleInProgressAttempt(ctx, etx, attempt, blockHeight); err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
@@ -296,7 +391,7 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
-		if err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight, false); err != nil {
+		if err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight); err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
@@ -307,7 +402,7 @@ func getInProgressEthTxAttempts(s *store.Store, address gethCommon.Address) ([]m
 	var attempts []models.EthTxAttempt
 	err := s.DB.
 		Preload("EthTx").
-		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'unconfirmed')").
+		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')").
 		Where("eth_tx_attempts.state = 'in_progress'").
 		Where("eth_txes.from_address = ?", address).
 		Find(&attempts).Error
@@ -374,7 +469,7 @@ func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) erro
 	return errors.Wrap(ec.store.DB.Save(attempt).Error, "saveInProgressAttempt failed")
 }
 
-func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.EthTx, attempt models.EthTxAttempt, blockHeight int64, isVirginAttempt bool) error {
+func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.EthTx, attempt models.EthTxAttempt, blockHeight int64) error {
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
@@ -385,7 +480,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
 		//
-		// It could concievably happen if the remote eth node changed it's configuration.
+		// It could conceivably happen if the remote eth node changed it's configuration.
 		bumpedGasPrice, err := BumpGas(ec.config, attempt.GasPrice.ToInt())
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")
@@ -402,7 +497,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		if err := saveReplacementInProgressAttempt(ec.store, attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
-		return ec.handleInProgressAttempt(ctx, etx, replacementAttempt, blockHeight, isVirginAttempt)
+		return ec.handleInProgressAttempt(ctx, etx, replacementAttempt, blockHeight)
 	}
 
 	if sendError.IsTemporarilyUnderpriced() {
@@ -429,63 +524,14 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"err", sendError,
 			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
 			"blockHeight", blockHeight,
-			"isVirginAttempt", isVirginAttempt,
 		)
 		// This will loop continuously on every new head so it must be handled manually by the node operator!
 		return deleteInProgressAttempt(ec.store.DB, attempt)
 	}
 
 	if sendError.IsNonceTooLowError() {
-		// Nonce too low indicated that it was confirmed already. Success!
-		// This attempt is unnecessary, so we can wait for one of the previous
-		// attempts to catch a receipt on the next loop
-
-		// NOTE: It is possible we will hit this over and over again forever if
-		// another wallet used the chainlink keys. This is because without the
-		// attempt in our database, we can never fetch the receipt and thus
-		// never mark the transaction as confirmed.
-		//
-		// The simplest and safest thing to do in that case is to keep
-		// requesting receipts on each head until one of two things happens:
-		//
-		// 1. We get a receipt for one of our transactions
-		// 2. We hit such a high block height that whichever transaction is
-		// there won't get re-org'd out so it doesn't matter anyway (for
-		// gapless nonce purposes).
-		//
-		// NOTE: It may be possible to introduce some optimisation here since
-		// we know that if a later nonce is confirmed, earlier nonces are also
-		// automatically confirmed.
-		if ec.IsSafeToAbandon(etx, blockHeight) {
-			logger.Errorf("nonce %v for transaction %v was already used but we never got a receipt from the eth node for any of our attempts. "+
-				"Current block height is %v. This transaction has not been sent and will be marked as fatally errored. "+
-				"This can happen if an external wallet has been used to send a transaction from account %s with nonce %v."+
-				" Please note that using the chainlink keys with an external wallet is NOT SUPPORTED and can lead to missed transactions",
-				*etx.Nonce, etx.ID, blockHeight, etx.FromAddress.Hex(), *etx.Nonce)
-
-			return saveExternalWalletUsedNonce(ec.store, &etx, attempt)
-		}
-
-		if isVirginAttempt {
-			// If we get this error, and this attempt has never been sent before
-			// it is extremely likely that either:
-			//
-			// 1. One of our previous attempts was successful
-			// 2. An external wallet messed with our nonce
-			//
-			// Either way, there is no point keeping the current attempt around
-			// since it will never confirm.
-			//
-			// On the extremely minute chance this is due to a network double
-			// send or something bizarre, we will fail to get a receipt for one
-			// of the other transactions and simply enter this loop again.
-			return deleteInProgressAttempt(ec.store.DB, attempt)
-		}
-		// If we already sent the attempt, we have to assume the one who was
-		// confirmed was this one, so simply mark it as broadcast and wait for
-		// a receipt.
-		//
-		// Assume success and hand off to the next cycle.
+		// Nonce too low indicated that a transaction at this nonce was confirmed already.
+		// Assume success and hand off to the next cycle to fetch a receipt and mark confirmed.
 		sendError = nil
 	}
 
@@ -540,38 +586,6 @@ func deleteInProgressAttempt(db *gorm.DB, attempt models.EthTxAttempt) error {
 		return errors.New("deleteInProgressAttempt: expected attempt to have an id")
 	}
 	return errors.Wrap(db.Exec(`DELETE FROM eth_tx_attempts WHERE id = ?`, attempt.ID).Error, "deleteInProgressAttempt failed")
-}
-
-// IsSafeToAbandon determines whether the transaction has an attempt that was
-// broadcast long enough ago that we consider it to be "final". Note that this
-// is only used in the case the nonce has been used but we cannot get a
-// receipt, because we do not have the right attempt in our database.
-//
-// This should only ever happen if an external wallet has used the account.
-func (ec *ethConfirmer) IsSafeToAbandon(etx models.EthTx, blockHeight int64) bool {
-	min := int64(0)
-	for _, attempt := range etx.EthTxAttempts {
-		if attempt.BroadcastBeforeBlockNum != nil && (min == 0 || *attempt.BroadcastBeforeBlockNum < min) {
-			min = *attempt.BroadcastBeforeBlockNum
-		}
-	}
-	return min != 0 && min < (blockHeight-int64(ec.config.EthFinalityDepth()))
-}
-
-func saveExternalWalletUsedNonce(s *store.Store, etx *models.EthTx, attempt models.EthTxAttempt) error {
-	if etx.State != models.EthTxUnconfirmed {
-		return errors.Errorf("can only set external wallet used nonce if unconfirmed, transaction is currently %s", etx.State)
-	}
-	etx.Nonce = nil
-	etx.State = models.EthTxFatalError
-	etx.Error = &ErrExternalWalletUsedNonce
-	etx.BroadcastAt = nil
-	return s.Transaction(func(tx *gorm.DB) error {
-		if err := deleteInProgressAttempt(tx, attempt); err != nil {
-			return errors.Wrap(err, "deleteInProgressAttempt failed")
-		}
-		return errors.Wrap(tx.Save(etx).Error, "saveExternalWalletUsedNonce failed")
-	})
 }
 
 func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
@@ -645,7 +659,7 @@ func findTransactionsConfirmedAtOrAboveBlockHeight(db *gorm.DB, blockNumber int6
 		Joins("INNER JOIN eth_tx_attempts ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_tx_attempts.state = 'broadcast'").
 		Joins("INNER JOIN eth_receipts ON eth_receipts.tx_hash = eth_tx_attempts.hash").
 		Order("nonce ASC").
-		Where("eth_txes.state = 'confirmed' AND block_number >= ?", blockNumber).
+		Where("eth_txes.state IN ('confirmed', 'confirmed_missing_receipt') AND block_number >= ?", blockNumber).
 		Find(&etxs).Error
 	return etxs, errors.Wrap(err, "findTransactionsConfirmedAtOrAboveBlockHeight failed")
 }
@@ -674,7 +688,7 @@ func (ec *ethConfirmer) markForRebroadcast(etx models.EthTx) error {
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
 
-	// Put it back in progress and delete the receipt
+	// Put it back in progress and delete all receipts (they do not apply to the new chain)
 	err := ec.store.Transaction(func(tx *gorm.DB) error {
 		if err := deleteAllReceipts(tx, etx.ID); err != nil {
 			return errors.Wrapf(err, "deleteAllReceipts failed for etx %v", etx.ID)
@@ -769,15 +783,14 @@ func (ec *ethConfirmer) sendEmptyTransaction(ctx context.Context, fromAddress ge
 	return tx.Hash(), nil
 }
 
-// findAllEthTxsInNonceRange returns an array of eth_txes for the given key
-// matching the inclusive range between beginningNonce and endingNonce
+// findEthTxWithNonce returns any broadcast ethtx with the given nonce
 func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint) (*models.EthTx, error) {
 	etx := models.EthTx{}
 	err := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC")
 		}).
-		First(&etx, "from_address = ? AND nonce = ? AND state IN ('confirmed','unconfirmed')", fromAddress, nonce).
+		First(&etx, "from_address = ? AND nonce = ? AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')", fromAddress, nonce).
 		Error
 	if gorm.IsRecordNotFoundError(err) {
 		return nil, nil

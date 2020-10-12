@@ -15,28 +15,34 @@ set -ex
 # to work with.
 #
 
-if [ -z "$DOCKERHUB_PASS" ]
-then
+if [ -z "$DOCKERHUB_PASS" ]; then
   echo "Cannot push to dockerhub, credentials are missing."
   exit 1
 fi
 
 circle_branch="$1"
 circle_tag="$2"
+circle_sha1="$3"
 
-PROJECT_ROOT=`git rev-parse --show-toplevel`
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
 pushd $PROJECT_ROOT >/dev/null
 
 tag_and_push() {
   # ie: docker tag and push smartcontract/chainlink:0.9.1, since DOCKER_TAG=0.9.1
   export DOCKER_TAG=$1
-  (set -x; docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG})
-  (set -x; docker tag smartcontract/chainlink:circleci "${AWS_ECR_ACCOUNT_URL}:${DOCKER_TAG}")
+  (
+    set -x
+    docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG}
+  )
+  (
+    set -x
+    docker tag smartcontract/chainlink:circleci "${AWS_ECR_ACCOUNT_URL}:${DOCKER_TAG}"
+  )
   make dockerpush
 }
 
-branch_tag=`tools/ci/branch2tag ${circle_branch}` # ie: develop, latest, candidate-*, etc.
-version_tag=`tools/ci/gittag2dockertag ${circle_tag}` # aka GIT_TAG. v0.9.1 -> 0.9.1
+branch_tag=$(tools/ci/branch2tag ${circle_branch})     # ie: develop, latest, candidate-*, etc.
+version_tag=$(tools/ci/gittag2dockertag ${circle_tag}) # aka GIT_TAG. v0.9.1 -> 0.9.1
 
 # version tag takes precedence.
 if [ -n "${version_tag}" ]; then
@@ -47,14 +53,14 @@ if [ -n "${version_tag}" ]; then
     tag_and_push "$version_tag"
     # if version tag, also push latest.
     # ie: after pushing smartcontract/chainlink:0.6.9, also update smartcontract/chainlink:latest
-    tag_and_push latest
+    tag_and_push "latest.$circle_sha1"
   fi
 elif [ -n "$branch_tag" ]; then
   # Only if we're not on explorer branch
   if [[ "${circle_branch}" =~ ^release(s)?\/explorer-(.+)$ ]]; then
     echo "Skipping publishing for this branch/tag."
   else
-    tag_and_push "$branch_tag"
+    tag_and_push "$branch_tag.$circle_sha1"
   fi
 else
   echo "Skipping publishing for this branch/tag."

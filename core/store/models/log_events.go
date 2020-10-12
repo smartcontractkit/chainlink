@@ -12,7 +12,6 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/whisper/whisperv6"
 	"github.com/pkg/errors"
 )
 
@@ -94,9 +93,10 @@ func JobSpecIDTopics(jsID *ID) []common.Hash {
 }
 
 // FilterQueryFactory returns the ethereum FilterQuery for this initiator.
-func FilterQueryFactory(i Initiator, from *big.Int) (q ethereum.FilterQuery, err error) {
+func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address) (q ethereum.FilterQuery, err error) {
 	q.FromBlock = from
-	q.Addresses = utils.WithoutZeroAddresses([]common.Address{i.Address})
+	filterAddresses := append([]common.Address{i.Address}, addresses...)
+	q.Addresses = utils.WithoutZeroAddresses(filterAddresses)
 
 	switch {
 	case i.Type == InitiatorEthLog:
@@ -402,7 +402,7 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 	if err != nil {
 		return JSON{}, err
 	}
-	dataLength := whisperv6.BytesToUintBigEndian(dataLengthBytes)
+	dataLength := utils.EVMBytesToUint64(dataLengthBytes)
 
 	if len(log.Data) < cborStart+int(dataLength) {
 		return JSON{}, errors.New("cbor too short")

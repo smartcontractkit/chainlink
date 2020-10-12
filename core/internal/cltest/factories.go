@@ -325,6 +325,11 @@ func randomBytes(n int) []byte {
 	return b
 }
 
+func Random32Byte() (b [32]byte) {
+	copy(b[:], randomBytes(32))
+	return b
+}
+
 // NewBridgeType create new bridge type given info slice
 func NewBridgeType(t testing.TB, info ...string) (*models.BridgeTypeAuthentication, *models.BridgeType) {
 	btr := &models.BridgeTypeRequest{}
@@ -615,7 +620,8 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 			},
 		},
 	}
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, initr, nil, runManager, fetcher, func() {})
+	lb := new(mocks.LogBroadcaster)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {})
 	require.NoError(t, err)
 	return checker
 }
@@ -672,12 +678,20 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 	return key
 }
 
+func MustIDFromString(t *testing.T, input string) *models.ID {
+	t.Helper()
+
+	id, err := models.NewIDFromString(input)
+	require.NoError(t, err)
+	return id
+}
+
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {
 	var address common.Address
 	if len(fromAddress) > 0 {
 		address = fromAddress[0]
 	} else {
-		address = GetDefaultFromAddress(t, store)
+		address = DefaultKeyAddress
 	}
 
 	return models.EthTx{
@@ -786,4 +800,12 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
 	require.NoError(t, store.CreateKeyIfNotExists(k))
 	return k
+}
+
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainreportingOracleSpec {
+	t.Helper()
+
+	spec := models.OffchainreportingOracleSpec{}
+	require.NoError(t, store.DB.Create(&spec).Error)
+	return spec
 }

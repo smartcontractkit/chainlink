@@ -40,8 +40,10 @@ func registerExistingProvingKey(
 // TODO - this tests's eth client can be entirely replaced with the simulated backend once
 // the GethClient and RPCClient definitions are finished
 func TestIntegration_RandomnessRequest(t *testing.T) {
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.LenientEthMock,
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()

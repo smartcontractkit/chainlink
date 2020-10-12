@@ -1235,10 +1235,18 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	})
 }
 
-// Keys returns all of the keys recorded in the database.
-func (orm *ORM) Keys() ([]models.Key, error) {
+// AllKeys returns all of the keys recorded in the database including the funding key.
+// This method is deprecated! You should use SendKeys() to retrieve all but the funding keys.
+func (orm *ORM) AllKeys() ([]models.Key, error) {
 	var keys []models.Key
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
+}
+
+// SendKeys will return only the keys that are not is_funding=true.
+func (orm *ORM) SendKeys() ([]models.Key, error) {
+	var keys []models.Key
+	err := orm.DB.Where("is_funding != TRUE").Order("created_at ASC, address ASC").Find(&keys).Error
+	return keys, err
 }
 
 // KeyByAddress returns the key matching provided address
@@ -1304,6 +1312,19 @@ func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error
 	return keys, orm.DB.Find(&keys).Error
 }
 
+func (orm *ORM) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
+	key := p2pkey.EncryptedP2PKey{}
+	err := orm.DB.Where("id = ?", id).First(&key).Error
+	if err != nil {
+		return nil, err
+	}
+	return &key, nil
+}
+
+func (orm *ORM) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
+	return orm.DB.Delete(key).Error
+}
+
 // CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
 func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
 	return orm.DB.Create(keys).Error
@@ -1330,7 +1351,7 @@ func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBu
 
 // DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
 func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
-	return orm.DB.Delete(&key).Error
+	return orm.DB.Delete(key).Error
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
@@ -1341,6 +1362,7 @@ func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
 	err = orm.Transaction(func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
+		q = q.Where("is_funding = FALSE")
 		if len(addresses) > 0 {
 			q = q.Where("address in (?)", addresses)
 		}
@@ -1447,7 +1469,7 @@ func (orm *ORM) ClobberDiskKeyStoreWithDBKeys(keysDir string) error {
 		return err
 	}
 
-	keys, err := orm.Keys()
+	keys, err := orm.AllKeys()
 	if err != nil {
 		return err
 	}

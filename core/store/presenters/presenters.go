@@ -153,9 +153,11 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize      uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                      string          `json:"ethUrl"`
+	EthereumSecondaryURL             string          `json:"ethSecondaryURL"`
 	ExplorerURL                      string          `json:"explorerUrl"`
 	FeatureExternalInitiators        bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor               bool            `json:"featureFluxMonitor"`
+	FlagsContractAddress             string          `json:"flagsContractAddress"`
 	GasUpdaterBlockDelay             uint16          `json:"gasUpdaterBlockDelay"`
 	GasUpdaterBlockHistorySize       uint16          `json:"gasUpdaterBlockHistorySize"`
 	GasUpdaterEnabled                bool            `json:"gasUpdaterEnabled"`
@@ -173,7 +175,7 @@ type EnvPrinter struct {
 	MinimumServiceDuration           models.Duration `json:"minimumServiceDuration"`
 	MinimumContractPayment           *assets.Link    `json:"minimumContractPayment"`
 	MinimumRequestExpiration         uint64          `json:"minimumRequestExpiration"`
-	OracleContractAddress            *common.Address `json:"oracleContractAddress"`
+	OperatorContractAddress          common.Address  `json:"oracleContractAddress"`
 	Port                             uint16          `json:"chainlinkPort"`
 	ReaperExpiration                 models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                  int64           `json:"replayFromBlock"`
@@ -224,9 +226,11 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:      config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                config.EthMaxGasPriceWei(),
 			EthereumURL:                      config.EthereumURL(),
+			EthereumSecondaryURL:             config.EthereumSecondaryURL(),
 			ExplorerURL:                      explorerURL,
 			FeatureExternalInitiators:        config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:               config.FeatureFluxMonitor(),
+			FlagsContractAddress:             config.FlagsContractAddress(),
 			GasUpdaterBlockDelay:             config.GasUpdaterBlockDelay(),
 			GasUpdaterBlockHistorySize:       config.GasUpdaterBlockHistorySize(),
 			GasUpdaterEnabled:                config.GasUpdaterEnabled(),
@@ -244,7 +248,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			MinimumServiceDuration:           config.MinimumServiceDuration(),
 			MinimumContractPayment:           config.MinimumContractPayment(),
 			MinimumRequestExpiration:         config.MinimumRequestExpiration(),
-			OracleContractAddress:            config.OracleContractAddress(),
+			OperatorContractAddress:          config.OperatorContractAddress(),
 			Port:                             config.Port(),
 			ReaperExpiration:                 config.ReaperExpiration(),
 			ReplayFromBlock:                  config.ReplayFromBlock(),

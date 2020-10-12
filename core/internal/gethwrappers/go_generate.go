@@ -11,6 +11,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFConsumer.json solidity_vrf_consumer_interface
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json solidity_vrf_request_id
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/VRFTestnetD20.json vrf_testnet_d20
+//go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/Flags.json flags_wrapper
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
