@@ -13,12 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bulletproof transaction manager enabled by default
 - Fluxmonitor support enabled by default
-- Jobs now have a name field that can be filled
-- ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
 
 ### Fixed
 - Improve transaction manager architecture to be more compatible with `ETH_SECONDARY_URL` option (i.e. concurrent transaction submission to multiple different eth nodes). This also comes with some minor performance improvements in the tx manager and more correct handling of some extremely rare edge cases.
 - As a side-effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
+
+### Changed
+- ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
 
 ## [0.8.18] - 2020-10-01
 
@@ -34,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
 - At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
-- Add support for a custom job name, must be unique. A default one will be generated if not supplied.
 
 ### Fixed
 
