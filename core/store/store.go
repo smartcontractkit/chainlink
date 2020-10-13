@@ -73,9 +73,14 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	ethClient, err := eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
-	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+	var ethClient eth.Client
+	if config.EthereumDisabled() {
+		ethClient = &eth.NullClient{}
+	} else {
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
+		if err != nil {
+			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+		}
 	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
