@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2020-10-13
+
+### Fixed
+- Operator UI now shows booleans correctly
+
 ## [0.9.0] - 2020-10-12
 
 ### Added
