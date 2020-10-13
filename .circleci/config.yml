@@ -271,18 +271,6 @@ workflows:
   version: 2
   test:
     jobs:
-      - check_if_rebase_needed:
-          filters:
-            tags:
-              ignore:
-                - /^v.*/
-                - /^explorer-v.*/
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
-                - /^hotfix\/.*/
       - core-go-test:
           filters:
             tags:
@@ -295,42 +283,10 @@ workflows:
           filters:
             tags:
               only: /^v.*/
-      - lint:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
-      - prepublish_npm:
-          filters:
-            tags:
-              only:
-                - /^v.*/
-                - /^explorer-v.*/
       - build-publish-chainlink:
           requires:
             - core-go-test
             - operator-ui
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-integration:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-ts-integration:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-cypress-job-server:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-echo-server:
-          filters:
-            tags:
-              only: /^v.*/
-      - build-publish-external-adapter:
           filters:
             tags:
               only: /^v.*/
