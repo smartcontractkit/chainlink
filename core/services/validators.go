@@ -133,9 +133,6 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 
-	if store.Config.EthereumDisabled() {
-		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
-	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}

@@ -63,7 +63,6 @@ type concreteFluxMonitor struct {
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
-	disabled       bool
 	started        bool
 }
 
@@ -79,10 +78,6 @@ func New(
 	runManager RunManager,
 	logBroadcaster eth.LogBroadcaster,
 ) Service {
-	if store.Config.EthereumDisabled() {
-		return &concreteFluxMonitor{disabled: true}
-	}
-
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -101,11 +96,6 @@ func New(
 }
 
 func (fm *concreteFluxMonitor) Start() error {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: skipping start")
-		return nil
-	}
-
 	go fm.serveInternalRequests()
 	fm.started = true
 
@@ -137,11 +127,6 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: cannot stop")
-		return
-	}
-
 	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	if fm.started {
