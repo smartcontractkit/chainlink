@@ -23,6 +23,7 @@
     "@types/node": "^13.9.1",
     "ethers": "^4.0.45",
     "jest": "^25.1.0",
+    "solhint": "^3.2.1",
     "ts-jest": "^25.2.0",
     "typescript": "^3.7.5"
   },
@@ -36,5 +37,6 @@
   "optionalDependencies": {
     "@truffle/contract": "^4.2.6",
     "ethers": "^4.0.45"
-  }
+  },
+  "dependencies": {}
 }
