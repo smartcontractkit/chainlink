@@ -43,8 +43,17 @@ func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.H
 	return nil, nil
 }
 
+type nullSubscription struct{}
+
+func (ns *nullSubscription) Unsubscribe()      {}
+func (ns *nullSubscription) Err() <-chan error { return nil }
+
+func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	return &nullSubscription{}, nil
+}
+
 func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.Head) (ethereum.Subscription, error) {
-	return nil, nil
+	return &nullSubscription{}, nil
 }
 
 //
@@ -52,7 +61,7 @@ func (nc *NullClient) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 //
 
 func (nc *NullClient) ChainID(ctx context.Context) (*big.Int, error) {
-	return big.NewInt(0), nil
+	return big.NewInt(1), nil
 }
 
 func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -80,10 +89,6 @@ func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blo
 }
 
 func (nc *NullClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	return nil, nil
-}
-
-func (nc *NullClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	return nil, nil
 }
 
