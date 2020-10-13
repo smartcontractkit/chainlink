@@ -1,9 +1,9 @@
 pragma solidity 0.6.6;
 
-import "./Owned.sol";
-import "./CheckedMath.sol";
-import "./interfaces/AggregatorValidatorInterface.sol";
-import "./interfaces/FlagsInterface.sol";
+import './Owned.sol';
+import './CheckedMath.sol';
+import './interfaces/AggregatorValidatorInterface.sol';
+import './interfaces/FlagsInterface.sol';
 
 /**
  * @title The Deviation Flagging Validator contract

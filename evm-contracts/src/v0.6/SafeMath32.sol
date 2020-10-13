@@ -67,7 +67,7 @@ library SafeMath32 {
     }
 
     uint32 c = a * b;
-    require(c / a == b, "SafeMath: mul overflow");
+    require(c / a == b, "SafeMath: multiplication overflow");
 
     return c;
   }

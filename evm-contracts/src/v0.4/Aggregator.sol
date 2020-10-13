@@ -181,7 +181,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     ensureAuthorizedRequester()
   {
     uint256 answerId = requestAnswers[_requestId];
-    require(answerId < latestCompletedAnswer, "Cannot modify answer in-progress");
+    require(answerId < latestCompletedAnswer, "Cannot modify an in-progress answer");
 
     delete requestAnswers[_requestId];
     answers[answerId].responses.push(0);
@@ -407,9 +407,9 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
     address[] _oracles,
     bytes32[] _jobIds
   ) {
-    require(_oracles.length <= MAX_ORACLE_COUNT, "too many oracles");
-    require(_oracles.length >= _minimumResponses, "not enough oracles");
-    require(_oracles.length == _jobIds.length, "oracles length != jobIds length");
+    require(_oracles.length <= MAX_ORACLE_COUNT, "cannot have more than 45 oracles");
+    require(_oracles.length >= _minimumResponses, "must have at least as many oracles as responses");
+    require(_oracles.length == _jobIds.length, "must have exactly as many oracles as job IDs");
     _;
   }
 
@@ -417,7 +417,7 @@ contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
    * @dev Reverts if `msg.sender` is not authorized to make requests.
    */
   modifier ensureAuthorizedRequester() {
-    require(authorizedRequesters[msg.sender] || msg.sender == owner, "Unauthorized to create request");
+    require(authorizedRequesters[msg.sender] || msg.sender == owner, "Not an authorized address for creating requests");
     _;
   }
 

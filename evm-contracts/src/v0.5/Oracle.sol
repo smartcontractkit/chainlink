@@ -240,7 +240,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @param _amount The given amount to compare to `withdrawableTokens`
    */
   modifier hasAvailableFunds(uint256 _amount) {
-    require(withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Request greater than balance");
+    require(withdrawableTokens >= _amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
     _;
   }
 
@@ -257,7 +257,7 @@ contract Oracle is ChainlinkRequestInterface, OracleInterface, Ownable, LinkToke
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedNode() {
-    require(authorizedNodes[msg.sender] || msg.sender == owner(), "Unauthorized fulfill");
+    require(authorizedNodes[msg.sender] || msg.sender == owner(), "Not an authorized node to fulfill requests");
     _;
   }
 
