@@ -322,9 +322,6 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
-		if _, ok := adapter.BaseAdapter.(*adapters.EthTxABIEncode); ok {
-			return errors.New("EthTxABIEncode Adapter is not implemented yet")
-		}
 	}
 	return nil
 }
