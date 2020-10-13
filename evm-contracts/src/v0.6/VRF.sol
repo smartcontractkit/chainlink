@@ -217,7 +217,7 @@ contract VRF {
 
   // Domain-separation tag for initial hash in hashToCurve. Corresponds to
   // vrf.go/hashToCurveHashPrefix
-  uint256 constant HASH_TO_CURVE_HASH_PREFIX = 1;
+  uint256 constant internal HASH_TO_CURVE_HASH_PREFIX = 1;
 
   // Cryptographic hash function onto the curve.
   //
@@ -255,7 +255,7 @@ contract VRF {
   function ecmulVerify(uint256[2] memory multiplicand, uint256 scalar,
     uint256[2] memory product) internal pure returns(bool verifies)
   {
-    require(scalar != 0); // Rules out an ecrecover failure case
+    require(scalar != 0, "Scalar must be non-zero"); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
     uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
     // https://ethresear.ch/t/you-can-kinda-abuse-ecrecover-to-do-ecmul-in-secp256k1-today/2384/9
@@ -409,14 +409,14 @@ contract VRF {
     internal pure returns (uint256[2] memory) {
       require((cp1Witness[0] - sp2Witness[0]) % FIELD_SIZE != 0,
               "points in sum must be distinct");
-      require(ecmulVerify(p1, c, cp1Witness), "First multiplication check failed");
-      require(ecmulVerify(p2, s, sp2Witness), "Second multiplication check failed");
+      require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
+      require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
 
   // Domain-separation tag for the hash taken in scalarFromCurvePoints.
   // Corresponds to scalarFromCurveHashPrefix in vrf.go
-  uint256 constant SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
+  uint256 constant internal SCALAR_FROM_CURVE_POINTS_HASH_PREFIX = 2;
 
   // Pseudo-random number from inputs. Matches vrf.go/scalarFromCurvePoints, and
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.4.3
@@ -477,7 +477,7 @@ contract VRF {
 
   // Domain-separation tag for the hash used as the final VRF output.
   // Corresponds to vrfRandomOutputHashPrefix in vrf.go
-  uint256 constant VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
+  uint256 constant internal VRF_RANDOM_OUTPUT_HASH_PREFIX = 3;
 
   // Length of proof marshaled to bytes array. Shows layout of proof
   uint public constant PROOF_LENGTH = 64 + // PublicKey (uncompressed format.)
