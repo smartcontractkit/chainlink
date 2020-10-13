@@ -746,7 +746,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				logger.Errorw("ForceRebroadcast: failed to send empty transaction", "nonce", n, "err", err)
 				continue
 			}
-			logger.Infof("ForceRebroadcast: successfully rebroadcast empty transaction with nonce %v and hash %s", n, hash)
+			logger.Infow("ForceRebroadcast: successfully rebroadcast empty transaction", "nonce", n, "hash", hash.String())
 		} else {
 			logger.Debugf("ForceRebroadcast: got eth_tx %v with nonce %v, will rebroadcast this transaction", etx.ID, *etx.Nonce)
 			if overrideGasLimit != 0 {
