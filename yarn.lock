@@ -2235,10 +2235,10 @@
     redux-devtools-extension "^2.13.8"
     redux-logger "^3.0.6"
 
-"@chainlink/styleguide@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@chainlink/styleguide/-/styleguide-0.0.2.tgz#c88a110dc8bc60d093c2cd56b3dc48811d5d2752"
-  integrity sha512-U9mKO1LSQGblOEWnlSp0shFDkqtxOOK70F6BYxNdi99aeK8AYFwpUbZnoQGleGFH6sBc6JlLz8EF2WIDn4nSDw==
+"@chainlink/styleguide@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.npmjs.org/@chainlink/styleguide/-/styleguide-0.0.4.tgz#1bb0eb6fd0d0e0ad49704903c9485e5e8d7fd0e2"
+  integrity sha512-5IMtdJVFRnZDgw2h7pwvbRE8pNtu7UxGyx5GhcPhB3xenUMSpeOvHW9diOEw0S5ymEkW4qmwh9YUkpCdyN/2mA==
   dependencies:
     "@material-ui/core" "^3.9.2"
     change-case "^4.1.1"
