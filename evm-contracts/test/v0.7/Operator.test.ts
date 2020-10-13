@@ -372,13 +372,11 @@ describe('Operator', () => {
           const fulfillParams = oracle.convertFufillParams(request, response)
           const tx = await operator
             .connect(roles.oracleNode)
-            .fulfillOracleRequest(
-              ...fulfillParams,
-            )
+            .fulfillOracleRequest(...fulfillParams)
           const receipt = await tx.wait()
           assert.equal(receipt.events?.length, 3)
           const responseEvent = receipt.events?.[2]
-          assert.equal(responseEvent?.event, "OracleResponse")
+          assert.equal(responseEvent?.event, 'OracleResponse')
           assert.equal(responseEvent?.args?.[0], request.requestId)
           assert.equal(responseEvent?.args?.[5], fulfillParams[5])
         })
