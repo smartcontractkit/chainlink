@@ -14,10 +14,10 @@ library SignedSafeMath {
       return 0;
     }
 
-    require(!(a == -1 && b == _INT256_MIN), "SignedSafeMath: multiplication overflow");
+    require(!(a == -1 && b == _INT256_MIN), "SignedSafeMath: mul overflow");
 
     int256 c = a * b;
-    require(c / a == b, "SignedSafeMath: multiplication overflow");
+    require(c / a == b, "SignedSafeMath: mul overflow");
 
     return c;
   }
@@ -26,8 +26,8 @@ library SignedSafeMath {
    * @dev Integer division of two signed integers truncating the quotient, reverts on division by zero.
    */
   function div(int256 a, int256 b) internal pure returns (int256) {
-    require(b != 0, "SignedSafeMath: division by zero");
-    require(!(b == -1 && a == _INT256_MIN), "SignedSafeMath: division overflow");
+    require(b != 0, "SignedSafeMath: div by zero");
+    require(!(b == -1 && a == _INT256_MIN), "SignedSafeMath: div overflow");
 
     int256 c = a / b;
 
@@ -39,7 +39,7 @@ library SignedSafeMath {
    */
   function sub(int256 a, int256 b) internal pure returns (int256) {
     int256 c = a - b;
-    require((b >= 0 && c <= a) || (b < 0 && c > a), "SignedSafeMath: subtraction overflow");
+    require((b >= 0 && c <= a) || (b < 0 && c > a), "SignedSafeMath: sub overflow");
 
     return c;
   }
@@ -49,7 +49,7 @@ library SignedSafeMath {
    */
   function add(int256 a, int256 b) internal pure returns (int256) {
     int256 c = a + b;
-    require((b >= 0 && c >= a) || (b < 0 && c < a), "SignedSafeMath: addition overflow");
+    require((b >= 0 && c >= a) || (b < 0 && c < a), "SignedSafeMath: add overflow");
 
     return c;
   }

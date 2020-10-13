@@ -86,8 +86,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     serviceAgreements[keyHash].vRFOracle = _oracle;
     serviceAgreements[keyHash].jobID = _jobID;
     // Yes, this revert message doesn't fit in a word
-    require(_fee <= 1e9 ether,
-      "you can't charge more than all the LINK in the world, greedy");
+    require(_fee <= 1e9 ether, "can't charge more than all LINK");
     serviceAgreements[keyHash].fee = uint96(_fee);
     emit NewServiceAgreement(keyHash, _fee);
   }

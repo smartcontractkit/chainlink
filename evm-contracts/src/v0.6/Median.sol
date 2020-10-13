@@ -6,7 +6,7 @@ import "./SignedSafeMath.sol";
 library Median {
   using SignedSafeMath for int256;
 
-  int256 constant INT_MAX = 2**255-1;
+  int256 constant internal INT_MAX = 2**255-1;
 
   /**
    * @notice Returns the sorted middle, or the average of the two middle indexed items if the
@@ -49,7 +49,7 @@ library Median {
   /**
    * @notice Maximum length of list that shortSelectTwo can handle
    */
-  uint256 constant SHORTSELECTTWO_MAX_LENGTH = 7;
+  uint256 constant internal SHORTSELECTTWO_MAX_LENGTH = 7;
 
   /**
    * @notice Select the k1-th and k2-th element from list of length at most 7
@@ -127,8 +127,8 @@ library Median {
     pure
     returns (int256 kth)
   {
-    require(lo <= k);
-    require(k <= hi);
+    require(lo <= k, "lo greater than k");
+    require(k <= hi, "k greater than hi");
     while (lo < hi) {
       if (hi - lo < SHORTSELECTTWO_MAX_LENGTH) {
         int256 ignore;
@@ -164,9 +164,9 @@ library Median {
     pure
     returns (int256 k1th, int256 k2th)
   {
-    require(k1 < k2);
-    require(lo <= k1 && k1 <= hi);
-    require(lo <= k2 && k2 <= hi);
+    require(k1 < k2, "k1 must be smaller than k2");
+    require(lo <= k1 && k1 <= hi, "k1 outside bounds");
+    require(lo <= k2 && k2 <= hi, "k2 outside bounds");
 
     while (true) {
       if (hi - lo < SHORTSELECTTWO_MAX_LENGTH) {
