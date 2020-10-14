@@ -161,39 +161,25 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	ethEnabled := !app.Store.Config.EthereumDisabled()
-	if ethEnabled {
-		err := app.Store.EthClient.Dial(context.TODO())
-		if err != nil {
-			return err
-		}
-	}
-
 	// XXX: Change to exit on first encountered error.
 	return multierr.Combine(
+		app.Store.EthClient.Dial(context.TODO()),
 		app.Store.Start(),
 		app.StatsPusher.Start(),
 		app.RunQueue.Start(),
 		app.RunManager.ResumeAllInProgress(),
-		startIf(ethEnabled, app.LogBroadcaster.Start),
-		startIf(ethEnabled, app.FluxMonitor.Start),
-		startIf(ethEnabled, app.EthBroadcaster.Start),
+		app.LogBroadcaster.Start(),
+		app.FluxMonitor.Start(),
+		app.EthBroadcaster.Start(),
 
 		// HeadTracker deliberately started after
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
 		// which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
-		startIf(ethEnabled, app.HeadTracker.Start),
+		app.HeadTracker.Start(),
 
 		app.Scheduler.Start(),
 	)
-}
-
-func startIf(condition bool, start func() error) error {
-	if condition {
-		return start()
-	}
-	return nil
 }
 
 // Stop allows the application to exit by halting schedules, closing
