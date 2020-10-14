@@ -8,6 +8,8 @@
   },
   "scripts": {
     "depcheck": "echo '@chainlink/integration' && depcheck || true",
+    "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
+    "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "test": "yarn test:cypress && yarn test:forks",
     "test:cypress": "cypress run --browser=chrome",
     "test:forks": "./forks/test"

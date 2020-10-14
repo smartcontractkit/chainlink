@@ -1,0 +1,4 @@
+dist/**/*
+abi/**/*
+ethers/**/*
+truffle/**/*
