@@ -420,7 +420,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
+func TestClient_RebroadcastTransactions_WithinRange_LegacyTXM(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
