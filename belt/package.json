@@ -8,6 +8,8 @@
     "belt": "./bin/run"
   },
   "scripts": {
+    "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
+    "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "postpack": "rm -f oclif.manifest.json",
     "prepack": "yarn setup --force && oclif-dev manifest && oclif-dev readme",
     "setup": "tsc -b",

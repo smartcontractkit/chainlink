@@ -7,6 +7,8 @@
     "node": "^12.0.0"
   },
   "scripts": {
+    "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
+    "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "start": "NODE_ENV=development webpack-dev-server --open",
     "serve": "serve dist -p 3000",
     "test": "jest",
