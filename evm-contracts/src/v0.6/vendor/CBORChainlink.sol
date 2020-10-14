@@ -1,9 +1,9 @@
 pragma solidity ^0.6.0;
 
-import { Buffer as Buffer_Chainlink } from "./Buffer.sol";
+import { BufferChainlink } from "./BufferChainlink.sol";
 
-library CBOR {
-  using Buffer_Chainlink for Buffer_Chainlink.buffer;
+library CBORChainlink {
+  using BufferChainlink for BufferChainlink.buffer;
 
   uint8 private constant MAJOR_TYPE_INT = 0;
   uint8 private constant MAJOR_TYPE_NEGATIVE_INT = 1;
@@ -13,7 +13,7 @@ library CBOR {
   uint8 private constant MAJOR_TYPE_MAP = 5;
   uint8 private constant MAJOR_TYPE_CONTENT_FREE = 7;
 
-  function encodeType(Buffer_Chainlink.buffer memory buf, uint8 major, uint value) private pure {
+  function encodeType(BufferChainlink.buffer memory buf, uint8 major, uint value) private pure {
     if(value <= 23) {
       buf.appendUint8(uint8((major << 5) | value));
     } else if(value <= 0xFF) {
@@ -31,15 +31,15 @@ library CBOR {
     }
   }
 
-  function encodeIndefiniteLengthType(Buffer_Chainlink.buffer memory buf, uint8 major) private pure {
+  function encodeIndefiniteLengthType(BufferChainlink.buffer memory buf, uint8 major) private pure {
     buf.appendUint8(uint8((major << 5) | 31));
   }
 
-  function encodeUInt(Buffer_Chainlink.buffer memory buf, uint value) internal pure {
+  function encodeUInt(BufferChainlink.buffer memory buf, uint value) internal pure {
     encodeType(buf, MAJOR_TYPE_INT, value);
   }
 
-  function encodeInt(Buffer_Chainlink.buffer memory buf, int value) internal pure {
+  function encodeInt(BufferChainlink.buffer memory buf, int value) internal pure {
     if(value >= 0) {
       encodeType(buf, MAJOR_TYPE_INT, uint(value));
     } else {
@@ -47,25 +47,25 @@ library CBOR {
     }
   }
 
-  function encodeBytes(Buffer_Chainlink.buffer memory buf, bytes memory value) internal pure {
+  function encodeBytes(BufferChainlink.buffer memory buf, bytes memory value) internal pure {
     encodeType(buf, MAJOR_TYPE_BYTES, value.length);
     buf.append(value);
   }
 
-  function encodeString(Buffer_Chainlink.buffer memory buf, string memory value) internal pure {
+  function encodeString(BufferChainlink.buffer memory buf, string memory value) internal pure {
     encodeType(buf, MAJOR_TYPE_STRING, bytes(value).length);
     buf.append(bytes(value));
   }
 
-  function startArray(Buffer_Chainlink.buffer memory buf) internal pure {
+  function startArray(BufferChainlink.buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_ARRAY);
   }
 
-  function startMap(Buffer_Chainlink.buffer memory buf) internal pure {
+  function startMap(BufferChainlink.buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_MAP);
   }
 
-  function endSequence(Buffer_Chainlink.buffer memory buf) internal pure {
+  function endSequence(BufferChainlink.buffer memory buf) internal pure {
     encodeIndefiniteLengthType(buf, MAJOR_TYPE_CONTENT_FREE);
   }
 }
