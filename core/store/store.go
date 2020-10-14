@@ -75,6 +75,7 @@ func newStoreWithKeyStore(
 
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
+		logger.Info("ETH_DISABLED is set, using Null eth.Client")
 		ethClient = &eth.NullClient{}
 	} else {
 		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
