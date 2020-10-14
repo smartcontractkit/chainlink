@@ -12,7 +12,7 @@ DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
-ECR_REPO := "$(AWS_ECR_ACCOUNT_URL):$(DOCKER_TAG)"
+ECR_REPO := "$(AWS_ECR_URL)/chainlink:$(DOCKER_TAG)"
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -85,16 +85,16 @@ testdb: ## Prepares the test database
 
 .PHONY: docker
 docker: ## Build the docker image.
-	docker build \
+		docker build \
+		-f $(DOCKERFILE) \
+		--build-arg "BUILDER=$(AWS_ECR_URL)/builder" \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		-t $(TAGGED_REPO) \
-		-f $(DOCKERFILE) \
 		.
 
 .PHONY: dockerpush
-dockerpush: ## Push the docker image to dockerhub
-	docker push $(TAGGED_REPO)
+dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
 
 help:
