@@ -5,7 +5,8 @@ FROM smartcontract/builder:1.0.36
 WORKDIR /chainlink
 
 COPY GNUmakefile VERSION ./
-COPY tools/bin/ldflags ./tools/bin/
+COPY tools/bin/ldflags tools/bin/ldflags
+ARG COMMIT_SHA
 
 # Do dep ensure in a cacheable step
 ADD go.* ./
