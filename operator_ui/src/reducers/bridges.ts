@@ -18,7 +18,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
     case ResourceActionType.UPSERT_BRIDGES: {
       const { bridges, meta } = action.data
       const items = { ...state.items, ...bridges }
-      const currentPage = meta.currentPageBridges.data.map(b => b.id)
+      const currentPage = meta.currentPageBridges.data.map((b) => b.id)
       const count = meta.currentPageBridges.meta.count
 
       return {

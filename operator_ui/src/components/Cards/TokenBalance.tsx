@@ -41,7 +41,7 @@ interface OwnProps {
   error?: string
 }
 
-const TokenBalance: FC<OwnProps> = props => {
+const TokenBalance: FC<OwnProps> = (props) => {
   const { val, tooltip } = valAndTooltip(props)
 
   return (

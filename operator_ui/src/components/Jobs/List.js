@@ -32,7 +32,7 @@ const renderBody = (jobs, error) => {
       </TableRow>
     )
   } else if (jobs) {
-    return jobs.map(j => (
+    return jobs.map((j) => (
       <TableRow key={j.id}>
         <TableCell component="th" scope="row">
           <Link href={`/jobs/${j.id}`}>{j.id}</Link>
@@ -60,7 +60,7 @@ const renderBody = (jobs, error) => {
   )
 }
 
-export const List = props => {
+export const List = (props) => {
   const { jobs, jobCount, fetchJobs, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
 

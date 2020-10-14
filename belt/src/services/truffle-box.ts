@@ -64,7 +64,7 @@ export function getSolidityVersions(): [string, string][] {
   const config: App = require('@chainlink/contracts/app.config.json')
 
   return Object.entries(config.compilerSettings.versions).filter(([, v]) =>
-    config.publicVersions.find(pv => pv === v),
+    config.publicVersions.find((pv) => pv === v),
   )
 }
 
@@ -86,7 +86,7 @@ export function getJavascriptFiles(basePath: string): string[] {
   const directories = ['scripts', 'test', 'migrations']
 
   return directories
-    .map(d => ls(join(basePath, d, '**', '*.js')))
+    .map((d) => ls(join(basePath, d, '**', '*.js')))
     .reduce<string[]>((prev, next) => {
       return prev.concat(next)
     }, [])

@@ -10,11 +10,11 @@ Cypress.Commands.overwrite(
   },
 )
 
-Cypress.Commands.add('clickLink', linkText => {
+Cypress.Commands.add('clickLink', (linkText) => {
   cy.contains('a', linkText).click()
 })
 
-Cypress.Commands.add('clickButton', buttonText => {
+Cypress.Commands.add('clickButton', (buttonText) => {
   cy.contains('button', buttonText).click()
 })
 
@@ -26,16 +26,13 @@ Cypress.Commands.add(
   (form: CypressChild, values: object) => {
     for (const field in values) {
       const value = values[field]
-      cy.wrap(form)
-        .get(`input[name=${field}]`)
-        .clear()
-        .type(value)
+      cy.wrap(form).get(`input[name=${field}]`).clear().type(value)
     }
   },
 )
 
 Cypress.Commands.add('getJobJson', () => {
-  cy.fixture('job').then(job => {
+  cy.fixture('job').then((job) => {
     const host = Cypress.env('JOB_SERVER_HOST') || 'cypress-job-server'
     const port = Cypress.env('JOB_SERVER_PORT') || '6692'
     job.tasks[0].params.get = `http://${host}:${port}`
@@ -47,11 +44,11 @@ Cypress.Commands.add('getJobJson', () => {
 // or refactor ete tests to not share state b/t tests
 // https://docs.cypress.io/guides/guides/web-security.html#One-Superdomain-per-Test
 // https://github.com/cypress-io/cypress/issues/944
-Cypress.Commands.add('forceVisit', url => {
-  cy.get('body').then(body$ => {
+Cypress.Commands.add('forceVisit', (url) => {
+  cy.get('body').then((body$) => {
     const appWindow = body$[0].ownerDocument?.defaultView
     const appIframe = appWindow?.parent.document.querySelector('iframe')
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
       if (appIframe) appIframe.onload = () => resolve()
       if (appWindow) appWindow.location = url
     })
@@ -72,10 +69,7 @@ Cypress.Commands.add(
 )
 
 Cypress.Commands.add('paste', { prevSubject: true }, (subject, text) => {
-  cy.wrap(subject)
-    .clear()
-    .invoke('val', text)
-    .type(' {backspace}')
+  cy.wrap(subject).clear().invoke('val', text).type(' {backspace}')
 })
 
 // Command will continue to reload the page until a selector matches or

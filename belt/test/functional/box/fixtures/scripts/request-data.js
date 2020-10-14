@@ -18,7 +18,7 @@ const url =
 const path = process.env.TRUFFLE_CL_BOX_JSON_PATH || 'USD'
 const times = process.env.TRUFFLE_CL_BOX_TIMES || '100'
 
-module.exports = async callback => {
+module.exports = async (callback) => {
   const mc = await MyContract.deployed()
   console.log('Creating request on contract:', mc.address)
   const tx = await mc.createRequestTo(

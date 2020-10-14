@@ -11,7 +11,7 @@ import { fetchBridges } from 'actionCreators'
 import Content from 'components/Content'
 import Button from 'components/Button'
 
-export const Index = props => {
+export const Index = (props) => {
   document.title = 'Bridges'
   const { bridges, count, pageSize, fetchBridges, history, match } = props
   return (
@@ -60,7 +60,7 @@ Index.defaultProps = {
   pageSize: 10,
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   const bridges = bridgesSelector(state)
   const count = state.bridges.count
 

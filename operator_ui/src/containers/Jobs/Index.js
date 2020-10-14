@@ -11,7 +11,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import jobsSelector from 'selectors/jobs'
 import { fetchJobs } from 'actionCreators'
 
-export const Index = props => {
+export const Index = (props) => {
   document.title = 'Jobs'
   return (
     <Content>
@@ -56,7 +56,7 @@ Index.defaultProps = {
   pageSize: 10,
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   return {
     jobCount: state.jobs.count,
     jobs: jobsSelector(state),

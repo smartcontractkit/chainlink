@@ -8,7 +8,7 @@ import { ConnectedShow as Show } from 'containers/Bridges/Show'
 import globPath from 'test-helpers/globPath'
 
 const classes = {}
-const mountShow = props =>
+const mountShow = (props) =>
   mount(
     <Provider store={createStore()}>
       <MemoryRouter>

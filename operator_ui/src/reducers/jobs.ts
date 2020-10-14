@@ -21,7 +21,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case ResourceActionType.UPSERT_JOBS: {
       const data = action.data
-      const currentPage = data.meta.currentPageJobs.data.map(j => j.id)
+      const currentPage = data.meta.currentPageJobs.data.map((j) => j.id)
       const count = data.meta.currentPageJobs.meta.count
       const items = { ...state.items, ...action.data.specs }
 
@@ -34,7 +34,9 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
     }
     case ResourceActionType.UPSERT_RECENTLY_CREATED_JOBS: {
       const data = action.data
-      const recentlyCreated = data.meta.recentlyCreatedJobs.data.map(j => j.id)
+      const recentlyCreated = data.meta.recentlyCreatedJobs.data.map(
+        (j) => j.id,
+      )
       const items = { ...state.items, ...data.specs }
 
       return {
@@ -49,7 +51,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
       return { ...state, items }
     }
     case ResourceActionType.RECEIVE_DELETE_SUCCESS: {
-      const items = pickBy(state.items, i => i.id !== action.id)
+      const items = pickBy(state.items, (i) => i.id !== action.id)
 
       return { ...state, items }
     }
@@ -57,7 +59,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
       const resource = state.items[action.data.jobSpecID]
       const attributes: JobSpec = resource.attributes
       const newErrors = attributes.errors.filter(
-        error => error.id != action.data.id,
+        (error) => error.id != action.data.id,
       )
       const newAttributes = { ...attributes, errors: newErrors }
       const newResource = { ...resource, attributes: newAttributes }

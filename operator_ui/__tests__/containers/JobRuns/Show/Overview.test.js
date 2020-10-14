@@ -10,7 +10,7 @@ import mountWithTheme from 'test-helpers/mountWithTheme'
 import globPath from 'test-helpers/globPath'
 
 const classes = {}
-const mountShow = props =>
+const mountShow = (props) =>
   mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>

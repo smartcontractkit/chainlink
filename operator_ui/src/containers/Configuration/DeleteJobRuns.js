@@ -10,7 +10,7 @@ import React, { useState } from 'react'
 import { connect } from 'react-redux'
 import { bindActionCreators } from 'redux'
 
-const styles = theme => {
+const styles = (theme) => {
   return {
     deleteRunsDivider: {
       marginTop: theme.spacing.unit * 3,
@@ -110,7 +110,7 @@ const DeleteJobRuns = ({
   )
 }
 
-const mapDispatchToProps = dispatch =>
+const mapDispatchToProps = (dispatch) =>
   bindActionCreators(
     {
       deleteCompletedJobRuns,

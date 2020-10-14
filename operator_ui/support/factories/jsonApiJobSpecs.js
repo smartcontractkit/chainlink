@@ -7,7 +7,7 @@ export default (jobs, count) => {
 
   return {
     meta: { count: jc },
-    data: j.map(c => {
+    data: j.map((c) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
       const initiators = config.initiators || [{ type: 'web' }]
@@ -24,7 +24,7 @@ export default (jobs, count) => {
       const errors = c.errors || []
       let runs = c.runs || []
 
-      runs = runs.map(r =>
+      runs = runs.map((r) =>
         Object.assign(
           {},
           { createdAt: isoDate(Date.now()) },

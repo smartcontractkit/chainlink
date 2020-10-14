@@ -55,7 +55,7 @@ const deployment = setup.snapshot(provider, async () => {
 })
 
 beforeAll(async () => {
-  roles = await setup.users(provider).then(x => x.roles)
+  roles = await setup.users(provider).then((x) => x.roles)
   oracle1 = roles.oracleNode1.address
   oracle2 = roles.oracleNode2.address
   oracle3 = roles.oracleNode3.address
