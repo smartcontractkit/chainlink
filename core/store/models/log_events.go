@@ -97,15 +97,18 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 	q.FromBlock = from
 	filterAddresses := append([]common.Address{i.Address}, addresses...)
 	q.Addresses = utils.WithoutZeroAddresses(filterAddresses)
-
 	switch {
 	case i.Type == InitiatorEthLog:
 		if from == nil {
-			q.FromBlock = i.InitiatorParams.FromBlock.ToInt()
+			q.FromBlock = big.NewInt(0)
 		} else if i.InitiatorParams.FromBlock != nil {
-			q.FromBlock = utils.MaxBigs(from, i.InitiatorParams.FromBlock.ToInt())
+			q.FromBlock = big.NewInt(0)
 		}
-		q.ToBlock = i.InitiatorParams.ToBlock.ToInt()
+		logger.Debugf("This is what the FromBlock is")
+		logger.Debugf("%v", q.FromBlock)
+		q.ToBlock = big.NewInt(9999999999)
+		logger.Debugf("This is  what the ToBlock is")
+		logger.Debugf("%v", q.ToBlock)
 
 		if q.FromBlock != nil && q.ToBlock != nil && q.FromBlock.Cmp(q.ToBlock) >= 0 {
 			return ethereum.FilterQuery{}, fmt.Errorf(
@@ -121,6 +124,9 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
 			JobSpecIDTopics(i.JobSpecID),
 		}
+		q.ToBlock = big.NewInt(99999999)
+		logger.Debugf("This is where we set the ToBlock as a backup")
+		logger.Debugf("%v", q.ToBlock)
 	default:
 		return ethereum.FilterQuery{},
 			fmt.Errorf("cannot generate a FilterQuery for initiator of type %T", i)
