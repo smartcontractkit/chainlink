@@ -28,7 +28,7 @@ const gasGuzzlerFactory = new GasGuzzlerFactory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
-  personas = await setup.users(provider).then(x => x.personas)
+  personas = await setup.users(provider).then((x) => x.personas)
 })
 
 describe('FluxAggregator', () => {
@@ -90,8 +90,8 @@ describe('FluxAggregator', () => {
   ): Promise<ethers.ContractTransaction> {
     return aggregator.connect(personas.Carol).changeOracles(
       [],
-      oraclesAndAdmin.map(oracle => oracle.address),
-      oraclesAndAdmin.map(admin => admin.address),
+      oraclesAndAdmin.map((oracle) => oracle.address),
+      oraclesAndAdmin.map((admin) => admin.address),
       minAnswers,
       maxAnswers,
       restartDelay,
@@ -932,10 +932,7 @@ describe('FluxAggregator', () => {
     })
 
     it("returns 0 for answers greater than uint32's max", async () => {
-      const overflowedId = h
-        .bigNum(2)
-        .pow(32)
-        .add(1)
+      const overflowedId = h.bigNum(2).pow(32).add(1)
       const answer = await aggregator.getAnswer(overflowedId)
       matchers.bigNum(0, answer)
     })
@@ -961,10 +958,7 @@ describe('FluxAggregator', () => {
     })
 
     it("returns 0 for answers greater than uint32's max", async () => {
-      const overflowedId = h
-        .bigNum(2)
-        .pow(32)
-        .add(1)
+      const overflowedId = h.bigNum(2).pow(32).add(1)
       const answer = await aggregator.getTimestamp(overflowedId)
       matchers.bigNum(0, answer)
     })
@@ -1196,12 +1190,12 @@ describe('FluxAggregator', () => {
           )
           await aggregator.updateAvailableFunds()
 
-          let addresses = oracles.slice(0, 50).map(o => o.address)
+          let addresses = oracles.slice(0, 50).map((o) => o.address)
           await aggregator
             .connect(personas.Carol)
             .changeOracles([], addresses, addresses, 1, 50, rrDelay)
           // add in two transactions to avoid gas limit issues
-          addresses = oracles.slice(50, 100).map(o => o.address)
+          addresses = oracles.slice(50, 100).map((o) => o.address)
           await aggregator
             .connect(personas.Carol)
             .changeOracles([], addresses, addresses, 1, oracles.length, rrDelay)
@@ -3026,10 +3020,7 @@ describe('FluxAggregator', () => {
     })
 
     it('reverts if a round ID is too big', async () => {
-      const overflowedId = h
-        .bigNum(2)
-        .pow(32)
-        .add(1)
+      const overflowedId = h.bigNum(2).pow(32).add(1)
 
       await matchers.evmRevert(
         aggregator.getRoundData(overflowedId),

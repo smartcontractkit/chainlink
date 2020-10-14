@@ -11,7 +11,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from '../../../src/utils/constants'
 
-const mountShow = props =>
+const mountShow = (props) =>
   mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>

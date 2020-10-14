@@ -1,4 +1,4 @@
-export default wrapper => {
+export default (wrapper) => {
   // Fixes enzyme finder bug
   // https://github.com/airbnb/enzyme/issues/1233#issuecomment-385343903
   wrapper = wrapper.update()

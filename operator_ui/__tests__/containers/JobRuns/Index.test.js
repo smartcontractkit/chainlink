@@ -13,7 +13,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 const classes = {}
-const mountIndex = props =>
+const mountIndex = (props) =>
   mountWithTheme(
     <Provider store={createStore()}>
       <MemoryRouter>

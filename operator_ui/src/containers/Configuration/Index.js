@@ -61,7 +61,7 @@ Configuration.propTypes = {
   data: PropTypes.array.isRequired,
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   const data = configurationSelector(state)
   return { data }
 }

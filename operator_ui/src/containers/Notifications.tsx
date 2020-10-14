@@ -60,11 +60,9 @@ export const Notifications: React.FC<Props> = ({ errors, successes }) => {
   )
 }
 
-const mapStateToProps: MapStateToProps<
-  StateProps,
-  OwnProps,
-  AppState
-> = state => {
+const mapStateToProps: MapStateToProps<StateProps, OwnProps, AppState> = (
+  state,
+) => {
   return {
     errors: state.notifications.errors,
     successes: state.notifications.successes,

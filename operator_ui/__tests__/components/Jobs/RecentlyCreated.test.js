@@ -4,7 +4,7 @@ import { render } from 'enzyme'
 import RecentlyCreated from 'components/Jobs/RecentlyCreated'
 import isoDate, { MINUTE_MS, TWO_MINUTES_MS } from 'test-helpers/isoDate'
 
-const renderComponent = jobs =>
+const renderComponent = (jobs) =>
   render(
     <MemoryRouter>
       <RecentlyCreated jobs={jobs} />

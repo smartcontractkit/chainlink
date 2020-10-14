@@ -55,7 +55,7 @@ const Configuration = universal(
 )
 const NotFound = universal(import('./containers/NotFound'), uniOpts)
 
-const styles = theme => {
+const styles = (theme) => {
   return {
     content: {
       marginTop: 0,
@@ -87,7 +87,7 @@ class Private extends React.Component {
             drawerContainer={drawerContainer}
           />
           <main
-            ref={ref => {
+            ref={(ref) => {
               drawerContainer = ref
             }}
             style={{ paddingTop: this.state.headerHeight }}
@@ -99,7 +99,7 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/"
-                  render={props => (
+                  render={(props) => (
                     <DashboardsIndex
                       {...props}
                       recentJobRunsCount={5}
@@ -117,7 +117,9 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId"
-                  render={props => <JobsShow {...props} showJobRunsCount={5} />}
+                  render={(props) => (
+                    <JobsShow {...props} showJobRunsCount={5} />
+                  )}
                 />
                 <PrivateRoute
                   exact
@@ -132,7 +134,7 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs"
-                  render={props => (
+                  render={(props) => (
                     <JobRunsIndex
                       {...props}
                       pagePath="/jobs/:jobSpecId/runs/page"
@@ -142,7 +144,7 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/jobs/:jobSpecId/runs/page/:jobRunsPage"
-                  render={props => (
+                  render={(props) => (
                     <JobRunsIndex
                       {...props}
                       pagePath="/jobs/:jobSpecId/runs/page"
@@ -167,14 +169,14 @@ class Private extends React.Component {
                 <PrivateRoute
                   exact
                   path="/runs"
-                  render={props => (
+                  render={(props) => (
                     <JobRunsIndex {...props} pagePath="/runs/page" />
                   )}
                 />
                 <PrivateRoute
                   exact
                   path="/runs/page/:jobRunsPage"
-                  render={props => (
+                  render={(props) => (
                     <JobRunsIndex {...props} pagePath="/runs/page" />
                   )}
                 />

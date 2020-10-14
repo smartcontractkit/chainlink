@@ -14,7 +14,9 @@ const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
 beforeAll(async () => {
-  defaultAccount = await setup.users(provider).then(x => x.roles.defaultAccount)
+  defaultAccount = await setup
+    .users(provider)
+    .then((x) => x.roles.defaultAccount)
 })
 
 describe('Chainlink', () => {

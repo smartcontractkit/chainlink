@@ -13,8 +13,7 @@ The Github issue will be migrated to Tracker and prioritized. We'll keep you upd
 
 If you're interested in helping out with the development cycle, feel free to tackle open issues. We've even set aside a few that are [good introductory issues](https://github.com/smartcontractkit/chainlink/issues?q=is%3Aissue+label%3A%22good+first+issue%22).
 If you see something you'd like to help with [on Tracker](https://www.pivotaltracker.com/n/projects/2129823),
-reach out to us [on Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) to coordinate. 
-
+reach out to us [on Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby) to coordinate.
 
 ## Testing
 
@@ -27,10 +26,8 @@ is stable and maintains a high [level of coverage](https://codecov.io/gh/smartco
 Please write tests for your code and make sure that the existing suite continues to pass.
 If you run into trouble with this, you can always ask for tips in [our Gitter](https://gitter.im/smartcontractkit-chainlink/Lobby).
 
-
 ## Code Style
 
 If making a change to the code, please try to follow our [style guide](https://github.com/smartcontractkit/chainlink/wiki/Code-Style-Guide).
-
 
 ## More to come...

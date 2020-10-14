@@ -1,6 +1,6 @@
 import React, { FC, SVGProps } from 'react'
 
-const Close: FC<SVGProps<SVGSVGElement>> = props => (
+const Close: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg
     style={{ cursor: 'pointer' }}
     width="46"

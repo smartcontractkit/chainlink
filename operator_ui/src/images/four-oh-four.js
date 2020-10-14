@@ -1,7 +1,7 @@
 import React from 'react'
 import BaseLink from '../components/BaseLink'
 
-const FourOhFour = props => (
+const FourOhFour = (props) => (
   <svg
     id="Layer_1"
     data-name="Layer 1"

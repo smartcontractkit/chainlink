@@ -11,14 +11,14 @@ const CONFIG_KEYS = [
   'TX_ATTEMPT_LIMIT',
 ]
 
-context('End to end', function() {
+context('End to end', function () {
   it('Deletes a completed job', () => {
     cy.login()
 
     // Create Job
     cy.clickLink('Configuration')
     cy.contains('h5', 'Configuration').should('exist')
-    CONFIG_KEYS.forEach(key => {
+    CONFIG_KEYS.forEach((key) => {
       cy.contains(key).should('exist')
     })
   })

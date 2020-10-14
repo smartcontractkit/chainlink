@@ -97,7 +97,7 @@ function sendSignIn(data: Parameter<Sessions['createSession']>) {
 
     return api.sessions
       .createSession(data)
-      .then(doc => dispatch(signInSuccessAction(doc)))
+      .then((doc) => dispatch(signInSuccessAction(doc)))
       .catch((error: Errors) => {
         if (error instanceof jsonapi.AuthenticationError) {
           dispatch(signInFailAction())
@@ -153,7 +153,7 @@ export const createJobSpec = (
 
     return api.v2.specs
       .createJobSpec(data)
-      .then(doc => {
+      .then((doc) => {
         dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
       })
@@ -177,7 +177,7 @@ export const deleteJobSpec = (
 
     return api.v2.specs
       .destroyJobSpec(id)
-      .then(doc => {
+      .then((doc) => {
         dispatch(receiveDeleteSuccess(id))
         dispatch(notifySuccess(successCallback, doc))
       })
@@ -201,7 +201,7 @@ export const createJobRun = (
 
     return api.v2.runs
       .createJobSpecRun(id)
-      .then(doc => {
+      .then((doc) => {
         dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
         dispatch(notifySuccess(successCallback, doc))
       })
@@ -334,11 +334,11 @@ function request<
   const successType = `${prefix}_${type}`
 
   return (...args: TApiArgs) => {
-    return dispatch => {
+    return (dispatch) => {
       dispatch({ type: requestType })
 
       return requestData(...args)
-        .then(json => {
+        .then((json) => {
           const data = normalizeData(json)
           dispatch({ type: successType, data })
         })
@@ -381,7 +381,7 @@ function requestDelete(
 export const fetchAccountBalance = requestFetch(
   'ACCOUNT_BALANCE',
   api.v2.user.balances.getAccountBalances,
-  json =>
+  (json) =>
     normalize<{
       accountBalances: presenters.AccountBalance[]
     }>(json),
@@ -400,45 +400,47 @@ export const fetchConfiguration = requestFetch(
 export const fetchBridges = requestFetch(
   'BRIDGES',
   api.v2.bridgeTypes.getBridges,
-  json => normalize(json, { endpoint: 'currentPageBridges' }),
+  (json) => normalize(json, { endpoint: 'currentPageBridges' }),
 )
 
 export const fetchBridgeSpec = requestFetch(
   'BRIDGE',
   api.v2.bridgeTypes.getBridgeSpec,
-  json => normalize(json),
+  (json) => normalize(json),
 )
 
-export const fetchJobs = requestFetch('JOBS', api.v2.specs.getJobSpecs, json =>
-  normalize(json, { endpoint: 'currentPageJobs' }),
+export const fetchJobs = requestFetch(
+  'JOBS',
+  api.v2.specs.getJobSpecs,
+  (json) => normalize(json, { endpoint: 'currentPageJobs' }),
 )
 
 export const fetchRecentlyCreatedJobs = requestFetch(
   'RECENTLY_CREATED_JOBS',
   api.v2.specs.getRecentJobSpecs,
-  json => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
+  (json) => normalize(json, { endpoint: 'recentlyCreatedJobs' }),
 )
 
-export const fetchJob = requestFetch('JOB', api.v2.specs.getJobSpec, json =>
+export const fetchJob = requestFetch('JOB', api.v2.specs.getJobSpec, (json) =>
   normalize(json, { camelizeKeys: false }),
 )
 
 export const fetchJobRuns = requestFetch(
   'JOB_RUNS',
   api.v2.runs.getJobSpecRuns,
-  json => normalize(json, { endpoint: 'currentPageJobRuns' }),
+  (json) => normalize(json, { endpoint: 'currentPageJobRuns' }),
 )
 
 export const fetchRecentJobRuns = requestFetch(
   'RECENT_JOB_RUNS',
   api.v2.runs.getRecentJobRuns,
-  json => normalize(json, { endpoint: 'recentJobRuns' }),
+  (json) => normalize(json, { endpoint: 'recentJobRuns' }),
 )
 
 export const fetchJobRun = requestFetch(
   'JOB_RUN',
   api.v2.runs.getJobSpecRun,
-  json => normalize(json, { camelizeKeys: false }),
+  (json) => normalize(json, { camelizeKeys: false }),
 )
 
 export const deleteCompletedJobRuns = (updatedBefore: string) =>
@@ -458,18 +460,18 @@ export const deleteErroredJobRuns = (updatedBefore: string) =>
 export const fetchTransactions = requestFetch(
   'TRANSACTIONS',
   api.v2.transactions.getTransactions,
-  json => normalize(json, { endpoint: 'currentPageTransactions' }),
+  (json) => normalize(json, { endpoint: 'currentPageTransactions' }),
 )
 
 export const fetchTransaction = requestFetch(
   'TRANSACTION',
   api.v2.transactions.getTransaction,
-  json => normalize(json),
+  (json) => normalize(json),
 )
 
 export const deleteJobSpecError = (id: string, jobSpecID: string) =>
   requestDelete(
     'JOB_SPEC_ERROR',
     api.v2.jobSpecErrors.destroyJobSpecError,
-    _ => ({ id, jobSpecID }), // no data returned from api, just dispatch error & job ids
+    (_) => ({ id, jobSpecID }), // no data returned from api, just dispatch error & job ids
   )(id)

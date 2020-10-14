@@ -13,7 +13,7 @@ import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import Title from 'components/Title'
 import Content from 'components/Content'
 
-const styles = theme => ({
+const styles = (theme) => ({
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5,
@@ -70,7 +70,7 @@ const renderDetails = (props, state, handleChangePage) => {
   }
 }
 
-export const Index = props => {
+export const Index = (props) => {
   const { jobSpecId, fetchJobRuns, pageSize, match } = props
   const [page, setPage] = useState(FIRST_PAGE)
 

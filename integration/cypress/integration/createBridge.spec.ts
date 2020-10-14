@@ -5,7 +5,7 @@ const bridgeProperties = {
   confirmations: '5',
 }
 
-context('End to end', function() {
+context('End to end', function () {
   it('Creates a bridge', () => {
     cy.login()
 

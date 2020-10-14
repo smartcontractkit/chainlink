@@ -166,7 +166,7 @@ export function getArgs<T extends string>(keys: T[]): { [K in T]: string } {
  * running process if an unhandled promise rejection is caught
  */
 export function registerPromiseHandler() {
-  process.on('unhandledRejection', e => {
+  process.on('unhandledRejection', (e) => {
     console.error(e)
     console.error(chalk.red('Exiting due to promise rejection'))
     process.exit(1)

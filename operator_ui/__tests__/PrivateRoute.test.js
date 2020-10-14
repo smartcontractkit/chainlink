@@ -14,7 +14,7 @@ const AuthenticatedApp = () => (
     <PrivateRoute exact path="/" component={PrivatePage} />
   </Switch>
 )
-const mountAuthenticatedApp = store =>
+const mountAuthenticatedApp = (store) =>
   mount(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/']}>
