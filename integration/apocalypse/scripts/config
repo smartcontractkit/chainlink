@@ -6,8 +6,12 @@ const path = require('path')
 const password = 'password'
 let personas = []
 let accounts = {}
-try { personas = require(path.join(configDir(), 'personas.json')) } catch (err) {}
-try { accounts = require(path.join(configDir(), 'accounts.json')) } catch (err) {}
+try {
+  personas = require(path.join(configDir(), 'personas.json'))
+} catch (err) {}
+try {
+  accounts = require(path.join(configDir(), 'accounts.json'))
+} catch (err) {}
 
 const USAGE = `
     Usage:
@@ -22,118 +26,143 @@ const USAGE = `
 `
 
 function main() {
-    if (__filename !== process.argv[1]) {
-        // This is being imported by another script
-        return
-    } else if (process.argv.length < 3) {
-        console.log(USAGE)
-        process.exit(1)
-        return
-    }
+  if (__filename !== process.argv[1]) {
+    // This is being imported by another script
+    return
+  } else if (process.argv.length < 3) {
+    console.log(USAGE)
+    process.exit(1)
+    return
+  }
 
-    switch (process.argv[2]) {
+  switch (process.argv[2]) {
     case 'sync':
-        sync()
-        return
+      sync()
+      return
 
     case 'add-persona':
-        if (process.argv.length < 4) {
-            console.log(`Usage: config add-persona <name>`)
-            process.exit(1)
-            return
-        }
-        addPersona(process.argv[3])
-        return
-
-    case 'rm-persona':
-        if (process.argv.length < 4) {
-            console.log(`Usage: config rm-persona <name>`)
-            process.exit(1)
-            return
-        }
-        rmPersona(process.argv[3])
-        return
-
-    default:
-        console.log('Unknown command.')
-        console.log(USAGE)
+      if (process.argv.length < 4) {
+        console.log(`Usage: config add-persona <name>`)
         process.exit(1)
         return
-    }
+      }
+      addPersona(process.argv[3])
+      return
+
+    case 'rm-persona':
+      if (process.argv.length < 4) {
+        console.log(`Usage: config rm-persona <name>`)
+        process.exit(1)
+        return
+      }
+      rmPersona(process.argv[3])
+      return
+
+    default:
+      console.log('Unknown command.')
+      console.log(USAGE)
+      process.exit(1)
+      return
+  }
 }
 
 function addPersona(persona) {
-    personas.push(persona)
-    writeFile(path.join(configDir(), 'personas.json'), personas)
-    sync()
+  personas.push(persona)
+  writeFile(path.join(configDir(), 'personas.json'), personas)
+  sync()
 }
 
 function rmPersona(persona) {
-    personas = personas.filter(x => x !== persona)
-    writeFile(path.join(configDir(), 'personas.json'), personas)
-    sync()
+  personas = personas.filter((x) => x !== persona)
+  writeFile(path.join(configDir(), 'personas.json'), personas)
+  sync()
 }
 
 function sync() {
-    // Remove unknown personas from accounts.json
-    for (let persona of Object.keys(accounts)) {
-        if (!personas.includes(persona)) {
-            delete accounts[persona]
-        }
+  // Remove unknown personas from accounts.json
+  for (let persona of Object.keys(accounts)) {
+    if (!personas.includes(persona)) {
+      delete accounts[persona]
     }
+  }
 
-    // Remove unknown keys from the keys directory
-    const dirFiles = fs.readdirSync(path.join(configDir(), 'keys'))
-                       .filter(keyfile => !personas.includes(keyfile))
-                       .map(keyfile => path.join(configDir(), 'keys', keyfile))
-    for (let file of dirFiles) {
-        fs.unlinkSync(file)
-        console.log('deleting', file)
+  // Remove unknown keys from the keys directory
+  const dirFiles = fs
+    .readdirSync(path.join(configDir(), 'keys'))
+    .filter((keyfile) => !personas.includes(keyfile))
+    .map((keyfile) => path.join(configDir(), 'keys', keyfile))
+  for (let file of dirFiles) {
+    fs.unlinkSync(file)
+    console.log('deleting', file)
+  }
+
+  // Generate missing accounts
+  for (let persona of personas) {
+    let wallet
+    if (accounts[persona] === undefined) {
+      console.log(persona, 'unknown, generating account...')
+      wallet = ethwallet.generate()
+    } else {
+      wallet = ethwallet.fromV3(
+        JSON.stringify(accounts[persona].keyfile),
+        password,
+      )
+      console.log(
+        persona,
+        `wallet valid (address: ${wallet.getAddressString()})`,
+      )
     }
-
-    // Generate missing accounts
-    for (let persona of personas) {
-        let wallet
-        if (accounts[persona] === undefined) {
-            console.log(persona, 'unknown, generating account...')
-            wallet = ethwallet.generate()
-        } else {
-            wallet = ethwallet.fromV3(JSON.stringify(accounts[persona].keyfile), password)
-            console.log(persona, `wallet valid (address: ${wallet.getAddressString()})`)
-        }
-        accounts[persona] = {
-            address: wallet.getAddressString(),
-            privkey: wallet.getPrivateKeyString(),
-            keyfile: JSON.parse(wallet.toV3String(password)),
-        }
+    accounts[persona] = {
+      address: wallet.getAddressString(),
+      privkey: wallet.getPrivateKeyString(),
+      keyfile: JSON.parse(wallet.toV3String(password)),
     }
-    writeFile(path.join(configDir(), 'accounts.json'), accounts)
+  }
+  writeFile(path.join(configDir(), 'accounts.json'), accounts)
 
-    const genesisGeth = require(path.join(configDir(), 'genesis-template-geth.json'))
-    const genesisParity = require(path.join(configDir(), 'genesis-template-parity.json'))
+  const genesisGeth = require(path.join(
+    configDir(),
+    'genesis-template-geth.json',
+  ))
+  const genesisParity = require(path.join(
+    configDir(),
+    'genesis-template-parity.json',
+  ))
 
-    // Write keyfiles and genesis templates
-    for (let persona of Object.keys(accounts)) {
-        const account = accounts[persona]
-        if (!account) {
-            continue
-        }
-        writeFile(path.join(configDir(), 'keys', persona), account.keyfile)
-
-        genesisGeth.alloc[account.address.substring(2)]      = { balance: '0x200000000000000000000000000000000000000000000000000000000000000' }
-        genesisParity.accounts[account.address.substring(2)] = { balance: '0x200000000000000000000000000000000000000000000000000000000000000' }
+  // Write keyfiles and genesis templates
+  for (let persona of Object.keys(accounts)) {
+    const account = accounts[persona]
+    if (!account) {
+      continue
     }
-    writeFile(path.join(__dirname, '..', 'gethnet', 'apocalypse.json'), genesisGeth)
-    writeFile(path.join(__dirname, '..', 'paritynet', 'apocalypse-parity.json'), genesisParity)
+    writeFile(path.join(configDir(), 'keys', persona), account.keyfile)
+
+    genesisGeth.alloc[account.address.substring(2)] = {
+      balance:
+        '0x200000000000000000000000000000000000000000000000000000000000000',
+    }
+    genesisParity.accounts[account.address.substring(2)] = {
+      balance:
+        '0x200000000000000000000000000000000000000000000000000000000000000',
+    }
+  }
+  writeFile(
+    path.join(__dirname, '..', 'gethnet', 'apocalypse.json'),
+    genesisGeth,
+  )
+  writeFile(
+    path.join(__dirname, '..', 'paritynet', 'apocalypse-parity.json'),
+    genesisParity,
+  )
 }
 
 function configDir() {
-    return path.join(__dirname, '..', 'config')
+  return path.join(__dirname, '..', 'config')
 }
 
 function writeFile(path, object) {
-    console.log(`writing ${path}...`)
-    fs.writeFileSync(path, JSON.stringify(object, null, 4))
+  console.log(`writing ${path}...`)
+  fs.writeFileSync(path, JSON.stringify(object, null, 4))
 }
 
 main()

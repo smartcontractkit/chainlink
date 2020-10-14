@@ -5,7 +5,7 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { withStyles } from '@material-ui/core/styles'
 
-const styles = theme => {
+const styles = (theme) => {
   const success = theme.palette.success || {}
   const warning = theme.palette.warning || {}
 
@@ -43,7 +43,7 @@ const applyClass = ({ success, error, warning, classes, className }) => {
   return classNames(classes.base, className, type)
 }
 
-const Flash = props => (
+const Flash = (props) => (
   <Card className={applyClass(props)} square>
     <Typography variant="body2" color="inherit" component="div">
       {props.children}

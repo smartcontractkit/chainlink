@@ -91,7 +91,7 @@ Index.defaultProps = {
   recentlyCreatedPageSize: 2,
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   return {
     accountBalance: accountBalanceSelector(state),
     jobRunsCount: dashboardJobRunsCountSelector(state),

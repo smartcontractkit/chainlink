@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import src from '../../images/icon-logo-blue.svg'
 
-const Hexagon = props => {
+const Hexagon = (props) => {
   return <Logo src={src} alt="Chainlink Operator" {...props} />
 }
 

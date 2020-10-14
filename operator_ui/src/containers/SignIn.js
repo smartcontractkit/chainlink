@@ -15,7 +15,7 @@ import HexagonLogo from 'components/Logos/Hexagon'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import { getPersistUrl } from '../utils/storage'
 
-const styles = theme => ({
+const styles = (theme) => ({
   container: {
     height: '100%',
   },
@@ -39,15 +39,15 @@ const styles = theme => ({
   },
 })
 
-export const SignIn = props => {
+export const SignIn = (props) => {
   document.title = 'Sign In'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const handleChange = name => event => {
+  const handleChange = (name) => (event) => {
     if (name === 'email') setEmail(event.target.value)
     if (name === 'password') setPassword(event.target.value)
   }
-  const onSubmit = e => {
+  const onSubmit = (e) => {
     e.preventDefault()
     props.submitSignIn({ email, password })
   }
@@ -148,7 +148,7 @@ export const SignIn = props => {
   )
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   fetching: state.authentication.fetching,
   authenticated: state.authentication.allowed,
   errors: state.notifications.errors,

@@ -195,7 +195,7 @@ describe('Aggregator', () => {
           link.address,
           basePayment,
           oracles.length,
-          oracles.map(o => o.address),
+          oracles.map((o) => o.address),
           [jobId1, jobId2, jobId3],
         )
         await link.transfer(rate.address, deposit)
@@ -279,7 +279,7 @@ describe('Aggregator', () => {
           link.address,
           basePayment,
           oracles.length,
-          oracles.map(o => o.address),
+          oracles.map((o) => o.address),
           [jobId1, jobId2, jobId3, jobId4],
         )
 
@@ -480,7 +480,7 @@ describe('Aggregator', () => {
         await rate.connect(personas.Carol).updateRequestDetails(
           basePayment,
           maxOracleCount,
-          oracles.map(o => o.address),
+          oracles.map((o) => o.address),
           jobIds,
         )
       })
@@ -499,7 +499,7 @@ describe('Aggregator', () => {
           await rate.connect(personas.Carol).updateRequestDetails(
             basePayment,
             overMaxOracles,
-            oracles.map(o => o.address),
+            oracles.map((o) => o.address),
             jobIds,
           )
         })
@@ -779,7 +779,7 @@ describe('Aggregator', () => {
         await rate.updateRequestDetails(
           basePayment,
           oracles.length,
-          oracles.map(o => o.address),
+          oracles.map((o) => o.address),
           jobIds,
         )
 

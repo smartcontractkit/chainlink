@@ -1,202 +1,202 @@
 {
-    "geth1": {
-        "address": "0xbafec8991031ca09b3d8c79cc43feb361c7b9c6e",
-        "privkey": "0x5852cef87b5562999796b1e9db4800d6ee176cf458c7c739fca4c7786793849a",
-        "keyfile": {
-            "version": 3,
-            "id": "ed17ba87-28f4-4938-9c28-d6c0e6f16f31",
-            "address": "bafec8991031ca09b3d8c79cc43feb361c7b9c6e",
-            "crypto": {
-                "ciphertext": "7b0c8fe139928a761d828e47183ced8b511a966875ce7955c8afc2e3ff5d5691",
-                "cipherparams": {
-                    "iv": "2d4fcc106437f136bcb51ff2350d7a65"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "0fe20b16a127b702c13fed45407068c7fd8b09f24623a7abcb83bdb612e6033f",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "672d4d7b19bd2022e64d15585655660495adae158769664620b662a3e60d27dc"
-            }
-        }
-    },
-    "geth2": {
-        "address": "0xa3b8d6c6dbc42a1fe8172ea3ddb30380be266046",
-        "privkey": "0xa171e601cea41a543799880977c55072e595a0a18ff27ba37210756c36426e69",
-        "keyfile": {
-            "version": 3,
-            "id": "0e75c5e0-7817-44d7-aca8-1732970e5c35",
-            "address": "a3b8d6c6dbc42a1fe8172ea3ddb30380be266046",
-            "crypto": {
-                "ciphertext": "18a45a8c28a9bc41f104740b30a4267b2394b3b36c7d2b5c3185cc0a61f45309",
-                "cipherparams": {
-                    "iv": "4ac3abea656fd9c1df55c35dd2506aab"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "632bf633cc275b7e752a7cf3d8727dc16f856393d446f1770b3a7b8df04d4af3",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "e6ca68d93454d54ecc62203497705c27c6a3e3d10005645ec1b870e756baaec8"
-            }
-        }
-    },
-    "parity": {
-        "address": "0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd",
-        "privkey": "0x89dd65426fe011c93cfd7cfbf0714dd0c680ed0344b10398d843d811398c86f1",
-        "keyfile": {
-            "version": 3,
-            "id": "17a4f518-2aab-46ce-b0da-8634c4383642",
-            "address": "c6e30272ec8e369dcc3f4fb9fa9051961ebb37dd",
-            "crypto": {
-                "ciphertext": "be199b8e376964b82eec7a9c493f8a85e9b62d977d53157acaa8c96c4b92ef9c",
-                "cipherparams": {
-                    "iv": "9cf62a83c5a124cdf77a165fa3d6b54e"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "556c03ba9a53347f81ea20c4f7cb126501b02b868e6bcd9bfc0f563f70b673fb",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "d59b49efd811376b43febd7c0a6148f823c30a772af146019b87ead093e8aaf1"
-            }
-        }
-    },
-    "neil": {
-        "address": "0xa138dce8c5843a3219375e50157756324f3682f6",
-        "privkey": "0x0a0f7f85e178685f3b12300cf4a76fcc693ebc105ec2304efd0382ebe427357f",
-        "keyfile": {
-            "version": 3,
-            "id": "8aaf77df-fe4b-41d6-ace7-e8d1f580cc18",
-            "address": "a138dce8c5843a3219375e50157756324f3682f6",
-            "crypto": {
-                "ciphertext": "caf1a35b152a794b5758da6da39c9e5e8fce76365b3efa756d1ffc21fcb08953",
-                "cipherparams": {
-                    "iv": "0739e791c8578ac6cc0c326a3ebd9df1"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "b52bfb79fb960791c69f0859d0b611d6f4c33aae598e8c7a7882b8a3f8b3c4d9",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "91725b70c6523a55b177aba0f380df01deb682d7a8b7e6b5b41c105abc414e8f"
-            }
-        }
-    },
-    "nelly": {
-        "address": "0x9e95d1d6608c9964a5effaa5967253777c394d89",
-        "privkey": "0x6a095b64a4805d4426820230771740263809c0cfc30b4f19f141d6b38ccd263f",
-        "keyfile": {
-            "version": 3,
-            "id": "508eb0ff-6ea6-48fa-bd5c-f741e037e709",
-            "address": "9e95d1d6608c9964a5effaa5967253777c394d89",
-            "crypto": {
-                "ciphertext": "9e30035a2658933c0d2ecf5a300fd7551e70ddb5bc6ba7fce7129a2daa86f61d",
-                "cipherparams": {
-                    "iv": "ac7d053b3c89c15b5f3fea0865d86773"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "63821f53d5f09fef6cf804974ecb755c8b204d06b496fb3811b5df1a86f31899",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "322df236b989bfdf913f25978f05e799968e1ec2e0d1794fd0d7c2f05cff4a00"
-            }
-        }
-    },
-    "carol": {
-        "address": "0x50b096ae0dc592d9b57fdcf9d3e73861d8a86b26",
-        "privkey": "0x53aac66a757007076a942dd9ff23b5d3fd0ecab416aec10305e54d426a5c9faa",
-        "keyfile": {
-            "version": 3,
-            "id": "4e35e1ba-6fef-47f4-b221-3caf947c80fb",
-            "address": "50b096ae0dc592d9b57fdcf9d3e73861d8a86b26",
-            "crypto": {
-                "ciphertext": "21d40565d6a4ca5bc5cd2e79a8c9940aa9c2f7be302a01dfa66093916398a886",
-                "cipherparams": {
-                    "iv": "76f16ed9af1f66aab5db4316c1eada8a"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "82cfdf48470241c1f65182dffd1c64a280ca9d805a71c43f03b502e586d11a32",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "6da37c09d5a459490cde71373d56d28f5020378bf40d5567f2811f5d8d289823"
-            }
-        }
-    },
-    "loki": {
-        "address": "0x86482de129d0d7c0a131c13be68a82c47d4dd70e",
-        "privkey": "0x5f361af88357b5dbac49dd3de752597801466da5c5b37445fe829b8fb22d0850",
-        "keyfile": {
-            "version": 3,
-            "id": "bf08ca23-cdde-41a0-99f5-a16174718d07",
-            "address": "86482de129d0d7c0a131c13be68a82c47d4dd70e",
-            "crypto": {
-                "ciphertext": "8d5d91572ad4a41cbcf4e9ff5893ed3d0d56c8c48c57663dfb0658e64b13e4d7",
-                "cipherparams": {
-                    "iv": "8e4b22a846d1700b56ba24682606d2ac"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "f8d7b0793c2aa49c5017587513b3a1484a91386b4aa42bc032027ee7056531ac",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "8e2321ca0519c8b2e4513c0df17330c394c95fd35c7964dbc90b927bc3e06a70"
-            }
-        }
-    },
-    "loki-jr": {
-        "address": "0x1b2cb7db28d3b9fb8d4a31d6671b77813b602c93",
-        "privkey": "0x98c01d581470ddc0862cf077db859801f083081989e7065eade125a94b78b800",
-        "keyfile": {
-            "version": 3,
-            "id": "d5c69282-5101-4afb-a1d3-4399e1d38367",
-            "address": "1b2cb7db28d3b9fb8d4a31d6671b77813b602c93",
-            "crypto": {
-                "ciphertext": "8865bbbc1b2b90f52d0928e52835203dec0242a0b58f4bbbdc48c9d02a78d8c5",
-                "cipherparams": {
-                    "iv": "2d71ec4bb35a5c96f39ab58e77695ffb"
-                },
-                "cipher": "aes-128-ctr",
-                "kdf": "scrypt",
-                "kdfparams": {
-                    "dklen": 32,
-                    "salt": "fb9422dccbc104f4d9a2404a86892dadd8056e79af61e94a93f508585d3ba3ec",
-                    "n": 262144,
-                    "r": 8,
-                    "p": 1
-                },
-                "mac": "49bb0f1229c08786d2bc14410cf7c7e2b669bdd9bc4de7f2b4fc6eac13665ae0"
-            }
-        }
+  "geth1": {
+    "address": "0xbafec8991031ca09b3d8c79cc43feb361c7b9c6e",
+    "privkey": "0x5852cef87b5562999796b1e9db4800d6ee176cf458c7c739fca4c7786793849a",
+    "keyfile": {
+      "version": 3,
+      "id": "ed17ba87-28f4-4938-9c28-d6c0e6f16f31",
+      "address": "bafec8991031ca09b3d8c79cc43feb361c7b9c6e",
+      "crypto": {
+        "ciphertext": "7b0c8fe139928a761d828e47183ced8b511a966875ce7955c8afc2e3ff5d5691",
+        "cipherparams": {
+          "iv": "2d4fcc106437f136bcb51ff2350d7a65"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "0fe20b16a127b702c13fed45407068c7fd8b09f24623a7abcb83bdb612e6033f",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "672d4d7b19bd2022e64d15585655660495adae158769664620b662a3e60d27dc"
+      }
     }
+  },
+  "geth2": {
+    "address": "0xa3b8d6c6dbc42a1fe8172ea3ddb30380be266046",
+    "privkey": "0xa171e601cea41a543799880977c55072e595a0a18ff27ba37210756c36426e69",
+    "keyfile": {
+      "version": 3,
+      "id": "0e75c5e0-7817-44d7-aca8-1732970e5c35",
+      "address": "a3b8d6c6dbc42a1fe8172ea3ddb30380be266046",
+      "crypto": {
+        "ciphertext": "18a45a8c28a9bc41f104740b30a4267b2394b3b36c7d2b5c3185cc0a61f45309",
+        "cipherparams": {
+          "iv": "4ac3abea656fd9c1df55c35dd2506aab"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "632bf633cc275b7e752a7cf3d8727dc16f856393d446f1770b3a7b8df04d4af3",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "e6ca68d93454d54ecc62203497705c27c6a3e3d10005645ec1b870e756baaec8"
+      }
+    }
+  },
+  "parity": {
+    "address": "0xc6e30272ec8e369dcc3f4fb9fa9051961ebb37dd",
+    "privkey": "0x89dd65426fe011c93cfd7cfbf0714dd0c680ed0344b10398d843d811398c86f1",
+    "keyfile": {
+      "version": 3,
+      "id": "17a4f518-2aab-46ce-b0da-8634c4383642",
+      "address": "c6e30272ec8e369dcc3f4fb9fa9051961ebb37dd",
+      "crypto": {
+        "ciphertext": "be199b8e376964b82eec7a9c493f8a85e9b62d977d53157acaa8c96c4b92ef9c",
+        "cipherparams": {
+          "iv": "9cf62a83c5a124cdf77a165fa3d6b54e"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "556c03ba9a53347f81ea20c4f7cb126501b02b868e6bcd9bfc0f563f70b673fb",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "d59b49efd811376b43febd7c0a6148f823c30a772af146019b87ead093e8aaf1"
+      }
+    }
+  },
+  "neil": {
+    "address": "0xa138dce8c5843a3219375e50157756324f3682f6",
+    "privkey": "0x0a0f7f85e178685f3b12300cf4a76fcc693ebc105ec2304efd0382ebe427357f",
+    "keyfile": {
+      "version": 3,
+      "id": "8aaf77df-fe4b-41d6-ace7-e8d1f580cc18",
+      "address": "a138dce8c5843a3219375e50157756324f3682f6",
+      "crypto": {
+        "ciphertext": "caf1a35b152a794b5758da6da39c9e5e8fce76365b3efa756d1ffc21fcb08953",
+        "cipherparams": {
+          "iv": "0739e791c8578ac6cc0c326a3ebd9df1"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "b52bfb79fb960791c69f0859d0b611d6f4c33aae598e8c7a7882b8a3f8b3c4d9",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "91725b70c6523a55b177aba0f380df01deb682d7a8b7e6b5b41c105abc414e8f"
+      }
+    }
+  },
+  "nelly": {
+    "address": "0x9e95d1d6608c9964a5effaa5967253777c394d89",
+    "privkey": "0x6a095b64a4805d4426820230771740263809c0cfc30b4f19f141d6b38ccd263f",
+    "keyfile": {
+      "version": 3,
+      "id": "508eb0ff-6ea6-48fa-bd5c-f741e037e709",
+      "address": "9e95d1d6608c9964a5effaa5967253777c394d89",
+      "crypto": {
+        "ciphertext": "9e30035a2658933c0d2ecf5a300fd7551e70ddb5bc6ba7fce7129a2daa86f61d",
+        "cipherparams": {
+          "iv": "ac7d053b3c89c15b5f3fea0865d86773"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "63821f53d5f09fef6cf804974ecb755c8b204d06b496fb3811b5df1a86f31899",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "322df236b989bfdf913f25978f05e799968e1ec2e0d1794fd0d7c2f05cff4a00"
+      }
+    }
+  },
+  "carol": {
+    "address": "0x50b096ae0dc592d9b57fdcf9d3e73861d8a86b26",
+    "privkey": "0x53aac66a757007076a942dd9ff23b5d3fd0ecab416aec10305e54d426a5c9faa",
+    "keyfile": {
+      "version": 3,
+      "id": "4e35e1ba-6fef-47f4-b221-3caf947c80fb",
+      "address": "50b096ae0dc592d9b57fdcf9d3e73861d8a86b26",
+      "crypto": {
+        "ciphertext": "21d40565d6a4ca5bc5cd2e79a8c9940aa9c2f7be302a01dfa66093916398a886",
+        "cipherparams": {
+          "iv": "76f16ed9af1f66aab5db4316c1eada8a"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "82cfdf48470241c1f65182dffd1c64a280ca9d805a71c43f03b502e586d11a32",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "6da37c09d5a459490cde71373d56d28f5020378bf40d5567f2811f5d8d289823"
+      }
+    }
+  },
+  "loki": {
+    "address": "0x86482de129d0d7c0a131c13be68a82c47d4dd70e",
+    "privkey": "0x5f361af88357b5dbac49dd3de752597801466da5c5b37445fe829b8fb22d0850",
+    "keyfile": {
+      "version": 3,
+      "id": "bf08ca23-cdde-41a0-99f5-a16174718d07",
+      "address": "86482de129d0d7c0a131c13be68a82c47d4dd70e",
+      "crypto": {
+        "ciphertext": "8d5d91572ad4a41cbcf4e9ff5893ed3d0d56c8c48c57663dfb0658e64b13e4d7",
+        "cipherparams": {
+          "iv": "8e4b22a846d1700b56ba24682606d2ac"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "f8d7b0793c2aa49c5017587513b3a1484a91386b4aa42bc032027ee7056531ac",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "8e2321ca0519c8b2e4513c0df17330c394c95fd35c7964dbc90b927bc3e06a70"
+      }
+    }
+  },
+  "loki-jr": {
+    "address": "0x1b2cb7db28d3b9fb8d4a31d6671b77813b602c93",
+    "privkey": "0x98c01d581470ddc0862cf077db859801f083081989e7065eade125a94b78b800",
+    "keyfile": {
+      "version": 3,
+      "id": "d5c69282-5101-4afb-a1d3-4399e1d38367",
+      "address": "1b2cb7db28d3b9fb8d4a31d6671b77813b602c93",
+      "crypto": {
+        "ciphertext": "8865bbbc1b2b90f52d0928e52835203dec0242a0b58f4bbbdc48c9d02a78d8c5",
+        "cipherparams": {
+          "iv": "2d71ec4bb35a5c96f39ab58e77695ffb"
+        },
+        "cipher": "aes-128-ctr",
+        "kdf": "scrypt",
+        "kdfparams": {
+          "dklen": 32,
+          "salt": "fb9422dccbc104f4d9a2404a86892dadd8056e79af61e94a93f508585d3ba3ec",
+          "n": 262144,
+          "r": 8,
+          "p": 1
+        },
+        "mac": "49bb0f1229c08786d2bc14410cf7c7e2b669bdd9bc4de7f2b4fc6eac13665ae0"
+      }
+    }
+  }
 }

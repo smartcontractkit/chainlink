@@ -11,7 +11,7 @@ const newBridgeProperties = {
   confirmations: '10',
 }
 
-context('End to end', function() {
+context('End to end', function () {
   it('Edits a bridge', () => {
     cy.login()
 

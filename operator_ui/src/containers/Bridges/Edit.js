@@ -23,14 +23,14 @@ const SuccessNotification = ({ id }) => {
   )
 }
 
-export const Edit = props => {
+export const Edit = (props) => {
   const { fetchBridgeSpec, match, bridge, updateBridge } = props
   useEffect(() => {
     document.title = 'Edit Bridge'
     fetchBridgeSpec(match.params.bridgeId)
   }, [fetchBridgeSpec, match])
   const checkLoaded = () => bridge
-  const onLoad = buildLoadedComponent => {
+  const onLoad = (buildLoadedComponent) => {
     if (checkLoaded()) return buildLoadedComponent(props)
     return <div>Loading...</div>
   }

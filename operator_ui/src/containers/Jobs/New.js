@@ -21,7 +21,7 @@ const SuccessNotification = ({ data }) => (
   </React.Fragment>
 )
 
-const New = props => {
+const New = (props) => {
   document.title = 'New Job'
   return (
     <Content>

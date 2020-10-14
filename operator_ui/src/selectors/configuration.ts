@@ -6,5 +6,5 @@ export default ({ configuration }: Pick<AppState, 'configuration'>) => {
 
   return Object.keys(data)
     .sort()
-    .map(key => [constantCase(key), data[key]])
+    .map((key) => [constantCase(key), data[key]])
 }

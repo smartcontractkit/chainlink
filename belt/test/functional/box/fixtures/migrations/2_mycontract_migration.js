@@ -9,7 +9,7 @@ module.exports = (deployer, network, [defaultAccount]) => {
     LinkToken.setProvider(deployer.provider)
     Oracle.setProvider(deployer.provider)
 
-    deployer.deploy(LinkToken, { from: defaultAccount }).then(link => {
+    deployer.deploy(LinkToken, { from: defaultAccount }).then((link) => {
       return deployer
         .deploy(Oracle, link.address, { from: defaultAccount })
         .then(() => {

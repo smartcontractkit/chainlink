@@ -46,11 +46,11 @@ class Layout extends React.Component {
   }
 }
 
-const mapStateToProps = state => ({
+const mapStateToProps = (state) => ({
   redirectTo: state.redirect.to,
 })
 
-const mapDispatchToProps = dispatch => bindActionCreators({}, dispatch)
+const mapDispatchToProps = (dispatch) => bindActionCreators({}, dispatch)
 
 export const ConnectedLayout = connect(
   mapStateToProps,

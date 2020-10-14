@@ -14,7 +14,7 @@ import jobSelector from 'selectors/job'
 import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 
-const styles = theme => ({
+const styles = (theme) => ({
   definitionTitle: {
     marginTop: theme.spacing.unit * 2,
     marginBottom: theme.spacing.unit * 2,
@@ -49,7 +49,7 @@ const renderDetails = ({ job, classes }) => {
   return <React.Fragment>Fetching ...</React.Fragment>
 }
 
-const Definition = props => {
+const Definition = (props) => {
   const { fetchJob, job, jobSpecId } = props
 
   useEffect(() => {

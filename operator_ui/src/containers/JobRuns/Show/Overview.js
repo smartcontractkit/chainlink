@@ -11,7 +11,7 @@ import StatusCard from 'components/JobRuns/StatusCard'
 import TaskExpansionPanel from 'components/JobRuns/TaskExpansionPanel'
 import RegionalNav from './RegionalNav'
 
-const styles = theme => ({
+const styles = (theme) => ({
   breadcrumb: {
     marginTop: theme.spacing.unit * 5,
     marginBottom: theme.spacing.unit * 5,
@@ -37,7 +37,7 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-export const Show = props => {
+export const Show = (props) => {
   const { fetchJobRun, jobRunId } = props
   useEffect(() => {
     document.title = 'Show Job Run'

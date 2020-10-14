@@ -9,7 +9,7 @@ import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToPro
 import transactionsSelector from 'selectors/transactions'
 import { fetchTransactions } from 'actionCreators'
 
-export const Index = props => {
+export const Index = (props) => {
   document.title = 'Transactions'
   return (
     <Content>
@@ -42,7 +42,7 @@ Index.defaultProps = {
   pageSize: 10,
 }
 
-const mapStateToProps = state => {
+const mapStateToProps = (state) => {
   return {
     count: state.transactionsIndex.count,
     transactions: transactionsSelector(state),

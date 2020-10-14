@@ -29,7 +29,7 @@ const renderBody = (transactions, error) => {
       </TableRow>
     )
   } else if (transactions) {
-    return transactions.map(j => (
+    return transactions.map((j) => (
       <TableRow key={j.hash}>
         <TableCell component="th" scope="row">
           <Link href={`/transactions/${j.hash}`}>{j.hash}</Link>
@@ -56,7 +56,7 @@ const renderBody = (transactions, error) => {
   )
 }
 
-export const List = props => {
+export const List = (props) => {
   const { transactions, count, fetchTransactions, pageSize, error } = props
   const [page, setPage] = useState(FIRST_PAGE)
 

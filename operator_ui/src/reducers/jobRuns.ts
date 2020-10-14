@@ -23,7 +23,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
       return {
         ...state,
         items: { ...state.items, ...data.runs },
-        currentPage: metaCurrentPage.data.map(r => r.id),
+        currentPage: metaCurrentPage.data.map((r) => r.id),
         currentJobRunsCount: metaCurrentPage.meta.count,
       }
     }
