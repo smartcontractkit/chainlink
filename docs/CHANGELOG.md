@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
 
+### Added
+
+- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
+
 ## [0.8.18] - 2020-10-01
 
 ### Fixed

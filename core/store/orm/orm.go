@@ -1501,6 +1501,31 @@ func toISO8601(t time.Time) string {
 		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
 
+// These two queries trigger cascading deletes in the following tables:
+// (run_requests) --> (job_runs) --> (task_runs)
+// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
+const removeUnstartedJobRunsQuery = `
+DELETE FROM run_requests
+WHERE id IN (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE status = 'unstarted'
+)
+`
+const removeUnstartedTransactionsQuery = `
+DELETE FROM eth_txes
+WHERE state = 'unstarted'
+`
+
+func (orm *ORM) RemoveUnstartedTransactions() error {
+	return orm.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+			return err
+		}
+		return tx.Exec(removeUnstartedTransactionsQuery).Error
+	})
+}
+
 func (orm *ORM) CountOf(t interface{}) (int, error) {
 	orm.MustEnsureAdvisoryLock()
 	var count int
