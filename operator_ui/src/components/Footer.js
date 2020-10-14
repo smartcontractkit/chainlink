@@ -4,7 +4,7 @@ import Typography from '@material-ui/core/Typography'
 import Card from '@material-ui/core/Card'
 import extractBuildInfo from 'utils/extractBuildInfo'
 
-const styles = theme => ({
+const styles = (theme) => ({
   style: {
     textAlign: 'center',
     padding: theme.spacing.unit * 2.5,

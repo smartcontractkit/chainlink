@@ -43,7 +43,7 @@ const RecentlyCreated = ({ jobs, classes }) => {
   } else {
     status = (
       <React.Fragment>
-        {jobs.map(j => (
+        {jobs.map((j) => (
           <SimpleListCardItem key={j.id}>
             <Grid container spacing={0}>
               <Grid item xs={12}>

@@ -19,7 +19,7 @@ describe('ConcreteChainlink', () => {
   const deployment = setup.snapshot(provider, async () => {
     defaultAccount = await setup
       .users(provider)
-      .then(r => r.roles.defaultAccount)
+      .then((r) => r.roles.defaultAccount)
     ccl = await concreteChainlinkFactory.connect(defaultAccount).deploy()
   })
 

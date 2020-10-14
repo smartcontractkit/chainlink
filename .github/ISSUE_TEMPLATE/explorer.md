@@ -1,10 +1,9 @@
 ---
 name: Explorer Issue
 about: Report an issue with the Chainlink Explorer.
-title: "[EXPLR] <replace with issue title>"
+title: '[EXPLR] <replace with issue title>'
 labels: 'Explorer'
 assignees: ''
-
 ---
 
 **Description**

@@ -29,7 +29,7 @@ const renderDetails = ({ fetching, jobRun }) => {
   )
 }
 
-const Show = props => {
+const Show = (props) => {
   const { fetchJobRun, jobRunId } = props
 
   useEffect(() => {

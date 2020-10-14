@@ -133,7 +133,9 @@ export async function users(
   const accounts = await Promise.all(
     Array(8)
       .fill(null)
-      .map(async (_, i) => createFundedWallet(provider, i).then(w => w.wallet)),
+      .map(async (_, i) =>
+        createFundedWallet(provider, i).then((w) => w.wallet),
+      ),
   )
 
   const personas: Personas = {

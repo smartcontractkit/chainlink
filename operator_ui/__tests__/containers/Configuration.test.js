@@ -7,7 +7,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 const classes = {}
-const mount = props => {
+const mount = (props) => {
   return mountWithinStoreAndRouter(
     <Configuration classes={classes} {...props} />,
   )

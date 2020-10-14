@@ -9,7 +9,7 @@ import fillIn from 'test-helpers/fillIn'
 import globPath from 'test-helpers/globPath'
 
 const RedirectApp = () => <div>Behind authentication</div>
-const mountSignIn = store =>
+const mountSignIn = (store) =>
   mount(
     <Provider store={store}>
       <MemoryRouter initialEntries={['/signin']}>
@@ -21,7 +21,7 @@ const mountSignIn = store =>
     </Provider>,
   )
 
-const submitForm = wrapper => {
+const submitForm = (wrapper) => {
   fillIn(wrapper, 'input#email', 'some@email.net')
   fillIn(wrapper, 'input#password', 'abracadabra')
   expect(wrapper.find('form button').getDOMNode().disabled).toEqual(false)

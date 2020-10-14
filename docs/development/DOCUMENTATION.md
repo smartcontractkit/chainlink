@@ -6,5 +6,5 @@
 
 [Simple Icons] - The default icon set used by Shields IO.
 
-[Shields IO]: https://shields.io/
-[Simple Icons]: https://simpleicons.org/
+[shields io]: https://shields.io/
+[simple icons]: https://simpleicons.org/

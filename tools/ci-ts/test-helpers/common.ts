@@ -78,7 +78,7 @@ export function getEnvVars<T extends string>(keys: T[]): { [K in T]: string } {
 }
 
 export async function wait(ms: number) {
-  return new Promise(res => {
+  return new Promise((res) => {
     setTimeout(res, ms)
   })
 }
@@ -154,7 +154,7 @@ export async function assertAsync(
  * @param ms the number of milliseconds to sleep
  */
 export function sleep(ms: number) {
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     setTimeout(resolve, ms)
   })
 }
@@ -270,7 +270,7 @@ export function logEvents(
     if (listenToArr.length != 0 && !listenToArr.includes(eventDesc.name)) return
     // decode event log and generate list of args for test log
     const eventArgs = eventDesc.decode(eventEmission.data, eventEmission.topics)
-    const eventArgNames = eventDesc.inputs.map(i => i.name) as string[]
+    const eventArgNames = eventDesc.inputs.map((i) => i.name) as string[]
     const eventArgList = eventArgNames
       .map((argName: string) => `\t* ${argName}: ${eventArgs[argName]}`)
       .join('\n')

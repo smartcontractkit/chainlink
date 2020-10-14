@@ -20,7 +20,7 @@ interface Args {
 }
 async function countTransactionEvents({ fromAddress, txId }: Args) {
   const provider = createProvider()
-  const receipt = await provider.getTransactionReceipt(txId).catch(e => {
+  const receipt = await provider.getTransactionReceipt(txId).catch((e) => {
     console.error('Error getting transaction receipt')
     console.error(chalk.red(e))
     throw e
@@ -43,7 +43,7 @@ function countLogsEmittedBy(
     return 0
   }
 
-  return logs.filter(l => l.address === address).length
+  return logs.filter((l) => l.address === address).length
 }
 
 interface FulfillmentEvent {

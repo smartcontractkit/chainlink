@@ -33,7 +33,7 @@ interface Props {
   createBridge: () => Promise<any>
 }
 
-const New: React.FC<Props> = props => {
+const New: React.FC<Props> = (props) => {
   document.title = 'New Bridge'
   return (
     <Content>

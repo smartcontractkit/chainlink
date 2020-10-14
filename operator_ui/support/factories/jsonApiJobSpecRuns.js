@@ -7,7 +7,7 @@ export default (runs, count) => {
 
   return decamelizeKeys({
     meta: { count: rc },
-    data: r.map(c => {
+    data: r.map((c) => {
       const config = c || {}
       const id = config.id || uuid().replace(/-/g, '')
       const jobId = config.jobId || uuid().replace(/-/g, '')

@@ -9,7 +9,7 @@ import Notifications from 'containers/Notifications'
 const classes = {}
 const mockStore = configureStore()
 
-const mountNotifications = store =>
+const mountNotifications = (store) =>
   mount(
     <Provider store={store}>
       <MemoryRouter>

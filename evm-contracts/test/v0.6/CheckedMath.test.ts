@@ -18,10 +18,7 @@ beforeAll(async () => {
   personas = (await setup.users(provider)).personas
 })
 
-const int256Max = h
-  .bigNum(2)
-  .pow(255)
-  .sub(1)
+const int256Max = h.bigNum(2).pow(255).sub(1)
 const int256Min = h.bigNum(-2).pow(255)
 
 describe('CheckedMath', () => {

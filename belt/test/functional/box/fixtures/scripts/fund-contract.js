@@ -10,7 +10,7 @@ const { LinkToken } = require('@chainlink/contracts/truffle/v0.4/LinkToken')
 
 const payment = process.env.TRUFFLE_CL_BOX_PAYMENT || '1000000000000000000'
 
-module.exports = async callback => {
+module.exports = async (callback) => {
   const mc = await MyContract.deployed()
   const tokenAddress = await mc.getChainlinkToken()
   const token = await LinkToken.at(tokenAddress)

@@ -26,7 +26,7 @@ function renderBody(
       </TableRow>
     )
   } else if (errors) {
-    return errors.map(error => (
+    return errors.map((error) => (
       <TableRow key={error.id}>
         <TableCell>
           <Typography variant="body1">{error.occurrences}</Typography>
@@ -73,7 +73,7 @@ function renderBody(
 }
 
 function renderHeaders() {
-  return HEADERS.map(header => (
+  return HEADERS.map((header) => (
     <TableCell key={header}>
       <Typography variant="body1" color="textSecondary">
         {header}

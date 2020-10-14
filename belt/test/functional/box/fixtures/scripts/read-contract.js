@@ -5,7 +5,7 @@ const MyContract = artifacts.require('MyContract')
   of the requesting contract.
 */
 
-module.exports = async callback => {
+module.exports = async (callback) => {
   const mc = await MyContract.deployed()
   const data = await mc.data.call()
   callback(data)

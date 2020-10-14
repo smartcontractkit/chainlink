@@ -3,7 +3,7 @@ import Typography from '@material-ui/core/Typography'
 import Link from 'components/Link'
 import { withStyles } from '@material-ui/core/styles'
 
-const styles = theme => ({
+const styles = (theme) => ({
   node: {
     display: 'inline-block',
     marginLeft: theme.spacing.unit / 2,
@@ -19,7 +19,7 @@ const renderNode = ({ classes, children }) => (
   </Typography>
 )
 
-const BreadcrumbItem = props => {
+const BreadcrumbItem = (props) => {
   if (props.href) {
     return renderLink(props)
   } else {

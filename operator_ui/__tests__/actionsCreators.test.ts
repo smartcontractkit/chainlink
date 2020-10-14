@@ -11,7 +11,7 @@ import globPath from '../support/test-helpers/globPath'
 import isoDate, { MINUTE_MS } from '../support/test-helpers/isoDate'
 
 describe('fetchJob', () => {
-  it('maintains dashed keys', done => {
+  it('maintains dashed keys', (done) => {
     expect.assertions(1)
 
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
@@ -33,7 +33,7 @@ describe('fetchJob', () => {
 
     global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
 
-    const testMiddleware: Middleware = () => next => action => {
+    const testMiddleware: Middleware = () => (next) => (action) => {
       next(action)
 
       if (action.type === ResourceActionType.UPSERT_JOB) {
@@ -53,7 +53,7 @@ describe('fetchJob', () => {
 })
 
 describe('fetchJobRun', () => {
-  it('maintains dashed keys', done => {
+  it('maintains dashed keys', (done) => {
     expect.assertions(1)
 
     const expectedTask = partialAsFull<models.TaskSpec>({
@@ -75,7 +75,7 @@ describe('fetchJobRun', () => {
     const id = runResponse.data.id
     global.fetch.getOnce(globPath(`/v2/runs/${id}`), runResponse)
 
-    const testMiddleware: Middleware = () => next => action => {
+    const testMiddleware: Middleware = () => (next) => (action) => {
       next(action)
 
       if (action.type === ResourceActionType.UPSERT_JOB_RUN) {
