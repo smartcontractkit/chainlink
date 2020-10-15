@@ -8,6 +8,7 @@ import {
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
+import { RouteComponentProps } from 'react-router-dom'
 import { fetchJob, fetchJobRuns } from 'actionCreators'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
@@ -160,6 +161,15 @@ const Details: React.FC<DetailsProps> = ({
   return <div>Fetching...</div>
 }
 
+type OwnProps = {
+  showJobRunsCount: number
+}
+
+export type ShowComponentProps = OwnProps &
+  RouteComponentProps<{
+    jobSpecId: string
+  }>
+
 interface Props {
   jobSpecId: string
   job?: JobSpec
@@ -206,16 +216,7 @@ export const Show: React.FC<Props> = ({
   )
 }
 
-interface Match {
-  params: {
-    jobSpecId: string
-  }
-}
-
-const mapStateToProps = (
-  state: AppState,
-  ownProps: { match: Match; showJobRunsCount: number },
-) => {
+const mapStateToProps = (state: AppState, ownProps: ShowComponentProps) => {
   const jobSpecId = ownProps.match.params.jobSpecId
   const job = jobSelector(state, jobSpecId)
   const recentRuns = jobRunsByJobIdSelector(

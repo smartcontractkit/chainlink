@@ -1,6 +1,7 @@
 {
   "extends": "../tsconfig.es6.json",
   "compilerOptions": {
+    "module": "esnext",
     "baseUrl": ".",
     "paths": {
       "*": ["*", "src/*", "support/*", "@types/*"]
