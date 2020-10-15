@@ -35,7 +35,7 @@
 
 - `input`：http 请求返回结果
 - `output`：标准的 output 返回格式
-- `params`：无（irismod/service v1.2 后会添加非功能性参数）
+- `params`：无（非功能性参数）
 
 **IritaTx**
 
@@ -62,6 +62,7 @@ iritacli keys add provider \
 
 ```bash
 IRITA_URL=http://localhost:26657
+IRITA_GRPC_ADDR=localhost:9090
 IRITA_CHAIN_ID=irita-hub
 IRITA_KEY_DAO=~/.chainlink/.iritakeys
 IRITA_KEY_NAME=provider
@@ -94,6 +95,7 @@ iritacli tx service bind \
     --service-name=oracle \
     --deposit=20000point \
     --pricing='{"price":"1point"}' \
+    --options={} \
     --qos 1 \
     --chain-id=irita-hub \
     --from=provider \
@@ -116,7 +118,7 @@ iritacli tx oracle create \
     --description="test feed" \
     --latest-history=10 \
     --service-name="oracle" \
-    --input='{"pair":"ethbtc"}' \
+    --input='{"pair":"eth-btc"}' \
     --providers=iaa14h0g32km06yj2eszf7twuftlj2ntrujvqhxgpc \
     --service-fee-cap=1point \
     --timeout=9 \

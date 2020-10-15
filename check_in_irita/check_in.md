@@ -35,7 +35,7 @@ Parsing input data of oracle.
 
 - `input`: response of http request
 - `output`: standard output
-- `params`: none (will add non-functional parameters after `v1.1.2` of service module)
+- `params`: none (non-functional parameters)
 
 **IritaTx**
 
@@ -94,6 +94,7 @@ iritacli tx service bind \
     --service-name=oracle \
     --deposit=20000point \
     --pricing='{"price":"1point"}' \
+    --options={} \
     --qos 1 \
     --chain-id=irita-hub \
     --from=provider \

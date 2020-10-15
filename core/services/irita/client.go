@@ -41,7 +41,7 @@ func newClient(config *orm.Config) iservicesdk.ServiceClient {
 }
 
 func SetPassword(config *orm.Config, pwd string) error {
-	if _, err := GetClient(config).Show(config.IritaKeyName(), pwd); err != nil {
+	if _, _, err := GetClient(config).Find(config.IritaKeyName(), pwd); err != nil {
 		return err
 	}
 	password = pwd

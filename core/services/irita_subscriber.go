@@ -8,9 +8,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/irisnet/serivce-sdk-go/types"
 	iservicesdk "github.com/irisnet/service-sdk-go"
 	iservice "github.com/irisnet/service-sdk-go/service"
+	"github.com/irisnet/service-sdk-go/types"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -207,21 +207,37 @@ func (s *Service) Subscribe(initiator models.Initiator, job models.JobSpec) {
 }
 
 func (s *Service) GetServiceResquest(
-	events types.Events,
+	events types.StringEvents,
 	serviceName string,
 	provider types.AccAddress,
 ) []iservice.QueryServiceRequestResponse {
-	var ids []string
-	for _, e := range events.Filter("new_batch_request_provider") {
-		svcName := e.Attributes.GetValue("service_name")
-		prov := e.Attributes.GetValue("provider")
-		if svcName == serviceName && prov == provider.String() {
-			reqIDsStr := e.Attributes.GetValue("requests")
-			var idsTemp []string
-			_ = json.Unmarshal([]byte(reqIDsStr), &idsTemp)
-			ids = append(ids, idsTemp...)
-		}
+	providerAddr, err := events.GetValue("new_batch_request_provider", "provder")
+	if err != nil {
+		return nil
 	}
+
+	if providerAddr != provider.String() {
+		return nil
+	}
+
+	svcName, err := events.GetValue("new_batch_request_provider", "service_name")
+	if err != nil {
+		return nil
+	}
+
+	if svcName != serviceName {
+		return nil
+	}
+
+	var ids []string
+	reqIDsStr, err := events.GetValue("new_batch_request_provider", "requests")
+	if err != nil {
+		return nil
+	}
+
+	var idsTemp []string
+	_ = json.Unmarshal([]byte(reqIDsStr), &idsTemp)
+	ids = append(ids, idsTemp...)
 
 	var requests []iservice.QueryServiceRequestResponse
 
@@ -229,5 +245,6 @@ func (s *Service) GetServiceResquest(
 		request, _ := s.Client.QueryServiceRequest(reqID)
 		requests = append(requests, request)
 	}
+
 	return requests
 }

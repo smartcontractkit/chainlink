@@ -77,10 +77,11 @@ type ConfigSchema struct {
 
 	// ====================================================================================================================================================================
 
-	IritaURL     string `env:"IRITA_URL" default:"http://localhost:26657"`
-	IritaChainID string `env:"IRITA_CHAIN_ID" default:"irita-hub"`
-	IritaKeyDao  string `env:"IRITA_KEY_DAO" default:"~/.chainlink/.iritakeys"`
-	IritaKeyName string `env:"IRITA_KEY_NAME" default:"provider"`
+	IritaURL      string `env:"IRITA_URL" default:"http://localhost:26657"`
+	IritaGRPCAddr string `env:"IRITA_GRPC_ADDR" default:"localhost:9090"`
+	IritaChainID  string `env:"IRITA_CHAIN_ID" default:"irita-hub"`
+	IritaKeyDao   string `env:"IRITA_KEY_DAO" default:"~/.chainlink/.iritakeys"`
+	IritaKeyName  string `env:"IRITA_KEY_NAME" default:"provider"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

@@ -36,7 +36,8 @@ func (itxm *IritaTxManager) SendTx(
 	types.ResultTx,
 	types.Error,
 ) {
-	return itxm.Client.Bank.Send(toAddr, amount, baseTx)
+	// TODO
+	return types.ResultTx{}, nil
 }
 
 func (itxm *IritaTxManager) IritaClient() iservicesdk.ServiceClient {
