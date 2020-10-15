@@ -271,41 +271,10 @@ workflows:
   version: 2
   test:
     jobs:
-      - core-go-test:
-          filters:
-            tags:
-              only: /^v.*/
-      - solidity:
-          filters:
-            tags:
-              only: /^v.*/
-      - operator-ui:
-          filters:
-            tags:
-              only: /^v.*/
       - build-publish-chainlink:
-          requires:
-            - core-go-test
-            - operator-ui
           filters:
             tags:
               only: /^v.*/
-      - reportcoverage:
-          requires:
-            - core-go-test
-            - solidity
-            - operator-ui
-          filters:
-            tags:
-              ignore:
-                - /^v.*/
-                - /^explorer-v.*/
-            branches:
-              ignore:
-                - develop
-                - /^release\/.*/
-                - master
-                - /^hotfix\/.*/
 commands:
   setup-aws-ecr:
     description: 'Install aws cli and log docker in ECR'
