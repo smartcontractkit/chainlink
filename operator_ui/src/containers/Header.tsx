@@ -187,9 +187,9 @@ const styles = ({ palette, spacing, zIndex }: Theme) =>
 interface Props extends WithStyles<typeof styles> {
   fetchCount: number
   authenticated: boolean
-  drawerContainer: Element
+  drawerContainer: HTMLElement | null
   submitSignOut: () => void
-  onResize: () => void
+  onResize: (width: number, height: number) => void
   url?: string
 }
 
