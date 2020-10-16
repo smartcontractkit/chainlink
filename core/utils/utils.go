@@ -576,6 +576,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 	signals = append(signals, ctx)
 
 	var cases []reflect.SelectCase
+	var cancel2 context.CancelFunc
 	for _, signal := range signals {
 		var ch reflect.Value
 
@@ -587,7 +588,8 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 		case chan struct{}:
 			ch = reflect.ValueOf(sig)
 		case time.Duration:
-			ctxTimeout, _ := context.WithTimeout(ctx, sig)
+			var ctxTimeout context.Context
+			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
 			ch = reflect.ValueOf(ctxTimeout.Done())
 		default:
 			logger.Errorf("utils.CombinedContext cannot accept a value of type %T, skipping", sig)
@@ -598,6 +600,9 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 
 	go func() {
 		defer cancel()
+		if cancel2 != nil {
+			defer cancel2()
+		}
 		_, _, _ = reflect.Select(cases)
 	}()
 
@@ -866,24 +871,26 @@ func EVMBytesToUint64(buf []byte) uint64 {
 }
 
 type StartStopOnce struct {
-	state int
-	sync.Mutex
+	state StartStopOnceState
+	sync.RWMutex
 }
 
+type StartStopOnceState int
+
 const (
-	ssoState_Unstarted int = iota
-	ssoState_Started
-	ssoState_Stopped
+	StartStopOnce_Unstarted StartStopOnceState = iota
+	StartStopOnce_Started
+	StartStopOnce_Stopped
 )
 
 func (once *StartStopOnce) OkayToStart() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != ssoState_Unstarted {
+	if once.state != StartStopOnce_Unstarted {
 		return false
 	}
-	once.state = ssoState_Started
+	once.state = StartStopOnce_Started
 	return true
 }
 
@@ -891,9 +898,15 @@ func (once *StartStopOnce) OkayToStop() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
 
-	if once.state != ssoState_Started {
+	if once.state != StartStopOnce_Started {
 		return false
 	}
-	once.state = ssoState_Stopped
+	once.state = StartStopOnce_Stopped
 	return true
+}
+
+func (once *StartStopOnce) State() StartStopOnceState {
+	once.RLock()
+	defer once.RUnlock()
+	return once.state
 }

@@ -264,8 +264,8 @@ func TestORM(t *testing.T) {
 				defer cancel()
 				chRunComplete := make(chan struct{})
 				go func() {
-					err := orm.AwaitRun(ctx, runID)
-					require.NoError(t, err)
+					err2 := orm.AwaitRun(ctx, runID)
+					require.NoError(t, err2)
 					close(chRunComplete)
 				}()
 
@@ -277,20 +277,20 @@ func TestORM(t *testing.T) {
 					locked     pipeline.TaskRun
 				)
 				go func() {
-					err := utils.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
-						err := tx.Raw(`
+					err2 := utils.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+						err2 := tx.Raw(`
                             SELECT * FROM pipeline_task_runs
                             INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
                             WHERE pipeline_task_specs.type = 'result'
                             FOR UPDATE OF pipeline_task_runs
                         `).Scan(&locked).Error
-						require.NoError(t, err)
+						require.NoError(t, err2)
 
 						close(chClaimed)
 						<-chBlock
 						return nil
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 					close(chUnlocked)
 				}()
 				<-chClaimed
@@ -340,7 +340,7 @@ func TestORM(t *testing.T) {
 					<-chUnlocked
 					time.Sleep(3 * time.Second)
 
-					anyRemaining, err := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						fmt.Println(taskRun.DotID())
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
@@ -358,17 +358,17 @@ func TestORM(t *testing.T) {
 						predecessors[taskRun.DotID()] = predecessorRuns
 						return test.answers[taskRun.DotID()]
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 					require.True(t, anyRemaining)
 				}
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						t.Fatal("this callback should never be reached")
 						return pipeline.Result{}
 					})
-					require.NoError(t, err)
+					require.NoError(t, err2)
 					require.False(t, anyRemaining)
 				}
 

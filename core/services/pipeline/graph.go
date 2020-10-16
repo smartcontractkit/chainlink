@@ -87,7 +87,10 @@ func (g TaskDAG) outputs() []*taskDAGNode {
 	var outputs []*taskDAGNode
 	iter := g.Nodes()
 	for iter.Next() {
-		node := iter.Node().(*taskDAGNode)
+		node, is := iter.Node().(*taskDAGNode)
+		if !is {
+			panic("this is impossible but we must appease go staticcheck")
+		}
 		if g.From(node.ID()) == graph.Empty {
 			outputs = append(outputs, node)
 		}
@@ -120,15 +123,6 @@ func (n *taskDAGNode) SetAttribute(attr encoding.Attribute) error {
 	}
 	n.attrs[attr.Key] = attr.Value
 	return nil
-}
-
-func (n *taskDAGNode) inputs() []*taskDAGNode {
-	var nodes []*taskDAGNode
-	ns := n.g.To(n.ID())
-	for ns.Next() {
-		nodes = append(nodes, ns.Node().(*taskDAGNode))
-	}
-	return nodes
 }
 
 func (n *taskDAGNode) outputs() []*taskDAGNode {

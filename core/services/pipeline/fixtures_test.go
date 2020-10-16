@@ -82,22 +82,14 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpUrl string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	// Insert keys into the store
-	t.Fatal("FIXME: use fixture keys instead")
-	keystore := offchainreporting.NewKeyStore(db)
-	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
-	require.NoError(t, err)
-	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
-	require.NoError(t, err)
-	peerID, err := p2pkey.GetPeerID()
-	require.NoError(t, err)
-	err = db.Create(&models.Key{
-		Address: cltest.DefaultKey,
-		JSON:    cltest.JSONFromString(t, "{}"),
-	}).Error
-	require.NoError(t, err)
+	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
 
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrkey.ID, cltest.DefaultKey, httpUrl)
+	a, err := models.NewEIP55Address(cltest.DefaultKeyAddress.Hex())
+	require.NoError(t, err)
+	key := models.Key{Address: a, JSON: cltest.JSONFromString(t, "{}")}
+	require.NoError(t, db.Save(&key).Error)
+
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, httpUrl)
 
 	var ocrspec offchainreporting.OracleSpec
 	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)

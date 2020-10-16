@@ -222,7 +222,7 @@ func (app *ChainlinkApplication) Stop() error {
 		}()
 		logger.Info("Gracefully exiting...")
 
-		app.LogBroadcaster.Stop()
+		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 		merr = multierr.Append(merr, app.balanceMonitor.Stop())

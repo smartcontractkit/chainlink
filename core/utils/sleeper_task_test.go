@@ -77,12 +77,9 @@ func (w *controllableWorker) Work() {
 		<-w.allowResumeWork
 	}
 	w.countingWorker.Work()
-	time.Sleep(500 * time.Millisecond)
 }
 
 func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
-	t.Fatal("FIXME: this test intermittently fails")
-
 	t.Parallel()
 
 	worker := &controllableWorker{awaitWorkStarted: make(chan struct{}), allowResumeWork: make(chan struct{})}
@@ -92,24 +89,27 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 	<-worker.awaitWorkStarted
 	sleeper.WakeUp()
 	sleeper.WakeUp()
+	sleeper.WakeUp()
+	sleeper.WakeUp()
+	sleeper.WakeUp()
 	worker.ignoreSignals = true
 	worker.allowResumeWork <- struct{}{}
-	require.NoError(t, sleeper.Stop())
 
 	gomega.NewGomegaWithT(t).Eventually(worker.getNumJobsPerformed).Should(gomega.Equal(2))
 	gomega.NewGomegaWithT(t).Consistently(worker.getNumJobsPerformed).Should(gomega.BeNumerically("<", 3))
+	require.NoError(t, sleeper.Stop())
 }
 
 func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
-	t.Fatal("FIXME: this test intermittently fails")
-
 	t.Parallel()
 
-	worker := &countingWorker{delay: 200 * time.Millisecond}
+	worker := &controllableWorker{awaitWorkStarted: make(chan struct{}), allowResumeWork: make(chan struct{})}
 	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()
-	require.Equal(t, worker.getNumJobsPerformed(), 0)
+	<-worker.awaitWorkStarted
+	require.Equal(t, 0, worker.getNumJobsPerformed())
+	worker.allowResumeWork <- struct{}{}
 
 	require.NoError(t, sleeper.Stop())
 	require.Equal(t, worker.getNumJobsPerformed(), 1)

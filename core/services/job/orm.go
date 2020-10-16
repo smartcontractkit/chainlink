@@ -2,7 +2,6 @@ package job
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -74,27 +73,32 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
-	var from string
+	var join string
 	var args []interface{}
 	if len(o.claimedJobIDs()) > 0 {
 		// NOTE: OFFSET 0 is a postgres trick that doesn't change the result,
 		// but prevents the optimiser from trying to pull the where condition
 		// up out of the subquery
-		from = "(SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0)"
+		join = `
+            INNER JOIN (
+                SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
+                FROM (SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0) not_claimed_by_us
+            ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
+        `
 		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())}
 	} else {
-		from = "jobs"
+		join = `
+            INNER JOIN (
+                SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
+                FROM jobs not_claimed_by_us
+            ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
+        `
 		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner}
 	}
 
 	var newlyClaimedJobs []models.JobSpecV2
 	err := o.db.
-		Joins(fmt.Sprintf(`
-			INNER JOIN (
-				SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
-				FROM %s not_claimed_by_us
-			) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
-			`, from), args...).
+		Joins(join, args...).
 		Preload("OffchainreportingOracleSpec").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {

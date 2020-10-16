@@ -19,8 +19,7 @@ ALTER TABLE heads RENAME TO heads_archive;`).Error; err != nil {
 		return errors.Wrap(err, "failed to auto migrate Head")
 	}
 
-	var err error
-	err = tx.Exec(`
+	err := tx.Exec(`
 INSERT INTO heads ("hash", "number")
 SELECT decode("hash"::text, 'hex'), "number"
 FROM heads_archive;
