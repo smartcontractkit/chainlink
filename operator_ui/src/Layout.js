@@ -16,8 +16,8 @@ import { bindActionCreators } from 'redux'
 // Asynchronously load routes that are chunked via code-splitting
 // 'import' as a function must take a string. It can't take a variable.
 const uniOpts = { loading: Loading }
-const SignIn = universal(import('./containers/SignIn'), uniOpts)
-const SignOut = universal(import('./containers/SignOut'), uniOpts)
+const SignIn = universal(import('./pages/SignIn'), uniOpts)
+const SignOut = universal(import('./pages/SignOut'), uniOpts)
 
 class Layout extends React.Component {
   // Remove the server-side injected CSS.

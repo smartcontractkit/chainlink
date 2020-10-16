@@ -8,10 +8,10 @@ import { StyledComponentProps } from '@material-ui/core/styles'
 import { Switch } from 'react-router-dom'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
-import Header from 'containers/Header'
+import Header from 'pages/Header'
 import Loading from 'components/Loading'
-import Notifications from 'containers/Notifications'
-import { ShowComponentProps } from 'containers/Jobs/Show'
+import Notifications from 'pages/Notifications'
+import { ShowComponentProps } from 'pages/Jobs/Show'
 import PrivateRoute from './PrivateRoute'
 
 // Asynchronously load routes that are chunked via code-splitting
@@ -29,23 +29,20 @@ const DashboardsIndex: UniversalComponent<
       recentJobRunsCount: number
       recentlyCreatedPageSize: number
     }
-> = universal(import('./containers/Dashboards/Index'), uniOpts)
-const JobsIndex = universal(import('./containers/Jobs/Index'), uniOpts)
+> = universal(import('./pages/Dashboards/Index'), uniOpts)
+const JobsIndex = universal(import('./pages/Jobs/Index'), uniOpts)
 const JobsShow: UniversalComponent<ShowComponentProps> &
   StyledComponentProps<'wrapper' | 'text'> = universal(
-  import('./containers/Jobs/Show'),
+  import('./pages/Jobs/Show'),
   uniOpts,
 )
-const JobsDefinition = universal(
-  import('./containers/Jobs/Definition'),
-  uniOpts,
-)
-const JobsErrors = universal(import('./containers/Jobs/Errors'), uniOpts)
-const JobsNew = universal(import('./containers/Jobs/New'), uniOpts)
-const BridgesIndex = universal(import('./containers/Bridges/Index'), uniOpts)
-const BridgesNew = universal(import('./containers/Bridges/New'), uniOpts)
-const BridgesShow = universal(import('./containers/Bridges/Show'), uniOpts)
-const BridgesEdit = universal(import('./containers/Bridges/Edit'), uniOpts)
+const JobsDefinition = universal(import('./pages/Jobs/Definition'), uniOpts)
+const JobsErrors = universal(import('./pages/Jobs/Errors'), uniOpts)
+const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
+const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
+const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
+const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
+const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
 const JobRunsIndex: UniversalComponent<
   Pick<
     {
@@ -56,32 +53,23 @@ const JobRunsIndex: UniversalComponent<
     StyledComponentProps<'wrapper' | 'text'> & {
       pagePath: string
     }
-> = universal(import('./containers/JobRuns/Index'), uniOpts)
+> = universal(import('./pages/JobRuns/Index'), uniOpts)
 const JobRunsShowOverview = universal(
-  import('./containers/JobRuns/Show/Overview'),
+  import('./pages/JobRuns/Show/Overview'),
   uniOpts,
 )
-const JobRunsShowJson = universal(
-  import('./containers/JobRuns/Show/Json'),
-  uniOpts,
-)
+const JobRunsShowJson = universal(import('./pages/JobRuns/Show/Json'), uniOpts)
 const JobRunsShowErrorLog = universal(
-  import('./containers/JobRuns/Show/ErrorLog'),
+  import('./pages/JobRuns/Show/ErrorLog'),
   uniOpts,
 )
 const TransactionsIndex = universal(
-  import('./containers/Transactions/Index'),
+  import('./pages/Transactions/Index'),
   uniOpts,
 )
-const TransactionsShow = universal(
-  import('./containers/Transactions/Show'),
-  uniOpts,
-)
-const Configuration = universal(
-  import('./containers/Configuration/Index'),
-  uniOpts,
-)
-const NotFound = universal(import('./containers/NotFound'), uniOpts)
+const TransactionsShow = universal(import('./pages/Transactions/Show'), uniOpts)
+const Configuration = universal(import('./pages/Configuration/Index'), uniOpts)
+const NotFound = universal(import('./pages/NotFound'), uniOpts)
 
 const styles = (theme: Theme) => {
   return {

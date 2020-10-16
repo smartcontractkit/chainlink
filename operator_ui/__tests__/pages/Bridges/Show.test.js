@@ -4,7 +4,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
-import { ConnectedShow as Show } from 'containers/Bridges/Show'
+import { ConnectedShow as Show } from 'pages/Bridges/Show'
 import globPath from 'test-helpers/globPath'
 
 const classes = {}
@@ -17,7 +17,7 @@ const mountShow = (props) =>
     </Provider>,
   )
 
-describe('containers/Bridges/Show', () => {
+describe('pages/Bridges/Show', () => {
   it('renders the details of the bridge spec', async () => {
     expect.assertions(5)
     const response = {

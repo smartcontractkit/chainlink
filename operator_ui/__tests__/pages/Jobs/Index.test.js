@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import createStore from 'createStore'
-import { ConnectedIndex as Index } from 'containers/Jobs/Index'
+import { ConnectedIndex as Index } from 'pages/Jobs/Index'
 import { mount } from 'enzyme'
 import jsonApiJobSpecsFactory from 'factories/jsonApiJobSpecs'
 import React from 'react'
@@ -21,7 +21,7 @@ const mountIndex = (opts = {}) =>
     </Provider>,
   )
 
-describe('containers/Jobs/Index', () => {
+describe('pages/Jobs/Index', () => {
   it('renders the list of jobs', async () => {
     expect.assertions(3)
 
