@@ -219,18 +219,18 @@ func (lock *PostgresAdvisoryLock) TryLock(ctx context.Context, classID int32, ob
 	defer WrapIfError(&err, "TryAdvisoryLock failed")
 
 	if lock.conn == nil {
-		db, err := sql.Open("postgres", lock.URI)
-		if err != nil {
-			return err
+		db, err2 := sql.Open("postgres", lock.URI)
+		if err2 != nil {
+			return err2
 		}
 		lock.db = db
 
 		// `database/sql`.DB does opaque connection pooling, but PG advisory locks are per-connection
-		conn, err := db.Conn(ctx)
-		if err != nil {
-			lock.db.Close()
+		conn, err2 := db.Conn(ctx)
+		if err2 != nil {
+			logger.ErrorIfCalling(lock.db.Close)
 			lock.db = nil
-			return err
+			return err2
 		}
 		lock.conn = conn
 	}

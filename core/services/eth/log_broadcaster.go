@@ -121,18 +121,16 @@ func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
 	rawLog := lb.rawLog
 	if lb.isV2 {
 		return lb.orm.HasConsumedLogV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2)
-	} else {
-		return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.jobID)
 	}
+	return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.jobID)
 }
 
 func (lb *logBroadcast) MarkConsumed() error {
 	rawLog := lb.rawLog
 	if lb.isV2 {
 		return lb.orm.MarkLogConsumedV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2, rawLog.BlockNumber)
-	} else {
-		return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.jobID, rawLog.BlockNumber)
 	}
+	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.jobID, rawLog.BlockNumber)
 }
 
 // A `registration` represents a LogListener's subscription to the logs of a

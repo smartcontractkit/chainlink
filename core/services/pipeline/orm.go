@@ -211,12 +211,12 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		}
 
 		// Load the TaskSpec
-		if err := tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
+		if err = tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
 			return errors.Wrap(err, "error finding next task run's spec")
 		}
 
 		// Load the PipelineRun
-		if err := tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
+		if err = tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
 			return errors.Wrap(err, "error finding next task run's pipeline.Run")
 		}
 
@@ -361,7 +361,7 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 	if err != nil {
 		return err
 	}
-	defer listener.Stop()
+	defer logger.ErrorIfCalling(listener.Stop)
 
 	select {
 	case <-ctx.Done():

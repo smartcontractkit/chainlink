@@ -201,7 +201,7 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 }
 
 func (jsc *JobSpecsController) DestroyV2(c *gin.Context) {
-	jobID, err := strconv.Atoi(c.Param("SpecID"))
+	jobID, err := strconv.ParseInt(c.Param("SpecID"), 10, 32)
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return

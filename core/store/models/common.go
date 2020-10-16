@@ -566,17 +566,17 @@ func (d Duration) Value() (driver.Value, error) {
 type Interval time.Duration
 
 // MarshalText implements the text.Marshaler interface.
-func (d Interval) MarshalText() ([]byte, error) {
-	return []byte(time.Duration(d).String()), nil
+func (i Interval) MarshalText() ([]byte, error) {
+	return []byte(time.Duration(i).String()), nil
 }
 
 // UnmarshalText implements the text.Unmarshaler interface.
-func (d *Interval) UnmarshalText(input []byte) error {
+func (i *Interval) UnmarshalText(input []byte) error {
 	v, err := time.ParseDuration(string(input))
 	if err != nil {
 		return err
 	}
-	*d = Interval(v)
+	*i = Interval(v)
 	return nil
 }
 

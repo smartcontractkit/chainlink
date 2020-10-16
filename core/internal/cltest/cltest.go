@@ -136,7 +136,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PKey = &p2pkey.Key{p2pPrivkey}
+	DefaultP2PKey = &p2pkey.Key{PrivKey: p2pPrivkey}
 	DefaultP2PPeerID, err = DefaultP2PKey.GetPeerID()
 	if err != nil {
 		panic(err)

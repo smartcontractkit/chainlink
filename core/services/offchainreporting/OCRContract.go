@@ -225,6 +225,11 @@ func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err error) {
+	if err != nil {
+		sub.logger.Errorw("OCRContract: error in previous LogListener", "err", err)
+		return
+	}
+
 	was, err := lb.WasAlreadyConsumed()
 	if err != nil {
 		sub.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
@@ -244,9 +249,9 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err err
 			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
 			return
 		}
-		configSet, err := sub.oc.contractFilterer.ParseConfigSet(raw)
-		if err != nil {
-			sub.logger.Errorw("could not parse config set", "err", err)
+		configSet, err2 := sub.oc.contractFilterer.ParseConfigSet(raw)
+		if err2 != nil {
+			sub.logger.Errorw("could not parse config set", "err", err2)
 			return
 		}
 		configSet.Raw = lb.RawLog()
@@ -291,7 +296,10 @@ func (sub *OCRContractConfigSubscription) Close() {
 	sub.closer.Do(func() {
 		close(sub.chStop)
 		sub.oc.logBroadcaster.Unregister(sub.oc.contractAddress, sub)
-		sub.processLogsWorker.Stop()
+		err := sub.processLogsWorker.Stop()
+		if err != nil {
+			sub.logger.Error(err)
+		}
 
 		close(sub.ch)
 	})

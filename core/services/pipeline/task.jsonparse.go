@@ -61,9 +61,8 @@ func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 			} else if !bigindex.IsInt64() {
 				if i == len(t.Path)-1 {
 					return Result{Value: nil}
-				} else {
-					return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 				}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
 			}
 			index := int(bigindex.Int64())
 			if index < 0 {
