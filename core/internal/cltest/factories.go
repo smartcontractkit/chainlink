@@ -29,6 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -823,15 +824,23 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	return k
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingKeys(t *testing.T, db *gorm.DB, dependencies ...interface{}) (
+	*offchainreporting.KeyStore,
+	models.PeerID,
+	*p2pkey.Key,
+	*ocrkey.KeyBundle,
+	*p2pkey.EncryptedP2PKey,
+	*ocrkey.EncryptedKeyBundle,
+) {
 	t.Helper()
 
-	// Insert keys into the store
-	keystore := offchainreporting.NewKeyStore(store.DB)
+	keystore := offchainreporting.NewKeyStore(db)
 
 	var peerID models.PeerID
 	var p2pKey *p2pkey.EncryptedP2PKey
 	var ocrKey *ocrkey.EncryptedKeyBundle
+	var decryptedp2pkey *p2pkey.Key
+	var decryptedocrkey *ocrkey.KeyBundle
 	for _, dep := range dependencies {
 		switch d := dep.(type) {
 		case *p2pkey.EncryptedP2PKey:
@@ -868,6 +877,13 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, de
 		err := keystore.CreateEncryptedOCRKeyBundle(ocrKey)
 		require.NoError(t, err)
 	}
+	return keystore, peerID, decryptedp2pkey, decryptedocrkey, p2pKey, ocrKey
+}
+
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
+	t.Helper()
+
+	_, peerID, _, _, _, ocrKey := MustInsertOffchainreportingKeys(t, store.DB, dependencies...)
 
 	spec := models.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),

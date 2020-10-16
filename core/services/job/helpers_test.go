@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-var ocrJobSpecText = `
+const ocrJobSpecText = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
@@ -53,20 +53,12 @@ observationSource = """
 func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	// Insert keys into the store
-	keystore := offchainreporting.NewKeyStore(db)
-	t.Fatal("FIXME: Don't do this, use the fixture keys instead")
-	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
-	require.NoError(t, err)
-	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
-	require.NoError(t, err)
-	peerID, err := p2pkey.GetPeerID()
-	require.NoError(t, err)
+	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
 
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrkey.ID, cltest.DefaultKey)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey)
 
 	var ocrspec offchainreporting.OracleSpec
-	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
+	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}

@@ -77,12 +77,10 @@ func (w *controllableWorker) Work() {
 		<-w.allowResumeWork
 	}
 	w.countingWorker.Work()
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1 * time.Second)
 }
 
 func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
-	t.Fatal("FIXME: this test intermittently fails")
-
 	t.Parallel()
 
 	worker := &controllableWorker{awaitWorkStarted: make(chan struct{}), allowResumeWork: make(chan struct{})}
@@ -101,11 +99,9 @@ func TestSleeperTask_WakeupEnqueuesMaxTwice(t *testing.T) {
 }
 
 func TestSleeperTask_StopWaitsUntilWorkFinishes(t *testing.T) {
-	t.Fatal("FIXME: this test intermittently fails")
-
 	t.Parallel()
 
-	worker := &countingWorker{delay: 200 * time.Millisecond}
+	worker := &countingWorker{delay: 1 * time.Second}
 	sleeper := utils.NewSleeperTask(worker)
 
 	sleeper.WakeUp()

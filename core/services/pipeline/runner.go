@@ -66,8 +66,14 @@ func (r *runner) Stop() {
 
 	close(r.chStop)
 
-	r.processIncompleteTaskRunsWorker.Stop()
-	r.runReaperWorker.Stop()
+	err := r.processIncompleteTaskRunsWorker.Stop()
+	if err != nil {
+		logger.Error(err)
+	}
+	err = r.runReaperWorker.Stop()
+	if err != nil {
+		logger.Error(err)
+	}
 
 	if r.newRunsListener != nil {
 		err := r.newRunsListener.Stop()

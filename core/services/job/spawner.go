@@ -86,7 +86,10 @@ func (js *spawner) Stop() {
 		logger.Error("Job spawner has already been stopped")
 		return
 	}
-	js.startUnclaimedServicesWorker.Stop()
+	err := js.startUnclaimedServicesWorker.Stop()
+	if err != nil {
+		logger.Error(err)
+	}
 	close(js.chStop)
 	<-js.chDone
 }

@@ -43,7 +43,7 @@ func (p PeerID) String() string {
 }
 
 func (p *PeerID) UnmarshalText(bs []byte) error {
-	peerID, err := peer.IDB58Decode(string(bs))
+	peerID, err := peer.Decode(string(bs))
 	if err != nil {
 		return errors.Wrapf(err, `PeerID#UnmarshalText("%v")`, string(bs))
 	}
@@ -61,7 +61,7 @@ func (p *PeerID) Scan(value interface{}) error {
 }
 
 func (p PeerID) Value() (driver.Value, error) {
-	return peer.IDB58Encode(peer.ID(p)), nil
+	return peer.Encode(peer.ID(p)), nil
 }
 
 func (s *OffchainReportingOracleSpec) BeforeCreate() error {

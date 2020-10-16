@@ -57,9 +57,9 @@ var (
 )
 
 type BaseTask struct {
-	outputTask Task   `json:"-"`
-	dotID      string `json:"-" mapstructure:"-"`
-	Index      int32  `json:"-" mapstructure:"index"`
+	outputTask Task
+	dotID      string `mapstructure:"-"`
+	Index      int32  `mapstructure:"index" json:"-" `
 }
 
 func (t BaseTask) DotID() string                  { return t.dotID }
@@ -155,23 +155,23 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 				case reflect.TypeOf(""):
 					switch t {
 					case reflect.TypeOf(models.WebURL{}):
-						u, err := url.Parse(data.(string))
-						if err != nil {
-							return nil, err
+						u, err2 := url.Parse(data.(string))
+						if err2 != nil {
+							return nil, err2
 						}
 						return models.WebURL(*u), nil
 
 					case reflect.TypeOf(HttpRequestData{}):
 						var m map[string]interface{}
-						err := json.Unmarshal([]byte(data.(string)), &m)
-						return HttpRequestData(m), err
+						err2 := json.Unmarshal([]byte(data.(string)), &m)
+						return HttpRequestData(m), err2
 
 					case reflect.TypeOf(decimal.Decimal{}):
 						return decimal.NewFromString(data.(string))
 
 					case reflect.TypeOf(int32(0)):
-						i, err := strconv.Atoi(data.(string))
-						return int32(i), err
+						i, err2 := strconv.ParseInt(data.(string), 10, 32)
+						return int32(i), err2
 					}
 				}
 				return data, nil
@@ -196,40 +196,8 @@ func WrapResultIfError(result *Result, msg string, args ...interface{}) {
 	}
 }
 
-func getBodyFromInput(input interface{}) (HttpRequestData, error) {
-	var data HttpRequestData
-	switch val := input.(type) {
-	case []byte:
-		err := json.Unmarshal(val, &data)
-		return data, err
-	case string:
-		err := json.Unmarshal([]byte(val), &data)
-		return data, err
-	case map[string]interface{}:
-		return HttpRequestData(val), nil
-	default:
-		return nil, nil
-	}
-}
-
 type HttpRequestData map[string]interface{}
 
 func (h *HttpRequestData) Scan(value interface{}) error { return json.Unmarshal(value.([]byte), h) }
 func (h HttpRequestData) Value() (driver.Value, error)  { return json.Marshal(h) }
 func (h HttpRequestData) AsMap() map[string]interface{} { return h }
-
-func mergeRequestData(one, two HttpRequestData) HttpRequestData {
-	if one == nil {
-		return two
-	} else if two == nil {
-		return one
-	}
-	m := make(HttpRequestData)
-	for k, v := range one {
-		m[k] = v
-	}
-	for k, v := range two {
-		m[k] = v
-	}
-	return m
-}

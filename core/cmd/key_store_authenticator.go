@@ -122,7 +122,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
-		_, _, err := store.OCRKeyStore.GenerateEncryptedP2PKey(password)
+		_, _, err = store.OCRKeyStore.GenerateEncryptedP2PKey(password)
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
 		}
