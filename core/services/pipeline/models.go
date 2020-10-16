@@ -30,6 +30,7 @@ type (
 		PipelineSpecID int32
 		Meta           JSONSerializable
 		CreatedAt      time.Time
+		FinishedAt     time.Time
 	}
 
 	TaskRun struct {
@@ -49,6 +50,10 @@ func (Spec) TableName() string     { return "pipeline_specs" }
 func (Run) TableName() string      { return "pipeline_runs" }
 func (TaskSpec) TableName() string { return "pipeline_task_specs" }
 func (TaskRun) TableName() string  { return "pipeline_task_runs" }
+
+func (s TaskSpec) IsFinalPipelineOutput() bool {
+	return s.SuccessorID.IsZero()
+}
 
 func (r TaskRun) DotID() string {
 	return r.PipelineTaskSpec.DotID

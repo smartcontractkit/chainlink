@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/networking"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -81,11 +80,12 @@ func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
 }
 
 func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
-	concreteSpec := spec.(*OracleSpec)
+	concreteSpec, is := spec.(*OracleSpec)
+	if !is {
+		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
+	}
 
-	// FIXME: Use proper values
-	gasLimit := uint64(500000)
-
+	gasLimit := d.config.EthGasLimitDefault()
 	transmitter := NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), gasLimit)
 
 	ocrContract, err := NewOCRContract(
@@ -110,12 +110,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
 	}
 
-	peerstore, err := networking.NewPeerstore(context.Background(), d.db.DB())
+	peerstore, err := NewPeerstore(context.Background(), d.db.DB())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not make new peerstore")
 	}
 
-	ocrLogger := NewLogger(logger.Default)
+	ocrLogger := NewLogger(logger.Default, d.config.OCRTraceLogging())
 
 	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 		PrivKey:    p2pkey.PrivKey,
@@ -214,7 +214,11 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
 	}
 
-	asDecimal, err := utils.ToDecimal(results[0])
+	if results[0].Error != nil {
+		return nil, results[0].Error
+	}
+
+	asDecimal, err := utils.ToDecimal(results[0].Value)
 	if err != nil {
 		return nil, err
 	}

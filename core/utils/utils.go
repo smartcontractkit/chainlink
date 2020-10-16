@@ -594,12 +594,10 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 			continue
 		}
 		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
-		// logger.Warnf("COMBINED CONTEXT ~> (%T) %v", signal, signal)
 	}
 
 	go func() {
 		defer cancel()
-		// defer logger.Warnf("COMBINED CONTEXT EXITING")
 		_, _, _ = reflect.Select(cases)
 	}()
 

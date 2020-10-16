@@ -18,13 +18,14 @@ type (
 		Stop()
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		AwaitRun(ctx context.Context, runID int64) error
-		ResultsForRun(ctx context.Context, runID int64) ([]interface{}, error)
+		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	}
 
 	runner struct {
 		orm                             ORM
 		config                          Config
 		processIncompleteTaskRunsWorker utils.SleeperTask
+		runReaperWorker                 utils.SleeperTask
 		newRunsListener                 *utils.PostgresEventListener
 
 		utils.StartStopOnce
@@ -43,6 +44,9 @@ func NewRunner(orm ORM, config Config) *runner {
 	r.processIncompleteTaskRunsWorker = utils.NewSleeperTask(
 		utils.SleeperTaskFuncWorker(r.processIncompleteTaskRuns),
 	)
+	r.runReaperWorker = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(r.runReaper),
+	)
 	return r
 }
 
@@ -60,7 +64,10 @@ func (r *runner) Stop() {
 		return
 	}
 
+	close(r.chStop)
+
 	r.processIncompleteTaskRunsWorker.Stop()
+	r.runReaperWorker.Stop()
 
 	if r.newRunsListener != nil {
 		err := r.newRunsListener.Stop()
@@ -68,7 +75,6 @@ func (r *runner) Stop() {
 			logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
 		}
 	}
-	close(r.chStop)
 	<-r.chDone
 }
 
@@ -81,8 +87,11 @@ func (r *runner) runLoop() {
 		logger.Errorw(`Pipeline runner failed to subscribe to "new run" events, falling back to polling`, "error", err)
 	}
 
-	ticker := time.NewTicker(r.config.JobPipelineDBPollInterval())
-	defer ticker.Stop()
+	dbPollTicker := time.NewTicker(r.config.JobPipelineDBPollInterval())
+	defer dbPollTicker.Stop()
+
+	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
+	defer runReaperTicker.Stop()
 
 	for {
 		select {
@@ -90,20 +99,21 @@ func (r *runner) runLoop() {
 			return
 		case <-r.newRunsListener.Events():
 			r.processIncompleteTaskRunsWorker.WakeUp()
-		case <-ticker.C:
+		case <-dbPollTicker.C:
 			r.processIncompleteTaskRunsWorker.WakeUp()
+		case <-runReaperTicker.C:
+			r.runReaperWorker.WakeUp()
 		}
 	}
 }
 
 func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
-	logger.Infow("Creating new pipeline run", "jobID", jobID)
-
 	runID, err := r.orm.CreateRun(ctx, jobID, meta)
 	if err != nil {
 		logger.Errorw("Error creating new pipeline run", "jobID", jobID, "error", err)
 		return 0, err
 	}
+	logger.Infow("Pipeline run created", "jobID", jobID, "runID", runID)
 	return runID, nil
 }
 
@@ -113,7 +123,7 @@ func (r *runner) AwaitRun(ctx context.Context, runID int64) error {
 	return r.orm.AwaitRun(ctx, runID)
 }
 
-func (r *runner) ResultsForRun(ctx context.Context, runID int64) ([]interface{}, error) {
+func (r *runner) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, ctx)
 	defer cancel()
 	return r.orm.ResultsForRun(ctx, runID)
@@ -137,7 +147,7 @@ func (r *runner) processIncompleteTaskRuns() {
 				default:
 				}
 
-				anyRemaining, err := r.processRun()
+				anyRemaining, err := r.processTaskRun()
 				if err != nil {
 					logger.Errorf("Error processing incomplete task runs: %v", err)
 					return
@@ -150,7 +160,7 @@ func (r *runner) processIncompleteTaskRuns() {
 	wg.Wait()
 }
 
-func (r *runner) processRun() (anyRemaining bool, err error) {
+func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxTaskDuration())
 	defer cancel()
 
@@ -183,7 +193,7 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 		}
 
 		result := task.Run(taskRun, inputs)
-		if result.Error != nil {
+		if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 			logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 		} else {
 			logger.Infow("Pipeline task completed", append(loggerFields, "result", result.Value)...)
@@ -191,4 +201,11 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 
 		return result
 	})
+}
+
+func (r *runner) runReaper() {
+	err := r.orm.DeleteRunsOlderThan(r.config.JobPipelineReaperThreshold())
+	if err != nil {
+		logger.Errorw("Pipeline run reaper failed", "error", err)
+	}
 }

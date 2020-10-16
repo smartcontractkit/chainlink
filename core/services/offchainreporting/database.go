@@ -73,10 +73,10 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
 	q := d.QueryRowContext(ctx, `
-SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
-FROM offchainreporting_contract_configs
-WHERE offchainreporting_oracle_spec_id = $1
-LIMIT 1`, d.oracleSpecID)
+	SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
+	FROM offchainreporting_contract_configs
+	WHERE offchainreporting_oracle_spec_id = $1
+	LIMIT 1`, d.oracleSpecID)
 
 	c = new(ocrtypes.ContractConfig)
 

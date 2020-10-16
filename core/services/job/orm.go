@@ -135,7 +135,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 }
 
 // DeleteJob removes a job that is claimed by this orm
-// NOTE: It may be nice to extend this in future so it can delete any job and other nodes handle it gracefully
+// TODO: Extend this in future so it can delete any job and other nodes handle
+// it gracefully
+// See: https://www.pivotaltracker.com/story/show/175287919
 func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()

@@ -47,20 +47,22 @@ type Store struct {
 }
 
 // NewStore will create a new store
-func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+func NewStore(config *orm.Config, ethClient eth.Client, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, keyStore, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+func NewInsecureStore(config *orm.Config, ethClient eth.Client, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, keyStore, shutdownSignal)
 }
 
+// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
 func newStoreWithKeyStore(
 	config *orm.Config,
+	ethClient eth.Client,
 	keyStoreGenerator func() *KeyStore,
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
@@ -75,16 +77,6 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	var ethClient eth.Client
-	if config.EthereumDisabled() {
-		logger.Info("ETH_DISABLED is set, using Null eth.Client")
-		ethClient = &eth.NullClient{}
-	} else {
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
-		if err != nil {
-			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
-		}
-	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
 

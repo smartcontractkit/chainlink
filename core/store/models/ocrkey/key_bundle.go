@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"time"
@@ -58,20 +59,22 @@ func (EncryptedKeyBundle) TableName() string {
 
 // NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
 func NewKeyBundle() (*KeyBundle, error) {
-	reader := cryptorand.Reader
+	return NewKeyBundleFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
+}
 
-	ecdsaKey, err := ecdsa.GenerateKey(curve, reader)
+func NewKeyBundleFrom(onChainSigning io.Reader, offChainSigning io.Reader, offChainEncryption io.Reader) (*KeyBundle, error) {
+	ecdsaKey, err := ecdsa.GenerateKey(curve, onChainSigning)
 	if err != nil {
 		return nil, err
 	}
 	onChainPriv := (*onChainPrivateKey)(ecdsaKey)
 
-	_, offChainPriv, err := ed25519.GenerateKey(reader)
+	_, offChainPriv, err := ed25519.GenerateKey(offChainSigning)
 	if err != nil {
 		return nil, err
 	}
 	var encryptionPriv [curve25519.ScalarSize]byte
-	_, err = reader.Read(encryptionPriv[:])
+	_, err = offChainEncryption.Read(encryptionPriv[:])
 	if err != nil {
 		return nil, err
 	}

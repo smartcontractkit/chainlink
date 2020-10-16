@@ -127,7 +127,6 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	if fm.started {
 		fm.started = false

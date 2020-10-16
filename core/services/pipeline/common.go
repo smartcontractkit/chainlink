@@ -46,6 +46,8 @@ type (
 		JobPipelineDBPollInterval() time.Duration
 		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineParallelism() uint8
+		JobPipelineReaperInterval() time.Duration
+		JobPipelineReaperThreshold() time.Duration
 	}
 )
 

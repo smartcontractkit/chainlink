@@ -19,8 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -820,15 +823,58 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	return k
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainReportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
 	t.Helper()
+
+	// Insert keys into the store
+	keystore := offchainreporting.NewKeyStore(store.DB)
+
+	var peerID models.PeerID
+	var p2pKey *p2pkey.EncryptedP2PKey
+	var ocrKey *ocrkey.EncryptedKeyBundle
+	for _, dep := range dependencies {
+		switch d := dep.(type) {
+		case *p2pkey.EncryptedP2PKey:
+			p2pKey = d
+		case p2pkey.EncryptedP2PKey:
+			p2pKey = &d
+		case *ocrkey.EncryptedKeyBundle:
+			ocrKey = d
+		case ocrkey.EncryptedKeyBundle:
+			ocrKey = &d
+		default:
+			t.Fatalf("cltest.MustInsertOffchainreportingOracleSpec does not accept a %T as an injected dependency", dep)
+		}
+	}
+	if p2pKey == nil {
+		dk, p2pKey_, err := keystore.GenerateEncryptedP2PKey(Password)
+		require.NoError(t, err)
+		p2pKey = &p2pKey_
+		peerID, err = dk.GetPeerID()
+		require.NoError(t, err)
+	} else {
+		err := keystore.UpsertEncryptedP2PKey(p2pKey)
+		require.NoError(t, err)
+		dk, err := p2pKey.Decrypt(Password)
+		require.NoError(t, err)
+		peerID, err = dk.GetPeerID()
+		require.NoError(t, err)
+	}
+	if ocrKey == nil {
+		_, ocrKey_, err := keystore.GenerateEncryptedOCRKeyBundle(Password)
+		require.NoError(t, err)
+		ocrKey = &ocrKey_
+	} else {
+		err := keystore.CreateEncryptedOCRKeyBundle(ocrKey)
+		require.NoError(t, err)
+	}
 
 	spec := models.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
-		P2PPeerID:                              models.PeerID(DefaultP2PPeerID),
+		P2PPeerID:                              peerID,
 		P2PBootstrapPeers:                      []string{},
 		IsBootstrapPeer:                        false,
-		EncryptedOCRKeyBundleID:                DefaultOCRKeyBundleIDSha256,
+		EncryptedOCRKeyBundleID:                ocrKey.ID,
 		TransmitterAddress:                     DefaultKeyAddressEIP55,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
@@ -838,4 +884,10 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) mo
 	}
 	require.NoError(t, store.DB.Create(&spec).Error)
 	return spec
+}
+
+func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
+	j := NewJob()
+	require.NoError(t, s.CreateJob(&j))
+	return j
 }

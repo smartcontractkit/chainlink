@@ -241,11 +241,6 @@ func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
 }
 
-// MaxRPCCallsPerSecond returns the rate at which RPC calls can be fired
-func (c Config) MaxRPCCallsPerSecond() uint64 {
-	return c.viper.GetUint64(EnvVarName("MaxRPCCallsPerSecond"))
-}
-
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() models.Duration {
@@ -294,7 +289,7 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
 }
 
-// EthGasLimitDefault  sets the default gas limit for outgoing transactions.
+// EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
 	return c.viper.GetUint64(EnvVarName("EthGasLimitDefault"))
 }
@@ -411,6 +406,14 @@ func (c Config) JobPipelineParallelism() uint8 {
 	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
 }
 
+func (c Config) JobPipelineReaperInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("JobPipelineReaperInterval"))
+}
+
+func (c Config) JobPipelineReaperThreshold() time.Duration {
+	return c.viper.GetDuration(EnvVarName("JobPipelineReaperThreshold"))
+}
+
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
@@ -445,6 +448,7 @@ func (c Config) ExplorerSecret() string {
 	return c.viper.GetString(EnvVarName("ExplorerSecret"))
 }
 
+// FIXME: Add comments to all of these
 func (c Config) OCRBootstrapCheckInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRBootstrapCheckInterval"))
 }
@@ -479,6 +483,12 @@ func (c Config) OCRNewStreamTimeout() time.Duration {
 
 func (c Config) OCROutgoingMessageBufferSize() int {
 	return c.viper.GetInt(EnvVarName("OCROutgoingMessageBufferSize"))
+}
+
+// OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The
+// option to turn them off is given because they can be very verbose
+func (c Config) OCRTraceLogging() bool {
+	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
 }
 
 // OperatorContractAddress represents the address where the Operator.sol

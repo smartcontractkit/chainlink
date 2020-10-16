@@ -1,5 +1,9 @@
 package utils
 
+import (
+	"sync"
+)
+
 // SleeperTask represents a task that waits in the background to process some work.
 type SleeperTask interface {
 	Stop() error
@@ -12,9 +16,12 @@ type Worker interface {
 }
 
 type sleeperTask struct {
-	worker      Worker
-	chQueue     chan struct{}
-	chQueueDone chan struct{}
+	worker  Worker
+	chQueue chan struct{}
+	chStop  chan struct{}
+	chDone  chan struct{}
+	stopped bool
+	stopMu  *sync.RWMutex
 }
 
 // NewSleeperTask takes a worker and returns a SleeperTask.
@@ -28,9 +35,11 @@ type sleeperTask struct {
 //
 func NewSleeperTask(worker Worker) SleeperTask {
 	s := &sleeperTask{
-		worker:      worker,
-		chQueue:     make(chan struct{}, 1),
-		chQueueDone: make(chan struct{}),
+		worker:  worker,
+		chQueue: make(chan struct{}, 1),
+		chStop:  make(chan struct{}),
+		chDone:  make(chan struct{}),
+		stopMu:  new(sync.RWMutex),
 	}
 
 	go s.workerLoop()
@@ -38,16 +47,27 @@ func NewSleeperTask(worker Worker) SleeperTask {
 	return s
 }
 
-// Stop stops the SleeperTask.  It never returns an error.  Its error return
-// exists so as to satisfy other interfaces.
+// Stop stops the SleeperTask
+// It never returns an error, this is simply to comply with the interface
 func (s *sleeperTask) Stop() error {
-	close(s.chQueue)
-	<-s.chQueueDone
+	s.stopMu.Lock()
+	defer s.stopMu.Unlock()
+	if s.stopped {
+		panic("already stopped")
+	}
+	close(s.chStop)
+	<-s.chDone
+	s.stopped = true
 	return nil
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.
 func (s *sleeperTask) WakeUp() {
+	s.stopMu.RLock()
+	defer s.stopMu.RUnlock()
+	if s.stopped {
+		panic("cannot wake up stopped sleeper task")
+	}
 	select {
 	case s.chQueue <- struct{}{}:
 	default:
@@ -55,11 +75,18 @@ func (s *sleeperTask) WakeUp() {
 }
 
 func (s *sleeperTask) workerLoop() {
-	defer close(s.chQueueDone)
+	defer close(s.chDone)
 
-	for range s.chQueue {
-		s.worker.Work()
+	for {
+		select {
+		case <-s.chQueue:
+			s.worker.Work()
+		case <-s.chStop:
+			return
+		}
 	}
+
+	// FIXME: Unreachable code??
 
 	if len(s.chQueue) > 0 {
 		s.worker.Work()

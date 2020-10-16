@@ -46,13 +46,13 @@ func TestRunner(t *testing.T) {
 
 	// Need a job in order to create a run
 	ocrSpec, dbSpec := makeOCRJobSpecWithHTTPURL(t, db, httpURL)
-	err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+	err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 	require.NoError(t, err)
 
 	runner.Start()
 	defer runner.Stop()
 
-	runID, err := runner.CreateRun(dbSpec.ID, nil)
+	runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
 	require.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -62,7 +62,7 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify the final pipeline results
-	results, err := runner.ResultsForRun(runID)
+	results, err := runner.ResultsForRun(context.Background(), runID)
 	require.NoError(t, err)
 
 	assert.Len(t, results, 2)
@@ -78,7 +78,7 @@ func TestRunner(t *testing.T) {
 		Where("pipeline_run_id = ?", runID).
 		Find(&runs).Error
 	assert.NoError(t, err)
-	assert.Len(t, runs, 8)
+	assert.Len(t, runs, 9)
 
 	for _, run := range runs {
 		if run.DotID() == "answer2" {
@@ -97,6 +97,8 @@ func TestRunner(t *testing.T) {
 			assert.Equal(t, "6257", run.Output.Val)
 		} else if run.DotID() == "answer1" {
 			assert.Equal(t, "6225.6", run.Output.Val)
+		} else if run.DotID() == "__result__" {
+			assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
 		} else {
 			t.Fatalf("unknown task '%v'", run.DotID())
 		}

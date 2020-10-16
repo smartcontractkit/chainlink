@@ -56,6 +56,8 @@ type ConfigSchema struct {
 	JobPipelineDBPollInterval             time.Duration   `env:"JOB_PIPELINE_DB_POLL_INTERVAL" default:"10s"`
 	JobPipelineMaxTaskDuration            time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"10m"`
 	JobPipelineParallelism                uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
+	JobPipelineReaperInterval             time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
+	JobPipelineReaperThreshold            time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"7d"`
 	JSONConsole                           bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress                   string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                           *url.URL        `env:"EXPLORER_URL"`
@@ -71,7 +73,6 @@ type ConfigSchema struct {
 	MinRequiredOutgoingConfirmations      uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment                assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration              uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
-	MaxRPCCallsPerSecond                  uint64          `env:"MAX_RPC_CALLS_PER_SECOND" default:"500"`
 	OCRBootstrapCheckInterval             time.Duration   `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`
 	OCRContractTransmitterTransmitTimeout time.Duration   `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
 	OCRDatabaseTimeout                    time.Duration   `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
@@ -81,6 +82,7 @@ type ConfigSchema struct {
 	OCROutgoingMessageBufferSize          int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout                   time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 	OCRDHTLookupInterval                  int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
+	OCRTraceLogging                       bool            `env:"OCR_TRACE_LOGGING" default:"false"`
 	OperatorContractAddress               common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	Port                                  uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                      models.Duration `env:"REAPER_EXPIRATION" default:"240h"`

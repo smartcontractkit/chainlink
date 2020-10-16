@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
-replace github.com/smartcontractkit/offchain-reporting/lib => ../offchain-reporting-design/lib
-
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-txdb v0.1.3
@@ -37,7 +35,6 @@ require (
 	github.com/jinzhu/now v1.1.1 // indirect
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
-	github.com/leanovate/gopter v0.2.8 // indirect
 	github.com/lib/pq v1.8.0
 	github.com/libp2p/go-libp2p-core v0.6.1
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
@@ -55,8 +52,7 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20201007194044-e1ce57ecc5e5
-	github.com/smartcontractkit/offchain-reporting/lib v0.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/libocr v0.0.0-20201015113002-e9bf6ef2cbe0
 	github.com/spf13/viper v1.7.1
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.6.1

@@ -2114,3 +2114,23 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Equal(t, "no keys available", err.Error())
 	})
 }
+
+func TestORM_MarkLogConsumed(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := store.ORM
+
+	blockHash := cltest.NewHash()
+	logIndex := uint(42)
+	job := cltest.MustInsertJobSpec(t, store)
+	blockNumber := uint64(142)
+
+	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
+
+	res, err := orm.DB.DB().Exec(`SELECT * FROM log_consumptions;`)
+	require.NoError(t, err)
+	rowsaffected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), rowsaffected)
+}

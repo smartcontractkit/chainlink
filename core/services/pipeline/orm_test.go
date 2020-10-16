@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -26,6 +27,9 @@ func TestORM(t *testing.T) {
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
+	result := &pipeline.ResultTask{
+		BaseTask: pipeline.NewBaseTask("__result__", nil, 0),
+	}
 	answer1 := &pipeline.MedianTask{
 		BaseTask: pipeline.NewBaseTask("answer1", nil, 0),
 	}
@@ -59,7 +63,7 @@ func TestORM(t *testing.T) {
 		RequestData: pipeline.HttpRequestData{"hi": "hello"},
 		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0),
 	}
-	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+	expectedTasks := []pipeline.Task{result, answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
 	var expectedTaskSpecs []pipeline.TaskSpec
 	for _, task := range expectedTasks {
 		expectedTaskSpecs = append(expectedTaskSpecs, pipeline.TaskSpec{
@@ -82,7 +86,7 @@ func TestORM(t *testing.T) {
 		err := g.UnmarshalText([]byte(dotStr))
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(*g)
+		specID, err = orm.CreateSpec(context.Background(), *g)
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec
@@ -135,7 +139,7 @@ func TestORM(t *testing.T) {
 		ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 		// Need a job in order to create a run
-		err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -155,7 +159,7 @@ func TestORM(t *testing.T) {
 		}
 
 		// Create the run
-		runID, err = orm.CreateRun(dbSpec.ID, nil)
+		runID, err = orm.CreateRun(context.Background(), dbSpec.ID, nil)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run
@@ -196,6 +200,7 @@ func TestORM(t *testing.T) {
 					"ds2_multiply": {Value: float64(6)},
 					"answer1":      {Value: float64(7)},
 					"answer2":      {Value: float64(8)},
+					"__result__":   {Value: []interface{}{float64(7), float64(8)}, Error: pipeline.FinalErrors{{}, {}}},
 				},
 			},
 			{
@@ -209,6 +214,7 @@ func TestORM(t *testing.T) {
 					"ds2_multiply": {Error: errors.New("fail 6")},
 					"answer1":      {Error: errors.New("fail 7")},
 					"answer2":      {Error: errors.New("fail 8")},
+					"__result__":   {Value: []interface{}{nil, nil}, Error: pipeline.FinalErrors{null.StringFrom("fail 7"), null.StringFrom("fail 8")}},
 				},
 			},
 			{
@@ -222,6 +228,7 @@ func TestORM(t *testing.T) {
 					"ds2_multiply": {Value: float64(4)},
 					"answer1":      {Error: errors.New("fail 3")},
 					"answer2":      {Value: float64(5)},
+					"__result__":   {Value: []interface{}{nil, float64(5)}, Error: pipeline.FinalErrors{null.StringFrom("fail 3"), {}}},
 				},
 			},
 		}
@@ -245,11 +252,11 @@ func TestORM(t *testing.T) {
 				ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 				// Need a job in order to create a run
-				err := jobORM.CreateJob(dbSpec, ocrSpec.TaskDAG())
+				err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 				require.NoError(t, err)
 
 				// Create the run
-				runID, err = orm.CreateRun(dbSpec.ID, nil)
+				runID, err = orm.CreateRun(context.Background(), dbSpec.ID, nil)
 				require.NoError(t, err)
 
 				// Set up a goroutine to await the run's completion
@@ -274,7 +281,7 @@ func TestORM(t *testing.T) {
 						err := tx.Raw(`
                             SELECT * FROM pipeline_task_runs
                             INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-                            WHERE pipeline_task_specs.type = 'median'
+                            WHERE pipeline_task_specs.type = 'result'
                             FOR UPDATE OF pipeline_task_runs
                         `).Scan(&locked).Error
 						require.NoError(t, err)
@@ -290,15 +297,14 @@ func TestORM(t *testing.T) {
 
 				// Process all of the unclaimed task runs
 				{
-					var done bool
-					for !done {
-						done, err = orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining := true
+					for anyRemaining {
+						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 							// Ensure we don't fetch the locked task run
 							require.NotEqual(t, locked.ID, taskRun.ID)
 
 							// Ensure the predecessors' answers match what we expect
 							for _, p := range predecessorRuns {
-								fmt.Println("DOT ID ~> ", p.DotID(), p.PipelineTaskSpec)
 								_, exists := test.answers[p.DotID()]
 								require.True(t, exists)
 								require.True(t, p.Output != nil || !p.Error.IsZero())
@@ -319,7 +325,7 @@ func TestORM(t *testing.T) {
 
 				// Ensure the run isn't considered complete yet
 				{
-					time.Sleep(3 * time.Second)
+					time.Sleep(5 * time.Second)
 					require.Len(t, taskRuns, len(expectedTasks)-1)
 					select {
 					case <-chRunComplete:
@@ -334,7 +340,8 @@ func TestORM(t *testing.T) {
 					<-chUnlocked
 					time.Sleep(3 * time.Second)
 
-					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						fmt.Println(taskRun.DotID())
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
 							_, exists := test.answers[p.DotID()]
@@ -352,17 +359,17 @@ func TestORM(t *testing.T) {
 						return test.answers[taskRun.DotID()]
 					})
 					require.NoError(t, err)
-					require.False(t, done)
+					require.True(t, anyRemaining)
 				}
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					done, err := orm.ProcessNextUnclaimedTaskRun(func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						t.Fatal("this callback should never be reached")
 						return pipeline.Result{}
 					})
 					require.NoError(t, err)
-					require.True(t, done)
+					require.False(t, anyRemaining)
 				}
 
 				// Ensure that the run is now considered complete
@@ -389,7 +396,7 @@ func TestORM(t *testing.T) {
 				}
 
 				// Ensure that we can retrieve the correct results by calling .ResultsForRun
-				results, err := orm.ResultsForRun(runID)
+				results, err := orm.ResultsForRun(context.Background(), runID)
 				require.NoError(t, err)
 				require.Len(t, results, 2)
 

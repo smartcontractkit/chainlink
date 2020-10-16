@@ -10,6 +10,8 @@ import (
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
+	time "time"
+
 	utils "github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -32,20 +34,20 @@ func (_m *ORM) AwaitRun(ctx context.Context, runID int64) error {
 	return r0
 }
 
-// CreateRun provides a mock function with given fields: jobID, meta
-func (_m *ORM) CreateRun(jobID int32, meta map[string]interface{}) (int64, error) {
-	ret := _m.Called(jobID, meta)
+// CreateRun provides a mock function with given fields: ctx, jobID, meta
+func (_m *ORM) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
+	ret := _m.Called(ctx, jobID, meta)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(int32, map[string]interface{}) int64); ok {
-		r0 = rf(jobID, meta)
+	if rf, ok := ret.Get(0).(func(context.Context, int32, map[string]interface{}) int64); ok {
+		r0 = rf(ctx, jobID, meta)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(int32, map[string]interface{}) error); ok {
-		r1 = rf(jobID, meta)
+	if rf, ok := ret.Get(1).(func(context.Context, int32, map[string]interface{}) error); ok {
+		r1 = rf(ctx, jobID, meta)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -53,25 +55,39 @@ func (_m *ORM) CreateRun(jobID int32, meta map[string]interface{}) (int64, error
 	return r0, r1
 }
 
-// CreateSpec provides a mock function with given fields: taskDAG
-func (_m *ORM) CreateSpec(taskDAG pipeline.TaskDAG) (int32, error) {
-	ret := _m.Called(taskDAG)
+// CreateSpec provides a mock function with given fields: ctx, taskDAG
+func (_m *ORM) CreateSpec(ctx context.Context, taskDAG pipeline.TaskDAG) (int32, error) {
+	ret := _m.Called(ctx, taskDAG)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(pipeline.TaskDAG) int32); ok {
-		r0 = rf(taskDAG)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.TaskDAG) int32); ok {
+		r0 = rf(ctx, taskDAG)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(pipeline.TaskDAG) error); ok {
-		r1 = rf(taskDAG)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.TaskDAG) error); ok {
+		r1 = rf(ctx, taskDAG)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
+}
+
+// DeleteRunsOlderThan provides a mock function with given fields: threshold
+func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
+	ret := _m.Called(threshold)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(time.Duration) error); ok {
+		r0 = rf(threshold)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // FindBridge provides a mock function with given fields: name
@@ -118,20 +134,20 @@ func (_m *ORM) ListenForNewRuns() (*utils.PostgresEventListener, error) {
 	return r0, r1
 }
 
-// ProcessNextUnclaimedTaskRun provides a mock function with given fields: f
-func (_m *ORM) ProcessNextUnclaimedTaskRun(f func(int32, pipeline.TaskRun, []pipeline.TaskRun) pipeline.Result) (bool, error) {
-	ret := _m.Called(f)
+// ProcessNextUnclaimedTaskRun provides a mock function with given fields: ctx, fn
+func (_m *ORM) ProcessNextUnclaimedTaskRun(ctx context.Context, fn pipeline.ProcessTaskRunFunc) (bool, error) {
+	ret := _m.Called(ctx, fn)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(func(int32, pipeline.TaskRun, []pipeline.TaskRun) pipeline.Result) bool); ok {
-		r0 = rf(f)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.ProcessTaskRunFunc) bool); ok {
+		r0 = rf(ctx, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(func(int32, pipeline.TaskRun, []pipeline.TaskRun) pipeline.Result) error); ok {
-		r1 = rf(f)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.ProcessTaskRunFunc) error); ok {
+		r1 = rf(ctx, fn)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -139,17 +155,38 @@ func (_m *ORM) ProcessNextUnclaimedTaskRun(f func(int32, pipeline.TaskRun, []pip
 	return r0, r1
 }
 
-// ResultsForRun provides a mock function with given fields: runID
-func (_m *ORM) ResultsForRun(runID int64) ([]pipeline.Result, error) {
-	ret := _m.Called(runID)
+// ResultsForRun provides a mock function with given fields: ctx, runID
+func (_m *ORM) ResultsForRun(ctx context.Context, runID int64) ([]pipeline.Result, error) {
+	ret := _m.Called(ctx, runID)
 
 	var r0 []pipeline.Result
-	if rf, ok := ret.Get(0).(func(int64) []pipeline.Result); ok {
-		r0 = rf(runID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64) []pipeline.Result); ok {
+		r0 = rf(ctx, runID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]pipeline.Result)
 		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, runID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// RunFinished provides a mock function with given fields: runID
+func (_m *ORM) RunFinished(runID int64) (bool, error) {
+	ret := _m.Called(runID)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(int64) bool); ok {
+		r0 = rf(runID)
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error

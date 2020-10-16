@@ -6,14 +6,15 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/tevino/abool"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 //go:generate mockery --name LogBroadcaster --output ../../internal/mocks/ --case=underscore
@@ -27,9 +28,9 @@ import (
 type LogBroadcaster interface {
 	utils.DependentAwaiter
 	Start() error
+	Stop() error
 	Register(address common.Address, listener LogListener) (connected bool)
 	Unregister(address common.Address, listener LogListener)
-	Stop()
 }
 
 // The LogListener responds to log events through HandleLog, and contains setup/tear-down
@@ -61,6 +62,7 @@ type logBroadcaster struct {
 	chAddListener    chan registration
 	chRemoveListener chan registration
 
+	utils.StartStopOnce
 	utils.DependentAwaiter
 	chStop chan struct{}
 	chDone chan struct{}
@@ -141,8 +143,10 @@ type registration struct {
 }
 
 func (b *logBroadcaster) Start() error {
+	if !b.OkayToStart() {
+		return errors.New("LogBroadcaster is already started")
+	}
 	go b.awaitInitialSubscribers()
-	b.started.Set()
 	return nil
 }
 
@@ -171,13 +175,13 @@ func (b *logBroadcaster) addresses() []common.Address {
 	return addresses
 }
 
-func (b *logBroadcaster) Stop() {
-	close(b.chStop)
-	if b.started.IsSet() {
-		<-b.chDone
-		b.started.UnSet()
-
+func (b *logBroadcaster) Stop() error {
+	if !b.OkayToStop() {
+		return errors.New("LogBroadcaster is already stopped")
 	}
+	close(b.chStop)
+	<-b.chDone
+	return nil
 }
 
 func (b *logBroadcaster) Register(address common.Address, listener LogListener) (connected bool) {
@@ -224,8 +228,8 @@ func (b *logBroadcaster) startResubscribeLoop() {
 		//     remaining logs from last subscription <= backfilled logs <= logs from new subscription
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the LogBroadcast type.
-		chRawLogs = appendLogChannel(chRawLogs, chBackfilledLogs)
-		chRawLogs = appendLogChannel(chRawLogs, newSubscription.Logs())
+		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
+		chRawLogs = b.appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
 		subscription = newSubscription
 
@@ -240,6 +244,38 @@ func (b *logBroadcaster) startResubscribeLoop() {
 			return
 		}
 	}
+}
+
+func (b *logBroadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
+	if ch1 == nil && ch2 == nil {
+		return nil
+	}
+
+	chCombined := make(chan types.Log)
+
+	go func() {
+		defer close(chCombined)
+		if ch1 != nil {
+			for rawLog := range ch1 {
+				select {
+				case chCombined <- rawLog:
+				case <-b.chStop:
+					return
+				}
+			}
+		}
+		if ch2 != nil {
+			for rawLog := range ch2 {
+				select {
+				case chCombined <- rawLog:
+				case <-b.chStop:
+					return
+				}
+			}
+		}
+	}()
+
+	return chCombined
 }
 
 func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
@@ -569,28 +605,4 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 
 	lb.SetDecodedLog(decodedLog)
 	l.LogListener.HandleLog(lb, nil)
-}
-
-func appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
-	if ch1 == nil && ch2 == nil {
-		return nil
-	}
-
-	chCombined := make(chan types.Log)
-
-	go func() {
-		defer close(chCombined)
-		if ch1 != nil {
-			for rawLog := range ch1 {
-				chCombined <- rawLog
-			}
-		}
-		if ch2 != nil {
-			for rawLog := range ch2 {
-				chCombined <- rawLog
-			}
-		}
-	}()
-
-	return chCombined
 }

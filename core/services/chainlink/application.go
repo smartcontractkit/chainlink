@@ -40,7 +40,7 @@ func (c *headTrackableCallback) Connect(*models.Head) error {
 func (c *headTrackableCallback) Disconnect()                                    {}
 func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
-//go:generate mockery --name Application --output ../internal/mocks/ --case=underscore
+//go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
 // Application implements the common functions used in the core node.
 type Application interface {
@@ -87,12 +87,11 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, shutdownSignal)
+	store := strpkg.NewStore(config, ethClient, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
-	ethClient := store.TxManager.(*strpkg.EthTxManager).Client
 	statsPusher := synchronization.NewStatsPusher(
 		store.ORM, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
 	)
@@ -183,14 +182,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	ethEnabled := !app.Store.Config.EthereumDisabled()
-	if ethEnabled {
-		err := app.Store.EthClient.Dial(context.TODO())
-		if err != nil {
-			return err
-		}
-	}
-
 	app.jobSpawner.Start()
 	app.pipelineRunner.Start()
 
@@ -231,6 +222,7 @@ func (app *ChainlinkApplication) Stop() error {
 		}()
 		logger.Info("Gracefully exiting...")
 
+		app.LogBroadcaster.Stop()
 		app.Scheduler.Stop()
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
 		merr = multierr.Append(merr, app.balanceMonitor.Stop())
@@ -240,8 +232,8 @@ func (app *ChainlinkApplication) Stop() error {
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		app.jobSpawner.Stop()
 		app.pipelineRunner.Stop()
+		app.jobSpawner.Stop()
 		merr = multierr.Append(merr, app.Store.Close())
 	})
 	return merr
