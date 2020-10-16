@@ -1,6 +1,6 @@
 /* eslint-env jest */
 import createStore from 'createStore'
-import { ConnectedIndex as Index } from 'containers/Bridges/Index'
+import { ConnectedIndex as Index } from 'pages/Bridges/Index'
 import { mount } from 'enzyme'
 import bridgesFactory from 'factories/bridges'
 import React from 'react'
@@ -21,7 +21,7 @@ const mountIndex = (opts = {}) =>
     </Provider>,
   )
 
-describe('containers/Bridges/Index', () => {
+describe('pages/Bridges/Index', () => {
   it('renders the list of bridges', async () => {
     expect.assertions(2)
 

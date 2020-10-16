@@ -4,7 +4,7 @@ import { Provider } from 'react-redux'
 import { MemoryRouter } from 'react-router-dom'
 import { mount } from 'enzyme'
 import configureStore from 'redux-mock-store'
-import Notifications from 'containers/Notifications'
+import Notifications from 'pages/Notifications'
 
 const classes = {}
 const mockStore = configureStore()
@@ -18,7 +18,7 @@ const mountNotifications = (store) =>
     </Provider>,
   )
 
-describe('containers/Notifications', () => {
+describe('pages/Notifications', () => {
   it('renders success and error component notifications', () => {
     const successes = [
       {

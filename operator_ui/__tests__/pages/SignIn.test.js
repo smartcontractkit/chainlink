@@ -4,7 +4,7 @@ import syncFetch from 'test-helpers/syncFetch'
 import { mount } from 'enzyme'
 import { Provider } from 'react-redux'
 import { Switch, Route, MemoryRouter } from 'react-router-dom'
-import SignIn from 'containers/SignIn'
+import SignIn from 'pages/SignIn'
 import fillIn from 'test-helpers/fillIn'
 import globPath from 'test-helpers/globPath'
 
@@ -36,7 +36,7 @@ const AUTHENTICATED_RESPONSE = {
   },
 }
 
-describe('containers/SignIn', () => {
+describe('pages/SignIn', () => {
   it('unauthenticated user can input credentials and sign in', async () => {
     const store = createStore()
     global.fetch.postOnce(globPath('/sessions'), AUTHENTICATED_RESPONSE)

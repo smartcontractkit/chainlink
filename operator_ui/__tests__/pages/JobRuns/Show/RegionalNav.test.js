@@ -1,10 +1,10 @@
 import React from 'react'
-import RegionalNav from 'containers/JobRuns/Show/RegionalNav'
+import RegionalNav from 'pages/JobRuns/Show/RegionalNav'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 
 const CREATED_AT = '2019-06-11T14:37:42.077995-07:00'
 
-describe('containers/JobRuns/Show/RegionalNav', () => {
+describe('pages/JobRuns/Show/RegionalNav', () => {
   it('displays an overview & json tab by default', () => {
     const component = mountWithTheme(<RegionalNav />)
 

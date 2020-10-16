@@ -1,5 +1,5 @@
 /* eslint-env jest */
-import { ConnectedConfiguration as Configuration } from 'containers/Configuration/Index'
+import { ConnectedConfiguration as Configuration } from 'pages/Configuration/Index'
 import configurationFactory from 'factories/configuration'
 import React from 'react'
 import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
@@ -13,7 +13,7 @@ const mount = (props) => {
   )
 }
 
-describe('containers/Configuration', () => {
+describe('pages/Configuration', () => {
   it('renders the list of configuration options', async () => {
     expect.assertions(4)
 

@@ -1,5 +1,5 @@
 import createStore from 'createStore'
-import { ConnectedShow as Show } from 'containers/Jobs/Show'
+import { ConnectedShow as Show } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'
@@ -20,7 +20,7 @@ const mountShow = (props) =>
     </Provider>,
   )
 
-describe('containers/Jobs/Show', () => {
+describe('pages/Jobs/Show', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
   const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
   it('renders the details of the job spec, its latest runs, its task list entries and its total earnings', async () => {
