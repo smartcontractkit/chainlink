@@ -55,7 +55,7 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 
 	// Insert keys into the store
 	keystore := offchainreporting.NewKeyStore(db)
-	// FIXME: Don't do this, use the fixture keys instead
+	t.Fatal("FIXME: Don't do this, use the fixture keys instead")
 	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
 	require.NoError(t, err)
 	ocrkey, _, err := keystore.GenerateEncryptedOCRKeyBundle("password")
@@ -78,10 +78,7 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 //
 // https://github.com/stretchr/testify/issues/984
 func compareOCRJobSpecs(t *testing.T, expected, actual models.JobSpecV2) {
-	require.Equal(t, expected.ID, actual.ID)
-	require.Equal(t, expected.OffchainreportingOracleSpecID, actual.OffchainreportingOracleSpecID)
-	require.Equal(t, expected.PipelineSpecID, actual.PipelineSpecID)
-	require.Equal(t, expected.OffchainreportingOracleSpec.ID, actual.OffchainreportingOracleSpec.ID)
+	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PBootstrapPeers, actual.OffchainreportingOracleSpec.P2PBootstrapPeers)

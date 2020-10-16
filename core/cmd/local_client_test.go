@@ -695,14 +695,16 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 
 	require.NoError(t, client.CreateP2PKey(c))
 
-	keys, err := app.GetStore().FindEncryptedP2PKeys()
+	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
 	require.NoError(t, err)
 
-	require.Len(t, keys, 1)
+	// Created + fixture key
+	require.Len(t, keys, 2)
 
-	e := keys[0]
-	_, err = e.Decrypt(cltest.Password)
-	require.NoError(t, err)
+	for _, e := range keys {
+		_, err = e.Decrypt(cltest.Password)
+		require.NoError(t, err)
+	}
 }
 
 func TestClient_P2P_DeleteKey(t *testing.T) {
@@ -727,12 +729,13 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 	require.NoError(t, err)
 	encKey, err := key.ToEncryptedP2PKey("password")
 	require.NoError(t, err)
-	err = store.UpsertEncryptedP2PKey(&encKey)
+	err = store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
 	require.NoError(t, err)
 
-	keys, err := store.FindEncryptedP2PKeys()
+	keys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
 	require.NoError(t, err)
-	require.Len(t, keys, 1)
+	// Created  + fixture key
+	require.Len(t, keys, 2)
 
 	strID := strconv.FormatInt(int64(encKey.ID), 10)
 	set := flag.NewFlagSet("test", 0)
@@ -742,9 +745,10 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 	err = client.DeleteP2PKey(c)
 	require.NoError(t, err)
 
-	keys, err = store.FindEncryptedP2PKeys()
+	keys, err = store.OCRKeyStore.FindEncryptedP2PKeys()
 	require.NoError(t, err)
-	require.Len(t, keys, 0)
+	// fixture key only
+	require.Len(t, keys, 1)
 }
 
 func TestClient_CreateOCRKeyBundle(t *testing.T) {
@@ -771,14 +775,16 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 
 	require.NoError(t, client.CreateOCRKeyBundle(c))
 
-	keys, err := app.GetStore().FindEncryptedOCRKeyBundles()
+	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
 
-	require.Len(t, keys, 1)
+	// Created key + fixture key
+	require.Len(t, keys, 2)
 
-	e := keys[0]
-	_, err = e.Decrypt(cltest.Password)
-	require.NoError(t, err)
+	for _, e := range keys {
+		_, err = e.Decrypt(cltest.Password)
+		require.NoError(t, err)
+	}
 }
 
 func TestClient_DeleteOCRKeyBundle(t *testing.T) {
@@ -803,21 +809,23 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	encKey, err := key.Encrypt("password")
 	require.NoError(t, err)
-	err = store.CreateEncryptedOCRKeyBundle(encKey)
+	err = store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
 	require.NoError(t, err)
 
-	keys, err := store.FindEncryptedOCRKeyBundles()
+	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
-	require.Len(t, keys, 1)
+	// Created key + fixture key
+	require.Len(t, keys, 2)
 
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{key.ID})
+	set.Parse([]string{key.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 
 	err = client.DeleteOCRKeyBundle(c)
 	require.NoError(t, err)
 
-	keys, err = store.FindEncryptedOCRKeyBundles()
+	keys, err = store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
-	require.Len(t, keys, 0)
+	// Only fixture key remains
+	require.Len(t, keys, 1)
 }

@@ -14,20 +14,20 @@ type Spawner struct {
 	mock.Mock
 }
 
-// CreateJob provides a mock function with given fields: spec
-func (_m *Spawner) CreateJob(spec job.Spec) (int32, error) {
-	ret := _m.Called(spec)
+// CreateJob provides a mock function with given fields: ctx, spec
+func (_m *Spawner) CreateJob(ctx context.Context, spec job.Spec) (int32, error) {
+	ret := _m.Called(ctx, spec)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(job.Spec) int32); ok {
-		r0 = rf(spec)
+	if rf, ok := ret.Get(0).(func(context.Context, job.Spec) int32); ok {
+		r0 = rf(ctx, spec)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(job.Spec) error); ok {
-		r1 = rf(spec)
+	if rf, ok := ret.Get(1).(func(context.Context, job.Spec) error); ok {
+		r1 = rf(ctx, spec)
 	} else {
 		r1 = ret.Error(1)
 	}

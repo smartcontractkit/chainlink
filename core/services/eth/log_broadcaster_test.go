@@ -174,6 +174,12 @@ func (listener simpleLogListener) OnDisconnect() {}
 func (listener simpleLogListener) JobID() *models.ID {
 	return listener.consumerID
 }
+func (listener simpleLogListener) IsV2Job() bool {
+	return false
+}
+func (listener simpleLogListener) JobIDV2() int32 {
+	return 0
+}
 
 func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	t.Parallel()
@@ -619,66 +625,68 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 }
 
 func TestAppendLogChannel(t *testing.T) {
-	t.Parallel()
+	t.Fatal("fixme")
 
-	logs1 := []types.Log{
-		{BlockNumber: 1},
-		{BlockNumber: 2},
-		{BlockNumber: 3},
-		{BlockNumber: 4},
-		{BlockNumber: 5},
-	}
+	// t.Parallel()
 
-	logs2 := []types.Log{
-		{BlockNumber: 6},
-		{BlockNumber: 7},
-		{BlockNumber: 8},
-		{BlockNumber: 9},
-		{BlockNumber: 10},
-	}
+	// logs1 := []types.Log{
+	//     {BlockNumber: 1},
+	//     {BlockNumber: 2},
+	//     {BlockNumber: 3},
+	//     {BlockNumber: 4},
+	//     {BlockNumber: 5},
+	// }
 
-	logs3 := []types.Log{
-		{BlockNumber: 11},
-		{BlockNumber: 12},
-		{BlockNumber: 13},
-		{BlockNumber: 14},
-		{BlockNumber: 15},
-	}
+	// logs2 := []types.Log{
+	//     {BlockNumber: 6},
+	//     {BlockNumber: 7},
+	//     {BlockNumber: 8},
+	//     {BlockNumber: 9},
+	//     {BlockNumber: 10},
+	// }
 
-	ch1 := make(chan types.Log)
-	ch2 := make(chan types.Log)
-	ch3 := make(chan types.Log)
+	// logs3 := []types.Log{
+	//     {BlockNumber: 11},
+	//     {BlockNumber: 12},
+	//     {BlockNumber: 13},
+	//     {BlockNumber: 14},
+	//     {BlockNumber: 15},
+	// }
 
-	chCombined := eth.ExposedAppendLogChannel(ch1, ch2)
-	chCombined = eth.ExposedAppendLogChannel(chCombined, ch3)
+	// ch1 := make(chan types.Log)
+	// ch2 := make(chan types.Log)
+	// ch3 := make(chan types.Log)
 
-	go func() {
-		defer close(ch1)
-		for _, log := range logs1 {
-			ch1 <- log
-		}
-	}()
-	go func() {
-		defer close(ch2)
-		for _, log := range logs2 {
-			ch2 <- log
-		}
-	}()
-	go func() {
-		defer close(ch3)
-		for _, log := range logs3 {
-			ch3 <- log
-		}
-	}()
+	// chCombined := eth.ExposedAppendLogChannel(ch1, ch2)
+	// chCombined = eth.ExposedAppendLogChannel(chCombined, ch3)
 
-	expected := append(logs1, logs2...)
-	expected = append(expected, logs3...)
+	// go func() {
+	//     defer close(ch1)
+	//     for _, log := range logs1 {
+	//         ch1 <- log
+	//     }
+	// }()
+	// go func() {
+	//     defer close(ch2)
+	//     for _, log := range logs2 {
+	//         ch2 <- log
+	//     }
+	// }()
+	// go func() {
+	//     defer close(ch3)
+	//     for _, log := range logs3 {
+	//         ch3 <- log
+	//     }
+	// }()
 
-	var i int
-	for log := range chCombined {
-		require.Equal(t, expected[i], log)
-		i++
-	}
+	// expected := append(logs1, logs2...)
+	// expected = append(expected, logs3...)
+
+	// var i int
+	// for log := range chCombined {
+	//     require.Equal(t, expected[i], log)
+	//     i++
+	// }
 }
 
 func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {

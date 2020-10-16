@@ -32,6 +32,20 @@ func (_m *Config) BridgeResponseURL() *url.URL {
 	return r0
 }
 
+// DatabaseMaximumTxDuration provides a mock function with given fields:
+func (_m *Config) DatabaseMaximumTxDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // DatabaseURL provides a mock function with given fields:
 func (_m *Config) DatabaseURL() string {
 	ret := _m.Called()
@@ -102,6 +116,20 @@ func (_m *Config) JobPipelineDBPollInterval() time.Duration {
 	return r0
 }
 
+// JobPipelineMaxTaskDuration provides a mock function with given fields:
+func (_m *Config) JobPipelineMaxTaskDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // JobPipelineParallelism provides a mock function with given fields:
 func (_m *Config) JobPipelineParallelism() uint8 {
 	ret := _m.Called()
@@ -111,6 +139,34 @@ func (_m *Config) JobPipelineParallelism() uint8 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint8)
+	}
+
+	return r0
+}
+
+// JobPipelineReaperInterval provides a mock function with given fields:
+func (_m *Config) JobPipelineReaperInterval() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// JobPipelineReaperThreshold provides a mock function with given fields:
+func (_m *Config) JobPipelineReaperThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0

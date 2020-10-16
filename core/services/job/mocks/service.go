@@ -9,8 +9,8 @@ type Service struct {
 	mock.Mock
 }
 
-// Start provides a mock function with given fields:
-func (_m *Service) Start() error {
+// Close provides a mock function with given fields:
+func (_m *Service) Close() error {
 	ret := _m.Called()
 
 	var r0 error
@@ -23,8 +23,8 @@ func (_m *Service) Start() error {
 	return r0
 }
 
-// Stop provides a mock function with given fields:
-func (_m *Service) Stop() error {
+// Start provides a mock function with given fields:
+func (_m *Service) Start() error {
 	ret := _m.Called()
 
 	var r0 error

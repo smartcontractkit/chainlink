@@ -3,6 +3,7 @@ package orm
 import (
 	"math/big"
 	"net/url"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,12 +22,14 @@ type ConfigReader interface {
 	ClientNodeURL() string
 	DatabaseTimeout() models.Duration
 	DatabaseURL() string
+	DatabaseMaximumTxDuration() time.Duration
 	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool
+	FeatureOffchainReporting() bool
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
@@ -62,6 +65,7 @@ type ConfigReader interface {
 	MinimumContractPayment() *assets.Link
 	MinimumRequestExpiration() uint64
 	MigrateDatabase() bool
+	OCRTraceLogging() bool
 	Port() uint16
 	ReaperExpiration() models.Duration
 	RootDir() string

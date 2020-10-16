@@ -1374,14 +1374,14 @@ func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int
 // MarkLogConsumed creates a new LogConsumption record
 func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, 0, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
 // MarkLogConsumedV2 creates a new LogConsumption record
 func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, nil, jobID, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 

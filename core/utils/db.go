@@ -96,7 +96,7 @@ func (p *PostgresEventListener) Start() error {
 				if !open {
 					return
 				}
-				logger.Infow("Postgres listener: received notification",
+				logger.Debugw("Postgres listener: received notification",
 					"channel", notification.Channel,
 					"payload", notification.Extra,
 				)
@@ -179,6 +179,8 @@ type PostgresAdvisoryLock struct {
 	mu   *sync.Mutex
 }
 
+// TODO(sam): Fix this to be a single global connection not many individual ones
+// See: https://www.pivotaltracker.com/story/show/175288169
 func NewPostgresAdvisoryLock(uri string) *PostgresAdvisoryLock {
 	return &PostgresAdvisoryLock{
 		URI: uri,

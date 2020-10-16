@@ -26,7 +26,7 @@ func TestORM(t *testing.T) {
 	ocrSpec, dbSpec := makeOCRJobSpec(t, db)
 
 	t.Run("it creates job specs", func(t *testing.T) {
-		err := orm.CreateJob(dbSpec, ocrSpec.TaskDAG())
+		err := orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
 		var returnedSpec models.JobSpecV2
@@ -52,53 +52,61 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
+		require.Equal(t, int32(1), unclaimed[0].ID)
+		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpecID)
+		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
+		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
 
-		// ocrSpec2, dbSpec2 := makeOCRJobSpec(t, db)
-		// err = orm.CreateJob(dbSpec2, ocrSpec2.TaskDAG())
-		// require.NoError(t, err)
+		ocrSpec2, dbSpec2 := makeOCRJobSpec(t, db)
+		err = orm.CreateJob(context.Background(), dbSpec2, ocrSpec2.TaskDAG())
+		require.NoError(t, err)
 
-		// ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-		// defer cancel2()
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel2()
 
-		// unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
-		// require.NoError(t, err)
-		// require.Len(t, unclaimed, 1)
-		// compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
+		unclaimed, err = orm2.ClaimUnclaimedJobs(ctx2)
+		require.NoError(t, err)
+		require.Len(t, unclaimed, 1)
+		compareOCRJobSpecs(t, *dbSpec2, unclaimed[0])
+		require.Equal(t, int32(2), unclaimed[0].ID)
+		require.Equal(t, int32(2), unclaimed[0].OffchainreportingOracleSpecID)
+		require.Equal(t, int32(2), unclaimed[0].PipelineSpecID)
+		require.Equal(t, int32(2), unclaimed[0].OffchainreportingOracleSpec.ID)
 	})
 
-	// t.Run("it cannot delete jobs claimed by other nodes", func(t *testing.T) {
-	// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// 	defer cancel()
+	t.Run("it cannot delete jobs claimed by other nodes", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	// 	err := orm2.DeleteJob(ctx, dbSpec.ID)
-	// 	require.Error(t, err)
-	// })
+		err := orm2.DeleteJob(ctx, dbSpec.ID)
+		require.Error(t, err)
+	})
 
-	// t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
-	// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	// 	defer cancel()
+	t.Run("it deletes its own claimed jobs from the DB", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
 
-	// 	err := orm.DeleteJob(ctx, dbSpec.ID)
-	// 	require.NoError(t, err)
+		err := orm.DeleteJob(ctx, dbSpec.ID)
+		require.NoError(t, err)
 
-	// 	var dbSpecs []models.JobSpecV2
-	// 	err = db.Find(&dbSpecs).Error
-	// 	require.NoError(t, err)
-	// 	require.Len(t, dbSpecs, 0)
+		var dbSpecs []models.JobSpecV2
+		err = db.Find(&dbSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, dbSpecs, 1)
 
-	// 	var oracleSpecs []models.OffchainReportingOracleSpec
-	// 	err = db.Find(&oracleSpecs).Error
-	// 	require.NoError(t, err)
-	// 	require.Len(t, oracleSpecs, 0)
+		var oracleSpecs []models.OffchainReportingOracleSpec
+		err = db.Find(&oracleSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, oracleSpecs, 1)
 
-	// 	var pipelineSpecs []pipeline.Spec
-	// 	err = db.Find(&pipelineSpecs).Error
-	// 	require.NoError(t, err)
-	// 	require.Len(t, pipelineSpecs, 0)
+		var pipelineSpecs []pipeline.Spec
+		err = db.Find(&pipelineSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, pipelineSpecs, 1)
 
-	// 	var pipelineTaskSpecs []pipeline.TaskSpec
-	// 	err = db.Find(&pipelineTaskSpecs).Error
-	// 	require.NoError(t, err)
-	// 	require.Len(t, pipelineTaskSpecs, 0)
-	// })
+		var pipelineTaskSpecs []pipeline.TaskSpec
+		err = db.Find(&pipelineTaskSpecs).Error
+		require.NoError(t, err)
+		require.Len(t, pipelineTaskSpecs, 9) // 8 explicitly-defined tasks + 1 automatically added ResultTask
+	})
 }

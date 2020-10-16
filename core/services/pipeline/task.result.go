@@ -1,7 +1,12 @@
 package pipeline
 
 import (
-	"go.uber.org/multierr"
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+
+	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
 )
 
 // ResultTask exists solely as a Postgres performance optimization.  It's added
@@ -21,15 +26,39 @@ func (t *ResultTask) Type() TaskType {
 	return TaskTypeResult
 }
 
-func (t *ResultTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
-	var values []interface{}
-	for _, input := range inputs {
+func (t *ResultTask) Run(taskRun TaskRun, inputs []Result) Result {
+	values := make([]interface{}, len(inputs))
+	errors := make(FinalErrors, len(inputs))
+	for i, input := range inputs {
+		values[i] = input.Value
 		if input.Error != nil {
-			result.Error = multierr.Append(result.Error, input.Error)
-		} else {
-			values = append(values, input.Value)
+			errors[i] = null.StringFrom(input.Error.Error())
 		}
 	}
-	result.Value = values
-	return result
+	return Result{Value: values, Error: errors}
+}
+
+type FinalErrors []null.String
+
+func (fe FinalErrors) Error() string {
+	bs, err := json.Marshal(fe)
+	if err != nil {
+		return `["could not unmarshal final pipeline errors"]`
+	}
+	return string(bs)
+}
+
+func (fe FinalErrors) Value() (driver.Value, error) {
+	return fe.Error(), nil
+}
+
+func (fe *FinalErrors) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		return json.Unmarshal(v, fe)
+	case string:
+		return json.Unmarshal([]byte(v), fe)
+	default:
+		return errors.New(fmt.Sprintf("%s", value))
+	}
 }

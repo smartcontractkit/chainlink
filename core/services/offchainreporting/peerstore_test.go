@@ -1,4 +1,4 @@
-package networking_test
+package offchainreporting_test
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/networking"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -19,7 +19,7 @@ func Test_NewPeerstore(t *testing.T) {
 
 	db := store.DB.DB()
 
-	peerstore, err := networking.NewPeerstore(context.Background(), db)
+	peerstore, err := offchainreporting.NewPeerstore(context.Background(), db)
 	require.NoError(t, err)
 
 	peerID, err := p2ppeer.Decode("12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
@@ -39,7 +39,7 @@ func Test_NewPeerstore(t *testing.T) {
 	require.Equal(t, multiaddr.String(), addrs[0].String())
 
 	// Instantiate a new one to ensure we read from the DB not just from memory
-	peerstore, err = networking.NewPeerstore(context.Background(), db)
+	peerstore, err = offchainreporting.NewPeerstore(context.Background(), db)
 	require.NoError(t, err)
 	peers = peerstore.Peers()
 	require.Len(t, peers, 1)

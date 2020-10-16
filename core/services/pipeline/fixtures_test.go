@@ -83,6 +83,7 @@ func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpUrl string) (*offc
 	t.Helper()
 
 	// Insert keys into the store
+	t.Fatal("FIXME: use fixture keys instead")
 	keystore := offchainreporting.NewKeyStore(db)
 	p2pkey, _, err := keystore.GenerateEncryptedP2PKey("password")
 	require.NoError(t, err)
