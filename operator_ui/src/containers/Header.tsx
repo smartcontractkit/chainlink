@@ -20,6 +20,7 @@ import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
 import ReactResizeDetector from 'react-resize-detector'
+import { useLocation } from 'react-router-dom'
 import { bindActionCreators, Dispatch } from 'redux'
 import { submitSignOut } from 'actionCreators'
 import AvatarMenu from '../components/AvatarMenu'
@@ -135,42 +136,38 @@ const navStyles = ({ palette, spacing }: Theme) =>
     },
   })
 
-const isNavActive = (current?: string, to?: string) =>
-  `${to && to.toLowerCase()}` === current
-
 interface NavProps extends WithStyles<typeof navStyles> {
   authenticated: boolean
-  url?: string
 }
 
-const Nav = withStyles(navStyles)(
-  ({ authenticated, url, classes }: NavProps) => {
-    return (
-      <Typography variant="body1" component="div">
-        <List className={classes.horizontalNav}>
-          {SHARED_NAV_ITEMS.map(([to, text]) => (
-            <ListItem key={to} className={classes.horizontalNavItem}>
-              <BaseLink
-                href={to}
-                className={classNames(
-                  classes.horizontalNavLink,
-                  isNavActive(to, url) && classes.activeNavLink,
-                )}
-              >
-                {text}
-              </BaseLink>
-            </ListItem>
-          ))}
-          {authenticated && (
-            <ListItem className={classes.horizontalNavItem}>
-              <AvatarMenu />
-            </ListItem>
-          )}
-        </List>
-      </Typography>
-    )
-  },
-)
+const Nav = withStyles(navStyles)(({ authenticated, classes }: NavProps) => {
+  const { pathname } = useLocation()
+
+  return (
+    <Typography variant="body1" component="div">
+      <List className={classes.horizontalNav}>
+        {SHARED_NAV_ITEMS.map(([navItemPath, text]) => (
+          <ListItem key={navItemPath} className={classes.horizontalNavItem}>
+            <BaseLink
+              href={navItemPath}
+              className={classNames(
+                classes.horizontalNavLink,
+                pathname.includes(navItemPath) && classes.activeNavLink,
+              )}
+            >
+              {text}
+            </BaseLink>
+          </ListItem>
+        ))}
+        {authenticated && (
+          <ListItem className={classes.horizontalNavItem}>
+            <AvatarMenu />
+          </ListItem>
+        )}
+      </List>
+    </Typography>
+  )
+})
 
 const styles = ({ palette, spacing, zIndex }: Theme) =>
   createStyles({
@@ -190,7 +187,6 @@ interface Props extends WithStyles<typeof styles> {
   drawerContainer: HTMLElement | null
   submitSignOut: () => void
   onResize: (width: number, height: number) => void
-  url?: string
 }
 
 interface State {
@@ -217,7 +213,6 @@ class Header extends React.Component<Props, State> {
       authenticated,
       classes,
       fetchCount,
-      url,
       drawerContainer,
       onResize,
       submitSignOut,
@@ -252,7 +247,7 @@ class Header extends React.Component<Props, State> {
                       </IconButton>
                     </Hidden>
                     <Hidden smDown>
-                      <Nav authenticated={authenticated} url={url} />
+                      <Nav authenticated={authenticated} />
                     </Hidden>
                   </Grid>
                 </Grid>
