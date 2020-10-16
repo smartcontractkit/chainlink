@@ -1,5 +1,5 @@
 import createStore from 'createStore'
-import { ConnectedIndex as Index } from 'containers/JobRuns/Index'
+import { ConnectedIndex as Index } from 'pages/JobRuns/Index'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'
 import { Provider } from 'react-redux'
@@ -26,7 +26,7 @@ const mountIndex = (props) =>
     </Provider>,
   )
 
-describe('containers/JobRuns/Index', () => {
+describe('pages/JobRuns/Index', () => {
   const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
 
   it('renders the runs for the job spec', async () => {

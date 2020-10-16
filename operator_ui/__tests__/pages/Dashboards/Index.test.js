@@ -1,5 +1,5 @@
 /* eslint-env jest */
-import Index from 'containers/Dashboards/Index'
+import Index from 'pages/Dashboards/Index'
 import accountBalanceFactory from 'factories/accountBalance'
 import React from 'react'
 import mountWithTheme from 'test-helpers/mountWithTheme'
@@ -9,7 +9,7 @@ import globPath from 'test-helpers/globPath'
 const classes = {}
 const mountIndex = () => mountWithTheme(<Index classes={classes} />)
 
-describe('containers/Dashboards/Index', () => {
+describe('pages/Dashboards/Index', () => {
   it('renders the recent activity, account balances & recently created jobs', async () => {
     expect.assertions(7)
 
