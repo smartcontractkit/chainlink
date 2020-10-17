@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -38,6 +39,7 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
+	OCRKeyStore    *offchainreporting.KeyStore
 	TxManager      TxManager
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
@@ -45,20 +47,22 @@ type Store struct {
 }
 
 // NewStore will create a new store
-func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+func NewStore(config *orm.Config, ethClient eth.Client, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, keyStore, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+func NewInsecureStore(config *orm.Config, ethClient eth.Client, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, keyStore, shutdownSignal)
 }
 
+// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
 func newStoreWithKeyStore(
 	config *orm.Config,
+	ethClient eth.Client,
 	keyStoreGenerator func() *KeyStore,
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
@@ -73,27 +77,18 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	var ethClient eth.Client
-	if config.EthereumDisabled() {
-		logger.Info("ETH_DISABLED is set, using Null eth.Client")
-		ethClient = &eth.NullClient{}
-	} else {
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
-		if err != nil {
-			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
-		}
-	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
 
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		EthClient: ethClient,
-		closeOnce: &sync.Once{},
+		Clock:       utils.Clock{},
+		Config:      config,
+		KeyStore:    keyStore,
+		OCRKeyStore: offchainreporting.NewKeyStore(orm.DB),
+		ORM:         orm,
+		TxManager:   txManager,
+		EthClient:   ethClient,
+		closeOnce:   &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store

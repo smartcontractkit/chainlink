@@ -9,6 +9,8 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Key represents a libp2p private key
@@ -16,17 +18,17 @@ type Key struct {
 	cryptop2p.PrivKey
 }
 
-func (k Key) GetPeerID() (peer.ID, error) {
+func (k Key) GetPeerID() (models.PeerID, error) {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
 		return "", errors.WithStack(err)
 	}
-	return peerID, err
+	return models.PeerID(peerID), err
 }
 
 type EncryptedP2PKey struct {
 	ID               int32 `gorm:"primary_key"`
-	PeerID           string
+	PeerID           models.PeerID
 	PubKey           []byte
 	EncryptedPrivKey []byte
 	CreatedAt        time.Time
@@ -88,7 +90,7 @@ func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
 	s = EncryptedP2PKey{
 		PubKey:           pubKeyBytes,
 		EncryptedPrivKey: marshalledCryptoJSON,
-		PeerID:           peerID.Pretty(),
+		PeerID:           peerID,
 	}
 	return s, nil
 }

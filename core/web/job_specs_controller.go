@@ -2,15 +2,20 @@ package web
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
+	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
@@ -52,6 +57,16 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 	return nil
 }
 
+// requireImplentedV2 verifies if a Job Spec's feature is enabled according to
+// configured policy.
+func (jsc *JobSpecsController) requireImplementedV2(js job.Spec) error {
+	cfg := jsc.App.GetStore().Config
+	if js.JobType() == offchainreporting.JobType && !cfg.Dev() && !cfg.FeatureOffchainReporting() {
+		return errors.New("The Offchain Reporting feature is disabled by configuration")
+	}
+	return nil
+}
+
 // getAndCheckJobSpec(c) returns a validated job spec from c, or errors. The
 // httpStatus return value is only meaningful on error, and in that case
 // reflects the type of failure to be reported back to the client.
@@ -71,6 +86,22 @@ func (jsc *JobSpecsController) getAndCheckJobSpec(
 		return models.JobSpec{}, http.StatusBadRequest, err
 	}
 	return js, 0, nil
+}
+
+func (jsc *JobSpecsController) getAndCheckJobSpecV2(c *gin.Context) (js job.Spec, httpStatus int, err error) {
+	body, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		return nil, http.StatusInternalServerError, err
+	}
+	var spec offchainreporting.OracleSpec
+	err = toml.Unmarshal(body, &spec)
+	if err != nil {
+		return nil, http.StatusBadRequest, err
+	}
+	if err := jsc.requireImplementedV2(spec); err != nil {
+		return nil, http.StatusNotImplemented, err
+	}
+	return spec, 0, nil
 }
 
 // Create adds validates, saves, and starts a new JobSpec.
@@ -107,6 +138,22 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
 }
 
+func (jsc *JobSpecsController) CreateV2(c *gin.Context) {
+	js, httpStatus, err := jsc.getAndCheckJobSpecV2(c)
+	if err != nil {
+		jsonAPIError(c, httpStatus, err)
+		return
+	}
+	jobID, err := jsc.App.AddJobV2(c.Request.Context(), js)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.JSON(http.StatusOK, struct {
+		JobID int32 `json:"jobID"`
+	}{jobID})
+}
+
 // Show returns the details of a JobSpec.
 // Example:
 //  "<application>/specs/:SpecID"
@@ -141,6 +188,26 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 
 	err = jsc.App.ArchiveJob(id)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+}
+
+func (jsc *JobSpecsController) DestroyV2(c *gin.Context) {
+	jobID, err := strconv.ParseInt(c.Param("SpecID"), 10, 32)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	err = jsc.App.DeleteJobV2(c.Request.Context(), int32(jobID))
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
 		return

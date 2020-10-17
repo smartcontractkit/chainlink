@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -1304,56 +1303,6 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
 }
 
-func (orm *ORM) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Set("gorm:insert_option", "ON CONFLICT (pub_key) DO UPDATE SET encrypted_priv_key=EXCLUDED.encrypted_priv_key, updated_at=NOW()").Create(k).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
-	return keys, orm.DB.Find(&keys).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
-	key := p2pkey.EncryptedP2PKey{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-func (orm *ORM) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Delete(key).Error
-}
-
-// CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
-	return orm.DB.Create(keys).Error
-}
-
-// FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
-	err = orm.DB.Find(&keys).Error
-	if err != nil {
-		return nil, err
-	}
-	return keys, nil
-}
-
-// FindEncryptedOCRKeyBundleByID finds an EncryptedKeyBundle bundle by it's ID
-func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBundle, error) {
-	key := ocrkey.EncryptedKeyBundle{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-// DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
-func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
-	return orm.DB.Delete(key).Error
-}
-
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
 // This takes an optional param for a slice of addresses it should pick from. Leave empty to pick from all
 // addresses in the database.
@@ -1403,10 +1352,36 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 	return exists, nil
 }
 
+// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
+func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
+	query := "SELECT exists (" +
+		"SELECT id FROM log_consumptions " +
+		"WHERE block_hash=$1 " +
+		"AND log_index=$2 " +
+		"AND job_id_v2=$3" +
+		")"
+
+	var exists bool
+	err := orm.DB.DB().
+		QueryRow(query, blockHash, logIndex, jobID).
+		Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
+}
+
 // MarkLogConsumed creates a new LogConsumption record
 func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
+	return orm.DB.Create(&lc).Error
+}
+
+// MarkLogConsumedV2 creates a new LogConsumption record
+func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
+	orm.MustEnsureAdvisoryLock()
+	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
@@ -1637,14 +1612,6 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
-	}
-
-	if ct.transactionWrapped {
-		// Required to prevent phantom reads in overlapping tests
-		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return db, nil

@@ -174,6 +174,12 @@ func (listener simpleLogListener) OnDisconnect() {}
 func (listener simpleLogListener) JobID() *models.ID {
 	return listener.consumerID
 }
+func (listener simpleLogListener) IsV2Job() bool {
+	return false
+}
+func (listener simpleLogListener) JobIDV2() int32 {
+	return 0
+}
 
 func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	t.Parallel()
@@ -359,12 +365,12 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	listener0 := new(mocks.LogListener)
 	listener1 := new(mocks.LogListener)
 	listener2 := new(mocks.LogListener)
-	listener0.On("OnConnect").Return()
-	listener1.On("OnConnect").Return()
-	listener2.On("OnConnect").Return()
-	listener0.On("OnDisconnect").Return()
-	listener1.On("OnDisconnect").Return()
-	listener2.On("OnDisconnect").Return()
+	listener0.On("OnConnect").Return().Maybe()
+	listener1.On("OnConnect").Return().Maybe()
+	listener2.On("OnConnect").Return().Maybe()
+	listener0.On("OnDisconnect").Return().Maybe()
+	listener1.On("OnDisconnect").Return().Maybe()
+	listener2.On("OnDisconnect").Return().Maybe()
 
 	lb := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(1)
@@ -382,6 +388,7 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	lb.Stop()
 
 	ethClient.AssertExpectations(t)
+	listener0.AssertExpectations(t)
 	listener1.AssertExpectations(t)
 	listener2.AssertExpectations(t)
 	sub.AssertExpectations(t)
@@ -618,7 +625,7 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	}
 }
 
-func TestAppendLogChannel(t *testing.T) {
+func TestLogBroadcaster_AppendLogChannel(t *testing.T) {
 	t.Parallel()
 
 	logs1 := []types.Log{
@@ -649,8 +656,12 @@ func TestAppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	chCombined := eth.ExposedAppendLogChannel(ch1, ch2)
-	chCombined = eth.ExposedAppendLogChannel(chCombined, ch3)
+	lb := eth.NewLogBroadcaster(nil, nil, 0)
+	type exportedAppendLogChanneler interface {
+		ExportedAppendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
+	}
+	chCombined := lb.(exportedAppendLogChanneler).ExportedAppendLogChannel(ch1, ch2)
+	chCombined = lb.(exportedAppendLogChanneler).ExportedAppendLogChannel(chCombined, ch3)
 
 	go func() {
 		defer close(ch1)

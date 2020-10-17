@@ -3,25 +3,28 @@ package ocrkey
 import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"time"
-
-	cryptorand "crypto/rand"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/curve25519"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
 // KeyBundle represents the bundle of keys needed for OCR
 type KeyBundle struct {
-	ID                 string
+	ID                 models.Sha256Hash
 	onChainSigning     *onChainPrivateKey
 	offChainSigning    *offChainPrivateKey
 	offChainEncryption *[curve25519.ScalarSize]byte
@@ -29,7 +32,7 @@ type KeyBundle struct {
 
 // EncryptedKeyBundle holds an encrypted KeyBundle
 type EncryptedKeyBundle struct {
-	ID                    string `gorm:"primary_key"`
+	ID                    models.Sha256Hash `gorm:"primary_key"`
 	OnChainSigningAddress OnChainSigningAddress
 	OffChainPublicKey     OffChainPublicKey
 	EncryptedPrivateKeys  []byte
@@ -56,20 +59,22 @@ func (EncryptedKeyBundle) TableName() string {
 
 // NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
 func NewKeyBundle() (*KeyBundle, error) {
-	reader := cryptorand.Reader
+	return NewKeyBundleFrom(cryptorand.Reader, cryptorand.Reader, cryptorand.Reader)
+}
 
-	ecdsaKey, err := ecdsa.GenerateKey(curve, reader)
+func NewKeyBundleFrom(onChainSigning io.Reader, offChainSigning io.Reader, offChainEncryption io.Reader) (*KeyBundle, error) {
+	ecdsaKey, err := ecdsa.GenerateKey(curve, onChainSigning)
 	if err != nil {
 		return nil, err
 	}
 	onChainPriv := (*onChainPrivateKey)(ecdsaKey)
 
-	_, offChainPriv, err := ed25519.GenerateKey(reader)
+	_, offChainPriv, err := ed25519.GenerateKey(offChainSigning)
 	if err != nil {
 		return nil, err
 	}
 	var encryptionPriv [curve25519.ScalarSize]byte
-	_, err = reader.Read(encryptionPriv[:])
+	_, err = offChainEncryption.Read(encryptionPriv[:])
 	if err != nil {
 		return nil, err
 	}
@@ -82,8 +87,7 @@ func NewKeyBundle() (*KeyBundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	byteID := sha256.Sum256(marshalledPrivK)
-	k.ID = hex.EncodeToString(byteID[:])
+	k.ID = sha256.Sum256(marshalledPrivK)
 	return k, nil
 }
 
@@ -97,9 +101,9 @@ func (pk *KeyBundle) SignOffChain(msg []byte) (signature []byte, err error) {
 	return pk.offChainSigning.Sign(msg)
 }
 
-// ConfigDiffieHelman returns the shared point obtained by multiplying someone's
+// ConfigDiffieHellman returns the shared point obtained by multiplying someone's
 // public key by a secret scalar ( in this case, the offChainEncryption key.)
-func (pk *KeyBundle) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
+func (pk *KeyBundle) ConfigDiffieHellman(base *[curve25519.PointSize]byte) (
 	sharedPoint *[curve25519.PointSize]byte, err error,
 ) {
 	p, err := curve25519.X25519(pk.offChainEncryption[:], base[:])
@@ -113,13 +117,13 @@ func (pk *KeyBundle) ConfigDiffieHelman(base *[curve25519.PointSize]byte) (
 
 // PublicKeyAddressOnChain returns public component of the keypair used in
 // SignOnChain
-func (pk *KeyBundle) PublicKeyAddressOnChain() OnChainSigningAddress {
-	return pk.onChainSigning.Address()
+func (pk *KeyBundle) PublicKeyAddressOnChain() ocrtypes.OnChainSigningAddress {
+	return ocrtypes.OnChainSigningAddress(pk.onChainSigning.Address())
 }
 
 // PublicKeyOffChain returns the pbulic component of the keypair used in SignOffChain
-func (pk *KeyBundle) PublicKeyOffChain() OffChainPublicKey {
-	return OffChainPublicKey(pk.offChainSigning.PublicKey())
+func (pk *KeyBundle) PublicKeyOffChain() ocrtypes.OffchainPublicKey {
+	return ocrtypes.OffchainPublicKey(pk.offChainSigning.PublicKey())
 }
 
 // PublicKeyConfig returns the public component of the keypair used in ConfigKeyShare
