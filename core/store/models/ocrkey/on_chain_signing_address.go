@@ -5,9 +5,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type OnChainSigningAddress common.Address
+type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 
 func (address OnChainSigningAddress) Value() (driver.Value, error) {
 	byteArray := [common.AddressLength]byte(address)

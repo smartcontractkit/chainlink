@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
@@ -25,7 +26,7 @@ type balanceMonitor struct {
 	store          *store.Store
 	ethBalances    map[gethCommon.Address]*assets.Eth
 	ethBalancesMtx *sync.RWMutex
-	sleeperTask    SleeperTask
+	sleeperTask    utils.SleeperTask
 }
 
 // NewBalanceMonitor returns a new balanceMonitor
@@ -35,7 +36,7 @@ func NewBalanceMonitor(store *store.Store) BalanceMonitor {
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
 	}
-	bm.sleeperTask = NewSleeperTask(&worker{bm: bm})
+	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
 	return bm
 }
 

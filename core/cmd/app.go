@@ -194,6 +194,16 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Show a specific Job's details",
 					Action: client.ShowJobSpec,
 				},
+				{
+					Name:   "createocr",
+					Usage:  "Create an offchain reporting job",
+					Action: client.CreateOCRJobSpec,
+				},
+				{
+					Name:   "deletev2",
+					Usage:  "Delete a v2 job",
+					Action: client.DeleteJobV2,
+				},
 			},
 		},
 
@@ -249,6 +259,10 @@ func NewApp(client *Client) *cli.App {
 						cli.StringFlag{
 							Name:  "vrfpassword, vp",
 							Usage: "textfile holding the password for the vrf keys; enables chainlink VRF oracle",
+						},
+						cli.StringFlag{
+							Name:  "ocrpassword, op",
+							Usage: "textfile holding the password for the ocr keys",
 						},
 						cli.Int64Flag{
 							Name:  "replay-from-block, r",

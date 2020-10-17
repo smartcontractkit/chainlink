@@ -19,6 +19,20 @@ func (_m *LogListener) HandleLog(lb eth.LogBroadcast, err error) {
 	_m.Called(lb, err)
 }
 
+// IsV2Job provides a mock function with given fields:
+func (_m *LogListener) IsV2Job() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // JobID provides a mock function with given fields:
 func (_m *LogListener) JobID() *models.ID {
 	ret := _m.Called()
@@ -30,6 +44,20 @@ func (_m *LogListener) JobID() *models.ID {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*models.ID)
 		}
+	}
+
+	return r0
+}
+
+// JobIDV2 provides a mock function with given fields:
+func (_m *LogListener) JobIDV2() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
 	}
 
 	return r0

@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -40,7 +41,7 @@ type jobSubscriber struct {
 	jobSubscriptions map[string]JobSubscription
 	jobsMutex        *sync.RWMutex
 	runManager       RunManager
-	jobResumer       SleeperTask
+	jobResumer       utils.SleeperTask
 	nextBlockWorker  *nextBlockWorker
 }
 
@@ -78,7 +79,7 @@ func NewJobSubscriber(store *store.Store, runManager RunManager) JobSubscriber {
 		runManager:       runManager,
 		jobSubscriptions: map[string]JobSubscription{},
 		jobsMutex:        &sync.RWMutex{},
-		jobResumer:       NewSleeperTask(b),
+		jobResumer:       utils.NewSleeperTask(b),
 		nextBlockWorker:  b,
 	}
 	return js

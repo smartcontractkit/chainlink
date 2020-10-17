@@ -1,43 +1,46 @@
-package logger
+package offchainreporting
 
 import (
+	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
-
-// ocrLogger is an implemenation of the Logger interface for OCR
-// See: https://github.com/smartcontractkit/offchain-reporting-design/blob/master/prototype/offchainreporting/types/logger.go#L3
 
 var _ ocrtypes.Logger = &ocrLogger{}
 
 type ocrLogger struct {
-	internal *Logger
+	internal *logger.Logger
+	trace    bool
 }
 
-func NewOCRLogger(internal *Logger) ocrtypes.Logger {
+func NewLogger(internal *logger.Logger, trace bool) ocrtypes.Logger {
 	return &ocrLogger{
 		internal: internal,
+		trace:    trace,
 	}
 }
 
-// TODO: Change this to Trace in https://github.com/smartcontractkit/chainlink/pull/3407
+// TODO(sam): Zap does not support trace level logging yet, so this hack is
+// necessary to silence excessive logging
 func (ol *ocrLogger) Trace(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Debugw(msg, toKeysAndValues(fields))
+	if ol.trace {
+		ol.internal.Debugw(msg, toKeysAndValues(fields)...)
+	}
 }
 
 func (ol *ocrLogger) Debug(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Debugw(msg, toKeysAndValues(fields))
+	ol.internal.Debugw(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Info(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Infow(msg, toKeysAndValues(fields))
+	ol.internal.Infow(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Warnw(msg, toKeysAndValues(fields))
+	ol.internal.Warnw(msg, toKeysAndValues(fields)...)
 }
 
 func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
-	ol.internal.Errorw(msg, toKeysAndValues(fields))
+	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
 }
 
 // Helpers
