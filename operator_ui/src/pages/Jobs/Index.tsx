@@ -57,7 +57,17 @@ const renderBody = ({
     return jobs.map((j) => (
       <TableRow key={j.id}>
         <TableCell component="th" scope="row">
-          <Link href={`/jobs/${j.id}`}>{j.id}</Link>
+          <Link href={`/jobs/${j.id}`}>
+            {j.attributes.name || '-'}
+            <br />
+            <Typography
+              variant="subtitle2"
+              color="textSecondary"
+              component="span"
+            >
+              {j.id}
+            </Typography>
+          </Link>
         </TableCell>
         <TableCell>
           <Typography variant="body1">
@@ -146,7 +156,7 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                 <TableRow>
                   <TableCell>
                     <Typography variant="body1" color="textSecondary">
-                      ID
+                      Name
                     </Typography>
                   </TableCell>
                   <TableCell>
