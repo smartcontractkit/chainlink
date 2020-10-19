@@ -10,11 +10,11 @@ contract GasGuzzlingConsumer is Consumer{
     specId = _specId;
   }
 
-  function gassyRequestEthereumPrice(string memory _currency, uint256 _payment) public {
+  function gassyRequestEthereumPrice(uint256 _payment) public {
     Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.gassyFulfill.selector);
     req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
-    path[0] = _currency;
+    path[0] = "USD";
     req.addStringArray("path", path);
     sendChainlinkRequest(req, _payment);
   }
