@@ -375,7 +375,7 @@ describe('Operator', () => {
             .fulfillOracleRequest(...fulfillParams)
           const receipt = await tx.wait()
           assert.equal(receipt.events?.length, 3)
-          const responseEvent = receipt.events?.[2]
+          const responseEvent = receipt.events?.[0]
           assert.equal(responseEvent?.event, 'OracleResponse')
           assert.equal(responseEvent?.args?.[0], request.requestId)
           assert.equal(responseEvent?.args?.[5], fulfillParams[5])
