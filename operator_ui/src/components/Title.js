@@ -10,7 +10,7 @@ const styles = (theme) => ({
   },
 })
 
-const Title = ({ children, classes, className }) => (
+export const Title = withStyles(styles)(({ children, classes, className }) => (
   <Typography
     variant="h4"
     color="inherit"
@@ -18,7 +18,7 @@ const Title = ({ children, classes, className }) => (
   >
     {children}
   </Typography>
-)
+))
 
 Title.propTypes = {
   children: PropTypes.oneOfType([
@@ -27,4 +27,4 @@ Title.propTypes = {
   ]),
 }
 
-export default withStyles(styles)(Title)
+export default Title

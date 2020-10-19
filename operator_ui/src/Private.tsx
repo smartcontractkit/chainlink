@@ -30,7 +30,11 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
-const JobsIndex = universal(import('./pages/Jobs/Index'), uniOpts)
+const JobsIndex = universal(() => {
+  return import('./pages/Jobs/Index').then((module) => {
+    return module.JobsIndex
+  })
+}, uniOpts)
 const JobsShow: UniversalComponent<ShowComponentProps> &
   StyledComponentProps<'wrapper' | 'text'> = universal(
   import('./pages/Jobs/Show'),
@@ -115,7 +119,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/jobs" component={JobsIndex} />
               <PrivateRoute
                 exact
-                path="/jobs/page/:jobPage"
+                path="/jobs/page/:pageNumber"
                 component={JobsIndex}
               />
               <PrivateRoute exact path="/jobs/new" component={JobsNew} />
