@@ -137,13 +137,11 @@ func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
 	logs := cltest.GetLogs(t, nil, ilogs)
 	require.Len(t, logs, 1, "a single AvailableFundsUpdated log should be emitted")
 
-	// Add the participating oracles. Ends up with minAnswers=restartDelay=2,
-	// maxAnswers=3
-	oracleList := []common.Address{f.neil.From, f.ned.From, f.nallory.From}
-	_, err = f.aggregatorContract.ChangeOracles(f.sergey, emptyList, oracleList, oracleList, 2, 3, 2)
-	assert.NoError(t, err, "failed to add oracles to aggregator")
-	f.backend.Commit()
+	return f
+}
 
+// checkOraclesAdded asserts that the correct logs were emitted for each oracle added
+func checkOraclesAdded(t *testing.T, f fluxAggregatorUniverse, oracleList []common.Address) {
 	iaddedLogs, err := f.aggregatorContract.FilterOraclePermissionsUpdated(nil, oracleList, []bool{true})
 	require.NoError(t, err, "failed to gather OraclePermissionsUpdated logs")
 
@@ -160,7 +158,6 @@ func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
 		require.Equal(t, oracle, addedLogs[oracleIdx].(*faw.FluxAggregatorOraclePermissionsUpdated).Oracle, "log for wrong oracle emitted")
 		require.Equal(t, oracle, adminLogs[oracleIdx].(*faw.FluxAggregatorOracleAdminUpdated).Oracle, "log for wrong oracle emitted")
 	}
-	return f
 }
 
 type answerParams struct {
@@ -253,6 +250,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// - deploy a brand new FM contract
 	fa := setupFluxAggregatorUniverse(t)
+
+	// - add oracles
+	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
+	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 2, 3, 2)
+	assert.NoError(t, err, "failed to add oracles to aggregator")
+	fa.backend.Commit()
+	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
@@ -410,9 +414,12 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 func TestFluxMonitor_HibernationMode(t *testing.T) {
 	fa := setupFluxAggregatorUniverse(t)
 
-	// raise flag
-	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	// - add oracles
+	oracleList := []common.Address{fa.nallory.From}
+	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 1, 0)
+	assert.NoError(t, err, "failed to add oracles to aggregator")
 	fa.backend.Commit()
+	checkOraclesAdded(t, fa, oracleList)
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
@@ -453,27 +460,50 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(pollTimerPeriod)
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
+
+	// raise flags
+	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
+	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.backend.Commit()
+
 	job = cltest.CreateJobSpecViaWeb(t, app, job)
 
 	// node doesn't submit initial response, because flag is up
 	cltest.AssertRunsStays(t, job, app.Store, 0)
 
-	// raise contract's flag
-	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
-	fa.backend.Commit()
-
-	// lower global kill switch flag
+	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
-	cltest.AssertRunsStays(t, job, app.Store, 0)
+	cltest.WaitForRuns(t, job, app.Store, 1)
+	fa.backend.Commit()
 
-	// lower contract's flag - should trigger job run
+	// change in price should trigger run
+	reportPrice = int64(2)
+	cltest.WaitForRuns(t, job, app.Store, 2)
+
+	// lower contract's flag - should have no effect
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 1)
+	cltest.WaitForRuns(t, job, app.Store, 2)
 
-	// raise contract's flag
+	// change in price should trigger run
+	reportPrice = int64(4)
+	cltest.WaitForRuns(t, job, app.Store, 3)
+
+	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
+	fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress)
 	fa.backend.Commit()
-	cltest.AssertRunsStays(t, job, app.Store, 1)
+
+	// wait for FM to receive flags raised logs
+	assert.Eventually(t, func() bool {
+		ilogs, err := fa.flagsContract.FilterFlagRaised(nil, []common.Address{})
+		require.NoError(t, err)
+		logs := cltest.GetLogs(t, nil, ilogs)
+		return len(logs) == 4
+	}, 5*time.Second, 100*time.Millisecond)
+
+	// change in price should not trigger run
+	reportPrice = int64(8)
+	cltest.AssertRunsStays(t, job, app.Store, 3)
 }
