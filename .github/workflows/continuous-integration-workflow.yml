@@ -3,7 +3,7 @@ name: Continuous Integration Workflow
 on: [push]
 
 env:
-  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a6
+  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
   core:
