@@ -136,7 +136,7 @@ func TestORM(t *testing.T) {
 		jobORM := job.NewORM(db, config, orm)
 		defer jobORM.Close()
 
-		ocrSpec, dbSpec := makeOCRJobSpec(t, db)
+		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
@@ -249,7 +249,7 @@ func TestORM(t *testing.T) {
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
-				ocrSpec, dbSpec := makeOCRJobSpec(t, db)
+				ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
 
 				// Need a job in order to create a run
 				err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())

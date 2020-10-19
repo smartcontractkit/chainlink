@@ -103,7 +103,7 @@ func (o *orm) CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error) {
 		}
 		return nil
 	})
-	return specID, err
+	return specID, errors.WithStack(err)
 }
 
 // CreateRun adds a Run record to the DB, and one TaskRun
@@ -141,7 +141,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
-	return runID, err
+	return runID, errors.WithStack(err)
 }
 
 type ProcessTaskRunFunc func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
@@ -163,6 +163,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		} else if err != nil {
 			retry = true
 			err = errors.Wrap(err, "Pipeline runner could not process task run")
+			logger.Error(err)
 
 		} else {
 			anyRemaining = true
@@ -170,7 +171,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		}
 		return
 	})
-	return anyRemaining, err
+	return anyRemaining, errors.WithStack(err)
 }
 
 func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) error {

@@ -38,7 +38,8 @@ const dotStr = `
     answer2 [type=bridge name=election_winner index=1];
 `
 
-const ocrJobSpecText = `
+const (
+	ocrJobSpecTemplate = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
@@ -56,43 +57,63 @@ contractConfigTrackerSubscribeInterval = "2m"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
-    // data source 1
-    ds1          [type=bridge name=voter_turnout];
-    ds1_parse    [type=jsonparse path="data,result"];
-    ds1_multiply [type=multiply times=100];
-
-    // data source 2
-    ds2          [type=http method=POST url="%s" requestData="{\\"hi\\": \\"hello\\"}"];
-    ds2_parse    [type=jsonparse path="turnout"];
-    ds2_multiply [type=multiply times=100];
-
-    ds1 -> ds1_parse -> ds1_multiply -> answer1;
-    ds2 -> ds2_parse -> ds2_multiply -> answer1;
-
-    answer1 [type=median                      index=0];
-    answer2 [type=bridge name=election_winner index=1];
+	%s
 """
 `
 
-func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+	voterTurnoutDataSourceTemplate = `
+// data source 1
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="data,result"];
+ds1_multiply [type=multiply times=100];
+
+// data source 2
+ds2          [type=http method=POST url="%s" requestData="{\\"hi\\": \\"hello\\"}"];
+ds2_parse    [type=jsonparse path="turnout"];
+ds2_multiply [type=multiply times=100];
+
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+answer1 [type=median                      index=0];
+answer2 [type=bridge name=election_winner index=1];
+`
+
+	simpleFetchDataSourceTemplate = `
+// data source 1
+ds1          [type=http method=GET url="%s"];
+ds1_parse    [type=jsonparse path="USD"];
+ds1_multiply [type=multiply times=100];
+ds1 -> ds1_parse -> ds1_multiply;
+`
+)
+
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
-	return makeOCRJobSpecWithHTTPURL(t, db, "https://chain.link/voter_turnout/USA-2020")
+	return makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, "https://example.com/foo/bar")
 }
 
-func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpUrl string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+	t.Helper()
+	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
+	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
+	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, ds)
+	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
+}
+
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+	t.Helper()
+	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
+	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL)
+	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, ds)
+	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
+}
+
+func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
-
-	a, err := models.NewEIP55Address(cltest.DefaultKeyAddress.Hex())
-	require.NoError(t, err)
-	key := models.Key{Address: a, JSON: cltest.JSONFromString(t, "{}")}
-	require.NoError(t, db.Save(&key).Error)
-
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, httpUrl)
-
 	var ocrspec offchainreporting.OracleSpec
-	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
+	err := toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
 
 	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
