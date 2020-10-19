@@ -204,7 +204,7 @@ func (app *ChainlinkApplication) Start() error {
 
 	subtasks := []func() error{
 		app.Store.Start,
-		app.wsclient.Start,
+		app.explorerClient.Start,
 		app.StatsPusher.Start,
 		app.RunQueue.Start,
 		app.RunManager.ResumeAllInProgress,
