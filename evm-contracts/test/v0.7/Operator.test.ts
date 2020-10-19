@@ -12,7 +12,7 @@ import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
 import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
-import {GasGuzzlingConsumerFactory} from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
+import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const gasGuzzlingConsumerFactory = new GasGuzzlingConsumerFactory()
@@ -323,7 +323,9 @@ describe('Operator', () => {
           .deploy(link.address, operator.address, specId)
         const paymentAmount = h.toWei('1')
         await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount)
+        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+          paymentAmount,
+        )
         const receipt = await tx.wait()
         request = oracle.decodeRunRequest(receipt.logs?.[3])
       })
