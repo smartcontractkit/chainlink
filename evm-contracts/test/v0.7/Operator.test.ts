@@ -323,7 +323,7 @@ describe('Operator', () => {
           .deploy(link.address, operator.address, specId)
         const paymentAmount = h.toWei('1')
         await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice('USD', paymentAmount)
+        const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(paymentAmount)
         const receipt = await tx.wait()
         request = oracle.decodeRunRequest(receipt.logs?.[3])
       })
