@@ -36,7 +36,7 @@ jobs:
         with:
           args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -45,7 +45,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /go/pkg/mod
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
@@ -114,7 +114,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -138,7 +138,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -189,7 +189,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -208,7 +208,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -227,7 +227,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
