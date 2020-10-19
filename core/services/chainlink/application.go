@@ -182,28 +182,38 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
+	// EthClient must be dialled first because it is required in subtasks
+	if err := app.Store.EthClient.Dial(context.TODO()); err != nil {
+		return err
+	}
+
 	app.jobSpawner.Start()
 	app.pipelineRunner.Start()
 
-	// XXX: Change to exit on first encountered error.
-	return multierr.Combine(
-		app.Store.EthClient.Dial(context.TODO()),
-		app.Store.Start(),
-		app.StatsPusher.Start(),
-		app.RunQueue.Start(),
-		app.RunManager.ResumeAllInProgress(),
-		app.LogBroadcaster.Start(),
-		app.FluxMonitor.Start(),
-		app.EthBroadcaster.Start(),
+	subtasks := []func() error{
+		app.Store.Start,
+		app.StatsPusher.Start,
+		app.RunQueue.Start,
+		app.RunManager.ResumeAllInProgress,
+		app.LogBroadcaster.Start,
+		app.FluxMonitor.Start,
+		app.EthBroadcaster.Start,
 
 		// HeadTracker deliberately started after
 		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
 		// which leads to writes of JobRuns RunStatus to the db.
 		// https://www.pivotaltracker.com/story/show/162230780
-		app.HeadTracker.Start(),
+		app.HeadTracker.Start,
 
-		app.Scheduler.Start(),
-	)
+		app.Scheduler.Start,
+	}
+
+	for _, task := range subtasks {
+		if err := task(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Stop allows the application to exit by halting schedules, closing
