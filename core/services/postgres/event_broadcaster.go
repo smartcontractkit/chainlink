@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"sync"
 	"time"
 
@@ -22,12 +23,14 @@ type EventBroadcaster interface {
 	Start() error
 	Stop() error
 	Subscribe(channel, payloadFilter string) (Subscription, error)
+	Notify(channel string, payload interface{}) error
 }
 
 type eventBroadcaster struct {
 	uri                  string
 	minReconnectInterval time.Duration
 	maxReconnectDuration time.Duration
+	db                   *sql.DB
 
 	listeners   map[string]*channelListener
 	listenersMu sync.Mutex
@@ -61,6 +64,11 @@ func (b *eventBroadcaster) Start() error {
 	if !b.OkayToStart() {
 		return errors.Errorf("Postgres event broadcaster has already been started")
 	}
+	db, err := sql.Open("postgres", b.uri)
+	if err != nil {
+		return err
+	}
+	b.db = db
 	return nil
 }
 
@@ -69,15 +77,21 @@ func (b *eventBroadcaster) Stop() error {
 		return errors.Errorf("Postgres event broadcaster has already been stopped")
 	}
 
+	err := b.db.Close()
+
 	b.listenersMu.Lock()
 	defer b.listenersMu.Unlock()
 
-	var err error
 	for _, listener := range b.listeners {
 		err = multierr.Append(err, listener.stop())
 	}
 	b.listeners = nil // avoid "close of closed channel" panic on shutdown
 	return err
+}
+
+func (b *eventBroadcaster) Notify(channel string, payload interface{}) error {
+	_, err := b.db.Exec(`SELECT pg_notify($1, $2::text)`, channel, payload)
+	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
 
 func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {

@@ -73,6 +73,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	db := oldORM.DB
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {

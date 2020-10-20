@@ -21,6 +21,7 @@ func TestRunner(t *testing.T) {
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
