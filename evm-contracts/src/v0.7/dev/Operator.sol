@@ -44,12 +44,33 @@ contract Operator is
     bytes data
   );
 
+  event OracleRequest2(
+    bytes32 indexed specId,
+    address requester,
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddr,
+    bytes4 callbackFunctionId,
+    uint256 cancelExpiration,
+    uint256 dataVersion,
+    bytes data
+  );
+
   event CancelOracleRequest(
     bytes32 indexed requestId
   );
 
   event OracleResponse(
     bytes32 indexed requestId
+  );
+
+  event OracleResponse2(
+    bytes32 indexed requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes data
   );
 
   /**
@@ -61,6 +82,28 @@ contract Operator is
     Owned()
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+  }
+
+  function _verifyOracleRequest(
+    address sender,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce
+  ) internal returns (bytes32 requestId, uint256 expiration) {
+    requestId = keccak256(abi.encodePacked(sender, nonce));
+    require(s_commitments[requestId] == 0, "Must use a unique ID");
+    // solhint-disable-next-line not-rely-on-time
+    expiration = block.timestamp.add(EXPIRY_TIME);
+    s_commitments[requestId] = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    return (requestId, expiration);
   }
 
   /**
@@ -91,20 +134,13 @@ contract Operator is
     onlyLINK()
     checkCallbackAddress(callbackAddress)
   {
-    bytes32 requestId = keccak256(abi.encodePacked(sender, nonce));
-    require(s_commitments[requestId] == 0, "Must use a unique ID");
-    // solhint-disable-next-line not-rely-on-time
-    uint256 expiration = block.timestamp.add(EXPIRY_TIME);
-
-    s_commitments[requestId] = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
+    (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
+      sender,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      nonce
     );
-
     emit OracleRequest(
       specId,
       sender,
@@ -115,6 +151,99 @@ contract Operator is
       expiration,
       dataVersion,
       data);
+  }
+
+
+  function oracleRequest2(
+    address sender,
+    uint256 payment,
+    bytes32 specId,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion,
+    bytes calldata data
+  )
+    external
+    override
+    onlyLINK()
+    checkCallbackAddress(callbackAddress)
+  {
+    (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
+      sender,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      nonce
+    );
+    emit OracleRequest2(
+      specId,
+      sender,
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration,
+      dataVersion,
+      data);
+  }
+
+  function _verifyOracleResponse(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration
+  )
+  internal
+  {
+    bytes32 paramsHash = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
+  }
+
+  function fulfillOracleRequest2(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes calldata data
+  )
+    external
+    override
+    onlyAuthorizedNode()
+    isValidRequest(requestId)
+    returns (bool)
+  {
+    _verifyOracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration
+    );
+    emit OracleResponse2(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration,
+      data);
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
+    // All updates to the oracle's fulfillment should come before calling the
+    // callback(addr+functionId) as it is untrusted.
+    // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
+    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
+    return success;
   }
 
   /**
@@ -144,18 +273,16 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
-    bytes32 paramsHash = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
+    _verifyOracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration
     );
-    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
-    delete s_commitments[requestId];
-    emit OracleResponse(requestId);
+    emit OracleResponse(
+      requestId
+    );
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
