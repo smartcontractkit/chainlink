@@ -124,7 +124,7 @@ interface Props extends WithStyles<typeof styles> {
   url: string
 }
 
-const RegionalNav = ({
+const RegionalNavComponent = ({
   classes,
   createJobRun,
   fetchJobRuns,
@@ -136,7 +136,7 @@ const RegionalNav = ({
   const navErrorsActive = match.path.includes('errors')
   const navDefinitionActive = match.path.includes('json')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
-  const definition = job && jobSpecDefinition(job)
+  const definition = job && jobSpecDefinition({ ...job, ...job.attributes })
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
@@ -232,7 +232,7 @@ const RegionalNav = ({
               alignItems="center"
               className={classes.mainRow}
             >
-              <Grid item xs={7}>
+              <Grid item xs={6}>
                 <Typography
                   variant="h3"
                   color="secondary"
@@ -241,7 +241,7 @@ const RegionalNav = ({
                   {jobSpecId}
                 </Typography>
               </Grid>
-              <Grid item xs={5} className={classes.actions}>
+              <Grid item xs={6} className={classes.actions}>
                 <Button
                   className={classes.regionalNavButton}
                   onClick={() => setModalOpen(true)}
@@ -279,12 +279,12 @@ const RegionalNav = ({
           </Grid>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="textSecondary">
+              Created{' '}
               {job && job.attributes.createdAt && (
-                <React.Fragment>
-                  Created{' '}
+                <>
                   <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
                   ({localizedTimestamp(job.attributes.createdAt)})
-                </React.Fragment>
+                </>
               )}
             </Typography>
           </Grid>
@@ -339,6 +339,8 @@ export const ConnectedRegionalNav = connect(mapStateToProps, {
   fetchJobRuns,
   createJobRun,
   deleteJobSpec,
-})(RegionalNav)
+})(RegionalNavComponent)
 
-export default withStyles(styles)(ConnectedRegionalNav)
+export const RegionalNav = withStyles(styles)(ConnectedRegionalNav)
+
+export default RegionalNav

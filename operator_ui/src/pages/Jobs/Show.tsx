@@ -17,7 +17,7 @@ import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import RegionalNav from './RegionalNav'
+import { RegionalNav } from './RegionalNav'
 import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
 import { JobSpec, JobRun } from 'core/store/models'
 
@@ -116,7 +116,7 @@ export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
     <div>
       <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
       <Content>
-        {error && <div>Error while fetching data: {error}</div>}
+        {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
         {!error && !jobSpec && <div>Fetching...</div>}
         {!error && jobSpec && (
           <Grid container spacing={24}>
