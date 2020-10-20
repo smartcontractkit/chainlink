@@ -51,6 +51,7 @@ declare module 'core/store/models' {
     tasks: TaskSpec[]
     startAt: nullable.Time
     endAt: nullable.Time
+    name: string
   }
 
   // Types of Initiators (see Initiator struct just below.)
