@@ -128,7 +128,6 @@ func (b *eventBroadcaster) unsubscribe(sub Subscription) {
 		}
 		delete(b.listeners, sub.channelName())
 	}
-	return
 }
 
 type channelListener struct {
