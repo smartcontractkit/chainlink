@@ -61,6 +61,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	store.EthClient = ethClient
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -282,6 +283,7 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 	store.EthClient = ethClient
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -429,6 +431,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.EthClient = ethClient
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -478,6 +481,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.EthClient = ethClient
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -527,6 +531,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.EthClient = ethClient
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -575,6 +580,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.EthClient = ethClient
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -625,6 +631,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.EthClient = ethClient
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -679,6 +686,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		store.Config.Set("ETH_GAS_PRICE_DEFAULT", 500000000000)
 
 		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		eventBroadcaster.Start()
 		defer eventBroadcaster.Stop()
 
 		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -757,6 +765,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	store.EthClient = ethClient
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -1089,6 +1098,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	store.EthClient = ethClient
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -1186,6 +1196,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	store1.EthClient = ethClient
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb1 := bulletprooftxmanager.NewEthBroadcaster(store1, config, eventBroadcaster)
@@ -1298,6 +1309,7 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
@@ -1314,6 +1326,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config, eventBroadcaster)

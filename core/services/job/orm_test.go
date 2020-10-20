@@ -22,6 +22,7 @@ func TestORM(t *testing.T) {
 	db := oldORM.DB
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)

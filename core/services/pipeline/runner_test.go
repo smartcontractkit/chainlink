@@ -20,6 +20,7 @@ func TestRunner(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
 	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
