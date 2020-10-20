@@ -131,14 +131,14 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
-func TestIntegration_FeeBump(t *testing.T) {
+func TestIntegration_FeeBump_LegacyTXM(t *testing.T) {
 	tickerResponse := `{"high": "10744.00", "last": "10583.75", "timestamp": "1512156162", "bid": "10555.13", "vwap": "10097.98", "volume": "17861.33960013", "low": "9370.11", "ask": "10583.00", "open": "9927.29"}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
 	defer assertCalled()
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false) // TODO - remove with test
 	// Must use hardcoded key here since the hash has to match attempt1Hash
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
@@ -663,12 +663,12 @@ func TestIntegration_MultiplierUint256(t *testing.T) {
 	assert.Equal(t, "0x00000000000000000000000000000000000000000000000000000000000f98b2", value)
 }
 
-func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
+func TestIntegration_NonceManagement_firstRunWithExistingTxs_LegacyTXM(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false) // TODO - remove with test
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
