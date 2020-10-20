@@ -20,7 +20,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+func clearDB(t *testing.T, db *gorm.DB) {
+	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs, pipeline_task_specs CASCADE`).Error
+	require.NoError(t, err)
+}
+
 func TestORM(t *testing.T) {
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
+	defer cleanupDB()
+	db := oldORM.DB
 
 	var specID int32
 
@@ -76,10 +84,6 @@ func TestORM(t *testing.T) {
 	}
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm_test", true, true)
-		defer cleanupDB()
-		db := oldORM.DB
-
 		orm := pipeline.NewORM(db, config)
 
 		g := pipeline.NewTaskDAG()
@@ -128,10 +132,6 @@ func TestORM(t *testing.T) {
 
 	var runID int64
 	t.Run("creates runs", func(t *testing.T) {
-		config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
-		defer cleanupDB()
-		db := oldORM.DB
-
 		orm := pipeline.NewORM(db, config)
 		jobORM := job.NewORM(db, config, orm)
 		defer jobORM.Close()
@@ -234,12 +234,10 @@ func TestORM(t *testing.T) {
 		}
 
 		for _, test := range tests {
+			clearDB(t, db)
+
 			test := test
 			t.Run(test.name, func(t *testing.T) {
-				config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "chainlink_test_temp_pipeline_orm", true)
-				defer cleanupDB()
-				db := oldORM.DB
-
 				orm := pipeline.NewORM(db, config)
 				jobORM := job.NewORM(db, config, orm)
 				defer jobORM.Close()

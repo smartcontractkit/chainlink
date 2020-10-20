@@ -116,7 +116,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -176,7 +176,66 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
+		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		require.NoError(t, err)
+
+		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = runner.AwaitRun(ctx, runID)
+		require.NoError(t, err)
+
+		// Verify the final pipeline results
+		results, err := runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+
+		assert.Len(t, results, 1)
+		assert.EqualError(t, results[0].Error, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Nil(t, results[0].Value)
+
+		// Verify individual task results
+		var runs []pipeline.TaskRun
+		err = db.
+			Preload("PipelineTaskSpec").
+			Where("pipeline_run_id = ?", runID).
+			Find(&runs).Error
+		assert.NoError(t, err)
+		require.Len(t, runs, 4)
+
+		for _, run := range runs {
+			if run.DotID() == "ds1" {
+				assert.True(t, run.Error.IsZero())
+				assert.Equal(t, resp, run.Output.Val)
+			} else if run.DotID() == "ds1_parse" {
+				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Nil(t, run.Output)
+			} else if run.DotID() == "ds1_multiply" {
+				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
+				assert.Nil(t, run.Output)
+			} else if run.DotID() == "__result__" {
+				assert.Equal(t, []interface{}{nil}, run.Output.Val)
+				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
+			} else {
+				t.Fatalf("unknown task '%v'", run.DotID())
+			}
+		}
+	})
+
+	t.Run("handles the case where the jsonparse lookup path is missing from the http response and lax is enabled", func(t *testing.T) {
+		var httpURL string
+		resp := "{\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}"
+		{
+			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
+			defer cleanupHTTP()
+			httpURL = mockHTTP.URL
+		}
+
+		// Need a job in order to create a run
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, true)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -212,7 +271,6 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.DotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
-				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
 			} else if run.DotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())

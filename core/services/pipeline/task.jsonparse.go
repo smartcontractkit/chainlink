@@ -12,6 +12,9 @@ import (
 type JSONParseTask struct {
 	BaseTask `mapstructure:",squash"`
 	Path     JSONPath `json:"path"`
+	// Lax when disabled will return an error if the path does not exist
+	// Lax when enabled will return nil with no error if the path does not exist
+	Lax bool
 }
 
 var _ Task = (*JSONParseTask)(nil)
@@ -43,15 +46,15 @@ func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 		return Result{Error: err}
 	}
 
-	for i, part := range t.Path {
+	for _, part := range t.Path {
 		switch d := decoded.(type) {
 		case map[string]interface{}:
 			var exists bool
 			decoded, exists = d[part]
-			if !exists && i == len(t.Path)-1 {
+			if !exists && t.Lax {
 				return Result{Value: nil}
 			} else if !exists {
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
 			}
 
 		case []interface{}:
@@ -59,10 +62,10 @@ func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 			if !ok {
 				return Result{Error: errors.Errorf("JSONParse task error: %v is not a valid array index", part)}
 			} else if !bigindex.IsInt64() {
-				if i == len(t.Path)-1 {
+				if t.Lax {
 					return Result{Value: nil}
 				}
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
 			}
 			index := int(bigindex.Int64())
 			if index < 0 {
@@ -70,15 +73,15 @@ func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 			}
 
 			exists := index >= 0 && index < len(d)
-			if !exists && i == len(t.Path)-1 {
+			if !exists && t.Lax {
 				return Result{Value: nil}
 			} else if !exists {
-				return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
+				return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
 			}
 			decoded = d[index]
 
 		default:
-			return Result{Error: errors.Errorf(`could not resolve path ["%v"]`, strings.Join(t.Path, `","`))}
+			return Result{Error: errors.Errorf(`could not resolve path ["%v"] in %s`, strings.Join(t.Path, `","`), bs)}
 		}
 	}
 	return Result{Value: decoded}
