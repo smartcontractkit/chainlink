@@ -223,7 +223,7 @@ func (b *logBroadcaster) startResubscribeLoop() {
 		}
 
 		// Each time this loop runs, chRawLogs is reconstituted as:
-		//     remaining logs from last subscription <= backfilled logs <= logs from new subscription
+		//     remaining logs from last subscription <- backfilled logs <- logs from new subscription
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the LogBroadcast type.
 		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)

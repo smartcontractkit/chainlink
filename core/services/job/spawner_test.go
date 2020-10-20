@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -71,13 +72,16 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		innerJobSpecA, _ := makeOCRJobSpec(t, db)
 		innerJobSpecB, _ := makeOCRJobSpec(t, db)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 		jobSpecB := &spec{innerJobSpecB, jobTypeB}
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config))
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 		spawner.Start()
@@ -144,7 +148,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config))
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
@@ -175,7 +179,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config))
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
