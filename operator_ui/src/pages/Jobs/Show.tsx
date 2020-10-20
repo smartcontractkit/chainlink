@@ -5,9 +5,9 @@ import {
   Typography,
   WithStyles,
   withStyles,
+  Card,
+  Grid,
 } from '@material-ui/core'
-import Card from '@material-ui/core/Card'
-import Grid from '@material-ui/core/Grid'
 import { v2 } from 'api'
 import { RouteComponentProps } from 'react-router-dom'
 import Content from 'components/Content'

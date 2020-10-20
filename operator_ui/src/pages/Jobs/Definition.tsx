@@ -1,87 +1,94 @@
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
-import { withStyles } from '@material-ui/core/styles'
-import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
-import CardContent from '@material-ui/core/CardContent'
-import Typography from '@material-ui/core/Typography'
-import Divider from '@material-ui/core/Divider'
+import React from 'react'
+import { RouteComponentProps } from 'react-router-dom'
+import { v2 } from 'api'
+import { ApiResponse } from '@chainlink/json-api-client'
+import {
+  createStyles,
+  CardContent,
+  Divider,
+  Card,
+  Grid,
+  Theme,
+  Typography,
+  withStyles,
+  WithStyles,
+} from '@material-ui/core'
 import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
-import RegionalNav from './RegionalNav'
-import { fetchJob, createJobRun } from 'actionCreators'
-import jobSelector from 'selectors/job'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { JobSpec } from 'core/store/models'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import RegionalNav from './RegionalNav'
 
-const styles = (theme) => ({
-  definitionTitle: {
-    marginTop: theme.spacing.unit * 2,
-    marginBottom: theme.spacing.unit * 2,
-  },
-  divider: {
-    marginTop: theme.spacing.unit,
-    marginBottom: theme.spacing.unit * 3,
-  },
-})
+const definitionStyles = (theme: Theme) =>
+  createStyles({
+    definitionTitle: {
+      marginTop: theme.spacing.unit * 2,
+      marginBottom: theme.spacing.unit * 2,
+    },
+    divider: {
+      marginTop: theme.spacing.unit,
+      marginBottom: theme.spacing.unit * 3,
+    },
+  })
 
-const renderDetails = ({ job, classes }) => {
-  const definition = job && jobSpecDefinition(job)
+const Definition: React.FC<
+  RouteComponentProps<{
+    jobSpecId: string
+  }> &
+    WithStyles<typeof definitionStyles>
+> = ({ classes, match }) => {
+  const { jobSpecId } = match.params
 
-  if (definition) {
-    return (
-      <Grid container spacing={0}>
-        <Grid item xs={12}>
-          <Typography variant="h5" className={classes.definitionTitle}>
-            Definition
-          </Typography>
-        </Grid>
-        <Grid item xs={12}>
-          <Divider light className={classes.divider} />
-        </Grid>
-        <Grid item xs={12}>
-          <PrettyJson object={definition} />
-        </Grid>
-      </Grid>
-    )
-  }
+  const [error, setError] = React.useState()
+  const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
 
-  return <React.Fragment>Fetching ...</React.Fragment>
-}
-
-const Definition = (props) => {
-  const { fetchJob, job, jobSpecId } = props
-
-  useEffect(() => {
+  React.useEffect(() => {
     document.title = 'Job Definition'
-    fetchJob(jobSpecId)
-  }, [fetchJob, jobSpecId])
+  }, [])
+
+  React.useEffect(() => {
+    v2.specs
+      .getJobSpec(jobSpecId)
+      .then((response) => setJobSpec(response.data))
+      .catch(setError)
+  }, [jobSpecId])
 
   return (
     <div>
-      <RegionalNav jobSpecId={jobSpecId} job={job} />
+      <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
       <Content>
         <Card>
-          <CardContent>{renderDetails(props)}</CardContent>
+          {error && (
+            <div>Error while fetching data: {JSON.stringify(error)}</div>
+          )}
+          {!error && !jobSpec && <div>Fetching...</div>}
+          {!error && jobSpec && (
+            <CardContent>
+              <Grid container spacing={0}>
+                <Grid item xs={12}>
+                  <Typography variant="h5" className={classes.definitionTitle}>
+                    Definition
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider light className={classes.divider} />
+                </Grid>
+                <Grid item xs={12}>
+                  <PrettyJson
+                    object={jobSpecDefinition({
+                      ...jobSpec,
+                      ...jobSpec.attributes,
+                    })}
+                  />
+                </Grid>
+              </Grid>
+            </CardContent>
+          )}
         </Card>
       </Content>
     </div>
   )
 }
 
-const mapStateToProps = (state, ownProps) => {
-  const jobSpecId = ownProps.match.params.jobSpecId
-  const job = jobSelector(state, jobSpecId)
-
-  return {
-    jobSpecId,
-    job,
-  }
-}
-
-export const ConnectedDefinition = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob, createJobRun }),
-)(Definition)
-
-export default withStyles(styles)(ConnectedDefinition)
+export const JobsDefinition = withStyles(definitionStyles)(Definition)
+export default JobsDefinition
