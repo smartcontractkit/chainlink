@@ -1,19 +1,21 @@
 import React from 'react'
 import { RouteComponentProps } from 'react-router-dom'
 import { ApiResponse } from '@chainlink/json-api-client'
+import {
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@material-ui/core'
 import { v2 } from 'api'
 import Button from 'components/Button'
 import Content from 'components/Content'
 import { JobSpec } from 'core/store/models'
 import { RegionalNav } from './RegionalNav'
 import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
-import Card from '@material-ui/core/Card'
-import Table from '@material-ui/core/Table'
-import TableBody from '@material-ui/core/TableBody'
-import TableCell from '@material-ui/core/TableCell'
-import TableHead from '@material-ui/core/TableHead'
-import TableRow from '@material-ui/core/TableRow'
-import Typography from '@material-ui/core/Typography'
 
 export const JobsErrors: React.FC<RouteComponentProps<{
   jobSpecId: string
@@ -23,11 +25,14 @@ export const JobsErrors: React.FC<RouteComponentProps<{
   const [error, setError] = React.useState()
   const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
 
-  const fetchJobSpec = async () =>
-    v2.specs
-      .getJobSpec(jobSpecId)
-      .then((response) => setJobSpec(response.data))
-      .catch(setError)
+  const fetchJobSpec = React.useCallback(
+    async () =>
+      v2.specs
+        .getJobSpec(jobSpecId)
+        .then((response) => setJobSpec(response.data))
+        .catch(setError),
+    [jobSpecId],
+  )
 
   React.useEffect(() => {
     document.title = 'Job Errors'
@@ -35,7 +40,7 @@ export const JobsErrors: React.FC<RouteComponentProps<{
 
   React.useEffect(() => {
     fetchJobSpec()
-  }, [])
+  }, [fetchJobSpec])
 
   const handleDismiss = async (jobSpecErrorId: string) => {
     // Optimistic delete
