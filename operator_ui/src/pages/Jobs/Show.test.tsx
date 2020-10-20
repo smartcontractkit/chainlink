@@ -1,10 +1,8 @@
 import { act } from 'react-dom/test-utils'
-import createStore from 'createStore'
 import { JobsShow } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'
-import { Provider } from 'react-redux'
 import { MemoryRouter, Route } from 'react-router-dom'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
@@ -12,41 +10,40 @@ import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from 'utils/constants'
 
+const JOB_SPEC_ID = 'c60b9927eeae43168ddbe92584937b1b'
+const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
+
 const mountShow = (path: string) =>
   mountWithTheme(
-    <Provider store={createStore()}>
-      <MemoryRouter initialEntries={[path]}>
-        <Route path="/jobs/:jobSpecId" component={JobsShow} />
-      </MemoryRouter>
-    </Provider>,
+    <MemoryRouter initialEntries={[path]}>
+      <Route path="/jobs/:jobSpecId" component={JobsShow} />
+    </MemoryRouter>,
   )
 
 describe('pages/Jobs/Show', () => {
-  const jobSpecId = 'c60b9927eeae43168ddbe92584937b1b'
-  const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
   it('renders the details of the job spec, its latest runs, its task list entries and its total earnings', async () => {
     expect.assertions(9)
 
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
-      id: jobSpecId,
+      id: JOB_SPEC_ID,
       initiators: [{ type: 'web' }],
       createdAt: minuteAgo,
       earnings: GWEI_PER_TOKEN,
       minPayment: 100 * WEI_PER_TOKEN,
     })
-    global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
+    global.fetch.getOnce(globPath(`/v2/specs/${JOB_SPEC_ID}`), jobSpecResponse)
 
     const jobRunResponse = jsonApiJobSpecRunsFactory([
       {
-        id: jobRunId,
-        jobId: jobSpecId,
+        id: JOB_RUN_ID,
+        jobId: JOB_SPEC_ID,
         status: 'pending',
       },
     ])
     global.fetch.getOnce(globPath('/v2/runs'), jobRunResponse)
 
-    const wrapper = mountShow(`/jobs/${jobSpecId}`)
+    const wrapper = mountShow(`/jobs/${JOB_SPEC_ID}`)
 
     await act(async () => {
       await syncFetch(wrapper)
@@ -64,23 +61,23 @@ describe('pages/Jobs/Show', () => {
 
   it('displays a view more link if there are more runs than the display count', async () => {
     const runs = [
-      { id: 'runA', jobId: jobSpecId },
-      { id: 'runB', jobId: jobSpecId },
-      { id: 'runC', jobId: jobSpecId },
-      { id: 'runD', jobId: jobSpecId },
-      { id: 'runE', jobId: jobSpecId },
-      { id: 'runF', jobId: jobSpecId },
+      { id: 'runA', jobId: JOB_SPEC_ID },
+      { id: 'runB', jobId: JOB_SPEC_ID },
+      { id: 'runC', jobId: JOB_SPEC_ID },
+      { id: 'runD', jobId: JOB_SPEC_ID },
+      { id: 'runE', jobId: JOB_SPEC_ID },
+      { id: 'runF', jobId: JOB_SPEC_ID },
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
-      id: jobSpecId,
+      id: JOB_SPEC_ID,
     })
     const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
 
-    global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
+    global.fetch.getOnce(globPath(`/v2/specs/${JOB_SPEC_ID}`), jobSpecResponse)
     global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
 
-    const wrapper = mountShow(`/jobs/${jobSpecId}`)
+    const wrapper = mountShow(`/jobs/${JOB_SPEC_ID}`)
 
     await act(async () => {
       await syncFetch(wrapper)
