@@ -2,8 +2,8 @@ import React from 'react'
 import { act } from 'react-dom/test-utils'
 import { JobsDefinition } from 'pages/Jobs/Definition'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
-import { MemoryRouter, Route } from 'react-router-dom'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import { Route } from 'react-router-dom'
+import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
@@ -18,10 +18,11 @@ describe('pages/Jobs/Definition', () => {
       }),
     )
 
-    const wrapper = mountWithTheme(
-      <MemoryRouter initialEntries={[`/jobs/${JOB_SPEC_ID}/definition`]}>
-        <Route path="/jobs/:jobSpecId/definition" component={JobsDefinition} />
-      </MemoryRouter>,
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/:jobSpecId/definition" component={JobsDefinition} />,
+      {
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/definition`],
+      },
     )
 
     await act(async () => {

@@ -2,8 +2,8 @@ import React from 'react'
 import { act } from 'react-dom/test-utils'
 import { JobsErrors } from 'pages/Jobs/Errors'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
-import { MemoryRouter, Route } from 'react-router-dom'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import { Route } from 'react-router-dom'
+import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
@@ -32,14 +32,6 @@ const errors = [
     updatedAt: '2020-10-16T13:18:46.519087+01:00',
   },
 ]
-
-const mountShow = (path: string) =>
-  mountWithTheme(
-    <MemoryRouter initialEntries={[path]}>
-      <Route path="/jobs/:jobSpecId/errors" component={JobsErrors} />
-    </MemoryRouter>,
-  )
-
 describe('pages/Jobs/Errors', () => {
   it('renders the job spec errors', async () => {
     global.fetch.getOnce(
@@ -50,7 +42,12 @@ describe('pages/Jobs/Errors', () => {
       }),
     )
 
-    const wrapper = mountShow(`/jobs/${JOB_SPEC_ID}/errors`)
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/:jobSpecId/errors" component={JobsErrors} />,
+      {
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/errors`],
+      },
+    )
 
     await act(async () => {
       await syncFetch(wrapper)
