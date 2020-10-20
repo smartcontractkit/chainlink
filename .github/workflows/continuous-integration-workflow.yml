@@ -59,6 +59,12 @@ jobs:
         run: go run ./core local db preparetest
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }}
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.cmd }}_logs
+          path: ./output.txt
       - name: Print postgres logs
         if: always()
         uses: docker://docker:latest
@@ -124,11 +130,6 @@ jobs:
         run: make yarndep
       - name: Run tests
         run: ./tools/ci/solidity_test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   operator-ui:
     name: Operator UI
@@ -148,11 +149,6 @@ jobs:
         run: make yarndep
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   reportcoverage:
     name: Report test coverage
