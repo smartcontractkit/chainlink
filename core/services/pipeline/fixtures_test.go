@@ -82,7 +82,7 @@ answer2 [type=bridge name=election_winner index=1];
 	simpleFetchDataSourceTemplate = `
 // data source 1
 ds1          [type=http method=GET url="%s"];
-ds1_parse    [type=jsonparse path="USD"];
+ds1_parse    [type=jsonparse path="USD" lax=%t];
 ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
 `
@@ -101,10 +101,10 @@ func makeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL st
 	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
 }
 
-func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string, lax bool) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
-	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL)
+	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
 	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, ds)
 	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
 }

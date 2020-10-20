@@ -172,6 +172,9 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 					case reflect.TypeOf(int32(0)):
 						i, err2 := strconv.ParseInt(data.(string), 10, 32)
 						return int32(i), err2
+					case reflect.TypeOf(true):
+						b, err2 := strconv.ParseBool(data.(string))
+						return b, err2
 					}
 				}
 				return data, nil
