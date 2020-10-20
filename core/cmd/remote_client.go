@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/BurntSushi/toml"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pkg/errors"
@@ -213,12 +214,70 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	return err
 }
 
+func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass in TOML or filepath"))
+	}
+
+	buf, err := getBufferFromTOML(c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := cli.HTTP.Post("/v2/specs_v2", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode >= 400 {
+		body, rerr := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			err = multierr.Append(err, rerr)
+			return cli.errorOut(err)
+		}
+		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
+		return cli.errorOut(err)
+	}
+
+	type responseBody struct {
+		JobID int32 `json:"jobID"`
+	}
+	var body responseBody
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Printf("Job added (job ID: %v).\n", body.JobID)
+	return nil
+}
+
 // ArchiveJobSpec soft deletes a job and its associated runs.
 func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be archived"))
 	}
 	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to be archived"))
+	}
+	resp, err := cli.HTTP.Delete("/v2/specs_v2/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -504,6 +563,22 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("invalid JSON or file not found '%s'", s)
+	} else if err != nil {
+		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
+	}
+	return buf, nil
+}
+
+func getBufferFromTOML(s string) (*bytes.Buffer, error) {
+	var val interface{}
+	err := toml.Unmarshal([]byte(s), &val)
+	if err == nil {
+		return bytes.NewBufferString(s), nil
+	}
+
+	buf, err := fromFile(s)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("invalid TOML or file not found '%s'", s)
 	} else if err != nil {
 		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
 	}

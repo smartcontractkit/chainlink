@@ -53,6 +53,8 @@ const EthMockRegisterGetBalance = "eth_mock_register_get_balance"
 const EthMockRegisterGetBlockByNumber = "eth_mock_register_get_block_by_number"
 
 // MockEthOnStore given store return new EthMock Client
+// TODO(sam): Remove this function entirely and pass in eth client via dependency injection in NewApplication
+// See: https://www.pivotaltracker.com/story/show/171753295
 func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interface{}) *EthMock {
 	mock := &EthMock{
 		t:                 t,
@@ -724,6 +726,10 @@ func (a CallbackAuthenticator) Authenticate(store *store.Store, pwd string) (str
 }
 
 func (a CallbackAuthenticator) AuthenticateVRFKey(*store.Store, string) error {
+	return nil
+}
+
+func (a CallbackAuthenticator) AuthenticateOCRKey(*store.Store, string) error {
 	return nil
 }
 

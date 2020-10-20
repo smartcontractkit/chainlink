@@ -218,9 +218,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 
 		authv2.POST("/specs", j.Create)
+		authv2.POST("/specs_v2", j.CreateV2)
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
+		authv2.DELETE("/specs_v2/:SpecID", j.DestroyV2)
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)

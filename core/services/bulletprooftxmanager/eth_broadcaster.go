@@ -27,9 +27,6 @@ const (
 	// This poll is really just a fallback in case the trigger fails for some reason
 	databasePollInterval = 5 * time.Second
 
-	// EthBroadcaster advisory lock class ID
-	ethBroadcasterAdvisoryLockClassID = 0
-
 	// Postgres channel to listen for new eth_txes
 	postgresInsertOnEthTx = "insert_on_eth_txes"
 )
@@ -204,7 +201,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 }
 
 func (eb *ethBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
-	return withAdvisoryLock(eb.store, ethBroadcasterAdvisoryLockClassID, key.ID, func() error {
+	return withAdvisoryLock(eb.store, utils.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
 		return eb.processUnstartedEthTxs(key.Address.Address())
 	})
 }

@@ -19,7 +19,7 @@ export default App
 if (typeof document !== 'undefined') {
   const renderMethod = module.hot ? ReactDOM.render : ReactDOM.hydrate
 
-  const render = Comp => {
+  const render = (Comp) => {
     renderMethod(
       <AppContainer>
         <MuiThemeProvider theme={createMuiTheme(theme)}>

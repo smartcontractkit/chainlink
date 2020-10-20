@@ -10,7 +10,7 @@ import { Actions } from 'reducers/actions'
 export function createExplorerConnectionMiddleware(
   cookie?: string,
 ): Middleware {
-  const explorerConnectionMiddleware: Middleware = store => next => (
+  const explorerConnectionMiddleware: Middleware = (store) => (next) => (
     action: Actions,
   ) => {
     // dispatch original action right away

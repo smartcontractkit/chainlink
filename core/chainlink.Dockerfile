@@ -7,6 +7,8 @@ WORKDIR /chainlink
 ENV PATH /go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 COPY GNUmakefile VERSION ./
+COPY tools/bin/ldflags tools/bin/ldflags
+ARG COMMIT_SHA
 
 # Install yarn dependencies
 COPY yarn.lock package.json .yarnrc ./

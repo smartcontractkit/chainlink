@@ -40,7 +40,7 @@ export type CallableOverrideInstance<T extends Deployable> = T extends {
 
 export function callable(oldContract: ethers.Contract, methods: string[]): any {
   const oldAbi = oldContract.interface.abi
-  const newAbi = oldAbi.map(fragment => {
+  const newAbi = oldAbi.map((fragment) => {
     if (!methods.includes(fragment.name ?? '')) {
       return fragment
     }

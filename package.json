@@ -19,6 +19,8 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
+    "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
+    "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
     "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
@@ -36,7 +38,7 @@
     "eslint-plugin-react-hooks": "^4.0.0",
     "patch-package": "^6.2.1",
     "postinstall-postinstall": "^2.0.0",
-    "prettier": "^1.19.1",
+    "prettier": "^2.1.2",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.0"
   },

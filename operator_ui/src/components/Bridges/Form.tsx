@@ -91,7 +91,7 @@ function isDirty(props: Props): boolean {
   return !isEqual(props.values, initial) && props.submitCount === 0
 }
 
-const Form: React.SFC<Props> = props => (
+const Form: React.SFC<Props> = (props) => (
   <>
     <Prompt
       when={isDirty(props)}

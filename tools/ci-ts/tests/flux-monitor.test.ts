@@ -77,12 +77,18 @@ async function assertAggregatorValues(
   msg: string,
 ): Promise<void> {
   const [la, lr, rr, ls1, ls2] = await Promise.all([
-    fluxAggregator.latestRoundData().then(res => res.answer),
-    fluxAggregator.latestRoundData().then(res => res.roundId),
+    fluxAggregator.latestRoundData().then((res) => res.answer),
+    fluxAggregator.latestRoundData().then((res) => res.roundId),
     // get earliest eligible round ID by checking a non-existent address
-    fluxAggregator.oracleRoundState(emptyAddress, 0).then(res => res._roundId),
-    fluxAggregator.oracleRoundState(node1Address, 0).then(res => res._roundId),
-    fluxAggregator.oracleRoundState(node2Address, 0).then(res => res._roundId),
+    fluxAggregator
+      .oracleRoundState(emptyAddress, 0)
+      .then((res) => res._roundId),
+    fluxAggregator
+      .oracleRoundState(node1Address, 0)
+      .then((res) => res._roundId),
+    fluxAggregator
+      .oracleRoundState(node2Address, 0)
+      .then((res) => res._roundId),
   ])
   matchers.bigNum(latestAnswer, la, `${msg} : latest answer`)
   matchers.bigNum(latestRound, lr, `${msg} : latest round`)
@@ -146,8 +152,8 @@ beforeEach(async () => {
 })
 
 afterEach(async () => {
-  clClient1.getJobs().forEach(job => clClient1.archiveJob(job.id))
-  clClient2.getJobs().forEach(job => clClient2.archiveJob(job.id))
+  clClient1.getJobs().forEach((job) => clClient1.archiveJob(job.id))
+  clClient2.getJobs().forEach((job) => clClient2.archiveJob(job.id))
   await Promise.all([
     t.changePriceFeed(EXTERNAL_ADAPTER_URL, 100), // original price
     t.changePriceFeed(EXTERNAL_ADAPTER_2_URL, 100),

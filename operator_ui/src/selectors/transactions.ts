@@ -8,7 +8,7 @@ export default ({
   return (
     transactionsIndex.currentPage &&
     transactionsIndex.currentPage
-      .map(id => build(transactions, 'items', id))
-      .filter(t => t)
+      .map((id) => build(transactions, 'items', id))
+      .filter((t) => t)
   )
 }

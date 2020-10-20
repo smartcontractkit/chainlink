@@ -2,14 +2,14 @@ import { ethers } from 'ethers'
 
 export const name = 'TEST_CONTRACT'
 
-const events = [1, 2, 3].map(n => ({
+const events = [1, 2, 3].map((n) => ({
   topic: `topic${n}`,
   name: `event${n}`,
   decode: jest.fn().mockReturnValue({ [`input${n}`]: `value${n}` }),
   inputs: [{ name: `input${n}` }],
 }))
 
-export const eventNames = events.map(e => e.name)
+export const eventNames = events.map((e) => e.name)
 
 export const contract = ({
   interface: {

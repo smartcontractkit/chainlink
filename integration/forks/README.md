@@ -11,6 +11,7 @@ Currently, the contract's bytecode is hard-coded in `fixtures/create_contract.js
 ## Geth Configuration
 
 The geth node relies on two files for configuration:
+
 - `geth_node/root/genesis.json`
 - `geth_note/root/geth-config.toml`
 

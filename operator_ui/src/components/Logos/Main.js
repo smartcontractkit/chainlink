@@ -3,7 +3,7 @@ import PropTypes from 'prop-types'
 import React from 'react'
 import src from '../../images/chainlink-operator-logo.svg'
 
-const Main = props => {
+const Main = (props) => {
   return <Logo src={src} alt="Chainlink Operator" {...props} />
 }
 

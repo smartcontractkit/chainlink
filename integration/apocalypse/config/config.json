@@ -1,5 +1,5 @@
 {
-    "randomTraffic": {
-        "msBetweenTxs": 5000
-    }
+  "randomTraffic": {
+    "msBetweenTxs": 5000
+  }
 }

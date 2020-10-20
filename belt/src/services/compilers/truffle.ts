@@ -13,7 +13,7 @@ import { getArtifactDirs, getJsonFile } from '../utils'
  */
 export async function compileAll(conf: config.App) {
   getArtifactDirs(conf).forEach(({ dir }) => {
-    getContractPathsPer(conf, dir).forEach(p => {
+    getContractPathsPer(conf, dir).forEach((p) => {
       const json: any = getJsonFile(p)
       const fileName = basename(p, '.json')
       const file = fillTemplate(fileName, {

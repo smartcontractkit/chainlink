@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -65,7 +66,18 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return chainlink.NewApplication(config, onConnectCallbacks...)
+	var ethClient eth.Client
+	if config.EthereumDisabled() {
+		logger.Info("ETH_DISABLED is set, using Null eth.Client")
+		ethClient = &eth.NullClient{}
+	} else {
+		var err error
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
+		if err != nil {
+			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+		}
+	}
+	return chainlink.NewApplication(config, ethClient, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

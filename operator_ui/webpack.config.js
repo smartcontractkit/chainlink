@@ -53,8 +53,8 @@ module.exports = {
       template: path.resolve(__dirname, 'src/index.html'),
     }),
     new EnvironmentPlugin({
-      CHAINLINK_VERSION: null,
-      CHAINLINK_BASEURL: null,
+      CHAINLINK_VERSION: process.env.CHAINLINK_VERSION,
+      CHAINLINK_BASEURL: process.env.CHAINLINK_BASEURL,
     }),
   ],
   devtool: isDev ? 'eval-source-map' : false,
