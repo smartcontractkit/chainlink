@@ -450,7 +450,7 @@ func TestClient_RebroadcastTransactions_WithinRange_LegacyTXM(t *testing.T) {
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
 			defer cleanup()
 			config.Config.Dialect = orm.DialectPostgres
-			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false) // TODO - remove with test
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
 
