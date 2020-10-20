@@ -23,7 +23,7 @@ type EventBroadcaster interface {
 	Start() error
 	Stop() error
 	Subscribe(channel, payloadFilter string) (Subscription, error)
-	Notify(channel string, payload interface{}) error
+	Notify(channel string, payload string) error
 }
 
 type eventBroadcaster struct {
@@ -89,7 +89,7 @@ func (b *eventBroadcaster) Stop() error {
 	return err
 }
 
-func (b *eventBroadcaster) Notify(channel string, payload interface{}) error {
+func (b *eventBroadcaster) Notify(channel string, payload string) error {
 	_, err := b.db.Exec(`SELECT pg_notify($1, $2::text)`, channel, payload)
 	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
@@ -115,7 +115,7 @@ func (b *eventBroadcaster) unsubscribe(sub Subscription) {
 
 	listener, exists := b.listeners[sub.channelName()]
 	if !exists {
-		// Occurs on shutdown when .Stop() is called before one
+		// This occurs on shutdown when .Stop() is called before one
 		// or more subscriptions' .Close() methods are called
 		return
 	}
