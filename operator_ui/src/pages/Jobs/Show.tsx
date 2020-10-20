@@ -9,7 +9,7 @@ import {
   Grid,
 } from '@material-ui/core'
 import { v2 } from 'api'
-import { RouteComponentProps } from 'react-router-dom'
+import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
@@ -17,6 +17,8 @@ import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
+import { JobsDefinition } from './Definition'
+import { JobsErrors } from './Errors'
 import { RegionalNav } from './RegionalNav'
 import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
 import { JobSpec, JobRun } from 'core/store/models'
@@ -115,61 +117,72 @@ export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
   return (
     <div>
       <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
-      <Content>
-        {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
-        {!error && !jobSpec && <div>Fetching...</div>}
-        {!error && jobSpec && (
-          <Grid container spacing={24}>
-            <Grid item xs={8}>
-              <Card>
-                <CardTitle divider>Recent Job Runs</CardTitle>
+      <Switch>
+        <Route path={`${match.path}/json`} component={JobsDefinition} />
+        <Route path={`${match.path}/errors`} component={JobsErrors} />
+        <Route
+          path={`${match.path}`}
+          render={() => (
+            <Content>
+              {error && (
+                <div>Error while fetching data: {JSON.stringify(error)}</div>
+              )}
+              {!error && !jobSpec && <div>Fetching...</div>}
+              {!error && jobSpec && (
+                <Grid container spacing={24}>
+                  <Grid item xs={8}>
+                    <Card>
+                      <CardTitle divider>Recent Job Runs</CardTitle>
 
-                {recentRuns && (
-                  <JobRunsList
-                    jobSpecId={jobSpec.id}
-                    runs={recentRuns.map((jobRun) => ({
-                      ...jobRun,
-                      ...jobRun.attributes,
-                    }))}
-                    count={recentRunsCount}
-                    showJobRunsCount={showJobRunsCount}
-                  />
-                )}
-              </Card>
-            </Grid>
-            <Grid item xs={4}>
-              <Grid container direction="column">
-                <Grid item xs>
-                  <ChartArea jobSpec={jobSpec} />
+                      {recentRuns && (
+                        <JobRunsList
+                          jobSpecId={jobSpec.id}
+                          runs={recentRuns.map((jobRun) => ({
+                            ...jobRun,
+                            ...jobRun.attributes,
+                          }))}
+                          count={recentRunsCount}
+                          showJobRunsCount={showJobRunsCount}
+                        />
+                      )}
+                    </Card>
+                  </Grid>
+                  <Grid item xs={4}>
+                    <Grid container direction="column">
+                      <Grid item xs>
+                        <ChartArea jobSpec={jobSpec} />
+                      </Grid>
+                      <Grid item xs>
+                        <Card>
+                          <CardTitle divider>Task List</CardTitle>
+                          <TaskList tasks={jobSpec.attributes.tasks} />
+                        </Card>
+                      </Grid>
+                      <Grid item xs>
+                        <KeyValueList
+                          showHead={false}
+                          entries={Object.entries({
+                            runCount: recentRunsCount,
+                            initiator: formatInitiators(
+                              jobSpec.attributes.initiators,
+                            ),
+                            minimumPayment: `${
+                              formatMinPayment(
+                                Number(jobSpec.attributes.minPayment),
+                              ) || 0
+                            } Link`,
+                          })}
+                          titleize
+                        />
+                      </Grid>
+                    </Grid>
+                  </Grid>
                 </Grid>
-                <Grid item xs>
-                  <Card>
-                    <CardTitle divider>Task List</CardTitle>
-                    <TaskList tasks={jobSpec.attributes.tasks} />
-                  </Card>
-                </Grid>
-                <Grid item xs>
-                  <KeyValueList
-                    showHead={false}
-                    entries={Object.entries({
-                      runCount: recentRunsCount,
-                      initiator: formatInitiators(
-                        jobSpec.attributes.initiators,
-                      ),
-                      minimumPayment: `${
-                        formatMinPayment(
-                          Number(jobSpec.attributes.minPayment),
-                        ) || 0
-                      } Link`,
-                    })}
-                    titleize
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-          </Grid>
-        )}
-      </Content>
+              )}
+            </Content>
+          )}
+        />
+      </Switch>
     </div>
   )
 }

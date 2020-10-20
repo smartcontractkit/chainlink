@@ -17,7 +17,6 @@ import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
 import { JobSpec } from 'core/store/models'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
-import RegionalNav from './RegionalNav'
 
 const definitionStyles = (theme: Theme) =>
   createStyles({
@@ -54,39 +53,34 @@ const Definition: React.FC<
   }, [jobSpecId])
 
   return (
-    <div>
-      <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
-      <Content>
-        <Card>
-          {error && (
-            <div>Error while fetching data: {JSON.stringify(error)}</div>
-          )}
-          {!error && !jobSpec && <div>Fetching...</div>}
-          {!error && jobSpec && (
-            <CardContent>
-              <Grid container spacing={0}>
-                <Grid item xs={12}>
-                  <Typography variant="h5" className={classes.definitionTitle}>
-                    Definition
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Divider light className={classes.divider} />
-                </Grid>
-                <Grid item xs={12}>
-                  <PrettyJson
-                    object={jobSpecDefinition({
-                      ...jobSpec,
-                      ...jobSpec.attributes,
-                    })}
-                  />
-                </Grid>
+    <Content>
+      <Card>
+        {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
+        {!error && !jobSpec && <div>Fetching...</div>}
+        {!error && jobSpec && (
+          <CardContent>
+            <Grid container spacing={0}>
+              <Grid item xs={12}>
+                <Typography variant="h5" className={classes.definitionTitle}>
+                  Definition
+                </Typography>
               </Grid>
-            </CardContent>
-          )}
-        </Card>
-      </Content>
-    </div>
+              <Grid item xs={12}>
+                <Divider light className={classes.divider} />
+              </Grid>
+              <Grid item xs={12}>
+                <PrettyJson
+                  object={jobSpecDefinition({
+                    ...jobSpec,
+                    ...jobSpec.attributes,
+                  })}
+                />
+              </Grid>
+            </Grid>
+          </CardContent>
+        )}
+      </Card>
+    </Content>
   )
 }
 
