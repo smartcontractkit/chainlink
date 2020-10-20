@@ -120,7 +120,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
 
-		require.Equal(t, config, *readConfig)
+		require.Equal(t, &config, readConfig)
 	})
 
 	t.Run("updates config", func(t *testing.T) {
@@ -141,7 +141,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		readConfig, err := db.ReadConfig(ctx)
 		require.NoError(t, err)
 
-		require.Equal(t, newConfig, *readConfig)
+		require.Equal(t, &newConfig, readConfig)
 	})
 
 	t.Run("does not return result for wrong spec", func(t *testing.T) {

@@ -71,6 +71,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
+
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
@@ -80,6 +81,18 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
 			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
+		}
+	}
+
+	if len(c.String("ocrpassword")) != 0 {
+		ocrpwd, fileErr := passwordFromFile(c.String("ocrpassword"))
+		if fileErr != nil {
+			return cli.errorOut(errors.Wrapf(fileErr,
+				"error reading OCR password from ocrpassword file \"%s\"",
+				c.String("ocrpassword")))
+		}
+		if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(store, ocrpwd); authErr != nil {
+			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 		}
 	}
 
@@ -104,14 +117,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return err
 	}
 
-	fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
-	}
-	if currentBalance.Cmp(big.NewInt(0)) == 0 {
-		logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
-	} else {
-		logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+	if !store.Config.EthereumDisabled() {
+		fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+		if err != nil {
+			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
+		}
+		if currentBalance.Cmp(big.NewInt(0)) == 0 {
+			logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
+		} else {
+			logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+		}
 	}
 
 	return cli.errorOut(cli.Runner.Run(app))
@@ -386,6 +401,57 @@ func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, end
 		}
 	}
 	return nil
+}
+
+// HardReset will remove all non-started transactions if any are found.
+func (cli *Client) HardReset(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+
+	if !confirmHardReset() {
+		return nil
+	}
+
+	app, cleanupFn := cli.makeApp()
+	defer cleanupFn()
+	storeInstance := app.GetStore()
+	ormInstance := storeInstance.ORM
+
+	// Ensure that the CL node is down by trying to acquire the global advisory lock.
+	// This method will panic if it can't get the lock.
+	logger.Info("Make sure the Chainlink node is not running")
+	ormInstance.MustEnsureAdvisoryLock()
+
+	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
+		logger.Errorw("failed to remove unstarted transactions", "error", err)
+		return err
+	}
+
+	logger.Info("successfully reset the node state in the database")
+	return nil
+}
+
+func confirmHardReset() bool {
+	prompt := NewTerminalPrompter()
+	var answer string
+	for {
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		if answer == "yes" {
+			return true
+		} else if answer == "no" {
+			return false
+		} else {
+			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
+		}
+	}
+}
+
+func (cli *Client) makeApp() (chainlink.Application, func()) {
+	app := cli.AppFactory.NewApplication(cli.Config)
+	return app, func() {
+		if err := app.Stop(); err != nil {
+			logger.Errorw("Failed to stop the application on hard reset", "error", err)
+		}
+	}
 }
 
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL

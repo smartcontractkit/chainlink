@@ -1,6 +1,6 @@
 import React, { FC, SVGProps } from 'react'
 
-const ListIcon: FC<SVGProps<SVGSVGElement>> = props => (
+const ListIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg fill="none" viewBox="0 0 48 48" {...props}>
     <path
       d="M24 46C36.1503 46 46 36.1503 46 24C46 11.8497 36.1503 2 24 2C11.8497 2 2 11.8497 2 24C2 36.1503 11.8497 46 24 46Z"

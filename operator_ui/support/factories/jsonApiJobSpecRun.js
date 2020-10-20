@@ -1,6 +1,6 @@
 import uuid from 'uuid/v4'
 
-export default attrs => {
+export default (attrs) => {
   const _id = attrs.id || uuid().replace(/-/g, '')
   const _jobId = attrs.jobId || uuid().replace(/-/g, '')
   const _status = attrs.status || 'completed'

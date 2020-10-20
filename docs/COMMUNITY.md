@@ -8,7 +8,7 @@
 [![WeChat](https://img.shields.io/badge/WeChat-Follow-green?style=flat-square&logo=wechat)](https://blog.chain.link/chainlink-chinese-communities/)
 [![Sina Weibol](https://img.shields.io/badge/Weibo-Follow-red?style=flat-square&logo=sina-weibo)](https://weibo.com/chainlinkofficial)
 
-In addition to the Chainlink community resources in the badges above, here is a 
+In addition to the Chainlink community resources in the badges above, here is a
 cultivated list of other community related resources.
 
 ## Developer Resources
@@ -33,13 +33,7 @@ cultivated list of other community related resources.
   - [Korean](https://chain.link/presentations/korean.pdf)
   - [Japanese](https://chain.link/presentations/japanese.pdf)
 
-
-
-
-
-
-
-[Awesome Chainlink]: https://github.com/JohannEid/awesome-chainlink
-[Devvon5]: https://chain.link/presentations/devcon5.pdf
+[awesome chainlink]: https://github.com/JohannEid/awesome-chainlink
+[devvon5]: https://chain.link/presentations/devcon5.pdf
 [external-adapter-js]: https://github.com/smartcontractkit/external-adapters-js
-[Gitcoin]: https://gitcoin.co/
+[gitcoin]: https://gitcoin.co/

@@ -58,6 +58,9 @@ func (id *ID) UnmarshalString(input string) error {
 
 // Value returns this instance serialized for database storage.
 func (id *ID) Value() (driver.Value, error) {
+	if id == nil {
+		return nil, nil
+	}
 	return id.String(), nil
 }
 

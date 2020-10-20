@@ -1,4 +1,4 @@
-export default wrapper => {
+export default (wrapper) => {
   return global.fetch
     .flush()
     .then(() => wrapper.update()) // Render after AJAX request changes state

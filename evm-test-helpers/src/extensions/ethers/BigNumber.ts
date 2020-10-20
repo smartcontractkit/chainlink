@@ -57,19 +57,19 @@ function toBigNumber(bn: BN): ethers.utils.BigNumber {
 }
 
 export function extend(bignumber: typeof ethers.utils.BigNumber) {
-  bignumber.prototype.isEven = function() {
+  bignumber.prototype.isEven = function () {
     return bnify(this).isEven()
   }
 
-  bignumber.prototype.umod = function(val: any) {
+  bignumber.prototype.umod = function (val: any) {
     return toBigNumber(bnify(this).umod(bnify(val)))
   }
 
-  bignumber.prototype.shrn = function(val: any) {
+  bignumber.prototype.shrn = function (val: any) {
     return toBigNumber(bnify(this).shrn(val))
   }
 
-  bignumber.prototype.invm = function(val: any) {
+  bignumber.prototype.invm = function (val: any) {
     return toBigNumber(bnify(this).invm(bnify(val)))
   }
 }

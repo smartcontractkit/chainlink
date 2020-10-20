@@ -28,7 +28,7 @@ const renderError = (error: string) => (
 )
 
 const renderBridges = (bridges: any[]) =>
-  bridges.map(bridge => (
+  bridges.map((bridge) => (
     <TableRow key={bridge.name}>
       <TableCell scope="row" component="th">
         <Link href={`/bridges/${bridge.name}`}>{bridge.name}</Link>

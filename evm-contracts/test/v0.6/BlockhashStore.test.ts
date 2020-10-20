@@ -13,7 +13,7 @@ const provider = setup.provider()
 const blockhashStoreTestHelperFactory = new BlockhashStoreTestHelperFactory()
 
 beforeAll(async () => {
-  personas = await setup.users(provider).then(x => x.personas)
+  personas = await setup.users(provider).then((x) => x.personas)
 })
 
 describe('BlockhashStore', () => {

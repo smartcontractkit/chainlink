@@ -50,35 +50,6 @@ func ensureAccount(t *testing.T, store *store.Store) common.Address {
 	return acct.Address
 }
 
-func TestConcreteFluxMonitor_Start_withEthereumDisabled(t *testing.T) {
-	tests := []struct {
-		name        string
-		enabled     bool
-		wantStarted bool
-	}{
-		{"enabled", true, false},
-		{"disabled", false, true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config, cleanup := cltest.NewConfig(t)
-			defer cleanup()
-			config.Config.Set("ETH_DISABLED", test.enabled)
-			store, cleanup := cltest.NewStoreWithConfig(config)
-			defer cleanup()
-			runManager := new(mocks.RunManager)
-
-			lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
-			fm := fluxmonitor.New(store, runManager, lb)
-
-			err := fm.Start()
-			require.NoError(t, err)
-			defer fm.Stop()
-		})
-	}
-}
-
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()

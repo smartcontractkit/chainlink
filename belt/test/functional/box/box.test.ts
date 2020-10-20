@@ -67,7 +67,7 @@ describe('truffle box tests', () => {
 
   it.each([['0.5'], ['v0.5'], ['0.5.0']])(
     'should handle different version type inputs like %s',
-    async testVersion => {
+    async (testVersion) => {
       expect(
         async () => await Box.run([`-s=${testVersion}`, TEST_FS_PATH]),
       ).not.toThrow()

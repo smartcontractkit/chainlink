@@ -7,7 +7,7 @@
 import { bindActionCreators } from 'redux'
 import { RouterActionType } from '../reducers/actions'
 
-const matchRouteAndMapDispatchToProps = actionCreators => (
+const matchRouteAndMapDispatchToProps = (actionCreators) => (
   dispatch,
   ownProps,
 ) => {

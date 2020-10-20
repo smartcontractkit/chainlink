@@ -7,11 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2020-10-12
+
+### Added
+
+- Bulletproof transaction manager enabled by default
+- Fluxmonitor support enabled by default
+
 ### Fixed
 
-Improve transaction manager architecture to be more compatible with `ETH_SECONDARY_URL` option (i.e. concurrent transaction submission to multiple different eth nodes). This also comes with some minor performance improvements in the tx manager and more correct handling of some extremely rare edge cases.
+- Improve transaction manager architecture to be more compatible with `ETH_SECONDARY_URL` option (i.e. concurrent transaction submission to multiple different eth nodes). This also comes with some minor performance improvements in the tx manager and more correct handling of some extremely rare edge cases.
+- As a side-effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
 
-As a side-effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
+### Changed
+
+- ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
+
+### Added
+
+- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
 
 ## [0.8.18] - 2020-10-01
 
@@ -27,7 +41,6 @@ As a side-effect, we now no longer handle the case where an external wallet used
 - Remove configuration option ORACLE_CONTRACT_ADDRESS, it had no effect
 - Add configuration option OPERATOR_CONTRACT_ADDRESS, it filters the contract addresses the node should listen to for Run Logs
 - At startup, the chainlink node will create a new funding address. This will initially be used to pay for cancelling stuck transactions.
-- Add support for a custom job name, must be unique. A default one will be generated if not supplied.
 
 ### Fixed
 
@@ -46,7 +59,6 @@ As a side-effect, we now no longer handle the case where an external wallet used
 ### Fixed
 
 - ETH_DISABLED flag works again
-
 
 ## [0.8.15] - 2020-09-14
 
@@ -93,7 +105,7 @@ A new prometheus metric is also introduced to track dropped heads, called `head_
 ### Fixed
 
 - Added a workaround for Infura users who are seeing "error getting balance: header not found".
-This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
+  This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
 
 ## [0.8.11] - 2020-07-27
 
@@ -109,7 +121,7 @@ This behaviour is due to Infura announcing it has a block, but when we request o
 
 - Support for RunLogTopic0original and RunLogTopic20190123withFullfillmentParams logs has been dropped. This should not affect any users since these logs predate Chainlink's mainnet launch and have never been used on mainnet.
 
-IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by  defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
+IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
 
 This is done to allow increases in throughput when a node operator has multiple whitelisted addresses for their oracle.
 
@@ -124,6 +136,7 @@ If your node only has one key, no action is required.
 ## [0.8.10] - 2020-07-14
 
 ### Fixed
+
 - Incorrect sequence on keys table in some edge cases
 
 ## [0.8.9] - 2020-07-13
@@ -135,6 +148,7 @@ If your node only has one key, no action is required.
 - Gas Bumper now bumps based on the current gas price instead of the gas price of the original transaction
 
 ### Fixed
+
 - Support for multiple node addresses
 
 ## [0.8.8] - 2020-06-29

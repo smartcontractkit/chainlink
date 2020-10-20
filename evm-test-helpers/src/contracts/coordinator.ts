@@ -263,7 +263,7 @@ export function encodeOracleRequest(
   ]
 
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
-    oracleRequestInputs.map(i => i.type),
+    oracleRequestInputs.map((i) => i.type),
     [ethers.constants.AddressZero, 0, specId, to, fHash, nonce, 1, dataBytes],
   )
 
@@ -363,7 +363,7 @@ function serviceAgreementValues(sa: ServiceAgreement) {
     sa.payment,
     sa.expiration,
     sa.endAt,
-    sa.oracles.map(o => (o instanceof ethers.Wallet ? o.address : o)),
+    sa.oracles.map((o) => (o instanceof ethers.Wallet ? o.address : o)),
     sa.requestDigest,
     sa.aggregator,
     sa.aggInitiateJobSelector,

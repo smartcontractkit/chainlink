@@ -133,9 +133,6 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 
-	if store.Config.EthereumDisabled() {
-		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
-	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
@@ -321,9 +318,6 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 	if !store.Config.EnableExperimentalAdapters() {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
-		}
-		if _, ok := adapter.BaseAdapter.(*adapters.EthTxABIEncode); ok {
-			return errors.New("EthTxABIEncode Adapter is not implemented yet")
 		}
 	}
 	return nil

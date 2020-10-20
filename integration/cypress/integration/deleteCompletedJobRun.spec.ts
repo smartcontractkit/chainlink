@@ -1,4 +1,4 @@
-context('End to end', function() {
+context('End to end', function () {
   it('Deletes a completed job', () => {
     cy.login()
 
