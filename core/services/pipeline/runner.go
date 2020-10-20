@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -202,7 +203,13 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 		if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 			logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 		} else {
-			logger.Infow("Pipeline task completed", append(loggerFields, "result", result.Value)...)
+			f := append(loggerFields, "result", result.Value)
+			switch v := result.Value.(type) {
+			case []byte:
+				f = append(f, "resultString", fmt.Sprintf("%q", v))
+				f = append(f, "resultHex", fmt.Sprintf("%x", v))
+			}
+			logger.Infow("Pipeline task completed", f...)
 		}
 
 		return result
