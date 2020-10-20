@@ -382,8 +382,8 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func findNextUnstartedTransactionFromAddress(tx *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
-	return tx.
+func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
+	return db.
 		Where("from_address = ? AND state = 'unstarted'", fromAddress).
 		Order("value ASC, created_at ASC, id ASC").
 		First(etx).
