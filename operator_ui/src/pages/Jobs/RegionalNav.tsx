@@ -14,7 +14,7 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
-import { Redirect, useRouteMatch } from 'react-router-dom'
+import { Redirect, useLocation } from 'react-router-dom'
 import { createJobRun, deleteJobSpec, fetchJobRuns } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
@@ -132,9 +132,9 @@ const RegionalNavComponent = ({
   job,
   deleteJobSpec,
 }: Props) => {
-  const match = useRouteMatch()
-  const navErrorsActive = match.path.includes('errors')
-  const navDefinitionActive = match.path.includes('json')
+  const location = useLocation()
+  const navErrorsActive = location.pathname.endsWith('/errors')
+  const navDefinitionActive = location.pathname.endsWith('/json')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
   const definition = job && jobSpecDefinition({ ...job, ...job.attributes })
   const [modalOpen, setModalOpen] = React.useState(false)

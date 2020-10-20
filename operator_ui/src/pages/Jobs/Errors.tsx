@@ -14,7 +14,6 @@ import { v2 } from 'api'
 import Button from 'components/Button'
 import Content from 'components/Content'
 import { JobSpec } from 'core/store/models'
-import { RegionalNav } from './RegionalNav'
 import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
 
 export const JobsErrors: React.FC<RouteComponentProps<{
@@ -57,89 +56,86 @@ export const JobsErrors: React.FC<RouteComponentProps<{
   }
 
   return (
-    <>
-      <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
-      <Content>
-        {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
-        {!error && !jobSpec && <div>Fetching...</div>}
-        {!error && jobSpec && (
-          <Card>
-            <Table>
-              <TableHead>
+    <Content>
+      {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
+      {!error && !jobSpec && <div>Fetching...</div>}
+      {!error && jobSpec && (
+        <Card>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {[
+                  'Occurrences',
+                  'Created',
+                  'Last Seen',
+                  'Message',
+                  'Actions',
+                ].map((header) => (
+                  <TableCell key={header}>
+                    <Typography variant="body1" color="textSecondary">
+                      {header}
+                    </Typography>
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {jobSpec.attributes.errors.length === 0 ? (
                 <TableRow>
-                  {[
-                    'Occurrences',
-                    'Created',
-                    'Last Seen',
-                    'Message',
-                    'Actions',
-                  ].map((header) => (
-                    <TableCell key={header}>
-                      <Typography variant="body1" color="textSecondary">
-                        {header}
+                  <TableCell component="th" scope="row" colSpan={5}>
+                    No errors
+                  </TableCell>
+                </TableRow>
+              ) : (
+                jobSpec.attributes.errors.map((jobSpecError) => (
+                  <TableRow key={jobSpecError.id}>
+                    <TableCell>
+                      <Typography variant="body1">
+                        {jobSpecError.occurrences}
                       </Typography>
                     </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {jobSpec.attributes.errors.length === 0 ? (
-                  <TableRow>
-                    <TableCell component="th" scope="row" colSpan={5}>
-                      No errors
+                    <TableCell>
+                      <Typography variant="body1">
+                        <TimeAgo tooltip>
+                          {localizedTimestamp(
+                            jobSpecError.createdAt.toString(),
+                          )}
+                        </TimeAgo>
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        <TimeAgo tooltip>
+                          {localizedTimestamp(
+                            jobSpecError.updatedAt.toString(),
+                          )}
+                        </TimeAgo>
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        {jobSpecError.description}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="danger"
+                        size="small"
+                        onClick={() => {
+                          handleDismiss(jobSpecError.id)
+                        }}
+                      >
+                        Dismiss
+                      </Button>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  jobSpec.attributes.errors.map((jobSpecError) => (
-                    <TableRow key={jobSpecError.id}>
-                      <TableCell>
-                        <Typography variant="body1">
-                          {jobSpecError.occurrences}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">
-                          <TimeAgo tooltip>
-                            {localizedTimestamp(
-                              jobSpecError.createdAt.toString(),
-                            )}
-                          </TimeAgo>
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">
-                          <TimeAgo tooltip>
-                            {localizedTimestamp(
-                              jobSpecError.updatedAt.toString(),
-                            )}
-                          </TimeAgo>
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body1">
-                          {jobSpecError.description}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="danger"
-                          size="small"
-                          onClick={() => {
-                            handleDismiss(jobSpecError.id)
-                          }}
-                        >
-                          Dismiss
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        )}
-      </Content>
-    </>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </Content>
   )
 }
 
