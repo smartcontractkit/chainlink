@@ -220,7 +220,11 @@ func (ht *HeadTracker) HighestSeenHead() *models.Head {
 	ht.headMutex.RLock()
 	defer ht.headMutex.RUnlock()
 
-	return ht.highestSeenHead
+	if ht.highestSeenHead == nil {
+		return nil
+	}
+	h := *ht.highestSeenHead
+	return &h
 }
 
 // Connected returns whether or not this HeadTracker is connected.
