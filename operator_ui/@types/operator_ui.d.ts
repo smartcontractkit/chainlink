@@ -42,13 +42,6 @@ export interface JobRun
   payment: number
 }
 
-export interface JobSpec extends dbTypes.JobSpec {
-  initiators: Initiators
-  tasks: TaskSpecs
-  runs: TaskRuns
-  errors: JobSpecErrors
-}
-
 export interface TaskRun
   extends Omit<dbTypes.TaskRun, 'taskSpecId' | 'jobRunId' | 'resultId'> {
   id: string

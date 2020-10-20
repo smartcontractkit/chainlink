@@ -1,21 +1,22 @@
+import { act } from 'react-dom/test-utils'
 import createStore from 'createStore'
-import { ConnectedShow as Show } from 'pages/Jobs/Show'
+import { JobsShow } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
 import React from 'react'
 import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route } from 'react-router-dom'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
-import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from '../../../src/utils/constants'
+import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from 'utils/constants'
 
-const mountShow = (props) =>
+const mountShow = (path: string) =>
   mountWithTheme(
     <Provider store={createStore()}>
-      <MemoryRouter>
-        <Show {...props} />
+      <MemoryRouter initialEntries={[path]}>
+        <Route path="/jobs/:jobSpecId" component={JobsShow} />
       </MemoryRouter>
     </Provider>,
   )
@@ -45,10 +46,11 @@ describe('pages/Jobs/Show', () => {
     ])
     global.fetch.getOnce(globPath('/v2/runs'), jobRunResponse)
 
-    const props = { match: { params: { jobSpecId } } }
-    const wrapper = mountShow(props)
+    const wrapper = mountShow(`/jobs/${jobSpecId}`)
 
-    await syncFetch(wrapper)
+    await act(async () => {
+      await syncFetch(wrapper)
+    })
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created a minute ago')
@@ -65,6 +67,9 @@ describe('pages/Jobs/Show', () => {
       { id: 'runA', jobId: jobSpecId },
       { id: 'runB', jobId: jobSpecId },
       { id: 'runC', jobId: jobSpecId },
+      { id: 'runD', jobId: jobSpecId },
+      { id: 'runE', jobId: jobSpecId },
+      { id: 'runF', jobId: jobSpecId },
     ]
 
     const jobSpecResponse = jsonApiJobSpecFactory({
@@ -75,10 +80,11 @@ describe('pages/Jobs/Show', () => {
     global.fetch.getOnce(globPath(`/v2/specs/${jobSpecId}`), jobSpecResponse)
     global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
 
-    const props = { match: { params: { jobSpecId } } }
-    const wrapper = mountShow(props)
+    const wrapper = mountShow(`/jobs/${jobSpecId}`)
 
-    await syncFetch(wrapper)
+    await act(async () => {
+      await syncFetch(wrapper)
+    })
     expect(wrapper.text()).toContain('View More')
   })
 })
