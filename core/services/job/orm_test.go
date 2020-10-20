@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
@@ -20,7 +21,10 @@ func TestORM(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 
-	orm := job.NewORM(db, config, pipeline.NewORM(db, config))
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
 	defer orm.Close()
 
 	ocrSpec, dbSpec := makeOCRJobSpec(t, db)
@@ -41,7 +45,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db2.Close()
 
-	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config))
+	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster)
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {

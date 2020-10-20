@@ -5,8 +5,5 @@ func ExportedTriggerChan(eb EthBroadcaster) <-chan struct{} {
 }
 
 func ExportedMustStartEthTxInsertListener(eb EthBroadcaster) {
-	if err := eb.(*ethBroadcaster).ethTxInsertListener.Start(); err != nil {
-		panic(err)
-	}
 	go eb.(*ethBroadcaster).ethTxInsertTriggerer()
 }

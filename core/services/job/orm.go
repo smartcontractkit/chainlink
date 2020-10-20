@@ -3,13 +3,13 @@ package job
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -17,7 +17,7 @@ import (
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 type ORM interface {
-	ListenForNewJobs() (*utils.PostgresEventListener, error)
+	ListenForNewJobs() (postgres.Subscription, error)
 	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
 	CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
@@ -25,24 +25,26 @@ type ORM interface {
 }
 
 type orm struct {
-	db            *gorm.DB
-	config        Config
-	advisoryLock  *utils.PostgresAdvisoryLock
-	pipelineORM   pipeline.ORM
-	claimedJobs   []models.JobSpecV2
-	claimedJobsMu *sync.Mutex
+	db               *gorm.DB
+	config           Config
+	advisoryLock     *postgres.AdvisoryLock
+	pipelineORM      pipeline.ORM
+	eventBroadcaster postgres.EventBroadcaster
+	claimedJobs      []models.JobSpecV2
+	claimedJobsMu    *sync.Mutex
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM) *orm {
+func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster) *orm {
 	return &orm{
-		db:            db,
-		config:        config,
-		advisoryLock:  utils.NewPostgresAdvisoryLock(config.DatabaseURL()),
-		pipelineORM:   pipelineORM,
-		claimedJobs:   make([]models.JobSpecV2, 0),
-		claimedJobsMu: &sync.Mutex{},
+		db:               db,
+		config:           config,
+		advisoryLock:     postgres.NewAdvisoryLock(config.DatabaseURL()),
+		pipelineORM:      pipelineORM,
+		eventBroadcaster: eventBroadcaster,
+		claimedJobs:      make([]models.JobSpecV2, 0),
+		claimedJobsMu:    &sync.Mutex{},
 	}
 }
 
@@ -50,22 +52,8 @@ func (o *orm) Close() error {
 	return o.advisoryLock.Close()
 }
 
-const (
-	postgresChannelJobCreated = "insert_on_jobs"
-)
-
-func (o *orm) ListenForNewJobs() (*utils.PostgresEventListener, error) {
-	listener := &utils.PostgresEventListener{
-		URI:                  o.config.DatabaseURL(),
-		Event:                postgresChannelJobCreated,
-		MinReconnectInterval: 1 * time.Second,
-		MaxReconnectDuration: 1 * time.Minute,
-	}
-	err := listener.Start()
-	if err != nil {
-		return nil, errors.Wrap(err, "could not start postgres event listener")
-	}
-	return listener, nil
+func (o *orm) ListenForNewJobs() (postgres.Subscription, error) {
+	return o.eventBroadcaster.Subscribe(postgres.ChannelJobCreated, "")
 }
 
 // ClaimUnclaimedJobs locks all currently unlocked jobs and returns all jobs locked by this process
@@ -85,7 +73,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
                 FROM (SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0) not_claimed_by_us
             ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
         `
-		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())}
+		args = []interface{}{postgres.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())}
 	} else {
 		join = `
             INNER JOIN (
@@ -93,7 +81,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
                 FROM jobs not_claimed_by_us
             ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
         `
-		args = []interface{}{utils.AdvisoryLockClassID_JobSpawner}
+		args = []interface{}{postgres.AdvisoryLockClassID_JobSpawner}
 	}
 
 	var newlyClaimedJobs []models.JobSpecV2
@@ -126,7 +114,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	return utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
@@ -160,7 +148,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	return utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		err := tx.Exec(`
             WITH deleted_jobs AS (
             	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id
@@ -176,7 +164,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 			return errors.Wrap(err, "DeleteJob failed to delete pipeline spec")
 		}
 
-		err = o.advisoryLock.Unlock(ctx, utils.AdvisoryLockClassID_JobSpawner, id)
+		err = o.advisoryLock.Unlock(ctx, postgres.AdvisoryLockClassID_JobSpawner, id)
 		if err != nil {
 			return errors.Wrap(err, "DeleteJob failed to unlock job")
 		}
