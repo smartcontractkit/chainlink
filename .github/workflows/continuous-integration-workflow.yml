@@ -3,7 +3,7 @@ name: Continuous Integration Workflow
 on: [push]
 
 env:
-  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a6
+  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
   core:
@@ -13,7 +13,7 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
@@ -36,7 +36,7 @@ jobs:
         with:
           args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -45,7 +45,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /go/pkg/mod
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
@@ -74,7 +74,7 @@ jobs:
     name: Rust
     runs-on: ubuntu-latest
     container:
-      image: smartcontract/builder:1.0.36
+      image: smartcontract/builder:1.0.37
       env:
         CARGO_HOME: /root/.cargo
         RUSTUP_HOME: /root/.rustup
@@ -115,12 +115,12 @@ jobs:
   solidity:
     name: Solidity
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -134,12 +134,12 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -153,7 +153,7 @@ jobs:
   reportcoverage:
     name: Report test coverage
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     needs: [core, solidity, operator-ui, rust]
     steps:
       - name: Checkout the repo
@@ -180,12 +180,12 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -199,12 +199,12 @@ jobs:
   prettier:
     name: Prettier formatting check
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -218,12 +218,12 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
