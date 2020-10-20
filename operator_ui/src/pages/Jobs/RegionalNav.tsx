@@ -12,19 +12,19 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { JobSpec } from 'operator_ui'
 import React from 'react'
 import { connect } from 'react-redux'
 import { Redirect, useRouteMatch } from 'react-router-dom'
 import { createJobRun, deleteJobSpec, fetchJobRuns } from 'actionCreators'
-import BaseLink from '../../components/BaseLink'
-import Button from '../../components/Button'
-import CopyJobSpec from '../../components/CopyJobSpec'
-import Close from '../../components/Icons/Close'
-import Link from '../../components/Link'
-import ErrorMessage from '../../components/Notifications/DefaultError'
-import jobSpecDefinition from '../../utils/jobSpecDefinition'
-import { isWebInitiator } from '../../utils/jobSpecInitiators'
+import BaseLink from 'components/BaseLink'
+import Button from 'components/Button'
+import CopyJobSpec from 'components/CopyJobSpec'
+import Close from 'components/Icons/Close'
+import Link from 'components/Link'
+import ErrorMessage from 'components/Notifications/DefaultError'
+import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { isWebInitiator } from 'utils/jobSpecInitiators'
+import { JobData } from './Show'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -120,7 +120,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job?: JobSpec
+  job: JobData['jobSpec']
   url: string
 }
 
@@ -140,8 +140,8 @@ const RegionalNav = ({
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
-    job?.errors && job.errors.length > 0
-      ? `Errors (${job.errors.length})`
+    job?.attributes.errors && job.attributes.errors.length > 0
+      ? `Errors (${job.attributes.errors.length})`
       : 'Errors'
   const handleRun = () => {
     createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
@@ -248,7 +248,7 @@ const RegionalNav = ({
                 >
                   Archive
                 </Button>
-                {job && isWebInitiator(job.initiators) && (
+                {job && isWebInitiator(job.attributes.initiators) && (
                   <Button
                     onClick={handleRun}
                     className={classes.regionalNavButton}
@@ -279,10 +279,11 @@ const RegionalNav = ({
           </Grid>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="textSecondary">
-              {job && (
+              {job && job.attributes.createdAt && (
                 <React.Fragment>
-                  Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
-                  {localizedTimestamp(job.createdAt)})
+                  Created{' '}
+                  <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
+                  ({localizedTimestamp(job.attributes.createdAt)})
                 </React.Fragment>
               )}
             </Typography>

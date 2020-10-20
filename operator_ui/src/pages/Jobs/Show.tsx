@@ -8,53 +8,30 @@ import {
 } from '@material-ui/core'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
+import { v2 } from 'api'
 import { RouteComponentProps } from 'react-router-dom'
-import { fetchJob, fetchJobRuns } from 'actionCreators'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import TaskList from 'components/Jobs/TaskList'
-import { AppState } from 'src/reducers'
-import { JobRuns, JobSpec } from 'operator_ui'
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
-import jobSelector from 'selectors/job'
-import jobRunsByJobIdSelector from 'selectors/jobRunsByJobId'
-import jobsShowRunCountSelector from 'selectors/jobsShowRunCount'
+import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import RegionalNav from './RegionalNav'
+import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
+import { JobSpec, JobRun } from 'core/store/models'
 
-const renderJobSpec = (job: JobSpec, recentRunsCount: number) => {
-  const info = {
-    runCount: recentRunsCount,
-    initiator: formatInitiators(job.initiators),
-    minimumPayment: `${formatMinPayment(job.minPayment) || 0} Link`,
-  }
-
-  return (
-    <KeyValueList showHead={false} entries={Object.entries(info)} titleize />
-  )
-}
-
-const renderTaskRuns = (job: JobSpec) => (
-  <Card>
-    <CardTitle divider>Task List</CardTitle>
-    <TaskList tasks={job.tasks} />
-  </Card>
-)
-
-interface RecentJobRunsProps {
-  job: JobSpec
-  recentRuns: JobRuns
+export type JobData = {
+  jobSpec?: ApiResponse<JobSpec>['data']
+  recentRuns?: PaginatedApiResponse<JobRun[]>['data']
   recentRunsCount: number
-  showJobRunsCount: number
 }
 
-const totalLinkEarned = (job: JobSpec) => {
+const totalLinkEarned = (job: NonNullable<JobData['jobSpec']>) => {
   const zero = '0.000000'
-  const unformatted = job.earnings && (job.earnings / GWEI_PER_TOKEN).toString()
+  const unformatted =
+    job.attributes.earnings &&
+    (job.attributes.earnings / GWEI_PER_TOKEN).toString()
   const formatted =
     unformatted &&
     (unformatted.length >= 3 ? unformatted : (unformatted + '.').padEnd(8, '0'))
@@ -79,159 +56,122 @@ const chartCardStyles = (theme: Theme) =>
   })
 
 interface ChartProps extends WithStyles<typeof chartCardStyles> {
-  job: JobSpec
+  jobSpec: NonNullable<JobData['jobSpec']>
 }
 
 const ChartArea = withStyles(chartCardStyles)(
-  ({ classes, job }: ChartProps) => (
+  ({ classes, jobSpec }: ChartProps) => (
     <Card>
       <Grid item className={classes.wrapper}>
         <Typography className={classes.paymentText} variant="h5">
           Link Payment
         </Typography>
         <Typography className={classes.earnedText}>
-          {totalLinkEarned(job)}
+          {totalLinkEarned(jobSpec)}
         </Typography>
       </Grid>
     </Card>
   ),
 )
 
-const RecentJobRuns: React.FC<RecentJobRunsProps> = ({
-  job,
-  recentRuns,
-  recentRunsCount,
-  showJobRunsCount,
-}) => {
-  return (
-    <Card>
-      <CardTitle divider>Recent Job Runs</CardTitle>
-
-      <JobRunsList
-        jobSpecId={job.id}
-        runs={recentRuns}
-        count={recentRunsCount}
-        showJobRunsCount={showJobRunsCount}
-      />
-    </Card>
-  )
-}
-
-interface DetailsProps {
-  recentRuns: JobRuns
-  recentRunsCount: number
-  job?: JobSpec
+type Props = {
   showJobRunsCount: number
-}
-
-const Details: React.FC<DetailsProps> = ({
-  job,
-  recentRuns,
-  recentRunsCount,
-  showJobRunsCount,
-}) => {
-  if (job) {
-    return (
-      <Grid container spacing={24}>
-        <Grid item xs={8}>
-          <RecentJobRuns
-            job={job}
-            recentRuns={recentRuns}
-            recentRunsCount={recentRunsCount}
-            showJobRunsCount={showJobRunsCount}
-          />
-        </Grid>
-        <Grid item xs={4}>
-          <Grid container direction="column">
-            <Grid item xs>
-              <ChartArea job={job} />
-            </Grid>
-            <Grid item xs>
-              {renderTaskRuns(job)}
-            </Grid>
-            <Grid item xs>
-              {renderJobSpec(job, recentRunsCount)}
-            </Grid>
-          </Grid>
-        </Grid>
-      </Grid>
-    )
-  }
-
-  return <div>Fetching...</div>
-}
-
-type OwnProps = {
-  showJobRunsCount: number
-}
-
-export type ShowComponentProps = OwnProps &
-  RouteComponentProps<{
-    jobSpecId: string
-  }>
-
-interface Props {
+} & RouteComponentProps<{
   jobSpecId: string
-  job?: JobSpec
-  recentRuns: JobRuns
-  recentRunsCount: number
-  showJobRunsCount: number
-  fetchJob: (id: string) => Promise<any>
-  fetchJobRuns: (opts: any) => Promise<any>
-}
+}>
 
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
-export const Show: React.FC<Props> = ({
-  jobSpecId,
-  job,
-  fetchJob,
-  fetchJobRuns,
-  recentRunsCount,
-  recentRuns = [],
-  showJobRunsCount = 2,
-}) => {
-  useEffect(() => {
-    document.title = 'Show Job'
-    fetchJob(jobSpecId)
-    fetchJobRuns({
-      jobSpecId,
-      page: DEFAULT_PAGE,
-      size: RECENT_RUNS_COUNT,
-    })
-  }, [fetchJob, fetchJobRuns, jobSpecId])
+export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
+  const [error, setError] = React.useState()
+  const [state, setState] = React.useState<JobData>({
+    recentRuns: [],
+    recentRunsCount: 0,
+  })
+  const { jobSpec, recentRuns, recentRunsCount } = state
+
+  const { jobSpecId } = match.params
+
+  React.useEffect(() => {
+    Promise.all([
+      v2.specs.getJobSpec(jobSpecId),
+      v2.runs.getJobSpecRuns({
+        jobSpecId,
+        page: DEFAULT_PAGE,
+        size: RECENT_RUNS_COUNT,
+      }),
+    ])
+      .then(([jobSpecResponse, jobSpecRunsResponse]) => {
+        setState({
+          jobSpec: jobSpecResponse.data,
+          recentRuns: jobSpecRunsResponse.data,
+          recentRunsCount: jobSpecRunsResponse.meta.count,
+        })
+      })
+      .catch(setError)
+  }, [jobSpecId])
+
   return (
     <div>
-      <RegionalNav jobSpecId={jobSpecId} job={job} />
+      <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
       <Content>
-        <Details
-          job={job}
-          recentRuns={recentRuns}
-          recentRunsCount={recentRunsCount}
-          showJobRunsCount={showJobRunsCount}
-        />
+        {error && <div>Error while fetching data: {error}</div>}
+        {!error && !jobSpec && <div>Fetching...</div>}
+        {!error && jobSpec && (
+          <Grid container spacing={24}>
+            <Grid item xs={8}>
+              <Card>
+                <CardTitle divider>Recent Job Runs</CardTitle>
+
+                {recentRuns && (
+                  <JobRunsList
+                    jobSpecId={jobSpec.id}
+                    runs={recentRuns.map((jobRun) => ({
+                      ...jobRun,
+                      ...jobRun.attributes,
+                    }))}
+                    count={recentRunsCount}
+                    showJobRunsCount={showJobRunsCount}
+                  />
+                )}
+              </Card>
+            </Grid>
+            <Grid item xs={4}>
+              <Grid container direction="column">
+                <Grid item xs>
+                  <ChartArea jobSpec={jobSpec} />
+                </Grid>
+                <Grid item xs>
+                  <Card>
+                    <CardTitle divider>Task List</CardTitle>
+                    <TaskList tasks={jobSpec.attributes.tasks} />
+                  </Card>
+                </Grid>
+                <Grid item xs>
+                  <KeyValueList
+                    showHead={false}
+                    entries={Object.entries({
+                      runCount: recentRunsCount,
+                      initiator: formatInitiators(
+                        jobSpec.attributes.initiators,
+                      ),
+                      minimumPayment: `${
+                        formatMinPayment(
+                          Number(jobSpec.attributes.minPayment),
+                        ) || 0
+                      } Link`,
+                    })}
+                    titleize
+                  />
+                </Grid>
+              </Grid>
+            </Grid>
+          </Grid>
+        )}
       </Content>
     </div>
   )
 }
 
-const mapStateToProps = (state: AppState, ownProps: ShowComponentProps) => {
-  const jobSpecId = ownProps.match.params.jobSpecId
-  const job = jobSelector(state, jobSpecId)
-  const recentRuns = jobRunsByJobIdSelector(
-    state,
-    jobSpecId,
-    ownProps.showJobRunsCount,
-  )
-  const recentRunsCount = jobsShowRunCountSelector(state)
-
-  return { jobSpecId, job, recentRuns, recentRunsCount }
-}
-
-export const ConnectedShow = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob, fetchJobRuns }),
-)(Show)
-
-export default ConnectedShow
+export default JobsShow
