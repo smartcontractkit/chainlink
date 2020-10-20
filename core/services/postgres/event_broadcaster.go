@@ -99,11 +99,11 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 	defer b.listenersMu.Unlock()
 
 	if b.listeners[channel] == nil {
-		listener, err := newChannelListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, channel, b)
+		listener := newChannelListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, channel, b)
+		err := listener.start()
 		if err != nil {
 			return nil, err
 		}
-		listener.start()
 		b.listeners[channel] = listener
 	}
 	return b.listeners[channel].subscribe(payloadFilter), nil
@@ -122,7 +122,10 @@ func (b *eventBroadcaster) unsubscribe(sub Subscription) {
 
 	listener.unsubscribe(sub)
 	if len(listener.subscriptions) == 0 {
-		listener.stop()
+		err := listener.stop()
+		if err != nil {
+			logger.Errorw("Postgres event broadcaster could not close listener", "error", err)
+		}
 		delete(b.listeners, sub.channelName())
 	}
 	return
@@ -145,7 +148,7 @@ func newChannelListener(
 	maxReconnectDuration time.Duration,
 	channel string,
 	eventBroadcaster *eventBroadcaster,
-) (*channelListener, error) {
+) *channelListener {
 	pqListener := pq.NewListener(uri, minReconnectInterval, maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
 		// These are always connection-related events, and the pq library
 		// automatically handles reconnecting to the DB. Therefore, we do not
@@ -162,10 +165,6 @@ func newChannelListener(
 			logger.Warnw("Postgres listener: reconnect attempt failed, trying again...", "channel", channel, "error", err)
 		}
 	})
-	err := pqListener.Listen(channel)
-	if err != nil {
-		return nil, err
-	}
 
 	listener := &channelListener{
 		Listener:         pqListener,
@@ -175,12 +174,17 @@ func newChannelListener(
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
 	}
-	return listener, nil
+	return listener
 }
 
 func (listener *channelListener) start() error {
 	if !listener.OkayToStart() {
 		return errors.Errorf("Postgres event listener has already been started (channel: %v)", listener.channel)
+	}
+
+	err := listener.Listener.Listen(listener.channel)
+	if err != nil {
+		return err
 	}
 
 	go func() {
