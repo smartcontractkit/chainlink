@@ -1075,6 +1075,17 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 	return tas
 }
 
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int64) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() int64 {
+		var result int64
+		store.DB.Model(&models.EthTxAttempt{}).Count(&result)
+		return result
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+}
+
 // WaitForSyncEventCount checks if the sync event count eventually reaches
 // the amound specified in parameter want.
 func WaitForSyncEventCount(

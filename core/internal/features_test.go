@@ -52,6 +52,19 @@ func TestIntegration_Scheduler(t *testing.T) {
 }
 
 func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+
+	gethClient := new(mocks.GethClient)
+	rpcClient := new(mocks.RPCClient)
+	sub := new(mocks.Subscription)
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+
+	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer appCleanup()
+
 	tickerHeaders := http.Header{
 		"Key1": []string{"value"},
 		"Key2": []string{"value", "value"},
@@ -65,58 +78,57 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		})
 	defer assertCalled()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBlockByNumber,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	eth := app.EthMock
-
-	newHeads := make(chan *models.Head)
-	attempt1Hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	attempt1Hash := common.HexToHash("0xdc5218fa3b49871efeec61e4555e144f2c84bded908c579c10ea3196d0dc8c3c")
 	sentAt := int64(23456)
 	confirmed := sentAt + int64(config.EthGasBumpThreshold()) + 1
-	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations()) - 1
-	unconfirmedReceipt := (*types.Receipt)(nil)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
 	confirmedReceipt := &types.Receipt{
 		TxHash:      attempt1Hash,
 		BlockNumber: big.NewInt(confirmed),
+		BlockHash:   cltest.NewHash(),
 	}
+	oneETH, err := assets.NewEthValueS("1")
+	require.NoError(t, err)
 
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("newHeads", newHeads)
-		eth.Register("eth_getTransactionCount", `0x100`) // TxManager.ActivateAccount()
-	})
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(23463) }).
+		Return(nil)
+
+	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	gethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
+		return tx.Hash() == attempt1Hash
+	})).Return(nil).Once()
+	// TODO - RYAN - why 23463 ?
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(23463)).Return(cltest.BlockWithTransactions(), nil)
+	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(confirmedReceipt, nil)
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+
 	assert.NoError(t, app.StartAndConnect())
 
-	eth.Context("ethTx.Perform()#1 at block 23456", func(eth *cltest.EthMock) {
-		eth.Register("eth_sendRawTransaction", attempt1Hash) // Initial tx attempt sent
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
-	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
-	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
-
-	cltest.WaitForTxAttemptCount(t, app.Store, 1)
-
-	jr.ObservedHeight = (*utils.Big)(confirmedReceipt.BlockNumber)
-	require.NoError(t, app.Store.SaveJobRun(&jr))
-
+<<<<<<< HEAD
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
 		eth.Register("eth_sendRawTransaction", attempt1Hash)
 	})
 	newHeads <- cltest.Head(safe) // 23465
+=======
+	newHeads := <-chchNewHeads
+>>>>>>> convert TestIntegration_HttpRequestWithHeaders to use BPTXM
 
-	cltest.WaitForTxAttemptCount(t, app.Store, 1)
+	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
+	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+
+	// Do the thing
+	newHeads <- cltest.Head(safe)
 
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
-
-	eth.EventuallyAllCalled(t)
 }
 
 func TestIntegration_FeeBump(t *testing.T) {
