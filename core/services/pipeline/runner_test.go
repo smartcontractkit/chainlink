@@ -12,16 +12,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
 
-	pipelineORM := pipeline.NewORM(db, config)
+	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
 	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config, pipelineORM)
+	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster)
 	defer jobORM.Close()
 
 	runner.Start()

@@ -27,7 +27,6 @@ type (
 		config                          Config
 		processIncompleteTaskRunsWorker utils.SleeperTask
 		runReaperWorker                 utils.SleeperTask
-		newRunsListener                 *utils.PostgresEventListener
 
 		utils.StartStopOnce
 		chStop chan struct{}
@@ -66,7 +65,10 @@ func (r *runner) Stop() {
 	}
 
 	close(r.chStop)
+	<-r.chDone
+}
 
+func (r *runner) destroy() {
 	err := r.processIncompleteTaskRunsWorker.Stop()
 	if err != nil {
 		logger.Error(err)
@@ -75,23 +77,17 @@ func (r *runner) Stop() {
 	if err != nil {
 		logger.Error(err)
 	}
-
-	if r.newRunsListener != nil {
-		err := r.newRunsListener.Stop()
-		if err != nil {
-			logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
-		}
-	}
-	<-r.chDone
 }
 
 func (r *runner) runLoop() {
 	defer close(r.chDone)
+	defer r.destroy()
 
-	var err error
-	r.newRunsListener, err = r.orm.ListenForNewRuns()
+	newRunsSubscription, err := r.orm.ListenForNewRuns()
 	if err != nil {
-		logger.Errorw(`Pipeline runner failed to subscribe to "new run" events, falling back to polling`, "error", err)
+		logger.Error("Pipeline runner could not subscribe to new run events, falling back to polling")
+	} else {
+		defer newRunsSubscription.Close()
 	}
 
 	dbPollTicker := time.NewTicker(r.config.JobPipelineDBPollInterval())
@@ -104,7 +100,7 @@ func (r *runner) runLoop() {
 		select {
 		case <-r.chStop:
 			return
-		case <-r.newRunsListener.Events():
+		case <-newRunsSubscription.Events():
 			r.processIncompleteTaskRunsWorker.WakeUp()
 		case <-dbPollTicker.C:
 			r.processIncompleteTaskRunsWorker.WakeUp()

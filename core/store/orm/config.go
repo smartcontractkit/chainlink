@@ -174,6 +174,14 @@ func (c Config) getDuration(s string) models.Duration {
 	return rv
 }
 
+func (c Config) DatabaseListenerMinReconnectInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("DatabaseListenerMinReconnectInterval"))
+}
+
+func (c Config) DatabaseListenerMaxReconnectDuration() time.Duration {
+	return c.viper.GetDuration(EnvVarName("DatabaseListenerMaxReconnectDuration"))
+}
+
 func (c Config) DatabaseMaximumTxDuration() time.Duration {
 	return c.viper.GetDuration(EnvVarName("DatabaseMaximumTxDuration"))
 }

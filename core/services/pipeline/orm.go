@@ -11,6 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -21,7 +22,7 @@ type ORM interface {
 	CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error)
 	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
-	ListenForNewRuns() (*utils.PostgresEventListener, error)
+	ListenForNewRuns() (postgres.Subscription, error)
 	AwaitRun(ctx context.Context, runID int64) error
 	RunFinished(runID int64) (bool, error)
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
@@ -31,14 +32,15 @@ type ORM interface {
 }
 
 type orm struct {
-	db     *gorm.DB
-	config Config
+	db               *gorm.DB
+	config           Config
+	eventBroadcaster postgres.EventBroadcaster
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config Config) *orm {
-	return &orm{db, config}
+func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcaster) *orm {
+	return &orm{db, config, eventBroadcaster}
 }
 
 func (o *orm) CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error) {
@@ -47,7 +49,7 @@ func (o *orm) CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error) {
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		// Create the pipeline spec
 		spec := Spec{
 			DotDagSource: taskDAG.DOTSource,
@@ -116,7 +118,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
+	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
 		// Create the job run
 		run := Run{}
 
@@ -156,7 +158,7 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		err = o.processNextUnclaimedTaskRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
 		// task runs.
-		if utils.IsRecordNotFound(err) {
+		if postgres.IsRecordNotFound(err) {
 			anyRemaining = false
 			retry = false
 			err = nil
@@ -178,8 +180,8 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		var ptRun TaskRun
+	var ptRun TaskRun
+	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		var predecessors []TaskRun
 
 		// NOTE: Manual loads below can probably be replaced with Joins in
@@ -277,41 +279,26 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 			if err != nil {
 				return errors.Wrap(err, "could not mark pipeline_run as finished")
 			}
-			// Emit a Postgres notification if this is the final `ResultTask`
-			err = o.db.Exec(`SELECT pg_notify('pipeline_run_completed', ?::text);`, ptRun.PipelineRunID).Error
-			if err != nil {
-				return errors.Wrap(err, "could not notify pipeline_run_completed")
-			}
-			logger.Infow("Pipeline run completed", "runID", ptRun.PipelineRunID)
 		}
-
 		return nil
 	})
-
 	if err != nil {
 		return errors.Wrap(err, "while processing task run")
 	}
 
+	if ptRun.PipelineTaskSpec.IsFinalPipelineOutput() {
+		// Emit a Postgres notification if this is the final `ResultTask`
+		err = o.db.Exec(`SELECT pg_notify('pipeline_run_completed', ?::text);`, ptRun.PipelineRunID).Error
+		if err != nil {
+			return errors.Wrap(err, "could not notify pipeline_run_completed")
+		}
+		logger.Infow("Pipeline run completed", "runID", ptRun.PipelineRunID)
+	}
 	return nil
 }
 
-const (
-	postgresChannelRunStarted   = "pipeline_run_started"
-	postgresChannelRunCompleted = "pipeline_run_completed"
-)
-
-func (o *orm) ListenForNewRuns() (*utils.PostgresEventListener, error) {
-	listener := &utils.PostgresEventListener{
-		URI:                  o.config.DatabaseURL(),
-		Event:                postgresChannelRunStarted,
-		MinReconnectInterval: 1 * time.Second,
-		MaxReconnectDuration: 1 * time.Minute,
-	}
-	err := listener.Start()
-	if err != nil {
-		return nil, err
-	}
-	return listener, nil
+func (o *orm) ListenForNewRuns() (postgres.Subscription, error) {
+	return o.eventBroadcaster.Subscribe(postgres.ChannelRunStarted, "")
 }
 
 // AwaitRun waits until a run has completed (either successfully or with errors)
@@ -351,25 +338,18 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 	}()
 
 	// This listener subscribes to the Postgres event informing us of a completed pipeline run
-	listener := utils.PostgresEventListener{
-		URI:                  o.config.DatabaseURL(),
-		Event:                postgresChannelRunCompleted,
-		PayloadFilter:        fmt.Sprintf("%v", runID),
-		MinReconnectInterval: 1 * time.Second,
-		MaxReconnectDuration: 1 * time.Minute,
-	}
-	err := listener.Start()
+	sub, err := o.eventBroadcaster.Subscribe(postgres.ChannelRunCompleted, fmt.Sprintf("%d", runID))
 	if err != nil {
 		return err
 	}
-	defer logger.ErrorIfCalling(listener.Stop)
+	defer sub.Close()
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
 	case err := <-chPoll:
 		return err
-	case <-listener.Events():
+	case <-sub.Events():
 		return nil
 	}
 }
@@ -388,7 +368,7 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 	defer cancel()
 
 	var results []Result
-	err = utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		var resultTaskRun TaskRun
 		err = o.db.
 			Preload("PipelineTaskSpec").

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -59,7 +60,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 	keys, err := store.SendKeys()
 	require.NoError(t, err)
@@ -277,7 +281,10 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 	keys, err := store.SendKeys()
 	require.NoError(t, err)
@@ -421,7 +428,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -467,7 +477,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -513,7 +526,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -558,7 +574,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -605,7 +624,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		ethClient := new(mocks.Client)
 		store.EthClient = ethClient
 
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -655,7 +677,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 
 		// Configured gas price changed
 		store.Config.Set("ETH_GAS_PRICE_DEFAULT", 500000000000)
-		eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+
+		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+		defer eventBroadcaster.Stop()
+
+		eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 		keys, err := store.SendKeys()
 		require.NoError(t, err)
@@ -730,7 +756,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 	t.Run("if external wallet sent a transaction from the account and now the nonce is one higher than it should be and we got replacement underpriced then we assume a previous transaction of ours was the one that succeeded, and hand off to EthConfirmer", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, store, defaultFromAddress)
@@ -1059,7 +1088,10 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 	t.Run("keystore does not have the unlocked key", func(t *testing.T) {
 		etx := models.EthTx{
@@ -1153,12 +1185,15 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store1.EthClient = ethClient
 
-	eb1 := bulletprooftxmanager.NewEthBroadcaster(store1, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+
+	eb1 := bulletprooftxmanager.NewEthBroadcaster(store1, config, eventBroadcaster)
 
 	// Simulate another node
 	store2, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	eb2 := bulletprooftxmanager.NewEthBroadcaster(store2, config)
+	eb2 := bulletprooftxmanager.NewEthBroadcaster(store2, config, eventBroadcaster)
 
 	keys, err := store1.SendKeys()
 	require.NoError(t, err)
@@ -1262,7 +1297,9 @@ func TestEthBroadcaster_Trigger(t *testing.T) {
 	defer cleanup()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config)
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 
 	eb.Trigger()
 	eb.Trigger()
@@ -1276,8 +1313,10 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	config.Config.Dialect = orm.DialectPostgres
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	defer eventBroadcaster.Stop()
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config)
+	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config, eventBroadcaster)
 	bulletprooftxmanager.ExportedMustStartEthTxInsertListener(eb)
 
 	// Give it some time to start listening
