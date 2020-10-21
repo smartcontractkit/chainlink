@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -52,6 +53,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		return errors.Wrapf(err, "error finding run %s", runID)
 	}
 
+	validated := false
 	for taskIndex := range run.TaskRuns {
 		taskRun := &run.TaskRuns[taskIndex]
 		if !run.GetStatus().Runnable() {
@@ -70,7 +72,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			taskRun.Status = models.RunStatusPendingIncomingConfirmations
 			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
 
-		} else if err := validateOnMainChain(&run, taskRun, re.store.EthClient); err != nil {
+		} else if err := validateOnMainChainOnce(validated, &run, taskRun, re.store.EthClient); err != nil {
 			logger.Warnw("Failure while trying to validate chain",
 				run.ForLogger("error", err)...,
 			)
@@ -110,6 +112,13 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		}
 	}
 	return nil
+}
+
+func validateOnMainChainOnce(validated bool, run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
+	if validated {
+		return nil
+	}
+	return validateOnMainChain(run, taskRun, ethClient)
 }
 
 func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) models.RunOutput {
