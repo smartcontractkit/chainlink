@@ -200,6 +200,42 @@ export function encodeOracleRequest(
   data: BigNumberish,
 ): string {
   const oracleRequestSighash = '0x40429946'
+  return encodeRequest(
+    oracleRequestSighash,
+    specId,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    data,
+  )
+}
+
+export function encodeOracleRequest2(
+  specId: string,
+  callbackAddr: string,
+  callbackFunctionId: string,
+  nonce: number,
+  data: BigNumberish,
+): string {
+  const oracleRequest2Sighash = '0x40c61dbe'
+  return encodeRequest(
+    oracleRequest2Sighash,
+    specId,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    data,
+  )
+}
+
+function encodeRequest(
+  oracleRequestSighash : string,
+  specId: string,
+  callbackAddr: string,
+  callbackFunctionId: string,
+  nonce: number,
+  data: BigNumberish,
+  ) : string {
   const oracleRequestInputs = [
     { name: '_sender', type: 'address' },
     { name: '_payment', type: 'uint256' },
@@ -210,7 +246,6 @@ export function encodeOracleRequest(
     { name: '_dataVersion', type: 'uint256' },
     { name: '_data', type: 'bytes' },
   ]
-
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
     oracleRequestInputs.map((i) => i.type),
     [
@@ -224,7 +259,6 @@ export function encodeOracleRequest(
       data,
     ],
   )
-
   return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`
 }
 
