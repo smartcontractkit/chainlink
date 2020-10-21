@@ -84,27 +84,7 @@ contract Operator is
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
-  function _verifyOracleRequest(
-    address sender,
-    uint256 payment,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 nonce
-  ) internal returns (bytes32 requestId, uint256 expiration) {
-    requestId = keccak256(abi.encodePacked(sender, nonce));
-    require(s_commitments[requestId] == 0, "Must use a unique ID");
-    // solhint-disable-next-line not-rely-on-time
-    expiration = block.timestamp.add(EXPIRY_TIME);
-    s_commitments[requestId] = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
-    );
-    return (requestId, expiration);
-  }
+  // EXTERNAL FUNCTIONS
 
   /**
    * @notice Creates the Chainlink request
@@ -153,7 +133,6 @@ contract Operator is
       data);
   }
 
-
   function oracleRequest2(
     address sender,
     uint256 payment,
@@ -188,64 +167,6 @@ contract Operator is
       data);
   }
 
-  function _verifyOracleResponse(
-    bytes32 requestId,
-    uint256 payment,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 expiration
-  )
-  internal
-  {
-    bytes32 paramsHash = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
-    );
-    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
-    delete s_commitments[requestId];
-  }
-
-  function fulfillOracleRequest2(
-    bytes32 requestId,
-    uint256 payment,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 expiration,
-    bytes calldata data
-  )
-    external
-    override
-    onlyAuthorizedNode()
-    isValidRequest(requestId)
-    returns (bool)
-  {
-    _verifyOracleResponse(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration
-    );
-    emit OracleResponse2(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      data);
-    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
-    // All updates to the oracle's fulfillment should come before calling the
-    // callback(addr+functionId) as it is untrusted.
-    // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
-    return success;
-  }
-
   /**
    * @notice Called by the Chainlink node to fulfill requests
    * @dev Given params must hash back to the commitment stored from `oracleRequest`.
@@ -266,6 +187,38 @@ contract Operator is
     bytes4 callbackFunctionId,
     uint256 expiration,
     bytes32 data
+  )
+    external
+    override
+    onlyAuthorizedNode()
+    isValidRequest(requestId)
+    returns (bool)
+  {
+    _verifyOracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration
+    );
+    emit OracleResponse(
+      requestId
+    );
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
+    // All updates to the oracle's fulfillment should come before calling the
+    // callback(addr+functionId) as it is untrusted.
+    // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
+    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
+    return success;
+  }
+
+  function fulfillOracleRequest2(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes calldata data
   )
     external
     override
@@ -405,6 +358,52 @@ contract Operator is
     require(_to != address(linkToken), "Cannot use #forward to send messages to Link token");
     (bool status,) = _to.call(_data);
     require(status, "Forwarded call failed.");
+  }
+
+  // INTERNAL FUNCTIONS
+
+  function _verifyOracleRequest(
+    address sender,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce
+  ) internal returns (bytes32 requestId, uint256 expiration) {
+    requestId = keccak256(abi.encodePacked(sender, nonce));
+    require(s_commitments[requestId] == 0, "Must use a unique ID");
+    // solhint-disable-next-line not-rely-on-time
+    expiration = block.timestamp.add(EXPIRY_TIME);
+    s_commitments[requestId] = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    return (requestId, expiration);
+  }
+
+  function _verifyOracleResponse(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration
+  )
+  internal
+  {
+    bytes32 paramsHash = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
   }
 
   // MODIFIERS

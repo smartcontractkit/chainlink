@@ -3,6 +3,7 @@ pragma solidity ^0.7.0;
 abstract contract LinkTokenReceiver {
 
   bytes4 constant private ORACLE_REQUEST_SELECTOR = 0x40429946;
+  bytes4 constant private ORACLE_REQUEST_2_SELECTOR = 0x40c61dbe;
   uint256 constant private SELECTOR_LENGTH = 4;
   uint256 constant private EXPECTED_REQUEST_WORDS = 2;
   uint256 constant private MINIMUM_REQUEST_LENGTH = SELECTOR_LENGTH + (32 * EXPECTED_REQUEST_WORDS);
@@ -55,7 +56,9 @@ abstract contract LinkTokenReceiver {
       // solhint-disable-next-line avoid-low-level-calls
       funcSelector := mload(add(_data, 32))
     }
-    require(funcSelector == ORACLE_REQUEST_SELECTOR, "Must use whitelisted functions");
+    require(
+      funcSelector == ORACLE_REQUEST_SELECTOR || funcSelector == ORACLE_REQUEST_2_SELECTOR,
+      "Must use whitelisted functions");
     _;
   }
 
