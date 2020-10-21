@@ -243,30 +243,54 @@ func (rm *runManager) Create(
 // ResumeAllPendingNextBlock wakes up all jobs that were sleeping because they
 // were waiting for the next block
 func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
-	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
-		currentTaskRun := run.NextTaskRun()
-		if currentTaskRun == nil {
-			err := rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
-			logger.ErrorIf(err, "failed when run manager updates with error")
-			return
-		}
-
-		run.ObservedHeight = utils.NewBig(currentBlockHeight)
-		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
-
-		// Set jobRun status in progress if met minimum incoming confirmations
-		// Task run status will be set later in runManager#Execute
-		markInProgressIfSufficientIncomingConfirmations(run, currentTaskRun, run.ObservedHeight, rm.txManager)
-
-		// Save job run and resume if status was set to InProgress
-		err := rm.saveAndResumeIfInProgress(run)
-		if err != nil {
-			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
-		}
-	},
+	resumableRunStatuses := []models.RunStatus{
 		models.RunStatusPendingConnection,
 		models.RunStatusPendingOutgoingConfirmations,
-		models.RunStatusPendingIncomingConfirmations)
+		models.RunStatusPendingIncomingConfirmations,
+	}
+	resumableTaskStatuses := []models.RunStatus{
+		models.RunStatusUnstarted,
+		models.RunStatusPendingConnection,
+		models.RunStatusPendingOutgoingConfirmations,
+		models.RunStatusPendingIncomingConfirmations,
+	}
+	observedHeight := utils.NewBig(currentBlockHeight)
+
+	query := `
+WITH job_runs AS (
+	UPDATE job_runs
+	SET
+		status = ?,
+		observed_height = ?
+	WHERE status in (?)
+	RETURNING id
+)
+UPDATE task_runs
+SET
+	status = ?,
+	confirmations = ?
+WHERE
+	id = (
+		SELECT id
+		FROM task_runs
+		WHERE
+			job_run_id = (SELECT id FROM job_runs)
+			AND
+			status in (?)
+		ORDER BY task_spec_id DESC
+		LIMIT 1
+	)
+RETURNING job_run_id;`
+
+	result := rm.orm.DB.Raw(query, models.RunStatusInProgress, observedHeight, resumableRunStatuses, models.RunStatusInProgress, observedHeight, resumableTaskStatuses)
+	runIDs := []*models.ID{}
+	result.Pluck("job_run_id", &runIDs)
+	for _, runID := range runIDs {
+		// FIXME: this is safe, but probably better to change Run to just take an ID here
+		rm.runQueue.Run(&models.JobRun{ID: runID})
+	}
+	rm.statsPusher.PushNow()
+	return result.Error
 }
 
 // ResumeAllPendingConnection wakes up all tasks that have gone to sleep because they
