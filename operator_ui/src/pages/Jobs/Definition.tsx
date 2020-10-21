@@ -17,6 +17,8 @@ import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
 import { JobSpec } from 'core/store/models'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 const definitionStyles = (theme: Theme) =>
   createStyles({
@@ -38,8 +40,9 @@ const Definition: React.FC<
 > = ({ classes, match }) => {
   const { jobSpecId } = match.params
 
-  const [error, setError] = React.useState()
   const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
   React.useEffect(() => {
     document.title = 'Job Definition'
@@ -50,13 +53,13 @@ const Definition: React.FC<
       .getJobSpec(jobSpecId)
       .then((response) => setJobSpec(response.data))
       .catch(setError)
-  }, [jobSpecId])
+  }, [jobSpecId, setError])
 
   return (
     <Content>
       <Card>
-        {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
-        {!error && !jobSpec && <div>Fetching...</div>}
+        <ErrorComponent />
+        <LoadingPlaceholder />
         {!error && jobSpec && (
           <CardContent>
             <Grid container spacing={0}>
