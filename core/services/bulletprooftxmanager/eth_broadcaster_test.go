@@ -60,11 +60,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	ethClient := new(mocks.Client)
 	store.EthClient = ethClient
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
-
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
+	eb, cleanup := cltest.NewEthBroadcaster(t, store)
+	defer cleanup()
 
 	keys, err := store.SendKeys()
 	require.NoError(t, err)
