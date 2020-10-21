@@ -109,6 +109,7 @@ func (sp *statsPusher) Start() error {
 		return nil
 	})
 	if err != nil {
+		gormCallbacksMutex.Unlock()
 		return errors.Wrap(err, "error creating statsPusher orm callbacks")
 	}
 	gormCallbacksMutex.Unlock()
