@@ -218,16 +218,14 @@ func (listener *channelListener) start() error {
 	return nil
 }
 
-const maxBroadcastDuration = 10 * time.Second
-
 func (listener *channelListener) broadcast(notification *pq.Notification) {
 	listener.subscriptionsMu.RLock()
 	defer listener.subscriptionsMu.RUnlock()
 
-	ctx, cancel := context.WithTimeout(context.Background(), maxBroadcastDuration)
-	defer cancel()
-
-	event := Event{Channel: notification.Channel, Payload: notification.Extra}
+	event := Event{
+		Channel: notification.Channel,
+		Payload: notification.Extra,
+	}
 
 	var wg sync.WaitGroup
 	for sub := range listener.subscriptions {
@@ -235,7 +233,7 @@ func (listener *channelListener) broadcast(notification *pq.Notification) {
 			wg.Add(1)
 			go func(sub Subscription) {
 				defer wg.Done()
-				sub.send(ctx, event)
+				sub.send(event)
 			}(sub)
 		}
 	}
@@ -250,9 +248,13 @@ func (listener *channelListener) subscribe(payloadFilter string) *subscription {
 		channel:          listener.channel,
 		payloadFilter:    payloadFilter,
 		eventBroadcaster: listener.eventBroadcaster,
+		queue:            utils.NewBoundedQueue(1000),
 		chEvents:         make(chan Event),
 		chDone:           make(chan struct{}),
 	}
+	sub.processQueueWorker = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(sub.processQueue),
+	)
 	listener.subscriptions[sub] = struct{}{}
 	return sub
 }
@@ -293,16 +295,18 @@ type Subscription interface {
 
 	channelName() string
 	interestedIn(event Event) bool
-	send(ctx context.Context, event Event)
+	send(event Event)
 	close()
 }
 
 type subscription struct {
-	channel          string
-	payloadFilter    string
-	eventBroadcaster *eventBroadcaster
-	chEvents         chan Event
-	chDone           chan struct{}
+	channel            string
+	payloadFilter      string
+	eventBroadcaster   *eventBroadcaster
+	queue              *utils.BoundedQueue
+	processQueueWorker utils.SleeperTask
+	chEvents           chan Event
+	chDone             chan struct{}
 }
 
 var _ Subscription = (*subscription)(nil)
@@ -311,11 +315,28 @@ func (sub *subscription) interestedIn(event Event) bool {
 	return sub.payloadFilter == event.Payload || sub.payloadFilter == ""
 }
 
-func (sub *subscription) send(ctx context.Context, event Event) {
-	select {
-	case sub.chEvents <- event:
-	case <-ctx.Done():
-	case <-sub.chDone:
+func (sub *subscription) send(event Event) {
+	sub.queue.Add(event)
+	sub.processQueueWorker.WakeUp()
+}
+
+const broadcastTimeout = 10 * time.Second
+
+func (sub *subscription) processQueue() {
+	ctx, cancel := context.WithTimeout(context.Background(), broadcastTimeout)
+	defer cancel()
+
+	for !sub.queue.Empty() {
+		event, ok := sub.queue.Take().(Event)
+		if !ok {
+			logger.Errorf("Postgres event broadcaster subscription expected an Event, got %T", event)
+			continue
+		}
+		select {
+		case sub.chEvents <- event:
+		case <-ctx.Done():
+		case <-sub.chDone:
+		}
 	}
 }
 
@@ -328,7 +349,12 @@ func (sub *subscription) channelName() string {
 }
 
 func (sub *subscription) close() {
+	// Close chDone before stopping the SleeperTask to avoid deadlocks
 	close(sub.chDone)
+	err := sub.processQueueWorker.Stop()
+	if err != nil {
+		logger.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
+	}
 }
 
 func (sub *subscription) Close() {

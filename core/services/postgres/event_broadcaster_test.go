@@ -26,11 +26,11 @@ func TestEventBroadcaster(t *testing.T) {
 		defer sub.Close()
 
 		go func() {
-			err := eventBroadcaster.Notify("bar", 123)
+			err := eventBroadcaster.Notify("bar", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("fooo", 123)
+			err = eventBroadcaster.Notify("fooo", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("fo", 123)
+			err = eventBroadcaster.Notify("fo", "123")
 			require.NoError(t, err)
 		}()
 
@@ -46,11 +46,11 @@ func TestEventBroadcaster(t *testing.T) {
 		go func() {
 			err := eventBroadcaster.Notify("foo", "asdf")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("bar", 123)
+			err = eventBroadcaster.Notify("bar", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("fooo", 123)
+			err = eventBroadcaster.Notify("fooo", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("fo", 123)
+			err = eventBroadcaster.Notify("fo", "123")
 			require.NoError(t, err)
 		}()
 
@@ -64,11 +64,11 @@ func TestEventBroadcaster(t *testing.T) {
 		defer sub.Close()
 
 		go func() {
-			err := eventBroadcaster.Notify("foo", 123)
+			err := eventBroadcaster.Notify("foo", "123")
 			require.NoError(t, err)
 			err = eventBroadcaster.Notify("foo", "aslkdjslkdfj")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("foo", true)
+			err = eventBroadcaster.Notify("foo", "true")
 			require.NoError(t, err)
 		}()
 
@@ -86,11 +86,11 @@ func TestEventBroadcaster(t *testing.T) {
 		go func() {
 			err := eventBroadcaster.Notify("foo", "asdf")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("foo", 123)
+			err = eventBroadcaster.Notify("foo", "123")
 			require.NoError(t, err)
 			err = eventBroadcaster.Notify("foo", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("foo", true)
+			err = eventBroadcaster.Notify("foo", "true")
 			require.NoError(t, err)
 		}()
 
@@ -134,20 +134,20 @@ func TestEventBroadcaster(t *testing.T) {
 			defer wg.Done()
 			err := eventBroadcaster.Notify("foo", "asdf")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("foo", 123)
+			err = eventBroadcaster.Notify("foo", "123")
 			require.NoError(t, err)
 			err = eventBroadcaster.Notify("foo", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("foo", true)
+			err = eventBroadcaster.Notify("foo", "true")
 			require.NoError(t, err)
 
 			err = eventBroadcaster.Notify("bar", "asdf")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("bar", 123)
+			err = eventBroadcaster.Notify("bar", "123")
 			require.NoError(t, err)
 			err = eventBroadcaster.Notify("bar", "123")
 			require.NoError(t, err)
-			err = eventBroadcaster.Notify("bar", true)
+			err = eventBroadcaster.Notify("bar", "true")
 			require.NoError(t, err)
 		}()
 
