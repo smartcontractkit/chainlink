@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
@@ -21,11 +20,10 @@ func TestORM(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
+	defer cleanupORM()
 
-	orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster)
 	defer orm.Close()
 
 	ocrSpec, dbSpec := makeOCRJobSpec(t, db)

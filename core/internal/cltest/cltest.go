@@ -28,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -239,6 +241,13 @@ func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) 
 	config.Set("ETH_URL", url)
 	config.wsServer = wsserver
 	return config
+}
+
+func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+	t.Helper()
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
+	return pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, func() { eventBroadcaster.Stop() }
 }
 
 // TestApplication holds the test application and test servers
