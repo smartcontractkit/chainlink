@@ -22,6 +22,8 @@ import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
 import { useHistory } from 'react-router-dom'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import Link from 'components/Link'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 type IndexProps = {
   pageSize?: number
@@ -29,79 +31,17 @@ type IndexProps = {
   pageNumber?: string
 }>
 
-const renderBody = ({
-  error,
-  jobs,
-}: {
-  error?: Error
-  jobs?: jsonapi.PaginatedApiResponse<models.JobSpec[]>['data']
-}) => {
-  if (error) {
-    return (
-      <TableRow>
-        <TableCell component="th" scope="row" colSpan={3}>
-          {error}
-        </TableCell>
-      </TableRow>
-    )
-  } else if (jobs && jobs.length === 0) {
-    return (
-      <TableRow>
-        <TableCell component="th" scope="row" colSpan={3}>
-          You haven’t created any jobs yet. Create a new job{' '}
-          <Link href={`/jobs/new`}>here</Link>
-        </TableCell>
-      </TableRow>
-    )
-  } else if (jobs) {
-    return jobs.map((j) => (
-      <TableRow key={j.id}>
-        <TableCell component="th" scope="row">
-          <Link href={`/jobs/${j.id}`}>
-            {j.attributes.name || '-'}
-            <br />
-            <Typography
-              variant="subtitle2"
-              color="textSecondary"
-              component="span"
-            >
-              {j.id}
-            </Typography>
-          </Link>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body1">
-            <TimeAgo tooltip>{j.attributes.createdAt || ''}</TimeAgo>
-          </Typography>
-        </TableCell>
-        <TableCell>
-          <Typography variant="body1">
-            {formatInitiators(j.attributes.initiators)}
-          </Typography>
-        </TableCell>
-      </TableRow>
-    ))
-  }
-
-  return (
-    <TableRow>
-      <TableCell component="th" scope="row" colSpan={3}>
-        Loading...
-      </TableCell>
-    </TableRow>
-  )
-}
-
 export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
   React.useEffect(() => {
     document.title = 'Jobs'
-  })
+  }, [])
 
   const [jobs, setJobs] = React.useState<
     jsonapi.PaginatedApiResponse<models.JobSpec[]>['data']
   >()
   const [jobsCount, setJobsCount] = React.useState(0)
-  const [error, setError] = React.useState()
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
 
   const history = useHistory()
   const pageNumber = match.params.pageNumber
@@ -116,7 +56,7 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
         setJobsCount(meta.count)
       })
       .catch(setError)
-  }, [pageNumber, pageSize])
+  }, [pageNumber, pageSize, setError])
 
   const TableButtonsWithProps = () => (
     <TableButtons
@@ -150,46 +90,92 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
           </Grid>
         </Grid>
         <Grid item xs={12}>
-          <Card>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Name
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Created
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body1" color="textSecondary">
-                      Initiator
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>{renderBody({ error, jobs })}</TableBody>
-            </Table>
-            <TablePagination
-              component="div"
-              count={jobsCount}
-              rowsPerPage={pageSize}
-              rowsPerPageOptions={[pageSize]}
-              page={pageNumber - 1}
-              onChangePage={
-                () => {} /* handler required by component, so make it a no-op */
-              }
-              onChangeRowsPerPage={
-                () => {} /* handler required by component, so make it a no-op */
-              }
-              ActionsComponent={TableButtonsWithProps}
-            />
-          </Card>
+          <ErrorComponent />
+          <LoadingPlaceholder />
+          {!error && jobs && (
+            <Card>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>
+                      <Typography variant="body1" color="textSecondary">
+                        Name
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1" color="textSecondary">
+                        Created
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1" color="textSecondary">
+                        Initiator
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {jobs && jobs.length === 0 && (
+                    <TableRow>
+                      <TableCell component="th" scope="row" colSpan={3}>
+                        You haven’t created any jobs yet. Create a new job{' '}
+                        <Link href={`/jobs/new`}>here</Link>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {jobs &&
+                    jobs.length > 0 &&
+                    jobs.map((j) => (
+                      <TableRow key={j.id}>
+                        <TableCell component="th" scope="row">
+                          <Link href={`/jobs/${j.id}`}>
+                            {j.attributes.name || '-'}
+                            <br />
+                            <Typography
+                              variant="subtitle2"
+                              color="textSecondary"
+                              component="span"
+                            >
+                              {j.id}
+                            </Typography>
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body1">
+                            <TimeAgo tooltip>
+                              {j.attributes.createdAt || ''}
+                            </TimeAgo>
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body1">
+                            {formatInitiators(j.attributes.initiators)}
+                          </Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+              <TablePagination
+                component="div"
+                count={jobsCount}
+                rowsPerPage={pageSize}
+                rowsPerPageOptions={[pageSize]}
+                page={pageNumber - 1}
+                onChangePage={
+                  () => {} /* handler required by component, so make it a no-op */
+                }
+                onChangeRowsPerPage={
+                  () => {} /* handler required by component, so make it a no-op */
+                }
+                ActionsComponent={TableButtonsWithProps}
+              />
+            </Card>
+          )}
         </Grid>
       </Grid>
     </Content>
   )
 }
+
+export default JobsIndex

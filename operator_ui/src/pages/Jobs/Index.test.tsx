@@ -32,8 +32,6 @@ const mountIndex = (opts: { pageSize?: number } = {}) =>
 
 describe('pages/Jobs/Index', () => {
   it('renders the list of jobs', async () => {
-    expect.assertions(3)
-
     const jobSpecsResponse = jsonApiJobSpecsFactory([
       {
         id: 'c60b9927eeae43168ddbe92584937b1b',
@@ -54,8 +52,6 @@ describe('pages/Jobs/Index', () => {
   })
 
   it('can page through the list of jobs', async () => {
-    expect.assertions(6)
-
     const pageOneResponse = jsonApiJobSpecsFactory(
       [{ id: 'ID-ON-FIRST-PAGE' }],
       2,
@@ -80,6 +76,8 @@ describe('pages/Jobs/Index', () => {
     await act(async () => {
       await syncFetch(wrapper)
     })
+    wrapper.update()
+
     expect(wrapper.text()).not.toContain('ID-ON-FIRST-PAGE')
     expect(wrapper.text()).toContain('ID-ON-SECOND-PAGE')
 
