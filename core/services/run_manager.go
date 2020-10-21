@@ -257,28 +257,24 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 	observedHeight := utils.NewBig(currentBlockHeight)
 
 	query := `
-WITH job_runs AS (
-	UPDATE job_runs
-	SET
-		status = ?,
-		observed_height = ?
-	WHERE status in (?)
+WITH resumable_job_runs AS (
+	UPDATE    job_runs
+	SET       status = ?,
+	          observed_height = ?
+	WHERE     status in (?)
 	RETURNING id
 )
 UPDATE task_runs
-SET
-	status = ?,
-	confirmations = ?
+SET    status = ?,
+       confirmations = ?
 WHERE
 	id = (
-		SELECT id
-		FROM task_runs
-		WHERE
-			job_run_id = (SELECT id FROM job_runs)
-			AND
-			status in (?)
+		SELECT   id
+		FROM     task_runs
+		WHERE    job_run_id = (SELECT id FROM resumable_job_runs)
+		  AND    status in (?)
 		ORDER BY task_spec_id DESC
-		LIMIT 1
+		LIMIT    1
 	)
 RETURNING job_run_id;`
 
