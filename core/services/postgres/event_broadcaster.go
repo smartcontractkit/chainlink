@@ -24,6 +24,7 @@ type EventBroadcaster interface {
 	Stop() error
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
+	NotifyUsing(db *sql.DB, channel string, payload string) error
 }
 
 type eventBroadcaster struct {
@@ -90,7 +91,11 @@ func (b *eventBroadcaster) Stop() error {
 }
 
 func (b *eventBroadcaster) Notify(channel string, payload string) error {
-	_, err := b.db.Exec(`SELECT pg_notify($1, $2::text)`, channel, payload)
+	return b.NotifyUsing(b.db, channel, payload)
+}
+
+func (b *eventBroadcaster) NotifyUsing(db *sql.DB, channel string, payload string) error {
+	_, err := db.Exec(`SELECT pg_notify($1, $2::text)`, channel, payload)
 	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
 
