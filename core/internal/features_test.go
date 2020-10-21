@@ -88,20 +88,20 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		})
 	defer assertCalled()
 
-	sentAt := int64(23456)
-	confirmed := sentAt + int64(config.EthGasBumpThreshold()) + 1
+	confirmed := int64(23456)
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(23463) }).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }).
 		Return(nil)
 
 	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(23463)).Return(cltest.BlockWithTransactions(), nil)
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
 
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -940,7 +940,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -983,8 +982,11 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
 	defer assertCalled()
 
-	// Single task ethTx receives configuration from FM init and writes to chain.
+	confirmed := int64(23456)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
+	// Single task ethTx receives configuration from FM init and writes to chain.
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(logsSub, nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
@@ -995,15 +997,15 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(1)}, nil)
+				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
 		}).
 		Return(nil).Once()
 
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(7) }). // TODO - RYAN - this is hacky
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }). // TODO - RYAN - this is hacky
 		Return(nil)
 
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(7)).Return(cltest.BlockWithTransactions(), nil)
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
@@ -1019,8 +1021,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-chchNewHeads
-	// Send a head w block number 10, high enough to mark ethtx as safe.
-	newHeads <- cltest.Head(10)
+	newHeads <- cltest.Head(safe)
 
 	// Check the FM price on completed run output
 	jr = cltest.WaitForJobRunToComplete(t, app.GetStore(), jr)
@@ -1053,7 +1054,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -1067,7 +1067,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(256), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -1094,6 +1093,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", priceResponse)
 	defer assertCalled()
 
+	confirmed := int64(23456)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+
 	// Prepare new rounds logs subscription to be called by new FM job
 	chchLogs := make(chan chan<- types.Log, 1)
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -1105,10 +1108,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(1) }).
 		Return(nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(1) }).
-		Return(nil).
-		Maybe()
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
@@ -1121,7 +1120,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	job.Initiators[0].InitiatorParams.IdleTimer.Duration = models.MustMakeDuration(0)
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	_ = cltest.WaitForRuns(t, j, app.Store, 0)
+	_ = cltest.AssertRunsStays(t, j, app.Store, 0)
 
 	gethClient.AssertExpectations(t)
 	rpcClient.AssertExpectations(t)
@@ -1131,18 +1130,20 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
 	log.Address = job.Initiators[0].InitiatorParams.Address
 
-	attemptHash := cltest.NewHash()
-	confirmedReceipt := &types.Receipt{
-		TxHash:      attemptHash,
-		BlockNumber: big.NewInt(1),
-	}
-	// Initial tx attempt sent
-	rpcClient.On("Call", mock.Anything, "eth_sendRawTransaction", mock.Anything).
-		Run(func(args mock.Arguments) { *args.Get(0).(*common.Hash) = attemptHash }).
+	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			tx, ok := args.Get(1).(*types.Transaction)
+			require.True(t, ok)
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+		}).
+		Return(nil).Once()
+
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }). // TODO - RYAN - this is hacky
 		Return(nil)
 
-	// Confirmed for gas bumped txattempt
-	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Return(confirmedReceipt, nil)
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
 
 	// Flux Monitor queries FluxAggregator.RoundState()
 	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, mock.Anything).
@@ -1155,9 +1156,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	newRounds <- log
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-chchNewHeads
-	newHeads <- cltest.Head(1)
+	newHeads <- cltest.Head(safe)
 	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
@@ -1171,54 +1173,67 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 // TestIntegration_EthTX_Reconnect tests that JobRuns that are interrupted due to
 // eth client connection issues are re-started appropriately. In particular, they
 // should broadcast a tx with the result of the original RunInput.
+
+// TODO - remove this test when removing the Legacy TXM - it is redundant
 func TestIntegration_EthTX_Reconnect(t *testing.T) {
 	t.Parallel()
 
-	config, cfgCleanup := cltest.NewConfig(t)
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cfgCleanup()
-	defer cleanup()
+	gethClient := new(mocks.GethClient)
+	rpcClient := new(mocks.RPCClient)
+	sub := new(mocks.Subscription)
 
-	eth := app.EthMock
-	newHeads := make(chan *models.Head)
-	const startHeight = 100
-	eth.RegisterSubscription("newHeads", newHeads)
-	eth.Register("eth_getTransactionCount", `0x100`)
-	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(startHeight)))
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer appCleanup()
+
+	confirmed := int64(23456)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+
+	// Start, connect, and initialize node
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }).
+		Return(nil)
+
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
+
+	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			tx, ok := args.Get(1).(*types.Transaction)
+			require.True(t, ok)
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+		}).
+		Return(nil).Once()
+
 	require.NoError(t, app.StartAndConnect())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 	result := "0x11"
 	var jr models.JobRun
-	eth.ShouldCall(func(eth *cltest.EthMock) {
-		eth.Register("eth_sendRawTransaction", cltest.NewHash())
-		eth.RegisterError("eth_getTransactionReceipt", "connection closed")
-	}).During(func() {
-		jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
-		cltest.WaitForTxAttemptCount(t, app.Store, 1)
-		cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
-	})
+	jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
+	cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	confirmedHeight := int64(startHeight + 1)
+	newHeads := <-chchNewHeads
+	newHeads <- cltest.Head(safe)
 
-	eth.ShouldCall(func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", &types.Receipt{
-			TxHash: cltest.NewHash(),
-			// set the confirmation to avoid messing with the head tracker too
-			BlockNumber: big.NewInt(confirmedHeight - int64(app.Store.Config.MinRequiredOutgoingConfirmations())),
-		})
-	}).During(func() {
-		app.RunManager.ResumeAllPendingConnection()
-		cltest.WaitForJobRunToComplete(t, app.Store, jr)
-	})
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-	tx := cltest.GetLastTx(t, app.Store)
-	resultOnChain := hexutil.Encode(common.TrimLeftZeroes(tx.Data))
+	tx := cltest.GetLastEthTx(t, app.Store)
+	resultOnChain := hexutil.Encode(common.TrimLeftZeroes(tx.EncodedPayload))
 
 	assert.Equal(t, result, resultOnChain)
 }

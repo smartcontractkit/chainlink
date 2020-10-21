@@ -1367,6 +1367,19 @@ func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
 	return tx
 }
 
+func GetLastEthTx(t testing.TB, store *strpkg.Store) models.EthTx {
+	t.Helper()
+
+	var tx models.EthTx
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&tx).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return tx
+}
+
 type Awaiter chan struct{}
 
 func NewAwaiter() Awaiter { return make(Awaiter) }
