@@ -98,28 +98,45 @@ export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
 
   const { jobSpecId } = match.params
 
-  React.useEffect(() => {
-    Promise.all([
-      v2.specs.getJobSpec(jobSpecId),
-      v2.runs.getJobSpecRuns({
-        jobSpecId,
-        page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT,
-      }),
-    ])
-      .then(([jobSpecResponse, jobSpecRunsResponse]) => {
-        setState({
-          jobSpec: jobSpecResponse.data,
-          recentRuns: jobSpecRunsResponse.data,
-          recentRunsCount: jobSpecRunsResponse.meta.count,
+  const getJobSpecRuns = React.useCallback(
+    () =>
+      v2.runs
+        .getJobSpecRuns({
+          jobSpecId,
+          page: DEFAULT_PAGE,
+          size: RECENT_RUNS_COUNT,
         })
+        .then((jobSpecRunsResponse) => {
+          setState((s) => ({
+            ...s,
+            recentRuns: jobSpecRunsResponse.data,
+            recentRunsCount: jobSpecRunsResponse.meta.count,
+          }))
+        })
+        .catch(setError),
+    [jobSpecId, setError],
+  )
+
+  React.useEffect(() => {
+    v2.specs
+      .getJobSpec(jobSpecId)
+      .then((jobSpecResponse) => {
+        setState((s) => ({
+          ...s,
+          jobSpec: jobSpecResponse.data,
+        }))
       })
       .catch(setError)
-  }, [jobSpecId, setError])
+    getJobSpecRuns()
+  }, [getJobSpecRuns, jobSpecId, setError])
 
   return (
     <div>
-      <RegionalNav jobSpecId={jobSpecId} job={jobSpec} />
+      <RegionalNav
+        jobSpecId={jobSpecId}
+        job={jobSpec}
+        getJobSpecRuns={getJobSpecRuns}
+      />
       <Switch>
         <Route path={`${match.path}/json`} component={JobsDefinition} />
         <Route path={`${match.path}/errors`} component={JobsErrors} />

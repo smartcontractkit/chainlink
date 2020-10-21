@@ -15,7 +15,7 @@ import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
 import { Redirect, useLocation } from 'react-router-dom'
-import { createJobRun, deleteJobSpec, fetchJobRuns } from 'actionCreators'
+import { createJobRun, deleteJobSpec } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import CopyJobSpec from 'components/CopyJobSpec'
@@ -112,25 +112,22 @@ const DeleteSuccessNotification = ({ id }: any) => (
   <React.Fragment>Successfully archived job {id}</React.Fragment>
 )
 
-const DEFAULT_PAGE = 1
-const RECENT_RUNS_COUNT = 5
-
 interface Props extends WithStyles<typeof styles> {
-  fetchJobRuns: Function
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
   job: JobData['jobSpec']
   url: string
+  getJobSpecRuns: () => Promise<void>
 }
 
 const RegionalNavComponent = ({
   classes,
   createJobRun,
-  fetchJobRuns,
   jobSpecId,
   job,
   deleteJobSpec,
+  getJobSpecRuns,
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
@@ -144,14 +141,11 @@ const RegionalNavComponent = ({
       ? `Errors (${job.attributes.errors.length})`
       : 'Errors'
   const handleRun = () => {
-    createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
-      () =>
-        fetchJobRuns({
-          jobSpecId,
-          page: DEFAULT_PAGE,
-          size: RECENT_RUNS_COUNT,
-        }),
-    )
+    createJobRun(
+      jobSpecId,
+      CreateRunSuccessNotification,
+      ErrorMessage,
+    ).then(() => getJobSpecRuns())
   }
   const handleDelete = (id: string) => {
     deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
@@ -336,7 +330,6 @@ const mapStateToProps = (state: any) => ({
 })
 
 export const ConnectedRegionalNav = connect(mapStateToProps, {
-  fetchJobRuns,
   createJobRun,
   deleteJobSpec,
 })(RegionalNavComponent)

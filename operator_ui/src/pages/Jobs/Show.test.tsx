@@ -87,4 +87,54 @@ describe('pages/Jobs/Show', () => {
     })
     expect(wrapper.text()).toContain('View More')
   })
+
+  describe('RegionalNav', () => {
+    it('clicking on "Run" button triggers a new job and updates the recent jobs list', async () => {
+      const runs = [{ id: 'runA', jobId: JOB_SPEC_ID }]
+
+      global.fetch.getOnce(
+        globPath(`/v2/specs/${JOB_SPEC_ID}`),
+        jsonApiJobSpecFactory({
+          id: JOB_SPEC_ID,
+          initiators: [{ type: 'web' }],
+        }),
+      )
+      global.fetch.getOnce(
+        globPath('/v2/runs'),
+        jsonApiJobSpecRunsFactory(runs),
+      )
+
+      const wrapper = mountWithProviders(
+        <Route path="/jobs/:jobSpecId" component={JobsShow} />,
+        {
+          initialEntries: [`/jobs/${JOB_SPEC_ID}`],
+        },
+      )
+
+      await act(async () => {
+        await syncFetch(wrapper)
+        wrapper.update()
+      })
+      wrapper.update()
+
+      expect(wrapper.find('tbody').first().children().length).toEqual(1)
+
+      // Prep before "Run" button click
+      global.fetch.postOnce(globPath(`/v2/specs/${JOB_SPEC_ID}/runs`), {})
+      global.fetch.getOnce(
+        globPath('/v2/runs'),
+        jsonApiJobSpecRunsFactory(
+          runs.concat([{ id: 'runB', jobId: JOB_SPEC_ID }]),
+        ),
+      )
+      wrapper.find('Button').find({ children: 'Run' }).first().simulate('click')
+      await act(async () => {
+        await syncFetch(wrapper)
+      })
+
+      wrapper.update()
+
+      expect(wrapper.find('tbody').first().children().length).toEqual(2)
+    })
+  })
 })
