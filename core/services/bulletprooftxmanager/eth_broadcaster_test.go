@@ -1326,13 +1326,13 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
-	eb := bulletprooftxmanager.NewEthBroadcaster(store, store.Config, eventBroadcaster)
-	bulletprooftxmanager.ExportedMustStartEthTxInsertListener(eb)
+	ethTxInsertListener, err := eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+	require.NoError(t, err)
 
 	// Give it some time to start listening
 	time.Sleep(100 * time.Millisecond)
 
 	mustInsertUnstartedEthTx(t, store)
-	gomega.NewGomegaWithT(t).Eventually(bulletprooftxmanager.ExportedTriggerChan(eb)).Should(gomega.Receive())
+	gomega.NewGomegaWithT(t).Eventually(ethTxInsertListener.Events()).Should(gomega.Receive())
 
 }
