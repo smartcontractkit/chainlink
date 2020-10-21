@@ -63,7 +63,22 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			continue
 		}
 
-		if meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
+		if !meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
+			logger.Debugw("Pausing run pending incoming confirmations",
+				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
+			)
+			taskRun.Status = models.RunStatusPendingIncomingConfirmations
+			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+
+		} else if err := validateOnMainChain(&run, taskRun, re.store.EthClient); err != nil {
+			logger.Warnw("Failure while trying to validate chain",
+				run.ForLogger("error", err)...,
+			)
+
+			taskRun.SetError(err)
+			run.SetError(err)
+
+		} else {
 			start := time.Now()
 
 			// NOTE: adapters may define and return the new job run status in here
@@ -75,14 +90,6 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			elapsed := time.Since(start).Seconds()
 
 			logger.Debugw(fmt.Sprintf("Executed task %s", taskRun.TaskSpec.Type), run.ForLogger("task", taskRun.ID.String(), "elapsed", elapsed)...)
-
-		} else {
-			logger.Debugw("Pausing run pending incoming confirmations",
-				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
-			)
-			taskRun.Status = models.RunStatusPendingIncomingConfirmations
-			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
-
 		}
 
 		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
