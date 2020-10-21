@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -81,6 +82,8 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
+	monitoringEndpoint       telemetry.MonitoringEndpoint
+	explorerClient           synchronization.ExplorerClient
 }
 
 // NewApplication initializes a new store if one is not already
@@ -92,9 +95,16 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 	store := strpkg.NewStore(config, ethClient, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
-	statsPusher := synchronization.NewStatsPusher(
-		store.ORM, config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(),
-	)
+	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
+	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
+	telemetryAgent := telemetry.MonitoringEndpoint(&telemetry.NoopAgent{})
+
+	if config.ExplorerURL() != nil {
+		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
+		statsPusher = synchronization.NewStatsPusher(store.ORM, explorerClient)
+		telemetryAgent = telemetry.NewAgent(explorerClient)
+	}
+
 	runExecutor := services.NewRunExecutor(store, statsPusher)
 	runQueue := services.NewRunQueue(runExecutor)
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
@@ -139,6 +149,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
+		monitoringEndpoint:       telemetryAgent,
+		explorerClient:           explorerClient,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -192,6 +204,7 @@ func (app *ChainlinkApplication) Start() error {
 
 	subtasks := []func() error{
 		app.Store.Start,
+		app.explorerClient.Start,
 		app.StatsPusher.Start,
 		app.RunQueue.Start,
 		app.RunManager.ResumeAllInProgress,
@@ -241,6 +254,7 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		app.RunQueue.Stop()
 		merr = multierr.Append(merr, app.StatsPusher.Close())
+		merr = multierr.Append(merr, app.explorerClient.Close())
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
 		app.pipelineRunner.Stop()
 		app.jobSpawner.Stop()

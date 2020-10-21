@@ -998,8 +998,15 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	explorerClient := synchronization.NewExplorerClient(cltest.MustParseURL("http://localhost"), "", "")
+	err := explorerClient.Start()
+	require.NoError(t, err)
+	defer explorerClient.Close()
+
 	orm := store.ORM
-	synchronization.NewStatsPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
+	statsPusher := synchronization.NewStatsPusher(orm, explorerClient)
+	require.NoError(t, statsPusher.Start())
+	defer statsPusher.Close()
 
 	// Create two events via job run callback
 	job := cltest.NewJobWithWebInitiator()
@@ -1008,7 +1015,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 
 	oldIncompleteRun := cltest.NewJobRun(job)
 	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
-	err := orm.CreateJobRun(&oldIncompleteRun)
+	err = orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)
