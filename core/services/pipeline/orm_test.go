@@ -83,10 +83,8 @@ func TestORM(t *testing.T) {
 	}
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-		eventBroadcaster.Start()
-		defer eventBroadcaster.Stop()
-		orm := pipeline.NewORM(db, config, eventBroadcaster)
+		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
+		defer cleanup()
 
 		g := pipeline.NewTaskDAG()
 		err := g.UnmarshalText([]byte(dotStr))
@@ -134,10 +132,8 @@ func TestORM(t *testing.T) {
 
 	var runID int64
 	t.Run("creates runs", func(t *testing.T) {
-		eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-		eventBroadcaster.Start()
-		defer eventBroadcaster.Stop()
-		orm := pipeline.NewORM(db, config, eventBroadcaster)
+		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
+		defer cleanup()
 		jobORM := job.NewORM(db, config, orm, eventBroadcaster)
 		defer jobORM.Close()
 
@@ -243,10 +239,8 @@ func TestORM(t *testing.T) {
 
 			test := test
 			t.Run(test.name, func(t *testing.T) {
-				eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-				eventBroadcaster.Start()
-				defer eventBroadcaster.Stop()
-				orm := pipeline.NewORM(db, config, eventBroadcaster)
+				orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
+				defer cleanup()
 				jobORM := job.NewORM(db, config, orm, eventBroadcaster)
 				defer jobORM.Close()
 

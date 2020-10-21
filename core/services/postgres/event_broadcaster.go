@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -24,7 +25,7 @@ type EventBroadcaster interface {
 	Stop() error
 	Subscribe(channel, payloadFilter string) (Subscription, error)
 	Notify(channel string, payload string) error
-	NotifyUsing(db *sql.DB, channel string, payload string) error
+	NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error
 }
 
 type eventBroadcaster struct {
@@ -91,11 +92,12 @@ func (b *eventBroadcaster) Stop() error {
 }
 
 func (b *eventBroadcaster) Notify(channel string, payload string) error {
-	return b.NotifyUsing(b.db, channel, payload)
+	_, err := b.db.Exec(`SELECT pg_notify($1, $2)`, channel, payload)
+	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
 
-func (b *eventBroadcaster) NotifyUsing(db *sql.DB, channel string, payload string) error {
-	_, err := db.Exec(`SELECT pg_notify($1, $2::text)`, channel, payload)
+func (b *eventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, payload string) error {
+	err := tx.Exec(`SELECT pg_notify(?, ?)`, channel, payload).Error
 	return errors.Wrap(err, "Postgres event broadcaster could not notify")
 }
 
@@ -267,6 +269,9 @@ func (listener *channelListener) stop() error {
 	if !listener.OkayToStop() {
 		return errors.Errorf("Postgres event listener has already been stopped (channel: %v)", listener.channel)
 	}
+
+	// Close the pq.Listener first to rule out any possible deadlocks when we
+	// close all of the subscriptions below
 	err := listener.Listener.Close()
 
 	listener.subscriptionsMu.Lock()
