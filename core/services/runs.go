@@ -7,36 +7,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
-
-func markInProgressIfSufficientIncomingConfirmations(run *models.JobRun, taskRun *models.TaskRun, currentHeight *utils.Big, ethClient eth.Client) {
-	updateTaskRunObservedIncomingConfirmations(currentHeight, run, taskRun)
-
-	if !meetsMinRequiredIncomingConfirmations(run, taskRun, run.ObservedHeight) {
-		logger.Debugw("Pausing run pending confirmations",
-			run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
-		)
-
-		taskRun.Status = models.RunStatusPendingIncomingConfirmations
-		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
-
-	} else if err := validateOnMainChain(run, taskRun, ethClient); err != nil {
-		logger.Warnw("Failure while trying to validate chain",
-			run.ForLogger("error", err)...,
-		)
-
-		taskRun.SetError(err)
-		run.SetError(err)
-
-	} else {
-		run.SetStatus(models.RunStatusInProgress)
-	}
-}
 
 func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
 	txhash := run.RunRequest.TxHash
