@@ -15,14 +15,17 @@ import Button from 'components/Button'
 import Content from 'components/Content'
 import { JobSpec } from 'core/store/models'
 import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 export const JobsErrors: React.FC<RouteComponentProps<{
   jobSpecId: string
 }>> = ({ match }) => {
   const { jobSpecId } = match.params
 
-  const [error, setError] = React.useState()
   const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
   const fetchJobSpec = React.useCallback(
     async () =>
@@ -30,7 +33,7 @@ export const JobsErrors: React.FC<RouteComponentProps<{
         .getJobSpec(jobSpecId)
         .then((response) => setJobSpec(response.data))
         .catch(setError),
-    [jobSpecId],
+    [jobSpecId, setError],
   )
 
   React.useEffect(() => {
@@ -57,8 +60,8 @@ export const JobsErrors: React.FC<RouteComponentProps<{
 
   return (
     <Content>
-      {error && <div>Error while fetching data: {JSON.stringify(error)}</div>}
-      {!error && !jobSpec && <div>Fetching...</div>}
+      <ErrorComponent />
+      <LoadingPlaceholder />
       {!error && jobSpec && (
         <Card>
           <Table>

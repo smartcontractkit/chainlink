@@ -22,6 +22,8 @@ import { JobsErrors } from './Errors'
 import { RegionalNav } from './RegionalNav'
 import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
 import { JobSpec, JobRun } from 'core/store/models'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 export type JobData = {
   jobSpec?: ApiResponse<JobSpec>['data']
@@ -86,12 +88,13 @@ const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
 export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
-  const [error, setError] = React.useState()
   const [state, setState] = React.useState<JobData>({
     recentRuns: [],
     recentRunsCount: 0,
   })
   const { jobSpec, recentRuns, recentRunsCount } = state
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
   const { jobSpecId } = match.params
 
@@ -112,7 +115,7 @@ export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
         })
       })
       .catch(setError)
-  }, [jobSpecId])
+  }, [jobSpecId, setError])
 
   return (
     <div>
@@ -124,10 +127,8 @@ export const JobsShow: React.FC<Props> = ({ match, showJobRunsCount = 5 }) => {
           path={`${match.path}`}
           render={() => (
             <Content>
-              {error && (
-                <div>Error while fetching data: {JSON.stringify(error)}</div>
-              )}
-              {!error && !jobSpec && <div>Fetching...</div>}
+              <ErrorComponent />
+              <LoadingPlaceholder />
               {!error && jobSpec && (
                 <Grid container spacing={24}>
                   <Grid item xs={8}>
