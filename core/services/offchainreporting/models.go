@@ -10,6 +10,9 @@ import (
 // representation of the OCR job spec.  It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type OracleSpec struct {
+	Type          string `toml:"type"`
+	SchemaVersion uint32 `toml:"schemaVersion"`
+
 	models.OffchainReportingOracleSpec
 
 	// The `jobID` field exists to cache the ID from the jobs table that joins

@@ -2,7 +2,6 @@ package web
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
-	"github.com/BurntSushi/toml"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
@@ -89,12 +87,7 @@ func (jsc *JobSpecsController) getAndCheckJobSpec(
 }
 
 func (jsc *JobSpecsController) getAndCheckJobSpecV2(c *gin.Context) (js job.Spec, httpStatus int, err error) {
-	body, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
-	}
-	var spec offchainreporting.OracleSpec
-	err = toml.Unmarshal(body, &spec)
+	spec, err := services.ValidatedOracleSpec(c.Request.Body)
 	if err != nil {
 		return nil, http.StatusBadRequest, err
 	}
