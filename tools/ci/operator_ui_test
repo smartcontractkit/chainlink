@@ -5,8 +5,3 @@ set -e
 cd operator_ui
 yarn run setup
 yarn run test:ci
-
-if [ -n "$CC_TEST_REPORTER_ID"  ]; then
-  cc-test-reporter format-coverage --output "coverage/codeclimate.operator_ui.json"
-  gsutil cp "coverage/codeclimate.operator_ui.json" gs://codeclimate-aggregation/$CIRCLE_WORKFLOW_ID/
-fi

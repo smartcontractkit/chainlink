@@ -34,5 +34,3 @@ codeship-*.yml
 dockercfg
 credentials.env
 gcr_creds.env
-
-coverage/

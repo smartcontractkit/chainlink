@@ -10,9 +10,9 @@
     "start": "NODE_ENV=development webpack-dev-server --open",
     "serve": "serve dist -p 3000",
     "test": "jest",
-    "test:ci": "yarn test --coverage --reporters jest-silent-reporter --maxWorkers=50%",
+    "test:ci": "yarn test --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
-    "clean": "tsc -b --clean && rimraf -rf artifacts coverage tmp dist",
+    "clean": "tsc -b --clean && rimraf -rf artifacts tmp dist",
     "build": "NODE_ENV=production webpack",
     "setup": "tsc -b",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
