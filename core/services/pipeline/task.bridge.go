@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -17,7 +18,7 @@ type BridgeTask struct {
 	Name        string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData"`
 
-	orm    ORM
+	txdb   *gorm.DB
 	config Config
 }
 
@@ -69,7 +70,7 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 
 func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	task := models.TaskType(t.Name)
-	bridge, err := t.orm.FindBridge(task)
+	bridge, err := FindBridge(t.txdb, task)
 	if err != nil {
 		return url.URL{}, err
 	}

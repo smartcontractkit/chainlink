@@ -2,19 +2,21 @@ package pipeline
 
 import (
 	"reflect"
+
+	"github.com/jinzhu/gorm"
 )
 
 func NewBaseTask(dotID string, t Task, index int32) BaseTask {
 	return BaseTask{dotID: dotID, outputTask: t, Index: index}
 }
 
-func (t *HTTPTask) HelperSetConfig(config Config) {
+func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {
 	t.config = config
+	t.txdb = txdb
 }
 
-func (t *BridgeTask) HelperSetConfigAndORM(config Config, orm ORM) {
+func (t *HTTPTask) HelperSetConfig(config Config) {
 	t.config = config
-	t.orm = orm
 }
 
 func (t ResultTask) ExportedEquals(otherTask Task) bool {

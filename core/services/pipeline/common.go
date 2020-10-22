@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -119,7 +120,7 @@ const (
 
 const ResultTaskDotID = "__result__"
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, orm ORM, config Config) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -135,7 +136,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{orm: orm, config: config, BaseTask: BaseTask{dotID: dotID}}
+		task = &BridgeTask{config: config, txdb: txdb, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
 		task = &MedianTask{BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeJSONParse:
