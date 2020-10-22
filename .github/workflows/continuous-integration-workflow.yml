@@ -150,20 +150,6 @@ jobs:
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
 
-  check_if_rebase_needed:
-    name: Check if rebase needed
-    runs-on: ubuntu-latest
-    container: alpine/git
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-        with:
-          # Default fetch depth of 1 prevents us from knowing if HEAD of develop
-          # branch is present in current branch
-          fetch-depth: 1000
-      - name: Check if rebase is needed
-        run: tools/bin/check_if_rebase_needed
-
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
