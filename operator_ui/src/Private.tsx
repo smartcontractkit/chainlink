@@ -30,11 +30,7 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
-const JobsIndex = universal(() => {
-  return import('./pages/Jobs/Index').then((module) => {
-    return module.JobsIndex
-  })
-}, uniOpts)
+const JobsIndex = universal(import('./pages/Jobs/Index'), uniOpts)
 const JobsShow: UniversalComponent<ShowComponentProps> &
   StyledComponentProps<'wrapper' | 'text'> = universal(
   import('./pages/Jobs/Show'),
