@@ -1,4 +1,0 @@
-eslint:
-  enabled: true
-  config:
-    ignore_warnings: true
