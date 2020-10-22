@@ -115,7 +115,7 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {jobs && jobs.length === 0 && (
+                  {jobs && jobsCount === 0 && (
                     <TableRow>
                       <TableCell component="th" scope="row" colSpan={3}>
                         You haven’t created any jobs yet. Create a new job{' '}
@@ -124,32 +124,32 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                     </TableRow>
                   )}
                   {jobs &&
-                    jobs.length > 0 &&
-                    jobs.map((j) => (
-                      <TableRow key={j.id}>
+                    jobsCount > 0 &&
+                    jobs.map((job) => (
+                      <TableRow key={job.id}>
                         <TableCell component="th" scope="row">
-                          <Link href={`/jobs/${j.id}`}>
-                            {j.attributes.name || '-'}
+                          <Link href={`/jobs/${job.id}`}>
+                            {job.attributes.name || '-'}
                             <br />
                             <Typography
                               variant="subtitle2"
                               color="textSecondary"
                               component="span"
                             >
-                              {j.id}
+                              {job.id}
                             </Typography>
                           </Link>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
                             <TimeAgo tooltip>
-                              {j.attributes.createdAt || ''}
+                              {job.attributes.createdAt || ''}
                             </TimeAgo>
                           </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
-                            {formatInitiators(j.attributes.initiators)}
+                            {formatInitiators(job.attributes.initiators)}
                           </Typography>
                         </TableCell>
                       </TableRow>
