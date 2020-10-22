@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -243,6 +244,9 @@ func (rm *runManager) Create(
 // ResumeAllPendingNextBlock wakes up all jobs that were sleeping because they
 // were waiting for the next block
 func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
+	logger.Debugw("Resuming all runs pending next block", "currentBlockHeight", currentBlockHeight)
+
+	observedHeight := utils.NewBig(currentBlockHeight)
 	resumableRunStatuses := []models.RunStatus{
 		models.RunStatusPendingConnection,
 		models.RunStatusPendingOutgoingConfirmations,
@@ -254,39 +258,43 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusPendingIncomingConfirmations,
 	}
-	observedHeight := utils.NewBig(currentBlockHeight)
-
-	query := `
-WITH resumable_job_runs AS (
-	UPDATE    job_runs
-	SET       status = ?,
-	          observed_height = ?
-	WHERE     status in (?)
-	RETURNING id
-)
-UPDATE task_runs
-SET    status = ?,
-       confirmations = ?
-WHERE
-	id = (
-		SELECT   id
-		FROM     task_runs
-		WHERE    job_run_id = (SELECT id FROM resumable_job_runs)
-		  AND    status in (?)
-		ORDER BY task_spec_id DESC
-		LIMIT    1
-	)
-RETURNING job_run_id;`
-
-	result := rm.orm.DB.Raw(query, models.RunStatusInProgress, observedHeight, resumableRunStatuses, models.RunStatusInProgress, observedHeight, resumableTaskStatuses)
 	runIDs := []*models.ID{}
-	result.Pluck("job_run_id", &runIDs)
+
+	err := rm.orm.Transaction(func(tx *gorm.DB) error {
+		updateTaskRunsQuery := `
+UPDATE task_runs
+   SET status = ?, confirmations = ?
+  FROM job_runs
+ WHERE job_runs.status IN (?)
+   AND task_runs.job_run_id = job_runs.id
+   AND task_runs.status IN (?);`
+		result := tx.Exec(updateTaskRunsQuery, models.RunStatusInProgress, observedHeight, resumableRunStatuses, resumableTaskStatuses)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		updateJobRunsQuery := `
+   UPDATE job_runs
+      SET status = ?, observed_height = ?
+    WHERE status IN (?)
+RETURNING id;`
+		result = tx.Raw(updateJobRunsQuery, models.RunStatusInProgress, observedHeight, resumableRunStatuses)
+		if result.Error != nil {
+			return result.Error
+		}
+		return result.Pluck("id", &runIDs).Error
+	})
+
+	if err != nil {
+		return err
+	}
+
 	for _, runID := range runIDs {
 		// FIXME: this is safe, but probably better to change Run to just take an ID here
 		rm.runQueue.Run(&models.JobRun{ID: runID})
 	}
 	rm.statsPusher.PushNow()
-	return result.Error
+	return nil
 }
 
 // ResumeAllPendingConnection wakes up all tasks that have gone to sleep because they
