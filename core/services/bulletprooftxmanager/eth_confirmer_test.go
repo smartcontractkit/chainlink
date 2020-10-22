@@ -607,7 +607,7 @@ func TestEthConfirmer_FindEthTxsRequiringNewAttempt(t *testing.T) {
 	nonce++
 
 	address := cltest.GetDefaultFromAddress(t, store)
-	otherAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	otherAddress := cltest.NewAddress()
 	cltest.MustInsertKey(t, store, otherAddress)
 
 	t.Run("returns nothing when there are no transactions", func(t *testing.T) {
@@ -805,7 +805,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 	oldEnough := int64(19)
 	nonce := int64(0)
 
-	otherAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+	otherAddress := cltest.NewAddress()
 	otherKey := cltest.MustInsertKey(t, store, otherAddress)
 
 	key := cltest.MustGetFixtureKey(t, store)
