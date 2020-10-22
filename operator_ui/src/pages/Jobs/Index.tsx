@@ -1,4 +1,5 @@
 import React from 'react'
+import { RouteChildrenProps } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
 import Button from 'components/Button'
 import { Title } from 'components/Title'
@@ -24,7 +25,7 @@ import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avoid pagination
 
-export const JobsIndex = () => {
+export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
   React.useEffect(() => {
     document.title = 'Jobs'
   }, [])
@@ -107,19 +108,21 @@ export const JobsIndex = () => {
                   {jobs &&
                     jobsCount > 0 &&
                     jobs.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell component="th" scope="row">
-                          <Link href={`/jobs/${job.id}`}>
-                            {job.attributes.name || '-'}
-                            <br />
-                            <Typography
-                              variant="subtitle2"
-                              color="textSecondary"
-                              component="span"
-                            >
-                              {job.id}
-                            </Typography>
-                          </Link>
+                      <TableRow
+                        hover
+                        key={job.id}
+                        onClick={() => history.push(`/jobs/${job.id}`)}
+                      >
+                        <TableCell>
+                          {job.attributes.name || '-'}
+                          <br />
+                          <Typography
+                            variant="subtitle2"
+                            color="textSecondary"
+                            component="span"
+                          >
+                            {job.id}
+                          </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
@@ -128,7 +131,11 @@ export const JobsIndex = () => {
                             </TimeAgo>
                           </Typography>
                         </TableCell>
-                        <TableCell>Direct request</TableCell>
+                        <TableCell>
+                          <Typography variant="body1">
+                            Direct request
+                          </Typography>
+                        </TableCell>
                         <TableCell>
                           <Typography variant="body1">
                             {formatInitiators(job.attributes.initiators)}
