@@ -52,6 +52,8 @@ declare module 'core/store/models' {
     startAt: nullable.Time
     endAt: nullable.Time
     name: string
+    earnings: number | null
+    errors: JobSpecErrors[]
   }
 
   // Types of Initiators (see Initiator struct just below.)

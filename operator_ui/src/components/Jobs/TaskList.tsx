@@ -5,7 +5,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { TaskSpecs } from 'operator_ui'
+import { TaskSpec } from 'core/store/models'
 import React from 'react'
 import ListIcon from '../../components/Icons/ListIcon'
 import titleize from '../../utils/titleize'
@@ -34,7 +34,7 @@ const styles = ({ spacing, palette }: Theme) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  tasks: TaskSpecs
+  tasks: TaskSpec[]
 }
 
 const TaskList = ({ tasks, classes }: Props) => {
