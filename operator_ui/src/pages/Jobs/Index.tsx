@@ -1,5 +1,4 @@
 import React from 'react'
-import { RouteComponentProps } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
 import Button from 'components/Button'
 import { Title } from 'components/Title'
@@ -15,23 +14,17 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
-import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHistory } from 'react-router-dom'
+import { FIRST_PAGE } from 'components/TableButtons'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import Link from 'components/Link'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
-type IndexProps = {
-  pageSize?: number
-} & RouteComponentProps<{
-  pageNumber?: string
-}>
+const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avoid pagination
 
-export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
+export const JobsIndex = () => {
   React.useEffect(() => {
     document.title = 'Jobs'
   }, [])
@@ -43,32 +36,15 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
 
-  const history = useHistory()
-  const pageNumber = match.params.pageNumber
-    ? parseInt(match.params.pageNumber, 10)
-    : FIRST_PAGE
-
   React.useEffect(() => {
     v2.specs
-      .getJobSpecs(pageNumber, pageSize)
+      .getJobSpecs(FIRST_PAGE, PAGE_SIZE)
       .then(({ data, meta }) => {
         setJobs(data)
         setJobsCount(meta.count)
       })
       .catch(setError)
-  }, [pageNumber, pageSize, setError])
-
-  const TableButtonsWithProps = () => (
-    <TableButtons
-      count={jobsCount}
-      onChangePage={(_event: React.SyntheticEvent, page: number) => {
-        history.push(`/jobs/page/${page}`)
-      }}
-      rowsPerPage={pageSize}
-      page={pageNumber}
-      replaceWith={`/jobs/page`}
-    />
-  )
+  }, [setError])
 
   return (
     <Content>
@@ -156,20 +132,6 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                     ))}
                 </TableBody>
               </Table>
-              <TablePagination
-                component="div"
-                count={jobsCount}
-                rowsPerPage={pageSize}
-                rowsPerPageOptions={[pageSize]}
-                page={pageNumber - 1}
-                onChangePage={
-                  () => {} /* handler required by component, so make it a no-op */
-                }
-                onChangeRowsPerPage={
-                  () => {} /* handler required by component, so make it a no-op */
-                }
-                ActionsComponent={TableButtonsWithProps}
-              />
             </Card>
           )}
         </Grid>
