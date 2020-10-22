@@ -1,7 +1,4 @@
 import React from 'react'
-import { RouteComponentProps } from 'react-router-dom'
-import { v2 } from 'api'
-import { ApiResponse } from '@chainlink/json-api-client'
 import {
   createStyles,
   CardContent,
@@ -15,10 +12,8 @@ import {
 } from '@material-ui/core'
 import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
-import { JobSpec } from 'core/store/models'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { useErrorHandler } from 'hooks/useErrorHandler'
-import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
+import { JobData } from './sharedTypes'
 
 const definitionStyles = (theme: Theme) =>
   createStyles({
@@ -33,27 +28,19 @@ const definitionStyles = (theme: Theme) =>
   })
 
 const Definition: React.FC<
-  RouteComponentProps<{
-    jobSpecId: string
-  }> &
-    WithStyles<typeof definitionStyles>
-> = ({ classes, match }) => {
-  const { jobSpecId } = match.params
-
-  const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
-  const { error, ErrorComponent, setError } = useErrorHandler()
-  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
-
+  {
+    error: unknown
+    ErrorComponent: React.FC
+    LoadingPlaceholder: React.FC
+    jobSpec?: JobData['jobSpec']
+  } & WithStyles<typeof definitionStyles>
+> = ({ classes, error, ErrorComponent, LoadingPlaceholder, jobSpec }) => {
   React.useEffect(() => {
-    document.title = 'Job Definition'
-  }, [])
-
-  React.useEffect(() => {
-    v2.specs
-      .getJobSpec(jobSpecId)
-      .then((response) => setJobSpec(response.data))
-      .catch(setError)
-  }, [jobSpecId, setError])
+    document.title =
+      jobSpec && jobSpec.attributes.name
+        ? `${jobSpec.attributes.name} | Job definition`
+        : 'Job definition'
+  }, [jobSpec])
 
   return (
     <Content>

@@ -1,6 +1,4 @@
 import React from 'react'
-import { RouteComponentProps } from 'react-router-dom'
-import { ApiResponse } from '@chainlink/json-api-client'
 import {
   Card,
   Table,
@@ -13,49 +11,43 @@ import {
 import { v2 } from 'api'
 import Button from 'components/Button'
 import Content from 'components/Content'
-import { JobSpec } from 'core/store/models'
 import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
-import { useErrorHandler } from 'hooks/useErrorHandler'
-import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
+import { JobData } from './sharedTypes'
 
-export const JobsErrors: React.FC<RouteComponentProps<{
-  jobSpecId: string
-}>> = ({ match }) => {
-  const { jobSpecId } = match.params
-
-  const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
-  const { error, ErrorComponent, setError } = useErrorHandler()
-  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
-
-  const fetchJobSpec = React.useCallback(
-    async () =>
-      v2.specs
-        .getJobSpec(jobSpecId)
-        .then((response) => setJobSpec(response.data))
-        .catch(setError),
-    [jobSpecId, setError],
-  )
-
+export const JobsErrors: React.FC<{
+  error: unknown
+  ErrorComponent: React.FC
+  LoadingPlaceholder: React.FC
+  jobSpec?: JobData['jobSpec']
+  setState: React.Dispatch<React.SetStateAction<JobData>>
+  getJobSpec: () => Promise<void>
+}> = ({
+  error,
+  ErrorComponent,
+  getJobSpec,
+  LoadingPlaceholder,
+  jobSpec,
+  setState,
+}) => {
   React.useEffect(() => {
-    document.title = 'Job Errors'
-  }, [])
-
-  React.useEffect(() => {
-    fetchJobSpec()
-  }, [fetchJobSpec])
+    document.title =
+      jobSpec && jobSpec.attributes.name
+        ? `${jobSpec.attributes.name} | Job errors`
+        : 'Job errors'
+  }, [jobSpec])
 
   const handleDismiss = async (jobSpecErrorId: string) => {
     // Optimistic delete
-    const jobSpecCopy: ApiResponse<JobSpec>['data'] = JSON.parse(
+    const jobSpecCopy: NonNullable<JobData['jobSpec']> = JSON.parse(
       JSON.stringify(jobSpec),
     )
     jobSpecCopy.attributes.errors = jobSpecCopy.attributes.errors.filter(
       (e) => e.id !== jobSpecErrorId,
     )
-    setJobSpec(jobSpecCopy)
+    setState((state) => ({ ...state, jobSpec: jobSpecCopy }))
 
     await v2.jobSpecErrors.destroyJobSpecError(jobSpecErrorId)
-    fetchJobSpec()
+    await getJobSpec()
   }
 
   return (
