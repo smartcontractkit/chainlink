@@ -77,7 +77,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	})
 
 	t.Run("eth_txes exist for a different from address", func(t *testing.T) {
-		otherAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
+		otherAddress := cltest.NewAddress()
 		cltest.MustInsertKey(t, store, otherAddress)
 
 		etx := models.EthTx{

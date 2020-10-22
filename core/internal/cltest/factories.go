@@ -689,6 +689,10 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	return *taskRunID
 }
 
+// MustInsertKey inserts a key
+// WARNING: Be extremely cautious using this, inserting keys with the same
+// address in multiple parallel tests can and will lead to deadlocks.
+// Only use this if you know what you are doing.
 func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
 	a, err := models.NewEIP55Address(address.Hex())
 	require.NoError(t, err)
