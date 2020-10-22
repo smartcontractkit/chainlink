@@ -36,5 +36,3 @@ dockercfg
 env
 credentials.env
 gcr_creds.env
-
-coverage/
