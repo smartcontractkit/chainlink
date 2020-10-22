@@ -1,4 +1,3 @@
-import { act } from 'react-dom/test-utils'
 import { JobsShow } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'
@@ -6,7 +5,7 @@ import React from 'react'
 import { Route } from 'react-router-dom'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import syncFetch from 'test-helpers/syncFetch'
+import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { GWEI_PER_TOKEN, WEI_PER_TOKEN } from 'utils/constants'
 
@@ -43,9 +42,7 @@ describe('pages/Jobs/Show', () => {
       },
     )
 
-    await act(async () => {
-      await syncFetch(wrapper)
-    })
+    await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
     expect(wrapper.text()).toContain('Created a minute ago')
@@ -82,9 +79,7 @@ describe('pages/Jobs/Show', () => {
       },
     )
 
-    await act(async () => {
-      await syncFetch(wrapper)
-    })
+    await syncFetch(wrapper)
     expect(wrapper.text()).toContain('View More')
   })
 
@@ -111,11 +106,7 @@ describe('pages/Jobs/Show', () => {
         },
       )
 
-      await act(async () => {
-        await syncFetch(wrapper)
-        wrapper.update()
-      })
-      wrapper.update()
+      await syncFetch(wrapper)
 
       expect(wrapper.find('tbody').first().children().length).toEqual(1)
 
@@ -128,11 +119,8 @@ describe('pages/Jobs/Show', () => {
         ),
       )
       wrapper.find('Button').find({ children: 'Run' }).first().simulate('click')
-      await act(async () => {
-        await syncFetch(wrapper)
-      })
 
-      wrapper.update()
+      await syncFetch(wrapper)
 
       expect(wrapper.find('tbody').first().children().length).toEqual(2)
     })
