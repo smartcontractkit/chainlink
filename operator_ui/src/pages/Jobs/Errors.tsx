@@ -1,66 +1,145 @@
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
+import React from 'react'
+import { RouteComponentProps } from 'react-router-dom'
+import { ApiResponse } from '@chainlink/json-api-client'
+import {
+  Card,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Typography,
+} from '@material-ui/core'
+import { v2 } from 'api'
+import Button from 'components/Button'
 import Content from 'components/Content'
-import { JobSpec } from 'operator_ui'
-import { AppState } from 'src/reducers'
-import jobSelector from 'selectors/job'
-import { fetchJob } from 'actionCreators'
-import RegionalNav from './RegionalNav'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
-import List from 'components/JobErrors/List'
-import { deleteJobSpecError } from 'actionCreators'
+import { JobSpec } from 'core/store/models'
+import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
+import { useErrorHandler } from 'hooks/useErrorHandler'
+import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
-interface Props {
+export const JobsErrors: React.FC<RouteComponentProps<{
   jobSpecId: string
-  job?: JobSpec
-  fetchJob: (id: string) => Promise<any>
-  deleteJobSpecError: typeof deleteJobSpecError
-}
+}>> = ({ match }) => {
+  const { jobSpecId } = match.params
 
-export const JobSpecErrors: React.FC<Props> = ({
-  jobSpecId,
-  job,
-  fetchJob,
-  deleteJobSpecError,
-}) => {
-  useEffect(() => {
+  const [jobSpec, setJobSpec] = React.useState<ApiResponse<JobSpec>['data']>()
+  const { error, ErrorComponent, setError } = useErrorHandler()
+  const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
+
+  const fetchJobSpec = React.useCallback(
+    async () =>
+      v2.specs
+        .getJobSpec(jobSpecId)
+        .then((response) => setJobSpec(response.data))
+        .catch(setError),
+    [jobSpecId, setError],
+  )
+
+  React.useEffect(() => {
     document.title = 'Job Errors'
-    fetchJob(jobSpecId)
-  }, [fetchJob, jobSpecId])
+  }, [])
 
-  const handleDismiss = (jobSpecErrorId: string) => {
-    deleteJobSpecError(jobSpecErrorId, jobSpecId)
+  React.useEffect(() => {
+    fetchJobSpec()
+  }, [fetchJobSpec])
+
+  const handleDismiss = async (jobSpecErrorId: string) => {
+    // Optimistic delete
+    const jobSpecCopy: ApiResponse<JobSpec>['data'] = JSON.parse(
+      JSON.stringify(jobSpec),
+    )
+    jobSpecCopy.attributes.errors = jobSpecCopy.attributes.errors.filter(
+      (e) => e.id !== jobSpecErrorId,
+    )
+    setJobSpec(jobSpecCopy)
+
+    await v2.jobSpecErrors.destroyJobSpecError(jobSpecErrorId)
+    fetchJobSpec()
   }
 
   return (
-    <>
-      <RegionalNav jobSpecId={jobSpecId} job={job} />
-      <Content>
-        <List errors={job?.errors} dismiss={handleDismiss} />
-      </Content>
-    </>
+    <Content>
+      <ErrorComponent />
+      <LoadingPlaceholder />
+      {!error && jobSpec && (
+        <Card>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {[
+                  'Occurrences',
+                  'Created',
+                  'Last Seen',
+                  'Message',
+                  'Actions',
+                ].map((header) => (
+                  <TableCell key={header}>
+                    <Typography variant="body1" color="textSecondary">
+                      {header}
+                    </Typography>
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {jobSpec.attributes.errors.length === 0 ? (
+                <TableRow>
+                  <TableCell component="th" scope="row" colSpan={5}>
+                    No errors
+                  </TableCell>
+                </TableRow>
+              ) : (
+                jobSpec.attributes.errors.map((jobSpecError) => (
+                  <TableRow key={jobSpecError.id}>
+                    <TableCell>
+                      <Typography variant="body1">
+                        {jobSpecError.occurrences}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        <TimeAgo tooltip>
+                          {localizedTimestamp(
+                            jobSpecError.createdAt.toString(),
+                          )}
+                        </TimeAgo>
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        <TimeAgo tooltip>
+                          {localizedTimestamp(
+                            jobSpecError.updatedAt.toString(),
+                          )}
+                        </TimeAgo>
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1">
+                        {jobSpecError.description}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="danger"
+                        size="small"
+                        onClick={() => {
+                          handleDismiss(jobSpecError.id)
+                        }}
+                      >
+                        Dismiss
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </Content>
   )
 }
 
-interface Match {
-  params: {
-    jobSpecId: string
-  }
-}
-
-const mapStateToProps = (state: AppState, ownProps: { match: Match }) => {
-  const jobSpecId = ownProps.match.params.jobSpecId
-  const job = jobSelector(state, jobSpecId)
-
-  return {
-    jobSpecId,
-    job,
-  }
-}
-
-export const ConnectedJobSpecErrors = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchJob, deleteJobSpecError }),
-)(JobSpecErrors)
-
-export default ConnectedJobSpecErrors
+export default JobsErrors

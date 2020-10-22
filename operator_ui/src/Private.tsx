@@ -1,5 +1,4 @@
 import React from 'react'
-import { RouteComponentProps } from 'react-router-dom'
 import { Theme } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import universal, { UniversalComponent } from 'react-universal-component'
@@ -11,7 +10,6 @@ import { withStyles } from '@material-ui/core/styles'
 import Header from 'pages/Header'
 import Loading from 'components/Loading'
 import Notifications from 'pages/Notifications'
-import { ShowComponentProps } from 'pages/Jobs/Show'
 import PrivateRoute from './PrivateRoute'
 
 // Asynchronously load routes that are chunked via code-splitting
@@ -31,13 +29,7 @@ const DashboardsIndex: UniversalComponent<
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
 const JobsIndex = universal(import('./pages/Jobs/Index'), uniOpts)
-const JobsShow: UniversalComponent<ShowComponentProps> &
-  StyledComponentProps<'wrapper' | 'text'> = universal(
-  import('./pages/Jobs/Show'),
-  uniOpts,
-)
-const JobsDefinition = universal(import('./pages/Jobs/Definition'), uniOpts)
-const JobsErrors = universal(import('./pages/Jobs/Errors'), uniOpts)
+const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
@@ -121,25 +113,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/jobs/new" component={JobsNew} />
               <PrivateRoute
                 exact
-                path="/jobs/:jobSpecId"
-                render={(
-                  props: RouteComponentProps<{
-                    jobSpecId: string
-                  }>,
-                ) => <JobsShow {...props} showJobRunsCount={5} />}
-              />
-              <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/json"
-                component={JobsDefinition}
-              />
-              <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/errors"
-                component={JobsErrors}
-              />
-              <PrivateRoute
-                exact
                 path="/jobs/:jobSpecId/runs"
                 render={(props) => (
                   <JobRunsIndex
@@ -173,6 +146,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
                 component={JobRunsShowErrorLog}
               />
+              <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
               <PrivateRoute
                 exact
                 path="/runs"

@@ -7,7 +7,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { JobRun, JobRuns } from 'operator_ui'
+import { JobRun } from 'core/store/models'
 import React from 'react'
 import titleize from '../../utils/titleize'
 import BaseLink from '../BaseLink'
@@ -75,7 +75,7 @@ const classFromStatus = (classes: any, status: string) => {
   return classes[status.toLowerCase()]
 }
 
-const renderRuns = (runs: JobRuns, classes: any) => {
+const renderRuns = (runs: JobRun[], classes: any) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
@@ -135,7 +135,7 @@ const renderRuns = (runs: JobRuns, classes: any) => {
 
 interface Props extends WithStyles<typeof styles> {
   jobSpecId: string
-  runs: JobRuns
+  runs: JobRun[]
   count: number
   showJobRunsCount: number
 }

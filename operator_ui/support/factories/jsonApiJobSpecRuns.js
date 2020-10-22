@@ -1,11 +1,10 @@
 import uuid from 'uuid/v4'
-import { decamelizeKeys } from 'humps'
 
 export default (runs, count) => {
   const r = runs || []
   const rc = count || r.length
 
-  return decamelizeKeys({
+  return {
     meta: { count: rc },
     data: r.map((c) => {
       const config = c || {}
@@ -33,5 +32,5 @@ export default (runs, count) => {
         },
       }
     }),
-  })
+  }
 }
