@@ -9,8 +9,4 @@ yarn setup:contracts
 
 # Run golang coverage
 go get -u github.com/smartcontractkit/goverage
-goverage -v -parallel 2 -coverprofile=c.out ./...
-if [ -n "$CC_TEST_REPORTER_ID"  ]; then
-  cc-test-reporter format-coverage --output "coverage/codeclimate.go.json" --prefix "chainlink"
-  gsutil cp "coverage/codeclimate.go.json" gs://codeclimate-aggregation/$CIRCLE_WORKFLOW_ID/
-fi
+goverage -v -parallel 2 ./...

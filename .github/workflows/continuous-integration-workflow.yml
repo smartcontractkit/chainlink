@@ -150,19 +150,6 @@ jobs:
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
 
-  reportcoverage:
-    name: Report test coverage
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
-    needs: [core, solidity, operator-ui, rust]
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Init GCloud
-        run: ./tools/ci/init_gcloud
-      - name: Run coverage report
-        run: ./tools/ci/report_coverage
-
   check_if_rebase_needed:
     name: Check if rebase needed
     runs-on: ubuntu-latest
