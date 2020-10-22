@@ -31,7 +31,7 @@ describe('useErrorHandler', () => {
     expect(wrapper.text()).toContain('Error: "Something went wrong"')
   })
 
-  it('logs the user our and redirects to the signin page on authentication error', () => {
+  it('logs the user out and redirects to the signin page on authentication error', () => {
     const wrapper = mountWithProviders(
       <Route
         path="/some-path"
