@@ -85,6 +85,11 @@ export const JobsIndex = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1" color="textSecondary">
+                        Type
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1" color="textSecondary">
                         Initiator
                       </Typography>
                     </TableCell>
@@ -123,6 +128,7 @@ export const JobsIndex = () => {
                             </TimeAgo>
                           </Typography>
                         </TableCell>
+                        <TableCell>Direct request</TableCell>
                         <TableCell>
                           <Typography variant="body1">
                             {formatInitiators(job.attributes.initiators)}
