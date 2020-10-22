@@ -48,6 +48,7 @@ func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher)
 
 // Execute performs the work associate with a job run
 func (re *runExecutor) Execute(runID *models.ID) error {
+	logger.Debugw("runExecutor woke up", "runID", runID.String())
 	run, err := re.store.Unscoped().FindJobRun(runID)
 	if err != nil {
 		return errors.Wrapf(err, "error finding run %s", runID)
