@@ -31,7 +31,7 @@ describe('pages/Jobs/Definition', () => {
     })
 
     expect(wrapper.text()).toContain(
-      '{  "initiators": [    {      "type": "web"    }  ],  "tasks": [    {      "confirmations": 0,      "type": "httpget",      "url": "https://bitstamp.net/api/ticker/"    }  ],  "startAt": undefined,  "endAt": undefined}',
+      'Definition{  "initiators": [    {      "id": 1,      "type": "web",      "jobSpecId": "c60b9927eeae43168ddbe92584937b1b"    }  ],  "tasks": [    {      "confirmations": 0,      "type": "httpget",      "params": {        "get": "https://bitstamp.net/api/ticker/"      }    }  ],  "startAt": "2020-09-22T11:49:50.410Z",  "endAt": "2020-09-22T11:59:50.410Z"}',
     )
   })
 })
