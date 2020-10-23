@@ -1,10 +1,9 @@
 import React from 'react'
-import { act } from 'react-dom/test-utils'
-import { JobsErrors } from 'pages/Jobs/Errors'
+import { JobsShow } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import { Route } from 'react-router-dom'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import syncFetch from 'test-helpers/syncFetch'
+import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 const JOB_SPEC_ID = 'c60b9927eeae43168ddbe92584937b1b'
@@ -19,7 +18,7 @@ const errors = [
   },
   {
     createdAt: '2020-10-16T13:18:46.519087+01:00',
-    description: 'Another error',
+    description: '2nd error',
     id: 2,
     occurrences: 1,
     updatedAt: '2020-10-16T13:18:46.519087+01:00',
@@ -43,16 +42,13 @@ describe('pages/Jobs/Errors', () => {
     )
 
     const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobSpecId/errors" component={JobsErrors} />,
+      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
       {
         initialEntries: [`/jobs/${JOB_SPEC_ID}/errors`],
       },
     )
 
-    await act(async () => {
-      await syncFetch(wrapper)
-      wrapper.update()
-    })
+    await syncFetch(wrapper)
 
     expect(wrapper.text()).toContain('Unable to start job subscription')
     expect(wrapper.find('tbody').children().length).toEqual(3)
@@ -63,6 +59,7 @@ describe('pages/Jobs/Errors', () => {
       globPath(`/v2/specs/${JOB_SPEC_ID}`),
       jsonApiJobSpecFactory({
         id: JOB_SPEC_ID,
+        // Intentionally returning 1 result to make sure that we do the correct check
         errors: errors.slice().splice(0, 1),
       }),
     )
@@ -72,12 +69,8 @@ describe('pages/Jobs/Errors', () => {
     // Check that optimistic delete works
     expect(wrapper.find('tbody').children().length).toEqual(2)
 
-    await act(async () => {
-      await syncFetch(wrapper)
-      wrapper.update()
-    })
+    await syncFetch(wrapper)
 
-    // Check that server delete works
-    expect(wrapper.find('tbody').children().length).toEqual(2)
+    expect(wrapper.find('tbody').children().length).toEqual(1)
   })
 })

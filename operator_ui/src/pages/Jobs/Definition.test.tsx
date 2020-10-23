@@ -1,10 +1,9 @@
 import React from 'react'
-import { act } from 'react-dom/test-utils'
-import { JobsDefinition } from 'pages/Jobs/Definition'
+import { JobsShow } from 'pages/Jobs/Show'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import { Route } from 'react-router-dom'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import syncFetch from 'test-helpers/syncFetch'
+import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 
 const JOB_SPEC_ID = 'c60b9927eeae43168ddbe92584937b1b'
@@ -19,17 +18,13 @@ describe('pages/Jobs/Definition', () => {
     )
 
     const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobSpecId/definition" component={JobsDefinition} />,
+      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
       {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}/definition`],
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/json`],
       },
     )
 
-    await act(async () => {
-      await syncFetch(wrapper)
-      wrapper.update()
-    })
-
+    await syncFetch(wrapper)
     expect(wrapper.text()).toContain(
       'Definition{  "initiators": [    {      "id": 1,      "type": "web",      "jobSpecId": "c60b9927eeae43168ddbe92584937b1b"    }  ],  "tasks": [    {      "confirmations": 0,      "type": "httpget",      "params": {        "get": "https://bitstamp.net/api/ticker/"      }    }  ],  "startAt": "2020-09-22T11:49:50.410Z",  "endAt": "2020-09-22T11:59:50.410Z"}',
     )

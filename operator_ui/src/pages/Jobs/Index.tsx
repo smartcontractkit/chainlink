@@ -141,16 +141,22 @@ export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
                         key={job.id}
                         onClick={() => history.push(`/jobs/${job.id}`)}
                       >
-                        <TableCell>
-                          {job.attributes.name || '-'}
-                          <br />
-                          <Typography
-                            variant="subtitle2"
-                            color="textSecondary"
-                            component="span"
-                          >
-                            {job.id}
-                          </Typography>
+                        <TableCell component="th" scope="row">
+                          <Link href={`/jobs/${job.id}`}>
+                            {job.attributes.name || job.id}
+                            {job.attributes.name && (
+                              <>
+                                <br />
+                                <Typography
+                                  variant="subtitle2"
+                                  color="textSecondary"
+                                  component="span"
+                                >
+                                  {job.id}
+                                </Typography>
+                              </>
+                            )}
+                          </Link>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
