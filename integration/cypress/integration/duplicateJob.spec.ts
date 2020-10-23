@@ -14,7 +14,7 @@ context('End to end', function () {
       .invoke('text')
       .as('jobId1')
     cy.get('#created-job').click()
-    cy.contains('h6', 'Job Spec Detail').should('exist')
+    cy.contains('h6', 'Job spec detail').should('exist')
 
     // Duplicate Job
     cy.clickLink('Duplicate')
@@ -24,7 +24,7 @@ context('End to end', function () {
       .invoke('text')
       .as('jobId2')
     cy.get('#created-job').click()
-    cy.contains('h6', 'Job Spec Detail').should('exist')
+    cy.contains('h6', 'Job spec detail').should('exist')
 
     // Ensure jobs IDs are different
     cy.get('@jobId1').then((jobId1) => {

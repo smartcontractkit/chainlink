@@ -24,7 +24,7 @@ import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
-import { JobData } from './Show'
+import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -216,7 +216,7 @@ const RegionalNavComponent = ({
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="secondary" gutterBottom>
-              Job Spec Detail
+              Job spec detail
             </Typography>
           </Grid>
           <Grid item xs={12}>
@@ -232,7 +232,7 @@ const RegionalNavComponent = ({
                   color="secondary"
                   className={classes.jobSpecId}
                 >
-                  {jobSpecId}
+                  {job?.attributes.name || jobSpecId}
                 </Typography>
               </Grid>
               <Grid item xs={6} className={classes.actions}>
@@ -272,9 +272,14 @@ const RegionalNavComponent = ({
             </Grid>
           </Grid>
           <Grid item xs={12}>
+            {job?.attributes.name && (
+              <Typography variant="subtitle2" color="secondary" gutterBottom>
+                {job.attributes.id}
+              </Typography>
+            )}
             <Typography variant="subtitle2" color="textSecondary">
               Created{' '}
-              {job && job.attributes.createdAt && (
+              {job?.attributes.createdAt && (
                 <>
                   <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
                   ({localizedTimestamp(job.attributes.createdAt)})

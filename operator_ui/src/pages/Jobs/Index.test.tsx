@@ -1,9 +1,8 @@
 /* eslint-env jest */
 import React from 'react'
 import { Route } from 'react-router-dom'
-import { act } from 'react-dom/test-utils'
 import { jsonApiJobSpecs } from 'factories/jsonApiJobSpecs'
-import syncFetch from 'test-helpers/syncFetch'
+import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { JobsIndex, simpleJobFilter } from 'pages/Jobs/Index'
@@ -24,9 +23,7 @@ describe('pages/Jobs/Index', () => {
 
     const wrapper = mountWithProviders(<Route component={JobsIndex} />)
 
-    await act(async () => {
-      await syncFetch(wrapper)
-    })
+    await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('web')
     expect(wrapper.text()).toContain('just now')
@@ -58,10 +55,7 @@ describe('pages/Jobs/Index', () => {
 
     const wrapper = mountWithProviders(<Route component={JobsIndex} />)
 
-    await act(async () => {
-      await syncFetch(wrapper)
-    })
-    wrapper.update()
+    await syncFetch(wrapper)
 
     // Expect to have 3 jobs initially
     expect(wrapper.find('tbody').children().length).toEqual(3)
