@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -192,7 +193,7 @@ func TestJSONParseTask(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			task := JSONParseTask{Path: test.path, Lax: test.lax}
-			result := task.Run(TaskRun{}, []Result{{Value: test.input}})
+			result := task.Run(context.Background(), TaskRun{}, []Result{{Value: test.input}})
 
 			if test.wantResultError {
 				require.Error(t, result.Error)

@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +45,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(pipeline.TaskRun{
+	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
 			Meta: pipeline.JSONSerializable{emptyMeta},
 		},
@@ -84,7 +85,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
 	task.HelperSetConfig(config)
-	result := task.Run(pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -112,7 +113,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
 	task.HelperSetConfig(config)
-	result := task.Run(pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
