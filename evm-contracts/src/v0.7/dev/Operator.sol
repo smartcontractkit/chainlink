@@ -218,7 +218,7 @@ contract Operator is
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 expiration,
-    bytes calldata data
+    bytes memory data
   )
     external
     override

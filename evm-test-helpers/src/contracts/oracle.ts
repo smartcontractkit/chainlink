@@ -129,7 +129,7 @@ export function convertFufillParams(
   const convertedResponse =
     response.length < bytes32Len
       ? ethers.utils.formatBytes32String(response)
-      : response
+      : ethers.utils.hexlify(ethers.utils.toUtf8Bytes(response))
   d('Converted Response param: %s', convertedResponse)
 
   return [
