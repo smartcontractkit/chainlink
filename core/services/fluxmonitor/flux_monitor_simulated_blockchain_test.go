@@ -453,7 +453,6 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
@@ -503,20 +502,36 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
 	cltest.WaitForRuns(t, job, app.Store, 1)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	txa := cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
 	fa.backend.Commit()
 
 	// change in price should trigger run
 	reportPrice = int64(2)
 	cltest.WaitForRuns(t, job, app.Store, 2)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 2)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+	fa.backend.Commit()
 
-	// lower contract's flag - should have no effect
+	// lower contract's flag - should have no effect (but currently does)
+	// TODO - https://www.pivotaltracker.com/story/show/175419789
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 2)
+	cltest.WaitForRuns(t, job, app.Store, 3)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 3)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+	fa.backend.Commit()
 
 	// change in price should trigger run
 	reportPrice = int64(4)
-	cltest.WaitForRuns(t, job, app.Store, 3)
+	cltest.WaitForRuns(t, job, app.Store, 4)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 4)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+	fa.backend.Commit()
 
 	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
@@ -533,5 +548,5 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// change in price should not trigger run
 	reportPrice = int64(8)
-	cltest.AssertRunsStays(t, job, app.Store, 3)
+	cltest.AssertRunsStays(t, job, app.Store, 4)
 }
