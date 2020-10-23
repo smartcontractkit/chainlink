@@ -121,7 +121,7 @@ declare module 'core/store/models' {
   export interface TaskSpec<T extends JSONValue = JSONValue>
     extends gorm.Model {
     type: TaskType
-    confirmations: clnull.Uint32
+    confirmations: number
     params: T
   }
 
