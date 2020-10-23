@@ -17,6 +17,7 @@ import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
+import TextField from '@material-ui/core/TextField'
 import { FIRST_PAGE } from 'components/TableButtons'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import Link from 'components/Link'
@@ -25,7 +26,21 @@ import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
 const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avoid pagination
 
+export const simpleJobFilter = (search: string) => ({
+  attributes,
+}: jsonapi.PaginatedApiResponse<models.JobSpec>['data']) => {
+  const textSearch = search.toLowerCase()
+  return (
+    (attributes.id && attributes.id.toLowerCase().includes(textSearch)) ||
+    attributes.name.toLowerCase().includes(textSearch) ||
+    attributes.initiators.some((initiator) =>
+      initiator.type.includes(textSearch),
+    )
+  )
+}
+
 export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
+  const [search, setSearch] = React.useState('')
   React.useEffect(() => {
     document.title = 'Jobs'
   }, [])
@@ -36,6 +51,8 @@ export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
   const [jobsCount, setJobsCount] = React.useState(0)
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
+
+  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
 
   React.useEffect(() => {
     v2.specs
@@ -66,11 +83,22 @@ export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
             </Grid>
           </Grid>
         </Grid>
+
         <Grid item xs={12}>
           <ErrorComponent />
           <LoadingPlaceholder />
           {!error && jobs && (
             <Card>
+              <TextField
+                label="Search"
+                variant="outlined"
+                style={{
+                  margin: 16,
+                }}
+                name="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
               <Table>
                 <TableHead>
                   <TableRow>
@@ -107,7 +135,7 @@ export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
                   )}
                   {jobs &&
                     jobsCount > 0 &&
-                    jobs.map((job) => (
+                    jobs.filter(jobFilter).map((job) => (
                       <TableRow
                         hover
                         key={job.id}
