@@ -26,6 +26,7 @@ type ConfigReader interface {
 	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64
 	DefaultHTTPTimeout() models.Duration
+	DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 	Dev() bool
 	FeatureExternalInitiators() bool
 	FeatureFluxMonitor() bool

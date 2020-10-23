@@ -263,7 +263,8 @@ func (f pollingDeviationCheckerFactory) New(
 	fetcher, err := newMedianFetcherFromURLs(
 		timeout,
 		requestData,
-		urls)
+		urls,
+		f.store.Config.DefaultHTTPLimit())
 	if err != nil {
 		return nil, err
 	}

@@ -210,6 +210,12 @@ func (c Config) DefaultHTTPTimeout() models.Duration {
 	return c.getDuration("DefaultHTTPTimeout")
 }
 
+// DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
+// It is recommended that this be left disabled
+func (c Config) DefaultHTTPAllowUnrestrictedNetworkAccess() bool {
+	return c.viper.GetBool(EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"))
+}
+
 // Dev configures "development" mode for chainlink.
 func (c Config) Dev() bool {
 	return c.viper.GetBool(EnvVarName("Dev"))
