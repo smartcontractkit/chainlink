@@ -1,5 +1,5 @@
 import React from 'react'
-import { RouteComponentProps } from 'react-router-dom'
+import { RouteChildrenProps } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
 import Button from 'components/Button'
 import { Title } from 'components/Title'
@@ -15,23 +15,32 @@ import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
 import TableHead from '@material-ui/core/TableHead'
-import TablePagination from '@material-ui/core/TablePagination'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
-import TableButtons, { FIRST_PAGE } from 'components/TableButtons'
-import { useHistory } from 'react-router-dom'
+import TextField from '@material-ui/core/TextField'
+import { FIRST_PAGE } from 'components/TableButtons'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import Link from 'components/Link'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 
-type IndexProps = {
-  pageSize?: number
-} & RouteComponentProps<{
-  pageNumber?: string
-}>
+const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avoid pagination
 
-export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
+export const simpleJobFilter = (search: string) => ({
+  attributes,
+}: jsonapi.PaginatedApiResponse<models.JobSpec>['data']) => {
+  const textSearch = search.toLowerCase()
+  return (
+    (attributes.id && attributes.id.toLowerCase().includes(textSearch)) ||
+    attributes.name.toLowerCase().includes(textSearch) ||
+    attributes.initiators.some((initiator) =>
+      initiator.type.includes(textSearch),
+    )
+  )
+}
+
+export const JobsIndex = ({ history }: RouteChildrenProps<{}>) => {
+  const [search, setSearch] = React.useState('')
   React.useEffect(() => {
     document.title = 'Jobs'
   }, [])
@@ -43,32 +52,17 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobs)
 
-  const history = useHistory()
-  const pageNumber = match.params.pageNumber
-    ? parseInt(match.params.pageNumber, 10)
-    : FIRST_PAGE
+  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
 
   React.useEffect(() => {
     v2.specs
-      .getJobSpecs(pageNumber, pageSize)
+      .getJobSpecs(FIRST_PAGE, PAGE_SIZE)
       .then(({ data, meta }) => {
         setJobs(data)
         setJobsCount(meta.count)
       })
       .catch(setError)
-  }, [pageNumber, pageSize, setError])
-
-  const TableButtonsWithProps = () => (
-    <TableButtons
-      count={jobsCount}
-      onChangePage={(_event: React.SyntheticEvent, page: number) => {
-        history.push(`/jobs/page/${page}`)
-      }}
-      rowsPerPage={pageSize}
-      page={pageNumber}
-      replaceWith={`/jobs/page`}
-    />
-  )
+  }, [setError])
 
   return (
     <Content>
@@ -89,11 +83,22 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
             </Grid>
           </Grid>
         </Grid>
+
         <Grid item xs={12}>
           <ErrorComponent />
           <LoadingPlaceholder />
           {!error && jobs && (
             <Card>
+              <TextField
+                label="Search"
+                variant="outlined"
+                style={{
+                  margin: 16,
+                }}
+                name="search"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
               <Table>
                 <TableHead>
                   <TableRow>
@@ -105,6 +110,11 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                     <TableCell>
                       <Typography variant="body1" color="textSecondary">
                         Created
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body1" color="textSecondary">
+                        Type
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -125,26 +135,33 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                   )}
                   {jobs &&
                     jobsCount > 0 &&
-                    jobs.map((job) => (
-                      <TableRow key={job.id}>
-                        <TableCell component="th" scope="row">
-                          <Link href={`/jobs/${job.id}`}>
-                            {job.attributes.name || '-'}
-                            <br />
-                            <Typography
-                              variant="subtitle2"
-                              color="textSecondary"
-                              component="span"
-                            >
-                              {job.id}
-                            </Typography>
-                          </Link>
+                    jobs.filter(jobFilter).map((job) => (
+                      <TableRow
+                        hover
+                        key={job.id}
+                        onClick={() => history.push(`/jobs/${job.id}`)}
+                      >
+                        <TableCell>
+                          {job.attributes.name || '-'}
+                          <br />
+                          <Typography
+                            variant="subtitle2"
+                            color="textSecondary"
+                            component="span"
+                          >
+                            {job.id}
+                          </Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body1">
                             <TimeAgo tooltip>
                               {job.attributes.createdAt || ''}
                             </TimeAgo>
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body1">
+                            Direct request
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -156,20 +173,6 @@ export const JobsIndex = ({ pageSize = 10, match }: IndexProps) => {
                     ))}
                 </TableBody>
               </Table>
-              <TablePagination
-                component="div"
-                count={jobsCount}
-                rowsPerPage={pageSize}
-                rowsPerPageOptions={[pageSize]}
-                page={pageNumber - 1}
-                onChangePage={
-                  () => {} /* handler required by component, so make it a no-op */
-                }
-                onChangeRowsPerPage={
-                  () => {} /* handler required by component, so make it a no-op */
-                }
-                ActionsComponent={TableButtonsWithProps}
-              />
             </Card>
           )}
         </Grid>
