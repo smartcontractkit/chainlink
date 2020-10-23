@@ -13,7 +13,7 @@ context('End to end', function () {
 
     // Run Job
     cy.get('#created-job').click()
-    cy.contains('Job Spec Detail')
+    cy.contains('Job spec detail')
     cy.clickButton('Run')
     cy.contains('p', 'Successfully created job run')
       .children('a')

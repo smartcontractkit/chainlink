@@ -215,6 +215,11 @@ const RegionalNavComponent = ({
       <Card className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
+            <Typography variant="subtitle2" color="secondary" gutterBottom>
+              Job spec detail
+            </Typography>
+          </Grid>
+          <Grid item xs={12}>
             <Grid
               container
               spacing={0}
