@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -261,8 +262,25 @@ func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel c
 	return c.b.SubscribeNewHead(ctx, ch)
 }
 
-func (c *SimulatedBackendClient) SendTransaction(context.Context, *types.Transaction) error {
-	panic("unimplemented")
+func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	sender, err := types.Sender(types.NewEIP155Signer(big.NewInt(int64(c.chainId))), tx)
+	if err != nil {
+		panic(fmt.Errorf("invalid transaction: %v", err))
+	}
+	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
+	if err != nil {
+		panic(fmt.Errorf("unable to determine nonce for account %s: %v", sender.Hex(), err))
+	}
+	// the simulated backend does not gracefully handle tx rebroadcasts (gas bumping) so just
+	// ignore the situation where nonces are reused
+	// github.com/ethereum/go-ethereum/blob/fb2c79df1995b4e8dfe79f9c75464d29d23aaaf4/accounts/abi/bind/backends/simulated.go#L556
+	if tx.Nonce() < pendingNonce {
+		return nil
+	}
+
+	time.Sleep(2 * time.Second)
+
+	return c.b.SendTransaction(ctx, tx)
 }
 
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {

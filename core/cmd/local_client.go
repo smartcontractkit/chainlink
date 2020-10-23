@@ -190,6 +190,7 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 func logIfNonceOutOfSync(store *strpkg.Store) {
+	// TODO - RYAN - update for BPTXM
 	account := store.TxManager.NextActiveAccount()
 	if account == nil {
 		return
