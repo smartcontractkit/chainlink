@@ -743,7 +743,7 @@ describe('Operator', () => {
       })
 
       it('does not allow the same requestId to be used twice', async () => {
-        const args2 = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0')
+        const args2 = oracle.encodeOracleRequest2(specId, to, fHash, 1, '0x0')
         await matchers.evmRevert(async () => {
           await link.transferAndCall(operator.address, paid, args2)
         })
@@ -751,7 +751,7 @@ describe('Operator', () => {
 
       describe('when called with a payload less than 2 EVM words + function selector', () => {
         const funcSelector =
-          operatorFactory.interface.functions.oracleRequest.sighash
+          operatorFactory.interface.functions.oracleRequest2.sighash
         const maliciousData =
           funcSelector +
           '0000000000000000000000000000000000000000000000000000000000000000000'
@@ -765,7 +765,7 @@ describe('Operator', () => {
 
       describe('when called with a payload between 3 and 9 EVM words', () => {
         const funcSelector =
-          operatorFactory.interface.functions.oracleRequest.sighash
+          operatorFactory.interface.functions.oracleRequest2.sighash
         const maliciousData =
           funcSelector +
           '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
