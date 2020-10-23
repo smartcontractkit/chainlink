@@ -141,6 +141,6 @@ func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId *models.ID, pol
 	return checker.(*PollingDeviationChecker).createJobRun(polledAnswer, uint32(nextRound.Uint64()), payment)
 }
 
-func (p *PollingDeviationChecker) ExportedIsFlagRaised() (bool, error) {
-	return p.isFlagRaised()
+func (p *PollingDeviationChecker) ExportedIsFlagLowered() (bool, error) {
+	return p.isFlagLowered()
 }
