@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -148,7 +149,7 @@ func (ba *Bridge) postToExternalAdapter(
 		Config:  config,
 	}
 
-	bytes, statusCode, err := httpRequest.SendRequest()
+	bytes, statusCode, err := httpRequest.SendRequest(context.TODO())
 
 	if err != nil {
 		return nil, err

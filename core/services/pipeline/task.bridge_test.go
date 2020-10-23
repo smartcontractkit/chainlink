@@ -1,6 +1,7 @@
 package pipeline_test
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
@@ -56,7 +57,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
 	task.HelperSetConfigAndORM(config, orm)
 
-	result := task.Run(pipeline.TaskRun{
+	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
 			Meta: pipeline.JSONSerializable{emptyMeta},
 		},
@@ -111,7 +112,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
 	task.HelperSetConfigAndORM(config, orm)
 
-	task.Run(pipeline.TaskRun{
+	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
 			Meta: pipeline.JSONSerializable{request},
 		},
@@ -144,7 +145,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
 	task.HelperSetConfigAndORM(config, orm)
 
-	result := task.Run(pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -174,7 +175,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
 	task.HelperSetConfigAndORM(config, orm)
 
-	result := task.Run(pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
@@ -233,7 +234,7 @@ func TestBridgeTask_AddsID(t *testing.T) {
 	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
 	task.HelperSetConfigAndORM(config, orm)
 
-	task.Run(pipeline.TaskRun{
+	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
 			Meta: pipeline.JSONSerializable{emptyMeta},
 		},

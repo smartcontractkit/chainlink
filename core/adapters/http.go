@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -153,7 +154,7 @@ func sendRequest(input models.RunInput, request *http.Request, config utils.HTTP
 		Config:  config,
 	}
 
-	bytes, statusCode, err := httpRequest.SendRequest()
+	bytes, statusCode, err := httpRequest.SendRequest(context.TODO())
 	if err != nil {
 		return models.NewRunOutputError(err)
 	}

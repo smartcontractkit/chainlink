@@ -25,7 +25,7 @@ type HTTPRequestConfig struct {
 	AllowUnrestrictedNetworkAccess bool
 }
 
-func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, err error) {
+func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, err error) {
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
@@ -34,13 +34,14 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, err er
 	}
 	client := &http.Client{Transport: tr}
 
-	return withRetry(client, h.Request, h.Config)
+	return withRetry(ctx, client, h.Request, h.Config)
 }
 
 // withRetry executes the http request in a retry. Timeout is controlled with a context
 // Retry occurs if the request timeout, or there is any kind of connection or transport-layer error
 // Retry also occurs on remote server 5xx errors
 func withRetry(
+	ctx context.Context,
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
@@ -51,7 +52,7 @@ func withRetry(
 		Jitter: true,
 	}
 	for {
-		responseBody, statusCode, err = makeHTTPCall(client, originalRequest, config)
+		responseBody, statusCode, err = makeHTTPCall(ctx, client, originalRequest, config)
 		if err == nil {
 			return responseBody, statusCode, nil
 		}
@@ -66,17 +67,22 @@ func withRetry(
 			return responseBody, statusCode, err
 		}
 		// Sleep and retry.
-		time.Sleep(bb.Duration())
+		select {
+		case <-ctx.Done():
+			return responseBody, statusCode, ctx.Err()
+		case <-time.After(bb.Duration()):
+		}
 		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.Timeout)
 	}
 }
 
 func makeHTTPCall(
+	ctx context.Context,
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 	requestWithTimeout := originalRequest.Clone(ctx)
 
