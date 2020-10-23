@@ -210,6 +210,27 @@ export function encodeOracleRequest(
   )
 }
 
+/**
+ * Abi encode parameters to call the `oracleRequest2` (multi-word) method on the [Operator.sol](evm-contracts/Operator.sol) contract.
+ * ```solidity
+ *  function oracleRequest2(
+ *    address _sender,
+ *    uint256 _payment,
+ *    bytes32 _specId,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _nonce,
+ *    uint256 _dataVersion,
+ *    bytes _data
+ *  )
+ * ```
+ *
+ * @param specId The Job Specification ID
+ * @param callbackAddr The callback contract address for the response
+ * @param callbackFunctionId The callback function id for the response
+ * @param nonce The nonce sent by the requester
+ * @param data The CBOR payload of the request
+ */
 export function encodeOracleRequest2(
   specId: string,
   callbackAddr: string,

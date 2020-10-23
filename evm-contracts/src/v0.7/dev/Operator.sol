@@ -133,6 +133,19 @@ contract Operator is
       data);
   }
 
+  /**
+   * @notice Creates the Chainlink request with multi-word support
+   * @dev Stores the hash of the params as the on-chain commitment for the request.
+   * Emits OracleRequest event for the Chainlink node to detect.
+   * @param sender The sender of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param specId The Job Specification ID
+   * @param callbackAddress The callback address for the response
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   * @param dataVersion The specified data version
+   * @param data The CBOR payload of the request
+   */
   function oracleRequest2(
     address sender,
     uint256 payment,
@@ -212,6 +225,19 @@ contract Operator is
     return success;
   }
 
+  /**
+   * @notice Called by the Chainlink node to fulfill requests with multi-word support
+   * @dev Given params must hash back to the commitment stored from `oracleRequest`.
+   * Will call the callback address' callback function without bubbling up error
+   * checking in a `require` so that the node can get paid.
+   * @param requestId The fulfillment request ID that must match the requester's
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   * @param data The data to return to the consuming contract
+   * @return Status if the external call was successful
+   */
   function fulfillOracleRequest2(
     bytes32 requestId,
     uint256 payment,
@@ -362,6 +388,15 @@ contract Operator is
 
   // INTERNAL FUNCTIONS
 
+  /**
+   * @notice Verify the Oracle Request
+   * @param sender The sender of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param callbackAddress The callback address for the response
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   * @return (bytes32 requestId, uint expiration)
+   */
   function _verifyOracleRequest(
     address sender,
     uint256 payment,
@@ -384,6 +419,14 @@ contract Operator is
     return (requestId, expiration);
   }
 
+  /**
+   * @notice Verify the Oracle Response
+   * @param requestId The fulfillment request ID that must match the requester's
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   */
   function _verifyOracleResponse(
     bytes32 requestId,
     uint256 payment,
