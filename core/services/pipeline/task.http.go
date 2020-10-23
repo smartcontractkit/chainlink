@@ -2,8 +2,8 @@ package pipeline
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -34,7 +34,7 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
@@ -61,14 +61,15 @@ func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
 		AllowUnrestrictedNetworkAccess: t.config.DefaultHTTPAllowUnrestrictedNetworkAccess(),
 	}
 
-	fmt.Printf("%#v\n", config)
-
 	httpRequest := utils.HTTPRequest{
 		Request: request,
 		Config:  config,
 	}
 
-	responseBytes, statusCode, err := httpRequest.SendRequest()
+	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
+	if err != nil {
+		return Result{Error: errors.Wrapf(err, "error making http request")}
+	}
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)

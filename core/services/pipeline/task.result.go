@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -26,7 +27,7 @@ func (t *ResultTask) Type() TaskType {
 	return TaskTypeResult
 }
 
-func (t *ResultTask) Run(taskRun TaskRun, inputs []Result) Result {
+func (t *ResultTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) Result {
 	values := make([]interface{}, len(inputs))
 	errors := make(FinalErrors, len(inputs))
 	for i, input := range inputs {

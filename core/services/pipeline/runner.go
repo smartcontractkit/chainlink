@@ -171,7 +171,7 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxTaskDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
+	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(ctx context.Context, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
 		loggerFields := []interface{}{
 			"jobID", jobID,
 			"taskName", taskRun.PipelineTaskSpec.DotID,
@@ -199,7 +199,7 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			return Result{Error: err}
 		}
 
-		result := task.Run(taskRun, inputs)
+		result := task.Run(ctx, taskRun, inputs)
 		if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 			logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 		} else {

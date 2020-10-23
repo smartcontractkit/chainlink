@@ -297,7 +297,7 @@ func TestORM(t *testing.T) {
 				{
 					anyRemaining := true
 					for anyRemaining {
-						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 							// Ensure we don't fetch the locked task run
 							require.NotEqual(t, locked.ID, taskRun.ID)
 
@@ -338,7 +338,7 @@ func TestORM(t *testing.T) {
 					<-chUnlocked
 					time.Sleep(3 * time.Second)
 
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						fmt.Println(taskRun.DotID())
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
@@ -362,7 +362,7 @@ func TestORM(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						t.Fatal("this callback should never be reached")
 						return pipeline.Result{}
 					})

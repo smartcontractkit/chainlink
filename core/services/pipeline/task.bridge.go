@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
@@ -26,7 +27,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
+func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
 	}
@@ -55,7 +56,7 @@ func (t *BridgeTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
 		Method:      "POST",
 		RequestData: withIDAndMeta(t.RequestData, taskRun.PipelineRunID, meta),
 		config:      t.config,
-	}).Run(taskRun, inputs)
+	}).Run(ctx, taskRun, inputs)
 	if result.Error != nil {
 		return result
 	}

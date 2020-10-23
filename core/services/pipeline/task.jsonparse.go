@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"math/big"
@@ -23,7 +24,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) Run(taskRun TaskRun, inputs []Result) (result Result) {
+func (t *JSONParseTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "JSONParseTask requires a single input")}
 	} else if inputs[0].Error != nil {
