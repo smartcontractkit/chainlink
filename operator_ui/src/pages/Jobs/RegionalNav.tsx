@@ -227,7 +227,7 @@ const RegionalNavComponent = ({
                   color="secondary"
                   className={classes.jobSpecId}
                 >
-                  {(job && job.attributes.name) || jobSpecId}
+                  {job?.attributes.name || jobSpecId}
                 </Typography>
               </Grid>
               <Grid item xs={6} className={classes.actions}>
@@ -267,14 +267,14 @@ const RegionalNavComponent = ({
             </Grid>
           </Grid>
           <Grid item xs={12}>
-            {job && job.attributes.name && (
+            {job?.attributes.name && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
                 {job.attributes.id}
               </Typography>
             )}
             <Typography variant="subtitle2" color="textSecondary">
               Created{' '}
-              {job && job.attributes.createdAt && (
+              {job?.attributes.createdAt && (
                 <>
                   <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
                   ({localizedTimestamp(job.attributes.createdAt)})
