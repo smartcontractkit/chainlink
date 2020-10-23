@@ -843,7 +843,10 @@ describe('Operator', () => {
           const paymentAmount = h.toWei('1')
           await link.transfer(basicConsumer.address, paymentAmount)
           const currency = 'USD'
-          const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount)
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
           const receipt = await tx.wait()
           request = oracle.decodeRunRequest(receipt.logs?.[3])
         })
@@ -1205,7 +1208,8 @@ describe('Operator', () => {
     })
 
     describe('multi word fulfils', () => {
-      const response = 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\
+      const response =
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\
         Fusce euismod malesuada ligula, eget semper metus ultrices sit amet.'
       let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
       let basicConsumer: contract.Instance<BasicMultiWordConsumerFactory>
@@ -1249,7 +1253,10 @@ describe('Operator', () => {
           const paymentAmount = h.toWei('1')
           await link.transfer(basicConsumer.address, paymentAmount)
           const currency = 'USD'
-          const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount)
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
           const receipt = await tx.wait()
           request = oracle.decodeRunRequest(receipt.logs?.[3])
         })
@@ -1293,10 +1300,7 @@ describe('Operator', () => {
               )
 
             const currentValue = await basicConsumer.currentPrice()
-            assert.equal(
-              response,
-              ethers.utils.toUtf8String(currentValue),
-            )
+            assert.equal(response, ethers.utils.toUtf8String(currentValue))
           })
 
           it('emits an OracleResponse2 event', async () => {
@@ -1330,10 +1334,7 @@ describe('Operator', () => {
             })
 
             const currentValue = await basicConsumer.currentPrice()
-            assert.equal(
-              response,
-              ethers.utils.toUtf8String(currentValue),
-            )
+            assert.equal(response, ethers.utils.toUtf8String(currentValue))
           })
         })
 
