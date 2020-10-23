@@ -260,7 +260,6 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
@@ -316,8 +315,15 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(pollTimerPeriod)
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
+
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	txa := cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+
+	fa.backend.Commit()
+
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
 	assert.Equal(t, reportedPrice, fmt.Sprintf("%d", atomic.LoadInt64(&reportPrice)), "failed to report correct price to contract")
 	var receiptBlock uint64
@@ -343,6 +349,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
 	atomic.StoreInt64(&reportPrice, answer+1)
+	cltest.WaitForRuns(t, j, app.Store, 2)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 2)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+
+	fa.backend.Commit()
+
 	select {
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
@@ -362,6 +375,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		nextRoundBalance,
 		receiptBlock,
 	)
+
 	// Successfully close the round through the submissions of the other nodes
 	submitAnswer(t,
 		answerParams{
@@ -381,6 +395,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// FORCE node to try to start a new round
 	err = app.FluxMonitor.(maliciousFluxMonitor).CreateJob(t, j.ID, decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
+	cltest.WaitForRuns(t, j, app.Store, 3)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 3)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+
+	fa.backend.Commit()
+
 	select {
 	case <-submissionReceived:
 		t.Fatalf("FA allowed chainlink node to start a new round early")
@@ -404,6 +425,13 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		completesAnswer: true})
 	// start a legitimate new round
 	atomic.StoreInt64(&reportPrice, reportPrice+3)
+	cltest.WaitForRuns(t, j, app.Store, 4)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 4)
+	txa = cltest.GetLastEthTxAttempt(t, app.Store)
+	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
+
+	fa.backend.Commit()
+
 	select {
 	case <-submissionReceived:
 	case <-time.After(5 * pollTimerPeriod):
