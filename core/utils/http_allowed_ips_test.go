@@ -1,4 +1,4 @@
-package adapters
+package utils
 
 import (
 	"net"

@@ -43,6 +43,7 @@ type (
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
+		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		JobPipelineDBPollInterval() time.Duration
 		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineParallelism() uint8
