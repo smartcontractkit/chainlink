@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"net/url"
@@ -25,7 +26,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(taskRun TaskRun, inputs []Result) Result
+		Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -43,6 +44,7 @@ type (
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
+		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		JobPipelineDBPollInterval() time.Duration
 		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineParallelism() uint8

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/guregu/null"
 	"github.com/pkg/errors"
@@ -32,12 +33,14 @@ type httpFetcher struct {
 	client      *http.Client
 	url         *url.URL
 	requestData map[string]interface{}
+	sizeLimit   int64
 }
 
 func newHTTPFetcher(
 	timeout models.Duration,
 	requestData map[string]interface{},
 	url *url.URL,
+	sizeLimit int64,
 ) Fetcher {
 	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
 	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
@@ -47,6 +50,7 @@ func newHTTPFetcher(
 		client:      client,
 		url:         url,
 		requestData: requestData,
+		sizeLimit:   sizeLimit,
 	}
 }
 
@@ -64,7 +68,8 @@ func (p *httpFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error
 
 	defer logger.ErrorIfCalling(r.Body.Close)
 	target := adapterResponse{}
-	if err = json.NewDecoder(r.Body).Decode(&target); err != nil {
+	responseReader := utils.NewMaxBytesReader(r.Body, p.sizeLimit)
+	if err = json.NewDecoder(responseReader).Decode(&target); err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
 	}
 	if target.ErrorMessage.Valid {
@@ -130,10 +135,11 @@ func newMedianFetcherFromURLs(
 	timeout models.Duration,
 	requestData map[string]interface{},
 	priceURLs []*url.URL,
+	sizeLimit int64,
 ) (Fetcher, error) {
 	fetchers := []Fetcher{}
 	for _, url := range priceURLs {
-		ps := newHTTPFetcher(timeout, requestData, url)
+		ps := newHTTPFetcher(timeout, requestData, url, sizeLimit)
 		fetchers = append(fetchers, ps)
 	}
 

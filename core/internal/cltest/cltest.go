@@ -184,7 +184,10 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
 	wsserver, url, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, url, wsserver), cleanup
+	config := NewConfigWithWSServer(t, url, wsserver)
+	// Tests almost always want to request to localhost so its easier to set this here
+	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
+	return config, cleanup
 }
 
 func NewRandomInt64() int64 {

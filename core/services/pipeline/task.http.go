@@ -2,15 +2,16 @@ package pipeline
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type HTTPTask struct {
@@ -33,7 +34,7 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
-func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
@@ -53,21 +54,26 @@ func (t *HTTPTask) Run(taskRun TaskRun, inputs []Result) Result {
 	}
 	request.Header.Set("Content-Type", "application/json")
 
-	var client http.Client
-	response, err := client.Do(request)
-	if err != nil {
-		return Result{Error: errors.Wrapf(err, "could not fetch answer from %s with payload '%s'", t.URL.String(), t.RequestData)}
-	}
-	defer logger.ErrorIfCalling(response.Body.Close)
-
-	responseBytes, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		return Result{Error: errors.Wrapf(err, "could not read response body")}
+	config := utils.HTTPRequestConfig{
+		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
+		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
+		SizeLimit:                      t.config.DefaultHTTPLimit(),
+		AllowUnrestrictedNetworkAccess: t.config.DefaultHTTPAllowUnrestrictedNetworkAccess(),
 	}
 
-	if response.StatusCode >= 400 {
+	httpRequest := utils.HTTPRequest{
+		Request: request,
+		Config:  config,
+	}
+
+	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
+	if err != nil {
+		return Result{Error: errors.Wrapf(err, "error making http request")}
+	}
+
+	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
-		return Result{Error: errors.Errorf("got error from %s: (status %s) %s", t.URL.String(), response.Status, maybeErr)}
+		return Result{Error: errors.Errorf("got error from %s: (status code %v) %s", t.URL.String(), statusCode, maybeErr)}
 	}
 
 	logger.Debugw("HTTP task got response",

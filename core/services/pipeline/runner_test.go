@@ -17,6 +17,7 @@ import (
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
 	defer cleanupDB()
+	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	db := oldORM.DB
 
 	pipelineORM := pipeline.NewORM(db, config)

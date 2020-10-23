@@ -144,7 +144,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	return runID, errors.WithStack(err)
 }
 
-type ProcessTaskRunFunc func(jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
+type ProcessTaskRunFunc func(ctx context.Context, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
 
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
@@ -253,7 +253,7 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		}
 
 		// Call the callback
-		result := fn(job.ID, ptRun, predecessors)
+		result := fn(ctx, job.ID, ptRun, predecessors)
 
 		// Update the task run record with the output and error
 		var out interface{}
