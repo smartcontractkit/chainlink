@@ -1466,7 +1466,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 	})
 }
 
-func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
+func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 	t.Parallel()
 
 	falseFalse := "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
@@ -1479,10 +1479,10 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 		getFlagsResult string
 		expected       bool
 	}{
-		{"both lowered", falseFalse, false},
-		{"contract raised", falseTrue, true},
-		{"global raised", trueFalse, true},
-		{"both raised", trueTrue, true},
+		{"both lowered", falseFalse, true},
+		{"global lowered", falseTrue, true},
+		{"contract lowered", trueFalse, true},
+		{"both raised", trueTrue, false},
 	}
 
 	for _, tt := range tests {
@@ -1537,7 +1537,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagRaised(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			result, err := checker.ExportedIsFlagRaised()
+			result, err := checker.ExportedIsFlagLowered()
 			require.NoError(t, err)
 			require.Equal(t, test.expected, result)
 		})
