@@ -9,7 +9,7 @@ import (
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
 	estimate := estimateGas(t, coordinator.backend, common.Address{},

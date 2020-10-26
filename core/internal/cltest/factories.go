@@ -425,22 +425,6 @@ func NewRunLog(
 	}
 }
 
-// NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
-// the randomness request log represented by r.
-func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
-	emitter common.Address, blk int) models.Log {
-	rawData, err := r.RawData()
-	require.NoError(t, err)
-	return models.Log{
-		Address:     emitter,
-		BlockNumber: uint64(blk),
-		Data:        rawData,
-		TxHash:      NewHash(),
-		BlockHash:   NewHash(),
-		Topics:      []common.Hash{models.RandomnessRequestLogTopic, r.JobID},
-	}
-}
-
 func NewLink(t *testing.T, amount string) *assets.Link {
 	link := assets.NewLink(0)
 	link, ok := link.SetString(amount, 10)
