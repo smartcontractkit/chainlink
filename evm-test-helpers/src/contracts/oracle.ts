@@ -250,13 +250,13 @@ export function encodeOracleRequest2(
 }
 
 function encodeRequest(
-  oracleRequestSighash : string,
+  oracleRequestSighash: string,
   specId: string,
   callbackAddr: string,
   callbackFunctionId: string,
   nonce: number,
   data: BigNumberish,
-  ) : string {
+): string {
   const oracleRequestInputs = [
     { name: '_sender', type: 'address' },
     { name: '_payment', type: 'uint256' },
