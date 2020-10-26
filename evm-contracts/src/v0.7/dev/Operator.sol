@@ -395,7 +395,6 @@ contract Operator is
    * @param callbackAddress The callback address for the response
    * @param callbackFunctionId The callback function ID for the response
    * @param nonce The nonce sent by the requester
-   * @return (bytes32 requestId, uint expiration)
    */
   function _verifyOracleRequest(
     address sender,
