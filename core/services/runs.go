@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/core/types"
 
-	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -31,19 +30,6 @@ func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient 
 		)
 	}
 	return nil
-}
-
-func updateTaskRunObservedIncomingConfirmations(currentHeight *utils.Big, jr *models.JobRun, taskRun *models.TaskRun) {
-	if !taskRun.MinRequiredIncomingConfirmations.Valid || jr.CreationHeight == nil || currentHeight == nil {
-		return
-	}
-
-	confs := blockConfirmations(currentHeight, jr.CreationHeight)
-	diff := utils.MinBigs(confs, big.NewInt(int64(taskRun.MinRequiredIncomingConfirmations.Uint32)))
-
-	// diff's ceiling is guaranteed to be MaxUint32 since MinRequiredIncomingConfirmations
-	// ceiling is MaxUint32.
-	taskRun.ObservedIncomingConfirmations = clnull.Uint32From(uint32(diff.Int64()))
 }
 
 func invalidRequest(request models.RunRequest, receipt *types.Receipt) bool {
