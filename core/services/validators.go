@@ -391,6 +391,9 @@ func ValidatedOracleSpec(r io.Reader) (spec offchainreporting.OracleSpec, err er
 	if spec.SchemaVersion != uint32(1) {
 		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
 	}
+	if spec.Name == "" {
+		return spec, errors.Errorf("missing 'name' field in the job spec")
+	}
 	for _, k := range m.Undecoded() {
 		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
 	}
