@@ -6,7 +6,7 @@ p2pBootstrapPeers  = [
     "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 ]
 isBootstrapPeer    = false
-keyBundleID        = "1119b1811c471df8738ecaace1224eeaf2fecaf82edb1fa345e3ddc3f8882e80"
+keyBundleID        = "0e5abb138f8764de22558c9a9d99120c4864c314c3d1509d7775b88edb186cc6"
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
 observationTimeout = "10s"

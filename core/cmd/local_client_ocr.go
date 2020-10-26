@@ -30,12 +30,14 @@ func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
 	return cli.errorOut(cli.listOCRKeyBundles(c))
 }
 
-const createMsg = `Created OCR key bundle
-Key Set ID:
+const listKey = `
+Key Bundle ID:
   %s
 On-chain Public Address:
   0x%s
 Off-chain Public Key:
+  %s
+Config Public Key:
   %s
 `
 
@@ -51,11 +53,14 @@ func (cli *Client) createOCRKeyBundle(c *clipkg.Context) error {
 		return err
 	}
 	addressOnChain := key.PublicKeyAddressOnChain()
+	configPublicKey := key.PublicKeyConfig()
+	fmt.Println("Created OCR key bundle:")
 	fmt.Printf(
-		createMsg,
+		listKey,
 		key.ID,
 		hex.EncodeToString(addressOnChain[:]),
 		hex.EncodeToString(key.PublicKeyOffChain()),
+		hex.EncodeToString(configPublicKey[:]),
 	)
 	return nil
 }
@@ -73,9 +78,13 @@ func (cli *Client) listOCRKeyBundles(c *clipkg.Context) error {
 Encrypted Off-Chain Reporting Key Bundles in DB
 ***********************************************************************************`)
 	for keyidx, key := range keys {
-		fmt.Println("ID                ", key.ID)
-		fmt.Println("On-chain Address  ", "0x"+hex.EncodeToString(key.OnChainSigningAddress[:]))
-		fmt.Println("Off-chain PubKey  ", hex.EncodeToString(key.OffChainPublicKey))
+		fmt.Printf(
+			listKey,
+			key.ID,
+			hex.EncodeToString(key.OnChainSigningAddress[:]),
+			hex.EncodeToString(key.OffChainPublicKey[:]),
+			hex.EncodeToString(key.ConfigPublicKey[:]),
+		)
 		if keyidx != len(keys)-1 {
 			fmt.Println(
 				"-----------------------------------------------------------------------------------")
