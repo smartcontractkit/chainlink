@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -277,8 +276,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	if tx.Nonce() < pendingNonce {
 		return nil
 	}
-
-	time.Sleep(2 * time.Second)
 
 	return c.b.SendTransaction(ctx, tx)
 }

@@ -32,15 +32,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-var oneETH = makeOneETH()
-
-func makeOneETH() assets.Eth {
-	var oneETH, err = assets.NewEthValueS("1")
-	if err != nil {
-		panic(err)
-	}
-	return oneETH
-}
+var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
@@ -1222,8 +1214,7 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 	result := "0x11"
-	var jr models.JobRun
-	jr = cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
+	jr := cltest.CreateJobRunViaWeb(t, app, j, fmt.Sprintf(`{"result":"%v"}`, result))
 	cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
