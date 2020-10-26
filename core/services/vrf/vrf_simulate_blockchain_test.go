@@ -37,7 +37,6 @@ func registerExistingProvingKey(
 func TestIntegration_RandomnessRequest(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 
 	cu := newVRFCoordinatorUniverse(t)
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend)
@@ -67,8 +66,8 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		Type:   adapters.TaskTypeEthTx,
 		Params: task2Params,
 	}}
-	assert.NoError(t, app.Store.CreateJob(&j))
 
+	j = cltest.CreateJobSpecViaWeb(t, app, j)
 	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
 	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
 
@@ -79,7 +78,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
+	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	require.Len(t, attempts, 1)
 
 	rawTx := attempts[0].SignedRawTx
