@@ -85,6 +85,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
 	task.HelperSetConfig(config)
+
 	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
@@ -113,6 +114,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
 	task.HelperSetConfig(config)
+
 	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")

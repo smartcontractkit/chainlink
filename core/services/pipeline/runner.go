@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -171,7 +172,7 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxTaskDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(ctx context.Context, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
+	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(ctx context.Context, txdb *gorm.DB, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
 		loggerFields := []interface{}{
 			"jobID", jobID,
 			"taskName", taskRun.PipelineTaskSpec.DotID,
@@ -191,8 +192,8 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			taskRun.PipelineTaskSpec.Type,
 			taskRun.PipelineTaskSpec.JSON.Val,
 			taskRun.PipelineTaskSpec.DotID,
-			r.orm,
 			r.config,
+			txdb,
 		)
 		if err != nil {
 			logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
