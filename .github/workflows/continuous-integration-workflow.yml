@@ -70,19 +70,6 @@ jobs:
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
-  rust:
-    name: Rust
-    runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.37
-      env:
-        CARGO_HOME: /root/.cargo
-        RUSTUP_HOME: /root/.rustup
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run Rust test
-        run: ./tools/ci/rust_test
 
   integration:
     name: Integration tests
@@ -212,7 +199,7 @@ jobs:
     runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
-        dockerfile: [core/chainlink.Dockerfile, core/chainlink-sgx.Dockerfile]
+        dockerfile: [core/chainlink.Dockerfile]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -247,7 +234,7 @@ jobs:
           username: AWS # temporary
           password: ${{ steps.get-ecr-password.outputs.password }} # temporary
           dockerfile: ${{ matrix.dockerfile }}
-          build_args: COMMIT_SHA=${{ github.sha }},SGX_SIMULATION=${{ contains(matrix.dockerfile, 'sgx') }},ENVIRONMENT=release
+          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
           tags: githubactions
           add_git_labels: true
           tag_with_ref: true

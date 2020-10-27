@@ -104,7 +104,6 @@ projects.
 - [@chainlink/contracts](./evm-contracts) - smart contracts
 - [@chainlink/test-helpers](./evm-test-helpers) - smart contract-related resources
 - [integration/forks](./integration/forks) - integration test for [ommers](https://ethereum.stackexchange.com/a/46/19503) and [re-orgs](https://en.bitcoin.it/wiki/Chain_Reorganization)
-- [sgx](./core/sgx) - an optional and experimental Chainlink module to do processing within an [SGX](https://software.intel.com/en-us/sgx) enclave
 - [tools](./tools) - Chainlink tools
 
 ## External Adapters

@@ -79,8 +79,6 @@ cldev core # import our testing key and api credentials, then start the node
 # 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
 # ** Running node
 # 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
 # ...
 # ...
 ```
@@ -129,8 +127,6 @@ cldev core # import our testing key and api credentials, then start the node
 # 2019-12-11T20:31:18Z [WARN]  pq: relation "migrations" does not exist           migrations/migrate.go:149
 # ** Running node
 # 2019-12-11T20:31:20Z [INFO]  Starting Chainlink Node 0.7.0 at commit 7324e9c476ed6b5c0a08d5a38779d4a6bfbb3880 cmd/local_client.go:27
-# 2019-12-11T20:31:20Z [INFO]  SGX enclave *NOT* loaded                           cmd/enclave.go:11
-# 2019-12-11T20:31:20Z [INFO]  This version of chainlink was not built with support for SGX tasks cmd/enclave.go:12
 # ...
 # ...
 ```
