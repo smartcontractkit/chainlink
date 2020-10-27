@@ -260,6 +260,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
+
+		ocrkc := OffChainReportingKeysController{app}
+		authv2.GET("/off_chain_reporting_keys", ocrkc.Index)
 	}
 
 	ping := PingController{app}
