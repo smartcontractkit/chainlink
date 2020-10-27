@@ -8,6 +8,7 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -84,11 +85,13 @@ func (r *runner) runLoop() {
 	defer close(r.chDone)
 	defer r.destroy()
 
+	var newRunEvents <-chan postgres.Event
 	newRunsSubscription, err := r.orm.ListenForNewRuns()
 	if err != nil {
 		logger.Error("Pipeline runner could not subscribe to new run events, falling back to polling")
 	} else {
 		defer newRunsSubscription.Close()
+		newRunEvents = newRunsSubscription.Events()
 	}
 
 	dbPollTicker := time.NewTicker(r.config.JobPipelineDBPollInterval())
@@ -101,7 +104,7 @@ func (r *runner) runLoop() {
 		select {
 		case <-r.chStop:
 			return
-		case <-newRunsSubscription.Events():
+		case <-newRunEvents:
 			r.processIncompleteTaskRunsWorker.WakeUp()
 		case <-dbPollTicker.C:
 			r.processIncompleteTaskRunsWorker.WakeUp()

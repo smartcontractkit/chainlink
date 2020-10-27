@@ -203,9 +203,6 @@ func (app *ChainlinkApplication) Start() error {
 		return err
 	}
 
-	app.jobSpawner.Start()
-	app.pipelineRunner.Start()
-
 	subtasks := []func() error{
 		app.Store.Start,
 		app.explorerClient.Start,
@@ -231,6 +228,10 @@ func (app *ChainlinkApplication) Start() error {
 			return err
 		}
 	}
+
+	app.jobSpawner.Start()
+	app.pipelineRunner.Start()
+
 	return nil
 }
 

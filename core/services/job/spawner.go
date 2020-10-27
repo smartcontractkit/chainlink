@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -116,11 +117,13 @@ func (js *spawner) runLoop() {
 	defer js.destroy()
 
 	// Initialize the Postgres event listener for new jobs
+	var newJobEvents <-chan postgres.Event
 	newJobs, err := js.orm.ListenForNewJobs()
 	if err != nil {
 		logger.Warn("Job spawner could not subscribe to new job events, falling back to polling")
 	} else {
 		defer newJobs.Close()
+		newJobEvents = newJobs.Events()
 	}
 
 	// Initialize the DB poll ticker
@@ -130,7 +133,7 @@ func (js *spawner) runLoop() {
 	js.startUnclaimedServicesWorker.WakeUp()
 	for {
 		select {
-		case <-newJobs.Events():
+		case <-newJobEvents:
 			js.startUnclaimedServicesWorker.WakeUp()
 
 		case <-dbPollTicker.C:
