@@ -264,12 +264,12 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 		updateTaskRunsQuery := `
 UPDATE task_runs
    SET status = ?, confirmations = (
-      CASE 
-      WHEN job_runs.creation_height IS NULL OR task_runs.minimum_confirmations IS NULL THEN
-        NULL
-      ELSE
-        GREATEST(0, LEAST(task_runs.minimum_confirmations, (? - job_runs.creation_height) + 1))
-      END
+     CASE
+     WHEN job_runs.creation_height IS NULL OR task_runs.minimum_confirmations IS NULL THEN
+       NULL
+     ELSE
+       GREATEST(0, LEAST(task_runs.minimum_confirmations, (? - job_runs.creation_height) + 1))
+     END
    )
   FROM job_runs
  WHERE job_runs.status IN (?)
