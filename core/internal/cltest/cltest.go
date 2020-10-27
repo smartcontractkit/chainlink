@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -198,6 +199,18 @@ func NewRandomInt64() int64 {
 	return id
 }
 
+func NewRandomInt32() int32 {
+	return int32(randIntRange(0, math.MaxInt32))
+}
+
+// Generate random integer between min and max
+func randIntRange(min, max int) int {
+	if min == max {
+		return min
+	}
+	return rand.Intn((max+1)-min) + min
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -214,9 +227,8 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 		}
 	}
 
-	uniqueRandomID := NewRandomInt64()
 	// Unique advisory lock is required otherwise all tests will block each other
-	rawConfig.AdvisoryLockID = uniqueRandomID
+	rawConfig.AdvisoryLockID = NewRandomInt64()
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
@@ -363,15 +375,18 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	t.Helper()
 
 	var ethClient eth.Client = &eth.NullClient{}
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
+		case postgres.AdvisoryLocker:
+			advisoryLocker = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := chainlink.NewApplication(tc.Config, ethClient, func(app chainlink.Application) {
+	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
@@ -566,19 +581,26 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	s := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, gracefulpanic.NewSignal())
+func NewStoreWithConfig(config *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	for _, flag := range flagsAndDeps {
+		switch dep := flag.(type) {
+		case postgres.AdvisoryLocker:
+			advisoryLocker = dep
+		}
+	}
+	s := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
 }
 
 // NewStore creates a new store
-func NewStore(t testing.TB) (*strpkg.Store, func()) {
+func NewStore(t testing.TB, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	c, cleanup := NewConfig(t)
-	store, storeCleanup := NewStoreWithConfig(c)
+	store, storeCleanup := NewStoreWithConfig(c, flagsAndDeps...)
 	return store, func() {
 		storeCleanup()
 		cleanup()

@@ -82,7 +82,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 		jobSpecB := &spec{innerJobSpecB, jobTypeB}
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 		spawner.Start()
@@ -149,7 +149,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
@@ -180,7 +180,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventually.ItHappened() })
 
-		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster)
+		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
