@@ -25,23 +25,31 @@ const (
 	AdvisoryLockObjectID_EthConfirmer int32 = 0
 )
 
-type AdvisoryLock struct {
-	URI  string
-	conn *sql.Conn
-	db   *sql.DB
-	mu   *sync.Mutex
-}
+//go:generate mockery --name AdvisoryLocker --output ../internal/mocks/ --case=underscore
+type (
+	postgresAdvisoryLock struct {
+		URI  string
+		conn *sql.Conn
+		db   *sql.DB
+		mu   *sync.Mutex
+	}
 
-// TODO(sam): Fix this to be a single global connection not many individual ones
-// See: https://www.pivotaltracker.com/story/show/175288169
-func NewAdvisoryLock(uri string) *AdvisoryLock {
-	return &AdvisoryLock{
+	AdvisoryLocker interface {
+		TryLock(ctx context.Context, classID int32, objectID int32) (err error)
+		Unlock(ctx context.Context, classID int32, objectID int32) error
+		WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error
+		Close() error
+	}
+)
+
+func NewAdvisoryLock(uri string) AdvisoryLocker {
+	return &postgresAdvisoryLock{
 		URI: uri,
 		mu:  &sync.Mutex{},
 	}
 }
 
-func (lock *AdvisoryLock) Close() error {
+func (lock *postgresAdvisoryLock) Close() error {
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 
@@ -66,7 +74,7 @@ func (lock *AdvisoryLock) Close() error {
 	return multierr.Combine(connErr, dbErr)
 }
 
-func (lock *AdvisoryLock) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
+func (lock *postgresAdvisoryLock) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 	defer utils.WrapIfError(&err, "TryAdvisoryLock failed")
@@ -107,7 +115,7 @@ func (lock *AdvisoryLock) TryLock(ctx context.Context, classID int32, objectID i
 	return errors.Errorf("could not get advisory lock for classID, objectID %v, %v", classID, objectID)
 }
 
-func (lock *AdvisoryLock) Unlock(ctx context.Context, classID int32, objectID int32) error {
+func (lock *postgresAdvisoryLock) Unlock(ctx context.Context, classID int32, objectID int32) error {
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 
@@ -116,4 +124,42 @@ func (lock *AdvisoryLock) Unlock(ctx context.Context, classID int32, objectID in
 	}
 	_, err := lock.conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1, $2)", classID, objectID)
 	return errors.Wrap(err, "AdvisoryUnlock failed")
+}
+
+func (lock *postgresAdvisoryLock) WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error {
+	err := lock.TryLock(ctx, classID, objectID)
+	if err != nil {
+		return errors.Wrapf(err, "could not get advisory lock for classID, objectID %v, %v", classID, objectID)
+	}
+	defer logger.ErrorIfCalling(func() error { return lock.Unlock(ctx, classID, objectID) })
+	return f()
+}
+
+var _ AdvisoryLocker = &NullAdvisoryLocker{}
+
+type NullAdvisoryLocker struct {
+	mu     sync.Mutex
+	closed bool
+}
+
+func (n *NullAdvisoryLocker) Close() error {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	if n.closed {
+		panic("already closed")
+	}
+	n.closed = true
+	return nil
+}
+
+func (*NullAdvisoryLocker) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
+	return nil
+}
+
+func (*NullAdvisoryLocker) Unlock(ctx context.Context, classID int32, objectID int32) error {
+	return nil
+}
+
+func (*NullAdvisoryLocker) WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error {
+	return f()
 }

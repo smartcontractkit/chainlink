@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -77,7 +78,9 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
 		}
 	}
-	return chainlink.NewApplication(config, ethClient, onConnectCallbacks...)
+
+	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
+	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

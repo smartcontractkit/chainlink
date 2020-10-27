@@ -25,31 +25,33 @@ type ORM interface {
 }
 
 type orm struct {
-	db               *gorm.DB
-	config           Config
-	advisoryLock     *postgres.AdvisoryLock
-	pipelineORM      pipeline.ORM
-	eventBroadcaster postgres.EventBroadcaster
-	claimedJobs      []models.JobSpecV2
-	claimedJobsMu    *sync.Mutex
+	db                  *gorm.DB
+	config              Config
+	advisoryLocker      postgres.AdvisoryLocker
+	advisoryLockClassID int32
+	pipelineORM         pipeline.ORM
+	eventBroadcaster    postgres.EventBroadcaster
+	claimedJobs         []models.JobSpecV2
+	claimedJobsMu       *sync.Mutex
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster) *orm {
+func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
 	return &orm{
-		db:               db,
-		config:           config,
-		advisoryLock:     postgres.NewAdvisoryLock(config.DatabaseURL()),
-		pipelineORM:      pipelineORM,
-		eventBroadcaster: eventBroadcaster,
-		claimedJobs:      make([]models.JobSpecV2, 0),
-		claimedJobsMu:    &sync.Mutex{},
+		db:                  db,
+		config:              config,
+		advisoryLocker:      advisoryLocker,
+		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
+		pipelineORM:         pipelineORM,
+		eventBroadcaster:    eventBroadcaster,
+		claimedJobs:         make([]models.JobSpecV2, 0),
+		claimedJobsMu:       &sync.Mutex{},
 	}
 }
 
 func (o *orm) Close() error {
-	return o.advisoryLock.Close()
+	return nil
 }
 
 func (o *orm) ListenForNewJobs() (postgres.Subscription, error) {
@@ -73,7 +75,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
                 FROM (SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0) not_claimed_by_us
             ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
         `
-		args = []interface{}{postgres.AdvisoryLockClassID_JobSpawner, pq.Array(o.claimedJobIDs())}
+		args = []interface{}{o.advisoryLockClassID, pq.Array(o.claimedJobIDs())}
 	} else {
 		join = `
             INNER JOIN (
@@ -81,7 +83,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
                 FROM jobs not_claimed_by_us
             ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
         `
-		args = []interface{}{postgres.AdvisoryLockClassID_JobSpawner}
+		args = []interface{}{o.advisoryLockClassID}
 	}
 
 	var newlyClaimedJobs []models.JobSpecV2
@@ -164,7 +166,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 			return errors.Wrap(err, "DeleteJob failed to delete pipeline spec")
 		}
 
-		err = o.advisoryLock.Unlock(ctx, postgres.AdvisoryLockClassID_JobSpawner, id)
+		err = o.advisoryLocker.Unlock(ctx, o.advisoryLockClassID, id)
 		if err != nil {
 			return errors.Wrap(err, "DeleteJob failed to unlock job")
 		}
