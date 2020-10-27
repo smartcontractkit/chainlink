@@ -43,7 +43,7 @@ jobs:
           username: AWS # temporary
           password: ${{ steps.get-ecr-password.outputs.password }} # temporary
           dockerfile: core/chainlink.Dockerfile
-          build_args: COMMIT_SHA=${{ github.sha }},SGX_SIMULATION=false,ENVIRONMENT=release
+          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
           tags: githubactions
           add_git_labels: true
           tag_with_ref: true
