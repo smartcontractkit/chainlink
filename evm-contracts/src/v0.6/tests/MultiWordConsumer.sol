@@ -11,6 +11,12 @@ contract MultiWordConsumer is ChainlinkClient{
     bytes indexed price
   );
 
+  constructor(address _link, address _oracle, bytes32 _specId) public {
+    setChainlinkToken(_link);
+    setChainlinkOracle(_oracle);
+    specId = _specId;
+  }
+
   function requestEthereumPrice(string memory _currency, uint256 _payment) public {
     requestEthereumPriceByCallback(_currency, _payment, address(this));
   }
