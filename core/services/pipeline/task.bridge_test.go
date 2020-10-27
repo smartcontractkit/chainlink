@@ -8,17 +8,14 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,13 +25,12 @@ import (
 // https://github.com/smartcontractkit/price-adapters
 
 var (
-	ethUSDPairing      = utils.MustUnmarshalToMap(`{"data":{"coin":"ETH","market":"USD"}}`)
-	defaultHTTPTimeout = models.MustMakeDuration(15 * time.Second)
-	emptyMeta          = utils.MustUnmarshalToMap("{}")
+	ethUSDPairing = utils.MustUnmarshalToMap(`{"data":{"coin":"ETH","market":"USD"}}`)
+	emptyMeta     = utils.MustUnmarshalToMap("{}")
 )
 
 func TestBridgeTask_Happy(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
@@ -46,6 +42,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		Name: "foo",
 		RequestData: pipeline.HttpRequestData{
 			"data": map[string]interface{}{
 				"coin":   "BTC",
@@ -53,9 +50,12 @@ func TestBridgeTask_Happy(t *testing.T) {
 			},
 		},
 	}
-	orm := new(mocks.ORM)
-	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
-	task.HelperSetConfigAndORM(config, orm)
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	// Insert bridge
+	_, bridge := cltest.NewBridgeType(t, task.Name)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
@@ -74,9 +74,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Meta(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	config.Set("DEFAULT_HTTP_TIMEOUT", defaultHTTPTimeout.String())
 
 	var empty adapterResponse
 
@@ -108,9 +107,11 @@ func TestBridgeTask_Meta(t *testing.T) {
 	task := pipeline.BridgeTask{
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
-	orm := new(mocks.ORM)
-	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
-	task.HelperSetConfigAndORM(config, orm)
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	_, bridge := cltest.NewBridgeType(t)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
@@ -120,7 +121,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 }
 
 func TestBridgeTask_ErrorMessage(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -139,11 +140,14 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		Name:        "foo",
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
-	orm := new(mocks.ORM)
-	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
-	task.HelperSetConfigAndORM(config, orm)
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	_, bridge := cltest.NewBridgeType(t, task.Name)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
@@ -152,7 +156,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 }
 
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -169,16 +173,44 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		Name:        "foo",
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
-	orm := new(mocks.ORM)
-	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
-	task.HelperSetConfigAndORM(config, orm)
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	_, bridge := cltest.NewBridgeType(t, task.Name)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
+}
+
+func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	task := pipeline.BridgeTask{
+		Name: "foo",
+		RequestData: pipeline.HttpRequestData{
+			"data": map[string]interface{}{
+				"coin":   "BTC",
+				"market": "USD",
+			},
+		},
+	}
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	result := task.Run(context.Background(), pipeline.TaskRun{
+		PipelineRun: pipeline.Run{
+			Meta: pipeline.JSONSerializable{emptyMeta},
+		},
+	}, nil)
+	require.Nil(t, result.Value)
+	require.Error(t, result.Error)
+	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())
 }
 
 // Sample input taken from
@@ -206,7 +238,7 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_AddsID(t *testing.T) {
-	config, cleanup := cltest.NewConfig(t)
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
 	var empty adapterResponse
@@ -230,9 +262,11 @@ func TestBridgeTask_AddsID(t *testing.T) {
 	task := pipeline.BridgeTask{
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
-	orm := new(mocks.ORM)
-	orm.On("FindBridge", mock.Anything).Return(models.BridgeType{URL: *feedWebURL}, nil)
-	task.HelperSetConfigAndORM(config, orm)
+	task.HelperSetConfigAndTxDB(store.Config, store.DB)
+
+	_, bridge := cltest.NewBridgeType(t)
+	bridge.URL = *feedWebURL
+	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{

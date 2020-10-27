@@ -144,7 +144,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	return runID, errors.WithStack(err)
 }
 
-type ProcessTaskRunFunc func(ctx context.Context, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
+type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
 
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
@@ -253,7 +253,7 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		}
 
 		// Call the callback
-		result := fn(ctx, job.ID, ptRun, predecessors)
+		result := fn(ctx, tx, job.ID, ptRun, predecessors)
 
 		// Update the task run record with the output and error
 		var out interface{}
@@ -390,7 +390,7 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 	var results []Result
 	err = utils.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
 		var resultTaskRun TaskRun
-		err = o.db.
+		err = tx.
 			Preload("PipelineTaskSpec").
 			Joins("INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id").
 			Where("pipeline_run_id = ?", runID).
@@ -454,6 +454,11 @@ func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
 }
 
 func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
+	return FindBridge(o.db, name)
+}
+
+// FindBridge find a bridge using the given database
+func FindBridge(db *gorm.DB, name models.TaskType) (models.BridgeType, error) {
 	var bt models.BridgeType
-	return bt, o.db.First(&bt, "name = ?", name.String()).Error
+	return bt, errors.Wrapf(db.First(&bt, "name = ?", name.String()).Error, "could not find bridge with name '%s'", name)
 }
