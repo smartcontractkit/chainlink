@@ -33,10 +33,11 @@ type eventBroadcaster struct {
 	minReconnectInterval time.Duration
 	maxReconnectDuration time.Duration
 	db                   *sql.DB
-
-	listeners   map[string]*channelListener
-	listenersMu sync.Mutex
-
+	listener             *pq.Listener
+	subscriptions        map[string]map[Subscription]struct{}
+	subscriptionsMu      sync.RWMutex
+	chStop               chan struct{}
+	chDone               chan struct{}
 	utils.StartStopOnce
 }
 
@@ -58,11 +59,13 @@ func NewEventBroadcaster(uri string, minReconnectInterval time.Duration, maxReco
 		uri:                  uri,
 		minReconnectInterval: minReconnectInterval,
 		maxReconnectDuration: maxReconnectDuration,
-		listeners:            make(map[string]*channelListener),
+		subscriptions:        make(map[string]map[Subscription]struct{}),
+		chStop:               make(chan struct{}),
+		chDone:               make(chan struct{}),
 	}
 }
 
-func (b *eventBroadcaster) Start() error {
+func (b *eventBroadcaster) Start() (err error) {
 	if !b.OkayToStart() {
 		return errors.Errorf("Postgres event broadcaster has already been started")
 	}
@@ -71,6 +74,51 @@ func (b *eventBroadcaster) Start() error {
 		return err
 	}
 	b.db = db
+	defer func() {
+		if err != nil {
+			logger.ErrorIfCalling(db.Close)
+			b.OkayToStop()
+		}
+	}()
+
+	b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
+		// These are always connection-related events, and the pq library
+		// automatically handles reconnecting to the DB. Therefore, we do not
+		// need to terminate, but rather simply log these events for node
+		// operators' sanity.
+		switch ev {
+		case pq.ListenerEventConnected:
+			logger.Debug("Postgres event broadcaster: connected")
+		case pq.ListenerEventDisconnected:
+			logger.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
+		case pq.ListenerEventReconnected:
+			logger.Debug("Postgres event broadcaster: reconnected")
+		case pq.ListenerEventConnectionAttemptFailed:
+			logger.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
+		}
+	})
+
+	go func() {
+		defer close(b.chDone)
+		for {
+			select {
+			case <-b.chStop:
+				return
+
+			case notification, open := <-b.listener.NotificationChannel():
+				if !open {
+					return
+				} else if notification == nil {
+					continue
+				}
+				logger.Debugw("Postgres event broadcaster: received notification",
+					"channel", notification.Channel,
+					"payload", notification.Extra,
+				)
+				b.broadcast(notification)
+			}
+		}
+	}()
 	return nil
 }
 
@@ -78,16 +126,22 @@ func (b *eventBroadcaster) Stop() error {
 	if !b.OkayToStop() {
 		return errors.Errorf("Postgres event broadcaster has already been stopped")
 	}
+	var err error
+	err = multierr.Append(err, b.db.Close())
+	err = multierr.Append(err, b.listener.Close())
 
-	err := b.db.Close()
+	close(b.chStop)
 
-	b.listenersMu.Lock()
-	defer b.listenersMu.Unlock()
+	b.subscriptionsMu.Lock()
+	defer b.subscriptionsMu.Unlock()
 
-	for _, listener := range b.listeners {
-		err = multierr.Append(err, listener.stop())
+	for channel := range b.subscriptions {
+		for sub := range b.subscriptions[channel] {
+			sub.close()
+		}
 	}
-	b.listeners = nil // avoid "close of closed channel" panic on shutdown
+
+	<-b.chDone
 	return err
 }
 
@@ -102,125 +156,58 @@ func (b *eventBroadcaster) NotifyInsideGormTx(tx *gorm.DB, channel string, paylo
 }
 
 func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscription, error) {
-	b.listenersMu.Lock()
-	defer b.listenersMu.Unlock()
+	b.subscriptionsMu.Lock()
+	defer b.subscriptionsMu.Unlock()
 
-	if b.listeners[channel] == nil {
-		listener := newChannelListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, channel, b)
-		err := listener.start()
+	if _, exists := b.subscriptions[channel]; !exists {
+		err := b.listener.Listen(channel)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Postgres event broadcaster could not subscribe")
 		}
-		b.listeners[channel] = listener
+		b.subscriptions[channel] = make(map[Subscription]struct{})
 	}
-	return b.listeners[channel].subscribe(payloadFilter), nil
+
+	sub := &subscription{
+		channel:          channel,
+		payloadFilter:    payloadFilter,
+		eventBroadcaster: b,
+		queue:            utils.NewBoundedQueue(1000),
+		chEvents:         make(chan Event),
+		chDone:           make(chan struct{}),
+	}
+	sub.processQueueWorker = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(sub.processQueue),
+	)
+	b.subscriptions[channel][sub] = struct{}{}
+	return sub, nil
 }
 
 func (b *eventBroadcaster) unsubscribe(sub Subscription) {
-	b.listenersMu.Lock()
-	defer b.listenersMu.Unlock()
+	b.subscriptionsMu.Lock()
+	defer b.subscriptionsMu.Unlock()
 
-	listener, exists := b.listeners[sub.channelName()]
+	sub.close()
+
+	_, exists := b.subscriptions[sub.channelName()]
 	if !exists {
 		// This occurs on shutdown when .Stop() is called before one
 		// or more subscriptions' .Close() methods are called
 		return
 	}
 
-	listener.unsubscribe(sub)
-	if len(listener.subscriptions) == 0 {
-		err := listener.stop()
+	delete(b.subscriptions[sub.channelName()], sub)
+	if len(b.subscriptions[sub.channelName()]) == 0 {
+		err := b.listener.Unlisten(sub.channelName())
 		if err != nil {
-			logger.Errorw("Postgres event broadcaster could not close listener", "error", err)
+			logger.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
 		}
-		delete(b.listeners, sub.channelName())
+		delete(b.subscriptions, sub.channelName())
 	}
 }
 
-type channelListener struct {
-	*pq.Listener
-	utils.StartStopOnce
-	channel          string
-	eventBroadcaster *eventBroadcaster
-	subscriptions    map[Subscription]struct{}
-	subscriptionsMu  sync.RWMutex
-	chStop           chan struct{}
-	chDone           chan struct{}
-}
-
-func newChannelListener(
-	uri string,
-	minReconnectInterval time.Duration,
-	maxReconnectDuration time.Duration,
-	channel string,
-	eventBroadcaster *eventBroadcaster,
-) *channelListener {
-	pqListener := pq.NewListener(uri, minReconnectInterval, maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
-		// These are always connection-related events, and the pq library
-		// automatically handles reconnecting to the DB. Therefore, we do not
-		// need to terminate, but rather simply log these events for node
-		// operators' sanity.
-		switch ev {
-		case pq.ListenerEventConnected:
-			logger.Debugw("Postgres listener: connected", "channel", channel)
-		case pq.ListenerEventDisconnected:
-			logger.Warnw("Postgres listener: disconnected, trying to reconnect...", "channel", channel, "error", err)
-		case pq.ListenerEventReconnected:
-			logger.Debugw("Postgres listener: reconnected", "channel", channel)
-		case pq.ListenerEventConnectionAttemptFailed:
-			logger.Warnw("Postgres listener: reconnect attempt failed, trying again...", "channel", channel, "error", err)
-		}
-	})
-
-	listener := &channelListener{
-		Listener:         pqListener,
-		channel:          channel,
-		eventBroadcaster: eventBroadcaster,
-		subscriptions:    make(map[Subscription]struct{}),
-		chStop:           make(chan struct{}),
-		chDone:           make(chan struct{}),
-	}
-	return listener
-}
-
-func (listener *channelListener) start() error {
-	if !listener.OkayToStart() {
-		return errors.Errorf("Postgres event listener has already been started (channel: %v)", listener.channel)
-	}
-
-	err := listener.Listener.Listen(listener.channel)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		defer close(listener.chDone)
-
-		for {
-			select {
-			case <-listener.chStop:
-				return
-
-			case notification, open := <-listener.NotificationChannel():
-				if !open {
-					return
-				} else if notification == nil {
-					continue
-				}
-				logger.Debugw("Postgres listener: received notification",
-					"channel", notification.Channel,
-					"payload", notification.Extra,
-				)
-				listener.broadcast(notification)
-			}
-		}
-	}()
-	return nil
-}
-
-func (listener *channelListener) broadcast(notification *pq.Notification) {
-	listener.subscriptionsMu.RLock()
-	defer listener.subscriptionsMu.RUnlock()
+func (b *eventBroadcaster) broadcast(notification *pq.Notification) {
+	b.subscriptionsMu.RLock()
+	defer b.subscriptionsMu.RUnlock()
 
 	event := Event{
 		Channel: notification.Channel,
@@ -228,7 +215,7 @@ func (listener *channelListener) broadcast(notification *pq.Notification) {
 	}
 
 	var wg sync.WaitGroup
-	for sub := range listener.subscriptions {
+	for sub := range b.subscriptions[event.Channel] {
 		if sub.interestedIn(event) {
 			wg.Add(1)
 			go func(sub Subscription) {
@@ -238,54 +225,6 @@ func (listener *channelListener) broadcast(notification *pq.Notification) {
 		}
 	}
 	wg.Wait()
-}
-
-func (listener *channelListener) subscribe(payloadFilter string) *subscription {
-	listener.subscriptionsMu.Lock()
-	defer listener.subscriptionsMu.Unlock()
-
-	sub := &subscription{
-		channel:          listener.channel,
-		payloadFilter:    payloadFilter,
-		eventBroadcaster: listener.eventBroadcaster,
-		queue:            utils.NewBoundedQueue(1000),
-		chEvents:         make(chan Event),
-		chDone:           make(chan struct{}),
-	}
-	sub.processQueueWorker = utils.NewSleeperTask(
-		utils.SleeperTaskFuncWorker(sub.processQueue),
-	)
-	listener.subscriptions[sub] = struct{}{}
-	return sub
-}
-
-func (listener *channelListener) unsubscribe(sub Subscription) {
-	listener.subscriptionsMu.Lock()
-	defer listener.subscriptionsMu.Unlock()
-
-	sub.close()
-	delete(listener.subscriptions, sub)
-}
-
-func (listener *channelListener) stop() error {
-	if !listener.OkayToStop() {
-		return errors.Errorf("Postgres event listener has already been stopped (channel: %v)", listener.channel)
-	}
-
-	// Close the pq.Listener first to rule out any possible deadlocks when we
-	// close all of the subscriptions below
-	err := listener.Listener.Close()
-
-	listener.subscriptionsMu.Lock()
-	defer listener.subscriptionsMu.Unlock()
-
-	for sub := range listener.subscriptions {
-		sub.close()
-	}
-
-	close(listener.chStop)
-	<-listener.chDone
-	return err
 }
 
 // Subscription represents a subscription to a Postgres event channel
