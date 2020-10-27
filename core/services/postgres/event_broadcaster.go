@@ -65,84 +65,73 @@ func NewEventBroadcaster(uri string, minReconnectInterval time.Duration, maxReco
 	}
 }
 
-func (b *eventBroadcaster) Start() (err error) {
-	if !b.OkayToStart() {
-		return errors.Errorf("Postgres event broadcaster has already been started")
-	}
-	db, err := sql.Open("postgres", b.uri)
-	if err != nil {
-		return err
-	}
-	b.db = db
-	defer func() {
+func (b *eventBroadcaster) Start() error {
+	return b.StartOnce("Postgres event broadcaster", func() (err error) {
+		db, err := sql.Open("postgres", b.uri)
 		if err != nil {
-			logger.ErrorIfCalling(db.Close)
-			b.OkayToStop()
+			return err
 		}
-	}()
+		b.db = db
 
-	b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
-		// These are always connection-related events, and the pq library
-		// automatically handles reconnecting to the DB. Therefore, we do not
-		// need to terminate, but rather simply log these events for node
-		// operators' sanity.
-		switch ev {
-		case pq.ListenerEventConnected:
-			logger.Debug("Postgres event broadcaster: connected")
-		case pq.ListenerEventDisconnected:
-			logger.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
-		case pq.ListenerEventReconnected:
-			logger.Debug("Postgres event broadcaster: reconnected")
-		case pq.ListenerEventConnectionAttemptFailed:
-			logger.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
-		}
-	})
-
-	go func() {
-		defer close(b.chDone)
-		for {
-			select {
-			case <-b.chStop:
-				return
-
-			case notification, open := <-b.listener.NotificationChannel():
-				if !open {
-					return
-				} else if notification == nil {
-					continue
-				}
-				logger.Debugw("Postgres event broadcaster: received notification",
-					"channel", notification.Channel,
-					"payload", notification.Extra,
-				)
-				b.broadcast(notification)
+		b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
+			// These are always connection-related events, and the pq library
+			// automatically handles reconnecting to the DB. Therefore, we do not
+			// need to terminate, but rather simply log these events for node
+			// operators' sanity.
+			switch ev {
+			case pq.ListenerEventConnected:
+				logger.Debug("Postgres event broadcaster: connected")
+			case pq.ListenerEventDisconnected:
+				logger.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
+			case pq.ListenerEventReconnected:
+				logger.Debug("Postgres event broadcaster: reconnected")
+			case pq.ListenerEventConnectionAttemptFailed:
+				logger.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
 			}
-		}
-	}()
-	return nil
+		})
+
+		go b.runLoop()
+		return nil
+	})
 }
 
+// Stop permanently destroys the EventBroadcaster.  Calling this does not clean
+// up any outstanding subscriptions.  Subscribers must explicitly call `.Close()`
+// or they will leak goroutines.
 func (b *eventBroadcaster) Stop() error {
-	if !b.OkayToStop() {
-		return errors.Errorf("Postgres event broadcaster has already been stopped")
-	}
-	var err error
-	err = multierr.Append(err, b.db.Close())
-	err = multierr.Append(err, b.listener.Close())
+	return b.StopOnce("Postgres event broadcaster", func() (err error) {
+		b.subscriptionsMu.RLock()
+		defer b.subscriptionsMu.RUnlock()
+		b.subscriptions = nil
 
-	close(b.chStop)
+		err = multierr.Append(err, b.db.Close())
+		err = multierr.Append(err, b.listener.Close())
+		close(b.chStop)
+		<-b.chDone
+		return err
+	})
+}
 
-	b.subscriptionsMu.Lock()
-	defer b.subscriptionsMu.Unlock()
+func (b *eventBroadcaster) runLoop() {
+	defer close(b.chDone)
+	for {
+		select {
+		case <-b.chStop:
+			return
 
-	for channel := range b.subscriptions {
-		for sub := range b.subscriptions[channel] {
-			sub.close()
+		case notification, open := <-b.listener.NotificationChannel():
+			if !open {
+				return
+			} else if notification == nil {
+				continue
+			}
+			logger.Debugw("Postgres event broadcaster: received notification",
+				"channel", notification.Channel,
+				"payload", notification.Extra,
+			)
+			b.broadcast(notification)
 		}
 	}
-
-	<-b.chDone
-	return err
 }
 
 func (b *eventBroadcaster) Notify(channel string, payload string) error {
@@ -182,16 +171,17 @@ func (b *eventBroadcaster) Subscribe(channel, payloadFilter string) (Subscriptio
 	return sub, nil
 }
 
-func (b *eventBroadcaster) unsubscribe(sub Subscription) {
+func (b *eventBroadcaster) removeSubscription(sub Subscription) {
 	b.subscriptionsMu.Lock()
 	defer b.subscriptionsMu.Unlock()
 
-	sub.close()
-
-	_, exists := b.subscriptions[sub.channelName()]
-	if !exists {
-		// This occurs on shutdown when .Stop() is called before one
-		// or more subscriptions' .Close() methods are called
+	// The following conditions can occur on shutdown when .Stop() is called
+	// before one or more subscriptions' .Close() methods are called
+	if b.subscriptions == nil {
+		return
+	}
+	subs, exists := b.subscriptions[sub.channelName()]
+	if !exists || subs == nil {
 		return
 	}
 
@@ -235,7 +225,6 @@ type Subscription interface {
 	channelName() string
 	interestedIn(event Event) bool
 	send(event Event)
-	close()
 }
 
 type subscription struct {
@@ -287,15 +276,12 @@ func (sub *subscription) channelName() string {
 	return sub.channel
 }
 
-func (sub *subscription) close() {
+func (sub *subscription) Close() {
 	// Close chDone before stopping the SleeperTask to avoid deadlocks
 	close(sub.chDone)
 	err := sub.processQueueWorker.Stop()
 	if err != nil {
 		logger.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
 	}
-}
-
-func (sub *subscription) Close() {
-	sub.eventBroadcaster.unsubscribe(sub)
+	sub.eventBroadcaster.removeSubscription(sub)
 }
