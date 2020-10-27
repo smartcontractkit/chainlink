@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 func clearDB(t *testing.T, db *gorm.DB) {
@@ -83,7 +83,8 @@ func TestORM(t *testing.T) {
 	}
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		orm := pipeline.NewORM(db, config)
+		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
+		defer cleanup()
 
 		g := pipeline.NewTaskDAG()
 		err := g.UnmarshalText([]byte(dotStr))
@@ -131,8 +132,9 @@ func TestORM(t *testing.T) {
 
 	var runID int64
 	t.Run("creates runs", func(t *testing.T) {
-		orm := pipeline.NewORM(db, config)
-		jobORM := job.NewORM(db, config, orm)
+		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
+		defer cleanup()
+		jobORM := job.NewORM(db, config, orm, eventBroadcaster)
 		defer jobORM.Close()
 
 		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
@@ -237,8 +239,9 @@ func TestORM(t *testing.T) {
 
 			test := test
 			t.Run(test.name, func(t *testing.T) {
-				orm := pipeline.NewORM(db, config)
-				jobORM := job.NewORM(db, config, orm)
+				orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
+				defer cleanup()
+				jobORM := job.NewORM(db, config, orm, eventBroadcaster)
 				defer jobORM.Close()
 
 				var (
@@ -274,7 +277,7 @@ func TestORM(t *testing.T) {
 					locked     pipeline.TaskRun
 				)
 				go func() {
-					err2 := utils.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+					err2 := postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
 						err2 := tx.Raw(`
                             SELECT * FROM pipeline_task_runs
                             INNER JOIN pipeline_task_specs on pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id

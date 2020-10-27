@@ -20,7 +20,10 @@ func TestORM(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 
-	orm := job.NewORM(db, config, pipeline.NewORM(db, config))
+	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
+	defer cleanupORM()
+
+	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster)
 	defer orm.Close()
 
 	ocrSpec, dbSpec := makeOCRJobSpec(t, db)
@@ -41,7 +44,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db2.Close()
 
-	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config))
+	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster)
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {

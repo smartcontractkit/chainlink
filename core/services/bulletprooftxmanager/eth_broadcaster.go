@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -26,9 +27,6 @@ const (
 	//
 	// This poll is really just a fallback in case the trigger fails for some reason
 	databasePollInterval = 5 * time.Second
-
-	// Postgres channel to listen for new eth_txes
-	postgresInsertOnEthTx = "insert_on_eth_txes"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -58,79 +56,68 @@ type ethBroadcaster struct {
 	ethClient eth.Client
 	config    orm.ConfigReader
 
-	started    bool
-	stateMutex sync.RWMutex
-
-	ethTxInsertListener *utils.PostgresEventListener
+	ethTxInsertListener postgres.Subscription
+	eventBroadcaster    postgres.EventBroadcaster
 
 	// trigger allows other goroutines to force ethBroadcaster to rescan the
 	// database early (before the next poll interval)
 	trigger chan struct{}
 	chStop  chan struct{}
 	wg      sync.WaitGroup
+
+	utils.StartStopOnce
 }
 
 // NewEthBroadcaster returns a new concrete ethBroadcaster
-func NewEthBroadcaster(store *store.Store, config orm.ConfigReader) EthBroadcaster {
+func NewEthBroadcaster(store *store.Store, config orm.ConfigReader, eventBroadcaster postgres.EventBroadcaster) EthBroadcaster {
 	return &ethBroadcaster{
-		store:     store,
-		config:    config,
-		ethClient: store.EthClient,
-		trigger:   make(chan struct{}, 1),
-		chStop:    make(chan struct{}),
-		wg:        sync.WaitGroup{},
-		ethTxInsertListener: &utils.PostgresEventListener{
-			URI:                  config.DatabaseURL(),
-			Event:                postgresInsertOnEthTx,
-			MinReconnectInterval: 1 * time.Second,
-			MaxReconnectDuration: 1 * time.Minute,
-		},
+		store:            store,
+		config:           config,
+		ethClient:        store.EthClient,
+		trigger:          make(chan struct{}, 1),
+		chStop:           make(chan struct{}),
+		wg:               sync.WaitGroup{},
+		eventBroadcaster: eventBroadcaster,
 	}
 }
 
 func (eb *ethBroadcaster) Start() error {
-	if !eb.config.EnableBulletproofTxManager() {
+	if !eb.OkayToStart() {
+		return errors.New("EthBroadcaster is already started")
+	} else if !eb.config.EnableBulletproofTxManager() {
 		logger.Info("BulletproofTxManager: Disabled, falling back to legacy TxManager")
 		return nil
 	}
 	logger.Info("BulletproofTxManager: Enabled")
 
-	eb.stateMutex.Lock()
-	defer eb.stateMutex.Unlock()
-	if eb.started {
-		return errors.New("already started")
+	var err error
+	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
+	if err != nil {
+		return errors.Wrap(err, "EthBroadcaster could not start")
 	}
+
 	eb.wg.Add(1)
 	go eb.monitorEthTxs()
 
-	err := eb.ethTxInsertListener.Start()
-	if err != nil {
-		close(eb.chStop)
-		eb.wg.Wait()
-		return err
-	}
-
 	eb.wg.Add(1)
 	go eb.ethTxInsertTriggerer()
-
-	eb.started = true
 
 	return nil
 }
 
 func (eb *ethBroadcaster) Stop() error {
-	eb.stateMutex.Lock()
-	defer eb.stateMutex.Unlock()
-	if !eb.started {
+	if !eb.OkayToStop() {
+		return errors.New("EthBroadcaster is already stopped")
+	} else if !eb.config.EnableBulletproofTxManager() {
 		return nil
 	}
-	if err := eb.ethTxInsertListener.Stop(); err != nil {
-		return err
+
+	if eb.ethTxInsertListener != nil {
+		eb.ethTxInsertListener.Close()
 	}
+
 	close(eb.chStop)
 	eb.wg.Wait()
-
-	eb.started = false
 
 	return nil
 }
@@ -201,7 +188,7 @@ func (eb *ethBroadcaster) monitorEthTxs() {
 }
 
 func (eb *ethBroadcaster) ProcessUnstartedEthTxs(key models.Key) error {
-	return withAdvisoryLock(eb.store, utils.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
+	return withAdvisoryLock(eb.store, postgres.AdvisoryLockClassID_EthBroadcaster, key.ID, func() error {
 		return eb.processUnstartedEthTxs(key.Address.Address())
 	})
 }
