@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -12,7 +13,12 @@ import (
 
 func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
 	txhash := run.RunRequest.TxHash
-	if txhash == nil || !taskRun.MinRequiredIncomingConfirmations.Valid || taskRun.MinRequiredIncomingConfirmations.Uint32 == 0 {
+	if txhash == nil {
+		logger.Debug("validateOnMainChain not performing check, runRequest missing txHash")
+		return nil
+	}
+	if !taskRun.MinRequiredIncomingConfirmations.Valid || taskRun.MinRequiredIncomingConfirmations.Uint32 == 0 {
+		logger.Debug("validateOnMainChain not performing check, no minimum required confirmations")
 		return nil
 	}
 
@@ -21,6 +27,7 @@ func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient 
 		return err
 	}
 	if models.ReceiptIsUnconfirmed(receipt) {
+		logger.Debug("validateOnMainChain performing check, transaction is yet to confirm")
 		return nil
 	}
 	request := run.RunRequest
