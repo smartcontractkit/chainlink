@@ -265,7 +265,7 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 UPDATE task_runs
    SET status = ?, confirmations = (
      CASE
-     WHEN job_runs.creation_height IS NULL OR task_runs.minimum_confirmations IS NULL THEN
+		 WHEN job_runs.creation_height IS NULL OR task_runs.minimum_confirmations IS NULL OR ?::bigint IS NULL THEN
        NULL
      ELSE
        GREATEST(0, LEAST(task_runs.minimum_confirmations, (? - job_runs.creation_height) + 1))
@@ -275,7 +275,7 @@ UPDATE task_runs
  WHERE job_runs.status IN (?)
    AND task_runs.job_run_id = job_runs.id
    AND task_runs.status IN (?);`
-		result := tx.Exec(updateTaskRunsQuery, models.RunStatusInProgress, observedHeight, resumableRunStatuses, resumableTaskStatuses)
+		result := tx.Exec(updateTaskRunsQuery, models.RunStatusInProgress, observedHeight, observedHeight, resumableRunStatuses, resumableTaskStatuses)
 		if result.Error != nil {
 			return result.Error
 		}
