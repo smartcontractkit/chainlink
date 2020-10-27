@@ -183,6 +183,7 @@ contract Operator is
     override
     onlyAuthorizedNode()
     isValidRequest(requestId)
+    isValidMultiWord(requestId, data)
     returns (bool)
   {
     verifyOracleResponse(
@@ -197,7 +198,7 @@ contract Operator is
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
+    (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
 
@@ -380,6 +381,21 @@ contract Operator is
   }
 
   // MODIFIERS
+
+  /**
+   * @dev Reverts if the first 32 bytes of the bytes array is not equal to requestId
+   * @param requestId bytes32
+   * @param data bytes
+   */
+  modifier isValidMultiWord(bytes32 requestId, bytes memory data) {
+    bytes32 firstWord;
+    assembly{
+      firstWord := mload(add(data, 0x20))
+    }
+    require(requestId == firstWord, "First word must be requestId");
+    _;
+  }
+
 
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
