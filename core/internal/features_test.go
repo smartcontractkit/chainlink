@@ -682,31 +682,48 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
 	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	blockNumber := int64(100 - app.Store.Config.MinRequiredOutgoingConfirmations())
 
-	createCompletedJobRun := func(blockNumber uint64, expectedNonce uint64) {
-		confirmedBlockNumber := int64(blockNumber - app.Store.Config.MinRequiredOutgoingConfirmations())
-
-		eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
-			eth.Register("eth_sendRawTransaction", hash)
-			eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{
-				TxHash:      hash,
-				BlockNumber: big.NewInt(confirmedBlockNumber),
-			})
+	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash:      hash,
+			BlockNumber: big.NewInt(blockNumber),
 		})
+		eth.Register("eth_sendRawTransaction", hash)
+	})
 
-		jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
-		cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 
-		attempt := cltest.GetLastTxAttempt(t, app.Store)
-		tx, err := app.Store.FindTx(attempt.TxID)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedNonce, tx.Nonce)
-	}
+	attempt := cltest.GetLastTxAttempt(t, app.Store)
+	tx, err := app.Store.FindTx(attempt.TxID)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0x100), tx.Nonce)
 
-	createCompletedJobRun(100, uint64(0x100))
+	eth.AssertAllCalled()
 
 	newHeads <- cltest.Head(200)
-	createCompletedJobRun(200, uint64(0x101))
+	// FIXME: not sure how to remove this, but we need the head tracker to finish before the next part or it'll cause race conditions
+	time.Sleep(3 * time.Second)
+
+	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
+		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{})
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash:      hash,
+			BlockNumber: big.NewInt(blockNumber + 100),
+		})
+		eth.Register("eth_sendRawTransaction", hash)
+	})
+
+	jr = cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
+	cltest.WaitForJobRunToComplete(t, app.Store, jr)
+
+	attempt = cltest.GetLastTxAttempt(t, app.Store)
+	tx, err = app.Store.FindTx(attempt.TxID)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(0x101), tx.Nonce)
+
+	eth.AssertAllCalled()
 }
 
 func TestIntegration_SyncJobRuns(t *testing.T) {
