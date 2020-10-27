@@ -49,12 +49,7 @@ contract Operator is
   );
 
   event OracleResponse(
-    bytes32 indexed requestId,
-    uint256 payment,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 expiration,
-    bytes32 data
+    bytes32 indexed requestId
   );
 
   /**
@@ -160,13 +155,7 @@ contract Operator is
     require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
     s_withdrawableTokens = s_withdrawableTokens.add(payment);
     delete s_commitments[requestId];
-    emit OracleResponse(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      data);
+    emit OracleResponse(requestId);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
