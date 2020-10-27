@@ -50,11 +50,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
-	err = InitEnclave()
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
-	}
-
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
 		logIfNonceOutOfSync(store)

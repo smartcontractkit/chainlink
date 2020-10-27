@@ -41,8 +41,6 @@ var (
 	TaskTypeNoOpPendOutgoing = models.MustNewTaskType("nooppendoutgoing")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
 	TaskTypeSleep = models.MustNewTaskType("sleep")
-	// TaskTypeWasm is the wasm interpereter adapter
-	TaskTypeWasm = models.MustNewTaskType("wasm")
 	// TaskTypeRandom is the identifier for the Random adapter.
 	TaskTypeRandom = models.MustNewTaskType("random")
 	// TaskTypeCompare is the identifier for the Compare adapter.
@@ -141,8 +139,6 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &NoOpPendOutgoing{}
 	case TaskTypeSleep:
 		return &Sleep{}
-	case TaskTypeWasm:
-		return &Wasm{}
 	case TaskTypeRandom:
 		return &Random{}
 	case TaskTypeCompare:
