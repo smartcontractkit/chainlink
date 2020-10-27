@@ -7,7 +7,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers, utils } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
+import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
 import { BasicMultiWordConsumerFactory } from '../../ethers/v0.6/BasicMultiWordConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
@@ -194,7 +194,7 @@ describe('Operator', () => {
             .deploy(link.address, operator.address, specId)
           await link.transfer(requester.address, paymentAmount)
           await mock.maliciousTargetConsumer(requester.address)
-          await requester.requestEthereumPrice('USD')
+          await requester.requestEthereumPrice('USD', paymentAmount)
         })
       })
     })
@@ -346,6 +346,7 @@ describe('Operator', () => {
         const responseEvent = receipt.events?.[0]
         assert.equal(responseEvent?.event, 'OracleResponse')
         assert.equal(responseEvent?.args?.[0], request.requestId)
+        assert.equal(responseEvent?.args?.[1], 1)
       })
     })
 
@@ -357,7 +358,7 @@ describe('Operator', () => {
         const paymentAmount = h.toWei('1')
         await link.transfer(basicConsumer.address, paymentAmount)
         const currency = 'USD'
-        const tx = await basicConsumer.requestEthereumPrice(currency)
+        const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount)
         const receipt = await tx.wait()
         request = oracle.decodeRunRequest(receipt.logs?.[3])
       })
@@ -414,6 +415,7 @@ describe('Operator', () => {
           const responseEvent = receipt.events?.[0]
           assert.equal(responseEvent?.event, 'OracleResponse')
           assert.equal(responseEvent?.args?.[0], request.requestId)
+          assert.equal(responseEvent?.args?.[1], 1)
         })
 
         it('does not allow a request to be fulfilled twice', async () => {
@@ -836,7 +838,7 @@ describe('Operator', () => {
 
       describe('cooperative consumer', () => {
         beforeEach(async () => {
-          basicConsumer = await basicMultiWordConsumerFactory
+          basicConsumer = await basicConsumerFactory
             .connect(roles.defaultAccount)
             .deploy(link.address, operator.address, specId)
           const paymentAmount = h.toWei('1')
