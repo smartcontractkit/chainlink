@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -22,7 +20,11 @@ func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient 
 	if err != nil {
 		return err
 	}
-	if invalidRequest(run.RunRequest, receipt) {
+	if models.ReceiptIsUnconfirmed(receipt) {
+		return nil
+	}
+	request := run.RunRequest
+	if request.BlockHash != nil && *request.BlockHash != receipt.BlockHash {
 		return fmt.Errorf(
 			"TxHash %s initiating run %s not on main chain; presumably has been uncled",
 			txhash.Hex(),
@@ -30,11 +32,6 @@ func validateOnMainChain(run *models.JobRun, taskRun *models.TaskRun, ethClient 
 		)
 	}
 	return nil
-}
-
-func invalidRequest(request models.RunRequest, receipt *types.Receipt) bool {
-	return models.ReceiptIsUnconfirmed(receipt) ||
-		(request.BlockHash != nil && *request.BlockHash != receipt.BlockHash)
 }
 
 func meetsMinRequiredIncomingConfirmations(
