@@ -108,6 +108,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
+		eth.Register("eth_sendRawTransaction", attempt1Hash)
 	})
 	newHeads <- cltest.Head(safe) // 23465
 
@@ -186,9 +187,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// At the next head, the transaction is still unconfirmed, but no thresholds
 	// have been met so we just wait...
-	eth.Context("ethTx.Perform()#2", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
 	newHeads <- cltest.Head(firstTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
@@ -197,8 +195,8 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// threshold has been met, so a new transaction is made with a higher amount
 	// of gas ("bumped gas")
 	eth.Context("ethTx.Perform()#3", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt2Hash)
+		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 	})
 	newHeads <- cltest.Head(firstTxGasBumpAt)
 	eth.EventuallyAllCalled(t)
@@ -207,10 +205,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// Another head comes in and both transactions are still unconfirmed, more
 	// waiting...
-	eth.Context("ethTx.Perform()#4", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
-	})
 	newHeads <- cltest.Head(secondTxRemainsUnconfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
@@ -218,7 +212,6 @@ func TestIntegration_FeeBump(t *testing.T) {
 	// Now the second transaction attempt meets the gas bump threshold, so a
 	// final transaction attempt shoud be made
 	eth.Context("ethTx.Perform()#5", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_getTransactionReceipt", unconfirmedReceipt)
 		eth.Register("eth_sendRawTransaction", attempt3Hash)
 	})
@@ -229,16 +222,15 @@ func TestIntegration_FeeBump(t *testing.T) {
 
 	// This third attempt has enough gas and gets confirmed, but has not yet
 	// received sufficient confirmations, so we wait again...
-	eth.Context("ethTx.Perform()#6", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
-	})
 	newHeads <- cltest.Head(thirdTxConfirmedAt)
 	eth.EventuallyAllCalled(t)
 	jr = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jr)
 
 	// Finally the third attempt gets to a minimum number of safe confirmations,
 	eth.Context("ethTx.Perform()#7", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
+		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{})
+		eth.RegisterOptional("eth_getTransactionReceipt", thirdTxConfirmedReceipt)
+		eth.RegisterOptional("eth_sendRawTransaction", attempt3Hash)
 	})
 	newHeads <- cltest.Head(thirdTxSafeAt)
 	eth.EventuallyAllCalled(t)
@@ -289,6 +281,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	logs := make(chan models.Log, 1)
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{})
 	})
 	require.NoError(t, app.StartAndConnect())
 
@@ -598,6 +591,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.Register("eth_chainId", app.Config.ChainID())
 		eth.RegisterSubscription("logs", logs)
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{})
 	})
 
 	log := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
@@ -702,18 +696,15 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	eth.AssertAllCalled()
 
-	newHeads <- cltest.Head(200)
-	// FIXME: not sure how to remove this, but we need the head tracker to finish before the next part or it'll cause race conditions
-	time.Sleep(3 * time.Second)
-
 	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
-		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{})
-		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{
 			TxHash:      hash,
 			BlockNumber: big.NewInt(blockNumber + 100),
 		})
-		eth.Register("eth_sendRawTransaction", hash)
+		eth.RegisterOptional("eth_sendRawTransaction", hash)
 	})
+
+	newHeads <- cltest.Head(200)
 
 	jr = cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -721,7 +712,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	attempt = cltest.GetLastTxAttempt(t, app.Store)
 	tx, err = app.Store.FindTx(attempt.TxID)
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(0x101), tx.Nonce)
+	assert.Equal(t, uint64(0x102), tx.Nonce)
 
 	eth.AssertAllCalled()
 }
