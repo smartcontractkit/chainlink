@@ -15,7 +15,6 @@ import { MaliciousMultiWordConsumerFactory } from '../../ethers/v0.6/MaliciousMu
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
 import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
 import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
-import { GasGuzzlingMultiWordConsumerFactory } from '../../ethers/v0.6/GasGuzzlingMultiWordConsumerFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
 const basicMultiWordConsumerFactory = new BasicMultiWordConsumerFactory()
@@ -882,7 +881,7 @@ describe('Operator', () => {
                 )
             })
           })
-
+///////////////
           it('sets the value on the requested contract', async () => {
             await operator
               .connect(roles.oracleNode)
@@ -909,7 +908,7 @@ describe('Operator', () => {
             assert.equal(responseEvent?.args?.[0], request.requestId)
             assert.equal(responseEvent?.args?.[1], 2)
           })
-
+///////////////
           it('does not allow a request to be fulfilled twice', async () => {
             const response2 = response + ' && Hello World!!'
 
@@ -1215,7 +1214,7 @@ describe('Operator', () => {
       let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
       let basicConsumer: contract.Instance<BasicMultiWordConsumerFactory>
       let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingMultiWordConsumerFactory>
+      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
       let request: ReturnType<typeof oracle.decodeRunRequest>
 
       describe('gas guzzling consumer', () => {
@@ -1225,7 +1224,7 @@ describe('Operator', () => {
             .deploy(link.address, operator.address, specId)
           const paymentAmount = h.toWei('1')
           await link.transfer(gasGuzzlingConsumer.address, paymentAmount)
-          const tx = await gasGuzzlingConsumer.gassyRequestEthereumPrice(
+          const tx = await gasGuzzlingConsumer.gassyMultiWordRequest(
             paymentAmount,
           )
           const receipt = await tx.wait()
