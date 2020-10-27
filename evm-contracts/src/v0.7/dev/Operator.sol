@@ -4,6 +4,7 @@ import "./LinkTokenReceiver.sol";
 import "./Owned.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
+import "../interfaces/OracleInterface2.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -17,6 +18,7 @@ contract Operator is
   Owned,
   ChainlinkRequestInterface,
   OracleInterface,
+  OracleInterface2,
   WithdrawalInterface
 {
   using SafeMathChainlink for uint256;
