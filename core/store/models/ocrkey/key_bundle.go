@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -22,36 +23,60 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-// KeyBundle represents the bundle of keys needed for OCR
-type KeyBundle struct {
-	ID                 models.Sha256Hash
-	onChainSigning     *onChainPrivateKey
-	offChainSigning    *offChainPrivateKey
-	offChainEncryption *[curve25519.ScalarSize]byte
-}
+type (
+	// ConfigPublicKey represents the public key for the config decryption keypair
+	ConfigPublicKey [curve25519.PointSize]byte
 
-// EncryptedKeyBundle holds an encrypted KeyBundle
-type EncryptedKeyBundle struct {
-	ID                    models.Sha256Hash `gorm:"primary_key"`
-	OnChainSigningAddress OnChainSigningAddress
-	OffChainPublicKey     OffChainPublicKey
-	EncryptedPrivateKeys  []byte
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
-}
+	// KeyBundle represents the bundle of keys needed for OCR
+	KeyBundle struct {
+		ID                 models.Sha256Hash
+		onChainSigning     *onChainPrivateKey
+		offChainSigning    *offChainPrivateKey
+		offChainEncryption *[curve25519.ScalarSize]byte
+	}
 
-type keyBundleRawData struct {
-	EcdsaD             big.Int
-	Ed25519PrivKey     []byte
-	OffChainEncryption [curve25519.ScalarSize]byte
-}
+	// EncryptedKeyBundle holds an encrypted KeyBundle
+	EncryptedKeyBundle struct {
+		ID                    models.Sha256Hash `gorm:"primary_key"`
+		OnChainSigningAddress OnChainSigningAddress
+		OffChainPublicKey     OffChainPublicKey
+		ConfigPublicKey       ConfigPublicKey
+		EncryptedPrivateKeys  []byte
+		CreatedAt             time.Time
+		UpdatedAt             time.Time
+	}
 
-type scryptParams struct{ N, P int }
+	keyBundleRawData struct {
+		EcdsaD             big.Int
+		Ed25519PrivKey     []byte
+		OffChainEncryption [curve25519.ScalarSize]byte
+	}
+
+	scryptParams struct{ N, P int }
+)
 
 var defaultScryptParams = scryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
 var curve = secp256k1.S256()
+
+// Scan reads the database value and returns an instance.
+func (c *ConfigPublicKey) Scan(value interface{}) error {
+	b, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("unable to convert %v of type %T to ConfigPublicKey", value, value)
+	}
+	if len(b) != curve25519.PointSize {
+		return errors.Errorf("unable to convert blob 0x%x of length %v to ConfigPublicKey", b, len(b))
+	}
+	copy(c[:], b)
+	return nil
+}
+
+// Value returns this instance serialized for database storage.
+func (c ConfigPublicKey) Value() (driver.Value, error) {
+	return c[:], nil
+}
 
 func (EncryptedKeyBundle) TableName() string {
 	return "encrypted_ocr_key_bundles"
@@ -169,6 +194,7 @@ func (pk *KeyBundle) encrypt(auth string, scryptParams scryptParams) (*Encrypted
 		ID:                    pk.ID,
 		OnChainSigningAddress: pk.onChainSigning.Address(),
 		OffChainPublicKey:     pk.offChainSigning.PublicKey(),
+		ConfigPublicKey:       pk.PublicKeyConfig(),
 		EncryptedPrivateKeys:  encryptedPrivKeys,
 	}, nil
 }
