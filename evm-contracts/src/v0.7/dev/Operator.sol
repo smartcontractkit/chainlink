@@ -44,33 +44,13 @@ contract Operator is
     bytes data
   );
 
-  event OracleRequest2(
-    bytes32 indexed specId,
-    address requester,
-    bytes32 requestId,
-    uint256 payment,
-    address callbackAddr,
-    bytes4 callbackFunctionId,
-    uint256 cancelExpiration,
-    uint256 dataVersion,
-    bytes data
-  );
-
   event CancelOracleRequest(
     bytes32 indexed requestId
   );
 
   event OracleResponse(
-    bytes32 indexed requestId
-  );
-
-  event OracleResponse2(
     bytes32 indexed requestId,
-    uint256 payment,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 expiration,
-    bytes data
+    uint256 dataVersion
   );
 
   /**
@@ -114,7 +94,7 @@ contract Operator is
     onlyLINK()
     checkCallbackAddress(callbackAddress)
   {
-    (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
+    (bytes32 requestId, uint256 expiration) = verifyOracleRequest(
       sender,
       payment,
       callbackAddress,
@@ -122,53 +102,6 @@ contract Operator is
       nonce
     );
     emit OracleRequest(
-      specId,
-      sender,
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      dataVersion,
-      data);
-  }
-
-  /**
-   * @notice Creates the Chainlink request with multi-word support
-   * @dev Stores the hash of the params as the on-chain commitment for the request.
-   * Emits OracleRequest event for the Chainlink node to detect.
-   * @param sender The sender of the request
-   * @param payment The amount of payment given (specified in wei)
-   * @param specId The Job Specification ID
-   * @param callbackAddress The callback address for the response
-   * @param callbackFunctionId The callback function ID for the response
-   * @param nonce The nonce sent by the requester
-   * @param dataVersion The specified data version
-   * @param data The CBOR payload of the request
-   */
-  function oracleRequest2(
-    address sender,
-    uint256 payment,
-    bytes32 specId,
-    address callbackAddress,
-    bytes4 callbackFunctionId,
-    uint256 nonce,
-    uint256 dataVersion,
-    bytes calldata data
-  )
-    external
-    override
-    onlyLINK()
-    checkCallbackAddress(callbackAddress)
-  {
-    (bytes32 requestId, uint256 expiration) = _verifyOracleRequest(
-      sender,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      nonce
-    );
-    emit OracleRequest2(
       specId,
       sender,
       requestId,
@@ -207,16 +140,14 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
-    _verifyOracleResponse(
+    verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
       expiration
     );
-    emit OracleResponse(
-      requestId
-    );
+    emit OracleResponse(requestId, 1);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -252,16 +183,14 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
-    _verifyOracleResponse(
+    verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
       expiration
     );
-    emit OracleResponse(
-      requestId
-    );
+    emit OracleResponse(requestId, 2);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -396,7 +325,7 @@ contract Operator is
    * @param callbackFunctionId The callback function ID for the response
    * @param nonce The nonce sent by the requester
    */
-  function _verifyOracleRequest(
+  function verifyOracleRequest(
     address sender,
     uint256 payment,
     address callbackAddress,
@@ -426,7 +355,7 @@ contract Operator is
    * @param callbackFunctionId The callback function ID to use for fulfillment
    * @param expiration The expiration that the node should respond by before the requester can cancel
    */
-  function _verifyOracleResponse(
+  function verifyOracleResponse(
     bytes32 requestId,
     uint256 payment,
     address callbackAddress,
