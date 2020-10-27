@@ -8,7 +8,7 @@ import {
 import { assert } from 'chai'
 import { ethers, utils } from 'ethers'
 import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
-import { BasicMultiWordConsumerFactory } from '../../ethers/v0.6/BasicMultiWordConsumerFactory'
+import { MultiWordConsumerFactory } from '../../ethers/v0.6/MultiWordConsumerFactory'
 import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
 import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
 import { MaliciousMultiWordConsumerFactory } from '../../ethers/v0.6/MaliciousMultiWordConsumerFactory'
@@ -17,7 +17,7 @@ import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
 import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
 
 const basicConsumerFactory = new BasicConsumerFactory()
-const basicMultiWordConsumerFactory = new BasicMultiWordConsumerFactory()
+const multiWordConsumerFactory = new MultiWordConsumerFactory()
 const gasGuzzlingConsumerFactory = new GasGuzzlingConsumerFactory()
 const getterSetterFactory = new GetterSetterFactory()
 const maliciousRequesterFactory = new MaliciousRequesterFactory()
@@ -357,7 +357,10 @@ describe('Operator', () => {
         const paymentAmount = h.toWei('1')
         await link.transfer(basicConsumer.address, paymentAmount)
         const currency = 'USD'
-        const tx = await basicConsumer.requestEthereumPrice(currency, paymentAmount)
+        const tx = await basicConsumer.requestEthereumPrice(
+          currency,
+          paymentAmount,
+        )
         const receipt = await tx.wait()
         request = oracle.decodeRunRequest(receipt.logs?.[3])
       })
@@ -881,7 +884,7 @@ describe('Operator', () => {
                 )
             })
           })
-///////////////
+          ///////////////
           it('sets the value on the requested contract', async () => {
             await operator
               .connect(roles.oracleNode)
@@ -908,7 +911,7 @@ describe('Operator', () => {
             assert.equal(responseEvent?.args?.[0], request.requestId)
             assert.equal(responseEvent?.args?.[1], 2)
           })
-///////////////
+          ///////////////
           it('does not allow a request to be fulfilled twice', async () => {
             const response2 = response + ' && Hello World!!'
 
@@ -1212,7 +1215,7 @@ describe('Operator', () => {
         'Lorem ipsum dolor sit amet, consectetur adipiscing elit.\
         Fusce euismod malesuada ligula, eget semper metus ultrices sit amet.'
       let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-      let basicConsumer: contract.Instance<BasicMultiWordConsumerFactory>
+      let basicConsumer: contract.Instance<MultiWordConsumerFactory>
       let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
       let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
       let request: ReturnType<typeof oracle.decodeRunRequest>
@@ -1247,7 +1250,7 @@ describe('Operator', () => {
 
       describe('cooperative consumer', () => {
         beforeEach(async () => {
-          basicConsumer = await basicMultiWordConsumerFactory
+          basicConsumer = await multiWordConsumerFactory
             .connect(roles.defaultAccount)
             .deploy(link.address, operator.address, specId)
           const paymentAmount = h.toWei('1')
