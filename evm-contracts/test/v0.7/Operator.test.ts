@@ -66,7 +66,6 @@ describe('Operator', () => {
       'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
-      'oracleRequest2',
       'setFulfillmentPermission',
       'withdraw',
       'withdrawable',
@@ -717,7 +716,7 @@ describe('Operator', () => {
       let receipt: ethers.providers.TransactionReceipt
 
       beforeEach(async () => {
-        const args = oracle.encodeOracleRequest2(specId, to, fHash, 1, '0x0')
+        const args = oracle.encodeOracleRequest(specId, to, fHash, 2, '0x0')
         const tx = await link.transferAndCall(operator.address, paid, args)
         receipt = await tx.wait()
         assert.equal(3, receipt?.logs?.length)
@@ -738,12 +737,12 @@ describe('Operator', () => {
       it('uses the expected event signature', async () => {
         // If updating this test, be sure to update models.RunLogTopic.
         const eventSignature =
-          '0xf62b34004546737823043aade97668ba63923242327b84d33e994f3d7cad75ba'
+          '0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65'
         assert.equal(eventSignature, log?.topics?.[0])
       })
 
       it('does not allow the same requestId to be used twice', async () => {
-        const args2 = oracle.encodeOracleRequest2(specId, to, fHash, 1, '0x0')
+        const args2 = oracle.encodeOracleRequest(specId, to, fHash, 2, '0x0')
         await matchers.evmRevert(async () => {
           await link.transferAndCall(operator.address, paid, args2)
         })
@@ -751,7 +750,7 @@ describe('Operator', () => {
 
       describe('when called with a payload less than 2 EVM words + function selector', () => {
         const funcSelector =
-          operatorFactory.interface.functions.oracleRequest2.sighash
+          operatorFactory.interface.functions.oracleRequest.sighash
         const maliciousData =
           funcSelector +
           '0000000000000000000000000000000000000000000000000000000000000000000'
@@ -765,7 +764,7 @@ describe('Operator', () => {
 
       describe('when called with a payload between 3 and 9 EVM words', () => {
         const funcSelector =
-          operatorFactory.interface.functions.oracleRequest2.sighash
+          operatorFactory.interface.functions.oracleRequest.sighash
         const maliciousData =
           funcSelector +
           '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
@@ -783,14 +782,14 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.oracleNode)
-            .oracleRequest2(
+            .oracleRequest(
               '0x0000000000000000000000000000000000000000',
               0,
               specId,
               to,
               fHash,
               1,
-              1,
+              2,
               '0x',
             )
         })
@@ -829,9 +828,9 @@ describe('Operator', () => {
           const receipt = await tx.wait()
           assert.equal(receipt.events?.length, 1)
           const responseEvent = receipt.events?.[0]
-          assert.equal(responseEvent?.event, 'OracleResponse2')
+          assert.equal(responseEvent?.event, 'OracleResponse')
           assert.equal(responseEvent?.args?.[0], request.requestId)
-          assert.equal(responseEvent?.args?.[5], fulfillParams[5])
+          assert.equal(responseEvent?.args?.[1], 2)
         })
       })
 
@@ -904,9 +903,9 @@ describe('Operator', () => {
             const receipt = await tx.wait()
             assert.equal(receipt.events?.length, 3)
             const responseEvent = receipt.events?.[0]
-            assert.equal(responseEvent?.event, 'OracleResponse2')
+            assert.equal(responseEvent?.event, 'OracleResponse')
             assert.equal(responseEvent?.args?.[0], request.requestId)
-            assert.equal(responseEvent?.args?.[5], fulfillParams[5])
+            assert.equal(responseEvent?.args?.[1], 2)
           })
 
           it('does not allow a request to be fulfilled twice', async () => {
@@ -1239,9 +1238,9 @@ describe('Operator', () => {
           const receipt = await tx.wait()
           assert.equal(receipt.events?.length, 1)
           const responseEvent = receipt.events?.[0]
-          assert.equal(responseEvent?.event, 'OracleResponse2')
+          assert.equal(responseEvent?.event, 'OracleResponse')
           assert.equal(responseEvent?.args?.[0], request.requestId)
-          assert.equal(responseEvent?.args?.[5], fulfillParams[5])
+          assert.equal(responseEvent?.args?.[1], 2)
         })
       })
 
@@ -1311,9 +1310,9 @@ describe('Operator', () => {
             const receipt = await tx.wait()
             assert.equal(receipt.events?.length, 3)
             const responseEvent = receipt.events?.[0]
-            assert.equal(responseEvent?.event, 'OracleResponse2')
+            assert.equal(responseEvent?.event, 'OracleResponse')
             assert.equal(responseEvent?.args?.[0], request.requestId)
-            assert.equal(responseEvent?.args?.[5], fulfillParams[5])
+            assert.equal(responseEvent?.args?.[1], 2)
           })
 
           it('does not allow a request to be fulfilled twice', async () => {
