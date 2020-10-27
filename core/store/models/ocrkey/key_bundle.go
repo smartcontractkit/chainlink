@@ -17,10 +17,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/curve25519"
-
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"golang.org/x/crypto/curve25519"
 )
 
 type (
@@ -37,11 +36,11 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash `gorm:"primary_key"`
+		ID                    models.Sha256Hash `json:"-" gorm:"primary_key"`
 		OnChainSigningAddress OnChainSigningAddress
 		OffChainPublicKey     OffChainPublicKey
 		ConfigPublicKey       ConfigPublicKey
-		EncryptedPrivateKeys  []byte
+		EncryptedPrivateKeys  []byte `json:"-"`
 		CreatedAt             time.Time
 		UpdatedAt             time.Time
 	}
@@ -55,13 +54,33 @@ type (
 	scryptParams struct{ N, P int }
 )
 
+func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hex.EncodeToString(cpk[:]))
+}
+
+func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
+	var result [curve25519.PointSize]byte
+	var hexString string
+	if err := json.Unmarshal(input, &hexString); err != nil {
+		return err
+	}
+
+	decodedString, err := hex.DecodeString(hexString)
+	if err != nil {
+		return err
+	}
+	copy(result[:], decodedString[:curve25519.PointSize])
+	*cpk = result
+	return nil
+}
+
 var defaultScryptParams = scryptParams{
 	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
 var curve = secp256k1.S256()
 
 // Scan reads the database value and returns an instance.
-func (c *ConfigPublicKey) Scan(value interface{}) error {
+func (cpk *ConfigPublicKey) Scan(value interface{}) error {
 	b, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("unable to convert %v of type %T to ConfigPublicKey", value, value)
@@ -69,17 +88,34 @@ func (c *ConfigPublicKey) Scan(value interface{}) error {
 	if len(b) != curve25519.PointSize {
 		return errors.Errorf("unable to convert blob 0x%x of length %v to ConfigPublicKey", b, len(b))
 	}
-	copy(c[:], b)
+	copy(cpk[:], b)
 	return nil
 }
 
 // Value returns this instance serialized for database storage.
-func (c ConfigPublicKey) Value() (driver.Value, error) {
-	return c[:], nil
+func (cpk ConfigPublicKey) Value() (driver.Value, error) {
+	return cpk[:], nil
 }
 
 func (EncryptedKeyBundle) TableName() string {
 	return "encrypted_ocr_key_bundles"
+}
+
+func (ekb EncryptedKeyBundle) GetID() string {
+	return ekb.ID.String()
+}
+
+func (ekb *EncryptedKeyBundle) SetID(value string) error {
+	var result models.Sha256Hash
+	decodedString, err := hex.DecodeString(value)
+
+	if err != nil {
+		return err
+	}
+
+	copy(result[:], decodedString[:32])
+	ekb.ID = result
+	return nil
 }
 
 // NewKeyBundle makes a new set of OCR key bundles from cryptographically secure entropy
@@ -200,9 +236,9 @@ func (pk *KeyBundle) encrypt(auth string, scryptParams scryptParams) (*Encrypted
 }
 
 // Decrypt returns the PrivateKeys in e, decrypted via auth, or an error
-func (encKey *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
+func (ekb *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
 	var cryptoJSON keystore.CryptoJSON
-	err := json.Unmarshal(encKey.EncryptedPrivateKeys, &cryptoJSON)
+	err := json.Unmarshal(ekb.EncryptedPrivateKeys, &cryptoJSON)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid cryptoJSON for OCR key bundle")
 	}
@@ -215,7 +251,7 @@ func (encKey *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not unmarshal OCR key bundle")
 	}
-	pk.ID = encKey.ID
+	pk.ID = ekb.ID
 	return &pk, nil
 }
 
