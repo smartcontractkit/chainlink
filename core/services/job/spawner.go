@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -86,12 +87,18 @@ func (js *spawner) Stop() {
 		logger.Error("Job spawner has already been stopped")
 		return
 	}
+
+	close(js.chStop)
+	<-js.chDone
+}
+
+func (js *spawner) destroy() {
+	js.stopAllServices()
+
 	err := js.startUnclaimedServicesWorker.Stop()
 	if err != nil {
 		logger.Error(err)
 	}
-	close(js.chStop)
-	<-js.chDone
 }
 
 func (js *spawner) RegisterDelegate(delegate Delegate) {
@@ -107,14 +114,16 @@ func (js *spawner) RegisterDelegate(delegate Delegate) {
 
 func (js *spawner) runLoop() {
 	defer close(js.chDone)
+	defer js.destroy()
 
 	// Initialize the Postgres event listener for new jobs
-	var chNewJobs <-chan string
-	listener, err := js.orm.ListenForNewJobs()
+	var newJobEvents <-chan postgres.Event
+	newJobs, err := js.orm.ListenForNewJobs()
 	if err != nil {
-		logger.Errorw("Job spawner failed to subscribe to 'new job' events, falling back to polling", "error", err)
+		logger.Warn("Job spawner could not subscribe to new job events, falling back to polling")
 	} else {
-		chNewJobs = listener.Events()
+		defer newJobs.Close()
+		newJobEvents = newJobs.Events()
 	}
 
 	// Initialize the DB poll ticker
@@ -124,7 +133,7 @@ func (js *spawner) runLoop() {
 	js.startUnclaimedServicesWorker.WakeUp()
 	for {
 		select {
-		case <-chNewJobs:
+		case <-newJobEvents:
 			js.startUnclaimedServicesWorker.WakeUp()
 
 		case <-dbPollTicker.C:
@@ -134,13 +143,6 @@ func (js *spawner) runLoop() {
 			js.stopService(jobID)
 
 		case <-js.chStop:
-			if listener != nil {
-				err := listener.Stop()
-				if err != nil {
-					logger.Errorw(`Error stopping pipeline runner's "new runs" listener`, "error", err)
-				}
-			}
-			js.stopAllServices()
 			return
 		}
 	}
