@@ -801,9 +801,9 @@ describe('Operator', () => {
     describe('single word fulfils', () => {
       const response = 'Hi mom!'
       let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-      let basicConsumer: contract.Instance<BasicMultiWordConsumerFactory>
-      let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingMultiWordConsumerFactory>
+      let basicConsumer: contract.Instance<BasicConsumerFactory>
+      let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
+      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
       let request: ReturnType<typeof oracle.decodeRunRequest>
 
       describe('gas guzzling consumer', () => {
