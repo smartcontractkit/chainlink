@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -245,6 +246,22 @@ type maliciousFluxMonitor interface {
 	CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
 }
 
+func waitForRunsAndAttemptsCount(
+	t *testing.T,
+	job models.JobSpec,
+	runCount int,
+	store *store.Store,
+	backend *backends.SimulatedBackend,
+) []models.JobRun {
+	jrs := cltest.WaitForRuns(t, job, store, runCount) // Submit answer from
+	cltest.WaitForEthTxAttemptCount(t, store, runCount)
+	txa := cltest.GetLastEthTxAttempt(t, store)
+	cltest.WaitForTxInMempool(t, backend, txa.Hash)
+
+	backend.Commit()
+	return jrs
+}
+
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
@@ -317,12 +334,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
-	txa := cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-
-	fa.backend.Commit()
+	jrs := waitForRunsAndAttemptsCount(t, j, 1, app.Store, fa.backend)
 
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
 	assert.Equal(t, reportedPrice, fmt.Sprintf("%d", atomic.LoadInt64(&reportPrice)), "failed to report correct price to contract")
@@ -349,12 +361,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
 	atomic.StoreInt64(&reportPrice, answer+1)
-	cltest.WaitForRuns(t, j, app.Store, 2)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 2)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, j, 2, app.Store, fa.backend)
 
 	select {
 	case log := <-submissionReceived:
@@ -395,12 +402,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// FORCE node to try to start a new round
 	err = app.FluxMonitor.(maliciousFluxMonitor).CreateJob(t, j.ID, decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
-	cltest.WaitForRuns(t, j, app.Store, 3)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 3)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
 
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, j, 3, app.Store, fa.backend)
 
 	select {
 	case <-submissionReceived:
@@ -425,12 +428,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		completesAnswer: true})
 	// start a legitimate new round
 	atomic.StoreInt64(&reportPrice, reportPrice+3)
-	cltest.WaitForRuns(t, j, app.Store, 4)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 4)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, j, 4, app.Store, fa.backend)
 
 	select {
 	case <-submissionReceived:
@@ -501,37 +499,21 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 1)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
-	txa := cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, job, 1, app.Store, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(2)
-	cltest.WaitForRuns(t, job, app.Store, 2)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 2)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, job, 2, app.Store, fa.backend)
 
 	// lower contract's flag - should have no effect (but currently does)
 	// TODO - https://www.pivotaltracker.com/story/show/175419789
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 3)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 3)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, job, 3, app.Store, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(4)
-	cltest.WaitForRuns(t, job, app.Store, 4)
-	cltest.WaitForEthTxAttemptCount(t, app.Store, 4)
-	txa = cltest.GetLastEthTxAttempt(t, app.Store)
-	cltest.WaitForTxInMempool(t, fa.backend, txa.Hash)
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, job, 4, app.Store, fa.backend)
 
 	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
