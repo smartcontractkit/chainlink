@@ -3,44 +3,20 @@ package web
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
+	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 // JobSpecsController manages JobSpec requests.
 type JobSpecsController struct {
 	App chainlink.Application
-}
-
-// Index lists JobSpecs, one page at a time.
-// Example:
-//  "<application>/specs?size=1&page=2"
-func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
-	var order orm.SortType
-	if c.Query("sort") == "-createdAt" {
-		order = orm.Descending
-	} else {
-		order = orm.Ascending
-	}
-
-	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
-	pjs := make([]presenters.JobSpec, len(jobs))
-	for i, j := range jobs {
-		pjs[i] = presenters.JobSpec{JobSpec: j}
-	}
-
-	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
 // requireImplented verifies if a Job Spec's feature is enabled according to
@@ -51,16 +27,6 @@ func (jsc *JobSpecsController) requireImplemented(js models.JobSpec) error {
 		if intrs := js.InitiatorsFor(models.InitiatorFluxMonitor); len(intrs) > 0 {
 			return errors.New("The Flux Monitor feature is disabled by configuration")
 		}
-	}
-	return nil
-}
-
-// requireImplentedV2 verifies if a Job Spec's feature is enabled according to
-// configured policy.
-func (jsc *JobSpecsController) requireImplementedV2(js job.Spec) error {
-	cfg := jsc.App.GetStore().Config
-	if js.JobType() == offchainreporting.JobType && !cfg.Dev() && !cfg.FeatureOffchainReporting() {
-		return errors.New("The Offchain Reporting feature is disabled by configuration")
 	}
 	return nil
 }
@@ -86,15 +52,30 @@ func (jsc *JobSpecsController) getAndCheckJobSpec(
 	return js, 0, nil
 }
 
-func (jsc *JobSpecsController) getAndCheckJobSpecV2(c *gin.Context) (js job.Spec, httpStatus int, err error) {
-	spec, err := services.ValidatedOracleSpec(c.Request.Body)
-	if err != nil {
-		return nil, http.StatusBadRequest, err
+func showJobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
+	store := jsc.App.GetStore()
+	jobLinkEarned, _ := store.LinkEarnedFor(&job)
+	return presenters.JobSpec{JobSpec: job, Errors: job.Errors, Earnings: jobLinkEarned}
+}
+
+// Index lists JobSpecs, one page at a time.
+// Example:
+//  "<application>/specs?size=1&page=2"
+func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
+	var order orm.SortType
+	if c.Query("sort") == "-createdAt" {
+		order = orm.Descending
+	} else {
+		order = orm.Ascending
 	}
-	if err := jsc.requireImplementedV2(spec); err != nil {
-		return nil, http.StatusNotImplemented, err
+
+	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
+	pjs := make([]presenters.JobSpec, len(jobs))
+	for i, j := range jobs {
+		pjs[i] = presenters.JobSpec{JobSpec: j}
 	}
-	return spec, 0, nil
+
+	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
 // Create adds validates, saves, and starts a new JobSpec.
@@ -129,22 +110,6 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 
 	// TODO: https://www.pivotaltracker.com/story/show/171169052
 	jsonAPIResponse(c, presenters.JobSpec{JobSpec: js}, "job")
-}
-
-func (jsc *JobSpecsController) CreateV2(c *gin.Context) {
-	js, httpStatus, err := jsc.getAndCheckJobSpecV2(c)
-	if err != nil {
-		jsonAPIError(c, httpStatus, err)
-		return
-	}
-	jobID, err := jsc.App.AddJobV2(c.Request.Context(), js)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-	c.JSON(http.StatusOK, struct {
-		JobID int32 `json:"jobID"`
-	}{jobID})
 }
 
 // Show returns the details of a JobSpec.
@@ -191,30 +156,4 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
-}
-
-func (jsc *JobSpecsController) DestroyV2(c *gin.Context) {
-	jobID, err := strconv.ParseInt(c.Param("SpecID"), 10, 32)
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	err = jsc.App.DeleteJobV2(c.Request.Context(), int32(jobID))
-	if errors.Cause(err) == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, errors.New("JobSpec not found"))
-		return
-	}
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
-}
-
-func showJobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
-	store := jsc.App.GetStore()
-	jobLinkEarned, _ := store.LinkEarnedFor(&job)
-	return presenters.JobSpec{JobSpec: job, Errors: job.Errors, Earnings: jobLinkEarned}
 }

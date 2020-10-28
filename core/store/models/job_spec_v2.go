@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -38,6 +39,15 @@ type (
 
 	PeerID peer.ID
 )
+
+func (js *JobSpecV2) SetID(value string) error {
+	jobID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	js.ID = int32(jobID)
+	return nil
+}
 
 func (p PeerID) String() string {
 	return peer.ID(p).String()
