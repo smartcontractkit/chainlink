@@ -612,6 +612,10 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
+type CreateOCRKeysRequest struct {
+	Password string `json:"password"`
+}
+
 // AddressCollection is an array of common.Address
 // serializable to and from a database.
 type AddressCollection []common.Address
