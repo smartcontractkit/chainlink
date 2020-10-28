@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -15,17 +16,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOffChainReportingKeysController_Index(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
+	client, OCRKeyStore, cleanup := setup(t)
 	defer cleanup()
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
 
 	ocrKeys := []ocrkey.EncryptedKeyBundle{}
 
-	keys, _ := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
+	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 
 	response, cleanup := client.Get("/v2/off_chain_reporting_keys")
 	defer cleanup()
@@ -42,18 +39,9 @@ func TestOffChainReportingKeysController_Index(t *testing.T) {
 	assert.Equal(t, keys[0].ConfigPublicKey, ocrKeys[0].ConfigPublicKey)
 }
 
-func TestOffChainReportingKeysController_Create(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+func TestOffChainReportingKeysController_Create_InvalidBody(t *testing.T) {
+	client, _, cleanup := setup(t)
 	defer cleanup()
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
-
-	OCRKeyStore := app.GetStore().OCRKeyStore
-
-	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
-	initialLength := len(keys)
 
 	invalidBody, _ := json.Marshal(struct {
 		BadParam string
@@ -63,11 +51,19 @@ func TestOffChainReportingKeysController_Create(t *testing.T) {
 	response, cleanup := client.Post("/v2/off_chain_reporting_keys", bytes.NewBuffer(invalidBody))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+}
+
+func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
+	client, OCRKeyStore, cleanup := setup(t)
+	defer cleanup()
+
+	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
+	initialLength := len(keys)
 
 	body, _ := json.Marshal(models.CreateOCRKeysRequest{
 		Password: cltest.Password,
 	})
-	response, cleanup = client.Post("/v2/off_chain_reporting_keys", bytes.NewBuffer(body))
+	response, cleanup := client.Post("/v2/off_chain_reporting_keys", bytes.NewBuffer(body))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -88,35 +84,50 @@ func TestOffChainReportingKeysController_Create(t *testing.T) {
 	assert.Equal(t, exists, true)
 }
 
-func TestOffChainReportingKeysController_Delete(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+func TestOffChainReportingKeysController_Delete_InvalidOCRKey(t *testing.T) {
+	client, _, cleanup := setup(t)
 	defer cleanup()
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
-
-	OCRKeyStore := app.GetStore().OCRKeyStore
 
 	invalidOCRKeyID := "bad_key_id"
 	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + invalidOCRKeyID)
 	defer cleanup()
 	assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
+}
 
-	nonExistantOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
-	response, cleanup = client.Delete("/v2/off_chain_reporting_keys/" + nonExistantOCRKeyID)
+func TestOffChainReportingKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+	client, _, cleanup := setup(t)
+	defer cleanup()
+
+	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
+	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + nonExistentOCRKeyID)
 	defer cleanup()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
+}
+
+func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
+	client, OCRKeyStore, cleanup := setup(t)
+	defer cleanup()
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
 	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedOCRKeyBundle(cltest.Password)
 
-	response, cleanup = client.Delete("/v2/off_chain_reporting_keys/" + encryptedKeyBundle.ID.String())
+	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + encryptedKeyBundle.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, response.StatusCode)
 	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedOCRKeyBundleByID(encryptedKeyBundle.ID)))
 
 	keys, _ = OCRKeyStore.FindEncryptedOCRKeyBundles()
 	assert.Equal(t, initialLength, len(keys))
+}
+
+func setup(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore, func()) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+
+	OCRKeyStore := app.GetStore().OCRKeyStore
+	return client, OCRKeyStore, cleanup
 }
