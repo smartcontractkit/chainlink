@@ -661,7 +661,6 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBlockByNumber,
-		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
@@ -670,6 +669,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
+		eth.Register("eth_getBalance", "0x100000")
 	})
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
@@ -696,15 +696,17 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	eth.AssertAllCalled()
 
+	eth.Register("eth_getBalance", "0x100000")
+	newHeads <- cltest.Head(200)
+	eth.EventuallyAllCalled(t)
+
 	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
-		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
 			TxHash:      hash,
 			BlockNumber: big.NewInt(blockNumber + 100),
 		})
-		eth.RegisterOptional("eth_sendRawTransaction", hash)
+		eth.Register("eth_sendRawTransaction", hash)
 	})
-
-	newHeads <- cltest.Head(200)
 
 	jr = cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
@@ -712,7 +714,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	attempt = cltest.GetLastTxAttempt(t, app.Store)
 	tx, err = app.Store.FindTx(attempt.TxID)
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(0x102), tx.Nonce)
+	assert.Equal(t, uint64(0x101), tx.Nonce)
 
 	eth.AssertAllCalled()
 }
