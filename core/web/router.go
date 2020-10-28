@@ -16,11 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
 	"github.com/Depado/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
@@ -29,6 +24,10 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -263,6 +262,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		ocrkc := OffChainReportingKeysController{app}
 		authv2.GET("/off_chain_reporting_keys", ocrkc.Index)
+		authv2.POST("/off_chain_reporting_keys", ocrkc.Create)
+		authv2.DELETE("/off_chain_reporting_keys/:keyID", ocrkc.Delete)
 	}
 
 	ping := PingController{app}
