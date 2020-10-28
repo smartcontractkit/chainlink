@@ -105,4 +105,6 @@ declare module 'core/store/presenters' {
     to?: Pointer<common.Address>
     value?: string
   }
+
+  export interface OcrKey extends models.OcrKey {}
 }
