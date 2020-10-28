@@ -612,7 +612,15 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
+// CreateOCRKeysRequest represents a request to add an off-chain reporting keys bundle.
+// The keys are used when creating job specs for off-chain reporting protocol.
 type CreateOCRKeysRequest struct {
+	Password string `json:"password"`
+}
+
+// CreateP2PKeysRequest represents a request to add a new set of P2P keys.
+// The keys are used when creating job specs for off-chain reporting protocol.
+type CreateP2PKeysRequest struct {
 	Password string `json:"password"`
 }
 
