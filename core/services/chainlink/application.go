@@ -92,9 +92,9 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, ethClient, shutdownSignal)
+	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
 	config.SetRuntimeStore(store.ORM)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
@@ -122,7 +122,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, onConnectCallbacks
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
-		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster)
+		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 

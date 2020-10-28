@@ -72,7 +72,7 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 
 // ProcessHead takes all required transactions for the confirmer on a new head
 func (ec *ethConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
-	return withAdvisoryLock(ec.store, postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
+	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
 		return ec.processHead(ctx, head)
 	})
 }

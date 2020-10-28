@@ -134,7 +134,7 @@ func TestORM(t *testing.T) {
 	t.Run("creates runs", func(t *testing.T) {
 		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
-		jobORM := job.NewORM(db, config, orm, eventBroadcaster)
+		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
 
 		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
@@ -241,7 +241,7 @@ func TestORM(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 				defer cleanup()
-				jobORM := job.NewORM(db, config, orm, eventBroadcaster)
+				jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 				defer jobORM.Close()
 
 				var (
