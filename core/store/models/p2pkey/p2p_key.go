@@ -3,6 +3,7 @@ package p2pkey
 import (
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -50,12 +51,12 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32 `json:"-" gorm:"primary_key"`
-	PeerID           models.PeerID `json:"peerId"`
+	ID               int32          `json:"-" gorm:"primary_key"`
+	PeerID           models.PeerID  `json:"peerId"`
 	PubKey           PublicKeyBytes `json:"publicKey"`
-	EncryptedPrivKey []byte `json:"-"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
+	EncryptedPrivKey []byte         `json:"-"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
 }
 
 func (EncryptedP2PKey) TableName() string {
@@ -63,7 +64,7 @@ func (EncryptedP2PKey) TableName() string {
 }
 
 func (ep2pk EncryptedP2PKey) GetID() string {
-	return strconv.FormatInt(int64(ep2pk.ID), 10)
+	return fmt.Sprintf("%v", ep2pk.ID)
 }
 
 func (ep2pk *EncryptedP2PKey) SetID(value string) error {
@@ -134,19 +135,19 @@ func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
 }
 
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
-func (e EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
+func (ep2pk EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
 	var cryptoJSON keystore.CryptoJSON
-	err = json.Unmarshal(e.EncryptedPrivKey, &cryptoJSON)
+	err = json.Unmarshal(ep2pk.EncryptedPrivKey, &cryptoJSON)
 	if err != nil {
-		return k, errors.Wrapf(err, "invalid JSON for key 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "invalid JSON for key 0x%x", ep2pk.PubKey)
 	}
 	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
 	if err != nil {
-		return k, errors.Wrapf(err, "could not decrypt key 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "could not decrypt key 0x%x", ep2pk.PubKey)
 	}
 	privK, err := cryptop2p.UnmarshalPrivateKey(marshalledPrivK)
 	if err != nil {
-		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", ep2pk.PubKey)
 	}
 	return Key{
 		privK,
