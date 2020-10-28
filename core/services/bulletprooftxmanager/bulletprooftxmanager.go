@@ -3,7 +3,6 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"math/big"
 	"time"
 
@@ -140,47 +139,6 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 	// Currently this lives in store because TxManager also needs it.
 	// It can move here permanently once the old TxManager has been deleted.
 	return strpkg.BumpGas(config, originalGasPrice)
-}
-
-func withAdvisoryLock(s *strpkg.Store, classID int32, objectID int32, f func() error) error {
-	ctx := context.Background()
-	conn, err := s.DB.DB().Conn(ctx)
-	if err != nil {
-		return errors.Wrap(err, "withAdvisoryLock failed")
-	}
-	defer logger.ErrorIfCalling(conn.Close)
-	if err := tryAdvisoryLock(ctx, conn, classID, objectID); err != nil {
-		return errors.Wrap(err, "tryAdvisoryLock failed")
-	}
-	defer logger.ErrorIfCalling(func() error { return advisoryUnlock(ctx, conn, classID, objectID) })
-	return f()
-}
-
-func tryAdvisoryLock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) (err error) {
-	defer utils.WrapIfError(&err, "tryAdvisoryLock failed")
-
-	gotLock := false
-	rows, err := conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1, $2)", classID, objectID)
-	if err != nil {
-		return err
-	}
-	defer logger.ErrorIfCalling(rows.Close)
-	gotRow := rows.Next()
-	if !gotRow {
-		return errors.New("query unexpectedly returned 0 rows")
-	}
-	if err := rows.Scan(&gotLock); err != nil {
-		return err
-	}
-	if gotLock {
-		return nil
-	}
-	return errors.Errorf("could not get advisory lock for classID, objectID %v, %v", classID, objectID)
-}
-
-func advisoryUnlock(ctx context.Context, conn *sql.Conn, classID int32, objectID int32) error {
-	_, err := conn.ExecContext(ctx, "SELECT pg_advisory_unlock($1, $2)", classID, objectID)
-	return errors.Wrap(err, "advisoryUnlock failed")
 }
 
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {

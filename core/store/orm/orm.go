@@ -54,7 +54,7 @@ type ORM struct {
 	shutdownSignal      gracefulpanic.Signal
 }
 
-// NewORM initializes a new database file at the configured uri.
+// NewORM initializes the orm with the configured uri
 func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
 	ct, err := NewConnection(dialect, uri, advisoryLockID)
 	if err != nil {

@@ -1154,77 +1154,23 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Locking(t *testing.T) {
-	store1, cleanup := cltest.NewStore(t)
+	advisoryLocker1 := new(mocks.AdvisoryLocker)
+	store, cleanup := cltest.NewStore(t, advisoryLocker1)
 	defer cleanup()
-	// Use the real KeyStore loaded from database fixtures
-	store1.KeyStore.Unlock(cltest.Password)
+	var key models.Key
+	require.NoError(t, store.DB.First(&key).Error)
+
+	advisoryLocker1.On("WithAdvisoryLock", mock.Anything, mock.AnythingOfType("int32"), key.ID, mock.AnythingOfType("func() error")).Return(nil)
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	ethClient := new(mocks.Client)
-	store1.EthClient = ethClient
-
-	eb1, cleanup := cltest.NewEthBroadcaster(t, store1, config)
+	eb, cleanup := cltest.NewEthBroadcaster(t, store, config)
 	defer cleanup()
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
 
-	// Simulate another node
-	store2, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	eb2, cleanup := cltest.NewEthBroadcaster(t, store2, config)
-	defer cleanup()
-
-	keys, err := store1.SendKeys()
-	require.NoError(t, err)
-	key := keys[0]
-	defaultFromAddress := key.Address.Address()
-	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
-	value := assets.NewEthValue(142)
-	gasLimit := uint64(242)
-
-	chSendingTx := make(chan struct{})
-	chMidway := make(chan struct{})
-	chFinish := make(chan struct{})
-
-	etx := models.EthTx{
-		FromAddress:    defaultFromAddress,
-		ToAddress:      toAddress,
-		EncodedPayload: []byte{42, 42, 0},
-		Value:          value,
-		GasLimit:       gasLimit,
-		CreatedAt:      time.Unix(0, 0),
-		State:          models.EthTxUnstarted,
-	}
-	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		close(chSendingTx)
-		<-chMidway
-		return true
-	})).Return(nil).Once()
-
-	require.NoError(t, store1.DB.Save(&etx).Error)
-
-	// First one gets the lock
-	go func() {
-		err2 := eb1.ProcessUnstartedEthTxs(key)
-		assert.NoError(t, err2)
-		close(chFinish)
-	}()
-
-	g := gomega.NewGomegaWithT(t)
-
-	// Wait until first one is in the middle of its run
-	g.Eventually(chSendingTx).Should(gomega.BeClosed())
-
-	// Second node's attempt to get lock fails
-	err = eb2.ProcessUnstartedEthTxs(key)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), fmt.Sprintf("could not get advisory lock for classID, objectID %v, %v", 0, key.ID))
-
-	// Resume original run
-	close(chMidway)
-
-	// Ensure all go routines exited
-	g.Eventually(chFinish).Should(gomega.BeClosed())
+	advisoryLocker1.AssertExpectations(t)
+	advisoryLocker1.On("Close").Return(nil)
 }
 
 func TestEthBroadcaster_GetNextNonce(t *testing.T) {
