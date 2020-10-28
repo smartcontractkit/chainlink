@@ -263,6 +263,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ocrkc := OffChainReportingKeysController{app}
 		authv2.GET("/off_chain_reporting_keys", ocrkc.Index)
 		authv2.POST("/off_chain_reporting_keys", ocrkc.Create)
+		authv2.DELETE("/off_chain_reporting_keys/:keyID", ocrkc.Delete)
 	}
 
 	ping := PingController{app}

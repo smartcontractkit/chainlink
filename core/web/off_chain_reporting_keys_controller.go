@@ -4,8 +4,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 )
 
 // OffChainReportingKeysController manages OCR key bundles
@@ -36,6 +38,10 @@ func (ocrkbc *OffChainReportingKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
+	if request.Password == "" {
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.New("Password not specified"))
+		return
+	}
 
 	_, encryptedKeyBundle, err := ocrkbc.App.GetStore().OCRKeyStore.GenerateEncryptedOCRKeyBundle(request.Password)
 
@@ -45,4 +51,27 @@ func (ocrkbc *OffChainReportingKeysController) Create(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, encryptedKeyBundle, "offChainReportingKeyBundle")
+}
+
+// Delete an OCR key bundle
+// Example:
+// "DELETE <application>/off-chain-reporting-keys/:keyID"
+func (ocrkbc *OffChainReportingKeysController) Delete(c *gin.Context) {
+	ekb := ocrkey.EncryptedKeyBundle{}
+	err := ekb.SetID(c.Param("keyID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	if ekb, err = ocrkbc.App.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundleByID(ekb.ID); err != nil {
+		jsonAPIError(c, http.StatusNotFound, err)
+		return
+	}
+
+	if err = ocrkbc.App.GetStore().OCRKeyStore.DeleteEncryptedOCRKeyBundle(&ekb); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponseWithStatus(c, nil, "offChainReportingKeyBundle", http.StatusNoContent)
 }
