@@ -129,9 +129,52 @@ export function convertFufillParams(
   const convertedResponse =
     response.length < bytes32Len
       ? ethers.utils.formatBytes32String(response)
-      : ethers.utils.hexlify(ethers.utils.toUtf8Bytes(response))
+      : response
   d('Converted Response param: %s', convertedResponse)
 
+  return [
+    runRequest.requestId,
+    runRequest.payment,
+    runRequest.callbackAddr,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    convertedResponse,
+    txOpts,
+  ]
+}
+
+/**
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
+ *  function fulfillOracleRequest2(
+ *    bytes32 _requestId,
+ *    uint256 _payment,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _expiration,
+ *    bytes memory _data
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param runRequest The run request to flatten into the correct order to perform the `fulfillOracleRequest` function
+ * @param response The response to fulfill the run request with, if it is an ascii string, it is converted to bytes32 string
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertFulfill2Params(
+  runRequest: RunRequest,
+  responseTypes: string[],
+  responseValues: string[],
+  txOpts: TxOptions = {},
+): [string, string, string, string, string, string, TxOptions] {
+  const d = debug.extend('fulfillOracleRequestParams')
+  d('Response param: %s', responseValues)
+  responseValues.unshift(runRequest.requestId)
+  responseTypes.unshift("bytes32")
+  const convertedResponse = ethers.utils.defaultAbiCoder.encode(
+    responseTypes, responseValues,
+  )
+  d('Encoded Response param: %s', convertedResponse)
   return [
     runRequest.requestId,
     runRequest.payment,
@@ -202,45 +245,6 @@ export function encodeOracleRequest(
   const oracleRequestSighash = '0x40429946'
   return encodeRequest(
     oracleRequestSighash,
-    specId,
-    callbackAddr,
-    callbackFunctionId,
-    nonce,
-    data,
-  )
-}
-
-/**
- * Abi encode parameters to call the `oracleRequest2` (multi-word) method on the [Operator.sol](evm-contracts/Operator.sol) contract.
- * ```solidity
- *  function oracleRequest2(
- *    address _sender,
- *    uint256 _payment,
- *    bytes32 _specId,
- *    address _callbackAddress,
- *    bytes4 _callbackFunctionId,
- *    uint256 _nonce,
- *    uint256 _dataVersion,
- *    bytes _data
- *  )
- * ```
- *
- * @param specId The Job Specification ID
- * @param callbackAddr The callback contract address for the response
- * @param callbackFunctionId The callback function id for the response
- * @param nonce The nonce sent by the requester
- * @param data The CBOR payload of the request
- */
-export function encodeOracleRequest2(
-  specId: string,
-  callbackAddr: string,
-  callbackFunctionId: string,
-  nonce: number,
-  data: BigNumberish,
-): string {
-  const oracleRequest2Sighash = '0x40c61dbe'
-  return encodeRequest(
-    oracleRequest2Sighash,
     specId,
     callbackAddr,
     callbackFunctionId,
