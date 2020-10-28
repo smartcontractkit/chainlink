@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"time"
 
 	"github.com/lib/pq"
@@ -62,6 +63,25 @@ func (p *PeerID) Scan(value interface{}) error {
 
 func (p PeerID) Value() (driver.Value, error) {
 	return peer.Encode(peer.ID(p)), nil
+}
+
+func (p PeerID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(peer.Encode(peer.ID(p)))
+}
+
+func (p *PeerID) UnmarshalJSON(input []byte) error {
+	var result string
+	if err := json.Unmarshal(input, &result); err != nil {
+		return err
+	}
+
+	peerId, err := peer.Decode(result)
+	if err != nil {
+		return err
+	}
+
+	*p = PeerID(peerId)
+	return nil
 }
 
 func (s *OffchainReportingOracleSpec) BeforeCreate() error {
