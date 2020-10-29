@@ -802,6 +802,10 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
+	if !confirmAction() {
+		return nil
+	}
+
 	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/p2p_keys/%d", id))
 	if err != nil {
 		return cli.errorOut(err)
@@ -864,6 +868,10 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	id, err := models.Sha256HashFromHex(c.Args().Get(0))
 	if err != nil {
 		return cli.errorOut(err)
+	}
+
+	if !confirmAction() {
+		return nil
 	}
 
 	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/off_chain_reporting_keys/%s", id))
