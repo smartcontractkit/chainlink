@@ -11,16 +11,15 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/BurntSushi/toml"
+	"github.com/manyminds/api2go/jsonapi"
+	homedir "github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/BurntSushi/toml"
-	"github.com/manyminds/api2go/jsonapi"
-	homedir "github.com/mitchellh/go-homedir"
-	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -224,7 +223,7 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/specs_v2", buf)
+	resp, err := cli.HTTP.Post("/v2/ocr/specs", buf)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -277,7 +276,7 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be archived"))
 	}
-	resp, err := cli.HTTP.Delete("/v2/specs_v2/" + c.Args().First())
+	resp, err := cli.HTTP.Delete("/v2/ocr/specs/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
