@@ -36,13 +36,14 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash `json:"-" gorm:"primary_key"`
-		OnChainSigningAddress OnChainSigningAddress
-		OffChainPublicKey     OffChainPublicKey
-		ConfigPublicKey       ConfigPublicKey
-		EncryptedPrivateKeys  []byte `json:"-"`
-		CreatedAt             time.Time
-		UpdatedAt             time.Time
+		ID                    models.Sha256Hash     `json:"-" gorm:"primary_key"`
+		OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
+		OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
+		ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`
+		EncryptedPrivateKeys  []byte                `json:"-"`
+		CreatedAt             time.Time             `json:"createdAt"`
+		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
+		DeletedAt             time.Time             `json:"deletedAt,omitempty"`
 	}
 
 	keyBundleRawData struct {
