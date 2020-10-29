@@ -12,6 +12,10 @@ import (
 
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 
+func (ocsa OnChainSigningAddress) String() string {
+	return hexutil.Encode(ocsa[:])
+}
+
 func (ocsa OnChainSigningAddress) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hexutil.Encode(ocsa[:]))
 }
