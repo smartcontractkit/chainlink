@@ -1267,7 +1267,7 @@ func (orm *ORM) KeyExists(address []byte) (bool, error) {
 
 // DeleteKey deletes a key whose address matches the supplied bytes.
 func (orm *ORM) DeleteKey(address []byte) error {
-	return orm.DB.Exec("DELETE FROM keys WHERE address = ?", address).Error
+	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
 }
 
 // CreateKeyIfNotExists inserts a key if a key with that address doesn't exist already
