@@ -3,19 +3,43 @@ package p2pkey
 import (
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"time"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // Key represents a libp2p private key
 type Key struct {
 	cryptop2p.PrivKey
+}
+
+// PublicKeyBytes is generated using cryptop2p.PubKey.Raw()
+type PublicKeyBytes []byte
+
+func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hexutil.Encode(pkb))
+}
+
+func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
+	var hexString string
+	if err := json.Unmarshal(input, &hexString); err != nil {
+		return err
+	}
+
+	result, err := hexutil.Decode(hexString)
+	if err != nil {
+		return err
+	}
+
+	*pkb = PublicKeyBytes(result)
+	return nil
 }
 
 func (k Key) GetPeerID() (models.PeerID, error) {
@@ -27,16 +51,31 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32 `gorm:"primary_key"`
-	PeerID           models.PeerID
-	PubKey           []byte
-	EncryptedPrivKey []byte
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID               int32          `json:"-" gorm:"primary_key"`
+	PeerID           models.PeerID  `json:"peerId"`
+	PubKey           PublicKeyBytes `json:"publicKey"`
+	EncryptedPrivKey []byte         `json:"-"`
+	CreatedAt        time.Time      `json:"createdAt"`
+	UpdatedAt        time.Time      `json:"updatedAt"`
 }
 
 func (EncryptedP2PKey) TableName() string {
 	return "encrypted_p2p_keys"
+}
+
+func (ep2pk EncryptedP2PKey) GetID() string {
+	return fmt.Sprintf("%v", ep2pk.ID)
+}
+
+func (ep2pk *EncryptedP2PKey) SetID(value string) error {
+	result, err := strconv.ParseInt(value, 10, 32)
+
+	if err != nil {
+		return err
+	}
+
+	ep2pk.ID = int32(result)
+	return nil
 }
 
 // CreateKey makes a new libp2p keypair from a crytographically secure entropy source
@@ -96,19 +135,19 @@ func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
 }
 
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
-func (e EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
+func (ep2pk EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
 	var cryptoJSON keystore.CryptoJSON
-	err = json.Unmarshal(e.EncryptedPrivKey, &cryptoJSON)
+	err = json.Unmarshal(ep2pk.EncryptedPrivKey, &cryptoJSON)
 	if err != nil {
-		return k, errors.Wrapf(err, "invalid JSON for key 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "invalid JSON for key 0x%x", ep2pk.PubKey)
 	}
 	marshalledPrivK, err := keystore.DecryptDataV3(cryptoJSON, adulteratedPassword(auth))
 	if err != nil {
-		return k, errors.Wrapf(err, "could not decrypt key 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "could not decrypt key 0x%x", ep2pk.PubKey)
 	}
 	privK, err := cryptop2p.UnmarshalPrivateKey(marshalledPrivK)
 	if err != nil {
-		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", e.PubKey)
+		return k, errors.Wrapf(err, "could not unmarshal private key for 0x%x", ep2pk.PubKey)
 	}
 	return Key{
 		privK,
