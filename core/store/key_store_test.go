@@ -1,12 +1,12 @@
 package store_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +34,7 @@ func TestUnlockKey_SingleAddress(t *testing.T) {
 	require.True(t, store.KeyStore.HasAccounts())
 	require.Len(t, store.KeyStore.GetAccounts(), 1)
 
-	assert.EqualError(t, store.KeyStore.Unlock("wrong phrase"), "invalid password for account 0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea; could not decrypt key with given password")
+	assert.EqualError(t, store.KeyStore.Unlock("wrong phrase"), fmt.Sprintf("invalid password for account %s; could not decrypt key with given password", cltest.DefaultKey))
 	assert.NoError(t, store.KeyStore.Unlock(cltest.Password))
 }
 
@@ -90,7 +90,7 @@ func TestKeyStore_GetAccountByAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	address := gethCommon.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
+	address := cltest.DefaultKeyAddress
 	account, err := store.KeyStore.GetAccountByAddress(address)
 	require.NoError(t, err)
 	require.Equal(t, address, account.Address)
