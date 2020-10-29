@@ -36,14 +36,7 @@ func adulteratedPassword(auth string) string {
 }
 
 // Encrypt returns the key encrypted with passphrase auth
-func (k *PrivateKey) Encrypt(auth string, opts ...interface{}) (*EncryptedVRFKey, error) {
-	scryptParams := utils.DefaultScryptParams
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case utils.ScryptParams:
-			scryptParams = v
-		}
-	}
+func (k *PrivateKey) Encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedVRFKey, error) {
 	keyJSON, err := keystore.EncryptKey(k.gethKey(), adulteratedPassword(auth),
 		scryptParams.N, scryptParams.P)
 	if err != nil {

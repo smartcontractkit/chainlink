@@ -145,6 +145,11 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// BalanceMonitorEnabled enables the balance monitor
+func (c Config) BalanceMonitorEnabled() bool {
+	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
+}
+
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
