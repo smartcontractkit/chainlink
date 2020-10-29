@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -77,6 +79,14 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
+	case *p2pkey.EncryptedP2PKey:
+		return rt.renderP2PKeys([]p2pkey.EncryptedP2PKey{*typed})
+	case *[]p2pkey.EncryptedP2PKey:
+		return rt.renderP2PKeys(*typed)
+	case *ocrkey.EncryptedKeyBundle:
+		return rt.renderOCRKeys([]ocrkey.EncryptedKeyBundle{*typed})
+	case *[]ocrkey.EncryptedKeyBundle:
+		return rt.renderOCRKeys(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
@@ -379,5 +389,44 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 		config.EthGasPriceDefault.To,
 	})
 	render("Configuration Changes", table)
+	return nil
+}
+
+func (rt RendererTable) renderP2PKeys(p2pKeys []p2pkey.EncryptedP2PKey) error {
+	table := rt.newTable([]string{"ID", "Peer ID", "Public key", "Created at", "Updated at"})
+	for _, key := range p2pKeys {
+		table.Append([]string{
+			fmt.Sprintf("%v", key.ID),
+			fmt.Sprintf("%v", key.PeerID),
+			fmt.Sprintf("%v", key.PubKey),
+			fmt.Sprintf("%v", key.CreatedAt),
+			fmt.Sprintf("%v", key.UpdatedAt),
+		})
+	}
+	if len(p2pKeys) == 1 {
+		render("P2P Key", table)
+	} else {
+		render("P2P Keys", table)
+	}
+	return nil
+}
+
+func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error {
+	table := rt.newTable([]string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created at", "Updated at"})
+	for _, key := range ocrKeys {
+		table.Append([]string{
+			fmt.Sprintf("%s", key.ID),
+			fmt.Sprintf("%s", key.OnChainSigningAddress),
+			fmt.Sprintf("%s", key.OffChainPublicKey),
+			fmt.Sprintf("%s", key.ConfigPublicKey),
+			fmt.Sprintf("%v", key.CreatedAt),
+			fmt.Sprintf("%v", key.UpdatedAt),
+		})
+	}
+	if len(ocrKeys) == 1 {
+		render("OCR Key", table)
+	} else {
+		render("OCR Keys", table)
+	}
 	return nil
 }

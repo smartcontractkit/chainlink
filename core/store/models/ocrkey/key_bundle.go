@@ -54,6 +54,10 @@ type (
 	scryptParams struct{ N, P int }
 )
 
+func (cpk ConfigPublicKey) String() string {
+	return hex.EncodeToString(cpk[:])
+}
+
 func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hex.EncodeToString(cpk[:]))
 }

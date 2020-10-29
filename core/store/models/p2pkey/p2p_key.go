@@ -23,6 +23,10 @@ type Key struct {
 // PublicKeyBytes is generated using cryptop2p.PubKey.Raw()
 type PublicKeyBytes []byte
 
+func (pkb PublicKeyBytes) String() string {
+	return hexutil.Encode(pkb)
+}
+
 func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hexutil.Encode(pkb))
 }
@@ -51,7 +55,7 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32          `json:"-" gorm:"primary_key"`
+	ID               int32          `json:"id" gorm:"primary_key"`
 	PeerID           models.PeerID  `json:"peerId"`
 	PubKey           PublicKeyBytes `json:"publicKey"`
 	EncryptedPrivKey []byte         `json:"-"`
