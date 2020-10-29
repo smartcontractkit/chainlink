@@ -139,6 +139,7 @@ type ConfigPrinter struct {
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
 	AllowOrigins                          string          `json:"allowOrigins"`
+	BalanceMonitorEnabled                 bool            `json:"balanceMonitorEnabled"`
 	BlockBackfillDepth                    uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL                     string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                               *big.Int        `json:"ethChainId"`
@@ -229,6 +230,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 		AccountAddress: account.Address.Hex(),
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
+			BalanceMonitorEnabled:                 config.BalanceMonitorEnabled(),
 			BlockBackfillDepth:                    config.BlockBackfillDepth(),
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
 			ChainID:                               config.ChainID(),
