@@ -60,7 +60,8 @@ type EncryptedP2PKey struct {
 	PubKey           PublicKeyBytes `json:"publicKey"`
 	EncryptedPrivKey []byte         `json:"-"`
 	CreatedAt        time.Time      `json:"createdAt"`
-	UpdatedAt        time.Time      `json:"updatedAt"`
+	UpdatedAt        time.Time      `json:"updatedAt,omitempty"`
+	DeletedAt        time.Time      `json:"deletedAt,omitempty"`
 }
 
 func (EncryptedP2PKey) TableName() string {
