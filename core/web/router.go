@@ -217,11 +217,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.DELETE("/external_initiators/:Name", eia.Destroy)
 
 		authv2.POST("/specs", j.Create)
-		authv2.POST("/specs_v2", j.CreateV2)
 		authv2.GET("/specs", paginatedRequest(j.Index))
 		authv2.GET("/specs/:SpecID", j.Show)
 		authv2.DELETE("/specs/:SpecID", j.Destroy)
-		authv2.DELETE("/specs_v2/:SpecID", j.DestroyV2)
 
 		authv2.GET("/runs", paginatedRequest(jr.Index))
 		authv2.GET("/runs/:RunID", jr.Show)
@@ -269,6 +267,13 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/p2p_keys", p2pkc.Index)
 		authv2.POST("/p2p_keys", p2pkc.Create)
 		authv2.DELETE("/p2p_keys/:keyID", p2pkc.Delete)
+
+		ocr := authv2.Group("/ocr")
+		{
+			ocrjsc := OCRJobSpecsController{app}
+			ocr.POST("/specs", ocrjsc.Create)
+			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
+		}
 	}
 
 	ping := PingController{app}
