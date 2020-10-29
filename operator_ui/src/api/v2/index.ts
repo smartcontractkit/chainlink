@@ -7,6 +7,7 @@ import { Specs } from './specs'
 import { JobSpecErrors } from './jobSpecErrors'
 import { Transactions } from './transactions'
 import { User } from './user'
+import { OcrKeys } from './ocrKeys'
 
 export class V2 {
   constructor(private api: Api) {}
@@ -19,4 +20,5 @@ export class V2 {
   public jobSpecErrors = new JobSpecErrors(this.api)
   public transactions = new Transactions(this.api)
   public user = new User(this.api)
+  public OcrKey = new OcrKeys(this.api)
 }

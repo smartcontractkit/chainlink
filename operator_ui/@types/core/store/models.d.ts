@@ -424,4 +424,25 @@ declare module 'core/store/models' {
   export type RunStatusCollection = RunStatus[]
 
   //#endregion  bulk.go
+  //#region ocrkey/key_bundle.go
+
+  /**
+   * OcrKey represents the bundle of keys needed for OCR
+   */
+
+  export interface OcrKey {
+    ConfigPublicKey: string
+    CreatedAt: time.Time
+    OffChainPublicKey: string
+    OnChainSigningAddress: common.Address
+    UpdatedAt: time.Time
+  }
+
+  /**
+   * OcrKeyRequest represents a schema for incoming OcrKey requests as used by the API.
+   */
+  export interface OcrKeyRequest {
+    Password: string
+  }
+  //#endregion ocrkey/key_bundle.go
 }

@@ -2,6 +2,8 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/json"
+	"strconv"
 	"time"
 
 	"github.com/lib/pq"
@@ -38,6 +40,15 @@ type (
 	PeerID peer.ID
 )
 
+func (js *JobSpecV2) SetID(value string) error {
+	jobID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	js.ID = int32(jobID)
+	return nil
+}
+
 func (p PeerID) String() string {
 	return peer.ID(p).String()
 }
@@ -62,6 +73,25 @@ func (p *PeerID) Scan(value interface{}) error {
 
 func (p PeerID) Value() (driver.Value, error) {
 	return peer.Encode(peer.ID(p)), nil
+}
+
+func (p PeerID) MarshalJSON() ([]byte, error) {
+	return json.Marshal(peer.Encode(peer.ID(p)))
+}
+
+func (p *PeerID) UnmarshalJSON(input []byte) error {
+	var result string
+	if err := json.Unmarshal(input, &result); err != nil {
+		return err
+	}
+
+	peerId, err := peer.Decode(result)
+	if err != nil {
+		return err
+	}
+
+	*p = PeerID(peerId)
+	return nil
 }
 
 func (s *OffchainReportingOracleSpec) BeforeCreate() error {
