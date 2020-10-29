@@ -12,6 +12,7 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,18 +121,21 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			)
 			defer cleanup()
 
+			js := test.job
+			log := test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+
 			ethMock := app.EthMock
 			logs := make(chan models.Log, 1)
 			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
 				meth.RegisterSubscription("logs", logs)
+				meth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash})
 			})
 			assert.NoError(t, app.StartAndConnect())
 
-			js := test.job
 			js.Initiators[0].Requesters = []common.Address{requester}
 			require.NoError(t, app.AddJob(js))
 
-			logs <- test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			logs <- log
 			ethMock.EventuallyAllCalled(t)
 
 			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {

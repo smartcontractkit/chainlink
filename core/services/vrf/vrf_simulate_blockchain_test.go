@@ -55,14 +55,11 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		eth.RegisterSubscription("logs", logs)
 		eth.Register("eth_getTransactionCount", `0x100`)
 		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_getTransactionReceipt", &types.Receipt{
-			TxHash:      cltest.NewHash(),
-			BlockNumber: big.NewInt(int64(blockNum)),
-		})
+		eth.Register("eth_chainId", config.ChainID())
+		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{})
 	})
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	eth.Register("eth_chainId", config.ChainID())
 
 	coordinator := deployCoordinator(t)
 	app.Start()
@@ -95,6 +92,11 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	registerExistingProvingKey(t, coordinator, provingKey, j.ID, vrfFee)
 	r := requestRandomness(t, coordinator, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
 	requestlog := cltest.NewRandomnessRequestLog(t, *r, coordinator.rootContractAddress, 1)
+	eth.Register("eth_getTransactionReceipt", &types.Receipt{
+		TxHash:      cltest.NewHash(),
+		BlockNumber: big.NewInt(int64(blockNum)),
+		BlockHash:   requestlog.BlockHash,
+	})
 
 	logs <- requestlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
