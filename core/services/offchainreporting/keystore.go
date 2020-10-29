@@ -17,9 +17,9 @@ import (
 
 type KeyStore struct {
 	*gorm.DB
-	password string
-	p2pkeys  map[models.PeerID]p2pkey.Key
-	ocrkeys  map[models.Sha256Hash]ocrkey.KeyBundle
+	password     string
+	p2pkeys      map[models.PeerID]p2pkey.Key
+	ocrkeys      map[models.Sha256Hash]ocrkey.KeyBundle
 	scryptParams utils.ScryptParams
 	mu           *sync.RWMutex
 }
@@ -146,11 +146,7 @@ func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.Enc
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while generating the new OCR key bundle")
 	}
-<<<<<<< HEAD
-	enc, err := key.Encrypt(ks.password)
-=======
-	enc, err := key.Encrypt(password, ks.scryptParams)
->>>>>>> Use fast scrypt params for tests
+	enc, err := key.Encrypt(ks.password, ks.scryptParams)
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while encrypting the new OCR key bundle")
 	}

@@ -14,9 +14,9 @@ import (
 // CreateKey returns a public key which is immediately unlocked in memory, and
 // saved in DB encrypted with phrase. If p is given, its parameters are used for
 // key derivation from the phrase.
-func (ks *VRFKeyStore) CreateKey(phrase string, scryptParams utils.ScryptParams) (vrfkey.PublicKey, error) {
+func (ks *VRFKeyStore) CreateKey(phrase string) (vrfkey.PublicKey, error) {
 	key := vrfkey.CreateKey()
-	if err := ks.Store(key, phrase, scryptParams); err != nil {
+	if err := ks.Store(key, phrase, ks.scryptParams); err != nil {
 		return vrfkey.PublicKey{}, err
 	}
 	return key.PublicKey, nil

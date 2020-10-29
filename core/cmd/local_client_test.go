@@ -318,7 +318,7 @@ func TestClient_ImportKey(t *testing.T) {
 	}
 
 	sort.Strings(addresses)
-	expectation := []string{"0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "0x7fc66c61f88A61DFB670627cA715Fe808057123e"}
+	expectation := []string{cltest.DefaultKey, "0x7fc66c61f88A61DFB670627cA715Fe808057123e"}
 	require.Equal(t, expectation, addresses)
 }
 
@@ -361,7 +361,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	set.String("address", cltest.DefaultKey, "")
 	c := cli.NewContext(nil, set, nil)
 
 	// {"range_start", beginningNonce},
@@ -432,7 +432,7 @@ func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	set.String("address", cltest.DefaultKey, "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
@@ -522,7 +522,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_LegacyTxManager(t *testing.
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	set.String("address", cltest.DefaultKey, "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
@@ -592,7 +592,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "")
+	set.String("address", cltest.DefaultKey, "")
 	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {

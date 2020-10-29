@@ -28,8 +28,7 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	scryptParams := utils.GetScryptParams(cli.Config)
-	key, err := vRFKeyStore(cli).CreateKey(string(password), scryptParams)
+	key, err := vRFKeyStore(cli).CreateKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
