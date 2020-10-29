@@ -145,7 +145,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	encp2pkey, err := DefaultP2PKey.ToEncryptedP2PKey(Password)
+	encp2pkey, err := DefaultP2PKey.ToEncryptedP2PKey(Password, utils.FastScryptParams)
 	if err != nil {
 		panic(err)
 	}
@@ -162,7 +162,7 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-	DefaultEncryptedOCRKeyBundle, err = DefaultOCRKeyBundle.Encrypt(Password)
+	DefaultEncryptedOCRKeyBundle, err = DefaultOCRKeyBundle.Encrypt(Password, utils.FastScryptParams)
 	if err != nil {
 		panic(err)
 	}

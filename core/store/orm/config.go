@@ -406,6 +406,12 @@ func (c Config) GasUpdaterEnabled() bool {
 	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
 }
 
+// InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
+// This is only insecure and useful for local testing. DO NOT SET THIS IN PRODUCTION
+func (c Config) InsecureFastScrypt() bool {
+	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
+}
+
 func (c Config) JobPipelineDBPollInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
 }
