@@ -516,3 +516,18 @@ type passwordPrompter struct {
 func (c passwordPrompter) Prompt() string {
 	return c.prompter.PasswordPrompt("Password:")
 }
+
+func confirmAction() bool {
+	prompt := NewTerminalPrompter()
+	var answer string
+	for {
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		if answer == "yes" {
+			return true
+		} else if answer == "no" {
+			return false
+		} else {
+			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
+		}
+	}
+}
