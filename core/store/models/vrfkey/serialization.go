@@ -22,6 +22,7 @@ type EncryptedVRFKey struct {
 	VRFKey    gethKeyStruct `json:"vrf_key"`
 	CreatedAt time.Time     `json:"-"`
 	UpdatedAt time.Time     `json:"-"`
+	DeletedAt time.Time     `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for
