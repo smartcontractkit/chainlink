@@ -17,7 +17,7 @@ import (
 )
 
 func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
-	client, OCRKeyStore, cleanup := setup(t)
+	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	ocrKeys := []ocrkey.EncryptedKeyBundle{}
@@ -40,7 +40,7 @@ func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
 }
 
 func TestOffChainReportingKeysController_Create_InvalidBody(t *testing.T) {
-	client, _, cleanup := setup(t)
+	client, _, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	invalidBody, _ := json.Marshal(struct {
@@ -54,7 +54,7 @@ func TestOffChainReportingKeysController_Create_InvalidBody(t *testing.T) {
 }
 
 func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
-	client, OCRKeyStore, cleanup := setup(t)
+	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
@@ -85,7 +85,7 @@ func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOffChainReportingKeysController_Delete_InvalidOCRKey(t *testing.T) {
-	client, _, cleanup := setup(t)
+	client, _, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	invalidOCRKeyID := "bad_key_id"
@@ -95,7 +95,7 @@ func TestOffChainReportingKeysController_Delete_InvalidOCRKey(t *testing.T) {
 }
 
 func TestOffChainReportingKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
-	client, _, cleanup := setup(t)
+	client, _, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
@@ -105,7 +105,7 @@ func TestOffChainReportingKeysController_Delete_NonExistentOCRKeyID(t *testing.T
 }
 
 func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
-	client, OCRKeyStore, cleanup := setup(t)
+	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
@@ -121,7 +121,7 @@ func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
 	assert.Equal(t, initialLength, len(keys))
 }
 
-func setup(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore, func()) {
+func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore, func()) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
