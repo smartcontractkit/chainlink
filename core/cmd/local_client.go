@@ -67,6 +67,10 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
 
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(store, keyStorePwd); authErr != nil {
+		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
+	}
+
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
@@ -76,18 +80,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		}
 		if authErr := cli.KeyStoreAuthenticator.AuthenticateVRFKey(store, vrfpwd); authErr != nil {
 			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with VRF password"))
-		}
-	}
-
-	if len(c.String("ocrpassword")) != 0 {
-		ocrpwd, fileErr := passwordFromFile(c.String("ocrpassword"))
-		if fileErr != nil {
-			return cli.errorOut(errors.Wrapf(fileErr,
-				"error reading OCR password from ocrpassword file \"%s\"",
-				c.String("ocrpassword")))
-		}
-		if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(store, ocrpwd); authErr != nil {
-			return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
 		}
 	}
 

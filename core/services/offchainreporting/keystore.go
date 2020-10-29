@@ -16,9 +16,10 @@ import (
 
 type KeyStore struct {
 	*gorm.DB
-	p2pkeys map[models.PeerID]p2pkey.Key
-	ocrkeys map[models.Sha256Hash]ocrkey.KeyBundle
-	mu      *sync.RWMutex
+	password string
+	p2pkeys  map[models.PeerID]p2pkey.Key
+	ocrkeys  map[models.Sha256Hash]ocrkey.KeyBundle
+	mu       *sync.RWMutex
 }
 
 func NewKeyStore(db *gorm.DB) *KeyStore {
@@ -57,6 +58,7 @@ func (ks *KeyStore) Unlock(password string) error {
 			logger.Debugw("Unlocked OCR key", "hash", k.ID)
 		}
 	}
+	ks.password = password
 	return errs
 }
 
@@ -74,12 +76,12 @@ func (ks KeyStore) DecryptedOCRKey(hash models.Sha256Hash) (ocrkey.KeyBundle, bo
 	return k, exists
 }
 
-func (ks KeyStore) GenerateEncryptedP2PKey(password string) (p2pkey.Key, p2pkey.EncryptedP2PKey, error) {
+func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey, error) {
 	key, err := p2pkey.CreateKey()
 	if err != nil {
 		return p2pkey.Key{}, p2pkey.EncryptedP2PKey{}, errors.Wrapf(err, "while generating new p2p key")
 	}
-	enc, err := key.ToEncryptedP2PKey(password)
+	enc, err := key.ToEncryptedP2PKey(ks.password)
 	if err != nil {
 		return p2pkey.Key{}, p2pkey.EncryptedP2PKey{}, errors.Wrapf(err, "while encrypting p2p key")
 	}
@@ -118,12 +120,12 @@ func (ks KeyStore) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
 	return ks.Delete(key).Error
 }
 
-func (ks KeyStore) GenerateEncryptedOCRKeyBundle(password string) (ocrkey.KeyBundle, ocrkey.EncryptedKeyBundle, error) {
+func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.EncryptedKeyBundle, error) {
 	key, err := ocrkey.NewKeyBundle()
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while generating the new OCR key bundle")
 	}
-	enc, err := key.Encrypt(password)
+	enc, err := key.Encrypt(ks.password)
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while encrypting the new OCR key bundle")
 	}
