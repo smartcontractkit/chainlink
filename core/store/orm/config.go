@@ -412,7 +412,7 @@ func (c Config) GasUpdaterEnabled() bool {
 }
 
 // InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
-// This is only insecure and useful for local testing. DO NOT SET THIS IN PRODUCTION
+// This is insecure and only useful for local testing. DO NOT SET THIS IN PRODUCTION
 func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
