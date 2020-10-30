@@ -46,14 +46,16 @@ export const Delete = withStyles(styles)(
           Delete
         </Button>
 
-        <Dialog open={open}>
+        <Dialog open={open} maxWidth={false}>
           <DialogTitle>Confirm Delete</DialogTitle>
           <DialogContent>
             <Typography variant={'h5'} color="textSecondary">
               Delete this key?
             </Typography>
             <div className={classes.keyValue}>
-              <Typography>{keyValue}</Typography>
+              <Typography>
+                <b>{keyValue}</b>
+              </Typography>
             </div>
           </DialogContent>
           <DialogActions>
