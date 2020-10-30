@@ -669,21 +669,20 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	eth.Context("app.Start()", func(eth *cltest.EthMock) {
 		eth.RegisterSubscription("newHeads", newHeads)
 		eth.Register("eth_getTransactionCount", `0x100`) // activate account nonce
-		eth.Register("eth_getBalance", "0x100000")
 	})
 	require.NoError(t, app.Store.ORM.IdempotentInsertHead(*cltest.Head(100)))
 	require.NoError(t, app.StartAndConnect())
 
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/web_initiated_eth_tx_job.json")
-	hash := common.HexToHash("0xb7862c896a6ba2711bccc0410184e46d793ea83b3e05470f1d359ea276d16bb5")
+	hash1 := common.HexToHash("0x34c4fbd25473129a88d5a835a11a293f09941c0a198fbbb26a6b0521181ac08d")
 	blockNumber := int64(100 - app.Store.Config.MinRequiredOutgoingConfirmations())
 
 	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", &types.Receipt{
-			TxHash:      hash,
+			TxHash:      hash1,
 			BlockNumber: big.NewInt(blockNumber),
 		})
-		eth.Register("eth_sendRawTransaction", hash)
+		eth.Register("eth_sendRawTransaction", hash1)
 	})
 
 	jr := cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
@@ -696,16 +695,22 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 
 	eth.AssertAllCalled()
 
-	eth.Register("eth_getBalance", "0x100000")
 	newHeads <- cltest.Head(200)
 	eth.EventuallyAllCalled(t)
+	hash2 := common.HexToHash("0x0881908e6aac65c32e28d280e51033170aff97926d096a19b46cc9aa163b80cc")
+	hash3 := common.HexToHash("0x66c6936fd241ec3061133fa8add47fd340e8f1b29d13b3211108620a45970b04")
 
 	eth.Context("ethTx.Perform()", func(eth *cltest.EthMock) {
 		eth.Register("eth_getTransactionReceipt", &types.Receipt{
-			TxHash:      hash,
+			TxHash:      hash2,
 			BlockNumber: big.NewInt(blockNumber + 100),
 		})
-		eth.Register("eth_sendRawTransaction", hash)
+		eth.Register("eth_sendRawTransaction", hash2)
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{
+			TxHash:      hash3,
+			BlockNumber: big.NewInt(blockNumber + 100),
+		})
+		eth.Register("eth_sendRawTransaction", hash3)
 	})
 
 	jr = cltest.CreateJobRunViaWeb(t, app, j, `{"result":"0x11"}`)
@@ -714,7 +719,7 @@ func TestIntegration_NonceManagement_firstRunWithExistingTxs(t *testing.T) {
 	attempt = cltest.GetLastTxAttempt(t, app.Store)
 	tx, err = app.Store.FindTx(attempt.TxID)
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(0x101), tx.Nonce)
+	assert.Equal(t, uint64(0x102), tx.Nonce)
 
 	eth.AssertAllCalled()
 }
