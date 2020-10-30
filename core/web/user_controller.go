@@ -116,12 +116,14 @@ func (c *UserController) AccountBalances(ctx *gin.Context) {
 	accounts := store.KeyStore.Accounts()
 	balances := []presenters.ETHKey{}
 	for _, a := range accounts {
-		pa := getAccountBalanceFor(ctx, store, a)
+		fmt.Println("SKEET ~>", a.Address.Hex())
+		pa := getETHAccount(ctx, store, a)
 		if ctx.IsAborted() {
 			return
 		}
 		balances = append(balances, pa)
 	}
+	fmt.Println("BORK ~>", balances)
 
 	jsonAPIResponse(ctx, balances, "balances")
 }
@@ -158,7 +160,7 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 	return nil
 }
 
-func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
+func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
 	txm := store.TxManager
 	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {

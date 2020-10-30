@@ -180,7 +180,7 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 		return err
 	}
 
-	if !confirmAction() {
+	if !confirmAction(c) {
 		return nil
 	}
 

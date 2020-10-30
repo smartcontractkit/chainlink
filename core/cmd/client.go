@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -517,7 +518,14 @@ func (c passwordPrompter) Prompt() string {
 	return c.prompter.PasswordPrompt("Password:")
 }
 
-func confirmAction() bool {
+func confirmAction(c *clipkg.Context) bool {
+	if len(c.String("yes")) > 0 {
+		yes, err := strconv.ParseBool(c.String("yes"))
+		if err == nil && yes {
+			return true
+		}
+	}
+
 	prompt := NewTerminalPrompter()
 	var answer string
 	for {
