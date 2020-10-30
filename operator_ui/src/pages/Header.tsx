@@ -34,6 +34,7 @@ const SHARED_NAV_ITEMS = [
   ['/runs', 'Runs'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
+  ['/keys', 'Keys'],
   ['/config', 'Configuration'],
 ]
 
