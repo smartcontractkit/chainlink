@@ -179,6 +179,11 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if !confirmAction() {
+		return nil
+	}
+
 	if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
 		if err == store.AttemptToDeleteNonExistentKeyFromDB {
 			fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
