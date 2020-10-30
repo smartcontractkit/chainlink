@@ -10,16 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 Numerous key-related UX improvements:
+
 - All key-related commands have been consolidated under the `chainlink keys` subcommand:
-    - `chainlink createextrakey`                => `chainlink keys eth create`
-    - `chainlink admin info`                    => `chainlink keys eth list`
-    - `chainlink node p2p [create|list|delete]` => `chainlink keys p2p [create|list|delete]`
-    - `chainlink node ocr [create|list|delete]` => `chainlink keys ocr [create|list|delete]`
-    - `chainlink node vrf [create|list|delete]` => `chainlink keys vrf [create|list|delete]`
-- Deleting OCR key bundles and P2P key bundles now archives them (i.e., soft delete) so that they can be recovered if needed.  If you want to hard delete a key, pass the new `--hard` flag to the command, e.g. `chainlink keys p2p delete --hard 6`.
+  - `chainlink createextrakey` => `chainlink keys eth create`
+  - `chainlink admin info` => `chainlink keys eth list`
+  - `chainlink node p2p [create|list|delete]` => `chainlink keys p2p [create|list|delete]`
+  - `chainlink node ocr [create|list|delete]` => `chainlink keys ocr [create|list|delete]`
+  - `chainlink node vrf [create|list|delete]` => `chainlink keys vrf [create|list|delete]`
+- Deleting OCR key bundles and P2P key bundles now archives them (i.e., soft delete) so that they can be recovered if needed. If you want to hard delete a key, pass the new `--hard` flag to the command, e.g. `chainlink keys p2p delete --hard 6`.
 - Output from ETH/OCR/P2P/VRF key CLI commands now renders consistently.
-- Deleting an OCR/P2P/VRF key now requires confirmation from the user.  To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
-- The `--ocrpassword` flag has been removed.  OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
+- Deleting an OCR/P2P/VRF key now requires confirmation from the user. To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
+- The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
 
 Chainlink now requires Postgres >= 11.x. Previously this was a recommendation, this is now a hard requirement. Migrations will fail if run on an older version of Postgres.
 
