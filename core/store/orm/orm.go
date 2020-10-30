@@ -1265,9 +1265,14 @@ func (orm *ORM) KeyExists(address []byte) (bool, error) {
 	return true, err
 }
 
+// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
+func (orm *ORM) ArchiveKey(address []byte) error {
+	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
+}
+
 // DeleteKey deletes a key whose address matches the supplied bytes.
 func (orm *ORM) DeleteKey(address []byte) error {
-	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
+	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
 }
 
 // CreateKeyIfNotExists inserts a key if a key with that address doesn't exist already
@@ -1286,9 +1291,14 @@ func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) er
 	return orm.DB.FirstOrCreate(k).Error
 }
 
+// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
+func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
+	return orm.DB.Delete(k).Error
+}
+
 // DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
 func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
+	return orm.DB.Unscoped().Delete(k).Error
 }
 
 // FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors

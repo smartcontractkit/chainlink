@@ -95,7 +95,7 @@ func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
 
 	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + encryptedKeyBundle.ID.String())
 	defer cleanup()
-	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedOCRKeyBundleByID(encryptedKeyBundle.ID)))
 
 	keys, _ = OCRKeyStore.FindEncryptedOCRKeyBundles()

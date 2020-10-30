@@ -116,8 +116,26 @@ func (ks KeyStore) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, e
 	return &key, err
 }
 
+func (ks KeyStore) ArchiveEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.Delete(key).Error
+	if err != nil {
+		return err
+	}
+	delete(ks.p2pkeys, key.PeerID)
+	return nil
+}
+
 func (ks KeyStore) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
-	return ks.Delete(key).Error
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.Unscoped().Delete(key).Error
+	if err != nil {
+		return err
+	}
+	delete(ks.p2pkeys, key.PeerID)
+	return nil
 }
 
 func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.EncryptedKeyBundle, error) {
@@ -158,7 +176,26 @@ func (ks KeyStore) FindEncryptedOCRKeyBundleByID(id models.Sha256Hash) (ocrkey.E
 	return key, err
 }
 
+// ArchiveEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
+func (ks KeyStore) ArchiveEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.Delete(key).Error
+	if err != nil {
+		return err
+	}
+	delete(ks.ocrkeys, key.ID)
+	return nil
+}
+
 // DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
 func (ks KeyStore) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) error {
-	return ks.Delete(key).Error
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.Unscoped().Delete(key).Error
+	if err != nil {
+		return err
+	}
+	delete(ks.ocrkeys, key.ID)
+	return nil
 }

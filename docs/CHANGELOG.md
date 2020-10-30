@@ -16,7 +16,7 @@ Numerous key-related UX improvements:
     - `chainlink node p2p [create|list|delete]` => `chainlink keys p2p [create|list|delete]`
     - `chainlink node ocr [create|list|delete]` => `chainlink keys ocr [create|list|delete]`
     - `chainlink node vrf [create|list|delete]` => `chainlink keys vrf [create|list|delete]`
-- Deleting OCR key bundles and P2P key bundles now archives them (i.e., soft delete) so that they can be recovered if needed.
+- Deleting OCR key bundles and P2P key bundles now archives them (i.e., soft delete) so that they can be recovered if needed.  If you want to hard delete a key, pass the new `--hard` flag to the command, e.g. `chainlink keys p2p delete --hard 6`.
 - Output from ETH/OCR/P2P/VRF key CLI commands now renders consistently.
 - Deleting an OCR/P2P/VRF key now requires confirmation from the user.
 - The `--ocrpassword` flag has been removed.  OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).

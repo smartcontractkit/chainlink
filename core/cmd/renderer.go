@@ -421,8 +421,8 @@ func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
 			lastUsed = key.LastUsed.String()
 		}
 		var deletedAt string
-		if !key.DeletedAt.IsZero() {
-			deletedAt = key.DeletedAt.Time.String()
+		if key.DeletedAt != nil {
+			deletedAt = key.DeletedAt.String()
 		}
 		rows = append(rows, []string{
 			key.Address,
