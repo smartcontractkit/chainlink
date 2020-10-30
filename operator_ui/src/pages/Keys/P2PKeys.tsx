@@ -125,7 +125,7 @@ export const P2PKeys = withStyles(styles)(
                       Created
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="right">
                     <Typography variant="body1" color="textSecondary">
                       Delete
                     </Typography>
@@ -163,7 +163,7 @@ export const P2PKeys = withStyles(styles)(
                         </TimeAgo>
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <Delete
                         keyId={key.id}
                         keyValue={key.attributes.peerId}
