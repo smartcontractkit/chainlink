@@ -210,38 +210,45 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	// TODO(alx) Figure out how to make a nice box out of this, like the other
-	// commands do.
-	fmt.Println(
-		`*********************************************************************************
-Public keys of encrypted keys in database (compressed, uncompressed, hash)
-*********************************************************************************`)
-	for keyidx, key := range keys {
-		fmt.Println("compressed  ", key)
+	var rows [][]string
+	for _, key := range keys {
 		uncompressed, err := key.StringUncompressed()
 		if err != nil {
-			logger.Infow("keys",
-				fmt.Sprintf("while computing uncompressed representation of %+v: %s",
-					key, err))
-			uncompressed = "error while computing uncompressed representation: " +
-				err.Error()
+			logger.Infow("keys", fmt.Sprintf("while computing uncompressed representation of %+v: %s", key, err))
+			uncompressed = "error while computing uncompressed representation: " + err.Error()
 		}
-		fmt.Println("uncompressed", uncompressed)
+		var hashStr string
 		hash, err := key.Hash()
 		if err != nil {
 			logger.Infow("keys", "while computing hash of %+v: %s", key, hash)
-			fmt.Println("hash        ", "error while computing hash of %+v: "+err.Error())
+			hashStr = "error while computing hash of %+v: " + err.Error()
 		} else {
-			fmt.Println("hash        ", hash.Hex())
+			hashStr = hash.Hex()
 		}
-		if keyidx != len(keys)-1 {
-			fmt.Println(
-				"---------------------------------------------------------------------------------")
+		var createdAt, updatedAt, deletedAt string
+		specificKey, err := vRFKeyStore(cli).GetSpecificKey(*key)
+		if err != nil {
+			createdAt = "error fetching key from DB"
+			updatedAt = "error fetching key from DB"
+			deletedAt = "error fetching key from DB"
+		} else {
+			createdAt = specificKey.CreatedAt.String()
+			updatedAt = specificKey.CreatedAt.String()
+			if !specificKey.DeletedAt.IsZero() {
+				deletedAt = specificKey.DeletedAt.Time.String()
+			}
 		}
+		rows = append(rows, []string{
+			key.String(),
+			uncompressed,
+			hashStr,
+			fmt.Sprintf("%v", createdAt),
+			fmt.Sprintf("%v", updatedAt),
+			fmt.Sprintf("%v", deletedAt),
+		})
 	}
-	fmt.Println(
-		"*********************************************************************************")
-	logger.Infow("keys", "keys", keys)
+	fmt.Println("\n🔑 VRF Keys")
+	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows)
 	return nil
 }
 
