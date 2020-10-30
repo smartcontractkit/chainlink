@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v3"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key represents a libp2p private key
@@ -96,11 +97,6 @@ func CreateKey() (Key, error) {
 	}, nil
 }
 
-type ScryptParams struct{ N, P int }
-
-var defaultScryptParams = ScryptParams{
-	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
-
 // type is added to the beginning of the passwords for
 // P2P key, so that the keys can't accidentally be mis-used
 // in the wrong place
@@ -109,8 +105,7 @@ func adulteratedPassword(auth string) string {
 	return s
 }
 
-func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
-	scryptParams := defaultScryptParams
+func (k Key) ToEncryptedP2PKey(auth string, scryptParams utils.ScryptParams) (s EncryptedP2PKey, err error) {
 	var marshalledPrivK []byte
 	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
 	if err != nil {

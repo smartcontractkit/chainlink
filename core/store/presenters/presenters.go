@@ -139,6 +139,7 @@ type ConfigPrinter struct {
 // EnvPrinter contains the supported environment variables
 type EnvPrinter struct {
 	AllowOrigins                          string          `json:"allowOrigins"`
+	BalanceMonitorEnabled                 bool            `json:"balanceMonitorEnabled"`
 	BlockBackfillDepth                    uint64          `json:"blockBackfillDepth"`
 	BridgeResponseURL                     string          `json:"bridgeResponseURL,omitempty"`
 	ChainID                               *big.Int        `json:"ethChainId"`
@@ -172,6 +173,7 @@ type EnvPrinter struct {
 	GasUpdaterBlockHistorySize            uint16          `json:"gasUpdaterBlockHistorySize"`
 	GasUpdaterEnabled                     bool            `json:"gasUpdaterEnabled"`
 	GasUpdaterTransactionPercentile       uint16          `json:"gasUpdaterTransactionPercentile"`
+	InsecureFastScrypt                    bool            `json:"insecureFastScrypt"`
 	JobPipelineDBPollInterval             time.Duration   `json:"jobPipelineDBPollInterval"`
 	JobPipelineMaxTaskDuration            time.Duration   `json:"jobPipelineMaxTaskDuration"`
 	JobPipelineParallelism                uint8           `json:"jobPipelineParallelism"`
@@ -228,6 +230,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 		AccountAddress: account.Address.Hex(),
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
+			BalanceMonitorEnabled:                 config.BalanceMonitorEnabled(),
 			BlockBackfillDepth:                    config.BlockBackfillDepth(),
 			BridgeResponseURL:                     config.BridgeResponseURL().String(),
 			ChainID:                               config.ChainID(),
@@ -261,6 +264,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			GasUpdaterBlockHistorySize:            config.GasUpdaterBlockHistorySize(),
 			GasUpdaterEnabled:                     config.GasUpdaterEnabled(),
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
+			InsecureFastScrypt:                    config.InsecureFastScrypt(),
 			JobPipelineDBPollInterval:             config.JobPipelineDBPollInterval(),
 			JobPipelineMaxTaskDuration:            config.JobPipelineMaxTaskDuration(),
 			JobPipelineParallelism:                config.JobPipelineParallelism(),

@@ -3,11 +3,10 @@ package ocrkey
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var fastScryptParamsXXXTestingOnly = scryptParams{N: 2, P: 1}
 
 func assertKeyBundlesEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
 	assert.Equal(t, pk1.ID, pk2.ID)
@@ -47,7 +46,7 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
 	pk, err := NewKeyBundle()
 	require.NoError(t, err)
-	pkEncrypted, err := pk.encrypt("password", fastScryptParamsXXXTestingOnly)
+	pkEncrypted, err := pk.encrypt("password", utils.FastScryptParams)
 	require.NoError(t, err)
 	// check that properties on encrypted key match those on OCRkey
 	require.Equal(t, pk.ID, pkEncrypted.ID)

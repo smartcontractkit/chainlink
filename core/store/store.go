@@ -50,7 +50,10 @@ type Store struct {
 
 // NewStore will create a new store
 func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
+	keyStore := func() *KeyStore {
+		scryptParams := utils.GetScryptParams(config)
+		return NewKeyStore(config.KeysDir(), scryptParams)
+	}
 	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStore, shutdownSignal)
 }
 
@@ -82,13 +85,14 @@ func newStoreWithKeyStore(
 
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
+	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
 		Clock:          utils.Clock{},
 		AdvisoryLocker: advisoryLocker,
 		Config:         config,
 		KeyStore:       keyStore,
-		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB),
+		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
 		TxManager:      txManager,
 		EthClient:      ethClient,

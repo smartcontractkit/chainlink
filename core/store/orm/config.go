@@ -145,6 +145,11 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// BalanceMonitorEnabled enables the balance monitor
+func (c Config) BalanceMonitorEnabled() bool {
+	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
+}
+
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
@@ -404,6 +409,12 @@ func (c Config) GasUpdaterTransactionPercentile() uint16 {
 // It is disabled by default
 func (c Config) GasUpdaterEnabled() bool {
 	return c.viper.GetBool(EnvVarName("GasUpdaterEnabled"))
+}
+
+// InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead
+// This is insecure and only useful for local testing. DO NOT SET THIS IN PRODUCTION
+func (c Config) InsecureFastScrypt() bool {
+	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
 func (c Config) JobPipelineDBPollInterval() time.Duration {
