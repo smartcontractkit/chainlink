@@ -6,7 +6,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
-	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -53,9 +52,9 @@ observationSource = """
 func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
-	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
-
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey)
+	peerID := cltest.DefaultP2PPeerID
+	ocrKeyID := cltest.DefaultOCRKeyBundleID
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, cltest.DefaultKey)
 
 	var ocrspec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)

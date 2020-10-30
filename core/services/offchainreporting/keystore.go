@@ -12,22 +12,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type KeyStore struct {
 	*gorm.DB
-	password string
-	p2pkeys  map[models.PeerID]p2pkey.Key
-	ocrkeys  map[models.Sha256Hash]ocrkey.KeyBundle
-	mu       *sync.RWMutex
+	password     string
+	p2pkeys      map[models.PeerID]p2pkey.Key
+	ocrkeys      map[models.Sha256Hash]ocrkey.KeyBundle
+	scryptParams utils.ScryptParams
+	mu           *sync.RWMutex
 }
 
-func NewKeyStore(db *gorm.DB) *KeyStore {
+func NewKeyStore(db *gorm.DB, scryptParams utils.ScryptParams) *KeyStore {
 	return &KeyStore{
-		DB:      db,
-		p2pkeys: make(map[models.PeerID]p2pkey.Key),
-		ocrkeys: make(map[models.Sha256Hash]ocrkey.KeyBundle),
-		mu:      new(sync.RWMutex),
+		DB:           db,
+		p2pkeys:      make(map[models.PeerID]p2pkey.Key),
+		ocrkeys:      make(map[models.Sha256Hash]ocrkey.KeyBundle),
+		scryptParams: scryptParams,
+		mu:           new(sync.RWMutex),
 	}
 }
 
@@ -81,7 +84,7 @@ func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey
 	if err != nil {
 		return p2pkey.Key{}, p2pkey.EncryptedP2PKey{}, errors.Wrapf(err, "while generating new p2p key")
 	}
-	enc, err := key.ToEncryptedP2PKey(ks.password)
+	enc, err := key.ToEncryptedP2PKey(ks.password, ks.scryptParams)
 	if err != nil {
 		return p2pkey.Key{}, p2pkey.EncryptedP2PKey{}, errors.Wrapf(err, "while encrypting p2p key")
 	}
@@ -143,7 +146,7 @@ func (ks KeyStore) GenerateEncryptedOCRKeyBundle() (ocrkey.KeyBundle, ocrkey.Enc
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while generating the new OCR key bundle")
 	}
-	enc, err := key.Encrypt(ks.password)
+	enc, err := key.Encrypt(ks.password, ks.scryptParams)
 	if err != nil {
 		return ocrkey.KeyBundle{}, ocrkey.EncryptedKeyBundle{}, errors.Wrapf(err, "while encrypting the new OCR key bundle")
 	}

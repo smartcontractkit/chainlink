@@ -35,28 +35,8 @@ func adulteratedPassword(auth string) string {
 	return passwordPrefix + auth
 }
 
-type ScryptParams struct{ N, P int }
-
-var defaultScryptParams = ScryptParams{
-	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
-
-// FastScryptParams is for use in tests, where you don't want to wear out your
-// CPU with expensive key derivations, do not use it in production, or your
-// encrypted VRF keys will be easy to brute-force!
-var FastScryptParams = ScryptParams{N: 2, P: 1}
-
 // Encrypt returns the key encrypted with passphrase auth
-func (k *PrivateKey) Encrypt(auth string, p ...ScryptParams,
-) (*EncryptedVRFKey, error) {
-	var scryptParams ScryptParams
-	switch len(p) {
-	case 0:
-		scryptParams = defaultScryptParams
-	case 1:
-		scryptParams = p[0]
-	default:
-		return nil, fmt.Errorf("can take at most one set of ScryptParams")
-	}
+func (k *PrivateKey) Encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedVRFKey, error) {
 	keyJSON, err := keystore.EncryptKey(k.gethKey(), adulteratedPassword(auth),
 		scryptParams.N, scryptParams.P)
 	if err != nil {
