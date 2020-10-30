@@ -127,7 +127,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 
 	listenPort := d.config.P2PListenPort()
 	if listenPort == 0 {
-		return nil, errors.New("failed to instantiate oracle or bootstrapper service, OCR_LISTEN_PORT is required and must be set to a non-zero value")
+		return nil, errors.New("failed to instantiate oracle or bootstrapper service, P2P_LISTEN_PORT is required and must be set to a non-zero value")
 	}
 
 	// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
