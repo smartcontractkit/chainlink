@@ -106,7 +106,7 @@ export const OcrKeys = withStyles(styles)(
               </Button>
             }
             title={`${KEY_TYPE} Keys`}
-            subheader={`Manage your ${KEY_TYPE} Keys Bundles.`}
+            subheader={`Manage your ${KEY_TYPE} Key Bundles.`}
           />
           <CardContent>
             <Table>
