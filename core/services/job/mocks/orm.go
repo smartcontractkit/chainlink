@@ -19,6 +19,29 @@ type ORM struct {
 	mock.Mock
 }
 
+// CheckForDeletedJobs provides a mock function with given fields: ctx
+func (_m *ORM) CheckForDeletedJobs(ctx context.Context) ([]int32, error) {
+	ret := _m.Called(ctx)
+
+	var r0 []int32
+	if rf, ok := ret.Get(0).(func(context.Context) []int32); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int32)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ClaimUnclaimedJobs provides a mock function with given fields: ctx
 func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
 	ret := _m.Called(ctx)
@@ -84,6 +107,29 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 	return r0
 }
 
+// ListenForDeletedJobs provides a mock function with given fields:
+func (_m *ORM) ListenForDeletedJobs() (postgres.Subscription, error) {
+	ret := _m.Called()
+
+	var r0 postgres.Subscription
+	if rf, ok := ret.Get(0).(func() postgres.Subscription); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(postgres.Subscription)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListenForNewJobs provides a mock function with given fields:
 func (_m *ORM) ListenForNewJobs() (postgres.Subscription, error) {
 	ret := _m.Called()
@@ -105,4 +151,18 @@ func (_m *ORM) ListenForNewJobs() (postgres.Subscription, error) {
 	}
 
 	return r0, r1
+}
+
+// UnclaimJob provides a mock function with given fields: ctx, id
+func (_m *ORM) UnclaimJob(ctx context.Context, id int32) error {
+	ret := _m.Called(ctx, id)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
