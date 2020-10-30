@@ -365,7 +365,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
-	app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
 }

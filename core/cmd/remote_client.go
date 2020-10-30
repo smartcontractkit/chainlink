@@ -772,7 +772,7 @@ func (cli *Client) CreateP2PKey(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Println("Created P2P keypair.\n")
+		fmt.Printf("Created P2P keypair.\n\n")
 	}
 	var key p2pkey.EncryptedP2PKey
 	return cli.renderAPIResponse(resp, &key)
@@ -817,7 +817,7 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Println("P2P key deleted.\n")
+		fmt.Printf("P2P key deleted.\n\n")
 	}
 	var key p2pkey.EncryptedP2PKey
 	return cli.renderAPIResponse(resp, key)
@@ -837,7 +837,7 @@ func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Println("Created OCR key bundle.\n")
+		fmt.Printf("Created OCR key bundle.\n\n")
 	}
 	var key ocrkey.EncryptedKeyBundle
 	return cli.renderAPIResponse(resp, &key)
@@ -885,7 +885,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Println("OCR key bundle deleted.\n")
+		fmt.Printf("OCR key bundle deleted.\n\n")
 	}
 	var key ocrkey.EncryptedKeyBundle
 	return cli.renderAPIResponse(resp, &key)

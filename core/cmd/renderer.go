@@ -470,13 +470,13 @@ func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error
 			deletedAt = key.DeletedAt.Time.String()
 		}
 		rows = append(rows, []string{
-			fmt.Sprintf("%s", key.ID),
-			fmt.Sprintf("%s", key.OnChainSigningAddress),
-			fmt.Sprintf("%s", key.OffChainPublicKey),
-			fmt.Sprintf("%s", key.ConfigPublicKey),
-			fmt.Sprintf("%v", key.CreatedAt),
-			fmt.Sprintf("%v", key.UpdatedAt),
-			fmt.Sprintf("%v", deletedAt),
+			key.ID.String(),
+			key.OnChainSigningAddress.String(),
+			key.OffChainPublicKey.String(),
+			key.ConfigPublicKey.String(),
+			key.CreatedAt.String(),
+			key.UpdatedAt.String(),
+			deletedAt,
 		})
 	}
 	fmt.Println("\n🔑 OCR Keys")
