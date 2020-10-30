@@ -437,12 +437,5 @@ declare module 'core/store/models' {
     OnChainSigningAddress: common.Address
     UpdatedAt: time.Time
   }
-
-  /**
-   * OcrKeyRequest represents a schema for incoming OcrKey requests as used by the API.
-   */
-  export interface OcrKeyRequest {
-    Password: string
-  }
   //#endregion ocrkey/key_bundle.go
 }

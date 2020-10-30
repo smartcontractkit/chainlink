@@ -20,5 +20,5 @@ export class V2 {
   public jobSpecErrors = new JobSpecErrors(this.api)
   public transactions = new Transactions(this.api)
   public user = new User(this.api)
-  public OcrKey = new OcrKeys(this.api)
+  public ocrKeys = new OcrKeys(this.api)
 }
