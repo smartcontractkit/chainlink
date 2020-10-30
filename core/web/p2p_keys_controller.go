@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -40,9 +41,20 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 // Delete a P2P key
 // Example:
 // "DELETE <application>/p2p_keys/:keyID"
+// "DELETE <application>/p2p_keys/:keyID?hard=true"
 func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
+	var hardDelete bool
+	var err error
+	if c.Query("hard") != "" {
+		hardDelete, err = strconv.ParseBool(c.Query("hard"))
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+	}
+
 	ep2pk := p2pkey.EncryptedP2PKey{}
-	err := ep2pk.SetID(c.Param("keyID"))
+	err = ep2pk.SetID(c.Param("keyID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -52,7 +64,12 @@ func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	if err = p2pkc.App.GetStore().OCRKeyStore.DeleteEncryptedP2PKey(encryptedP2PKeyPointer); err != nil {
+	if hardDelete {
+		err = p2pkc.App.GetStore().OCRKeyStore.DeleteEncryptedP2PKey(encryptedP2PKeyPointer)
+	} else {
+		err = p2pkc.App.GetStore().OCRKeyStore.ArchiveEncryptedP2PKey(encryptedP2PKeyPointer)
+	}
+	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

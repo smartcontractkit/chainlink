@@ -170,7 +170,7 @@ func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
 	return enckey, nil
 }
 
-// DeleteVRFKey deletes the VRF key with given public key from the db
+// DeleteVRFKey soft-deletes the VRF key with given public key from the db
 //
 // Since this runs in an independent process from any chainlink node, it cannot
 // cause running nodes to forget the key, if they already have it unlocked.
@@ -184,11 +184,21 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 		return nil
 	}
 
-	if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
-		if err == store.AttemptToDeleteNonExistentKeyFromDB {
-			fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
+	hardDelete := c.Bool("hard")
+	if hardDelete {
+		if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
+			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
+			}
+			return err
 		}
-		return err
+	} else {
+		if err := vRFKeyStore(cli).Archive(publicKey); err != nil {
+			if err == store.AttemptToDeleteNonExistentKeyFromDB {
+				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
+			}
+			return err
+		}
 	}
 	return nil
 }

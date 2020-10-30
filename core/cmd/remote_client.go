@@ -806,7 +806,12 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 		return nil
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/p2p_keys/%d", id))
+	var queryStr string
+	if c.Bool("hard") {
+		queryStr = "?hard=true"
+	}
+
+	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/p2p_keys/%d%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -820,7 +825,7 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 		fmt.Printf("P2P key deleted.\n\n")
 	}
 	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, key)
+	return cli.renderAPIResponse(resp, &key)
 }
 
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
@@ -874,7 +879,12 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 		return nil
 	}
 
-	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/off_chain_reporting_keys/%s", id))
+	var queryStr string
+	if c.Bool("hard") {
+		queryStr = "?hard=true"
+	}
+
+	resp, err := cli.HTTP.Delete(fmt.Sprintf("/v2/off_chain_reporting_keys/%s%s", id, queryStr))
 	if err != nil {
 		return cli.errorOut(err)
 	}

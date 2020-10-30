@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
@@ -40,7 +41,18 @@ func (ocrkbc *OffChainReportingKeysController) Create(c *gin.Context) {
 // Delete an OCR key bundle
 // Example:
 // "DELETE <application>/off-chain-reporting-keys/:keyID"
+// "DELETE <application>/off-chain-reporting-keys/:keyID?hard=true"
 func (ocrkbc *OffChainReportingKeysController) Delete(c *gin.Context) {
+	var hardDelete bool
+	var err error
+	if c.Query("hard") != "" {
+		hardDelete, err = strconv.ParseBool(c.Query("hard"))
+		if err != nil {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
+	}
+
 	id, err := models.Sha256HashFromHex(c.Param("keyID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -51,7 +63,12 @@ func (ocrkbc *OffChainReportingKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	if err = ocrkbc.App.GetStore().OCRKeyStore.DeleteEncryptedOCRKeyBundle(&ekb); err != nil {
+	if hardDelete {
+		err = ocrkbc.App.GetStore().OCRKeyStore.DeleteEncryptedOCRKeyBundle(&ekb)
+	} else {
+		err = ocrkbc.App.GetStore().OCRKeyStore.ArchiveEncryptedOCRKeyBundle(&ekb)
+	}
+	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

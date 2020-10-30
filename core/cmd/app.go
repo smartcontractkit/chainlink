@@ -230,8 +230,14 @@ func NewApp(client *Client) *cli.App {
 							Action: client.CreateP2PKey,
 						},
 						{
-							Name:   "delete",
-							Usage:  format(`Deletes the encrypted P2P key matching the given ID`),
+							Name:  "delete",
+							Usage: format(`Deletes the encrypted P2P key matching the given ID`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
 							Action: client.DeleteP2PKey,
 						},
 						{
@@ -254,8 +260,14 @@ func NewApp(client *Client) *cli.App {
 							Action: client.CreateOCRKeyBundle,
 						},
 						{
-							Name:   "delete",
-							Usage:  format(`Deletes the encrypted OCR key bundle matching the given ID`),
+							Name:  "delete",
+							Usage: format(`Deletes the encrypted OCR key bundle matching the given ID`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
 							Action: client.DeleteOCRKeyBundle,
 						},
 						{
@@ -292,9 +304,15 @@ func NewApp(client *Client) *cli.App {
 							Action: client.ExportVRFKey,
 						},
 						{
-							Name:   "delete",
-							Usage:  "Remove key from database, if present",
-							Flags:  flags("publicKey, pk"),
+							Name:  "delete",
+							Usage: "Remove key from database, if present",
+							Flags: []cli.Flag{
+								cli.StringFlag{Name: "publicKey, pk"},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
 							Action: client.DeleteVRFKey,
 						},
 						{
