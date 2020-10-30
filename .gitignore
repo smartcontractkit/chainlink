@@ -36,3 +36,8 @@ dockercfg
 env
 credentials.env
 gcr_creds.env
+
+
+clroot
+password.txt
+ocrjobspec.toml
