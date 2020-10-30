@@ -394,7 +394,7 @@ func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, end
 func (cli *Client) HardReset(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 
-	if !confirmAction() {
+	if !confirmAction(c) {
 		return nil
 	}
 

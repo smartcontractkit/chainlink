@@ -100,6 +100,8 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 		ethMock.Register("eth_call", "0x1")
 	})
 
+	app.Store.SyncDiskKeyStoreToDB()
+
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)

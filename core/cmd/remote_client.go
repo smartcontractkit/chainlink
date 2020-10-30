@@ -802,7 +802,7 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	if !confirmAction() {
+	if !confirmAction(c) {
 		return nil
 	}
 
@@ -875,7 +875,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
-	if !confirmAction() {
+	if !confirmAction(c) {
 		return nil
 	}
 

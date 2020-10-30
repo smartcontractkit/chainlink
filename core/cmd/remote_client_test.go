@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -999,26 +998,21 @@ func TestClient_CancelJobRun(t *testing.T) {
 
 func TestClient_P2P_CreateKey(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-
-	auth := cltest.CallbackAuthenticator{}
-	apiPrompt := &cltest.MockAPIInitializer{}
-	client := cmd.Client{
-		Config:                 store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: apiPrompt,
-		Runner:                 cltest.EmptyRunner{},
-	}
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	set.String("file", "internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 
+	require.NoError(t, client.RemoteLogin(c))
 	require.NoError(t, client.CreateP2PKey(c))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
@@ -1035,43 +1029,44 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 
 func TestClient_P2P_DeleteKey(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-
-	auth := cltest.CallbackAuthenticator{}
-	apiPrompt := &cltest.MockAPIInitializer{}
-	client := cmd.Client{
-		Config:                 store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: apiPrompt,
-		Runner:                 cltest.EmptyRunner{},
-	}
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
 	key, err := p2pkey.CreateKey()
 	require.NoError(t, err)
-	encKey, err := key.ToEncryptedP2PKey("password")
+	encKey, err := key.ToEncryptedP2PKey(cltest.Password)
 	require.NoError(t, err)
-	err = store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
+	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
 	require.NoError(t, err)
 
-	keys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
+	keys, err := app.Store.OCRKeyStore.FindEncryptedP2PKeys()
 	require.NoError(t, err)
 	// Created  + fixture key
 	require.Len(t, keys, 2)
 
-	strID := strconv.FormatInt(int64(encKey.ID), 10)
 	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{strID})
+	set.String("file", "internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 
+	err = client.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	set = flag.NewFlagSet("test", 0)
+	set.Bool("yes", true, "")
+	strID := strconv.FormatInt(int64(encKey.ID), 10)
+	set.Parse([]string{strID})
+	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteP2PKey(c)
 	require.NoError(t, err)
 
-	keys, err = store.OCRKeyStore.FindEncryptedP2PKeys()
+	keys, err = app.Store.OCRKeyStore.FindEncryptedP2PKeys()
 	require.NoError(t, err)
 	// fixture key only
 	require.Len(t, keys, 1)
@@ -1079,26 +1074,21 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 
 func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-
-	auth := cltest.CallbackAuthenticator{}
-	apiPrompt := &cltest.MockAPIInitializer{}
-	client := cmd.Client{
-		Config:                 store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: apiPrompt,
-		Runner:                 cltest.EmptyRunner{},
-	}
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
 	set := flag.NewFlagSet("test", 0)
-	set.String("password", "../internal/fixtures/correct_password.txt", "")
+	set.String("file", "internal/fixtures/apicredentials", "")
 	c := cli.NewContext(nil, set, nil)
 
+	require.NoError(t, client.RemoteLogin(c))
 	require.NoError(t, client.CreateOCRKeyBundle(c))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
@@ -1115,42 +1105,38 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 
 func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
 	defer cleanup()
-
-	app := new(mocks.Application)
-	app.On("GetStore").Return(store)
-
-	auth := cltest.CallbackAuthenticator{}
-	apiPrompt := &cltest.MockAPIInitializer{}
-	client := cmd.Client{
-		Config:                 store.Config,
-		AppFactory:             cltest.InstanceAppFactory{App: app},
-		KeyStoreAuthenticator:  auth,
-		FallbackAPIInitializer: apiPrompt,
-		Runner:                 cltest.EmptyRunner{},
-	}
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
 	key, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
-	encKey, err := key.Encrypt("password")
+	encKey, err := key.Encrypt(cltest.Password)
 	require.NoError(t, err)
-	err = store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
+	err = app.Store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
 	require.NoError(t, err)
 
-	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	keys, err := app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
 	// Created key + fixture key
 	require.Len(t, keys, 2)
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{key.ID.String()})
+	set.String("file", "internal/fixtures/apicredentials", "")
+	set.Bool("yes", true, "")
 	c := cli.NewContext(nil, set, nil)
 
-	err = client.DeleteOCRKeyBundle(c)
-	require.NoError(t, err)
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.DeleteOCRKeyBundle(c))
 
-	keys, err = store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	keys, err = app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
 	// Only fixture key remains
 	require.Len(t, keys, 1)

@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 type requestType int
@@ -112,7 +113,7 @@ type ETHKey struct {
 	IsFunding   bool         `json:"isFunding"`
 	CreatedAt   time.Time    `json:"createdAt"`
 	UpdatedAt   time.Time    `json:"updatedAt"`
-	DeletedAt   *time.Time   `json:"deletedAt"`
+	DeletedAt   null.Time    `json:"deletedAt"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

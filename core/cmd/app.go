@@ -197,7 +197,7 @@ func NewApp(client *Client) *cli.App {
 
 		{
 			Name:  "keys",
-			Usage: "Commands for managing various types of keys used by the Chainlink node.",
+			Usage: "Commands for managing various types of keys used by the Chainlink node",
 			Subcommands: []cli.Command{
 				cli.Command{
 					Name:   "eth",
@@ -234,6 +234,10 @@ func NewApp(client *Client) *cli.App {
 							Usage: format(`Deletes the encrypted P2P key matching the given ID`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
 									Name:  "hard",
 									Usage: "hard-delete the key instead of archiving (irreversible!)",
 								},
@@ -263,6 +267,10 @@ func NewApp(client *Client) *cli.App {
 							Name:  "delete",
 							Usage: format(`Deletes the encrypted OCR key bundle matching the given ID`),
 							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
 								cli.BoolFlag{
 									Name:  "hard",
 									Usage: "hard-delete the key instead of archiving (irreversible!)",
@@ -308,6 +316,10 @@ func NewApp(client *Client) *cli.App {
 							Usage: "Remove key from database, if present",
 							Flags: []cli.Flag{
 								cli.StringFlag{Name: "publicKey, pk"},
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
 								cli.BoolFlag{
 									Name:  "hard",
 									Usage: "hard-delete the key instead of archiving (irreversible!)",
