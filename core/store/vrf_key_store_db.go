@@ -61,6 +61,27 @@ func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *vrfkey.PrivateKey) {
 
 var zeroPublicKey = vrfkey.PublicKey{}
 
+// Archive soft-deletes keys with this public key from the keystore and the DB, if present.
+func (ks *VRFKeyStore) Archive(key vrfkey.PublicKey) (err error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	if key == zeroPublicKey {
+		return fmt.Errorf("cannot delete the empty public key")
+	}
+	if _, found := ks.keys[key]; found {
+		err = ks.forget(key) // Destroy in-memory representation of key
+		delete(ks.keys, key)
+	}
+	matches, err := ks.get(key)
+	if err != nil {
+		return errors.Wrapf(err, "while checking for existence of key %s in DB", key.String())
+	} else if len(matches) == 0 {
+		return AttemptToDeleteNonExistentKeyFromDB
+	}
+	err2 := ks.store.ORM.ArchiveEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
+	return multierr.Append(err, err2)
+}
+
 // Delete removes keys with this public key from the keystore and the DB, if present.
 func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 	ks.lock.Lock()
@@ -80,8 +101,8 @@ func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 	if len(matches) == 0 {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
-	return multierr.Append(err, ks.store.ORM.DeleteEncryptedSecretVRFKey(
-		&vrfkey.EncryptedVRFKey{PublicKey: key}))
+	err2 := ks.store.ORM.DeleteEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
+	return multierr.Append(err, err2)
 }
 
 // Import adds this encrypted key to the DB and unlocks it in in-memory store

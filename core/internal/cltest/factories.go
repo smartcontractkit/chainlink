@@ -839,6 +839,7 @@ func MustInsertOffchainreportingKeys(t *testing.T, db *gorm.DB, dependencies ...
 	t.Helper()
 
 	keystore := offchainreporting.NewKeyStore(db)
+	require.NoError(t, keystore.Unlock(Password))
 
 	var peerID models.PeerID
 	var p2pKey *p2pkey.EncryptedP2PKey
@@ -860,7 +861,7 @@ func MustInsertOffchainreportingKeys(t *testing.T, db *gorm.DB, dependencies ...
 		}
 	}
 	if p2pKey == nil {
-		dk, p2pKey_, err := keystore.GenerateEncryptedP2PKey(Password)
+		dk, p2pKey_, err := keystore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		p2pKey = &p2pKey_
 		peerID, err = dk.GetPeerID()
@@ -874,7 +875,7 @@ func MustInsertOffchainreportingKeys(t *testing.T, db *gorm.DB, dependencies ...
 		require.NoError(t, err)
 	}
 	if ocrKey == nil {
-		_, ocrKey_, err := keystore.GenerateEncryptedOCRKeyBundle(Password)
+		_, ocrKey_, err := keystore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
 		ocrKey = &ocrKey_
 	} else {

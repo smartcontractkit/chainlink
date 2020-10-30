@@ -1,15 +1,12 @@
 package web_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"testing"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -18,6 +15,8 @@ import (
 )
 
 func TestP2PKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, OCRKeyStore, cleanup := setupP2PKeysControllerTests(t)
 	defer cleanup()
 
@@ -39,31 +38,16 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].PeerID, p2pKeys[0].PeerID)
 }
 
-func TestP2PKeysController_Create_InvalidBody(t *testing.T) {
-	client, _, cleanup := setupP2PKeysControllerTests(t)
-	defer cleanup()
-
-	invalidBody, _ := json.Marshal(struct {
-		BadParam string
-	}{
-		BadParam: "randomString",
-	})
-	response, cleanup := client.Post("/v2/p2p_keys", bytes.NewBuffer(invalidBody))
-	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
-}
-
 func TestP2PKeysController_Create_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, OCRKeyStore, cleanup := setupP2PKeysControllerTests(t)
 	defer cleanup()
 
 	keys, _ := OCRKeyStore.FindEncryptedP2PKeys()
 	initialLength := len(keys)
 
-	body, _ := json.Marshal(models.CreateP2PKeysRequest{
-		Password: cltest.Password,
-	})
-	response, cleanup := client.Post("/v2/p2p_keys", bytes.NewBuffer(body))
+	response, cleanup := client.Post("/v2/p2p_keys", nil)
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -84,6 +68,8 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestP2PKeysController_Delete_InvalidP2PKey(t *testing.T) {
+	t.Parallel()
+
 	client, _, cleanup := setupP2PKeysControllerTests(t)
 	defer cleanup()
 
@@ -94,6 +80,8 @@ func TestP2PKeysController_Delete_InvalidP2PKey(t *testing.T) {
 }
 
 func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
+	t.Parallel()
+
 	client, _, cleanup := setupP2PKeysControllerTests(t)
 	defer cleanup()
 
@@ -104,16 +92,19 @@ func TestP2PKeysController_Delete_NonExistentP2PKeyID(t *testing.T) {
 }
 
 func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, OCRKeyStore, cleanup := setupP2PKeysControllerTests(t)
 	defer cleanup()
+	require.NoError(t, OCRKeyStore.Unlock(cltest.Password))
 
 	keys, _ := OCRKeyStore.FindEncryptedP2PKeys()
 	initialLength := len(keys)
-	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedP2PKey(cltest.Password)
+	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedP2PKey()
 
 	response, cleanup := client.Delete("/v2/p2p_keys/" + encryptedKeyBundle.GetID())
 	defer cleanup()
-	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedP2PKeyByID(encryptedKeyBundle.ID)))
 
 	keys, _ = OCRKeyStore.FindEncryptedP2PKeys()
@@ -121,7 +112,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 }
 
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore, func()) {
-	t.Parallel()
+	t.Helper()
 
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())

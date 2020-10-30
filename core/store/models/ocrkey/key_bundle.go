@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
+	"gopkg.in/guregu/null.v3"
 )
 
 type (
@@ -36,13 +37,14 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash `json:"-" gorm:"primary_key"`
-		OnChainSigningAddress OnChainSigningAddress
-		OffChainPublicKey     OffChainPublicKey
-		ConfigPublicKey       ConfigPublicKey
-		EncryptedPrivateKeys  []byte `json:"-"`
-		CreatedAt             time.Time
-		UpdatedAt             time.Time
+		ID                    models.Sha256Hash     `json:"-" gorm:"primary_key"`
+		OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
+		OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
+		ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`
+		EncryptedPrivateKeys  []byte                `json:"-"`
+		CreatedAt             time.Time             `json:"createdAt"`
+		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
+		DeletedAt             null.Time             `json:"deletedAt,omitempty"`
 	}
 
 	keyBundleRawData struct {
@@ -53,6 +55,10 @@ type (
 
 	scryptParams struct{ N, P int }
 )
+
+func (cpk ConfigPublicKey) String() string {
+	return hex.EncodeToString(cpk[:])
+}
 
 func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hex.EncodeToString(cpk[:]))

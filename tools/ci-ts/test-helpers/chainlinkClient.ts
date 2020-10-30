@@ -67,7 +67,7 @@ export default class ChainlinkClient {
   }
 
   public getAdminInfo(): KeyInfo[] {
-    return this.execute('admin info') as KeyInfo[]
+    return this.execute('keys eth list') as KeyInfo[]
   }
 
   /**
