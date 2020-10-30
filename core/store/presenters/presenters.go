@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v3"
 )
 
 type requestType int
@@ -102,21 +103,27 @@ type balanceable interface {
 	Symbol() string
 }
 
-// AccountBalance holds the hex representation of the address plus it's ETH & LINK balances
-type AccountBalance struct {
+// ETHKey holds the hex representation of the address plus it's ETH & LINK balances
+type ETHKey struct {
 	Address     string       `json:"address"`
 	EthBalance  *assets.Eth  `json:"ethBalance"`
 	LinkBalance *assets.Link `json:"linkBalance"`
+	NextNonce   *int64       `json:"nextNonce"`
+	LastUsed    *time.Time   `json:"lastUsed"`
+	IsFunding   bool         `json:"isFunding"`
+	CreatedAt   time.Time    `json:"createdAt"`
+	UpdatedAt   time.Time    `json:"updatedAt"`
+	DeletedAt   null.Time    `json:"deletedAt"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (a AccountBalance) GetID() string {
-	return a.Address
+func (k ETHKey) GetID() string {
+	return k.Address
 }
 
 // SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (a *AccountBalance) SetID(value string) error {
-	a.Address = value
+func (k *ETHKey) SetID(value string) error {
+	k.Address = value
 	return nil
 }
 

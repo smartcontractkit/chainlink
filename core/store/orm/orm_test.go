@@ -1308,6 +1308,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := store.ORM
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 	keysDir := store.Config.KeysDir()
 	// Clear out the fixture

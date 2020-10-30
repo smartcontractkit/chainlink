@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v3"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -22,6 +23,7 @@ type EncryptedVRFKey struct {
 	VRFKey    gethKeyStruct `json:"vrf_key"`
 	CreatedAt time.Time     `json:"-"`
 	UpdatedAt time.Time     `json:"-"`
+	DeletedAt null.Time     `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for

@@ -365,7 +365,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
-	app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
 }
@@ -509,8 +509,9 @@ func (ta *TestApplication) ImportKey(content string) {
 }
 
 func (ta *TestApplication) AddUnlockedKey() {
-	_, err := ta.Store.KeyStore.NewAccount(Password)
+	acct, err := ta.Store.KeyStore.NewAccount(Password)
 	require.NoError(ta.t, err)
+	fmt.Println("Account", acct.Address.Hex())
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
