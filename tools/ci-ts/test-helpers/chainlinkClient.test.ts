@@ -115,7 +115,7 @@ describe('ChainlinkClient', () => {
       expect(execa.sync).toHaveBeenCalledTimes(1)
       expect(execa.sync).toHaveBeenCalledWith(
         'chainlink',
-        ['-j', 'admin', 'info'],
+        ['-j', 'keys', 'eth', 'list'],
         ENV,
       )
     })
