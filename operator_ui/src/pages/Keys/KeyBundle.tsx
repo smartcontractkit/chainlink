@@ -1,6 +1,6 @@
 import React from 'react'
 import Typography from '@material-ui/core/Typography'
-import VpnKeyIcon from '@material-ui/icons/VpnKey'
+import VpnKeyRoundedIcon from '@material-ui/icons/VpnKeyRounded'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
 import ListItemIcon from '@material-ui/core/ListItemIcon'
@@ -18,6 +18,12 @@ const styles = (theme: Theme) =>
     listItemPrimary: {
       marginBottom: theme.spacing.unit,
     },
+    listItemSecondary: {
+      color: theme.palette.grey[600],
+    },
+    avatar: {
+      backgroundColor: theme.palette.primary.main,
+    },
   })
 
 export const KeyBundle = withStyles(styles)(
@@ -33,8 +39,8 @@ export const KeyBundle = withStyles(styles)(
       <List dense={true}>
         <ListItem>
           <ListItemIcon>
-            <Avatar>
-              <VpnKeyIcon />
+            <Avatar className={classes.avatar}>
+              <VpnKeyRoundedIcon />
             </Avatar>
           </ListItemIcon>
           <ListItemText
@@ -48,7 +54,12 @@ export const KeyBundle = withStyles(styles)(
               </Typography>
             }
             secondary={secondary.map((secondaryItem: any, index: number) => (
-              <Typography key={index} variant="h6" component="span">
+              <Typography
+                key={index}
+                className={classes.listItemSecondary}
+                variant="subtitle2"
+                component="span"
+              >
                 {secondaryItem}
               </Typography>
             ))}

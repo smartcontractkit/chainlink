@@ -431,11 +431,11 @@ declare module 'core/store/models' {
    */
 
   export interface OcrKey {
-    ConfigPublicKey: string
-    CreatedAt: time.Time
-    OffChainPublicKey: string
-    OnChainSigningAddress: common.Address
-    UpdatedAt: time.Time
+    configPublicKey: string
+    createdAt: time.Time
+    offChainPublicKey: string
+    onChainSigningAddress: common.Address
+    updatedAt: time.Time
   }
   //#endregion ocrkey/key_bundle.go
 }

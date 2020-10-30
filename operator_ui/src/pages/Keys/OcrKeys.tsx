@@ -26,6 +26,7 @@ import { Delete } from './Delete'
 import { KeyBundle } from './KeyBundle'
 import { useDispatch } from 'react-redux'
 import { deleteNotification, createNotification } from './Notifications'
+import { Copy } from './Copy'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -81,7 +82,7 @@ export const OcrKeys = withStyles(styles)(
           dispatch(
             createNotification({
               keyType: KEY_TYPE,
-              keyValue: data.attributes.OffChainPublicKey,
+              keyValue: data.id,
             }),
           )
         })
@@ -141,18 +142,21 @@ export const OcrKeys = withStyles(styles)(
                     <TableCell>
                       <KeyBundle
                         primary={
-                          <>
-                            Off-Chain Public Key:{' '}
-                            <b>{key.attributes.OffChainPublicKey}</b>
-                          </>
+                          <b>
+                            Key ID: {key.id} <Copy data={key.id} />
+                          </b>
                         }
                         secondary={[
                           <>
-                            Config Public Key: {key.attributes.ConfigPublicKey}
+                            Config Public Key: {key.attributes.configPublicKey}
                           </>,
                           <>
                             Signing Address:{' '}
-                            {key.attributes.OnChainSigningAddress}
+                            {key.attributes.onChainSigningAddress}
+                          </>,
+                          <>
+                            Off-Chain Public Key:{' '}
+                            {key.attributes.offChainPublicKey}
                           </>,
                         ]}
                       />
@@ -160,14 +164,14 @@ export const OcrKeys = withStyles(styles)(
                     <TableCell>
                       <Typography variant="body1">
                         <TimeAgo tooltip>
-                          {key.attributes.CreatedAt || ''}
+                          {key.attributes.createdAt || ''}
                         </TimeAgo>
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Delete
                         keyId={key.id}
-                        keyValue={key.attributes.OffChainPublicKey}
+                        keyValue={key.id}
                         onDelete={handleDelete}
                       />
                     </TableCell>
