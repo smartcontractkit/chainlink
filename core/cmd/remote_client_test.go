@@ -41,7 +41,7 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	from := cltest.GetAccountAddress(t, app.GetStore())
-	balances := *r.Renders[0].(*[]presenters.AccountBalance)
+	balances := *r.Renders[0].(*[]presenters.ETHKeys)
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 

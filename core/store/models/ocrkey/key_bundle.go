@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
+	"gopkg.in/guregu/null.v3"
 )
 
 type (
@@ -43,7 +44,7 @@ type (
 		EncryptedPrivateKeys  []byte                `json:"-"`
 		CreatedAt             time.Time             `json:"createdAt"`
 		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
-		DeletedAt             time.Time             `json:"deletedAt,omitempty"`
+		DeletedAt             null.Time             `json:"deletedAt,omitempty"`
 	}
 
 	keyBundleRawData struct {

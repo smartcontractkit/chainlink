@@ -49,11 +49,6 @@ func NewApp(client *Client) *cli.App {
 					Action: client.ChangePassword,
 				},
 				{
-					Name:   "info",
-					Usage:  "Display the Account's address with its ETH & LINK balances",
-					Action: client.DisplayAccountBalance,
-				},
-				{
 					Name:   "login",
 					Usage:  "Login to remote client by creating a session cookie",
 					Action: client.RemoteLogin,
@@ -157,13 +152,6 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
-			Name:   "createextrakey",
-			Usage:  "Create a key in the node's keystore alongside the existing key; to create an original key, just run the node",
-			Hidden: !client.Config.Dev(),
-			Action: client.CreateExtraKey,
-		},
-
 		{
 			Name:  "jobs",
 			Usage: "Commands for managing Jobs",
@@ -203,6 +191,133 @@ func NewApp(client *Client) *cli.App {
 					Name:   "deletev2",
 					Usage:  "Delete a v2 job",
 					Action: client.DeleteJobV2,
+				},
+			},
+		},
+
+		{
+			Name:  "keys",
+			Usage: "Commands for managing various types of keys used by the Chainlink node.",
+			Subcommands: []cli.Command{
+				cli.Command{
+					Name:   "eth",
+					Usage:  "Local commands for administering the node's Ethereum keys",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name:   "create",
+							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
+							Hidden: !client.Config.Dev(),
+							Action: client.CreateExtraKey,
+						},
+						{
+							Name:   "list",
+							Usage:  "Display the Account's address with its ETH & LINK balances",
+							Action: client.ListETHKeys,
+						},
+					},
+				},
+				cli.Command{
+					Name:   "p2p",
+					Usage:  "Remote commands for administering the node's p2p keys",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a p2p key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateP2PKey,
+						},
+						{
+							Name:   "delete",
+							Usage:  format(`Deletes the encrypted P2P key matching the given ID`),
+							Action: client.DeleteP2PKey,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available P2P keys`),
+							Action: client.ListP2PKeys,
+						},
+					},
+				},
+				cli.Command{
+					Name:   "ocr",
+					Usage:  "Remote commands for administering the node's off chain reporting keys",
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create an OCR key bundle, encrypted with password from the
+               password file, and store it in the database`),
+							Flags:  flags("password, p"),
+							Action: client.CreateOCRKeyBundle,
+						},
+						{
+							Name:   "delete",
+							Usage:  format(`Deletes the encrypted OCR key bundle matching the given ID`),
+							Action: client.DeleteOCRKeyBundle,
+						},
+						{
+							Name:   "list",
+							Usage:  format(`List available OCR key bundles`),
+							Action: client.ListOCRKeyBundles,
+						},
+					},
+				},
+				cli.Command{
+					Name: "vrf",
+					Usage: format(`Local commands for administering the database of VRF proof
+           keys. These commands will not affect the extant in-memory keys of
+           any live node.`),
+					Hidden: !client.Config.Dev(),
+					Subcommands: cli.Commands{
+						{
+							Name: "create",
+							Usage: format(`Create a VRF key, encrypted with password from the
+               password file, and store it in the database.`),
+							Flags:  flags("password, p"),
+							Action: client.CreateVRFKey,
+						},
+						{
+							Name:   "import",
+							Usage:  "Import key from keyfile.",
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.ImportVRFKey,
+						},
+						{
+							Name:   "export",
+							Usage:  "Export key to keyfile.",
+							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
+							Action: client.ExportVRFKey,
+						},
+						{
+							Name:   "delete",
+							Usage:  "Remove key from database, if present",
+							Flags:  flags("publicKey, pk"),
+							Action: client.DeleteVRFKey,
+						},
+						{
+							Name: "list", Usage: "List the public keys in the db",
+							Action: client.ListKeys,
+						},
+						{
+							Name: "",
+						},
+						{
+							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
+							Usage: format(`
+                               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
+
+                               Creates a key with weak key-derivation-function parameters, so that it can be
+                               decrypted quickly during tests. As a result, it would be cheap to brute-force
+                               the encryption password for the key, if the ciphertext fell into the wrong
+                               hands!`),
+							Flags:  append(flags("password, p"), flags("file, f")...),
+							Action: client.CreateAndExportWeakVRFKey,
+							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
+						},
+					},
 				},
 			},
 		},
@@ -268,108 +383,6 @@ func NewApp(client *Client) *cli.App {
 					},
 					Usage:  "Run the chainlink node",
 					Action: client.RunNode,
-				},
-				cli.Command{
-					Name:   "p2p",
-					Usage:  "Local commands for administering the node's p2p layer",
-					Hidden: !client.Config.Dev(),
-					Subcommands: cli.Commands{
-						{
-							Name: "create",
-							Usage: format(`Create a p2p key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
-							Action: client.CreateP2PKey,
-						},
-						{
-							Name:   "delete",
-							Usage:  format(`Deletes the encrypted P2P key matching the given ID`),
-							Action: client.DeleteP2PKey,
-						},
-						{
-							Name:   "list",
-							Usage:  format(`List available P2P keys`),
-							Action: client.ListP2PKeys,
-						},
-					},
-				},
-				cli.Command{
-					Name:   "ocr",
-					Usage:  "Local commands for administering the node's off chain reporting keys",
-					Hidden: !client.Config.Dev(),
-					Subcommands: cli.Commands{
-						{
-							Name: "create",
-							Usage: format(`Create an OCR key bundle, encrypted with password from the
-               password file, and store it in the database`),
-							Flags:  flags("password, p"),
-							Action: client.CreateOCRKeyBundle,
-						},
-						{
-							Name:   "delete",
-							Usage:  format(`Deletes the encrypted OCR key bundle matching the given ID`),
-							Action: client.DeleteOCRKeyBundle,
-						},
-						{
-							Name:   "list",
-							Usage:  format(`List available OCR key bundles`),
-							Action: client.ListOCRKeyBundles,
-						},
-					},
-				},
-				cli.Command{
-					Name: "vrf",
-					Usage: format(`Local commands for administering the database of VRF proof
-           keys. These commands will not affect the extant in-memory keys of
-           any live node.`),
-					Hidden: !client.Config.Dev(),
-					Subcommands: cli.Commands{
-						{
-							Name: "create",
-							Usage: format(`Create a VRF key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
-							Action: client.CreateVRFKey,
-						},
-						{
-							Name:   "import",
-							Usage:  "Import key from keyfile.",
-							Flags:  append(flags("password, p"), flags("file, f")...),
-							Action: client.ImportVRFKey,
-						},
-						{
-							Name:   "export",
-							Usage:  "Export key to keyfile.",
-							Flags:  append(flags("file, f"), flags("publicKey, pk")...),
-							Action: client.ExportVRFKey,
-						},
-						{
-							Name:   "delete",
-							Usage:  "Remove key from database, if present",
-							Flags:  flags("publicKey, pk"),
-							Action: client.DeleteVRFKey,
-						},
-						{
-							Name: "list", Usage: "List the public keys in the db",
-							Action: client.ListKeys,
-						},
-						{
-							Name: "",
-						},
-						{
-							Name: "xxxCreateWeakKeyPeriodYesIReallyKnowWhatIAmDoingAndDoNotCareAboutThisKeyMaterialFallingIntoTheWrongHandsExclamationPointExclamationPointExclamationPointExclamationPointIAmAMasochistExclamationPointExclamationPointExclamationPointExclamationPointExclamationPoint",
-							Usage: format(`
-               For testing purposes ONLY! DO NOT USE FOR ANY OTHER PURPOSE!
-
-               Creates a key with weak key-devrivation-function parameters, so that it can be
-               decrypted quickly during tests. As a result, it would be cheap to brute-force
-               the encryption password for the key, if the ciphertext fell into the wrong
-               hands!`),
-							Flags:  append(flags("password, p"), flags("file, f")...),
-							Action: client.CreateAndExportWeakVRFKey,
-							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
-						},
-					},
 				},
 				{
 					Name:   "rebroadcast-transactions",
