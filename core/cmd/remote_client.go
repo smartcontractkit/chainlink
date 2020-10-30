@@ -29,9 +29,9 @@ import (
 
 var errUnauthorized = errors.New("401 Unauthorized")
 
-// DisplayAccountBalance renders a table containing the active account address
+// ListETHKeys renders a table containing the active account address
 // with it's ETH & LINK balance
-func (cli *Client) DisplayAccountBalance(c *clipkg.Context) (err error) {
+func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/user/balances")
 	if err != nil {
 		return cli.errorOut(err)
@@ -43,7 +43,7 @@ func (cli *Client) DisplayAccountBalance(c *clipkg.Context) (err error) {
 	}()
 
 	var links jsonapi.Links
-	balances := []presenters.AccountBalance{}
+	balances := []presenters.ETHKey{}
 	if err = cli.deserializeAPIResponse(resp, &balances, &links); err != nil {
 		return err
 	}

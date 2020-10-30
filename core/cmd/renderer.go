@@ -5,6 +5,7 @@ import (
 	"io"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -63,8 +64,6 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderBridgeAuthentication(*typed)
 	case *[]models.BridgeType:
 		return rt.renderBridges(*typed)
-	case *[]presenters.AccountBalance:
-		return rt.renderAccountBalances(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
 	case *[]models.TxAttempt:
@@ -79,6 +78,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
+	case *[]presenters.ETHKey:
+		return rt.renderETHKeys(*typed)
 	case *p2pkey.EncryptedP2PKey:
 		return rt.renderP2PKeys([]p2pkey.EncryptedP2PKey{*typed})
 	case *[]p2pkey.EncryptedP2PKey:
@@ -153,6 +154,33 @@ func render(name string, table *tablewriter.Table) {
 
 	fmt.Println("╔ " + name)
 	table.Render()
+}
+
+func renderList(fields []string, items [][]string) {
+	var maxLabelLength int
+	for _, field := range fields {
+		if len(field) > maxLabelLength {
+			maxLabelLength = len(field)
+		}
+	}
+	var itemsRendered []string
+	var maxLineLength int
+	for _, row := range items {
+		var lines []string
+		for i, field := range fields {
+			diff := maxLabelLength - len(field)
+			spaces := strings.Repeat(" ", diff)
+			line := fmt.Sprintf("%v: %v%v", field, spaces, row[i])
+			if len(line) > maxLineLength {
+				maxLineLength = len(line)
+			}
+			lines = append(lines, line)
+		}
+		itemsRendered = append(itemsRendered, strings.Join(lines, "\n"))
+	}
+	divider := strings.Repeat("-", maxLineLength)
+	listRendered := divider + "\n" + strings.Join(itemsRendered, "\n"+divider+"\n")
+	fmt.Println(listRendered)
 }
 
 func jobRowToStrings(job models.JobSpec) []string {
@@ -287,19 +315,6 @@ func (rt RendererTable) renderJobRuns(runs []presenters.JobRun) error {
 	return nil
 }
 
-func (rt RendererTable) renderAccountBalances(balances []presenters.AccountBalance) error {
-	table := rt.newTable([]string{"Address", "ETH", "LINK"})
-	for _, ab := range balances {
-		table.Append([]string{
-			ab.Address,
-			ab.EthBalance.String(),
-			ab.LinkBalance.String(),
-		})
-	}
-	render("Account Balance", table)
-	return nil
-}
-
 func (rt RendererTable) renderServiceAgreement(sa presenters.ServiceAgreement) error {
 	table := rt.newTable([]string{"ID", "Created At", "Payment", "Expiration", "Aggregator", "AggInit", "AggFulfill"})
 	table.Append([]string{
@@ -392,41 +407,79 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 	return nil
 }
 
+func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
+	var rows [][]string
+	for _, key := range keys {
+		var nextNonce string
+		if key.NextNonce == nil {
+			nextNonce = "0"
+		} else {
+			nextNonce = fmt.Sprintf("%d", *key.NextNonce)
+		}
+		var lastUsed string
+		if key.LastUsed != nil {
+			lastUsed = key.LastUsed.String()
+		}
+		var deletedAt string
+		if !key.DeletedAt.IsZero() {
+			deletedAt = key.DeletedAt.Time.String()
+		}
+		rows = append(rows, []string{
+			key.Address,
+			key.EthBalance.String(),
+			key.LinkBalance.String(),
+			nextNonce,
+			lastUsed,
+			fmt.Sprintf("%v", key.IsFunding),
+			key.CreatedAt.String(),
+			key.UpdatedAt.String(),
+			deletedAt,
+		})
+	}
+	fmt.Println("\n🔑 ETH Keys")
+	renderList([]string{"Address", "ETH", "LINK", "Next nonce", "Last used", "Is funding", "Created", "Updated", "Deleted"}, rows)
+	return nil
+}
+
 func (rt RendererTable) renderP2PKeys(p2pKeys []p2pkey.EncryptedP2PKey) error {
-	table := rt.newTable([]string{"ID", "Peer ID", "Public key", "Created at", "Updated at"})
+	var rows [][]string
 	for _, key := range p2pKeys {
-		table.Append([]string{
+		var deletedAt string
+		if !key.DeletedAt.IsZero() {
+			deletedAt = key.DeletedAt.Time.String()
+		}
+		rows = append(rows, []string{
 			fmt.Sprintf("%v", key.ID),
 			fmt.Sprintf("%v", key.PeerID),
 			fmt.Sprintf("%v", key.PubKey),
 			fmt.Sprintf("%v", key.CreatedAt),
 			fmt.Sprintf("%v", key.UpdatedAt),
+			fmt.Sprintf("%v", deletedAt),
 		})
 	}
-	if len(p2pKeys) == 1 {
-		render("P2P Key", table)
-	} else {
-		render("P2P Keys", table)
-	}
+	fmt.Println("\n🔑 P2P Keys")
+	renderList([]string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}, rows)
 	return nil
 }
 
 func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error {
-	table := rt.newTable([]string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created at", "Updated at"})
+	var rows [][]string
 	for _, key := range ocrKeys {
-		table.Append([]string{
+		var deletedAt string
+		if !key.DeletedAt.IsZero() {
+			deletedAt = key.DeletedAt.Time.String()
+		}
+		rows = append(rows, []string{
 			fmt.Sprintf("%s", key.ID),
 			fmt.Sprintf("%s", key.OnChainSigningAddress),
 			fmt.Sprintf("%s", key.OffChainPublicKey),
 			fmt.Sprintf("%s", key.ConfigPublicKey),
 			fmt.Sprintf("%v", key.CreatedAt),
 			fmt.Sprintf("%v", key.UpdatedAt),
+			fmt.Sprintf("%v", deletedAt),
 		})
 	}
-	if len(ocrKeys) == 1 {
-		render("OCR Key", table)
-	} else {
-		render("OCR Keys", table)
-	}
+	fmt.Println("\n🔑 OCR Keys")
+	renderList([]string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}, rows)
 	return nil
 }

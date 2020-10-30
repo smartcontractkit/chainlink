@@ -12,6 +12,8 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v3"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -61,7 +63,7 @@ type EncryptedP2PKey struct {
 	EncryptedPrivKey []byte         `json:"-"`
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt,omitempty"`
-	DeletedAt        time.Time      `json:"deletedAt,omitempty"`
+	DeletedAt        null.Time      `json:"deletedAt,omitempty"`
 }
 
 func (EncryptedP2PKey) TableName() string {
