@@ -828,6 +828,54 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ImportP2PKeyBundle imports a key and inserts it into encrypted_ocr_key_bundles,
+// protected by the password in the password file
+func (cli *Client) ImportP2PKeyBundle(c *clipkg.Context) error {
+	fmt.Print("Import")
+	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
+	// password, err := getPassword(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
+	// if err != nil {
+	// 	return err
+	// }
+	// addressOnChain := key.PublicKeyAddressOnChain()
+	// fmt.Printf(
+	// 	createMsg,
+	// 	key.ID,
+	// 	hex.EncodeToString(addressOnChain[:]),
+	// 	hex.EncodeToString(key.PublicKeyOffChain()),
+	// )
+	return nil
+}
+
+// ExportP2PKeyBundle Export an OCR key bundle, decrypted with password from the
+// password file, and stored at desired filepath
+func (cli *Client) ExportP2PKeyBundle(c *clipkg.Context) error {
+	fmt.Print("Export")
+	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
+	// password, err := getPassword(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
+	// if err != nil {
+	// 	return err
+	// }
+	// addressOnChain := key.PublicKeyAddressOnChain()
+	// fmt.Printf(
+	// 	createMsg,
+	// 	key.ID,
+	// 	hex.EncodeToString(addressOnChain[:]),
+	// 	hex.EncodeToString(key.PublicKeyOffChain()),
+	// )
+	return nil
+}
+
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
 // protected by the password in the password file
 func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
@@ -899,4 +947,52 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	}
 	var key ocrkey.EncryptedKeyBundle
 	return cli.renderAPIResponse(resp, &key)
+}
+
+// ImportOCRKeyBundle imports a key and inserts it into encrypted_ocr_key_bundles,
+// protected by the password in the password file
+func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
+	fmt.Print("Import")
+	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
+	// password, err := getPassword(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
+	// if err != nil {
+	// 	return err
+	// }
+	// addressOnChain := key.PublicKeyAddressOnChain()
+	// fmt.Printf(
+	// 	createMsg,
+	// 	key.ID,
+	// 	hex.EncodeToString(addressOnChain[:]),
+	// 	hex.EncodeToString(key.PublicKeyOffChain()),
+	// )
+	return nil
+}
+
+// ExportOCRKeyBundle Export an OCR key bundle, decrypted with password from the
+// password file, and stored at desired filepath
+func (cli *Client) ExportOCRKeyBundle(c *clipkg.Context) error {
+	fmt.Print("Export")
+	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
+	// password, err := getPassword(c)
+	// if err != nil {
+	// 	return err
+	// }
+	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
+	// if err != nil {
+	// 	return err
+	// }
+	// addressOnChain := key.PublicKeyAddressOnChain()
+	// fmt.Printf(
+	// 	createMsg,
+	// 	key.ID,
+	// 	hex.EncodeToString(addressOnChain[:]),
+	// 	hex.EncodeToString(key.PublicKeyOffChain()),
+	// )
+	return nil
 }

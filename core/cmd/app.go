@@ -231,7 +231,7 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Deletes the encrypted P2P key matching the given ID`),
+							Usage: format(`Deletes the encrypted p2p key matching the given ID`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
@@ -246,8 +246,22 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:   "list",
-							Usage:  format(`List available P2P keys`),
+							Usage:  format(`List available p2p keys`),
 							Action: client.ListP2PKeys,
+						},
+						{
+							Name: "import",
+							Usage: format(`Import an p2p key bundle from filepath, encrypted with password from the
+               password file, and store it in the database`),
+							Flags:  flags("password, p"),
+							Action: client.ImportP2PKeyBundle,
+						},
+						{
+							Name: "export",
+							Usage: format(`Export an p2p key bundle, decrypted with password from the
+               password file, and stored at desired filepath`),
+							Flags:  flags("password, p"),
+							Action: client.ExportP2PKeyBundle,
 						},
 					},
 				},
@@ -282,6 +296,20 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  format(`List available OCR key bundles`),
 							Action: client.ListOCRKeyBundles,
+						},
+						{
+							Name: "import",
+							Usage: format(`Import an OCR key bundle from filepath, encrypted with password from the
+               password file, and store it in the database`),
+							Flags:  flags("password, p"),
+							Action: client.ImportOCRKeyBundle,
+						},
+						{
+							Name: "export",
+							Usage: format(`Export an OCR key bundle, decrypted with password from the
+               password file, and stored at desired filepath`),
+							Flags:  flags("password, p"),
+							Action: client.ExportOCRKeyBundle,
 						},
 					},
 				},
