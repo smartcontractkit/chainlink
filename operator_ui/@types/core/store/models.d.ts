@@ -438,4 +438,18 @@ declare module 'core/store/models' {
     updatedAt: time.Time
   }
   //#endregion ocrkey/key_bundle.go
+  //#region p2pKey/p2p_key.go
+
+  /**
+   * OcrKey represents the bundle of keys needed for OCR
+   */
+
+  export interface P2PKey {
+    peerId: string
+    publicKey: string
+    createdAt: time.Time
+    updatedAt: time.Time
+    deletedAt: time.Time
+  }
+  //#endregion p2pKey/p2p_key.go
 }

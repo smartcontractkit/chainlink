@@ -34,24 +34,27 @@ const styles = (theme: Theme) =>
       padding: theme.spacing.unit,
       marginBottom: theme.spacing.unit * 3,
     },
+    avatar: {
+      backgroundColor: theme.palette.grey[800],
+    },
   })
 
-const KEY_TYPE = 'Off-Chain Reporting'
+const KEY_TYPE = 'P2P'
 
-export const OcrKeys = withStyles(styles)(
+export const P2PKeys = withStyles(styles)(
   ({ classes }: WithStyles<typeof styles>) => {
-    const [ocrKeys, setOcrKeys] = React.useState<
-      jsonapi.ApiResponse<models.OcrKey[]>['data']
+    const [p2pKeys, setP2Keys] = React.useState<
+      jsonapi.ApiResponse<models.P2PKey[]>['data']
     >()
     const { error, ErrorComponent, setError } = useErrorHandler()
-    const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !ocrKeys)
+    const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !p2pKeys)
     const dispatch = useDispatch()
 
     const handleFetchIndex = React.useCallback(() => {
-      v2.ocrKeys
-        .getOcrKeys()
+      v2.p2pKeys
+        .getP2PKeys()
         .then(({ data }) => {
-          setOcrKeys(data)
+          setP2Keys(data)
         })
         .catch(setError)
     }, [setError])
@@ -61,8 +64,8 @@ export const OcrKeys = withStyles(styles)(
     }, [handleFetchIndex])
 
     function handleDelete(id: string) {
-      v2.ocrKeys
-        .destroyOcrKey(id)
+      v2.p2pKeys
+        .destroyP2PKey(id)
         .then(() => {
           handleFetchIndex()
           dispatch(
@@ -75,8 +78,8 @@ export const OcrKeys = withStyles(styles)(
     }
 
     function handleCreate() {
-      v2.ocrKeys
-        .createOcrKey()
+      v2.p2pKeys
+        .createP2PKey()
         .then(({ data }) => {
           handleFetchIndex()
           dispatch(
@@ -102,7 +105,7 @@ export const OcrKeys = withStyles(styles)(
                 variant="secondary"
                 onClick={() => handleCreate()}
               >
-                New OCR Key
+                New P2P Key
               </Button>
             }
             title={`${KEY_TYPE} Keys`}
@@ -130,34 +133,26 @@ export const OcrKeys = withStyles(styles)(
                 </TableRow>
               </TableHead>
               <TableBody>
-                {ocrKeys?.length === 0 && (
+                {p2pKeys?.length === 0 && (
                   <TableRow>
                     <TableCell component="th" scope="row" colSpan={3}>
                       No entries to show.
                     </TableCell>
                   </TableRow>
                 )}
-                {ocrKeys?.map((key) => (
+                {p2pKeys?.map((key) => (
                   <TableRow hover key={key.id}>
                     <TableCell>
                       <KeyBundle
+                        classes={{ avatar: classes.avatar }}
                         primary={
                           <b>
-                            Key ID: {key.id} <Copy data={key.id} />
+                            Peer ID: {key.attributes.peerId}{' '}
+                            <Copy data={key.attributes.peerId} />
                           </b>
                         }
                         secondary={[
-                          <>
-                            Config Public Key: {key.attributes.configPublicKey}
-                          </>,
-                          <>
-                            Signing Address:{' '}
-                            {key.attributes.onChainSigningAddress}
-                          </>,
-                          <>
-                            Off-Chain Public Key:{' '}
-                            {key.attributes.offChainPublicKey}
-                          </>,
+                          <>Public Key: {key.attributes.publicKey}</>,
                         ]}
                       />
                     </TableCell>
@@ -171,7 +166,7 @@ export const OcrKeys = withStyles(styles)(
                     <TableCell>
                       <Delete
                         keyId={key.id}
-                        keyValue={key.id}
+                        keyValue={key.attributes.peerId}
                         onDelete={handleDelete}
                       />
                     </TableCell>
