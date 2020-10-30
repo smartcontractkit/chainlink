@@ -122,7 +122,7 @@ export const OcrKeys = withStyles(styles)(
                       Created
                     </Typography>
                   </TableCell>
-                  <TableCell>
+                  <TableCell align="right">
                     <Typography variant="body1" color="textSecondary">
                       Delete
                     </Typography>
@@ -168,7 +168,7 @@ export const OcrKeys = withStyles(styles)(
                         </TimeAgo>
                       </Typography>
                     </TableCell>
-                    <TableCell>
+                    <TableCell align="right">
                       <Delete
                         keyId={key.id}
                         keyValue={key.id}
