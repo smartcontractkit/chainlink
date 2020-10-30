@@ -5,13 +5,17 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -23,7 +27,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestClient_DisplayAccountBalance(t *testing.T) {
+func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -38,10 +42,10 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
+	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	from := cltest.GetAccountAddress(t, app.GetStore())
-	balances := *r.Renders[0].(*[]presenters.ETHKeys)
+	balances := *r.Renders[0].(*[]presenters.ETHKey)
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 
