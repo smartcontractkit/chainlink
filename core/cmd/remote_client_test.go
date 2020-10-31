@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -1041,7 +1042,7 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 
 	key, err := p2pkey.CreateKey()
 	require.NoError(t, err)
-	encKey, err := key.ToEncryptedP2PKey(cltest.Password)
+	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
 	require.NoError(t, err)
@@ -1117,7 +1118,7 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 
 	key, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
-	encKey, err := key.Encrypt(cltest.Password)
+	encKey, err := key.Encrypt(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 	err = app.Store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
 	require.NoError(t, err)

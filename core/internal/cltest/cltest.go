@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -34,8 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -53,7 +52,6 @@ import (
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/gorm"
-	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -77,26 +75,27 @@ const (
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultKey is the address of the fixture key
-	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	DefaultKey = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
+	// DefaultKeyFixtureFileName is the filename of the fixture key
+	DefaultKeyFixtureFileName = "testkey-27548a32b9aD5D64c5945EaE9Da5337bc3169D15.json"
 	// AllowUnstarted enable an application that can be used in tests without being started
 	AllowUnstarted = "allow_unstarted"
+	// DefaultPeerID is the peer ID of the fixture p2p key
+	DefaultPeerID = "12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp"
+	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
+	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
+	DefaultKeyJSON = `{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}`
 )
 
 var (
 	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressEIP55 models.EIP55Address
-
-	// DefaultP2PPeerID is the fixture p2p key
-	DefaultP2PKey *p2pkey.Key
-	// DefaultP2PPeerID is the peer ID of the fixture p2p key
-	DefaultP2PPeerID models.PeerID
-	// DefaultP2PPeerID is the fixture p2p key, encrypted with `cltest.Password`
-	DefaultEncryptedP2PKey *p2pkey.EncryptedP2PKey
-	// DefaultOCRKeyBundleIDSha256 is the fixture ocr key bundle
-	DefaultOCRKeyBundle *ocrkey.KeyBundle
-	// DefaultOCRKeyBundleIDSha256 is the fixture ocr key bundle, encrypted with `cltest.Password`
-	DefaultEncryptedOCRKeyBundle *ocrkey.EncryptedKeyBundle
+	DefaultKeyAddress          = common.HexToAddress(DefaultKey)
+	DefaultKeyAddressDowncased = strings.ToLower(DefaultKey)
+	DefaultKeyAddressEIP55     models.EIP55Address
+	DefaultP2PPeerID           p2ppeer.ID
+	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
 
 var storeCounter uint64
@@ -136,33 +135,16 @@ func init() {
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
 
-	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(bytes.NewBufferString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"))
+	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	DefaultP2PKey = &p2pkey.Key{PrivKey: p2pPrivkey}
-	DefaultP2PPeerID, err = DefaultP2PKey.GetPeerID()
+	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
 	if err != nil {
 		panic(err)
 	}
-	encp2pkey, err := DefaultP2PKey.ToEncryptedP2PKey(Password)
-	if err != nil {
-		panic(err)
-	}
-	DefaultEncryptedP2PKey = &encp2pkey
-	DefaultOCRKeyBundle, err = ocrkey.NewKeyBundleFrom(
-		bytes.NewBufferString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-		bytes.NewBufferString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-		bytes.NewBufferString("deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"),
-	)
-	if err != nil {
-		panic(err)
-	}
+
 	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
-	if err != nil {
-		panic(err)
-	}
-	DefaultEncryptedOCRKeyBundle, err = DefaultOCRKeyBundle.Encrypt(Password)
 	if err != nil {
 		panic(err)
 	}
@@ -241,6 +223,8 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
+	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
+	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config

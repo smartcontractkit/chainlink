@@ -17,6 +17,7 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AllowOrigins                              string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	BalanceMonitorEnabled                     bool            `env:"BALANCE_MONITOR_ENABLED" default:"true"`
 	BlockBackfillDepth                        string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`
@@ -56,6 +57,7 @@ type ConfigSchema struct {
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
+	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
 	JobPipelineDBPollInterval                 time.Duration   `env:"JOB_PIPELINE_DB_POLL_INTERVAL" default:"10s"`
 	JobPipelineMaxTaskDuration                time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"10m"`
 	JobPipelineParallelism                    uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
