@@ -16,15 +16,12 @@ describe('pages/Keys/Delete', () => {
       />,
     )
 
-    wrapper
-      .find('[data-testid="keys-ocr-delete-dialog"]')
-      .first()
-      .simulate('click')
+    wrapper.find('[data-testid="keys-delete-dialog"]').first().simulate('click')
 
     expect(wrapper.text()).toContain(expectedKeyValue)
 
     wrapper
-      .find('[data-testid="keys-ocr-delete-confirm"]')
+      .find('[data-testid="keys-delete-confirm"]')
       .first()
       .simulate('click')
 
