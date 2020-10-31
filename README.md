@@ -37,7 +37,7 @@ Examples of how to utilize and integrate Chainlinks can be found in the [Chainli
 Chainlink has an active and ever growing community. [Discord](https://discordapp.com/invite/aSK4zew)
 is the primary communication channel used for day to day communication,
 answering development questions, and aggregating Chainlink related content. Take
-a look at the [community docs](../docs/COMMUNITY.md) for more information
+a look at the [community docs](./docs/COMMUNITY.md) for more information
 regarding Chainlink social accounts, news, and networking.
 
 ## Install
