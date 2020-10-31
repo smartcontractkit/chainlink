@@ -141,6 +141,52 @@ func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
 	return s, nil
 }
 
+// func (k Key) KeystoreJSON(auth string) ([]byte, error) {
+// 	scryptParams := defaultScryptParams
+// 	var marshalledPrivK []byte
+// 	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
+// 	if err != nil {
+// 		return s, err
+// 	}
+// 	cryptoJSON, err := keystore.EncryptDataV3(marshalledPrivK, []byte(adulteratedPassword(auth)), scryptParams.N, scryptParams.P)
+// 	if err != nil {
+// 		return s, errors.Wrapf(err, "could not encrypt p2p key")
+// 	}
+// 	return json.Marshal(&cryptoJSON)
+// }
+// func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
+// 	marshalledCryptoJSON, err := k.KeystoreJSON()
+// 	if err != nil {
+// 		return s, errors.Wrapf(err, "could not encode cryptoJSON")
+// 	}
+// 	peerID, err := k.GetPeerID()
+// 	if err != nil {
+// 		return s, errors.Wrapf(err, "could not get peer ID")
+// 	}
+// 	pubKeyBytes, err := k.GetPublic().Raw()
+// 	if err != nil {
+// 		return s, errors.Wrapf(err, "could not get public key bytes")
+// 	}
+// 	s = EncryptedP2PKey{
+// 		PubKey:           pubKeyBytes,
+// 		EncryptedPrivKey: marshalledCryptoJSON,
+// 		PeerID:           peerID,
+// 	}
+// 	return s, nil
+// }
+
+func NewFromHex(privkeyHex string) (Key, error) {
+	bytes, err := hexutil.Decode(privkeyHex)
+	if err != nil {
+		return Key{}, err
+	}
+	privKey, err := cryptop2p.UnmarshalEd25519PrivateKey(bytes)
+	if err != nil {
+		return Key{}, err
+	}
+	return Key{privKey}, nil
+}
+
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
 func (ep2pk EncryptedP2PKey) Decrypt(auth string) (k Key, err error) {
 	var cryptoJSON keystore.CryptoJSON

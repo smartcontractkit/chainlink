@@ -74,3 +74,27 @@ func (ocrkbc *OffChainReportingKeysController) Delete(c *gin.Context) {
 	}
 	jsonAPIResponse(c, ekb, "offChainReportingKeyBundle")
 }
+
+// Import an OCR key bundle
+// Example:
+// "POST <application>/off-chain-reporting-keys"
+func (ocrkbc *OffChainReportingKeysController) Import(c *gin.Context) {
+	// _, encryptedKeyBundle, err := ocrkbc.App.GetStore().OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	// if err != nil {
+	// 	jsonAPIError(c, http.StatusInternalServerError, err)
+	// 	return
+	// }
+	// jsonAPIResponse(c, encryptedKeyBundle, "offChainReportingKeyBundle")
+}
+
+// Export OCR key bundles
+// Example:
+// "GET <application>/off-chain-reporting-keys"
+func (ocrkbc *OffChainReportingKeysController) Export(c *gin.Context) {
+	// keys, err := ocrkbc.App.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
+	// if err != nil {
+	// 	jsonAPIError(c, http.StatusInternalServerError, err)
+	// 	return
+	// }
+	// jsonAPIResponse(c, keys, "offChainReportingKeyBundle")
+}

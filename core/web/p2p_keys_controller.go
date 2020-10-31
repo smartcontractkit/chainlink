@@ -38,6 +38,30 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 	jsonAPIResponse(c, encryptedP2PKey, "p2pKey")
 }
 
+// Import a P2P key
+// Example:
+// "POST <application>/p2p_keys"
+func (p2pkc *P2PKeysController) Import(c *gin.Context) {
+	// _, encryptedP2PKey, err := p2pkc.App.GetStore().OCRKeyStore.GenerateEncryptedP2PKey()
+	// if err != nil {
+	// 	jsonAPIError(c, http.StatusInternalServerError, err)
+	// 	return
+	// }
+	// jsonAPIResponse(c, encryptedP2PKey, "p2pKey")
+}
+
+// Export a P2P key
+// Example:
+// "GET <application>/p2p_keys"
+func (p2pkc *P2PKeysController) Export(c *gin.Context) {
+	// keys, err := p2pkc.App.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
+	// if err != nil {
+	// 	jsonAPIError(c, http.StatusInternalServerError, err)
+	// 	return
+	// }
+	// jsonAPIResponse(c, keys, "p2pKey")
+}
+
 // Delete a P2P key
 // Example:
 // "DELETE <application>/p2p_keys/:keyID"

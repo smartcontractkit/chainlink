@@ -1,6 +1,7 @@
 package ocrkey
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	cryptorand "crypto/rand"
@@ -156,6 +157,22 @@ func NewKeyBundleFrom(onChainSigning io.Reader, offChainSigning io.Reader, offCh
 	}
 	k.ID = sha256.Sum256(marshalledPrivK)
 	return k, nil
+}
+
+func NewKeyBundleFromHex(onChainSigningHex, offChainSigningHex, offChainEncryptionHex string) (*KeyBundle, error) {
+	onChainSigning, err := hex.DecodeString(onChainSigningHex)
+	if err != nil {
+		return nil, err
+	}
+	offChainSigning, err := hex.DecodeString(offChainSigningHex)
+	if err != nil {
+		return nil, err
+	}
+	offChainEncryption, err := hex.DecodeString(offChainEncryptionHex)
+	if err != nil {
+		return nil, err
+	}
+	return NewKeyBundleFrom(bytes.NewReader(onChainSigning), bytes.NewReader(offChainSigning), bytes.NewReader(offChainEncryption))
 }
 
 // SignOnChain returns an ethereum-style ECDSA secp256k1 signature on msg.

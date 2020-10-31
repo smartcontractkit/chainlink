@@ -952,7 +952,7 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 // ImportOCRKeyBundle imports a key and inserts it into encrypted_ocr_key_bundles,
 // protected by the password in the password file
 func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
-	fmt.Print("Import")
+	fmt.Println("Import")
 	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 	// password, err := getPassword(c)
@@ -976,7 +976,7 @@ func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
 // ExportOCRKeyBundle Export an OCR key bundle, decrypted with password from the
 // password file, and stored at desired filepath
 func (cli *Client) ExportOCRKeyBundle(c *clipkg.Context) error {
-	fmt.Print("Export")
+	fmt.Println("Export")
 	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 	// password, err := getPassword(c)
