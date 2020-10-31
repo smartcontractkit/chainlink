@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -953,6 +954,17 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 // protected by the password in the password file
 func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
 	fmt.Println("Import")
+	filename := os.Args[4]
+	fmt.Println("ID", filename)
+	jsonFile, err := os.Open(filename)
+	if err != nil {
+		log.Fatal(err, "\nCould not find filename: "+filename)
+	}
+	// Read Template File
+	byteValue, _ := ioutil.ReadAll(jsonFile)
+	jsonFile.Read(byteValue)
+	jsonFile.Close()
+
 	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
 	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
 	// password, err := getPassword(c)
@@ -977,22 +989,50 @@ func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
 // password file, and stored at desired filepath
 func (cli *Client) ExportOCRKeyBundle(c *clipkg.Context) error {
 	fmt.Println("Export")
-	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
-	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	// password, err := getPassword(c)
-	// if err != nil {
-	// 	return err
-	// }
-	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
-	// if err != nil {
-	// 	return err
-	// }
-	// addressOnChain := key.PublicKeyAddressOnChain()
-	// fmt.Printf(
-	// 	createMsg,
-	// 	key.ID,
-	// 	hex.EncodeToString(addressOnChain[:]),
-	// 	hex.EncodeToString(key.PublicKeyOffChain()),
-	// )
-	return nil
+	resp, err := cli.HTTP.Get("/v2/off_chain_reporting_keys", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	resp1, err := cli.HTTP.Get("/v2/off_chain_reporting_keys", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	defer func() {
+		if cerr := resp1.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	// Get Response
+	body, err := ioutil.ReadAll(resp.Body)
+
+	filePath := os.Args[4]
+	os.Remove(filePath)
+
+	// Open or Create Output File
+	_, errs := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(errs)
+	}
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		panic(fmt.Errorf("os.Stat: %v", err))
+	}
+	if filePath == "" {
+		panic("generateFile requires a single parameter: file name to output to.")
+	}
+	// Write the master json object to the desired output file name
+	err = ioutil.WriteFile(filePath, body, fileInfo.Mode())
+	if err != nil {
+		panic(fmt.Errorf("error writing file: %v", filePath))
+	}
+	println(filePath, "was successfully created.")
+	var keys []ocrkey.EncryptedKeyBundle
+	return cli.renderAPIResponse(resp1, &keys)
 }
