@@ -19,10 +19,10 @@ const styles = (theme: Theme) =>
     },
     keyValue: {
       borderRadius: theme.shape.borderRadius,
-      border: `1px solid ${theme.palette.secondary.main}`,
       padding: theme.spacing.unit,
       marginTop: theme.spacing.unit * 2,
       color: theme.palette.secondary.main,
+      background: theme.palette.grey[200],
     },
   })
 
@@ -38,7 +38,7 @@ export const Delete = withStyles(styles)(
     return (
       <>
         <Button
-          data-testid="keys-ocr-delete-dialog"
+          data-testid="keys-delete-dialog"
           onClick={() => setOpen(true)}
           variant="danger"
           size="medium"
@@ -49,9 +49,7 @@ export const Delete = withStyles(styles)(
         <Dialog open={open} maxWidth={false}>
           <DialogTitle>Confirm Delete</DialogTitle>
           <DialogContent>
-            <Typography variant={'h5'} color="textSecondary">
-              Delete this key?
-            </Typography>
+            <Typography variant={'h5'}>Delete this key?</Typography>
             <div className={classes.keyValue}>
               <Typography>
                 <b>{keyValue}</b>
@@ -63,7 +61,7 @@ export const Delete = withStyles(styles)(
               No
             </Button>
             <Button
-              data-testid="keys-ocr-delete-confirm"
+              data-testid="keys-delete-confirm"
               onClick={() => onDelete(keyId)}
               variant="danger"
               className={classes.button}
