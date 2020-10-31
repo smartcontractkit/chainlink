@@ -441,7 +441,7 @@ declare module 'core/store/models' {
   //#region p2pKey/p2p_key.go
 
   /**
-   * OcrKey represents the bundle of keys needed for OCR
+   * P2P represents the bundle of keys needed for P2P
    */
 
   export interface P2PKey {
