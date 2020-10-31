@@ -13,7 +13,7 @@
   ],
   "payment": "1000000000000000000",
   "expiration": 300,
-  "oracles": ["0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea", "0xa0788FC17B1dEe36f057c42B6F373A34B014687e"],
+  "oracles": ["0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", "0xa0788FC17B1dEe36f057c42B6F373A34B014687e"],
   "endAt": "2019-10-19T22:17:19Z",
   "aggregator": "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
   "aggInitiateJobSelector": "0xd0771e55",

@@ -41,19 +41,19 @@ type KeyStoreInterface interface {
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore
+	scryptParams utils.ScryptParams
 }
 
 // NewKeyStore creates a keystore for the given directory.
-func NewKeyStore(keyDir string) *KeyStore {
-	ks := keystore.NewKeyStore(keyDir, keystore.StandardScryptN, keystore.StandardScryptP)
-	return &KeyStore{ks}
+func NewKeyStore(keyDir string, scryptParams utils.ScryptParams) *KeyStore {
+	ks := keystore.NewKeyStore(keyDir, scryptParams.N, scryptParams.P)
+	return &KeyStore{ks, scryptParams}
 }
 
 // NewInsecureKeyStore creates an *INSECURE* keystore for the given directory.
 // NOTE: Should only be used for testing!
 func NewInsecureKeyStore(keyDir string) *KeyStore {
-	ks := keystore.NewKeyStore(keyDir, keystore.LightScryptN, keystore.LightScryptP)
-	return &KeyStore{ks}
+	return NewKeyStore(keyDir, utils.FastScryptParams)
 }
 
 // HasAccounts returns true if there are accounts located at the keystore

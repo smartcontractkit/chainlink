@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 )
 
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
@@ -46,8 +45,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	defer cleanup()
 
 	ks := strpkg.NewVRFKeyStore(store)
-
-	key, err := ks.CreateKey(phrase, vrfkey.FastScryptParams) // NB: Varies from run to run. Shouldn't matter, though
+	key, err := ks.CreateKey(phrase) // NB: Varies from run to run. Shouldn't matter, though
 	require.NoError(t, err, "could not create encrypted key")
 	require.NoError(t, ks.Forget(key), "could not forget a created key from in-memory store")
 
@@ -56,7 +54,7 @@ func TestKeyStoreEndToEnd(t *testing.T) {
 	assert.True(t, len(keys) == 1 && keys[0].PublicKey == key, "did not get back the expected key from db retrial")
 
 	ophrase := phrase + "corruption" // Extra key; make sure it's not returned by Get
-	newKey, err := ks.CreateKey(ophrase, vrfkey.FastScryptParams)
+	newKey, err := ks.CreateKey(ophrase)
 	require.NoError(t, err, "could not create extra key")
 
 	keys, err = ks.Get(key) // Test targeted Get
