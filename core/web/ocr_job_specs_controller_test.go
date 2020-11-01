@@ -54,12 +54,8 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOCRJobSpecsController_Index_HappyPath(t *testing.T) {
-	app, client, cleanup := setupOCRJobSpecsControllerTests(t)
+	client, cleanup, ocrJobSpecFromFile, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
 	defer cleanup()
-
-	var ocrJobSpec offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpec)
-	app.AddJobV2(context.Background(), ocrJobSpec)
 
 	response, cleanup := client.Get("/v2/ocr/specs")
 	defer cleanup()
@@ -71,24 +67,61 @@ func TestOCRJobSpecsController_Index_HappyPath(t *testing.T) {
 
 	require.Len(t, ocrJobSpecs, 1)
 
-	assert.Equal(t, ocrJobSpec.ContractAddress, ocrJobSpecs[0].OffchainreportingOracleSpec.ContractAddress)
-	assert.Equal(t, ocrJobSpec.P2PPeerID, ocrJobSpecs[0].OffchainreportingOracleSpec.P2PPeerID)
-	assert.Equal(t, ocrJobSpec.P2PBootstrapPeers, ocrJobSpecs[0].OffchainreportingOracleSpec.P2PBootstrapPeers)
-	assert.Equal(t, ocrJobSpec.IsBootstrapPeer, ocrJobSpecs[0].OffchainreportingOracleSpec.IsBootstrapPeer)
-	assert.Equal(t, ocrJobSpec.EncryptedOCRKeyBundleID, ocrJobSpecs[0].OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, ocrJobSpec.MonitoringEndpoint, ocrJobSpecs[0].OffchainreportingOracleSpec.MonitoringEndpoint)
-	assert.Equal(t, ocrJobSpec.TransmitterAddress, ocrJobSpecs[0].OffchainreportingOracleSpec.TransmitterAddress)
-	assert.Equal(t, ocrJobSpec.ObservationTimeout, ocrJobSpecs[0].OffchainreportingOracleSpec.ObservationTimeout)
-	assert.Equal(t, ocrJobSpec.BlockchainTimeout, ocrJobSpecs[0].OffchainreportingOracleSpec.BlockchainTimeout)
-	assert.Equal(t, ocrJobSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpecs[0].OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpecs[0].OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpec.ContractConfigConfirmations, ocrJobSpecs[0].OffchainreportingOracleSpec.ContractConfigConfirmations)
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJobSpecs[0])
+}
+
+func TestOCRJobSpecsController_Show_HappyPath(t *testing.T) {
+	client, cleanup, ocrJobSpecFromFile, jobID := setupOCRJobSpecsWControllerTestsWithJob(t)
+	defer cleanup()
+
+	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID))
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	ocrJobSpec := models.JobSpecV2{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
+	assert.NoError(t, err)
+
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJobSpec)
+}
+
+func TestOCRJobSpecsController_Show_InvalidID(t *testing.T) {
+	client, cleanup, _, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
+	defer cleanup()
+
+	response, cleanup := client.Get("/v2/ocr/specs/uuidLikeString")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+}
+
+func TestOCRJobSpecsController_Show_NonExistentID(t *testing.T) {
+	client, cleanup, _, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
+	defer cleanup()
+
+	response, cleanup := client.Get("/v2/ocr/specs/999999999")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusNotFound)
+}
+
+func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
+	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
+	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
+	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PBootstrapPeers)
+	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffchainreportingOracleSpec.IsBootstrapPeer)
+	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, ocrJobSpecFromFile.MonitoringEndpoint, ocrJobSpecFromServer.OffchainreportingOracleSpec.MonitoringEndpoint)
+	assert.Equal(t, ocrJobSpecFromFile.TransmitterAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.TransmitterAddress)
+	assert.Equal(t, ocrJobSpecFromFile.ObservationTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.ObservationTimeout)
+	assert.Equal(t, ocrJobSpecFromFile.BlockchainTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.BlockchainTimeout)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigConfirmations)
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
 	// millenia and century characters to be present
-	assert.Contains(t, ocrJobSpecs[0].OffchainreportingOracleSpec.CreatedAt.String(), "20")
-	assert.Contains(t, ocrJobSpecs[0].OffchainreportingOracleSpec.UpdatedAt.String(), "20")
+	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.CreatedAt.String(), "20")
+	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
 }
 
 func setupOCRJobSpecsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
@@ -98,4 +131,17 @@ func setupOCRJobSpecsControllerTests(t *testing.T) (*cltest.TestApplication, clt
 
 	client := app.NewHTTPClient()
 	return app, client, cleanup
+}
+
+func setupOCRJobSpecsWControllerTestsWithJob(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	return client, cleanup, ocrJobSpecFromFile, jobID
 }

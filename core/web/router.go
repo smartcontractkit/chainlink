@@ -272,6 +272,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		{
 			ocrjsc := OCRJobSpecsController{app}
 			ocr.GET("/specs", ocrjsc.Index)
+			ocr.GET("/specs/:ID", ocrjsc.Show)
 			ocr.POST("/specs", ocrjsc.Create)
 			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
 		}

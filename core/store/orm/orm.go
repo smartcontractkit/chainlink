@@ -978,6 +978,15 @@ func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 	return jobs, err
 }
 
+// FindOffChainReportingJob returns OCR job spec by ID
+func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
+	orm.MustEnsureAdvisoryLock()
+	var job models.JobSpecV2
+	err := orm.DB.Set("gorm:auto_preload", true).First(&job, "id = ?", id).Error
+	fmt.Println("err", err)
+	return job, err
+}
+
 // TxFrom returns all transactions from a particular address.
 func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
 	orm.MustEnsureAdvisoryLock()
