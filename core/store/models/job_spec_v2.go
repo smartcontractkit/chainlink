@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -13,39 +14,56 @@ import (
 
 type (
 	JobSpecV2 struct {
-		ID                            int32 `gorm:"primary_key"`
-		OffchainreportingOracleSpecID int32
-		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
-		PipelineSpecID                int32
+		ID                            int32                        `json:"-" gorm:"primary_key"`
+		OffchainreportingOracleSpecID int32                        `json:"-"`
+		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+		PipelineSpecID                int32                        `json:"-"`
 	}
 
 	OffchainReportingOracleSpec struct {
-		ID                                     int32          `toml:"-"                 gorm:"primary_key"`
-		ContractAddress                        EIP55Address   `toml:"contractAddress"`
-		P2PPeerID                              PeerID         `toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
-		P2PBootstrapPeers                      pq.StringArray `toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
-		IsBootstrapPeer                        bool           `toml:"isBootstrapPeer"`
-		EncryptedOCRKeyBundleID                Sha256Hash     `toml:"keyBundleID"                 gorm:"type:bytea"`
-		MonitoringEndpoint                     string         `toml:"monitoringEndpoint"`
-		TransmitterAddress                     EIP55Address   `toml:"transmitterAddress"`
-		ObservationTimeout                     Interval       `toml:"observationTimeout" gorm:"type:bigint"`
-		BlockchainTimeout                      Interval       `toml:"blockchainTimeout" gorm:"type:bigint"`
-		ContractConfigTrackerSubscribeInterval Interval       `toml:"contractConfigTrackerSubscribeInterval"`
-		ContractConfigTrackerPollInterval      Interval       `toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
-		ContractConfigConfirmations            uint16         `toml:"contractConfigConfirmations"`
-		CreatedAt                              time.Time      `toml:"-"`
-		UpdatedAt                              time.Time      `toml:"-"`
+		ID                                     int32          `json:"-" toml:"-"                 gorm:"primary_key"`
+		ContractAddress                        EIP55Address   `json:"contractAddress" toml:"contractAddress"`
+		P2PPeerID                              PeerID         `json:"p2pPeerID" toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
+		P2PBootstrapPeers                      pq.StringArray `json:"p2pBootstrapPeers" toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
+		IsBootstrapPeer                        bool           `json:"isBootstrapPeer" toml:"isBootstrapPeer"`
+		EncryptedOCRKeyBundleID                Sha256Hash     `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`
+		MonitoringEndpoint                     string         `json:"monitoringEndpoint" toml:"monitoringEndpoint"`
+		TransmitterAddress                     EIP55Address   `json:"transmitterAddress" toml:"transmitterAddress"`
+		ObservationTimeout                     Interval       `json:"observationTimeout" toml:"observationTimeout" gorm:"type:bigint"`
+		BlockchainTimeout                      Interval       `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint"`
+		ContractConfigTrackerSubscribeInterval Interval       `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval"`
+		ContractConfigTrackerPollInterval      Interval       `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
+		ContractConfigConfirmations            uint16         `json:"contractConfigConfirmations" toml:"contractConfigConfirmations"`
+		CreatedAt                              time.Time      `json:"createdAt" toml:"-"`
+		UpdatedAt                              time.Time      `json:"updatedAt" toml:"-"`
 	}
 
 	PeerID peer.ID
 )
 
+func (js JobSpecV2) GetID() string {
+	return fmt.Sprintf("%v", js.ID)
+}
+
 func (js *JobSpecV2) SetID(value string) error {
-	jobID, err := strconv.ParseInt(value, 10, 32)
+	ID, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		return err
 	}
-	js.ID = int32(jobID)
+	js.ID = int32(ID)
+	return nil
+}
+
+func (s OffchainReportingOracleSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *OffchainReportingOracleSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
 	return nil
 }
 

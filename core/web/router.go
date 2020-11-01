@@ -271,6 +271,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ocr := authv2.Group("/ocr")
 		{
 			ocrjsc := OCRJobSpecsController{app}
+			ocr.GET("/specs", ocrjsc.Index)
 			ocr.POST("/specs", ocrjsc.Create)
 			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
 		}

@@ -684,6 +684,27 @@ func Merge(inputs ...JSON) (JSON, error) {
 // Explicit type indicating a 32-byte sha256 hash
 type Sha256Hash [32]byte
 
+// MarshalJSON converts a Sha256Hash to a JSON byte slice.
+func (s Sha256Hash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+// UnmarshalJSON converts a bytes slice of JSON to a TaskType.
+func (s *Sha256Hash) UnmarshalJSON(input []byte) error {
+	var shaHash string
+	if err := json.Unmarshal(input, &shaHash); err != nil {
+		return err
+	}
+
+	sha, err := Sha256HashFromHex(shaHash)
+	if err != nil {
+		return err
+	}
+
+	*s = sha
+	return nil
+}
+
 func Sha256HashFromHex(x string) (Sha256Hash, error) {
 	bs, err := hex.DecodeString(x)
 	if err != nil {
