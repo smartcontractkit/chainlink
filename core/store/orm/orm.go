@@ -1150,7 +1150,7 @@ func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
 }
 
 // KeyExists returns true if a key exists in the database for this address
-func (orm *ORM) KeyExists(address []byte) (bool, error) {
+func (orm *ORM) KeyExists(address common.Address) (bool, error) {
 	var key models.Key
 	err := orm.DB.Where("address = ?", address).First(&key).Error
 	if gorm.IsRecordNotFoundError(err) {
@@ -1160,12 +1160,12 @@ func (orm *ORM) KeyExists(address []byte) (bool, error) {
 }
 
 // ArchiveKey soft-deletes a key whose address matches the supplied bytes.
-func (orm *ORM) ArchiveKey(address []byte) error {
+func (orm *ORM) ArchiveKey(address common.Address) error {
 	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
 }
 
 // DeleteKey deletes a key whose address matches the supplied bytes.
-func (orm *ORM) DeleteKey(address []byte) error {
+func (orm *ORM) DeleteKey(address common.Address) error {
 	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
 }
 
