@@ -6,9 +6,18 @@ contract MultiWordConsumer is ChainlinkClient{
   bytes32 internal specId;
   bytes public currentPrice;
 
+  bytes32 public first;
+  bytes32 public second;
+
   event RequestFulfilled(
     bytes32 indexed requestId,  // User-defined ID
     bytes indexed price
+  );
+
+  event RequestMultipleFulfilled(
+    bytes32 indexed requestId,
+    bytes32 indexed first,
+    bytes32 indexed second
   );
 
   constructor(address _link, address _oracle, bytes32 _specId) public {
@@ -22,7 +31,16 @@ contract MultiWordConsumer is ChainlinkClient{
   }
 
   function requestEthereumPriceByCallback(string memory _currency, uint256 _payment, address _callback) public {
-    Chainlink.Request memory req = buildChainlinkRequest(specId, _callback, this.fulfill.selector);
+    Chainlink.Request memory req = buildChainlinkRequest(specId, _callback, this.fulfillBytes.selector);
+    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+    string[] memory path = new string[](1);
+    path[0] = _currency;
+    req.addStringArray("path", path);
+    sendChainlinkRequest(req, _payment);
+  }
+
+  function requestMultipleParameters(string memory _currency, uint256 _payment) public {
+    Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParameters.selector);
     req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
     string[] memory path = new string[](1);
     path[0] = _currency;
@@ -50,7 +68,16 @@ contract MultiWordConsumer is ChainlinkClient{
     addChainlinkExternalRequest(_oracle, _requestId);
   }
 
-  function fulfill(bytes32 _requestId, bytes memory _price)
+  function fulfillMultipleParameters(bytes32 _requestId, bytes32 _first, bytes32 _second)
+    public
+    recordChainlinkFulfillment(_requestId)
+  {
+    emit RequestMultipleFulfilled(_requestId, _first, _second);
+    first = _first;
+    second = _second;
+  }
+
+  function fulfillBytes(bytes32 _requestId, bytes memory _price)
     public
     recordChainlinkFulfillment(_requestId)
   {
