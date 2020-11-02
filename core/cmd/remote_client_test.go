@@ -865,7 +865,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
-func TestClient_CreateExtraKey(t *testing.T) {
+func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t,
@@ -889,7 +889,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 
 	kst.On("Unlock", cltest.Password).Return(nil)
 	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
-	assert.NoError(t, client.CreateExtraKey(c))
+	assert.NoError(t, client.CreateETHKey(c))
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {

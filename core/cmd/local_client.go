@@ -248,11 +248,11 @@ func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*model
 		return &key, balance, ethErr
 	}
 	// Key record not found so create one.
-	ethAccount, err := str.KeyStore.NewAccount(pwd)
+	ethAccount, err := str.KeyStore.NewAccount()
 	if err != nil {
 		return nil, nil, err
 	}
-	exportedJSON, err := str.KeyStore.Export(ethAccount, pwd, pwd)
+	exportedJSON, err := str.KeyStore.Export(ethAccount.Address, pwd)
 	if err != nil {
 		return nil, nil, err
 	}
