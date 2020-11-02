@@ -32,7 +32,7 @@ type NotifyNewEthTx interface {
 	Trigger()
 }
 
-// Store contains fields for the database, Config, KeyStore, and TxManager
+// Store contains fields for the database, Config, and KeyStore
 // for keeping the application state in sync with the database.
 type Store struct {
 	*orm.ORM
@@ -41,7 +41,6 @@ type Store struct {
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
 	OCRKeyStore    *offchainreporting.KeyStore
-	TxManager      TxManager
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
 	AdvisoryLocker postgres.AdvisoryLocker
@@ -84,7 +83,6 @@ func newStoreWithKeyStore(
 	}
 
 	keyStore := keyStoreGenerator()
-	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
 	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
@@ -94,7 +92,6 @@ func newStoreWithKeyStore(
 		KeyStore:       keyStore,
 		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
 		ORM:            orm,
-		TxManager:      txManager,
 		EthClient:      ethClient,
 		closeOnce:      &sync.Once{},
 	}
@@ -102,25 +99,9 @@ func newStoreWithKeyStore(
 	return store
 }
 
-// Start initiates all of Store's dependencies including the TxManager.
+// Start initiates all of Store's dependencies
 func (s *Store) Start() error {
-	if s.Config.EnableBulletproofTxManager() {
-		if err := setNonceFromLegacyTxManager(s.DB); err != nil {
-			return err
-		}
-	} else {
-		s.TxManager.Register(s.KeyStore.Accounts())
-	}
-
 	return s.SyncDiskKeyStoreToDB()
-}
-
-func setNonceFromLegacyTxManager(db *gorm.DB) error {
-	return db.Exec(`
-	UPDATE keys
-	SET next_nonce = (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1
-	WHERE next_nonce < (SELECT max(nonce) FROM txes WHERE txes.from = keys.address)+1;
-	`).Error
 }
 
 // Close shuts down all of the working parts of the store.
