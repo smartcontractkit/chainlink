@@ -169,10 +169,12 @@ export function convertFulfill2Params(
 ): [string, string, string, string, string, string, TxOptions] {
   const d = debug.extend('fulfillOracleRequestParams')
   d('Response param: %s', responseValues)
-  responseValues.unshift(runRequest.requestId)
-  responseTypes.unshift("bytes32")
+  let types = [...responseTypes]
+  let values = [...responseValues]
+  types.unshift("bytes32")
+  values.unshift(runRequest.requestId)
   const convertedResponse = ethers.utils.defaultAbiCoder.encode(
-    responseTypes, responseValues,
+    types, values,
   )
   d('Encoded Response param: %s', convertedResponse)
   return [
