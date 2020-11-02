@@ -12,7 +12,7 @@
     "setup": "yarn compile:clean && tsc -b tsconfig.test.json tsconfig.ethers.json",
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
-    "lint": "solhint -f table ./src/**/*.sol",
+    "lint:sol": "solhint -f table ./src/**/*.sol",
     "test:reset": "yarn setup && yarn test",
     "test": "jest --testTimeout 80000 --forceExit",
     "test:ci": "./scripts/test_ci",
