@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
+func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
@@ -21,7 +21,7 @@ func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 
-	response, cleanup := client.Get("/v2/off_chain_reporting_keys")
+	response, cleanup := client.Get("/v2/keys/ocr")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -36,14 +36,14 @@ func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].ConfigPublicKey, ocrKeys[0].ConfigPublicKey)
 }
 
-func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
+func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
 
-	response, cleanup := client.Post("/v2/off_chain_reporting_keys", nil)
+	response, cleanup := client.Post("/v2/keys/ocr", nil)
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -64,27 +64,27 @@ func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, exists, true)
 }
 
-func TestOffChainReportingKeysController_Delete_InvalidOCRKey(t *testing.T) {
+func TestOCRKeysController_Delete_InvalidOCRKey(t *testing.T) {
 	client, _, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	invalidOCRKeyID := "bad_key_id"
-	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + invalidOCRKeyID)
+	response, cleanup := client.Delete("/v2/keys/ocr/" + invalidOCRKeyID)
 	defer cleanup()
 	assert.Equal(t, http.StatusUnprocessableEntity, response.StatusCode)
 }
 
-func TestOffChainReportingKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 	client, _, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
-	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + nonExistentOCRKeyID)
+	response, cleanup := client.Delete("/v2/keys/ocr/" + nonExistentOCRKeyID)
 	defer cleanup()
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
 
-func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
+func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
 	require.NoError(t, OCRKeyStore.Unlock(cltest.Password))
@@ -93,7 +93,7 @@ func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
 	initialLength := len(keys)
 	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 
-	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + encryptedKeyBundle.ID.String())
+	response, cleanup := client.Delete("/v2/keys/ocr/" + encryptedKeyBundle.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedOCRKeyBundleByID(encryptedKeyBundle.ID)))

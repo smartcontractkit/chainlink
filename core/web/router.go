@@ -208,7 +208,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
-		authv2.GET("/user/balances", uc.AccountBalances)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
@@ -239,11 +238,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		ts := TransfersController{app}
 		authv2.POST("/transfers", ts.Create)
 
-		if app.GetStore().Config.Dev() {
-			kc := KeysController{app}
-			authv2.POST("/keys", kc.Create)
-		}
-
 		cc := ConfigController{app}
 		authv2.GET("/config", cc.Show)
 		authv2.PATCH("/config", cc.Patch)
@@ -258,15 +252,20 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
 
-		ocrkc := OffChainReportingKeysController{app}
-		authv2.GET("/off_chain_reporting_keys", ocrkc.Index)
-		authv2.POST("/off_chain_reporting_keys", ocrkc.Create)
-		authv2.DELETE("/off_chain_reporting_keys/:keyID", ocrkc.Delete)
+		ekc := ETHKeysController{app}
+		authv2.GET("/keys/eth", ekc.Index)
+		authv2.POST("/keys/eth", ekc.Create)
+		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
+
+		ocrkc := OCRKeysController{app}
+		authv2.GET("/keys/ocr", ocrkc.Index)
+		authv2.POST("/keys/ocr", ocrkc.Create)
+		authv2.DELETE("/keys/ocr/:keyID", ocrkc.Delete)
 
 		p2pkc := P2PKeysController{app}
-		authv2.GET("/p2p_keys", p2pkc.Index)
-		authv2.POST("/p2p_keys", p2pkc.Create)
-		authv2.DELETE("/p2p_keys/:keyID", p2pkc.Delete)
+		authv2.GET("/keys/p2p", p2pkc.Index)
+		authv2.POST("/keys/p2p", p2pkc.Create)
+		authv2.DELETE("/keys/p2p/:keyID", p2pkc.Delete)
 
 		ocr := authv2.Group("/ocr")
 		{

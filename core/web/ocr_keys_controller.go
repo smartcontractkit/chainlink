@@ -9,15 +9,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// OffChainReportingKeysController manages OCR key bundles
-type OffChainReportingKeysController struct {
+// OCRKeysController manages OCR key bundles
+type OCRKeysController struct {
 	App chainlink.Application
 }
 
 // Index lists OCR key bundles
 // Example:
-// "GET <application>/off-chain-reporting-keys"
-func (ocrkbc *OffChainReportingKeysController) Index(c *gin.Context) {
+// "GET <application>/keys/ocr"
+func (ocrkbc *OCRKeysController) Index(c *gin.Context) {
 	keys, err := ocrkbc.App.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -28,8 +28,8 @@ func (ocrkbc *OffChainReportingKeysController) Index(c *gin.Context) {
 
 // Create and return an OCR key bundle
 // Example:
-// "POST <application>/off-chain-reporting-keys"
-func (ocrkbc *OffChainReportingKeysController) Create(c *gin.Context) {
+// "POST <application>/keys/ocr"
+func (ocrkbc *OCRKeysController) Create(c *gin.Context) {
 	_, encryptedKeyBundle, err := ocrkbc.App.GetStore().OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -40,9 +40,9 @@ func (ocrkbc *OffChainReportingKeysController) Create(c *gin.Context) {
 
 // Delete an OCR key bundle
 // Example:
-// "DELETE <application>/off-chain-reporting-keys/:keyID"
-// "DELETE <application>/off-chain-reporting-keys/:keyID?hard=true"
-func (ocrkbc *OffChainReportingKeysController) Delete(c *gin.Context) {
+// "DELETE <application>/keys/ocr/:keyID"
+// "DELETE <application>/keys/ocr/:keyID?hard=true"
+func (ocrkbc *OCRKeysController) Delete(c *gin.Context) {
 	var hardDelete bool
 	var err error
 	if c.Query("hard") != "" {

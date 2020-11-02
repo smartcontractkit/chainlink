@@ -209,12 +209,27 @@ func NewApp(client *Client) *cli.App {
 						{
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
-							Action: client.CreateExtraKey,
+							Action: client.CreateETHKey,
 						},
 						{
 							Name:   "list",
-							Usage:  "Display the Account's address with its ETH & LINK balances",
+							Usage:  "List available Ethereum accounts with their ETH & LINK balances, nonces, and other metadata",
 							Action: client.ListETHKeys,
+						},
+						{
+							Name:  "delete",
+							Usage: format(`Deletes the ETH key matching the given address`),
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "yes, y",
+									Usage: "skip the confirmation prompt",
+								},
+								cli.BoolFlag{
+									Name:  "hard",
+									Usage: "hard-delete the key instead of archiving (irreversible!)",
+								},
+							},
+							Action: client.DeleteETHKey,
 						},
 					},
 				},
