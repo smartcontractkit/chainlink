@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+
 Numerous key-related UX improvements:
 
 - All key-related commands have been consolidated under the `chainlink keys` subcommand:
