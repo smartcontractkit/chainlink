@@ -264,7 +264,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel c
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	sender, err := types.Sender(types.NewEIP155Signer(big.NewInt(int64(c.chainId))), tx)
 	if err != nil {
-		panic(fmt.Errorf("invalid transaction: %v", err))
+		logger.Panic(fmt.Errorf("invalid transaction: %v", err))
 	}
 	pendingNonce, err := c.b.PendingNonceAt(ctx, sender)
 	if err != nil {
