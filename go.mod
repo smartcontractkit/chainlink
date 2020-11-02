@@ -31,7 +31,7 @@ require (
 	github.com/guregu/null v3.5.0+incompatible
 	github.com/ipfs/go-datastore v0.4.5 // indirect
 	github.com/ipfs/go-ds-sql v0.2.0
-	github.com/jinzhu/gorm v1.9.12
+	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/now v1.1.1 // indirect
 	github.com/jpillora/backoff v1.0.0
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
