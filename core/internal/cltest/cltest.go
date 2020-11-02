@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1075,6 +1076,27 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 	return tas
 }
 
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Eventually(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+func WaitForTxInMempool(t *testing.T, client *backends.SimulatedBackend, txHash common.Hash) {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		_, isPending, err := client.TransactionByHash(context.TODO(), txHash)
+		return err == nil && isPending
+	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+}
+
 // WaitForSyncEventCount checks if the sync event count eventually reaches
 // the amound specified in parameter want.
 func WaitForSyncEventCount(
@@ -1354,6 +1376,32 @@ func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
 	require.NoError(t, err)
 	require.NotEqual(t, 0, count)
 	return tx
+}
+
+func GetLastEthTx(t testing.TB, store *strpkg.Store) models.EthTx {
+	t.Helper()
+
+	var tx models.EthTx
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&tx).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return tx
+}
+
+func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
+	t.Helper()
+
+	var txa models.EthTxAttempt
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&txa).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return txa
 }
 
 type Awaiter chan struct{}
