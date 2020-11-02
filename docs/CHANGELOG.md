@@ -22,7 +22,18 @@ Numerous key-related UX improvements:
 - Deleting an OCR/P2P/VRF key now requires confirmation from the user. To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
 - The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
 
-Chainlink now requires Postgres >= 11.x. Previously this was a recommendation, this is now a hard requirement. Migrations will fail if run on an older version of Postgres.
+## [0.9.3] - 2020-11-02
+
+### Added
+
+- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
+
+### Changed
+
+- Chainlink now requires Postgres >= 11.x. Previously this was a recommendation, this is now a hard requirement. Migrations will fail if run on an older version of Postgres.
+- Database improvements that greatly reduced the number of open Postgres connections
+- Operator UI /jobs page is now searchable
+- Jobs now accept a name field in the jobspecs
 
 ## [0.9.2] - 2020-10-15
 
@@ -40,10 +51,6 @@ Chainlink now requires Postgres >= 11.x. Previously this was a recommendation, t
 ### Changed
 
 - ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
-
-### Added
-
-- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
 
 ## [0.8.18] - 2020-10-01
 
