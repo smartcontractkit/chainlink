@@ -75,6 +75,8 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
+	case *presenters.ETHKey:
+		return rt.renderETHKeys([]presenters.ETHKey{*typed})
 	case *[]presenters.ETHKey:
 		return rt.renderETHKeys(*typed)
 	case *p2pkey.EncryptedP2PKey:
