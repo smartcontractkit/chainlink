@@ -88,7 +88,10 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
 		Return(nil)
 
 	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
@@ -986,7 +989,10 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Return(nil).Once()
 
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }). // TODO - RYAN - this is hacky
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
 		Return(nil)
 
 	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
@@ -1089,7 +1095,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Log Broadcaster backfills logs
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(1) }).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(1)
+		}).
 		Return(nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
 
@@ -1124,7 +1133,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(nil).Once()
 
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }). // TODO - RYAN - this is hacky
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
 		Return(nil)
 
 	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
@@ -1188,7 +1200,10 @@ func TestIntegration_EthTX_Reconnect(t *testing.T) {
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) { *args.Get(1).(**models.Head) = cltest.Head(inLongestChain) }).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
 		Return(nil)
 
 	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
