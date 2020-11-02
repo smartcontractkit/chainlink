@@ -14,6 +14,7 @@ import (
 type KeyStoreAuthenticator interface {
 	Authenticate(*store.Store, string) (string, error)
 	AuthenticateVRFKey(*store.Store, string) error
+	AuthenticateOCRKey(store *store.Store, password string) error
 }
 
 // TerminalKeyStoreAuthenticator contains fields for prompting the user and an
@@ -89,8 +90,7 @@ func createAccount(store *store.Store, password string) error {
 // store's db if db store has no extant keys. It unlocks at least one VRF key
 // with given password, or returns an error. password must be non-trivial, as an
 // empty password signifies that the VRF oracle functionality is disabled.
-func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
-	password string) error {
+func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store, password string) error {
 	if password == "" {
 		return fmt.Errorf("VRF password must be non-trivial")
 	}
@@ -99,8 +99,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 		return errors.Wrapf(err, "while checking for extant VRF keys")
 	}
 	if len(keys) == 0 {
-		fmt.Println(
-			"There are no VRF keys; creating a new key encrypted with given password")
+		fmt.Println("There are no VRF keys; creating a new key encrypted with given password")
 		if _, err := store.VRFKeyStore.CreateKey(password); err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted VRF key")
 		}
@@ -110,4 +109,44 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 			"them... please check the password in the file specified by vrfpassword"+
 			". You can add and delete VRF keys in the DB using the "+
 			"`chainlink local vrf` subcommands")
+}
+
+func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
+	if password == "" {
+		return fmt.Errorf("OCR password must be non-trivial")
+	}
+
+	err := store.OCRKeyStore.Unlock(password)
+	if err != nil {
+		return errors.Wrapf(err,
+			"there are OCR/P2P keys in the DB, but there were errors unlocking "+
+				"them... please check the password in the file specified by --password"+
+				". You can add and delete OCR/P2P keys in the DB using the "+
+				"`chainlink node ocr` and `chainlink node p2p` subcommands")
+	}
+
+	p2pkeys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
+	if err != nil {
+		return errors.Wrap(err, "could not fetch encrypted P2P keys from database")
+	}
+	if len(p2pkeys) == 0 {
+		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
+		_, _, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
+		if err != nil {
+			return errors.Wrapf(err, "while creating a new encrypted P2P key")
+		}
+	}
+
+	ocrkeys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	if err != nil {
+		return errors.Wrap(err, "could not fetch encrypted OCR keys from database")
+	}
+	if len(ocrkeys) == 0 {
+		fmt.Println("There are no OCR keys; creating a new key encrypted with given password")
+		_, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+		if err != nil {
+			return errors.Wrapf(err, "while creating a new encrypted OCR key")
+		}
+	}
+	return nil
 }

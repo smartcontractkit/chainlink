@@ -14,16 +14,18 @@ const sheetsRegistry = new SheetsRegistry()
 const muiTheme = createMuiTheme(theme)
 const generateClassName = createGenerateClassName()
 
-export default children =>
+export const mountWithProviders = (elements, { initialEntries = ['/'] } = {}) =>
   mount(
     <JssProvider
       registry={sheetsRegistry}
       generateClassName={generateClassName}
     >
       <MuiThemeProvider theme={muiTheme} sheetsManager={new Map()}>
-        <StoreAndMemoryRouter initialEntries={['/']}>
-          {children}
+        <StoreAndMemoryRouter initialEntries={initialEntries}>
+          {elements}
         </StoreAndMemoryRouter>
       </MuiThemeProvider>
     </JssProvider>,
   )
+
+export default mountWithProviders

@@ -2,19 +2,18 @@
 
 const execa = require('execa')
 
-;(async function() {
-    try {
-        await run(`blockade destroy`)
-    } catch (err) {
-        console.log(err.stderr)
-    }
-    await run(`sudo rm -rf ./.blockade`)
-    await run(`sudo rm -rf ./container_data`)
-    await run(`sudo rm -rf ./postgres_data`)
+;(async function () {
+  try {
+    await run(`blockade destroy`)
+  } catch (err) {
+    console.log(err.stderr)
+  }
+  await run(`sudo rm -rf ./.blockade`)
+  await run(`sudo rm -rf ./container_data`)
+  await run(`sudo rm -rf ./postgres_data`)
 })()
 
 async function run(cmd) {
-    console.log('$', cmd)
-    console.log((await execa.command(cmd, {all: true})).all)
+  console.log('$', cmd)
+  console.log((await execa.command(cmd, { all: true })).all)
 }
-

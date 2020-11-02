@@ -4,40 +4,19 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 // JobSpecsController manages JobSpec requests.
 type JobSpecsController struct {
 	App chainlink.Application
-}
-
-// Index lists JobSpecs, one page at a time.
-// Example:
-//  "<application>/specs?size=1&page=2"
-func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
-	var order orm.SortType
-	if c.Query("sort") == "-createdAt" {
-		order = orm.Descending
-	} else {
-		order = orm.Ascending
-	}
-
-	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
-	pjs := make([]presenters.JobSpec, len(jobs))
-	for i, j := range jobs {
-		pjs[i] = presenters.JobSpec{JobSpec: j}
-	}
-
-	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
 // requireImplented verifies if a Job Spec's feature is enabled according to
@@ -71,6 +50,32 @@ func (jsc *JobSpecsController) getAndCheckJobSpec(
 		return models.JobSpec{}, http.StatusBadRequest, err
 	}
 	return js, 0, nil
+}
+
+func showJobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
+	store := jsc.App.GetStore()
+	jobLinkEarned, _ := store.LinkEarnedFor(&job)
+	return presenters.JobSpec{JobSpec: job, Errors: job.Errors, Earnings: jobLinkEarned}
+}
+
+// Index lists JobSpecs, one page at a time.
+// Example:
+//  "<application>/specs?size=1&page=2"
+func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
+	var order orm.SortType
+	if c.Query("sort") == "-createdAt" {
+		order = orm.Descending
+	} else {
+		order = orm.Ascending
+	}
+
+	jobs, count, err := jsc.App.GetStore().JobsSorted(order, offset, size)
+	pjs := make([]presenters.JobSpec, len(jobs))
+	for i, j := range jobs {
+		pjs[i] = presenters.JobSpec{JobSpec: j}
+	}
+
+	paginatedResponse(c, "Jobs", size, page, pjs, count, err)
 }
 
 // Create adds validates, saves, and starts a new JobSpec.
@@ -151,10 +156,4 @@ func (jsc *JobSpecsController) Destroy(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
-}
-
-func showJobPresenter(jsc *JobSpecsController, job models.JobSpec) presenters.JobSpec {
-	store := jsc.App.GetStore()
-	jobLinkEarned, _ := store.LinkEarnedFor(&job)
-	return presenters.JobSpec{JobSpec: job, Errors: job.Errors, Earnings: jobLinkEarned}
 }

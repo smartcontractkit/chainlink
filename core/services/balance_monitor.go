@@ -10,23 +10,28 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
-// BalanceMonitor checks the balance for each key on every new head
-type BalanceMonitor interface {
-	store.HeadTrackable
-	GetEthBalance(gethCommon.Address) *assets.Eth
-	Stop() error
-}
+type (
+	// BalanceMonitor checks the balance for each key on every new head
+	BalanceMonitor interface {
+		store.HeadTrackable
+		GetEthBalance(gethCommon.Address) *assets.Eth
+		Stop() error
+	}
 
-type balanceMonitor struct {
-	store          *store.Store
-	ethBalances    map[gethCommon.Address]*assets.Eth
-	ethBalancesMtx *sync.RWMutex
-	sleeperTask    SleeperTask
-}
+	balanceMonitor struct {
+		store          *store.Store
+		ethBalances    map[gethCommon.Address]*assets.Eth
+		ethBalancesMtx *sync.RWMutex
+		sleeperTask    utils.SleeperTask
+	}
+
+	NullBalanceMonitor struct{}
+)
 
 // NewBalanceMonitor returns a new balanceMonitor
 func NewBalanceMonitor(store *store.Store) BalanceMonitor {
@@ -35,7 +40,7 @@ func NewBalanceMonitor(store *store.Store) BalanceMonitor {
 		ethBalances:    make(map[gethCommon.Address]*assets.Eth),
 		ethBalancesMtx: new(sync.RWMutex),
 	}
-	bm.sleeperTask = NewSleeperTask(&worker{bm: bm})
+	bm.sleeperTask = utils.NewSleeperTask(&worker{bm: bm})
 	return bm
 }
 
@@ -140,3 +145,15 @@ func (w *worker) checkAccountBalance(k models.Key) {
 		w.bm.updateBalance(ethBal, k.Address.Address())
 	}
 }
+
+func (*NullBalanceMonitor) GetEthBalance(gethCommon.Address) *assets.Eth {
+	return nil
+}
+func (*NullBalanceMonitor) Stop() error {
+	return nil
+}
+func (*NullBalanceMonitor) Connect(head *models.Head) error {
+	return nil
+}
+func (*NullBalanceMonitor) Disconnect()                                             {}
+func (*NullBalanceMonitor) OnNewLongestChain(ctx context.Context, head models.Head) {}

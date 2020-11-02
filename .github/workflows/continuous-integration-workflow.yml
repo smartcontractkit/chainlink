@@ -3,7 +3,7 @@ name: Continuous Integration Workflow
 on: [push]
 
 env:
-  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a6
+  CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
   core:
@@ -13,7 +13,7 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
@@ -36,7 +36,7 @@ jobs:
         with:
           args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -45,7 +45,7 @@ jobs:
       - name: Install Yarn dependencies
         run: make yarndep
       - name: Cache Go vendor packages
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /go/pkg/mod
           key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
@@ -59,24 +59,17 @@ jobs:
         run: go run ./core local db preparetest
       - name: Run tests
         run: ./tools/bin/${{ matrix.cmd }}
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.cmd }}_logs
+          path: ./output.txt
       - name: Print postgres logs
         if: always()
         uses: docker://docker:latest
         with:
           args: logs ${{ job.services.postgres.id }}
-  rust:
-    name: Rust
-    runs-on: ubuntu-latest
-    container:
-      image: smartcontract/builder:1.0.36
-      env:
-        CARGO_HOME: /root/.cargo
-        RUSTUP_HOME: /root/.rustup
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Run Rust test
-        run: ./tools/ci/rust_test
 
   integration:
     name: Integration tests
@@ -109,12 +102,12 @@ jobs:
   solidity:
     name: Solidity
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -124,21 +117,16 @@ jobs:
         run: make yarndep
       - name: Run tests
         run: ./tools/ci/solidity_test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
 
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -148,48 +136,16 @@ jobs:
         run: make yarndep
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
-      - name: Store logs artifacts
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./integration/logs
-
-  reportcoverage:
-    name: Report test coverage
-    runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
-    needs: [core, solidity, operator-ui, rust]
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-      - name: Init GCloud
-        run: ./tools/ci/init_gcloud
-      - name: Run coverage report
-        run: ./tools/ci/report_coverage
-
-  check_if_rebase_needed:
-    name: Check if rebase needed
-    runs-on: ubuntu-latest
-    container: alpine/git
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v2
-        with:
-          # Default fetch depth of 1 prevents us from knowing if HEAD of develop
-          # branch is present in current branch
-          fetch-depth: 1000
-      - name: Check if rebase is needed
-        run: tools/bin/check_if_rebase_needed
 
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.36
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -200,15 +156,34 @@ jobs:
       - name: Run Yarn lint
         run: yarn lint
 
-  prepublish_npm:
-    name: Prepublish NPM
-    runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.36
+  prettier:
+    name: Prettier formatting check
+    runs-on: ubuntu-latest
+    container: smartcontract/builder:1.0.37
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache Yarn dependencies
-        uses: actions/cache@v1
+        uses: actions/cache@v2
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ env.CACHE_VERSION }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Run Yarn lint
+        run: yarn prettier:check
+
+  prepublish_npm:
+    name: Prepublish NPM
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container: smartcontract/builder:1.0.37
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v2
         with:
           path: /usr/local/share/.cache/yarn
           key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
@@ -224,7 +199,7 @@ jobs:
     runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
-        dockerfile: [core/chainlink.Dockerfile, core/chainlink-sgx.Dockerfile]
+        dockerfile: [core/chainlink.Dockerfile]
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -259,7 +234,7 @@ jobs:
           username: AWS # temporary
           password: ${{ steps.get-ecr-password.outputs.password }} # temporary
           dockerfile: ${{ matrix.dockerfile }}
-          build_args: COMMIT_SHA=${{ github.sha }},SGX_SIMULATION=${{ contains(matrix.dockerfile, 'sgx') }},ENVIRONMENT=release
+          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
           tags: githubactions
           add_git_labels: true
           tag_with_ref: true

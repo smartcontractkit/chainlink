@@ -11,21 +11,6 @@ GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
-# SGX is disabled by default, but turned on when building from Docker
-SGX_ENABLED ?= no
-SGX_SIMULATION ?= yes
-SGX_ENCLAVE := enclave.signed.so
-SGX_TARGET := ./core/sgx/target/$(ENVIRONMENT)/
-
-ifneq (,$(filter yes true,$(SGX_ENABLED)))
-	GOFLAGS += -tags=sgx_enclave
-	SGX_BUILD_ENCLAVE := $(SGX_ENCLAVE)
-	DOCKERFILE := core/chainlink-sgx.Dockerfile
-	REPO := $(REPO)-sgx
-else
-	SGX_BUILD_ENCLAVE :=
-endif
-
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 ECR_REPO := "$(AWS_ECR_ACCOUNT_URL):$(DOCKER_TAG)"
 
@@ -62,7 +47,7 @@ gen-builder-cache: gomod # generate a cache for the builder image
 install-chainlink: chainlink ## Install the chainlink binary.
 	cp $< $(GOBIN)/chainlink
 
-chainlink: $(SGX_BUILD_ENCLAVE) operator-ui ## Build the chainlink binary.
+chainlink: operator-ui ## Build the chainlink binary.
 	CGO_ENABLED=0 go run packr/main.go "${CURDIR}/core/services/eth" ## embed contracts in .go file
 	go build $(GOFLAGS) -o $@ ./core/
 
@@ -103,7 +88,6 @@ docker: ## Build the docker image.
 	docker build \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-		--build-arg SGX_SIMULATION=$(SGX_SIMULATION) \
 		-t $(TAGGED_REPO) \
 		-f $(DOCKERFILE) \
 		.
@@ -112,14 +96,6 @@ docker: ## Build the docker image.
 dockerpush: ## Push the docker image to dockerhub
 	docker push $(TAGGED_REPO)
 	docker push $(ECR_REPO)
-
-.PHONY: $(SGX_ENCLAVE)
-$(SGX_ENCLAVE):
-	@ENVIRONMENT=$(ENVIRONMENT) SGX_ENABLED=$(SGX_ENABLED) SGX_SIMULATION=$(SGX_SIMULATION) make -C core/sgx/
-	@ln -f $(SGX_TARGET)/libadapters.so core/sgx/target/libadapters.so
-
-.PHONY: enclave
-enclave: $(SGX_ENCLAVE)
 
 help:
 	@echo ""

@@ -50,11 +50,6 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
 
-	err = InitEnclave()
-	if err != nil {
-		return cli.errorOut(fmt.Errorf("error initializing SGX enclave: %+v", err))
-	}
-
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
 		logIfNonceOutOfSync(store)
@@ -71,6 +66,11 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(fmt.Errorf("error authenticating keystore: %+v", err))
 	}
+
+	if authErr := cli.KeyStoreAuthenticator.AuthenticateOCRKey(store, keyStorePwd); authErr != nil {
+		return cli.errorOut(errors.Wrapf(authErr, "while authenticating with OCR password"))
+	}
+
 	if len(c.String("vrfpassword")) != 0 {
 		vrfpwd, fileErr := passwordFromFile(c.String("vrfpassword"))
 		if fileErr != nil {
@@ -104,14 +104,16 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 		return err
 	}
 
-	fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
-	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
-	}
-	if currentBalance.Cmp(big.NewInt(0)) == 0 {
-		logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
-	} else {
-		logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+	if !store.Config.EthereumDisabled() {
+		fundingKey, currentBalance, err := setupFundingKey(context.TODO(), app.GetStore(), keyStorePwd)
+		if err != nil {
+			return cli.errorOut(errors.Wrap(err, "failed to generate a funding address"))
+		}
+		if currentBalance.Cmp(big.NewInt(0)) == 0 {
+			logger.Infow("The backup funding address does not have sufficient funds", "address", fundingKey.Address, "balance", currentBalance)
+		} else {
+			logger.Infow("Funding address ready", "address", fundingKey.Address, "current-balance", currentBalance)
+		}
 	}
 
 	return cli.errorOut(cli.Runner.Run(app))
@@ -386,6 +388,42 @@ func rebroadcastLegacyTransactions(store *strpkg.Store, beginningNonce uint, end
 		}
 	}
 	return nil
+}
+
+// HardReset will remove all non-started transactions if any are found.
+func (cli *Client) HardReset(c *clipkg.Context) error {
+	logger.SetLogger(cli.Config.CreateProductionLogger())
+
+	if !confirmAction(c) {
+		return nil
+	}
+
+	app, cleanupFn := cli.makeApp()
+	defer cleanupFn()
+	storeInstance := app.GetStore()
+	ormInstance := storeInstance.ORM
+
+	// Ensure that the CL node is down by trying to acquire the global advisory lock.
+	// This method will panic if it can't get the lock.
+	logger.Info("Make sure the Chainlink node is not running")
+	ormInstance.MustEnsureAdvisoryLock()
+
+	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
+		logger.Errorw("failed to remove unstarted transactions", "error", err)
+		return err
+	}
+
+	logger.Info("successfully reset the node state in the database")
+	return nil
+}
+
+func (cli *Client) makeApp() (chainlink.Application, func()) {
+	app := cli.AppFactory.NewApplication(cli.Config)
+	return app, func() {
+		if err := app.Stop(); err != nil {
+			logger.Errorw("Failed to stop the application on hard reset", "error", err)
+		}
+	}
 }
 
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL

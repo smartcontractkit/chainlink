@@ -1,6 +1,6 @@
 import { decamelizeKeys } from 'humps'
 
-export default configOptions => {
+export default (configOptions) => {
   return decamelizeKeys({
     data: {
       id: 'someConfigId',

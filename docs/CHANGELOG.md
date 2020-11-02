@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+Numerous key-related UX improvements:
+
+- All key-related commands have been consolidated under the `chainlink keys` subcommand:
+  - `chainlink createextrakey` => `chainlink keys eth create`
+  - `chainlink admin info` => `chainlink keys eth list`
+  - `chainlink node p2p [create|list|delete]` => `chainlink keys p2p [create|list|delete]`
+  - `chainlink node ocr [create|list|delete]` => `chainlink keys ocr [create|list|delete]`
+  - `chainlink node vrf [create|list|delete]` => `chainlink keys vrf [create|list|delete]`
+- Deleting OCR key bundles and P2P key bundles now archives them (i.e., soft delete) so that they can be recovered if needed. If you want to hard delete a key, pass the new `--hard` flag to the command, e.g. `chainlink keys p2p delete --hard 6`.
+- Output from ETH/OCR/P2P/VRF key CLI commands now renders consistently.
+- Deleting an OCR/P2P/VRF key now requires confirmation from the user. To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
+- The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
+
+## [0.9.3] - 2020-11-02
+
+### Added
+
+- Add new subcommand `node hard-reset` which is used to remove all state for unstarted and pending job runs from the database.
+
+### Changed
+
+- Chainlink now requires Postgres >= 11.x. Previously this was a recommendation, this is now a hard requirement. Migrations will fail if run on an older version of Postgres.
+- Database improvements that greatly reduced the number of open Postgres connections
+- Operator UI /jobs page is now searchable
+- Jobs now accept a name field in the jobspecs
+
 ## [0.9.2] - 2020-10-15
 
 ### Added
@@ -15,11 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fluxmonitor support enabled by default
 
 ### Fixed
+
 - Improve transaction manager architecture to be more compatible with `ETH_SECONDARY_URL` option (i.e. concurrent transaction submission to multiple different eth nodes). This also comes with some minor performance improvements in the tx manager and more correct handling of some extremely rare edge cases.
 - As a side-effect, we now no longer handle the case where an external wallet used the chainlink ethereum private key to send a transaction. This use-case was already explicitly unsupported, but we made a best-effort attempt to handle it. We now make no attempt at all to handle it and doing this WILL result in your node not sending the data that it expected to be sent for the nonces that were used by an external wallet.
 - Operator UI now shows booleans correctly
 
 ### Changed
+
 - ETH_MAX_GAS_PRICE_WEI now 1500Gwei by default
 
 ## [0.8.18] - 2020-10-01
@@ -54,7 +84,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - ETH_DISABLED flag works again
-
 
 ## [0.8.15] - 2020-09-14
 
@@ -101,7 +130,7 @@ A new prometheus metric is also introduced to track dropped heads, called `head_
 ### Fixed
 
 - Added a workaround for Infura users who are seeing "error getting balance: header not found".
-This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
+  This behaviour is due to Infura announcing it has a block, but when we request our balance in this block, the eth node doesn't have the block in memory. The workaround is to add a configurable lag time on balance update requests. The default is set to 1 but this is configurable via a new environment variable `ETH_BALANCE_MONITOR_BLOCK_DELAY`.
 
 ## [0.8.11] - 2020-07-27
 
@@ -117,7 +146,7 @@ This behaviour is due to Infura announcing it has a block, but when we request o
 
 - Support for RunLogTopic0original and RunLogTopic20190123withFullfillmentParams logs has been dropped. This should not affect any users since these logs predate Chainlink's mainnet launch and have never been used on mainnet.
 
-IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by  defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
+IMPORTANT: The selection mechanism for keys has changed. When an ethtx task spec is not pinned to a particular key by defining `fromAddress` or `fromAddresses`, the node will now cycle through all available keys in round robin fashion. This is a change from the previous behaviour where nodes would only pick the earliest created key.
 
 This is done to allow increases in throughput when a node operator has multiple whitelisted addresses for their oracle.
 
@@ -132,6 +161,7 @@ If your node only has one key, no action is required.
 ## [0.8.10] - 2020-07-14
 
 ### Fixed
+
 - Incorrect sequence on keys table in some edge cases
 
 ## [0.8.9] - 2020-07-13
@@ -143,6 +173,7 @@ If your node only has one key, no action is required.
 - Gas Bumper now bumps based on the current gas price instead of the gas price of the original transaction
 
 ### Fixed
+
 - Support for multiple node addresses
 
 ## [0.8.8] - 2020-06-29

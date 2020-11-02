@@ -3,7 +3,7 @@
 # If you modify this, make sure to make corresponding modifications to the scripts in forks/scripts.
 # Geth is bad about letting you know when it's getting inconsistent inputs, so be careful.
 
-version: "3.7"
+version: '3.7'
 
 services:
   geth:
@@ -24,7 +24,7 @@ services:
         ipv4_address: 172.16.1.100
     secrets:
       - password
-      - "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f"
+      - '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f'
 
   # imports the 0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6 key into the CL db
   chainlink_key_import:
@@ -35,7 +35,7 @@ services:
     environment:
       - ROOT=/clroot
     secrets:
-      - "0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6"
+      - '0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6'
 
   chainlink:
     image: smartcontract/chainlink
@@ -77,8 +77,7 @@ secrets:
     file: ../../tools/secrets/password.txt
   apicredentials:
     file: ../../tools/secrets/apicredentials
-  "0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f":
+  '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f':
     file: ../../tools/secrets/0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f.json
-  "0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6":
+  '0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6':
     file: ../../tools/secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
-

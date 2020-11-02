@@ -8,20 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type (
-	db struct {
-		*sql.DB
-		oracleSpecID int
-	}
-)
+type db struct {
+	*sql.DB
+	oracleSpecID int32
+}
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int) ocrtypes.Database {
+func NewDB(sqldb *sql.DB, oracleSpecID int32) ocrtypes.Database {
 	return &db{sqldb, oracleSpecID}
 }
 
@@ -74,10 +73,10 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest) DO UPDATE SET
 
 func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err error) {
 	q := d.QueryRowContext(ctx, `
-SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
-FROM offchainreporting_contract_configs
-WHERE offchainreporting_oracle_spec_id = $1
-LIMIT 1`, d.oracleSpecID)
+	SELECT config_digest, signers, transmitters, threshold, encoded_config_version, encoded
+	FROM offchainreporting_contract_configs
+	WHERE offchainreporting_oracle_spec_id = $1
+	LIMIT 1`, d.oracleSpecID)
 
 	c = new(ocrtypes.ContractConfig)
 
@@ -168,7 +167,7 @@ ON CONFLICT (offchainreporting_oracle_spec_id, config_digest, epoch, round) DO U
 
 func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtypes.ConfigDigest) (map[ocrtypes.PendingTransmissionKey]ocrtypes.PendingTransmission, error) {
 	rows, err := d.QueryContext(ctx, `
-SELECT 
+SELECT
 	config_digest,
 	epoch,
 	round,

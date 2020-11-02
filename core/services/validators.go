@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"regexp"
 	"strings"
@@ -11,11 +12,14 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"go.uber.org/multierr"
 
+	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -133,9 +137,6 @@ func ValidateInitiator(i models.Initiator, j models.JobSpec, store *store.Store)
 func validateFluxMonitor(i models.Initiator, j models.JobSpec, store *store.Store) error {
 	fe := models.NewJSONAPIErrors()
 
-	if store.Config.EthereumDisabled() {
-		fe.Add("cannot add flux monitor jobs when ethereum is disabled")
-	}
 	if i.Address == utils.ZeroAddress {
 		fe.Add("no address")
 	}
@@ -322,9 +323,6 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 		if _, ok := adapter.BaseAdapter.(*adapters.Sleep); ok {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
-		if _, ok := adapter.BaseAdapter.(*adapters.EthTxABIEncode); ok {
-			return errors.New("EthTxABIEncode Adapter is not implemented yet")
-		}
 	}
 	return nil
 }
@@ -378,4 +376,23 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	}
 
 	return fe.CoerceEmptyToNil()
+}
+
+// ValidatedOracleSpec validates an oracle spec that came from TOML
+func ValidatedOracleSpec(r io.Reader) (spec offchainreporting.OracleSpec, err error) {
+	var m toml.MetaData
+	m, err = toml.DecodeReader(r, &spec)
+	if err != nil {
+		return spec, err
+	}
+	if spec.Type != "offchainreporting" {
+		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
+	}
+	if spec.SchemaVersion != uint32(1) {
+		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
+	}
+	for _, k := range m.Undecoded() {
+		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
+	}
+	return
 }

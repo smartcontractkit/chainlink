@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -998,8 +997,15 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	explorerClient := synchronization.NewExplorerClient(cltest.MustParseURL("http://localhost"), "", "")
+	err := explorerClient.Start()
+	require.NoError(t, err)
+	defer explorerClient.Close()
+
 	orm := store.ORM
-	synchronization.NewStatsPusher(orm, cltest.MustParseURL("http://localhost"), "", "")
+	statsPusher := synchronization.NewStatsPusher(orm, explorerClient)
+	require.NoError(t, statsPusher.Start())
+	defer statsPusher.Close()
 
 	// Create two events via job run callback
 	job := cltest.NewJobWithWebInitiator()
@@ -1008,7 +1014,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 
 	oldIncompleteRun := cltest.NewJobRun(job)
 	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
-	err := orm.CreateJobRun(&oldIncompleteRun)
+	err = orm.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)
@@ -1246,8 +1252,7 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 
 	testJSON := cltest.JSONFromString(t, "{}")
 
-	earlierAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
-	require.NoError(t, err)
+	earlierAddress := cltest.DefaultKeyAddressEIP55
 	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
 
 	require.NoError(t, orm.CreateKeyIfNotExists(earlier))
@@ -1275,8 +1280,7 @@ func TestORM_SendKeys(t *testing.T) {
 
 	testJSON := cltest.JSONFromString(t, "{}")
 
-	sendingAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
-	require.NoError(t, err)
+	sendingAddress := cltest.DefaultKeyAddressEIP55
 	sending := models.Key{Address: sendingAddress, JSON: testJSON}
 
 	require.NoError(t, orm.CreateKeyIfNotExists(sending))
@@ -1301,17 +1305,18 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := store.ORM
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 	keysDir := store.Config.KeysDir()
 	// Clear out the fixture
 	require.NoError(t, os.RemoveAll(keysDir))
-	require.NoError(t, store.DeleteKey(hexutil.MustDecode("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")))
+	require.NoError(t, store.DeleteKey(cltest.DefaultKeyAddress[:]))
 	// Fixture key is deleted
 	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 0)
 
-	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	seed, err := models.NewKeyFromFile(fmt.Sprintf("../../internal/fixtures/keys/%s", cltest.DefaultKeyFixtureFileName))
 	require.NoError(t, err)
 	require.NoError(t, orm.CreateKeyIfNotExists(seed))
 
@@ -1331,6 +1336,76 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	content, err := utils.FileContents(filepath.Join(keysDir, diskkeys[0]))
 	require.NoError(t, err)
 	assert.Equal(t, key.JSON.String(), content)
+}
+
+const linkEthTxWithTaskRunQuery = `
+INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)
+`
+
+func TestORM_RemoveUnstartedTransaction(t *testing.T) {
+	storeInstance, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ormInstance := storeInstance.ORM
+
+	jobSpec := cltest.NewJobWithRunLogInitiator()
+	require.NoError(t, storeInstance.CreateJob(&jobSpec))
+
+	for _, status := range []models.RunStatus{
+		"in_progress",
+		"unstarted",
+	} {
+		jobRun := cltest.NewJobRun(jobSpec)
+		jobRun.Status = status
+		jobRun.TaskRuns = []models.TaskRun{
+			{
+				ID:         models.NewID(),
+				Status:     models.RunStatusUnstarted,
+				TaskSpecID: jobSpec.Tasks[0].ID,
+			},
+		}
+		runRequest := models.NewRunRequest(models.JSON{})
+		require.NoError(t, storeInstance.DB.Create(&runRequest).Error)
+		jobRun.RunRequest = *runRequest
+		require.NoError(t, storeInstance.CreateJobRun(&jobRun))
+
+		key := cltest.MustInsertRandomKey(t, storeInstance)
+		ethTx := cltest.NewEthTx(t, storeInstance, key.Address.Address())
+		ethTx.State = models.EthTxState(status)
+		if status == "in_progress" {
+			var nonce int64 = 1
+			ethTx.Nonce = &nonce
+		}
+		require.NoError(t, storeInstance.DB.Save(&ethTx).Error)
+
+		ethTxAttempt := cltest.NewEthTxAttempt(t, ethTx.ID)
+		ethTxAttempt.State = models.EthTxAttemptInProgress
+		require.NoError(t, storeInstance.DB.Save(&ethTxAttempt).Error)
+
+		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID.UUID(), ethTx.ID).Error)
+	}
+
+	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
+
+	jobRuns, err := ormInstance.JobRunsFor(jobSpec.ID, 10)
+	assert.NoError(t, err)
+	assert.Len(t, jobRuns, 1, "expected only one JobRun to be left in the db")
+	assert.Equal(t, jobRuns[0].Status, models.RunStatusInProgress)
+
+	taskRuns := []models.TaskRun{}
+	assert.NoError(t, storeInstance.DB.Find(&taskRuns).Error)
+	assert.Len(t, taskRuns, 1, "expected only one TaskRun to be left in the db")
+
+	runRequests := []models.RunRequest{}
+	assert.NoError(t, storeInstance.DB.Find(&runRequests).Error)
+	assert.Len(t, runRequests, 1, "expected only one RunRequest to be left in the db")
+
+	ethTxes := []models.EthTx{}
+	assert.NoError(t, storeInstance.DB.Find(&ethTxes).Error)
+	assert.Len(t, ethTxes, 1, "expected only one EthTx to be left in the db")
+
+	ethTxAttempts := []models.EthTxAttempt{}
+	assert.NoError(t, storeInstance.DB.Find(&ethTxAttempts).Error)
+	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
 }
 
 func TestORM_UpdateBridgeType(t *testing.T) {
@@ -1992,7 +2067,7 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	defer cleanup()
 
 	fundingKey := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`), IsFunding: true}
-	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	k0Address := cltest.DefaultKey
 	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
 	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
 
@@ -2043,4 +2118,24 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
+}
+
+func TestORM_MarkLogConsumed(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := store.ORM
+
+	blockHash := cltest.NewHash()
+	logIndex := uint(42)
+	job := cltest.MustInsertJobSpec(t, store)
+	blockNumber := uint64(142)
+
+	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
+
+	res, err := orm.DB.DB().Exec(`SELECT * FROM log_consumptions;`)
+	require.NoError(t, err)
+	rowsaffected, err := res.RowsAffected()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), rowsaffected)
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/stretchr/testify/assert"
 )
 

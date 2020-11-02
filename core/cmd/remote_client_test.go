@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -12,7 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,7 +27,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func TestClient_DisplayAccountBalance(t *testing.T) {
+func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -38,10 +42,10 @@ func TestClient_DisplayAccountBalance(t *testing.T) {
 
 	client, r := app.NewClientAndRenderer()
 
-	assert.Nil(t, client.DisplayAccountBalance(cltest.EmptyCLIContext()))
+	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
 	from := cltest.GetAccountAddress(t, app.GetStore())
-	balances := *r.Renders[0].(*[]presenters.AccountBalance)
+	balances := *r.Renders[0].(*[]presenters.ETHKey)
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
 
@@ -991,4 +995,150 @@ func TestClient_CancelJobRun(t *testing.T) {
 	require.Len(t, runs, 1)
 	assert.Equal(t, models.RunStatusCancelled, runs[0].GetStatus())
 	assert.NotNil(t, runs[0].FinishedAt)
+}
+
+func TestClient_P2P_CreateKey(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.CreateP2PKey(c))
+
+	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+
+	// Created + fixture key
+	require.Len(t, keys, 2)
+
+	for _, e := range keys {
+		_, err = e.Decrypt(cltest.Password)
+		require.NoError(t, err)
+	}
+}
+
+func TestClient_P2P_DeleteKey(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
+
+	key, err := p2pkey.CreateKey()
+	require.NoError(t, err)
+	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
+	require.NoError(t, err)
+	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
+	require.NoError(t, err)
+
+	keys, err := app.Store.OCRKeyStore.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	// Created  + fixture key
+	require.Len(t, keys, 2)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+
+	err = client.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	set = flag.NewFlagSet("test", 0)
+	set.Bool("yes", true, "")
+	strID := strconv.FormatInt(int64(encKey.ID), 10)
+	set.Parse([]string{strID})
+	c = cli.NewContext(nil, set, nil)
+	err = client.DeleteP2PKey(c)
+	require.NoError(t, err)
+
+	keys, err = app.Store.OCRKeyStore.FindEncryptedP2PKeys()
+	require.NoError(t, err)
+	// fixture key only
+	require.Len(t, keys, 1)
+}
+
+func TestClient_CreateOCRKeyBundle(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.CreateOCRKeyBundle(c))
+
+	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
+	require.NoError(t, err)
+
+	// Created key + fixture key
+	require.Len(t, keys, 2)
+
+	for _, e := range keys {
+		_, err = e.Decrypt(cltest.Password)
+		require.NoError(t, err)
+	}
+}
+
+func TestClient_DeleteOCRKeyBundle(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterChainID,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	app.Store.OCRKeyStore.Unlock(cltest.Password)
+
+	key, err := ocrkey.NewKeyBundle()
+	require.NoError(t, err)
+	encKey, err := key.Encrypt(cltest.Password, utils.FastScryptParams)
+	require.NoError(t, err)
+	err = app.Store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
+	require.NoError(t, err)
+
+	keys, err := app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	require.NoError(t, err)
+	// Created key + fixture key
+	require.Len(t, keys, 2)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{key.ID.String()})
+	set.String("file", "internal/fixtures/apicredentials", "")
+	set.Bool("yes", true, "")
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.DeleteOCRKeyBundle(c))
+
+	keys, err = app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	require.NoError(t, err)
+	// Only fixture key remains
+	require.Len(t, keys, 1)
 }

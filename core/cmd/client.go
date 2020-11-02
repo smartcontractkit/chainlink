@@ -10,11 +10,14 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -65,7 +68,20 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return chainlink.NewApplication(config, onConnectCallbacks...)
+	var ethClient eth.Client
+	if config.EthereumDisabled() {
+		logger.Info("ETH_DISABLED is set, using Null eth.Client")
+		ethClient = &eth.NullClient{}
+	} else {
+		var err error
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
+		if err != nil {
+			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+		}
+	}
+
+	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
+	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -500,4 +516,26 @@ type passwordPrompter struct {
 
 func (c passwordPrompter) Prompt() string {
 	return c.prompter.PasswordPrompt("Password:")
+}
+
+func confirmAction(c *clipkg.Context) bool {
+	if len(c.String("yes")) > 0 {
+		yes, err := strconv.ParseBool(c.String("yes"))
+		if err == nil && yes {
+			return true
+		}
+	}
+
+	prompt := NewTerminalPrompter()
+	var answer string
+	for {
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		if answer == "yes" {
+			return true
+		} else if answer == "no" {
+			return false
+		} else {
+			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
+		}
+	}
 }

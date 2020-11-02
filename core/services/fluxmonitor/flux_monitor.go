@@ -63,7 +63,6 @@ type concreteFluxMonitor struct {
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
 	chDone         chan struct{}
-	disabled       bool
 	started        bool
 }
 
@@ -79,10 +78,6 @@ func New(
 	runManager RunManager,
 	logBroadcaster eth.LogBroadcaster,
 ) Service {
-	if store.Config.EthereumDisabled() {
-		return &concreteFluxMonitor{disabled: true}
-	}
-
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -101,11 +96,6 @@ func New(
 }
 
 func (fm *concreteFluxMonitor) Start() error {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: skipping start")
-		return nil
-	}
-
 	go fm.serveInternalRequests()
 	fm.started = true
 
@@ -137,12 +127,6 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	if fm.disabled {
-		logger.Info("Flux monitor disabled: cannot stop")
-		return
-	}
-
-	fm.logBroadcaster.Stop()
 	close(fm.chStop)
 	if fm.started {
 		fm.started = false
@@ -279,7 +263,8 @@ func (f pollingDeviationCheckerFactory) New(
 	fetcher, err := newMedianFetcherFromURLs(
 		timeout,
 		requestData,
-		urls)
+		urls,
+		f.store.Config.DefaultHTTPLimit())
 	if err != nil {
 		return nil, err
 	}
@@ -453,18 +438,22 @@ func (p *PollingDeviationChecker) Start() {
 }
 
 func (p *PollingDeviationChecker) setIsHibernatingStatus() {
-	if p.flagsContract != nil {
-		isHibernating, err := p.isFlagRaised()
-		if err != nil {
-			panic(err)
-		}
-		p.isHibernating = isHibernating
+	if p.flagsContract == nil {
+		p.isHibernating = false
+		return
+	}
+	isFlagLowered, err := p.isFlagLowered()
+	if err != nil {
+		logger.Errorf("unable to set hibernation status: %v", err)
+		p.isHibernating = false
+	} else {
+		p.isHibernating = !isFlagLowered
 	}
 }
 
-func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
+func (p *PollingDeviationChecker) isFlagLowered() (bool, error) {
 	if p.flagsContract == nil {
-		return false, nil
+		return true, nil
 	}
 	callOpts := bind.CallOpts{
 		Pending: false,
@@ -472,9 +461,9 @@ func (p *PollingDeviationChecker) isFlagRaised() (bool, error) {
 	}
 	flags, err := p.flagsContract.GetFlags(&callOpts, []common.Address{utils.ZeroAddress, p.initr.Address})
 	if err != nil {
-		return false, err
+		return true, err
 	}
-	return flags[0] || flags[1], nil
+	return !flags[0] || !flags[1], nil
 }
 
 // Stop stops this instance from polling, cleaning up resources.
@@ -502,6 +491,10 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	)
 	p.connected.UnSet()
 }
+
+func (p *PollingDeviationChecker) JobID() *models.ID { return p.initr.JobSpecID }
+func (p *PollingDeviationChecker) JobIDV2() int32    { return 0 }
+func (p *PollingDeviationChecker) IsV2Job() bool     { return false }
 
 func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err error) {
 	if err != nil {
@@ -662,30 +655,35 @@ func (p *PollingDeviationChecker) processLogs() {
 		switch log := broadcast.DecodedLog().(type) {
 		case *contracts.LogNewRound:
 			p.respondToNewRoundLog(*log)
-			err := broadcast.MarkConsumed()
+			err = broadcast.MarkConsumed()
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *contracts.LogAnswerUpdated:
 			p.respondToAnswerUpdatedLog(*log)
-			err := broadcast.MarkConsumed()
+			err = broadcast.MarkConsumed()
 			if err != nil {
 				logger.Errorf("Error marking log as consumed: %v", err)
 			}
 
 		case *flags_wrapper.FlagsFlagRaised:
-			p.hibernate()
+			// check the contract before hibernating, because one flag could be lowered
+			// while the other flag remains raised
+			var isFlagLowered bool
+			isFlagLowered, err = p.isFlagLowered()
+			logger.ErrorIf(err, "Error determining if flag is still raised")
+			if !isFlagLowered {
+				p.hibernate()
+			}
+			err = broadcast.MarkConsumed()
+			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
-			// check the contract before reactivating, because one flag could be lowered
-			// while the other flag remains raised
-			raised, err := p.isFlagRaised()
-			if err != nil {
-				logger.Errorf("Error determining if flag is still raised: %v", err)
-			} else if !raised {
-				p.reactivate()
-			}
+			p.reactivate()
+			err = broadcast.MarkConsumed()
+			logger.ErrorIf(err, "Error marking log as consumed")
+
 		default:
 			logger.Errorf("unknown log %v of type %T", log, log)
 		}
@@ -1170,10 +1168,6 @@ func (p *PollingDeviationChecker) loggerFieldsForAnswerUpdated(log contracts.Log
 		"contract", log.Address.Hex(),
 		"job", p.initr.JobSpecID,
 	}
-}
-
-func (p *PollingDeviationChecker) JobID() *models.ID {
-	return p.initr.JobSpecID
 }
 
 // OutsideDeviation checks whether the next price is outside the threshold.

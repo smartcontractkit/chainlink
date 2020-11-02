@@ -48,6 +48,10 @@ contract Operator is
     bytes32 indexed requestId
   );
 
+  event OracleResponse(
+    bytes32 indexed requestId
+  );
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -151,6 +155,7 @@ contract Operator is
     require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
     s_withdrawableTokens = s_withdrawableTokens.add(payment);
     delete s_commitments[requestId];
+    emit OracleResponse(requestId);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.

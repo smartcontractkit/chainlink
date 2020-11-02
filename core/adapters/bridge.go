@@ -2,6 +2,7 @@ package adapters
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
@@ -74,7 +76,10 @@ func (ba *Bridge) handleNewRun(input models.RunInput, meta *models.JSON, store *
 		responseURL.Path += fmt.Sprintf("/v2/runs/%s", input.JobRunID().String())
 	}
 
-	httpConfig := defaultHTTPConfig(store)
+	httpConfig := defaultHTTPConfig(store.Config)
+	// URL is "safe" because it comes from the node's own database
+	// Some node operators may run external adapters on their own hardware
+	httpConfig.AllowUnrestrictedNetworkAccess = true
 
 	body, err := ba.postToExternalAdapter(input, meta, responseURL, httpConfig)
 	if err != nil {
@@ -116,7 +121,7 @@ func (ba *Bridge) postToExternalAdapter(
 	input models.RunInput,
 	meta *models.JSON,
 	bridgeResponseURL *url.URL,
-	config HTTPRequestConfig,
+	config utils.HTTPRequestConfig,
 ) ([]byte, error) {
 	data, err := models.Merge(input.Data(), ba.Params)
 	if err != nil {
@@ -139,9 +144,12 @@ func (ba *Bridge) postToExternalAdapter(
 	request.Header.Set("Authorization", "Bearer "+ba.BridgeType.OutgoingToken)
 	request.Header.Set("Content-Type", "application/json")
 
-	client := http.Client{}
+	httpRequest := utils.HTTPRequest{
+		Request: request,
+		Config:  config,
+	}
 
-	bytes, statusCode, err := withRetry(&client, request, config)
+	bytes, statusCode, err := httpRequest.SendRequest(context.TODO())
 
 	if err != nil {
 		return nil, err

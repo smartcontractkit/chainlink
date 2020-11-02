@@ -23,8 +23,6 @@ var (
 	TaskTypeEthUint256 = models.MustNewTaskType("ethuint256")
 	// TaskTypeEthTx is the identifier for the EthTx adapter.
 	TaskTypeEthTx = models.MustNewTaskType("ethtx")
-	// TaskTypeEthTxABIEncode is the identifier for the EthTxABIEncode adapter.
-	TaskTypeEthTxABIEncode = models.MustNewTaskType("ethtxabiencode")
 	// TaskTypeHTTPGetWithUnrestrictedNetworkAccess is the identifier for the HTTPGet adapter, with local/private IP access enabled.
 	TaskTypeHTTPGetWithUnrestrictedNetworkAccess = models.MustNewTaskType("httpgetwithunrestrictednetworkaccess")
 	// TaskTypeHTTPPostWithUnrestrictedNetworkAccess is the identifier for the HTTPPost adapter, with local/private IP access enabled.
@@ -43,8 +41,6 @@ var (
 	TaskTypeNoOpPendOutgoing = models.MustNewTaskType("nooppendoutgoing")
 	// TaskTypeSleep is the identifier for the Sleep adapter.
 	TaskTypeSleep = models.MustNewTaskType("sleep")
-	// TaskTypeWasm is the wasm interpereter adapter
-	TaskTypeWasm = models.MustNewTaskType("wasm")
 	// TaskTypeRandom is the identifier for the Random adapter.
 	TaskTypeRandom = models.MustNewTaskType("random")
 	// TaskTypeCompare is the identifier for the Compare adapter.
@@ -125,8 +121,6 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &EthUint256{}
 	case TaskTypeEthTx:
 		return &EthTx{}
-	case TaskTypeEthTxABIEncode:
-		return &EthTxABIEncode{}
 	case TaskTypeHTTPGetWithUnrestrictedNetworkAccess:
 		return &HTTPGet{AllowUnrestrictedNetworkAccess: true}
 	case TaskTypeHTTPPostWithUnrestrictedNetworkAccess:
@@ -145,8 +139,6 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &NoOpPendOutgoing{}
 	case TaskTypeSleep:
 		return &Sleep{}
-	case TaskTypeWasm:
-		return &Wasm{}
 	case TaskTypeRandom:
 		return &Random{}
 	case TaskTypeCompare:

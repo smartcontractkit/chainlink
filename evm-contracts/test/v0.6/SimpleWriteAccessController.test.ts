@@ -8,7 +8,7 @@ const provider = setup.provider()
 let personas: setup.Personas
 let tx: ethers.ContractTransaction
 beforeAll(async () => {
-  await setup.users(provider).then(u => (personas = u.personas))
+  await setup.users(provider).then((u) => (personas = u.personas))
 })
 
 describe('SimpleWriteAccessController', () => {

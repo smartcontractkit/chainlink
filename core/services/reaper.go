@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type storeReaper struct {
@@ -14,8 +15,8 @@ type storeReaper struct {
 }
 
 // NewStoreReaper creates a reaper that cleans stale objects from the store.
-func NewStoreReaper(store *store.Store) SleeperTask {
-	return NewSleeperTask(&storeReaper{
+func NewStoreReaper(store *store.Store) utils.SleeperTask {
+	return utils.NewSleeperTask(&storeReaper{
 		store:  store,
 		config: store.Config,
 	})

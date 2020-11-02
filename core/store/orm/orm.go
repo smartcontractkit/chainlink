@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
+
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -55,7 +54,7 @@ type ORM struct {
 	shutdownSignal      gracefulpanic.Signal
 }
 
-// NewORM initializes a new database file at the configured uri.
+// NewORM initializes the orm with the configured uri
 func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
 	ct, err := NewConnection(dialect, uri, advisoryLockID)
 	if err != nil {
@@ -1266,9 +1265,14 @@ func (orm *ORM) KeyExists(address []byte) (bool, error) {
 	return true, err
 }
 
+// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
+func (orm *ORM) ArchiveKey(address []byte) error {
+	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
+}
+
 // DeleteKey deletes a key whose address matches the supplied bytes.
 func (orm *ORM) DeleteKey(address []byte) error {
-	return orm.DB.Exec("DELETE FROM keys WHERE address = ?", address).Error
+	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
 }
 
 // CreateKeyIfNotExists inserts a key if a key with that address doesn't exist already
@@ -1287,9 +1291,14 @@ func (orm *ORM) FirstOrCreateEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) er
 	return orm.DB.FirstOrCreate(k).Error
 }
 
+// ArchiveEncryptedVRFKey soft-deletes k from the encrypted keys table, or errors
+func (orm *ORM) ArchiveEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
+	return orm.DB.Delete(k).Error
+}
+
 // DeleteEncryptedVRFKey deletes k from the encrypted keys table, or errors
 func (orm *ORM) DeleteEncryptedSecretVRFKey(k *vrfkey.EncryptedVRFKey) error {
-	return orm.DB.Delete(k).Error
+	return orm.DB.Unscoped().Delete(k).Error
 }
 
 // FindEncryptedVRFKeys retrieves matches to where from the encrypted keys table, or errors
@@ -1302,56 +1311,6 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 		anonWhere = append(anonWhere, &c)
 	}
 	return retrieved, orm.DB.Find(&retrieved, anonWhere...).Error
-}
-
-func (orm *ORM) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Set("gorm:insert_option", "ON CONFLICT (pub_key) DO UPDATE SET encrypted_priv_key=EXCLUDED.encrypted_priv_key, updated_at=NOW()").Create(k).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeys() (keys []p2pkey.EncryptedP2PKey, err error) {
-	return keys, orm.DB.Find(&keys).Error
-}
-
-func (orm *ORM) FindEncryptedP2PKeyByID(id int32) (*p2pkey.EncryptedP2PKey, error) {
-	key := p2pkey.EncryptedP2PKey{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-func (orm *ORM) DeleteEncryptedP2PKey(key *p2pkey.EncryptedP2PKey) error {
-	return orm.DB.Delete(key).Error
-}
-
-// CreateEncryptedOCRKeyBundle creates an encrypted OCR private key record
-func (orm *ORM) CreateEncryptedOCRKeyBundle(keys *ocrkey.EncryptedKeyBundle) error {
-	return orm.DB.Create(keys).Error
-}
-
-// FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
-func (orm *ORM) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
-	err = orm.DB.Find(&keys).Error
-	if err != nil {
-		return nil, err
-	}
-	return keys, nil
-}
-
-// FindEncryptedOCRKeyBundleByID finds an EncryptedKeyBundle bundle by it's ID
-func (orm *ORM) FindEncryptedOCRKeyBundleByID(id string) (*ocrkey.EncryptedKeyBundle, error) {
-	key := ocrkey.EncryptedKeyBundle{}
-	err := orm.DB.Where("id = ?", id).First(&key).Error
-	if err != nil {
-		return nil, err
-	}
-	return &key, nil
-}
-
-// DeleteEncryptedOCRKeyBundle deletes the provided encrypted OCR key bundle
-func (orm *ORM) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) (err error) {
-	return orm.DB.Delete(key).Error
 }
 
 // GetRoundRobinAddress queries the database for the address of a random ethereum key derived from the id.
@@ -1403,10 +1362,36 @@ func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *mode
 	return exists, nil
 }
 
+// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
+func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
+	query := "SELECT exists (" +
+		"SELECT id FROM log_consumptions " +
+		"WHERE block_hash=$1 " +
+		"AND log_index=$2 " +
+		"AND job_id_v2=$3" +
+		")"
+
+	var exists bool
+	err := orm.DB.DB().
+		QueryRow(query, blockHash, logIndex, jobID).
+		Scan(&exists)
+	if err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return exists, nil
+}
+
 // MarkLogConsumed creates a new LogConsumption record
 func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
 	orm.MustEnsureAdvisoryLock()
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
+	return orm.DB.Create(&lc).Error
+}
+
+// MarkLogConsumedV2 creates a new LogConsumption record
+func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
+	orm.MustEnsureAdvisoryLock()
+	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
@@ -1499,6 +1484,31 @@ func toISO8601(t time.Time) string {
 	}
 	return fmt.Sprintf("%04d-%02d-%02dT%02d-%02d-%02d.%09d%s",
 		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
+}
+
+// These two queries trigger cascading deletes in the following tables:
+// (run_requests) --> (job_runs) --> (task_runs)
+// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
+const removeUnstartedJobRunsQuery = `
+DELETE FROM run_requests
+WHERE id IN (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE status = 'unstarted'
+)
+`
+const removeUnstartedTransactionsQuery = `
+DELETE FROM eth_txes
+WHERE state = 'unstarted'
+`
+
+func (orm *ORM) RemoveUnstartedTransactions() error {
+	return orm.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+			return err
+		}
+		return tx.Exec(removeUnstartedTransactionsQuery).Error
+	})
 }
 
 func (orm *ORM) CountOf(t interface{}) (int, error) {
@@ -1612,14 +1622,6 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 
 	if err := dbutil.SetTimezone(db); err != nil {
 		return nil, err
-	}
-
-	if ct.transactionWrapped {
-		// Required to prevent phantom reads in overlapping tests
-		err := db.Exec(`SET SESSION CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL SERIALIZABLE`).Error
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return db, nil
