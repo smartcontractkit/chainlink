@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -38,27 +40,35 @@ type Store struct {
 	Clock          utils.AfterNower
 	KeyStore       KeyStoreInterface
 	VRFKeyStore    *VRFKeyStore
+	OCRKeyStore    *offchainreporting.KeyStore
 	TxManager      TxManager
 	EthClient      eth.Client
 	NotifyNewEthTx NotifyNewEthTx
+	AdvisoryLocker postgres.AdvisoryLocker
 	closeOnce      *sync.Once
 }
 
 // NewStore will create a new store
-func NewStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore { return NewKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
+	keyStore := func() *KeyStore {
+		scryptParams := utils.GetScryptParams(config)
+		return NewKeyStore(config.KeysDir(), scryptParams)
+	}
+	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStore, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, shutdownSignal gracefulpanic.Signal) *Store {
+func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
 	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, advisoryLocker, keyStore, shutdownSignal)
 }
 
+// TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
 func newStoreWithKeyStore(
 	config *orm.Config,
+	ethClient eth.Client,
+	advisoryLocker postgres.AdvisoryLocker,
 	keyStoreGenerator func() *KeyStore,
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
@@ -73,21 +83,20 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	ethClient, err := eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
-	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
-	}
 	keyStore := keyStoreGenerator()
 	txManager := NewEthTxManager(ethClient, config, keyStore, orm)
+	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
-		Clock:     utils.Clock{},
-		Config:    config,
-		KeyStore:  keyStore,
-		ORM:       orm,
-		TxManager: txManager,
-		EthClient: ethClient,
-		closeOnce: &sync.Once{},
+		Clock:          utils.Clock{},
+		AdvisoryLocker: advisoryLocker,
+		Config:         config,
+		KeyStore:       keyStore,
+		OCRKeyStore:    offchainreporting.NewKeyStore(orm.DB, scryptParams),
+		ORM:            orm,
+		TxManager:      txManager,
+		EthClient:      ethClient,
+		closeOnce:      &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
 	return store
@@ -119,6 +128,7 @@ func (s *Store) Close() error {
 	var err error
 	s.closeOnce.Do(func() {
 		err = s.ORM.Close()
+		err = multierr.Append(err, s.AdvisoryLocker.Close())
 	})
 	return err
 }

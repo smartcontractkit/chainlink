@@ -114,14 +114,16 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 func (c *UserController) AccountBalances(ctx *gin.Context) {
 	store := c.App.GetStore()
 	accounts := store.KeyStore.Accounts()
-	balances := []presenters.AccountBalance{}
+	balances := []presenters.ETHKey{}
 	for _, a := range accounts {
-		pa := getAccountBalanceFor(ctx, store, a)
+		fmt.Println("SKEET ~>", a.Address.Hex())
+		pa := getETHAccount(ctx, store, a)
 		if ctx.IsAborted() {
 			return
 		}
 		balances = append(balances, pa)
 	}
+	fmt.Println("BORK ~>", balances)
 
 	jsonAPIResponse(ctx, balances, "balances")
 }
@@ -158,14 +160,14 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 	return nil
 }
 
-func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.AccountBalance {
+func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
 	txm := store.TxManager
 	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
 		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
-		return presenters.AccountBalance{}
+		return presenters.ETHKey{}
 	}
 
 	linkBalance, err := txm.GetLINKBalance(account.Address)
@@ -173,12 +175,26 @@ func getAccountBalanceFor(ctx *gin.Context, store *store.Store, account accounts
 		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
 		ctx.Abort()
-		return presenters.AccountBalance{}
+		return presenters.ETHKey{}
 	}
 
-	return presenters.AccountBalance{
+	key, err := store.ORM.KeyByAddress(account.Address)
+	if err != nil {
+		err = fmt.Errorf("error fetching ETH key from DB: %v", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		ctx.Abort()
+		return presenters.ETHKey{}
+	}
+
+	return presenters.ETHKey{
 		Address:     account.Address.Hex(),
 		EthBalance:  (*assets.Eth)(ethBalance),
 		LinkBalance: linkBalance,
+		NextNonce:   key.NextNonce,
+		LastUsed:    key.LastUsed,
+		IsFunding:   key.IsFunding,
+		CreatedAt:   key.CreatedAt,
+		UpdatedAt:   key.UpdatedAt,
+		DeletedAt:   key.DeletedAt,
 	}
 }

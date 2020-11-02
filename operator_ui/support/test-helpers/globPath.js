@@ -1,3 +1,3 @@
-export default path => {
-  return `glob:http://localhost${process.env.CHAINLINK_PORT || ''}${path}*`
+export default (path) => {
+  return `glob:${process.env.CHAINLINK_BASEURL || 'http://localhost'}${path}*`
 }

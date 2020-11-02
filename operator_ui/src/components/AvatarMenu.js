@@ -16,7 +16,7 @@ import BaseLink from '../components/BaseLink'
 import face from 'images/face.svg'
 import { submitSignOut } from 'actionCreators'
 
-const styles = theme => {
+const styles = (theme) => {
   return {
     button: {
       marginTop: -4,
@@ -50,7 +50,7 @@ const AvatarMenu = ({ classes, submitSignOut }) => {
   const [open, setOpenState] = useState(false)
   const handleToggle = () => setOpenState(!open)
 
-  const handleClose = event => {
+  const handleClose = (event) => {
     if (anchorEl.current.contains(event.target)) {
       return
     }
@@ -110,7 +110,7 @@ const AvatarMenu = ({ classes, submitSignOut }) => {
   )
 }
 
-const mapDispatchToProps = dispatch =>
+const mapDispatchToProps = (dispatch) =>
   bindActionCreators({ submitSignOut }, dispatch)
 
 export const ConnectedAvatarMenu = connect(

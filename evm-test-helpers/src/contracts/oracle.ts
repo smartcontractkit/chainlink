@@ -212,7 +212,7 @@ export function encodeOracleRequest(
   ]
 
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
-    oracleRequestInputs.map(i => i.type),
+    oracleRequestInputs.map((i) => i.type),
     [
       ethers.constants.AddressZero,
       0,

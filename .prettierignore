@@ -1,4 +1,3 @@
-**/coverage/**
 **/node_modules/**
 **/generated/**
 core/
@@ -10,3 +9,28 @@ truffle-config.js
 truffle.js
 gethload.js
 craco.config.js
+.yarn
+
+# Ignore TS definition and map files
+**/**.d.ts
+**/**.d.ts.map
+
+# belt
+belt/*-debug.log
+belt/*-error.log
+belt/.nyc_output
+belt/dist
+belt/lib
+belt/package-lock.json
+belt/tmp
+belt/node_modules
+belt/testfs
+
+# evm-contracts
+evm-contracts/dist/**/*
+evm-contracts/abi/**/*
+evm-contracts/ethers/**/*
+evm-contracts/truffle/**/*
+
+# solc_bin
+solc_bin

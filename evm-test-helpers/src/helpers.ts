@@ -128,7 +128,7 @@ export function toUtf8Bytes(
 export function pubkeyToAddress(pubkey: utils.BigNumber[]) {
   // transform the value according to what ethers expects as a value
   const concatResult = `0x04${pubkey
-    .map(coord => coord.toHexString())
+    .map((coord) => coord.toHexString())
     .join('')
     .replace(/0x/gi, '')}`
 
@@ -286,7 +286,7 @@ export function findEventIn(
 ): ethers.Event | undefined {
   // the first topic of a log is always the keccak-256 hash of the event signature
   const event = receipt.events?.find(
-    e => e.topics[0] === eventDescription.topic,
+    (e) => e.topics[0] === eventDescription.topic,
   )
 
   return event

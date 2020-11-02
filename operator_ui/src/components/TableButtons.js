@@ -5,7 +5,7 @@ import KeyboardArrowRight from '@material-ui/icons/KeyboardArrowRight'
 import LastPageIcon from '@material-ui/icons/LastPage'
 import React from 'react'
 
-const styles = theme => ({
+const styles = (theme) => ({
   customButtons: {
     flexShrink: 0,
     color: theme.palette.text.secondary,
@@ -13,11 +13,11 @@ const styles = theme => ({
   },
 })
 
-const TableButtons = props => {
+const TableButtons = (props) => {
   const firstPage = 1
   const currentPage = props.page
   const lastPage = Math.ceil(props.count / props.rowsPerPage)
-  const handlePage = page => e => {
+  const handlePage = (page) => (e) => {
     page = Math.min(page, lastPage)
     page = Math.max(page, firstPage)
     if (props.history) props.history.push(`${props.replaceWith}/${page}`)

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -34,7 +35,7 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		contractAddress  gethCommon.Address
 		logBroadcaster   eth.LogBroadcaster
-		jobID            models.ID
+		jobID            int32
 		transmitter      Transmitter
 		contractABI      abi.ABI
 		logger           logger.Logger
@@ -53,7 +54,7 @@ var (
 	_ eth.LogListener                     = &OCRContractConfigSubscription{}
 )
 
-func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID models.ID, transmitter Transmitter, logger logger.Logger) (o *OCRContract, err error) {
+func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, transmitter Transmitter, logger logger.Logger) (o *OCRContract, err error) {
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(address, ethClient)
 	if err != nil {
 		return o, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
@@ -96,13 +97,19 @@ func (oc *OCRContract) SubscribeToNewConfigs(context.Context) (ocrtypes.Contract
 		oc.logger,
 		oc.contractAddress,
 		make(chan ocrtypes.ContractConfig),
+		make(chan ocrtypes.ContractConfig),
+		nil,
+		nil,
+		sync.Mutex{},
 		oc,
 		sync.Once{},
+		make(chan struct{}),
 	}
 	connected := oc.logBroadcaster.Register(oc.contractAddress, sub)
 	if !connected {
 		return nil, errors.New("Failed to register with logBroadcaster")
 	}
+	sub.start()
 
 	return sub, nil
 }
@@ -173,11 +180,41 @@ func (oc *OCRContract) FromAddress() gethCommon.Address {
 const OCRContractConfigSubscriptionHandleLogTimeout = 5 * time.Second
 
 type OCRContractConfigSubscription struct {
-	logger          logger.Logger
-	contractAddress gethCommon.Address
-	ch              chan ocrtypes.ContractConfig
-	oc              *OCRContract
-	closer          sync.Once
+	logger            logger.Logger
+	contractAddress   gethCommon.Address
+	ch                chan ocrtypes.ContractConfig
+	chIncoming        chan ocrtypes.ContractConfig
+	processLogsWorker utils.SleeperTask
+	queue             []ocrtypes.ContractConfig
+	queueMu           sync.Mutex
+	oc                *OCRContract
+	closer            sync.Once
+	chStop            chan struct{}
+}
+
+func (sub *OCRContractConfigSubscription) start() {
+	sub.processLogsWorker = utils.NewSleeperTask(
+		utils.SleeperTaskFuncWorker(sub.processLogs),
+	)
+}
+
+func (sub *OCRContractConfigSubscription) processLogs() {
+	sub.queueMu.Lock()
+	defer sub.queueMu.Unlock()
+	for len(sub.queue) > 0 {
+		cc := sub.queue[0]
+		sub.queue = sub.queue[1:]
+
+		select {
+		// NOTE: This is thread-safe because HandleLog cannot be called concurrently with Unregister due to the design of LogBroadcaster
+		// It will never send on closed channel
+		case sub.ch <- cc:
+		case <-time.After(OCRContractConfigSubscriptionHandleLogTimeout):
+			sub.logger.Error("OCRContractConfigSubscription HandleLog timed out waiting on receive channel")
+		case <-sub.chStop:
+			return
+		}
+	}
 }
 
 // OnConnect complies with LogListener interface
@@ -188,6 +225,19 @@ func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err error) {
+	if err != nil {
+		sub.logger.Errorw("OCRContract: error in previous LogListener", "err", err)
+		return
+	}
+
+	was, err := lb.WasAlreadyConsumed()
+	if err != nil {
+		sub.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		return
+	} else if was {
+		return
+	}
+
 	topics := lb.RawLog().Topics
 	if len(topics) == 0 {
 		return
@@ -199,28 +249,41 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err err
 			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
 			return
 		}
-		configSet, err := sub.oc.contractFilterer.ParseConfigSet(raw)
-		if err != nil {
-			sub.logger.Errorw("could not parse config set", "err", err)
+		configSet, err2 := sub.oc.contractFilterer.ParseConfigSet(raw)
+		if err2 != nil {
+			sub.logger.Errorw("could not parse config set", "err", err2)
 			return
 		}
 		configSet.Raw = lb.RawLog()
 		cc := confighelper.ContractConfigFromConfigSetEvent(*configSet)
-		select {
-		// NOTE: This is thread-safe because HandleLog cannot be called concurrently with Unregister due to the design of LogBroadcaster
-		// It will never send on closed channel
-		case sub.ch <- cc:
-		case <-time.After(OCRContractConfigSubscriptionHandleLogTimeout):
-			sub.logger.Error("OCRContractConfigSubscription HandleLog timed out waiting on receive channel")
-		}
+
+		sub.queueMu.Lock()
+		defer sub.queueMu.Unlock()
+		sub.queue = append(sub.queue, cc)
+		sub.processLogsWorker.WakeUp()
 	default:
 	}
+
+	err = lb.MarkConsumed()
+	if err != nil {
+		sub.logger.Errorw("OCRContract: could not mark log consumed", "error", err)
+		return
+	}
+}
+
+// IsV2Job complies with LogListener interface
+func (sub *OCRContractConfigSubscription) IsV2Job() bool {
+	return true
+}
+
+// JobIDV2 complies with LogListener interface
+func (sub *OCRContractConfigSubscription) JobIDV2() int32 {
+	return sub.oc.jobID
 }
 
 // JobID complies with LogListener interface
 func (sub *OCRContractConfigSubscription) JobID() *models.ID {
-	jobID := sub.oc.jobID
-	return &jobID
+	return &models.ID{}
 }
 
 // Configs complies with ContractConfigSubscription interface
@@ -231,7 +294,12 @@ func (sub *OCRContractConfigSubscription) Configs() <-chan ocrtypes.ContractConf
 // Close complies with ContractConfigSubscription interface
 func (sub *OCRContractConfigSubscription) Close() {
 	sub.closer.Do(func() {
+		close(sub.chStop)
 		sub.oc.logBroadcaster.Unregister(sub.oc.contractAddress, sub)
+		err := sub.processLogsWorker.Stop()
+		if err != nil {
+			sub.logger.Error(err)
+		}
 
 		close(sub.ch)
 	})

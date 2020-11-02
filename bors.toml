@@ -4,7 +4,6 @@ status = [
   "Geth Integration Tests",
   "Operator UI",
   "Parity Integration tests",
-  "Rust",
   "Solidity",
   "Yarn Lint",
 ]

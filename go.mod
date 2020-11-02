@@ -3,6 +3,7 @@ module github.com/smartcontractkit/chainlink
 go 1.15
 
 require (
+	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/allegro/bigcache v1.2.1 // indirect
@@ -30,15 +31,16 @@ require (
 	github.com/guregu/null v3.5.0+incompatible
 	github.com/ipfs/go-datastore v0.4.5 // indirect
 	github.com/ipfs/go-ds-sql v0.2.0
-	github.com/jinzhu/gorm v1.9.11-0.20190912141731-0c98e7d712e2
+	github.com/jinzhu/gorm v1.9.12
 	github.com/jinzhu/now v1.1.1 // indirect
 	github.com/jpillora/backoff v0.0.0-20170918002102-8eab2debe79d
 	github.com/karalabe/usb v0.0.0-20191104083709-911d15fe12a9 // indirect
 	github.com/lib/pq v1.8.0
-	github.com/libp2p/go-libp2p-core v0.7.0
+	github.com/libp2p/go-libp2p-core v0.6.1
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/mapstructure v1.1.2
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.2
@@ -50,7 +52,7 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20201005183205-2bc25cc917d1
+	github.com/smartcontractkit/libocr v0.0.0-20201028194956-2e1a3f0cf282
 	github.com/spf13/viper v1.7.1
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.6.1
@@ -69,7 +71,9 @@ require (
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/text v0.3.3
+	gonum.org/v1/gonum v0.8.1
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
+	gopkg.in/guregu/null.v4 v4.0.0
 	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
 )

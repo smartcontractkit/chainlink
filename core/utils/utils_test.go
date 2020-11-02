@@ -1,8 +1,7 @@
 package utils_test
 
 import (
-	"fmt"
-	"math/big"
+	"context"
 	"reflect"
 	"strings"
 	"sync"
@@ -230,30 +229,6 @@ func TestClient_ParseEthereumAddress(t *testing.T) {
 	assert.Error(t, tooLongErr)
 }
 
-func TestMinBigs(t *testing.T) {
-	tests := []struct {
-		min, max string
-	}{
-		{"0", "0"},
-		{"-1", "0"},
-		{"99", "100"},
-		{"0", "1"},
-		{"4294967295", "4294967296"},
-	}
-
-	for _, test := range tests {
-		t.Run(fmt.Sprintf("%s < %s", test.min, test.max), func(t *testing.T) {
-			left, ok := big.NewInt(0).SetString(test.min, 10)
-			require.True(t, ok)
-			right, ok := big.NewInt(0).SetString(test.max, 10)
-			require.True(t, ok)
-
-			min := utils.MinBigs(left, right)
-			assert.Equal(t, left, min)
-		})
-	}
-}
-
 func TestMaxUint32(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -474,4 +449,74 @@ func TestEVMBytesToUint64(t *testing.T) {
 
 	// overflows without erroring
 	require.Equal(t, uint64(17), utils.EVMBytesToUint64([]byte{0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11}))
+}
+
+func TestCombinedContext(t *testing.T) {
+	t.Run("cancels when an inner context is canceled", func(t *testing.T) {
+		innerCtx, innerCancel := context.WithCancel(context.Background())
+		defer innerCancel()
+
+		chStop := make(chan struct{})
+
+		ctx, cancel := utils.CombinedContext(innerCtx, chStop, 1*time.Hour)
+		defer cancel()
+
+		innerCancel()
+
+		select {
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+			t.Fatal("context didn't cancel")
+		}
+	})
+
+	t.Run("cancels when a channel is closed", func(t *testing.T) {
+		innerCtx, innerCancel := context.WithCancel(context.Background())
+		defer innerCancel()
+
+		chStop := make(chan struct{})
+
+		ctx, cancel := utils.CombinedContext(innerCtx, chStop, 1*time.Hour)
+		defer cancel()
+
+		close(chStop)
+
+		select {
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+			t.Fatal("context didn't cancel")
+		}
+	})
+
+	t.Run("cancels when a duration elapses", func(t *testing.T) {
+		innerCtx, innerCancel := context.WithCancel(context.Background())
+		defer innerCancel()
+
+		chStop := make(chan struct{})
+
+		ctx, cancel := utils.CombinedContext(innerCtx, chStop, 1*time.Second)
+		defer cancel()
+
+		select {
+		case <-ctx.Done():
+		case <-time.After(5 * time.Second):
+			t.Fatal("context didn't cancel")
+		}
+	})
+
+	t.Run("doesn't cancel if none of its children cancel", func(t *testing.T) {
+		innerCtx, innerCancel := context.WithCancel(context.Background())
+		defer innerCancel()
+
+		chStop := make(chan struct{})
+
+		ctx, cancel := utils.CombinedContext(innerCtx, chStop, 1*time.Hour)
+		defer cancel()
+
+		select {
+		case <-ctx.Done():
+			t.Fatal("context canceled")
+		case <-time.After(5 * time.Second):
+		}
+	})
 }

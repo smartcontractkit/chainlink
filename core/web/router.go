@@ -16,11 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
 	"github.com/Depado/ginprom"
 	helmet "github.com/danielkov/gin-helmet"
 	"github.com/gin-contrib/cors"
@@ -29,6 +24,10 @@ import (
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -258,6 +257,23 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 
 		bdc := BulkDeletesController{app}
 		authv2.DELETE("/bulk_delete_runs", bdc.Delete)
+
+		ocrkc := OffChainReportingKeysController{app}
+		authv2.GET("/off_chain_reporting_keys", ocrkc.Index)
+		authv2.POST("/off_chain_reporting_keys", ocrkc.Create)
+		authv2.DELETE("/off_chain_reporting_keys/:keyID", ocrkc.Delete)
+
+		p2pkc := P2PKeysController{app}
+		authv2.GET("/p2p_keys", p2pkc.Index)
+		authv2.POST("/p2p_keys", p2pkc.Create)
+		authv2.DELETE("/p2p_keys/:keyID", p2pkc.Delete)
+
+		ocr := authv2.Group("/ocr")
+		{
+			ocrjsc := OCRJobSpecsController{app}
+			ocr.POST("/specs", ocrjsc.Create)
+			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
+		}
 	}
 
 	ping := PingController{app}

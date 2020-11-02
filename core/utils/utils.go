@@ -1,14 +1,16 @@
-// Package utils is used for the common functions for dealing with
-// conversion to and from hex, bytes, and strings, formatting time.
+// Package utils is used for common functions and tools used across the codebase.
 package utils
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"reflect"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -231,34 +233,22 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
-func RetryWithBackoff(chCancel <-chan struct{}, errPrefix string, fn func() error) (aborted bool) {
+func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	sleeper := NewBackoffSleeper()
 	sleeper.Reset()
 	for {
-		err := fn()
-		if err == nil {
-			return false
+		retry := fn()
+		if !retry {
+			return
 		}
 
-		logger.Errorf("%v: %v", errPrefix, err)
 		select {
-		case <-chCancel:
-			return true
+		case <-ctx.Done():
+			return
 		case <-time.After(sleeper.After()):
 			continue
 		}
 	}
-}
-
-// MinBigs finds the minimum value of a list of big.Ints.
-func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
-	min := first
-	for _, n := range bigs {
-		if min.Cmp(n) > 0 {
-			min = n
-		}
-	}
-	return min
 }
 
 // MaxBigs finds the maximum value of a list of big.Ints.
@@ -501,6 +491,46 @@ func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
 	return decimal.NewFromBigInt(i, -precision)
 }
 
+func ToDecimal(input interface{}) (decimal.Decimal, error) {
+	switch v := input.(type) {
+	case string:
+		return decimal.NewFromString(v)
+	case int:
+		return decimal.New(int64(v), 0), nil
+	case int8:
+		return decimal.New(int64(v), 0), nil
+	case int16:
+		return decimal.New(int64(v), 0), nil
+	case int32:
+		return decimal.New(int64(v), 0), nil
+	case int64:
+		return decimal.New(v, 0), nil
+	case uint:
+		return decimal.New(int64(v), 0), nil
+	case uint8:
+		return decimal.New(int64(v), 0), nil
+	case uint16:
+		return decimal.New(int64(v), 0), nil
+	case uint32:
+		return decimal.New(int64(v), 0), nil
+	case uint64:
+		return decimal.New(int64(v), 0), nil
+	case float64:
+		return decimal.NewFromFloat(v), nil
+	case float32:
+		return decimal.NewFromFloat32(v), nil
+	case *big.Int:
+		return decimal.NewFromBigInt(v, 0), nil
+	case decimal.Decimal:
+		return v, nil
+	case *decimal.Decimal:
+		return *v, nil
+	default:
+		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal", input)
+	}
+}
+
+// WaitGroupChan creates a channel that closes when the provided sync.WaitGroup is done.
 func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 	chAwait := make(chan struct{})
 	go func() {
@@ -508,6 +538,64 @@ func WaitGroupChan(wg *sync.WaitGroup) <-chan struct{} {
 		wg.Wait()
 	}()
 	return chAwait
+}
+
+// ContextFromChan creates a context that finishes when the provided channel
+// receives or is closed.
+func ContextFromChan(chStop <-chan struct{}) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		select {
+		case <-chStop:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
+// CombinedContext creates a context that finishes when any of the provided
+// signals finish.  A signal can be a `context.Context`, a `chan struct{}`, or
+// a `time.Duration` (which is transformed into a `context.WithTimeout`).
+func CombinedContext(signals ...interface{}) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	if len(signals) == 0 {
+		return ctx, cancel
+	}
+	signals = append(signals, ctx)
+
+	var cases []reflect.SelectCase
+	var cancel2 context.CancelFunc
+	for _, signal := range signals {
+		var ch reflect.Value
+
+		switch sig := signal.(type) {
+		case context.Context:
+			ch = reflect.ValueOf(sig.Done())
+		case <-chan struct{}:
+			ch = reflect.ValueOf(sig)
+		case chan struct{}:
+			ch = reflect.ValueOf(sig)
+		case time.Duration:
+			var ctxTimeout context.Context
+			ctxTimeout, cancel2 = context.WithTimeout(ctx, sig)
+			ch = reflect.ValueOf(ctxTimeout.Done())
+		default:
+			logger.Errorf("utils.CombinedContext cannot accept a value of type %T, skipping", sig)
+			continue
+		}
+		cases = append(cases, reflect.SelectCase{Chan: ch, Dir: reflect.SelectRecv})
+	}
+
+	go func() {
+		defer cancel()
+		if cancel2 != nil {
+			defer cancel2()
+		}
+		_, _, _ = reflect.Select(cases)
+	}()
+
+	return ctx, cancel
 }
 
 type DependentAwaiter interface {
@@ -665,6 +753,23 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+func LogIfError(err *error, msg string) {
+	if *err != nil {
+		logger.Errorf(msg+": %+v", *err)
+	}
+}
+
+func DebugPanic() {
+	if err := recover(); err != nil {
+		pc := make([]uintptr, 10) // at least 1 entry needed
+		runtime.Callers(5, pc)
+		f := runtime.FuncForPC(pc[0])
+		file, line := f.FileLine(pc[0])
+		logger.Errorf("Caught panic in %v (%v#%v): %v", f.Name(), file, line, err)
+		panic(err)
+	}
+}
+
 type PausableTicker struct {
 	ticker   *time.Ticker
 	duration time.Duration
@@ -752,4 +857,69 @@ func EVMBytesToUint64(buf []byte) uint64 {
 		result = result<<8 + uint64(b)
 	}
 	return result
+}
+
+type StartStopOnce struct {
+	state StartStopOnceState
+	sync.RWMutex
+}
+
+type StartStopOnceState int
+
+const (
+	StartStopOnce_Unstarted StartStopOnceState = iota
+	StartStopOnce_Started
+	StartStopOnce_Stopped
+)
+
+func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != StartStopOnce_Unstarted {
+		return errors.Errorf("%v has already started once", name)
+	}
+	once.state = StartStopOnce_Started
+
+	return fn()
+}
+
+func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != StartStopOnce_Started {
+		return errors.Errorf("%v has already stopped once", name)
+	}
+	once.state = StartStopOnce_Stopped
+
+	return fn()
+}
+
+func (once *StartStopOnce) OkayToStart() (ok bool) {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != StartStopOnce_Unstarted {
+		return false
+	}
+	once.state = StartStopOnce_Started
+	return true
+}
+
+func (once *StartStopOnce) OkayToStop() (ok bool) {
+	once.Lock()
+	defer once.Unlock()
+
+	if once.state != StartStopOnce_Started {
+		return false
+	}
+	once.state = StartStopOnce_Stopped
+	return true
+}
+
+func (once *StartStopOnce) State() StartStopOnceState {
+	once.RLock()
+	defer once.RUnlock()
+	return once.state
 }

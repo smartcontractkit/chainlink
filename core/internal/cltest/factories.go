@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -317,6 +318,23 @@ func NewHash() common.Hash {
 // NewAddress return a random new address
 func NewAddress() common.Address {
 	return common.BytesToAddress(randomBytes(20))
+}
+
+func NewEIP55Address() models.EIP55Address {
+	a := NewAddress()
+	e, err := models.NewEIP55Address(a.Hex())
+	if err != nil {
+		panic(err)
+	}
+	return e
+}
+
+func NewPeerID() p2ppeer.ID {
+	id, err := p2ppeer.Decode("12D3KooWL3XJ9EMCyZvmmGXL2LMiVBtrVa2BuESsJiXkSj7333Jw")
+	if err != nil {
+		panic(err)
+	}
+	return id
 }
 
 func randomBytes(n int) []byte {
@@ -667,6 +685,10 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	return *taskRunID
 }
 
+// MustInsertKey inserts a key
+// WARNING: Be extremely cautious using this, inserting keys with the same
+// address in multiple parallel tests can and will lead to deadlocks.
+// Only use this if you know what you are doing.
 func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
 	a, err := models.NewEIP55Address(address.Hex())
 	require.NoError(t, err)
@@ -802,10 +824,28 @@ func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
 	return k
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store) models.OffchainreportingOracleSpec {
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
 	t.Helper()
 
-	spec := models.OffchainreportingOracleSpec{}
+	spec := models.OffchainReportingOracleSpec{
+		ContractAddress:                        NewEIP55Address(),
+		P2PPeerID:                              models.PeerID(DefaultP2PPeerID),
+		P2PBootstrapPeers:                      []string{},
+		IsBootstrapPeer:                        false,
+		EncryptedOCRKeyBundleID:                DefaultOCRKeyBundleIDSha256,
+		TransmitterAddress:                     DefaultKeyAddressEIP55,
+		ObservationTimeout:                     0,
+		BlockchainTimeout:                      0,
+		ContractConfigTrackerSubscribeInterval: 0,
+		ContractConfigTrackerPollInterval:      0,
+		ContractConfigConfirmations:            0,
+	}
 	require.NoError(t, store.DB.Create(&spec).Error)
 	return spec
+}
+
+func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
+	j := NewJob()
+	require.NoError(t, s.CreateJob(&j))
+	return j
 }

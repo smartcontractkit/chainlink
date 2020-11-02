@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -20,13 +21,18 @@ import (
 	"testing"
 	"time"
 
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -69,14 +75,27 @@ const (
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
 	// DefaultKey is the address of the fixture key
-	DefaultKey = "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	DefaultKey = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
+	// DefaultKeyFixtureFileName is the filename of the fixture key
+	DefaultKeyFixtureFileName = "testkey-27548a32b9aD5D64c5945EaE9Da5337bc3169D15.json"
 	// AllowUnstarted enable an application that can be used in tests without being started
 	AllowUnstarted = "allow_unstarted"
+	// DefaultPeerID is the peer ID of the fixture p2p key
+	DefaultPeerID = "12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp"
+	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
+	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
+	DefaultKeyJSON = `{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}`
 )
 
 var (
 	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress = common.HexToAddress(DefaultKey)
+	DefaultKeyAddress          = common.HexToAddress(DefaultKey)
+	DefaultKeyAddressDowncased = strings.ToLower(DefaultKey)
+	DefaultKeyAddressEIP55     models.EIP55Address
+	DefaultP2PPeerID           p2ppeer.ID
+	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
+	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
 
 var storeCounter uint64
@@ -115,6 +134,20 @@ func init() {
 	seed := time.Now().UTC().UnixNano()
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
+
+	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	if err != nil {
+		panic(err)
+	}
+	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
+	if err != nil {
+		panic(err)
+	}
+
+	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func logLevelFromEnv() zapcore.Level {
@@ -137,12 +170,27 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	t.Helper()
 
 	wsserver, url, cleanup := newWSServer()
-	return NewConfigWithWSServer(t, url, wsserver), cleanup
+	config := NewConfigWithWSServer(t, url, wsserver)
+	// Tests almost always want to request to localhost so its easier to set this here
+	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
+	return config, cleanup
 }
 
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
+}
+
+func NewRandomInt32() int32 {
+	return int32(randIntRange(0, math.MaxInt32))
+}
+
+// Generate random integer between min and max
+func randIntRange(min, max int) int {
+	if min == max {
+		return min
+	}
+	return rand.Intn((max+1)-min) + min
 }
 
 // NewTestConfig returns a test configuration
@@ -161,9 +209,8 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 		}
 	}
 
-	uniqueRandomID := NewRandomInt64()
 	// Unique advisory lock is required otherwise all tests will block each other
-	rawConfig.AdvisoryLockID = uniqueRandomID
+	rawConfig.AdvisoryLockID = NewRandomInt64()
 
 	rawConfig.Set("BRIDGE_RESPONSE_URL", "http://localhost:6688")
 	rawConfig.Set("ETH_CHAIN_ID", 3)
@@ -176,6 +223,8 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("MINIMUM_CONTRACT_PAYMENT", minimumContractPayment.Text(10))
 	rawConfig.Set("ROOT", rootdir)
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
+	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
+	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -189,6 +238,24 @@ func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) 
 	config.Set("ETH_URL", url)
 	config.wsServer = wsserver
 	return config
+}
+
+func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
+	t.Helper()
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
+	return pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, func() {
+		eventBroadcaster.Stop()
+	}
+}
+
+func NewEthBroadcaster(t testing.TB, store *strpkg.Store, config *TestConfig) (bulletprooftxmanager.EthBroadcaster, func()) {
+	t.Helper()
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
+	return bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster), func() {
+		eventBroadcaster.Stop()
+	}
 }
 
 // TestApplication holds the test application and test servers
@@ -282,7 +349,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
-	app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
 }
@@ -291,8 +358,19 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
 
+	var ethClient eth.Client = &eth.NullClient{}
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	for _, flag := range flagsAndDeps {
+		switch dep := flag.(type) {
+		case eth.Client:
+			ethClient = dep
+		case postgres.AdvisoryLocker:
+			advisoryLocker = dep
+		}
+	}
+
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := chainlink.NewApplication(tc.Config, func(app chainlink.Application) {
+	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
@@ -415,8 +493,9 @@ func (ta *TestApplication) ImportKey(content string) {
 }
 
 func (ta *TestApplication) AddUnlockedKey() {
-	_, err := ta.Store.KeyStore.NewAccount(Password)
+	acct, err := ta.Store.KeyStore.NewAccount(Password)
 	require.NoError(ta.t, err)
+	fmt.Println("Account", acct.Address.Hex())
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
@@ -487,19 +566,26 @@ func (ta *TestApplication) MustCreateJobRun(txHashBytes []byte, blockHashBytes [
 }
 
 // NewStoreWithConfig creates a new store with given config
-func NewStoreWithConfig(config *TestConfig) (*strpkg.Store, func()) {
-	s := strpkg.NewInsecureStore(config.Config, gracefulpanic.NewSignal())
+func NewStoreWithConfig(config *TestConfig, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
+	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	for _, flag := range flagsAndDeps {
+		switch dep := flag.(type) {
+		case postgres.AdvisoryLocker:
+			advisoryLocker = dep
+		}
+	}
+	s := strpkg.NewInsecureStore(config.Config, &eth.NullClient{}, advisoryLocker, gracefulpanic.NewSignal())
 	return s, func() {
 		cleanUpStore(config.t, s)
 	}
 }
 
 // NewStore creates a new store
-func NewStore(t testing.TB) (*strpkg.Store, func()) {
+func NewStore(t testing.TB, flagsAndDeps ...interface{}) (*strpkg.Store, func()) {
 	t.Helper()
 
 	c, cleanup := NewConfig(t)
-	store, storeCleanup := NewStoreWithConfig(c)
+	store, storeCleanup := NewStoreWithConfig(c, flagsAndDeps...)
 	return store, func() {
 		storeCleanup()
 		cleanup()
@@ -1268,6 +1354,20 @@ func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
 	require.NoError(t, err)
 	require.NotEqual(t, 0, count)
 	return tx
+}
+
+type Awaiter chan struct{}
+
+func NewAwaiter() Awaiter { return make(Awaiter) }
+
+func (a Awaiter) ItHappened() { close(a) }
+
+func (a Awaiter) AwaitOrFail(t testing.TB, d time.Duration) {
+	select {
+	case <-a:
+	case <-time.After(d):
+		t.Fatal("timed out")
+	}
 }
 
 func CallbackOrTimeout(t testing.TB, msg string, callback func(), durationParams ...time.Duration) {

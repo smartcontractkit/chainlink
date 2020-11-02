@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -243,30 +244,64 @@ func (rm *runManager) Create(
 // ResumeAllPendingNextBlock wakes up all jobs that were sleeping because they
 // were waiting for the next block
 func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error {
-	return rm.orm.UnscopedJobRunsWithStatus(func(run *models.JobRun) {
-		currentTaskRun := run.NextTaskRun()
-		if currentTaskRun == nil {
-			err := rm.updateWithError(run, "Attempting to resume confirming run with no remaining tasks %s", run.ID)
-			logger.ErrorIf(err, "failed when run manager updates with error")
-			return
-		}
+	logger.Debugw("Resuming all runs pending next block", "currentBlockHeight", currentBlockHeight)
 
-		run.ObservedHeight = utils.NewBig(currentBlockHeight)
-		logger.Debugw(fmt.Sprintf("New head #%s resuming run", currentBlockHeight), run.ForLogger()...)
-
-		// Set jobRun status in progress if met minimum incoming confirmations
-		// Task run status will be set later in runManager#Execute
-		markInProgressIfSufficientIncomingConfirmations(run, currentTaskRun, run.ObservedHeight, rm.txManager)
-
-		// Save job run and resume if status was set to InProgress
-		err := rm.saveAndResumeIfInProgress(run)
-		if err != nil {
-			logger.Errorw("Error saving run", run.ForLogger("error", err)...)
-		}
-	},
+	observedHeight := utils.NewBig(currentBlockHeight)
+	resumableRunStatuses := []models.RunStatus{
 		models.RunStatusPendingConnection,
 		models.RunStatusPendingOutgoingConfirmations,
-		models.RunStatusPendingIncomingConfirmations)
+		models.RunStatusPendingIncomingConfirmations,
+	}
+	resumableTaskStatuses := []models.RunStatus{
+		models.RunStatusUnstarted,
+		models.RunStatusPendingConnection,
+		models.RunStatusPendingOutgoingConfirmations,
+		models.RunStatusPendingIncomingConfirmations,
+	}
+	runIDs := []*models.ID{}
+
+	err := rm.orm.Transaction(func(tx *gorm.DB) error {
+		updateTaskRunsQuery := `
+UPDATE task_runs
+   SET status = ?, confirmations = (
+     CASE
+		 WHEN job_runs.creation_height IS NULL OR task_runs.minimum_confirmations IS NULL OR ?::bigint IS NULL THEN
+       NULL
+     ELSE
+       GREATEST(0, LEAST(task_runs.minimum_confirmations, (? - job_runs.creation_height) + 1))
+     END
+   )
+  FROM job_runs
+ WHERE job_runs.status IN (?)
+   AND task_runs.job_run_id = job_runs.id
+   AND task_runs.status IN (?);`
+		result := tx.Exec(updateTaskRunsQuery, models.RunStatusInProgress, observedHeight, observedHeight, resumableRunStatuses, resumableTaskStatuses)
+		if result.Error != nil {
+			return result.Error
+		}
+
+		updateJobRunsQuery := `
+   UPDATE job_runs
+      SET status = ?, observed_height = ?
+    WHERE status IN (?)
+RETURNING id;`
+		result = tx.Raw(updateJobRunsQuery, models.RunStatusInProgress, observedHeight, resumableRunStatuses)
+		if result.Error != nil {
+			return result.Error
+		}
+		return result.Pluck("id", &runIDs).Error
+	})
+
+	if err != nil {
+		return err
+	}
+
+	for _, runID := range runIDs {
+		// FIXME: this is safe, but probably better to change Run to just take an ID here
+		rm.runQueue.Run(&models.JobRun{ID: runID})
+	}
+	rm.statsPusher.PushNow()
+	return nil
 }
 
 // ResumeAllPendingConnection wakes up all tasks that have gone to sleep because they

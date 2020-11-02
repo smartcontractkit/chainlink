@@ -16,7 +16,7 @@ const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
     case ResourceActionType.UPSERT_TRANSACTIONS: {
       const data = action.data
       const metaCurrentPage = data.meta.currentPageTransactions
-      const currentPage = metaCurrentPage.data.map(t => t.id)
+      const currentPage = metaCurrentPage.data.map((t) => t.id)
       const count = metaCurrentPage.meta.count
 
       return {

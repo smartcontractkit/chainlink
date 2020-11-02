@@ -21,7 +21,7 @@ func Migrate(tx *gorm.DB) error {
 			created_at timestamptz NOT NULL,
 			updated_at timestamptz NOT NULL,
 			PRIMARY KEY("offchainreporting_oracle_spec_id", "config_digest")
-	   );
+	    );
 
 		CREATE TABLE offchainreporting_contract_configs (
 			offchainreporting_oracle_spec_id INT NOT NULL REFERENCES offchainreporting_oracle_specs (id),
@@ -41,7 +41,7 @@ func Migrate(tx *gorm.DB) error {
 			config_digest bytea NOT NULL CHECK (octet_length(config_digest) = 16),
 			epoch bigint NOT NULL,
 			round bigint NOT NULL,
-			time timestamptz NOT NULL, 
+			time timestamptz NOT NULL,
 			median numeric(78,0) NOT NULL,
 			serialized_report bytea NOT NULL,
 			rs bytea[] NOT NULL,

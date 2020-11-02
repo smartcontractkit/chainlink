@@ -8,15 +8,15 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // CreateKey returns a public key which is immediately unlocked in memory, and
 // saved in DB encrypted with phrase. If p is given, its parameters are used for
 // key derivation from the phrase.
-func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
-) (vrfkey.PublicKey, error) {
+func (ks *VRFKeyStore) CreateKey(phrase string) (vrfkey.PublicKey, error) {
 	key := vrfkey.CreateKey()
-	if err := ks.Store(key, phrase, p...); err != nil {
+	if err := ks.Store(key, phrase, ks.scryptParams); err != nil {
 		return vrfkey.PublicKey{}, err
 	}
 	return key.PublicKey, nil
@@ -26,10 +26,9 @@ func (ks *VRFKeyStore) CreateKey(phrase string, p ...vrfkey.ScryptParams,
 // an encrypted key which is fast to unlock, but correspondingly easy to brute
 // force. It is not persisted to the DB, because no one should be keeping such
 // keys lying around.
-func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
-	phrase string) (*vrfkey.EncryptedVRFKey, error) {
+func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(phrase string) (*vrfkey.EncryptedVRFKey, error) {
 	key := vrfkey.CreateKey()
-	encrypted, err := key.Encrypt(phrase, vrfkey.FastScryptParams)
+	encrypted, err := key.Encrypt(phrase, utils.FastScryptParams)
 	if err != nil {
 		return nil, errors.Wrap(err, "while creating testing key")
 	}
@@ -37,11 +36,10 @@ func (ks *VRFKeyStore) CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
 }
 
 // Store saves key to ks (in memory), and to the DB, encrypted with phrase
-func (ks *VRFKeyStore) Store(key *vrfkey.PrivateKey, phrase string,
-	p ...vrfkey.ScryptParams) error {
+func (ks *VRFKeyStore) Store(key *vrfkey.PrivateKey, phrase string, scryptParams utils.ScryptParams) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	encrypted, err := key.Encrypt(phrase, p...)
+	encrypted, err := key.Encrypt(phrase, scryptParams)
 	if err != nil {
 		return errors.Wrap(err, "failed to encrypt key")
 	}
@@ -60,6 +58,27 @@ func (ks *VRFKeyStore) StoreInMemoryXXXTestingOnly(key *vrfkey.PrivateKey) {
 }
 
 var zeroPublicKey = vrfkey.PublicKey{}
+
+// Archive soft-deletes keys with this public key from the keystore and the DB, if present.
+func (ks *VRFKeyStore) Archive(key vrfkey.PublicKey) (err error) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	if key == zeroPublicKey {
+		return fmt.Errorf("cannot delete the empty public key")
+	}
+	if _, found := ks.keys[key]; found {
+		err = ks.forget(key) // Destroy in-memory representation of key
+		delete(ks.keys, key)
+	}
+	matches, err := ks.get(key)
+	if err != nil {
+		return errors.Wrapf(err, "while checking for existence of key %s in DB", key.String())
+	} else if len(matches) == 0 {
+		return AttemptToDeleteNonExistentKeyFromDB
+	}
+	err2 := ks.store.ORM.ArchiveEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
+	return multierr.Append(err, err2)
+}
 
 // Delete removes keys with this public key from the keystore and the DB, if present.
 func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
@@ -80,8 +99,8 @@ func (ks *VRFKeyStore) Delete(key vrfkey.PublicKey) (err error) {
 	if len(matches) == 0 {
 		return AttemptToDeleteNonExistentKeyFromDB
 	}
-	return multierr.Append(err, ks.store.ORM.DeleteEncryptedSecretVRFKey(
-		&vrfkey.EncryptedVRFKey{PublicKey: key}))
+	err2 := ks.store.ORM.DeleteEncryptedSecretVRFKey(&vrfkey.EncryptedVRFKey{PublicKey: key})
+	return multierr.Append(err, err2)
 }
 
 // Import adds this encrypted key to the DB and unlocks it in in-memory store

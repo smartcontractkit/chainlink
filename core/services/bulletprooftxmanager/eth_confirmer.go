@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -27,9 +28,6 @@ var (
 	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
 	// This most likely happened because an external wallet used the account for this nonce
 	ErrCouldNotGetReceipt = "could not get receipt"
-
-	ethConfirmerAdvisoryLockClassID  = int32(1)
-	ethConfirmerAdvisoryLockObjectID = int32(0)
 )
 
 // EthConfirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -74,7 +72,7 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 
 // ProcessHead takes all required transactions for the confirmer on a new head
 func (ec *ethConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
-	return withAdvisoryLock(ec.store, ethConfirmerAdvisoryLockClassID, ethConfirmerAdvisoryLockObjectID, func() error {
+	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
 		return ec.processHead(ctx, head)
 	})
 }
@@ -746,7 +744,7 @@ func (ec *ethConfirmer) ForceRebroadcast(beginningNonce uint, endingNonce uint, 
 				logger.Errorw("ForceRebroadcast: failed to send empty transaction", "nonce", n, "err", err)
 				continue
 			}
-			logger.Infof("ForceRebroadcast: successfully rebroadcast empty transaction with nonce %v and hash %s", n, hash)
+			logger.Infow("ForceRebroadcast: successfully rebroadcast empty transaction", "nonce", n, "hash", hash.String())
 		} else {
 			logger.Debugf("ForceRebroadcast: got eth_tx %v with nonce %v, will rebroadcast this transaction", etx.ID, *etx.Nonce)
 			if overrideGasLimit != 0 {

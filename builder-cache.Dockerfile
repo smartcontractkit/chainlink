@@ -1,4 +1,4 @@
-FROM smartcontract/builder:1.0.36
+FROM smartcontract/builder:1.0.38
 
 WORKDIR /chainlink
 COPY go.mod go.sum yarn.lock package.json .yarnrc GNUmakefile ./

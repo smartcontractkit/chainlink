@@ -61,7 +61,10 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	pusher := synchronization.NewStatsPusher(store.ORM, cltest.MustParseURL("http://localhost:4201"), "", "")
+
+	explorerClient := synchronization.NoopExplorerClient{}
+	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
+	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 
 	job := cltest.NewJobWithWebInitiator()

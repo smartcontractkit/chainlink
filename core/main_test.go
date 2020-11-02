@@ -43,6 +43,7 @@ func ExampleRun() {
 	//    bridges      Commands for Bridges communicating with External Adapters
 	//    config       Commands for the node's configuration
 	//    jobs         Commands for managing Jobs
+	//    keys         Commands for managing various types of keys used by the Chainlink node
 	//    node, local  Commands for admin actions that must be run locally
 	//    runs         Commands for managing Runs
 	//    txs          Commands for handling Ethereum transactions
