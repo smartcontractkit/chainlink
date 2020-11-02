@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -14,7 +15,7 @@ var serialK = mustNewPrivateKey(big.NewInt(int64(sk)))
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {
 	// Encrypt already does a roundtrip to make sure it can decrypt, anyway
-	_, err := serialK.Encrypt(phrase, FastScryptParams)
+	_, err := serialK.Encrypt(phrase, utils.FastScryptParams)
 	assert.NoError(t, err,
 		"failed to roundtrip secret key through enecryption/decryption")
 }

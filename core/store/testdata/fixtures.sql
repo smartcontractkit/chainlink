@@ -1,30 +1,18 @@
 -- Password for all encrypted keys is 'password'
+-- Scrypt params are chosen to be completely insecure and very fast to decrypt
 -- Don't use any of these keys for anything outside of testing!
-INSERT INTO keys (address, json, created_at, updated_at, next_nonce) VALUES (
-    E'\\x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea',
-    '{"address":"3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}',
-    '2019-01-01',
-    '2019-01-01',
-    0
-);
+INSERT INTO "public"."keys"("address","json","created_at","updated_at","next_nonce","id","last_used","is_funding")
+VALUES
+(DECODE('27548a32b9ad5d64c5945eae9da5337bc3169d15','hex'),E'{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}',E'2020-10-29 10:29:34.553191+00',E'2020-10-29 10:29:34.553191+00',0,1,NULL,FALSE);
 
 INSERT INTO "public"."encrypted_ocr_key_bundles"("id","on_chain_signing_address","off_chain_public_key","encrypted_private_keys","created_at","updated_at","config_public_key")
 VALUES
-(
-    DECODE('0e5abb138f8764de22558c9a9d99120c4864c314c3d1509d7775b88edb186cc6','hex'),
-    DECODE('66e0c032bcb30a5f107eadf363b5ea09e75e03f4','hex'),
-    DECODE('1062f3aac99f6e6da5c399afe52dad8a3c882505e1dbc78c6d910ec06939a01d','hex'),
-    E'{"kdf": "scrypt", "mac": "cc17a398106217d5c7550b6bd67ea38431e952b1918872db76042e9914eead9e", "cipher": "aes-128-ctr", "kdfparams": {"n": 262144, "p": 1, "r": 8, "salt": "713f5dff97dc7ba21026052fedb4b6b6c4fb3a613b5fd5d8bedc242511fcb7aa", "dklen": 32}, "ciphertext": "dfb483cc9b78dcbb81aa82cda43e8df6c991d6b238ccd4fa3d5ebe8afe079e0e7d20cf5cc09ddf42d8c23c7ce80db86a4b102cd60ac1284634f17761582da5590eda5623f96f2208e740293b1737bda7154ae3fb26c7ce4b6e998e0c7ecfd7b18df2a01da14ec19bbd3c438fd01e1426719beb282a6ffba40a07832255df8e26cb7ce33033b3747128dbee4129e231b18392c08259e2458885cc08797d10a8a2e200ee68a9edcfb58a9fa8b09c6fb226c84d45a53301d92943cbccb0891ba4ffaccd6e6283460c3ffaeb6f0988025a261478cbc6523f0ec1b929657f9a0fbaf9322e4fbbff5c283b0f41794105b3c97fb11cebbc173351c08348a7f90d191ce10446bef7bb66f737427117770e4f57e46ee7ec4f1bb1b086c7550bd05391df4a6ee4860434feef21898fe2b790eba69aa6dbade75a79a5720969d296d897b23419c139a49e934385987fb6b2d697833f", "cipherparams": {"iv": "f29542d1652ef17fb386388cb9d7e8e5"}}',E'2020-10-27 10:18:58.35498+00',E'2020-10-27 10:18:58.35498+00',
-    DECODE('376f20b9d55e2755f38412e494938502a8ad1f44df3302394be66f2e6eef003c','hex')
-);
+(DECODE('54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a','hex'),DECODE('c135508f4c9ada03e56bb6ad98d724e7f4c93323','hex'),DECODE('a91e8a88584c18ad895a259800fa768a63be8760dcc2924ffd6311833aefb8c5','hex'),E'{"kdf": "scrypt", "mac": "acbd1623b39799eedb1fc75698d8e2986599922930032c15a5a3721247c9b748", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "ea4f33d745169327d2cdf9f70945af1b67822282c9c01fc2278fa80d6d8e7795", "dklen": 32}, "ciphertext": "e92467755b4abadf162d5d450d963daebe5d2bed6450a77d7c22b705e4f01300a30714a5b4da9686255f569469dc0ed15b4a4fa0acc5439d4257315d7ba033e8c85b6d1a73e1cfc8d0e668e230d9a17117030851794e549dda99bdae7b06501d3d21762ff7b1f7fa494187effdb43cf611fd619d740bc310bb84ccaa449d65f23f1f264491a72b312d9061cea3d3de87168d835339621b38dbb3723b96a694fd86324d319948b4e061ceacb54ce44421f5bf914c158f4e95bf3da039bd0d257241c738488532d4b7fa5cd23d84a8e41ac6653e4b823a3f3f0eb37896d2efebcc3d6061e42a50703621130077e99b96186029661765c8baad9a1bab646a0a10331cc1caf3b9ab926bd39233f06677249bb7d5f5b0a8cb337a2bdce61f2a666128d7b310659e6b8d7dc3039fb876badc3fe961d46778ab905fed2134876cf82bde966b8fabebbc9629c23812b6c80952c06b032af6", "cipherparams": {"iv": "863123caab3f0ae5b3bff6a113a80095"}}',E'2020-10-29 10:34:25.960967+00',E'2020-10-29 10:34:25.960967+00',DECODE('69a2b241acdeee304040940c458f315e911a63d4d6ec16337b123326a00b951f','hex'));
 
-INSERT INTO encrypted_p2p_keys (peer_id, pub_key, encrypted_priv_key, created_at, updated_at) VALUES (
-    '12D3KooWGKbY6ymznHbQtqYq28Bdk9eifkxskuYoG4bHgccRoLvc',
-    E'\\x60a314a01fd0050e54c3130305b05ba2dbaab274e8fa304e0efa7fd08f8003a1',
-    '{"kdf": "scrypt", "mac": "195438588713832af8d9575ba07a615f9768ab3b891d470debcc52d8914a51e2", "cipher": "aes-128-ctr", "kdfparams": {"n": 262144, "p": 1, "r": 8, "salt": "1617b812658e30629409fa315711f41009b312390749de74bcc460a3c49650f2", "dklen": 32}, "ciphertext": "230c45e546ad733c6f7c1dcaad71398e34f9228d5c876cd3f34478e65af270d154422bf577658a786ddf41a936327177aaff522f187697380d778370b4292e18fa100e52", "cipherparams": {"iv": "65414d058423354be330c80e8e89d59a"}}',
-    '2020-10-07',
-    '2020-10-07'
-);
+
+INSERT INTO "public"."encrypted_p2p_keys"("peer_id","pub_key","encrypted_priv_key","created_at","updated_at")
+VALUES
+(E'12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp',DECODE('24eaaa7f7f8cd6d91bc4a83becedf2bd3650c050d5b680683ae26f0f1e209fdd','hex'),E'{"kdf": "scrypt", "mac": "41957a416ab525a3d1409b0dc7ec2fdd4f14fed9082245c05ae42b71cb2d438b", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "032413f1267991b5f2b7d01d5bb912aa9bdf07e1b9b109c45bafb0caa75672bc", "dklen": 32}, "ciphertext": "724604086076ec161831f580a0fbd1c435cddc5a908f37a641c76f401c75f33cc09acefb579d03ca47874645c868515aa044de63e43cbbb19f13273490a7dea46fa421a5", "cipherparams": {"iv": "faed66382c086036966a80ed62cffb77"}}',E'2020-10-29 10:33:50.854527+00',E'2020-10-29 10:33:50.854527+00');
 
 INSERT INTO users (email, hashed_password, token_secret, created_at, updated_at) VALUES (
     'apiuser@chainlink.test',

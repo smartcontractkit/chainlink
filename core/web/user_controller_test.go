@@ -67,7 +67,7 @@ func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
 
-	balances := []presenters.AccountBalance{}
+	balances := []presenters.ETHKey{}
 	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
 	assert.NoError(t, err)
 
@@ -100,12 +100,14 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 		ethMock.Register("eth_call", "0x1")
 	})
 
+	app.Store.SyncDiskKeyStoreToDB()
+
 	resp, cleanup := client.Get("/v2/user/balances")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	expectedAccounts := app.Store.KeyStore.Accounts()
-	actualBalances := []presenters.AccountBalance{}
+	actualBalances := []presenters.ETHKey{}
 	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)
 

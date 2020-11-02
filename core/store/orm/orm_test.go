@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1253,8 +1252,7 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 
 	testJSON := cltest.JSONFromString(t, "{}")
 
-	earlierAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
-	require.NoError(t, err)
+	earlierAddress := cltest.DefaultKeyAddressEIP55
 	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
 
 	require.NoError(t, orm.CreateKeyIfNotExists(earlier))
@@ -1282,8 +1280,7 @@ func TestORM_SendKeys(t *testing.T) {
 
 	testJSON := cltest.JSONFromString(t, "{}")
 
-	sendingAddress, err := models.NewEIP55Address("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea")
-	require.NoError(t, err)
+	sendingAddress := cltest.DefaultKeyAddressEIP55
 	sending := models.Key{Address: sendingAddress, JSON: testJSON}
 
 	require.NoError(t, orm.CreateKeyIfNotExists(sending))
@@ -1308,17 +1305,18 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	orm := store.ORM
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 	keysDir := store.Config.KeysDir()
 	// Clear out the fixture
 	require.NoError(t, os.RemoveAll(keysDir))
-	require.NoError(t, store.DeleteKey(hexutil.MustDecode("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")))
+	require.NoError(t, store.DeleteKey(cltest.DefaultKeyAddress[:]))
 	// Fixture key is deleted
 	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 0)
 
-	seed, err := models.NewKeyFromFile("../../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json")
+	seed, err := models.NewKeyFromFile(fmt.Sprintf("../../internal/fixtures/keys/%s", cltest.DefaultKeyFixtureFileName))
 	require.NoError(t, err)
 	require.NoError(t, orm.CreateKeyIfNotExists(seed))
 
@@ -2069,7 +2067,7 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	defer cleanup()
 
 	fundingKey := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`), IsFunding: true}
-	k0Address := "0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"
+	k0Address := cltest.DefaultKey
 	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
 	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
 

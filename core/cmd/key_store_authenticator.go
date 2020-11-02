@@ -116,13 +116,22 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 		return fmt.Errorf("OCR password must be non-trivial")
 	}
 
+	err := store.OCRKeyStore.Unlock(password)
+	if err != nil {
+		return errors.Wrapf(err,
+			"there are OCR/P2P keys in the DB, but there were errors unlocking "+
+				"them... please check the password in the file specified by --password"+
+				". You can add and delete OCR/P2P keys in the DB using the "+
+				"`chainlink node ocr` and `chainlink node p2p` subcommands")
+	}
+
 	p2pkeys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
 	if err != nil {
 		return errors.Wrap(err, "could not fetch encrypted P2P keys from database")
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
-		_, _, err = store.OCRKeyStore.GenerateEncryptedP2PKey(password)
+		_, _, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
 		}
@@ -134,15 +143,10 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 	}
 	if len(ocrkeys) == 0 {
 		fmt.Println("There are no OCR keys; creating a new key encrypted with given password")
-		_, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(password)
+		_, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted OCR key")
 		}
 	}
-
-	return errors.Wrapf(store.OCRKeyStore.Unlock(password),
-		"there are OCR/P2P keys in the DB, but there were errors unlocking "+
-			"them... please check the password in the file specified by ocrpassword"+
-			". You can add and delete OCR/P2P keys in the DB using the "+
-			"`chainlink local ocr` and `chainlink local p2p` subcommands")
+	return nil
 }
