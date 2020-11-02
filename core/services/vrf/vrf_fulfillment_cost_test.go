@@ -13,7 +13,7 @@ import (
 // TestMeasureFulfillmentGasCost establishes rough bounds on the cost of
 // providing a proof to the VRF coordinator.
 func TestMeasureFulfillmentGasCost(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	// Set up a request to fulfill
 	log := requestRandomness(t, coordinator, keyHash, fee, seed)

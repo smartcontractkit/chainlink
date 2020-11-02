@@ -3,9 +3,7 @@ package vrf_test
 import (
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -13,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -37,31 +34,14 @@ func registerExistingProvingKey(
 	coordinator.backend.Commit()
 }
 
-// TODO - this tests's eth client can be entirely replaced with the simulated backend once
-// the GethClient and RPCClient definitions are finished
 func TestIntegration_RandomnessRequest(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	eth := app.EthMock
-	logs := make(chan models.Log, 1)
-	txHash := cltest.NewHash()
-	blockNum := 10
-	eth.Context("app.Start()", func(eth *cltest.EthMock) {
-		eth.RegisterSubscription("logs", logs)
-		eth.Register("eth_getTransactionCount", `0x100`)
-		eth.Register("eth_sendRawTransaction", txHash)
-		eth.Register("eth_chainId", config.ChainID())
-		eth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{})
-	})
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
 
-	coordinator := deployCoordinator(t)
+	cu := newVRFCoordinatorUniverse(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend)
+	defer cleanup()
+
 	app.Start()
 
 	rawKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
@@ -76,10 +56,10 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 
 	j := cltest.NewJobWithRandomnessLog()
 	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"PublicKey": "%s"}`, rawKey))
-	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, coordinator.rootContractAddress.String())
+	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, cu.rootContractAddress.String())
 	task2Params := cltest.JSONFromString(t, task2JSON)
 
-	j.Initiators[0].Address = coordinator.rootContractAddress
+	j.Initiators[0].Address = cu.rootContractAddress
 	j.Tasks = []models.TaskSpec{{
 		Type:   adapters.TaskTypeRandom,
 		Params: task1Params,
@@ -87,18 +67,11 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		Type:   adapters.TaskTypeEthTx,
 		Params: task2Params,
 	}}
-	assert.NoError(t, app.Store.CreateJob(&j))
 
-	registerExistingProvingKey(t, coordinator, provingKey, j.ID, vrfFee)
-	r := requestRandomness(t, coordinator, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
-	requestlog := cltest.NewRandomnessRequestLog(t, *r, coordinator.rootContractAddress, 1)
-	eth.Register("eth_getTransactionReceipt", &types.Receipt{
-		TxHash:      cltest.NewHash(),
-		BlockNumber: big.NewInt(int64(blockNum)),
-		BlockHash:   requestlog.BlockHash,
-	})
+	j = cltest.CreateJobSpecViaWeb(t, app, j)
+	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
+	r := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
 
-	logs <- requestlog
 	cltest.WaitForRuns(t, j, app.Store, 1)
 	runs, err := app.Store.JobRunsFor(j.ID)
 	assert.NoError(t, err)
@@ -106,8 +79,7 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
-	attempts := cltest.WaitForTxAttemptCount(t, app.Store, 1)
-	require.True(t, eth.AllCalled(), eth.Remaining())
+	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	require.Len(t, attempts, 1)
 
 	rawTx := attempts[0].SignedRawTx
@@ -134,28 +106,8 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	require.NoError(t, err, "seed %x out of range", seed)
 	_, err = goProof.CryptoProof(vrf.PreSeedData{
 		PreSeed:   preSeed,
-		BlockHash: requestlog.BlockHash,
-		BlockNum:  uint64(blockNum),
+		BlockHash: r.Raw.Raw.BlockHash,
+		BlockNum:  uint64(r.Raw.Raw.BlockNumber),
 	})
 	require.NoError(t, err, "problem verifying solidity proof")
-
-	// Check that a log from a different address is rejected. (The node will only
-	// ever see this situation if the ethereum.FilterQuery for this job breaks,
-	// but it's hard to test that without a full integration test.)
-	badAddress := common.HexToAddress("0x0000000000000000000000000000000000000001")
-	badRequestlog := cltest.NewRandomnessRequestLog(t, *r, badAddress, 1)
-	logs <- badRequestlog
-	expectedLogTemplate := `log received from address %s, but expect logs from %s`
-	expectedLog := fmt.Sprintf(expectedLogTemplate, badAddress.String(),
-		coordinator.rootContractAddress.String())
-	millisecondsWaited := 0
-	expectedLogDeadline := 200
-	for !strings.Contains(logger.MemoryLogTestingOnly().String(), expectedLog) &&
-		millisecondsWaited < expectedLogDeadline {
-		time.Sleep(time.Millisecond)
-		millisecondsWaited += 1
-		if millisecondsWaited >= expectedLogDeadline {
-			assert.Fail(t, "message about log with bad source address not found")
-		}
-	}
 }

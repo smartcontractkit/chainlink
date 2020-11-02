@@ -8,7 +8,7 @@ import (
 )
 
 func TestConsumerBaseRejectsBadVRFCoordinator(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash, _ /* jobID */, fee := registerProvingKey(t, coordinator)
 	log := requestRandomness(t, coordinator, keyHash, fee, big.NewInt(1) /* seed */)
 	// Ensure that VRFConsumerBase.rawFulfillRandomness's check,
