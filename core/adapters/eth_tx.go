@@ -1,10 +1,6 @@
 package adapters
 
 import (
-	"encoding/json"
-	"fmt"
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -12,10 +8,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v3"
 )
 
 const (
@@ -52,14 +46,6 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	if store.Config.EnableBulletproofTxManager() {
-		return e.perform(input, store)
-	}
-	return e.legacyPerform(input, store)
-}
-
-// TODO(sam): https://www.pivotaltracker.com/story/show/173280188
-func (e *EthTx) perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
 	if err != nil {
 		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
@@ -194,25 +180,6 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 
 }
 
-func (e *EthTx) legacyPerform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	if !store.TxManager.Connected() {
-		return pendingOutgoingConfirmationsOrConnection(input)
-	}
-
-	if input.Status().PendingOutgoingConfirmations() {
-		return ensureTxRunResult(input, store)
-	}
-
-	value, err := getTxData(e, input)
-	if err != nil {
-		err = errors.Wrap(err, "while constructing EthTx data")
-		return models.NewRunOutputError(err)
-	}
-
-	data := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, value)
-	return createTxRunResult(e.ToAddress, e.GasPrice, e.GasLimit, data, input, store)
-}
-
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
@@ -234,148 +201,4 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 		return utils.ConcatBytes(payloadOffset, output), nil
 	}
 	return utils.ConcatBytes(output), nil
-}
-
-func createTxRunResult(
-	address common.Address,
-	gasPrice *utils.Big,
-	gasLimit uint64,
-	data []byte,
-	input models.RunInput,
-	store *strpkg.Store,
-) models.RunOutput {
-	tx, err := store.TxManager.CreateTxWithGas(
-		null.StringFrom(input.JobRunID().String()),
-		address,
-		data,
-		gasPrice.ToInt(),
-		gasLimit,
-	)
-	if err != nil {
-		logger.Error(errors.Wrap(err, "createTxRunResult failed"))
-		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
-	}
-
-	output, err := models.JSON{}.Add("result", tx.Hash.String())
-	if err != nil {
-		return models.NewRunOutputError(err)
-	}
-
-	txAttempt := tx.Attempts[0]
-	receipt, state, err := store.TxManager.CheckAttempt(txAttempt, tx.SentAt)
-	if err != nil {
-		return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
-	}
-
-	var receiptBlockNumber *big.Int
-	var receiptHash common.Hash
-	if receipt != nil {
-		receiptBlockNumber = receipt.BlockNumber
-		receiptHash = receipt.TxHash
-	}
-	logger.Debugw(
-		fmt.Sprintf("Tx #0 is %s", state),
-		"txHash", txAttempt.Hash.String(),
-		"txID", txAttempt.TxID,
-		"receiptBlockNumber", receiptBlockNumber,
-		"currentBlockNumber", tx.SentAt,
-		"receiptHash", receiptHash.Hex(),
-	)
-
-	if state == strpkg.Safe {
-		// I don't see how the receipt could possibly be nil here, but handle it just in case
-		if receipt == nil {
-			err := errors.New("missing receipt for transaction")
-			return models.NewRunOutputError(err)
-		}
-		return addReceiptToResult(*receipt, input, output)
-	}
-
-	return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
-}
-
-func ensureTxRunResult(input models.RunInput, str *strpkg.Store) models.RunOutput {
-	val, err := input.ResultString()
-	if err != nil {
-		return models.NewRunOutputError(errors.Wrapf(err, "while processing ethtx input %#+v", input))
-	}
-
-	hash := common.HexToHash(val)
-	receipt, state, err := str.TxManager.BumpGasUntilSafe(hash)
-	if err != nil {
-		// We failed to get one of the TxAttempt receipts, so we won't mark this
-		// run as errored in order to try again
-		logger.Warn("EthTx Adapter Perform Resuming: ", err)
-	}
-
-	var output models.JSON
-
-	if receipt != nil && !models.ReceiptIsUnconfirmed(receipt) {
-		// If the tx has been confirmed, record the hash in the output
-		hex := receipt.TxHash.String()
-		output, err = output.Add("result", hex)
-		if err != nil {
-			return models.NewRunOutputError(err)
-		}
-		output, err = output.Add("latestOutgoingTxHash", hex)
-		if err != nil {
-			return models.NewRunOutputError(err)
-		}
-	} else {
-		// If the tx is still unconfirmed, just copy over the original tx hash.
-		output, err = output.Add("result", hash)
-		if err != nil {
-			return models.NewRunOutputError(err)
-		}
-	}
-
-	if state == strpkg.Safe {
-		// FIXME: Receipt can definitely be nil here, although I don't really know how
-		// it can be "Safe" without a receipt... maybe we should just keep
-		// waiting for confirmations instead?
-		if receipt == nil {
-			err := errors.New("missing receipt for transaction")
-			return models.NewRunOutputError(err)
-		}
-
-		return addReceiptToResult(*receipt, input, output)
-	}
-
-	return models.NewRunOutputPendingOutgoingConfirmationsWithData(output)
-}
-
-func addReceiptToResult(
-	receipt types.Receipt,
-	input models.RunInput,
-	data models.JSON,
-) models.RunOutput {
-	receipts := []types.Receipt{}
-
-	ethereumReceipts := input.Data().Get("ethereumReceipts").String()
-	if ethereumReceipts != "" {
-		if err := json.Unmarshal([]byte(ethereumReceipts), &receipts); err != nil {
-			logger.Errorw("Error unmarshaling ethereum Receipts", "error", err)
-		}
-	}
-
-	receipts = append(receipts, receipt)
-	var err error
-	data, err = data.Add("ethereumReceipts", receipts)
-	if err != nil {
-		return models.NewRunOutputError(err)
-	}
-	data, err = data.Add("result", receipt.TxHash.String())
-	if err != nil {
-		return models.NewRunOutputError(err)
-	}
-	return models.NewRunOutputComplete(data)
-}
-
-func pendingOutgoingConfirmationsOrConnection(input models.RunInput) models.RunOutput {
-	// If the input is not pending outgoing confirmations next time
-	// then it may submit a new transaction.
-	if input.Status().PendingOutgoingConfirmations() {
-		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
-	}
-	return models.NewRunOutputPendingConnection()
 }
