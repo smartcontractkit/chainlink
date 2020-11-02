@@ -18,8 +18,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
+	"gopkg.in/guregu/null.v3"
 )
 
 type (
@@ -36,13 +38,14 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash `json:"-" gorm:"primary_key"`
-		OnChainSigningAddress OnChainSigningAddress
-		OffChainPublicKey     OffChainPublicKey
-		ConfigPublicKey       ConfigPublicKey
-		EncryptedPrivateKeys  []byte `json:"-"`
-		CreatedAt             time.Time
-		UpdatedAt             time.Time
+		ID                    models.Sha256Hash     `json:"-" gorm:"primary_key"`
+		OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
+		OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
+		ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`
+		EncryptedPrivateKeys  []byte                `json:"-"`
+		CreatedAt             time.Time             `json:"createdAt"`
+		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
+		DeletedAt             null.Time             `json:"deletedAt,omitempty"`
 	}
 
 	keyBundleRawData struct {
@@ -50,9 +53,11 @@ type (
 		Ed25519PrivKey     []byte
 		OffChainEncryption [curve25519.ScalarSize]byte
 	}
-
-	scryptParams struct{ N, P int }
 )
+
+func (cpk ConfigPublicKey) String() string {
+	return hex.EncodeToString(cpk[:])
+}
 
 func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hex.EncodeToString(cpk[:]))
@@ -73,9 +78,6 @@ func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
 	*cpk = result
 	return nil
 }
-
-var defaultScryptParams = scryptParams{
-	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
 
 var curve = secp256k1.S256()
 
@@ -200,15 +202,15 @@ func (pk *KeyBundle) PublicKeyConfig() [curve25519.PointSize]byte {
 
 // Encrypt combines the KeyBundle into a single json-serialized
 // bytes array and then encrypts
-func (pk *KeyBundle) Encrypt(auth string) (*EncryptedKeyBundle, error) {
-	return pk.encrypt(auth, defaultScryptParams)
+func (pk *KeyBundle) Encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedKeyBundle, error) {
+	return pk.encrypt(auth, scryptParams)
 }
 
 // encrypt combines the KeyBundle into a single json-serialized
 // bytes array and then encrypts, using the provided scrypt params
 // separated into a different function so that scryptParams can be
 // weakened in tests
-func (pk *KeyBundle) encrypt(auth string, scryptParams scryptParams) (*EncryptedKeyBundle, error) {
+func (pk *KeyBundle) encrypt(auth string, scryptParams utils.ScryptParams) (*EncryptedKeyBundle, error) {
 	marshalledPrivK, err := json.Marshal(&pk)
 	if err != nil {
 		return nil, err

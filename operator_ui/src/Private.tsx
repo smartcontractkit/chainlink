@@ -62,6 +62,7 @@ const TransactionsIndex = universal(
 const TransactionsShow = universal(import('./pages/Transactions/Show'), uniOpts)
 const Configuration = universal(import('./pages/Configuration/Index'), uniOpts)
 const NotFound = universal(import('./pages/NotFound'), uniOpts)
+const KeysIndex = universal(import('./pages/Keys/Index'), uniOpts)
 
 const styles = (theme: Theme) => {
   return {
@@ -193,6 +194,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 path="/transactions/:transactionId"
                 component={TransactionsShow}
               />
+              <PrivateRoute exact path="/keys" component={KeysIndex} />
               <PrivateRoute exact path="/config" component={Configuration} />
               <PrivateRoute component={NotFound} />
             </Switch>

@@ -12,7 +12,10 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v3"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key represents a libp2p private key
@@ -22,6 +25,10 @@ type Key struct {
 
 // PublicKeyBytes is generated using cryptop2p.PubKey.Raw()
 type PublicKeyBytes []byte
+
+func (pkb PublicKeyBytes) String() string {
+	return hexutil.Encode(pkb)
+}
 
 func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hexutil.Encode(pkb))
@@ -51,12 +58,13 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32          `json:"-" gorm:"primary_key"`
+	ID               int32          `json:"id" gorm:"primary_key"`
 	PeerID           models.PeerID  `json:"peerId"`
 	PubKey           PublicKeyBytes `json:"publicKey"`
 	EncryptedPrivKey []byte         `json:"-"`
 	CreatedAt        time.Time      `json:"createdAt"`
-	UpdatedAt        time.Time      `json:"updatedAt"`
+	UpdatedAt        time.Time      `json:"updatedAt,omitempty"`
+	DeletedAt        null.Time      `json:"deletedAt,omitempty"`
 }
 
 func (EncryptedP2PKey) TableName() string {
@@ -89,11 +97,6 @@ func CreateKey() (Key, error) {
 	}, nil
 }
 
-type ScryptParams struct{ N, P int }
-
-var defaultScryptParams = ScryptParams{
-	N: keystore.StandardScryptN, P: keystore.StandardScryptP}
-
 // type is added to the beginning of the passwords for
 // P2P key, so that the keys can't accidentally be mis-used
 // in the wrong place
@@ -102,8 +105,7 @@ func adulteratedPassword(auth string) string {
 	return s
 }
 
-func (k Key) ToEncryptedP2PKey(auth string) (s EncryptedP2PKey, err error) {
-	scryptParams := defaultScryptParams
+func (k Key) ToEncryptedP2PKey(auth string, scryptParams utils.ScryptParams) (s EncryptedP2PKey, err error) {
 	var marshalledPrivK []byte
 	marshalledPrivK, err = cryptop2p.MarshalPrivateKey(k)
 	if err != nil {

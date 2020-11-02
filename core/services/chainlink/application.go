@@ -117,7 +117,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	balanceMonitor := services.NewBalanceMonitor(store)
+	var balanceMonitor services.BalanceMonitor
+	if config.BalanceMonitorEnabled() {
+		balanceMonitor = services.NewBalanceMonitor(store)
+	} else {
+		balanceMonitor = &services.NullBalanceMonitor{}
+	}
 
 	var (
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)

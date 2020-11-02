@@ -6,14 +6,14 @@ import * as models from 'core/store/models'
  *
  * @example "POST <application>/off_chain_reporting_keys"
  */
-const ENDPOINT = '/v2/off_chain_reporting_keys'
+export const ENDPOINT = '/v2/off_chain_reporting_keys'
 
 /**
  * Index lists OcrKeys.
  *
  * @example "GET <application>/off_chain_reporting_keys"
  */
-const INDEX_ENDPOINT = ENDPOINT
+export const INDEX_ENDPOINT = ENDPOINT
 
 /**
  * Destroy deletes a OcrKey.
@@ -23,7 +23,7 @@ const INDEX_ENDPOINT = ENDPOINT
 interface DestroyPathParams {
   keyId: string
 }
-const DESTROY_ENDPOINT = `${ENDPOINT}/:keyId`
+export const DESTROY_ENDPOINT = `${ENDPOINT}/:keyId`
 
 export class OcrKeys {
   constructor(private api: jsonapi.Api) {}
@@ -37,10 +37,8 @@ export class OcrKeys {
   }
 
   @boundMethod
-  public createOcrKey(
-    OcrKeyRequest: models.OcrKeyRequest,
-  ): Promise<jsonapi.ApiResponse<models.OcrKey>> {
-    return this.create(OcrKeyRequest)
+  public createOcrKey(): Promise<jsonapi.ApiResponse<models.OcrKey>> {
+    return this.create()
   }
 
   @boundMethod
@@ -48,9 +46,7 @@ export class OcrKeys {
     return this.destroy(undefined, { keyId: id })
   }
 
-  private create = this.api.createResource<models.OcrKeyRequest, models.OcrKey>(
-    ENDPOINT,
-  )
+  private create = this.api.createResource<undefined, models.OcrKey>(ENDPOINT)
 
   private index = this.api.fetchResource<{}, models.OcrKey[]>(INDEX_ENDPOINT)
 

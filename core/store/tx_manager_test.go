@@ -34,7 +34,7 @@ func TestLegacyTxManager_CreateTx_Success(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -79,7 +79,7 @@ func TestLegacyTxManager_CreateTx_RoundRobinSuccess(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 
 	// Add two accounts
 	_, err := keyStore.NewAccount(cltest.Password)
@@ -151,7 +151,7 @@ func TestLegacyTxManager_CreateTx_BreakTxAttemptLimit(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -332,7 +332,7 @@ func TestLegacyTxManager_CreateTx_NonceTooLowReloadLimit(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -1079,7 +1079,7 @@ func TestLegacyTxManager_LogsETHAndLINKBalancesAfterSuccessfulTx(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	account, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -1200,7 +1200,7 @@ func TestLegacyTxManager_RebroadcastUnconfirmedTxsOnReconnect(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	_, err := keyStore.NewAccount(cltest.Password)
 	require.NoError(t, err)
 	require.NoError(t, keyStore.Unlock(cltest.Password))
@@ -1245,7 +1245,7 @@ func TestLegacyTxManager_BumpGasByIncrement(t *testing.T) {
 	defer strCleanup()
 
 	ethClient := new(mocks.Client)
-	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir())
+	keyStore := strpkg.NewKeyStore(cltest.NewTestConfig(t).KeysDir(), utils.FastScryptParams)
 	txm := strpkg.NewEthTxManager(ethClient, config, keyStore, store.ORM)
 
 	tests := []struct {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
-	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -95,17 +94,19 @@ func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.O
 
 func makeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
-	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
+	peerID := cltest.DefaultP2PPeerID
+	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
-	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, ds)
+	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, cltest.DefaultKey, ds)
 	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
 }
 
 func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string, lax bool) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
-	_, peerID, _, _, _, ocrKey := cltest.MustInsertOffchainreportingKeys(t, db)
+	peerID := cltest.DefaultP2PPeerID
+	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
-	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peer.ID(peerID), ocrKey.ID, cltest.DefaultKey, ds)
+	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, cltest.DefaultKey, ds)
 	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
 }
 

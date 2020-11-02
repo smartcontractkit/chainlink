@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // VRFKeyStore tracks auxiliary VRF secret keys, and generates their VRF proofs
@@ -18,9 +19,10 @@ import (
 // exposes VRF proof generation without the caller needing explicit knowledge of
 // the secret key.
 type VRFKeyStore struct {
-	lock  sync.RWMutex
-	keys  InMemoryKeyStore
-	store *Store
+	lock         sync.RWMutex
+	keys         InMemoryKeyStore
+	store        *Store
+	scryptParams utils.ScryptParams
 }
 
 type InMemoryKeyStore = map[vrfkey.PublicKey]vrfkey.PrivateKey
@@ -28,9 +30,10 @@ type InMemoryKeyStore = map[vrfkey.PublicKey]vrfkey.PrivateKey
 // NewVRFKeyStore returns an empty VRFKeyStore
 func NewVRFKeyStore(store *Store) *VRFKeyStore {
 	return &VRFKeyStore{
-		lock:  sync.RWMutex{},
-		keys:  make(InMemoryKeyStore),
-		store: store,
+		lock:         sync.RWMutex{},
+		keys:         make(InMemoryKeyStore),
+		store:        store,
+		scryptParams: utils.GetScryptParams(store.Config),
 	}
 }
 

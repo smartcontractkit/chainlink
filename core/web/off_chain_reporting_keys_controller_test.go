@@ -1,14 +1,11 @@
 package web_test
 
 import (
-	"bytes"
-	"encoding/json"
 	"net/http"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -39,20 +36,6 @@ func TestOffChainReportingKeysController_Index_HappyPath(t *testing.T) {
 	assert.Equal(t, keys[0].ConfigPublicKey, ocrKeys[0].ConfigPublicKey)
 }
 
-func TestOffChainReportingKeysController_Create_InvalidBody(t *testing.T) {
-	client, _, cleanup := setupOCRKeysControllerTests(t)
-	defer cleanup()
-
-	invalidBody, _ := json.Marshal(struct {
-		BadParam string
-	}{
-		BadParam: "randomString",
-	})
-	response, cleanup := client.Post("/v2/off_chain_reporting_keys", bytes.NewBuffer(invalidBody))
-	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
-}
-
 func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
 	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
@@ -60,10 +43,7 @@ func TestOffChainReportingKeysController_Create_HappyPath(t *testing.T) {
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
 
-	body, _ := json.Marshal(models.CreateOCRKeysRequest{
-		Password: cltest.Password,
-	})
-	response, cleanup := client.Post("/v2/off_chain_reporting_keys", bytes.NewBuffer(body))
+	response, cleanup := client.Post("/v2/off_chain_reporting_keys", nil)
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -107,14 +87,15 @@ func TestOffChainReportingKeysController_Delete_NonExistentOCRKeyID(t *testing.T
 func TestOffChainReportingKeysController_Delete_HappyPath(t *testing.T) {
 	client, OCRKeyStore, cleanup := setupOCRKeysControllerTests(t)
 	defer cleanup()
+	require.NoError(t, OCRKeyStore.Unlock(cltest.Password))
 
 	keys, _ := OCRKeyStore.FindEncryptedOCRKeyBundles()
 	initialLength := len(keys)
-	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedOCRKeyBundle(cltest.Password)
+	_, encryptedKeyBundle, _ := OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 
 	response, cleanup := client.Delete("/v2/off_chain_reporting_keys/" + encryptedKeyBundle.ID.String())
 	defer cleanup()
-	assert.Equal(t, http.StatusNoContent, response.StatusCode)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(OCRKeyStore.FindEncryptedOCRKeyBundleByID(encryptedKeyBundle.ID)))
 
 	keys, _ = OCRKeyStore.FindEncryptedOCRKeyBundles()
