@@ -176,7 +176,7 @@ func TestRegisterProvingKey(t *testing.T) {
 // from the VRFCoordinator in response to the request
 func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 	keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog {
-	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
+	_, err := coordinator.consumerContract.TestRequestRandomness(coordinator.carol,
 		keyHash, fee, seed)
 	require.NoError(t, err, "problem during initial VRF randomness request")
 	coordinator.backend.Commit()
