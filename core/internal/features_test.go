@@ -109,15 +109,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	assert.NoError(t, app.StartAndConnect())
 
-<<<<<<< HEAD
-	eth.Context("ethTx.Perform()#4 at block 23465", func(eth *cltest.EthMock) {
-		eth.Register("eth_getTransactionReceipt", confirmedReceipt) // confirmed for gas bumped txat
-		eth.Register("eth_sendRawTransaction", attempt1Hash)
-	})
-	newHeads <- cltest.Head(safe) // 23465
-=======
 	newHeads := <-chchNewHeads
->>>>>>> convert TestIntegration_HttpRequestWithHeaders to use BPTXM
 
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
