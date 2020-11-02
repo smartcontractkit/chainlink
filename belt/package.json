@@ -24,7 +24,7 @@
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-not-found": "^1.2.3",
     "chalk": "^4.1.0",
-    "cli-ux": "^5.4.4",
+    "cli-ux": "^5.5.0",
     "debug": "^4.1.1",
     "inquirer": "^7.3.3",
     "shelljs": "^0.8.3",
