@@ -182,7 +182,6 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 	if job.ID == nil {
 		err := errors.New("received job with nil ID")
 		logger.Error(err)
-		fm.store.UpsertErrorFor(job.ID, "Unable to add job - job has nil ID")
 		return err
 	}
 
