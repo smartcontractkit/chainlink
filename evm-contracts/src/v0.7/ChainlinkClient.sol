@@ -5,8 +5,8 @@ import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
+import "./vendor/SafeMathChainlink.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
-import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
 
 /**
  * @title The ChainlinkClient contract
@@ -15,7 +15,7 @@ import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
  */
 contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
-  using SafeMath_Chainlink for uint256;
+  using SafeMathChainlink for uint256;
 
   uint256 constant internal LINK = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
