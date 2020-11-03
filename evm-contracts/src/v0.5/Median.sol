@@ -1,10 +1,10 @@
 pragma solidity ^0.5.0;
 
-import "./vendor/SafeMath.sol";
+import "./vendor/SafeMathChainlink.sol";
 import "./vendor/SignedSafeMath.sol";
 
 library Median {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
   using SignedSafeMath for int256;
 
   /**

@@ -6,7 +6,7 @@ import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
-import "../vendor/SafeMath.sol";
+import "../vendor/SafeMathChainlink.sol";
 
 /**
  * @title The Chainlink Operator contract
@@ -19,7 +19,7 @@ contract Operator is
   OracleInterface,
   WithdrawalInterface
 {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
