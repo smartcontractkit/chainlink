@@ -27,63 +27,61 @@ type TerminalKeyStoreAuthenticator struct {
 // the KeyStore, and if there are none, a new account will be created
 // by prompting for a password. If there are accounts present, the
 // account which is unlocked by the given password will be used.
-func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, pwd string) (string, error) {
-	if len(pwd) != 0 {
-		return auth.authenticateWithPwd(store, pwd)
-	} else if auth.Prompter.IsTerminal() {
-		return auth.authenticationPrompt(store)
+func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, password string) (string, error) {
+	passwordProvided := len(password) != 0
+	interactive := auth.Prompter.IsTerminal()
+	hasAccounts := store.KeyStore.HasAccounts()
+
+	if passwordProvided && hasAccounts {
+		return auth.unlockExistingWithPassword(store, password)
+	} else if passwordProvided && !hasAccounts {
+		return auth.unlockNewWithPassword(store, password)
+	} else if !passwordProvided && interactive && hasAccounts {
+		return auth.promptExistingPassword(store)
+	} else if !passwordProvided && interactive && !hasAccounts {
+		return auth.promptNewPassword(store)
 	} else {
 		return "", errors.New("No password provided")
 	}
 }
 
-func (auth TerminalKeyStoreAuthenticator) authenticationPrompt(store *store.Store) (string, error) {
-	if store.KeyStore.HasAccounts() {
-		return auth.promptAndCheckPasswordLoop(store), nil
-	}
-	return auth.promptAndCreateAccount(store)
-}
-
-func (auth TerminalKeyStoreAuthenticator) authenticateWithPwd(store *store.Store, pwd string) (string, error) {
-	if !store.KeyStore.HasAccounts() {
-		fmt.Println("There are no accounts, creating a new account with the specified password")
-		return pwd, createAccount(store, pwd)
-	}
-	return pwd, checkPassword(store, pwd)
-}
-
-func checkPassword(store *store.Store, phrase string) error {
-	return store.KeyStore.Unlock(phrase)
-}
-
-func (auth TerminalKeyStoreAuthenticator) promptAndCheckPasswordLoop(store *store.Store) string {
+func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.Store) (string, error) {
 	for {
-		phrase := auth.Prompter.PasswordPrompt("Enter Password:")
-		if checkPassword(store, phrase) == nil {
-			return phrase
+		password := auth.Prompter.PasswordPrompt("Enter Password:")
+		if store.KeyStore.Unlock(password) == nil {
+			return password, nil
 		}
 	}
 }
 
-func (auth TerminalKeyStoreAuthenticator) promptAndCreateAccount(store *store.Store) (string, error) {
+func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) (string, error) {
 	for {
-		phrase := auth.Prompter.PasswordPrompt("New Password: ")
+		password := auth.Prompter.PasswordPrompt("New Password: ")
 		clearLine()
-		phraseConfirmation := auth.Prompter.PasswordPrompt("Confirm Password: ")
+		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm Password: ")
 		clearLine()
-		if phrase == phraseConfirmation {
-			return phrase, createAccount(store, phrase)
+		if password == passwordConfirmation {
+			fmt.Printf("Passwords don't match. Please try again... ")
+			continue
 		}
-		fmt.Printf("Passwords don't match. Please try again... ")
+		_, err := store.KeyStore.NewAccount()
+		return password, errors.Wrapf(err, "while creating ethereum keys")
 	}
 }
 
-func createAccount(store *store.Store, password string) error {
-	_, err := store.KeyStore.NewAccount(password)
+func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(store *store.Store, password string) (string, error) {
+	err := store.KeyStore.Unlock(password)
 	if err != nil {
-		return errors.Wrapf(err, "while creating ethereum keys")
+		return "", errors.Wrap(err, "Error unlocking key store")
 	}
-	return checkPassword(store, password)
+	fmt.Println("There are no accounts, creating a new account with the specified password")
+	_, err = store.KeyStore.NewAccount()
+	return password, errors.Wrapf(err, "while creating ethereum keys")
+}
+
+func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *store.Store, password string) (string, error) {
+	err := store.KeyStore.Unlock(password)
+	return password, err
 }
 
 // AuthenticateVRFKey creates an encrypted VRF key protected by password in
