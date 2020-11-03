@@ -14,8 +14,10 @@ import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFac
 import { MaliciousMultiWordConsumerFactory } from '../../ethers/v0.6/MaliciousMultiWordConsumerFactory'
 import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
 import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
+import { ConsumerFactory } from '../../ethers/v0.7/ConsumerFactory'
 import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
 
+const v7ConsumerFactory = new ConsumerFactory()
 const basicConsumerFactory = new BasicConsumerFactory()
 const multiWordConsumerFactory = new MultiWordConsumerFactory()
 const gasGuzzlingConsumerFactory = new GasGuzzlingConsumerFactory()
@@ -371,6 +373,35 @@ describe('Operator', () => {
             false,
             await operator.getAuthorizationStatus(roles.stranger.address),
           )
+        })
+
+        it('raises an error', async () => {
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.stranger)
+              .fulfillOracleRequest(
+                ...oracle.convertFufillParams(request, response),
+              )
+          })
+        })
+      })
+
+      describe('when fulfilled with the wrong function', () => {
+        // TODO
+        let v7Consumer
+        beforeEach(async () => {
+          v7Consumer = await v7ConsumerFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, operator.address, specId)
+          const paymentAmount = h.toWei('1')
+          await link.transfer(v7Consumer.address, paymentAmount)
+          const currency = 'USD'
+          const tx = await v7Consumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
+          const receipt = await tx.wait()
+          request = oracle.decodeRunRequest(receipt.logs?.[3])
         })
 
         it('raises an error', async () => {
