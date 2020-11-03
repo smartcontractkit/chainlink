@@ -38,7 +38,6 @@ declare module 'core/store/presenters' {
     databaseTimeout: time.Duration
     defaultHttpLimit: number
     defaultHttpTimeout: time.Duration
-    enableBulletproofTxManager: boolean
     enableExperimentalAdapters: boolean
     ethChainId: number
     ethFinalityDepth: number
