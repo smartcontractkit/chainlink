@@ -30,7 +30,7 @@ contract Consumer is ChainlinkClient {
     path[0] = _currency;
     req.addStringArray("path", path);
     // version 2
-    sendChainlinkRequest2(req, _payment);
+    sendChainlinkRequest(req, _payment);
   }
 
   function cancelRequest(
