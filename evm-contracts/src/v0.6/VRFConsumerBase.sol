@@ -1,6 +1,6 @@
 pragma solidity ^0.6.0;
 
-import { SafeMath as SafeMath_Chainlink } from "./vendor/SafeMath.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 import "./interfaces/LinkTokenInterface.sol";
 
@@ -81,7 +81,7 @@ import "./VRFRequestIDBase.sol";
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
-  using SafeMath_Chainlink for uint256;
+  using SafeMathChainlink for uint256;
 
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
