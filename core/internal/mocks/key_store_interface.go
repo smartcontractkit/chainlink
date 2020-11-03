@@ -144,20 +144,20 @@ func (_m *KeyStoreInterface) Import(keyJSON []byte, passphrase string, newPassph
 	return r0, r1
 }
 
-// NewAccount provides a mock function with given fields: passphrase
-func (_m *KeyStoreInterface) NewAccount(passphrase string) (accounts.Account, error) {
-	ret := _m.Called(passphrase)
+// NewAccount provides a mock function with given fields:
+func (_m *KeyStoreInterface) NewAccount() (accounts.Account, error) {
+	ret := _m.Called()
 
 	var r0 accounts.Account
-	if rf, ok := ret.Get(0).(func(string) accounts.Account); ok {
-		r0 = rf(passphrase)
+	if rf, ok := ret.Get(0).(func() accounts.Account); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(accounts.Account)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(passphrase)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

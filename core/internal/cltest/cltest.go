@@ -488,7 +488,7 @@ func (ta *TestApplication) ImportKey(content string) {
 }
 
 func (ta *TestApplication) AddUnlockedKey() {
-	acct, err := ta.Store.KeyStore.NewAccount(Password)
+	acct, err := ta.Store.KeyStore.NewAccount()
 	require.NoError(ta.t, err)
 	fmt.Println("Account", acct.Address.Hex())
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))

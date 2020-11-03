@@ -18,7 +18,7 @@ func TestCreateEthereumAccount(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	_, err := store.KeyStore.NewAccount(correctPassphrase)
+	_, err := store.KeyStore.NewAccount()
 	assert.NoError(t, err)
 
 	files, _ := ioutil.ReadDir(store.Config.KeysDir())
@@ -60,7 +60,7 @@ func TestUnlockKey_MultipleAddresses(t *testing.T) {
 			require.Len(t, store.KeyStore.GetAccounts(), 1)
 			defer cleanup()
 
-			_, err := store.KeyStore.NewAccount(test.secondAcctPassphrase)
+			_, err := store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			if test.wantErr {
