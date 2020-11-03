@@ -52,8 +52,7 @@ contract Operator is
   );
 
   event OracleResponse(
-    bytes32 indexed requestId,
-    uint256 dataVersion
+    bytes32 indexed requestId
   );
 
   /**
@@ -144,16 +143,15 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
-    uint256 dataVersion = 1;
     verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
       expiration,
-      dataVersion
+      1
     );
-    emit OracleResponse(requestId, dataVersion);
+    emit OracleResponse(requestId);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -190,16 +188,15 @@ contract Operator is
     isValidMultiWord(requestId, data)
     returns (bool)
   {
-    uint256 dataVersion = 2;
     verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
       expiration,
-      dataVersion
+      2
     );
-    emit OracleResponse(requestId, dataVersion);
+    emit OracleResponse(requestId);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
