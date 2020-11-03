@@ -20,8 +20,7 @@ contract ChainlinkClient {
   uint256 constant internal LINK = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = address(0);
-  uint256 constant private ARGS_VERSION_1 = 1;
-  uint256 constant private ARGS_VERSION_2 = 2;
+  uint256 constant private ARGS_VERSION = 2;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
@@ -68,20 +67,6 @@ contract ChainlinkClient {
   }
 
   /**
-   * @notice Creates a Chainlink request to the stored oracle address
-   * @dev Calls `chainlinkRequestTo` with the stored oracle address
-   * @param _req The initialized Chainlink Request
-   * @param _payment The amount of LINK to send for the request
-   * @return requestId The request ID
-   */
-  function sendChainlinkRequest2(Chainlink.Request memory _req, uint256 _payment)
-    internal
-    returns (bytes32)
-  {
-    return sendChainlinkRequest2To(address(oracle), _req, _payment);
-  }
-
-  /**
    * @notice Creates a Chainlink request to the specified oracle address
    * @dev Generates and stores a request ID, increments the local nonce, and uses `transferAndCall` to
    * send LINK which creates a request on the target oracle contract.
@@ -99,31 +84,7 @@ contract ChainlinkClient {
     _req.nonce = requestCount;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req, ARGS_VERSION_1)), "unable to transferAndCall to oracle");
-    requestCount += 1;
-
-    return requestId;
-  }
-
-  /**
-   * @notice Creates a Chainlink request version 2 to the specified oracle address
-   * @dev Generates and stores a request ID, increments the local nonce, and uses `transferAndCall` to
-   * send LINK which creates a request on the target oracle contract.
-   * Emits ChainlinkRequested event.
-   * @param _oracle The address of the oracle for the request
-   * @param _req The initialized Chainlink Request
-   * @param _payment The amount of LINK to send for the request
-   * @return requestId The request ID
-   */
-  function sendChainlinkRequest2To(address _oracle, Chainlink.Request memory _req, uint256 _payment)
-    internal
-    returns (bytes32 requestId)
-  {
-    requestId = keccak256(abi.encodePacked(this, requestCount));
-    _req.nonce = requestCount;
-    pendingRequests[requestId] = _oracle;
-    emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req, ARGS_VERSION_2)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req, ARGS_VERSION)), "unable to transferAndCall to oracle");
     requestCount += 1;
 
     return requestId;
