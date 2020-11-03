@@ -4,7 +4,7 @@ import "./ChainlinkClient.sol";
 import "./LinkTokenReceiver.sol";
 import "./Median.sol";
 import "./vendor/Ownable.sol";
-import "./vendor/SafeMath.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 /**
  * @title PreCoordinator is a contract that builds on-chain service agreements
@@ -13,7 +13,7 @@ import "./vendor/SafeMath.sol";
  * the corresponding list of oracles to create distinct requests to each one.
  */
 contract PreCoordinator is ChainlinkClient, Ownable, ChainlinkRequestInterface, LinkTokenReceiver {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
 
   uint256 constant private MAX_ORACLE_COUNT = 45;
 

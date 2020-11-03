@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import "./vendor/SafeMath.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/BlockHashStoreInterface.sol";
@@ -15,7 +15,7 @@ import "./VRFConsumerBase.sol";
  */
 contract VRFCoordinator is VRF, VRFRequestIDBase {
 
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
 
   LinkTokenInterface internal LINK;
   BlockHashStoreInterface internal blockHashStore;
