@@ -87,7 +87,7 @@ func (ocrkbc *OffChainReportingKeysController) Import(c *gin.Context) {
 	// jsonAPIResponse(c, encryptedKeyBundle, "offChainReportingKeyBundle")
 }
 
-// Export OCR key bundles
+// Export OCR all key bundles
 // Example:
 // "GET <application>/off-chain-reporting-keys"
 func (ocrkbc *OffChainReportingKeysController) Export(c *gin.Context) {

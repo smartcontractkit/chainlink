@@ -40,5 +40,5 @@ gcr_creds.env
 
 clroot
 password.txt
-ocrjobspec.toml
+jobspec.toml
 tempkeys

@@ -856,25 +856,53 @@ func (cli *Client) ImportP2PKeyBundle(c *clipkg.Context) error {
 // ExportP2PKeyBundle Export an OCR key bundle, decrypted with password from the
 // password file, and stored at desired filepath
 func (cli *Client) ExportP2PKeyBundle(c *clipkg.Context) error {
-	fmt.Print("Export")
-	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
-	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	// password, err := getPassword(c)
-	// if err != nil {
-	// 	return err
-	// }
-	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
-	// if err != nil {
-	// 	return err
-	// }
-	// addressOnChain := key.PublicKeyAddressOnChain()
-	// fmt.Printf(
-	// 	createMsg,
-	// 	key.ID,
-	// 	hex.EncodeToString(addressOnChain[:]),
-	// 	hex.EncodeToString(key.PublicKeyOffChain()),
-	// )
-	return nil
+	resp, err := cli.HTTP.Get("/v2/p2p_keys", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	resp1, err := cli.HTTP.Get("/v2/p2p_keys", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp1.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	// Get Response
+	body, err := ioutil.ReadAll(resp.Body)
+
+	filePath := os.Args[4]
+	os.Remove(filePath)
+
+	// Open or Create Output File
+	_, errs := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(errs)
+	}
+
+	fileInfo, err := os.Stat(filePath)
+	if err != nil {
+		panic(fmt.Errorf("os.Stat: %v", err))
+	}
+	if filePath == "" {
+		panic("generateFile requires a single parameter: file name to output to.")
+	}
+	// Write the master json object to the desired output file name
+	err = ioutil.WriteFile(filePath, body, fileInfo.Mode())
+	if err != nil {
+		panic(fmt.Errorf("error writing file: %v", filePath))
+	}
+	println(filePath, "was successfully created.")
+	var keys []p2pkey.EncryptedP2PKey
+	return cli.renderAPIResponse(resp1, &keys)
+
 }
 
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
@@ -989,10 +1017,13 @@ func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
 // password file, and stored at desired filepath
 func (cli *Client) ExportOCRKeyBundle(c *clipkg.Context) error {
 	fmt.Println("Export")
+	// id := os.Args[4]
+
 	resp, err := cli.HTTP.Get("/v2/off_chain_reporting_keys", nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}
+	fmt.Println(resp)
 	resp1, err := cli.HTTP.Get("/v2/off_chain_reporting_keys", nil)
 	if err != nil {
 		return cli.errorOut(err)
