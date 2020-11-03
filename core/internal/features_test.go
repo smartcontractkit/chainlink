@@ -247,6 +247,68 @@ func TestIntegration_FeeBump(t *testing.T) {
 	assert.Equal(t, attempt1Hash.String(), value)
 }
 
+func TestIntegration_FeeBump_RunLog(t *testing.T) {
+	tickerResponse := `{"RAW":{"ETH":{"USD":{"TYPE":"5","MARKET":"CCCAGG","FROMSYMBOL":"ETH","TOSYMBOL":"USD","FLAGS":"2052","PRICE":383.64,"LASTUPDATE":1604436392,"MEDIAN":383.66,"LASTVOLUME":0.0792252,"LASTVOLUMETO":30.378110688,"LASTTRADEID":"94484630","VOLUMEDAY":117102.19653678121,"VOLUMEDAYTO":44476030.58997059,"VOLUME24HOUR":278503.64621400996,"VOLUME24HOURTO":105749370.4340889,"OPENDAY":383.61,"HIGHDAY":385.58,"LOWDAY":370.79,"OPEN24HOUR":388.14,"HIGH24HOUR":388.29,"LOW24HOUR":372.39,"LASTMARKET":"BTCAlpha","VOLUMEHOUR":3651.825436420002,"VOLUMEHOURTO":1400820.631646926,"OPENHOUR":383.53,"HIGHHOUR":384.04,"LOWHOUR":382.95,"TOPTIERVOLUME24HOUR":277893.13967487996,"TOPTIERVOLUME24HOURTO":105517085.04526761,"CHANGE24HOUR":-4.5,"CHANGEPCT24HOUR":-1.159375483073118,"CHANGEDAY":0.029999999999972715,"CHANGEPCTDAY":0.007820442637046144,"CHANGEHOUR":0.11000000000001364,"CHANGEPCTHOUR":0.02868093760592748,"CONVERSIONTYPE":"direct","CONVERSIONSYMBOL":"","SUPPLY":112517755.749,"MKTCAP":43166311815.54636,"TOTALVOLUME24H":3840997.0686040893,"TOTALVOLUME24HTO":1472464346.9998188,"TOTALTOPTIERVOLUME24H":3712060.528468081,"TOTALTOPTIERVOLUME24HTO":1423001062.081891,"IMAGEURL":"/media/20646/eth_logo.png"}}},"DISPLAY":{"ETH":{"USD":{"FROMSYMBOL":"Ξ","TOSYMBOL":"$","MARKET":"CryptoCompare Index","PRICE":"$ 383.64","LASTUPDATE":"Just now","LASTVOLUME":"Ξ 0.07923","LASTVOLUMETO":"$ 30.38","LASTTRADEID":"94484630","VOLUMEDAY":"Ξ 117,102.2","VOLUMEDAYTO":"$ 44,476,030.6","VOLUME24HOUR":"Ξ 278,503.6","VOLUME24HOURTO":"$ 105,749,370.4","OPENDAY":"$ 383.61","HIGHDAY":"$ 385.58","LOWDAY":"$ 370.79","OPEN24HOUR":"$ 388.14","HIGH24HOUR":"$ 388.29","LOW24HOUR":"$ 372.39","LASTMARKET":"BTCAlpha","VOLUMEHOUR":"Ξ 3,651.83","VOLUMEHOURTO":"$ 1,400,820.6","OPENHOUR":"$ 383.53","HIGHHOUR":"$ 384.04","LOWHOUR":"$ 382.95","TOPTIERVOLUME24HOUR":"Ξ 277,893.1","TOPTIERVOLUME24HOURTO":"$ 105,517,085.0","CHANGE24HOUR":"$ -4.50","CHANGEPCT24HOUR":"-1.16","CHANGEDAY":"$ 0.030","CHANGEPCTDAY":"0.01","CHANGEHOUR":"$ 0.11","CHANGEPCTHOUR":"0.03","CONVERSIONTYPE":"direct","CONVERSIONSYMBOL":"","SUPPLY":"Ξ 112,517,755.7","MKTCAP":"$ 43.17 B","TOTALVOLUME24H":"Ξ 3.84 M","TOTALVOLUME24HTO":"$ 1.47 B","TOTALTOPTIERVOLUME24H":"Ξ 3.71 M","TOTALTOPTIERVOLUME24HTO":"$ 1.42 B","IMAGEURL":"/media/20646/eth_logo.png"}}}}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", tickerResponse)
+	defer assertCalled()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+
+	// Must use hardcoded key here since the hash has to match attempt1Hash
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		cltest.LenientEthMock,
+		cltest.EthMockRegisterGetBalance,
+		cltest.EthMockRegisterGetBlockByNumber,
+	)
+	defer cleanup()
+
+	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
+	config.Set("GAS_UPDATER_ENABLED", false)
+
+	// Put some distance between these two values so we can explore more of the state space
+	config.Set("ETH_GAS_BUMP_THRESHOLD", 10)
+	config.Set("MIN_OUTGOING_CONFIRMATIONS", 20)
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 3)
+
+	newHeads := make(chan *models.Head)
+	eth := app.EthMock
+	eth.Context("app.Start()", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("newHeads", newHeads)
+		eth.Register("eth_chainId", config.ChainID())
+	})
+	assert.NoError(t, app.Start())
+	eth.EventuallyAllCalled(t)
+
+	logs := make(chan types.Log, 1)
+	eth.Context("Creating run log job, subscribes to logs", func(eth *cltest.EthMock) {
+		eth.RegisterSubscription("logs", logs)
+	})
+	j := cltest.FixtureCreateJobViaWeb(t, app, "testdata/hello_world_job_run_log.json")
+	initr := j.Initiators[0]
+	assert.Equal(t, models.InitiatorRunLog, initr.Type)
+	eth.EventuallyAllCalled(t)
+
+	// Wake job up, it will be paused pending confirmations
+	input := fmt.Sprintf(`{"url": "%s", "path": "RAW.ETH.USD.VOLUME24HOUR", "times": "1000000000000000000"}`, mockServer.URL)
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(0), input)
+	logs <- runlog
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	eth.EventuallyAllCalled(t)
+
+	eth.Context("Run is triggered by new head", func(eth *cltest.EthMock) {
+		eth.Register("eth_getTransactionReceipt", &types.Receipt{TxHash: runlog.TxHash, BlockHash: runlog.BlockHash})
+	})
+	newHeads <- cltest.Head(3)
+	eth.EventuallyAllCalled(t)
+
+	// Make sure job completed
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	jr := runs[0]
+	cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingConnection)
+}
+
 func TestIntegration_RunAt(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t,
