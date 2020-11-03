@@ -40,8 +40,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	store := app.GetStore()
 
 	// create key on disk
-	pwd := "p@ssword"
-	acc, err := store.KeyStore.NewAccount(pwd)
+	acc, err := store.KeyStore.NewAccount()
 	require.NoError(t, err)
 
 	// assert creation on disk is successful

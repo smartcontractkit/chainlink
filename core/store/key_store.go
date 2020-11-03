@@ -27,7 +27,7 @@ type KeyStoreInterface interface {
 	HasAccounts() bool
 	HasAccountWithAddress(common.Address) bool
 	Unlock(phrase string) error
-	NewAccount(passphrase string) (accounts.Account, error)
+	NewAccount() (accounts.Account, error)
 	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
 	Export(a accounts.Account, passphrase, newPassphrase string) ([]byte, error)
 	GetAccounts() []accounts.Account
@@ -39,13 +39,14 @@ type KeyStoreInterface interface {
 // KeyStore manages a key storage directory on disk.
 type KeyStore struct {
 	*keystore.KeyStore
+	password     string
 	scryptParams utils.ScryptParams
 }
 
 // NewKeyStore creates a keystore for the given directory.
 func NewKeyStore(keyDir string, scryptParams utils.ScryptParams) *KeyStore {
 	ks := keystore.NewKeyStore(keyDir, scryptParams.N, scryptParams.P)
-	return &KeyStore{ks, scryptParams}
+	return &KeyStore{ks, "", scryptParams}
 }
 
 // NewInsecureKeyStore creates an *INSECURE* keystore for the given directory.
@@ -62,32 +63,23 @@ func (ks *KeyStore) HasAccounts() bool {
 
 // Unlock uses the given password to try to unlock accounts located in the
 // keystore directory.
-func (ks *KeyStore) Unlock(phrase string) error {
+func (ks *KeyStore) Unlock(password string) error {
 	var merr error
 	for _, account := range ks.Accounts() {
-		err := ks.KeyStore.Unlock(account, phrase)
+		err := ks.KeyStore.Unlock(account, password)
 		if err != nil {
 			merr = multierr.Combine(merr, fmt.Errorf("invalid password for account %s", account.Address.Hex()), err)
 		} else {
 			logger.Infow(fmt.Sprint("Unlocked account ", account.Address.Hex()), "address", account.Address.Hex())
 		}
 	}
+	ks.password = password
 	return merr
 }
 
 // NewAccount adds an account to the keystore
-func (ks *KeyStore) NewAccount(passphrase string) (accounts.Account, error) {
-	account, err := ks.KeyStore.NewAccount(passphrase)
-	if err != nil {
-		return accounts.Account{}, err
-	}
-
-	err = ks.KeyStore.Unlock(account, passphrase)
-	if err != nil {
-		return accounts.Account{}, err
-	}
-
-	return account, nil
+func (ks *KeyStore) NewAccount() (accounts.Account, error) {
+	return ks.KeyStore.NewAccount(ks.password)
 }
 
 // SignTx uses the unlocked account to sign the given transaction.

@@ -1127,7 +1127,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 }
 
 // AllKeys returns all of the keys recorded in the database including the funding key.
-// This method is deprecated! You should use SendKeys() to retrieve all but the funding keys.
+// You should use SendKeys() to retrieve all but the funding keys.
 func (orm *ORM) AllKeys() ([]models.Key, error) {
 	var keys []models.Key
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error

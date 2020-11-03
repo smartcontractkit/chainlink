@@ -608,11 +608,6 @@ type SendEtherRequest struct {
 	Amount             assets.Eth     `json:"amount"`
 }
 
-// CreateKeyRequest represents a request to add an ethereum key.
-type CreateKeyRequest struct {
-	CurrentPassword string `json:"current_password"`
-}
-
 // CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
 type CreateOCRJobSpecRequest struct {
 	TOML string `json:"toml"`
