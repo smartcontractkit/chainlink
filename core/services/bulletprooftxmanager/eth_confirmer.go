@@ -63,10 +63,8 @@ func (ec *ethConfirmer) Disconnect() {
 }
 
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	if ec.config.EnableBulletproofTxManager() {
-		if err := ec.ProcessHead(ctx, head); err != nil {
-			logger.Errorw("EthConfirmer error", "err", err)
-		}
+	if err := ec.ProcessHead(ctx, head); err != nil {
+		logger.Errorw("EthConfirmer error", "err", err)
 	}
 }
 

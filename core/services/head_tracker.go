@@ -501,12 +501,7 @@ func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain mode
 		"numCallbacks", len(ht.callbacks),
 	)
 
-	if ht.store.Config.EnableBulletproofTxManager() {
-		ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
-	} else {
-		// NOTE: Legacy tx manager probably has implicit ordering requirements, so it's not safe to parallelise
-		ht.seriallyExecuteCallbacks(ctx, headWithChain)
-	}
+	ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
 }
 
 func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
