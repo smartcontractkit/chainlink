@@ -32,6 +32,7 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => bytes32) private s_commitments;
   mapping(address => bool) private s_authorizedNodes;
+  mapping(bytes32 => uint256) private s_dataVersions;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -101,7 +102,8 @@ contract Operator is
       payment,
       callbackAddress,
       callbackFunctionId,
-      nonce
+      nonce,
+      dataVersion
     );
     emit OracleRequest(
       specId,
@@ -142,14 +144,16 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
+    uint256 dataVersion = 1;
     verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
-      expiration
+      expiration,
+      dataVersion
     );
-    emit OracleResponse(requestId, 1);
+    emit OracleResponse(requestId, dataVersion);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -186,14 +190,16 @@ contract Operator is
     isValidMultiWord(requestId, data)
     returns (bool)
   {
+    uint256 dataVersion = 2;
     verifyOracleResponse(
       requestId,
       payment,
       callbackAddress,
       callbackFunctionId,
-      expiration
+      expiration,
+      dataVersion
     );
-    emit OracleResponse(requestId, 2);
+    emit OracleResponse(requestId, dataVersion);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
@@ -285,7 +291,7 @@ contract Operator is
         callbackFunc,
         expiration)
     );
-    require(paramsHash == s_commitments[requestId], "Params do not match request ID");
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -333,7 +339,8 @@ contract Operator is
     uint256 payment,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    uint256 nonce
+    uint256 nonce,
+    uint256 dataVersion
   ) internal returns (bytes32 requestId, uint256 expiration) {
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId] == 0, "Must use a unique ID");
@@ -347,6 +354,7 @@ contract Operator is
         expiration
       )
     );
+    s_dataVersions[requestId] = dataVersion;
     return (requestId, expiration);
   }
 
@@ -363,7 +371,8 @@ contract Operator is
     uint256 payment,
     address callbackAddress,
     bytes4 callbackFunctionId,
-    uint256 expiration
+    uint256 expiration,
+    uint256 dataVersion
   )
   internal
   {
@@ -376,8 +385,10 @@ contract Operator is
       )
     );
     require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    require(s_dataVersions[requestId] <= dataVersion, "Incorrect data version");
     s_withdrawableTokens = s_withdrawableTokens.add(payment);
     delete s_commitments[requestId];
+    delete s_dataVersions[requestId];
   }
 
   // MODIFIERS
