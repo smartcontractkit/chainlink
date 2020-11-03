@@ -1522,3 +1522,22 @@ func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	require.NoError(t, err)
 	return k
 }
+
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = nil
+	etx.Nonce = &nonce
+	etx.State = models.EthTxInProgress
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+	attempt.State = models.EthTxAttemptInProgress
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
