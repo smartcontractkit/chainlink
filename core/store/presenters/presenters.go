@@ -150,7 +150,6 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                      int64           `json:"defaultHttpLimit"`
 	DefaultHTTPTimeout                    models.Duration `json:"defaultHttpTimeout"`
 	Dev                                   bool            `json:"chainlinkDev"`
-	EnableBulletproofTxManager            bool            `json:"enableBulletproofTxManager"`
 	EnableExperimentalAdapters            bool            `json:"enableExperimentalAdapters"`
 	EthBalanceMonitorBlockDelay           uint16          `json:"ethBalanceMonitorBlockDelay"`
 	EthereumDisabled                      bool            `json:"ethereumDisabled"`
@@ -241,7 +240,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
 			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
 			Dev:                                   config.Dev(),
-			EnableBulletproofTxManager:            config.EnableBulletproofTxManager(),
 			EnableExperimentalAdapters:            config.EnableExperimentalAdapters(),
 			EthBalanceMonitorBlockDelay:           config.EthBalanceMonitorBlockDelay(),
 			EthereumDisabled:                      config.EthereumDisabled(),
