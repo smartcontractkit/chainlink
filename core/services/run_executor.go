@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -48,13 +47,11 @@ func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher)
 
 // Execute performs the work associate with a job run
 func (re *runExecutor) Execute(runID *models.ID) error {
-	logger.Debugw("runExecutor woke up", "runID", runID.String())
 	run, err := re.store.Unscoped().FindJobRun(runID)
 	if err != nil {
 		return errors.Wrapf(err, "error finding run %s", runID)
 	}
 
-	validated := false
 	for taskIndex := range run.TaskRuns {
 		taskRun := &run.TaskRuns[taskIndex]
 		if !run.GetStatus().Runnable() {
@@ -66,22 +63,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			continue
 		}
 
-		if !meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
-			logger.Debugw("Pausing run pending incoming confirmations",
-				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
-			)
-			taskRun.Status = models.RunStatusPendingIncomingConfirmations
-			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
-
-		} else if err := validateOnMainChainOnce(validated, &run, taskRun, re.store.EthClient); err != nil {
-			logger.Warnw("Failure while trying to validate chain",
-				run.ForLogger("error", err)...,
-			)
-
-			taskRun.SetError(err)
-			run.SetError(err)
-
-		} else {
+		if meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
 			start := time.Now()
 
 			// NOTE: adapters may define and return the new job run status in here
@@ -93,9 +75,15 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 			elapsed := time.Since(start).Seconds()
 
 			logger.Debugw(fmt.Sprintf("Executed task %s", taskRun.TaskSpec.Type), run.ForLogger("task", taskRun.ID.String(), "elapsed", elapsed)...)
-		}
 
-		validated = true
+		} else {
+			logger.Debugw("Pausing run pending incoming confirmations",
+				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
+			)
+			taskRun.Status = models.RunStatusPendingIncomingConfirmations
+			run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+
+		}
 
 		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
@@ -115,13 +103,6 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		}
 	}
 	return nil
-}
-
-func validateOnMainChainOnce(validated bool, run *models.JobRun, taskRun *models.TaskRun, ethClient eth.Client) error {
-	if validated {
-		return nil
-	}
-	return validateOnMainChain(run, taskRun, ethClient)
 }
 
 func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) models.RunOutput {

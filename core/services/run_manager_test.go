@@ -137,6 +137,34 @@ func TestRunManager_ResumeAllPendingNextBlock(t *testing.T) {
 
 	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
 
+	t.Run("reject a run with no tasks", func(t *testing.T) {
+		run := makeJobRunWithInitiator(t, store, models.NewJob())
+		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+		require.NoError(t, store.CreateJobRun(&run))
+
+		err := runManager.ResumeAllPendingNextBlock(nil)
+		assert.NoError(t, err)
+
+		run, err = store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		assert.Equal(t, models.RunStatusErrored, run.GetStatus())
+	})
+
+	t.Run("leave in pending if not enough incoming confirmations have been met yet", func(t *testing.T) {
+		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
+		run.SetStatus(models.RunStatusPendingIncomingConfirmations)
+		run.TaskRuns[0].MinRequiredIncomingConfirmations = clnull.Uint32From(2)
+		require.NoError(t, store.CreateJobRun(&run))
+
+		err := runManager.ResumeAllPendingNextBlock(big.NewInt(0))
+		require.NoError(t, err)
+
+		run, err = store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		assert.Equal(t, models.RunStatusPendingIncomingConfirmations, run.GetStatus())
+		assert.Equal(t, uint32(1), run.TaskRuns[0].ObservedIncomingConfirmations.Uint32)
+	})
+
 	t.Run("input, should go from pending_incoming_confirmations -> in_progress and save the input", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingIncomingConfirmations)

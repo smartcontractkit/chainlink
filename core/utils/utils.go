@@ -251,6 +251,17 @@ func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	}
 }
 
+// MinBigs finds the minimum value of a list of big.Ints.
+func MinBigs(first *big.Int, bigs ...*big.Int) *big.Int {
+	min := first
+	for _, n := range bigs {
+		if min.Cmp(n) > 0 {
+			min = n
+		}
+	}
+	return min
+}
+
 // MaxBigs finds the maximum value of a list of big.Ints.
 func MaxBigs(first *big.Int, bigs ...*big.Int) *big.Int {
 	max := first
