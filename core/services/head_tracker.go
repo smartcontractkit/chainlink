@@ -524,15 +524,6 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 	wg.Wait()
 }
 
-func (ht *HeadTracker) seriallyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
-	for i, t := range ht.callbacks {
-		start := time.Now()
-		t.OnNewLongestChain(ctx, headWithChain)
-		elapsed := time.Since(start)
-		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
-	}
-}
-
 func (ht *HeadTracker) subscribeToHead() error {
 	ht.headMutex.Lock()
 	defer ht.headMutex.Unlock()

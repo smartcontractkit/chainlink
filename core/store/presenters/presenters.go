@@ -83,16 +83,17 @@ func showBalanceForAccount(store *store.Store, account accounts.Account, balance
 	return keysAndValues, nil
 }
 
-func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
+// func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
+func getBalance(str *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
 	switch balanceType {
 	case ethRequest:
-		bal, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
+		bal, err := str.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 		if err != nil {
 			return nil, err
 		}
 		return (*assets.Eth)(bal), nil
 	case linkRequest:
-		return store.TxManager.GetLINKBalance(account.Address)
+		return store.GetLINKBalance(str.Config, str.EthClient, account.Address)
 	}
 	return nil, fmt.Errorf("impossible to get balance for %T with value %v", balanceType, balanceType)
 }

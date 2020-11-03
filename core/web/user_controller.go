@@ -160,9 +160,8 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 	return nil
 }
 
-func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
-	txm := store.TxManager
-	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
+func getETHAccount(ctx *gin.Context, str *store.Store, account accounts.Account) presenters.ETHKey {
+	ethBalance, err := str.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
 		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -170,7 +169,7 @@ func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Accoun
 		return presenters.ETHKey{}
 	}
 
-	linkBalance, err := txm.GetLINKBalance(account.Address)
+	linkBalance, err := store.GetLINKBalance(str.Config, str.EthClient, account.Address)
 	if err != nil {
 		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -178,7 +177,7 @@ func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Accoun
 		return presenters.ETHKey{}
 	}
 
-	key, err := store.ORM.KeyByAddress(account.Address)
+	key, err := str.ORM.KeyByAddress(account.Address)
 	if err != nil {
 		err = fmt.Errorf("error fetching ETH key from DB: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
