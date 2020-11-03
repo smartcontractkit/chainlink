@@ -147,7 +147,7 @@ func TestRunExecutor_Execute_CancelActivelyRunningTask(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	runQueue := new(mocks.RunQueue)
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 	_, err := runManager.Cancel(run.ID)
 	require.NoError(t, err)
 

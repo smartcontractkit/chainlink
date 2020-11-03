@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -91,11 +90,6 @@ func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interf
 		ethClient = eth.NewClientWith(mock, mock)
 	}
 	s.EthClient = ethClient
-	if txm, ok := s.TxManager.(*store.EthTxManager); ok {
-		txm.Client = ethClient
-	} else {
-		log.Panic("MockEthOnStore only works on EthTxManager")
-	}
 	return mock
 }
 
