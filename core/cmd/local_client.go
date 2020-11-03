@@ -52,7 +52,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
-		logIfNonceOutOfSync(store)
+		checkAccountsForExternalUse(store)
 	})
 	store := app.GetStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
@@ -189,24 +189,36 @@ func passwordFromFile(pwdFile string) (string, error) {
 	dat, err := ioutil.ReadFile(pwdFile)
 	return strings.TrimSpace(string(dat)), err
 }
-func logIfNonceOutOfSync(store *strpkg.Store) {
-	account := store.TxManager.NextActiveAccount()
-	if account == nil {
+
+func checkAccountsForExternalUse(store *strpkg.Store) {
+	keys, err := store.AllKeys()
+	if err != nil {
+		logger.Error("database error while retrieving send keys:", err)
 		return
 	}
-	lastNonce, err := store.GetLastNonce(account.Address)
+	for _, key := range keys {
+		logIfNonceOutOfSync(store, key)
+	}
+}
+
+func logIfNonceOutOfSync(store *strpkg.Store, key models.Key) {
+	onChainNonce, err := store.EthClient.PendingNonceAt(context.TODO(), key.Address.Address())
+	if err != nil {
+		logger.Error(fmt.Sprintf("error determining nonce for address %s: %v", key.Address.Hex(), err))
+		return
+	}
+	localNonce, err := store.GetLastNonce(key.Address.Address())
 	if err != nil {
 		logger.Error("database error when checking nonce: ", err)
 		return
 	}
-
-	if localNonceIsNotCurrent(lastNonce, account.Nonce()) {
-		logger.Warn("The account is being used by another wallet and is not safe to use with chainlink")
+	if localNonceIsNotCurrent(localNonce, onChainNonce) {
+		logger.Warn(fmt.Sprintf("The account %s is being used by another wallet and is not safe to use with chainlink", key.Address.Hex()))
 	}
 }
 
-func localNonceIsNotCurrent(lastNonce, nonce uint64) bool {
-	return lastNonce+1 < nonce
+func localNonceIsNotCurrent(localNonce, onChainNonce uint64) bool {
+	return localNonce+1 < onChainNonce
 }
 
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
