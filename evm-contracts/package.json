@@ -13,6 +13,7 @@
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "lint:sol": "solhint -f table ./src/**/*.sol",
+    "test:reset": "yarn setup && yarn test",
     "test": "jest --testTimeout 80000 --forceExit",
     "test:ci": "./scripts/test_ci",
     "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"

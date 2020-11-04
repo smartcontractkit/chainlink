@@ -7,7 +7,7 @@
     "node": "^12.0.0"
   },
   "scripts": {
-    "start": "NODE_ENV=development webpack-dev-server --open",
+    "start": "webpack serve --env development",
     "serve": "serve dist -p 3000",
     "test": "jest",
     "test:ci": "yarn test --reporters jest-silent-reporter --maxWorkers=50%",
@@ -66,7 +66,7 @@
     "@babel/plugin-proposal-class-properties": "^7.10.4",
     "@babel/plugin-proposal-decorators": "^7.8.3",
     "@babel/preset-env": "^7.8.2",
-    "@babel/preset-react": "^7.0.0",
+    "@babel/preset-react": "^7.12.1",
     "@babel/preset-typescript": "^7.9.0",
     "@chainlink/ts-helpers": "0.0.3",
     "@types/classnames": "^2.2.8",
@@ -108,7 +108,7 @@
     "tsconfig-paths-webpack-plugin": "^3.2.0",
     "typescript": "^3.7.4",
     "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.12",
+    "webpack-cli": "^4.1.0",
     "webpack-dev-server": "^3.11.0"
   }
 }

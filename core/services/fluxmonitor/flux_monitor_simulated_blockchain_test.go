@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -245,6 +246,22 @@ type maliciousFluxMonitor interface {
 	CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
 }
 
+func waitForRunsAndAttemptsCount(
+	t *testing.T,
+	job models.JobSpec,
+	runCount int,
+	store *store.Store,
+	backend *backends.SimulatedBackend,
+) []models.JobRun {
+	jrs := cltest.WaitForRuns(t, job, store, runCount) // Submit answer from
+	cltest.WaitForEthTxAttemptCount(t, store, runCount)
+	txa := cltest.GetLastEthTxAttempt(t, store)
+	cltest.WaitForTxInMempool(t, backend, txa.Hash)
+
+	backend.Commit()
+	return jrs
+}
+
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 
@@ -260,7 +277,6 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
@@ -316,8 +332,10 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
 	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(pollTimerPeriod)
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
+
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	jrs := cltest.WaitForRuns(t, j, app.Store, 1) // Submit answer from
+	jrs := waitForRunsAndAttemptsCount(t, j, 1, app.Store, fa.backend)
+
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
 	assert.Equal(t, reportedPrice, fmt.Sprintf("%d", atomic.LoadInt64(&reportPrice)), "failed to report correct price to contract")
 	var receiptBlock uint64
@@ -343,6 +361,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
 	atomic.StoreInt64(&reportPrice, answer+1)
+	waitForRunsAndAttemptsCount(t, j, 2, app.Store, fa.backend)
+
 	select {
 	case log := <-submissionReceived:
 		receiptBlock = log.Raw.BlockNumber
@@ -362,6 +382,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		nextRoundBalance,
 		receiptBlock,
 	)
+
 	// Successfully close the round through the submissions of the other nodes
 	submitAnswer(t,
 		answerParams{
@@ -381,6 +402,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// FORCE node to try to start a new round
 	err = app.FluxMonitor.(maliciousFluxMonitor).CreateJob(t, j.ID, decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
+
+	waitForRunsAndAttemptsCount(t, j, 3, app.Store, fa.backend)
+
 	select {
 	case <-submissionReceived:
 		t.Fatalf("FA allowed chainlink node to start a new round early")
@@ -404,6 +428,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		completesAnswer: true})
 	// start a legitimate new round
 	atomic.StoreInt64(&reportPrice, reportPrice+3)
+	waitForRunsAndAttemptsCount(t, j, 4, app.Store, fa.backend)
+
 	select {
 	case <-submissionReceived:
 	case <-time.After(5 * pollTimerPeriod):
@@ -425,7 +451,6 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
@@ -474,21 +499,21 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 1)
-	fa.backend.Commit()
+	waitForRunsAndAttemptsCount(t, job, 1, app.Store, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(2)
-	cltest.WaitForRuns(t, job, app.Store, 2)
+	waitForRunsAndAttemptsCount(t, job, 2, app.Store, fa.backend)
 
-	// lower contract's flag - should have no effect
+	// lower contract's flag - should have no effect (but currently does)
+	// TODO - https://www.pivotaltracker.com/story/show/175419789
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	cltest.WaitForRuns(t, job, app.Store, 2)
+	waitForRunsAndAttemptsCount(t, job, 3, app.Store, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(4)
-	cltest.WaitForRuns(t, job, app.Store, 3)
+	waitForRunsAndAttemptsCount(t, job, 4, app.Store, fa.backend)
 
 	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)
@@ -505,5 +530,5 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// change in price should not trigger run
 	reportPrice = int64(8)
-	cltest.AssertRunsStays(t, job, app.Store, 3)
+	cltest.AssertRunsStays(t, job, app.Store, 4)
 }

@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1075,6 +1076,27 @@ func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models
 	return tas
 }
 
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Eventually(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+func WaitForTxInMempool(t *testing.T, client *backends.SimulatedBackend, txHash common.Hash) {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		_, isPending, err := client.TransactionByHash(context.TODO(), txHash)
+		return err == nil && isPending
+	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
+}
+
 // WaitForSyncEventCount checks if the sync event count eventually reaches
 // the amound specified in parameter want.
 func WaitForSyncEventCount(
@@ -1356,6 +1378,32 @@ func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
 	return tx
 }
 
+func GetLastEthTx(t testing.TB, store *strpkg.Store) models.EthTx {
+	t.Helper()
+
+	var tx models.EthTx
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&tx).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return tx
+}
+
+func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
+	t.Helper()
+
+	var txa models.EthTxAttempt
+	var count int
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Order("created_at desc").First(&txa).Count(&count).Error
+	})
+	require.NoError(t, err)
+	require.NotEqual(t, 0, count)
+	return txa
+}
+
 type Awaiter chan struct{}
 
 func NewAwaiter() Awaiter { return make(Awaiter) }
@@ -1473,4 +1521,23 @@ func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
 	require.NoError(t, err)
 	return k
+}
+
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = nil
+	etx.Nonce = &nonce
+	etx.State = models.EthTxInProgress
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+	attempt.State = models.EthTxAttemptInProgress
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
 }
