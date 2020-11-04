@@ -17,11 +17,53 @@ type OCRJobSpecsController struct {
 	App chainlink.Application
 }
 
-// Create adds validates, saves, and starts a new OCR job spec.
+// Index lists all OCR job specs.
 // Example:
-// "<application>/ocr/specs"
+// "GET <application>/ocr/specs"
+func (ocrjsc *OCRJobSpecsController) Index(c *gin.Context) {
+	jobs, err := ocrjsc.App.GetStore().ORM.OffChainReportingJobs()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, jobs, "offChainReportingJobSpec")
+}
+
+// Show returns the details of a OCR job spec.
+// Example:
+// "GET <application>/ocr/specs/:ID"
+func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
+	jobSpec := models.JobSpecV2{}
+	err := jobSpec.SetID(c.Param("ID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	jobSpec, err = ocrjsc.App.GetStore().ORM.FindOffChainReportingJob(jobSpec.ID)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
+		return
+	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, jobSpec, "offChainReportingJobSpec")
+}
+
+// Create validates, saves and starts a new OCR job spec.
+// Example:
+// "POST <application>/ocr/specs"
 func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
-	jobSpec, err := services.ValidatedOracleSpec(c.Request.Body)
+	request := models.CreateOCRJobSpecRequest{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	jobSpec, err := services.ValidatedOracleSpec(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -44,7 +86,7 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 
 // Delete soft deletes an OCR job spec.
 // Example:
-// "<application>/ocr/specs/:ID"
+// "DELETE <application>/ocr/specs/:ID"
 func (ocrjsc *OCRJobSpecsController) Delete(c *gin.Context) {
 	jobSpec := models.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
@@ -63,5 +105,5 @@ func (ocrjsc *OCRJobSpecsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
 }
