@@ -148,7 +148,7 @@ func (jr JobRun) HasError() bool {
 // NextTaskRunIndex returns the position of the next unfinished task
 func (jr *JobRun) NextTaskRunIndex() (int, bool) {
 	for index, tr := range jr.TaskRuns {
-		if tr.Status.CanStart() {
+		if tr.Status.Pending() || tr.Status == RunStatusUnstarted || tr.Status == RunStatusInProgress {
 			return index, true
 		}
 	}
