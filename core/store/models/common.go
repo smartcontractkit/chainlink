@@ -119,11 +119,6 @@ func (s RunStatus) Runnable() bool {
 	return !s.Errored() && !s.Pending()
 }
 
-// CanStart returns true if the run is ready to begin processed.
-func (s RunStatus) CanStart() bool {
-	return s.Pending() || s.Unstarted()
-}
-
 // Value returns this instance serialized for database storage.
 func (s RunStatus) Value() (driver.Value, error) {
 	return string(s), nil
