@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -21,9 +22,10 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 	_, client, cleanup := setupOCRJobSpecsControllerTests(t)
 	defer cleanup()
 
-	fixtureBytes := cltest.MustReadFile(t, "testdata/oracle-spec-invalid-key.toml")
-
-	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(fixtureBytes))
+	body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
+		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec-invalid-key.toml")),
+	})
+	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
 	defer cleanup()
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 
@@ -36,9 +38,10 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	app, client, cleanup := setupOCRJobSpecsControllerTests(t)
 	defer cleanup()
 
-	fixtureBytes := cltest.MustReadFile(t, "testdata/oracle-spec.toml")
-
-	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(fixtureBytes))
+	body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
+		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec.toml")),
+	})
+	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
