@@ -974,7 +974,7 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
-	err := orm.DB.Set("gorm:auto_preload", true).Find(&jobs).Error
+	err := orm.DB.Preload("OffchainreportingOracleSpec").Find(&jobs).Error
 	return jobs, err
 }
 
@@ -982,8 +982,7 @@ func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpecV2
-	err := orm.DB.Set("gorm:auto_preload", true).First(&job, "id = ?", id).Error
-	fmt.Println("err", err)
+	err := orm.DB.Preload("OffchainreportingOracleSpec").First(&job, "id = ?", id).Error
 	return job, err
 }
 
