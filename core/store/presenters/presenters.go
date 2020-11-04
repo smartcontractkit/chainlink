@@ -194,8 +194,8 @@ type EnvPrinter struct {
 	OCRBootstrapCheckInterval             time.Duration   `json:"ocrBootstrapCheckInterval"`
 	OCRContractTransmitterTransmitTimeout time.Duration   `json:"ocrContractTransmitterTransmitTimeout"`
 	OCRDatabaseTimeout                    time.Duration   `json:"ocrDatabaseTimeout"`
-	OCRListenIP                           string          `json:"ocrListenIP"`
-	OCRListenPort                         uint16          `json:"ocrListenPort"`
+	P2PListenIP                           string          `json:"ocrListenIP"`
+	P2PListenPort                         uint16          `json:"ocrListenPort"`
 	OCRIncomingMessageBufferSize          int             `json:"ocrIncomingMessageBufferSize"`
 	OCROutgoingMessageBufferSize          int             `json:"ocrOutgoingMessageBufferSize"`
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
@@ -285,8 +285,8 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRBootstrapCheckInterval:             config.OCRBootstrapCheckInterval(),
 			OCRContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
 			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
-			OCRListenIP:                           config.OCRListenIP().String(),
-			OCRListenPort:                         config.OCRListenPort(),
+			P2PListenIP:                           config.P2PListenIP().String(),
+			P2PListenPort:                         config.P2PListenPort(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
 			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
