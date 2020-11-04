@@ -81,14 +81,16 @@ type ConfigSchema struct {
 	OCRBootstrapCheckInterval                 time.Duration   `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`
 	OCRContractTransmitterTransmitTimeout     time.Duration   `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
 	OCRDatabaseTimeout                        time.Duration   `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
-	OCRListenIP                               net.IP          `env:"OCR_LISTEN_IP" default:"0.0.0.0"`
-	OCRListenPort                             uint16          `env:"OCR_LISTEN_PORT" default:"6690"`
 	OCRIncomingMessageBufferSize              int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCROutgoingMessageBufferSize              int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout                       time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 	OCRDHTLookupInterval                      int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
 	OCRTraceLogging                           bool            `env:"OCR_TRACE_LOGGING" default:"false"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
+	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
+	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
+	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
+	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                           int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`
