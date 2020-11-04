@@ -146,6 +146,49 @@ export function convertFufillParams(
 /**
  * Convert the javascript format of the parameters needed to call the
  * ```solidity
+ *  function fulfillOracleRequest2(
+ *    bytes32 _requestId,
+ *    uint256 _payment,
+ *    address _callbackAddress,
+ *    bytes4 _callbackFunctionId,
+ *    uint256 _expiration,
+ *    bytes memory _data
+ *  )
+ * ```
+ * method on an Oracle.sol contract.
+ *
+ * @param runRequest The run request to flatten into the correct order to perform the `fulfillOracleRequest` function
+ * @param response The response to fulfill the run request with, if it is an ascii string, it is converted to bytes32 string
+ * @param txOpts Additional ethereum tx options
+ */
+export function convertFulfill2Params(
+  runRequest: RunRequest,
+  responseTypes: string[],
+  responseValues: string[],
+  txOpts: TxOptions = {},
+): [string, string, string, string, string, string, TxOptions] {
+  const d = debug.extend('fulfillOracleRequestParams')
+  d('Response param: %s', responseValues)
+  const types = [...responseTypes]
+  const values = [...responseValues]
+  types.unshift('bytes32')
+  values.unshift(runRequest.requestId)
+  const convertedResponse = ethers.utils.defaultAbiCoder.encode(types, values)
+  d('Encoded Response param: %s', convertedResponse)
+  return [
+    runRequest.requestId,
+    runRequest.payment,
+    runRequest.callbackAddr,
+    runRequest.callbackFunc,
+    runRequest.expiration,
+    convertedResponse,
+    txOpts,
+  ]
+}
+
+/**
+ * Convert the javascript format of the parameters needed to call the
+ * ```solidity
  *  function cancelOracleRequest(
  *    bytes32 _requestId,
  *    uint256 _payment,
@@ -200,6 +243,24 @@ export function encodeOracleRequest(
   data: BigNumberish,
 ): string {
   const oracleRequestSighash = '0x40429946'
+  return encodeRequest(
+    oracleRequestSighash,
+    specId,
+    callbackAddr,
+    callbackFunctionId,
+    nonce,
+    data,
+  )
+}
+
+function encodeRequest(
+  oracleRequestSighash: string,
+  specId: string,
+  callbackAddr: string,
+  callbackFunctionId: string,
+  nonce: number,
+  data: BigNumberish,
+): string {
   const oracleRequestInputs = [
     { name: '_sender', type: 'address' },
     { name: '_payment', type: 'uint256' },
@@ -210,7 +271,6 @@ export function encodeOracleRequest(
     { name: '_dataVersion', type: 'uint256' },
     { name: '_data', type: 'bytes' },
   ]
-
   const encodedParams = ethers.utils.defaultAbiCoder.encode(
     oracleRequestInputs.map((i) => i.type),
     [
@@ -224,7 +284,6 @@ export function encodeOracleRequest(
       data,
     ],
   )
-
   return `${oracleRequestSighash}${stripHexPrefix(encodedParams)}`
 }
 
