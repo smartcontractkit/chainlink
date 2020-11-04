@@ -8,7 +8,7 @@ import "./SafeMath64.sol";
 import "./interfaces/AggregatorV2V3Interface.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
-import "./vendor/SafeMath.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 /**
  * @title The Prepaid Aggregator contract
@@ -19,7 +19,7 @@ import "./vendor/SafeMath.sol";
  * answers and their updated at timestamp.
  */
 contract FluxAggregator is AggregatorV2V3Interface, Owned {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
   using SafeMath32 for uint32;

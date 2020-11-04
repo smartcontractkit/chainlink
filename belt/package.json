@@ -24,11 +24,11 @@
     "@oclif/plugin-help": "^2",
     "@oclif/plugin-not-found": "^1.2.3",
     "chalk": "^4.1.0",
-    "cli-ux": "^5.4.4",
+    "cli-ux": "^5.5.0",
     "debug": "^4.1.1",
     "inquirer": "^7.3.3",
     "shelljs": "^0.8.3",
-    "ts-generator": "^0.0.8",
+    "ts-generator": "^0.1.1",
     "tslib": "^1",
     "typechain": "^1.0.5",
     "typechain-target-ethers": "^1.0.4"

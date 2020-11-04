@@ -2,7 +2,7 @@ pragma solidity ^0.4.24;
 
 
 import { ERC20Basic as linkERC20Basic } from '../interfaces/ERC20Basic.sol';
-import { SafeMath as linkSafeMath } from './SafeMath.sol';
+import { SafeMathChainlink as linkSafeMath } from './SafeMathChainlink.sol';
 
 
 /**

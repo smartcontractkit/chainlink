@@ -215,17 +215,26 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	return err
 }
 
+// CreateOCRJobSpec creates an OCR job spec
+// Valid input is a TOML string or a path to TOML file
 func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in TOML or filepath"))
 	}
 
-	buf, err := getBufferFromTOML(c.Args().First())
+	tomlString, err := getTOMLString(c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/ocr/specs", buf)
+	request, err := json.Marshal(models.CreateOCRJobSpecRequest{
+		TOML: tomlString,
+	})
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := cli.HTTP.Post("/v2/ocr/specs", bytes.NewReader(request))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -570,20 +579,20 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
-func getBufferFromTOML(s string) (*bytes.Buffer, error) {
+func getTOMLString(s string) (string, error) {
 	var val interface{}
 	err := toml.Unmarshal([]byte(s), &val)
 	if err == nil {
-		return bytes.NewBufferString(s), nil
+		return s, nil
 	}
 
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("invalid TOML or file not found '%s'", s)
+		return "", fmt.Errorf("invalid TOML or file not found '%s'", s)
 	} else if err != nil {
-		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
+		return "", fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
-	return buf, nil
+	return buf.String(), nil
 }
 
 func fromFile(arg string) (*bytes.Buffer, error) {

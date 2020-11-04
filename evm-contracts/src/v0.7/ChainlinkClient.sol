@@ -1,12 +1,12 @@
-pragma solidity ^0.5.0;
+pragma solidity ^0.7.0;
 
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
-import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 import "./vendor/SafeMathChainlink.sol";
+import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 
 /**
  * @title The ChainlinkClient contract
@@ -20,7 +20,7 @@ contract ChainlinkClient {
   uint256 constant internal LINK = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = address(0);
-  uint256 constant private ARGS_VERSION = 1;
+  uint256 constant private ARGS_VERSION = 2;
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xC89bD4E1632D3A43CB03AAAd5262cbe4038Bc571;
@@ -57,7 +57,7 @@ contract ChainlinkClient {
    * @dev Calls `chainlinkRequestTo` with the stored oracle address
    * @param _req The initialized Chainlink Request
    * @param _payment The amount of LINK to send for the request
-   * @return The request ID
+   * @return requestId The request ID
    */
   function sendChainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
     internal
@@ -74,7 +74,7 @@ contract ChainlinkClient {
    * @param _oracle The address of the oracle for the request
    * @param _req The initialized Chainlink Request
    * @param _payment The amount of LINK to send for the request
-   * @return The request ID
+   * @return requestId The request ID
    */
   function sendChainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
     internal
@@ -84,7 +84,7 @@ contract ChainlinkClient {
     _req.nonce = requestCount;
     pendingRequests[requestId] = _oracle;
     emit ChainlinkRequested(requestId);
-    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req)), "unable to transferAndCall to oracle");
+    require(link.transferAndCall(_oracle, _payment, encodeRequest(_req, ARGS_VERSION)), "unable to transferAndCall to oracle");
     requestCount += 1;
 
     return requestId;
@@ -211,7 +211,7 @@ contract ChainlinkClient {
    * @param _req The initialized Chainlink Request
    * @return The bytes payload for the `transferAndCall` method
    */
-  function encodeRequest(Chainlink.Request memory _req)
+  function encodeRequest(Chainlink.Request memory _req, uint256 _dataVersion)
     private
     view
     returns (bytes memory)
@@ -224,7 +224,7 @@ contract ChainlinkClient {
       _req.callbackAddress,
       _req.callbackFunctionId,
       _req.nonce,
-      ARGS_VERSION,
+      _dataVersion,
       _req.buf.buf);
   }
 

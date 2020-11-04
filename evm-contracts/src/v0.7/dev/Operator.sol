@@ -4,9 +4,10 @@ import "./LinkTokenReceiver.sol";
 import "./Owned.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
+import "../interfaces/OracleInterface2.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
-import "../vendor/SafeMath.sol";
+import "../vendor/SafeMathChainlink.sol";
 
 /**
  * @title The Chainlink Operator contract
@@ -17,9 +18,10 @@ contract Operator is
   Owned,
   ChainlinkRequestInterface,
   OracleInterface,
+  OracleInterface2,
   WithdrawalInterface
 {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
@@ -30,6 +32,7 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => bytes32) private s_commitments;
   mapping(address => bool) private s_authorizedNodes;
+  mapping(bytes32 => uint256) private s_dataVersions;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -63,6 +66,8 @@ contract Operator is
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
+  // EXTERNAL FUNCTIONS
+
   /**
    * @notice Creates the Chainlink request
    * @dev Stores the hash of the params as the on-chain commitment for the request.
@@ -91,20 +96,14 @@ contract Operator is
     onlyLINK()
     checkCallbackAddress(callbackAddress)
   {
-    bytes32 requestId = keccak256(abi.encodePacked(sender, nonce));
-    require(s_commitments[requestId] == 0, "Must use a unique ID");
-    // solhint-disable-next-line not-rely-on-time
-    uint256 expiration = block.timestamp.add(EXPIRY_TIME);
-
-    s_commitments[requestId] = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
+    (bytes32 requestId, uint256 expiration) = verifyOracleRequest(
+      sender,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      nonce,
+      dataVersion
     );
-
     emit OracleRequest(
       specId,
       sender,
@@ -144,23 +143,65 @@ contract Operator is
     isValidRequest(requestId)
     returns (bool)
   {
-    bytes32 paramsHash = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
+    verifyOracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration,
+      1
     );
-    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
-    delete s_commitments[requestId];
     emit OracleResponse(requestId);
     require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
     (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
+    return success;
+  }
+
+  /**
+   * @notice Called by the Chainlink node to fulfill requests with multi-word support
+   * @dev Given params must hash back to the commitment stored from `oracleRequest`.
+   * Will call the callback address' callback function without bubbling up error
+   * checking in a `require` so that the node can get paid.
+   * @param requestId The fulfillment request ID that must match the requester's
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   * @param data The data to return to the consuming contract
+   * @return Status if the external call was successful
+   */
+  function fulfillOracleRequest2(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes memory data
+  )
+    external
+    override
+    onlyAuthorizedNode()
+    isValidRequest(requestId)
+    isValidMultiWord(requestId, data)
+    returns (bool)
+  {
+    verifyOracleResponse(
+      requestId,
+      payment,
+      callbackAddress,
+      callbackFunctionId,
+      expiration,
+      2
+    );
+    emit OracleResponse(requestId);
+    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
+    // All updates to the oracle's fulfillment should come before calling the
+    // callback(addr+functionId) as it is untrusted.
+    // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
+    (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
 
@@ -247,7 +288,7 @@ contract Operator is
         callbackFunc,
         expiration)
     );
-    require(paramsHash == s_commitments[requestId], "Params do not match request ID");
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -280,7 +321,89 @@ contract Operator is
     require(status, "Forwarded call failed.");
   }
 
+  // INTERNAL FUNCTIONS
+
+  /**
+   * @notice Verify the Oracle Request
+   * @param sender The sender of the request
+   * @param payment The amount of payment given (specified in wei)
+   * @param callbackAddress The callback address for the response
+   * @param callbackFunctionId The callback function ID for the response
+   * @param nonce The nonce sent by the requester
+   */
+  function verifyOracleRequest(
+    address sender,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 nonce,
+    uint256 dataVersion
+  ) internal returns (bytes32 requestId, uint256 expiration) {
+    requestId = keccak256(abi.encodePacked(sender, nonce));
+    require(s_commitments[requestId] == 0, "Must use a unique ID");
+    // solhint-disable-next-line not-rely-on-time
+    expiration = block.timestamp.add(EXPIRY_TIME);
+    s_commitments[requestId] = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    s_dataVersions[requestId] = dataVersion;
+    return (requestId, expiration);
+  }
+
+  /**
+   * @notice Verify the Oracle Response
+   * @param requestId The fulfillment request ID that must match the requester's
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   */
+  function verifyOracleResponse(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    uint256 dataVersion
+  )
+  internal
+  {
+    bytes32 paramsHash = keccak256(
+      abi.encodePacked(
+        payment,
+        callbackAddress,
+        callbackFunctionId,
+        expiration
+      )
+    );
+    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    require(s_dataVersions[requestId] <= dataVersion, "Incorrect data version");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
+    delete s_dataVersions[requestId];
+  }
+
   // MODIFIERS
+
+  /**
+   * @dev Reverts if the first 32 bytes of the bytes array is not equal to requestId
+   * @param requestId bytes32
+   * @param data bytes
+   */
+  modifier isValidMultiWord(bytes32 requestId, bytes memory data) {
+    bytes32 firstWord;
+    assembly{
+      firstWord := mload(add(data, 0x20))
+    }
+    require(requestId == firstWord, "First word must be requestId");
+    _;
+  }
+
 
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
