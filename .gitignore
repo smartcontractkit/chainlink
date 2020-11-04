@@ -42,3 +42,5 @@ clroot
 password.txt
 jobspec.toml
 tempkeys
+tools/docker
+evm-contracts/
