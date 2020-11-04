@@ -42,8 +42,8 @@ jobs:
           name: 'smartcontract/builder-cache'
           dockerfile: 'builder-cache.Dockerfile'
           tags: '${{ steps.updateCacheFile.outputs.builderVersion }}-${{ steps.getDate.outputs.date }}'
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
