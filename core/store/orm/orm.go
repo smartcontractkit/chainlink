@@ -6,15 +6,18 @@ import (
 	"database/sql"
 	"encoding"
 	"encoding/hex"
-
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/lib/pq"
-
+	"github.com/pkg/errors"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -23,12 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
-	"github.com/pkg/errors"
-	uuid "github.com/satori/go.uuid"
 	"go.uber.org/multierr"
 )
 
@@ -971,6 +968,22 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	order := fmt.Sprintf("created_at %s", sort.String())
 	err = orm.getRecords(&jobs, order, offset, limit)
 	return jobs, count, err
+}
+
+// OffChainReportingJobs returns OCR job specs
+func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
+	orm.MustEnsureAdvisoryLock()
+	var jobs []models.JobSpecV2
+	err := orm.DB.Preload("OffchainreportingOracleSpec").Find(&jobs).Error
+	return jobs, err
+}
+
+// FindOffChainReportingJob returns OCR job spec by ID
+func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
+	orm.MustEnsureAdvisoryLock()
+	var job models.JobSpecV2
+	err := orm.DB.Preload("OffchainreportingOracleSpec").First(&job, "id = ?", id).Error
+	return job, err
 }
 
 // TxFrom returns all transactions from a particular address.
