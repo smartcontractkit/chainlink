@@ -58,7 +58,12 @@ func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/ocr/specs"
 func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
-	jobSpec, err := services.ValidatedOracleSpec(c.Request.Body)
+	request := models.CreateOCRJobSpecRequest{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	jobSpec, err := services.ValidatedOracleSpec(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
