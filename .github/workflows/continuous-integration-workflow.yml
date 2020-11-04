@@ -13,12 +13,19 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
       postgres:
         image: postgres
+        credentials:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -87,6 +94,11 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Run tests
         run: cd ./tools/docker && timeout --foreground 1200s ./compose ${{ matrix.test }}
       - name: Capture logs on failure
@@ -102,7 +114,11 @@ jobs:
   solidity:
     name: Solidity
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -121,7 +137,11 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -140,7 +160,11 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -159,7 +183,11 @@ jobs:
   prettier:
     name: Prettier formatting check
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -178,7 +206,11 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
@@ -226,6 +258,11 @@ jobs:
             echo "::add-mask::$PASSWORD"
             echo "::set-output name=password::$PASSWORD"
             }
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
       - name: Build image
         uses: docker/build-push-action@v1
         with:
