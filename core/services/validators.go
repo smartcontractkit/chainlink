@@ -3,13 +3,15 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -17,12 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/multierr"
-
-	"github.com/BurntSushi/toml"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -379,9 +377,9 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpec validates an oracle spec that came from TOML
-func ValidatedOracleSpec(r io.Reader) (spec offchainreporting.OracleSpec, err error) {
+func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, err error) {
 	var m toml.MetaData
-	m, err = toml.DecodeReader(r, &spec)
+	m, err = toml.Decode(tomlString, &spec)
 	if err != nil {
 		return spec, err
 	}

@@ -607,6 +607,11 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
+// CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
+type CreateOCRJobSpecRequest struct {
+	TOML string `json:"toml"`
+}
+
 // AddressCollection is an array of common.Address
 // serializable to and from a database.
 type AddressCollection []common.Address
