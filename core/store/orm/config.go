@@ -102,12 +102,8 @@ func (c *Config) Validate() error {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
 
-	if c.P2PAnnouncePort() != 0 || c.P2PAnnounceIP() != nil {
-		if c.P2PAnnouncePort() == 0 {
-			return errors.Errorf("OCR_ANNOUNCE_IP was given as %s but OCR_ANNOUNCE_PORT was unset. You must set both OCR_ANNOUNCE_IP and OCR_ANNOUNCE_PORT together, or leave both unset for automatic detection", c.P2PAnnounceIP().String())
-		} else if c.P2PAnnounceIP().IsUnspecified() {
-			return errors.Errorf("OCR_ANNOUNCE_PORT was given as %v but OCR_ANNOUNCE_IP was unset. You must set both OCR_ANNOUNCE_IP and OCR_ANNOUNCE_PORT together, or leave both unset for automatic detection", c.P2PAnnouncePort())
-		}
+	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
+		return errors.Errorf("OCR_ANNOUNCE_PORT was given as %v but OCR_ANNOUNCE_IP was unset. You must also set OCR_ANNOUNCE_IP if OCR_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {

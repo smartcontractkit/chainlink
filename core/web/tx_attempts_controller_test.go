@@ -5,8 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -28,26 +27,24 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
-	transaction := cltest.NewTransaction(1, 2)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
-	transaction = cltest.NewTransaction(2, 3)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	var attempts []models.TxAttempt
+	var attempts []presenters.EthTx
 	body := cltest.ParseResponseBody(t, resp)
+
 	require.NoError(t, web.ParsePaginatedResponse(body, &attempts, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
-
 	require.Len(t, attempts, 2)
-	assert.Equal(t, uint64(3), attempts[0].SentAt, "expected tx attempts order by sentAt descending")
-	assert.Equal(t, uint64(2), attempts[1].SentAt, "expected tx attempts order by sentAt descending")
+	assert.Equal(t, "3", attempts[0].SentAt, "expected tx attempts order by sentAt descending")
+	assert.Equal(t, "2", attempts[1].SentAt, "expected tx attempts order by sentAt descending")
 }
 
 func TestTxAttemptsController_Index_Error(t *testing.T) {
