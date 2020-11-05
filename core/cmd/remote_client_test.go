@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"math/big"
@@ -10,18 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -803,7 +805,8 @@ func TestClient_IndexTransactions(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	attempt := tx.EthTxAttempts[0]
 
 	client, r := app.NewClientAndRenderer()
 
@@ -814,9 +817,9 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs := *r.Renders[0].(*[]presenters.Tx)
+	renderedTxs := *r.Renders[0].(*[]presenters.EthTx)
 	assert.Equal(t, 1, len(renderedTxs))
-	assert.Equal(t, tx.Hash.Hex(), renderedTxs[0].Hash.Hex())
+	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test txattempts", 0)
@@ -825,7 +828,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs = *r.Renders[1].(*[]presenters.Tx)
+	renderedTxs = *r.Renders[1].(*[]presenters.EthTx)
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
@@ -838,17 +841,18 @@ func TestClient_ShowTransaction(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	attempt := tx.EthTxAttempts[0]
 
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{tx.Hash.Hex()})
+	set.Parse([]string{attempt.Hash.Hex()})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowTransaction(c))
 
-	renderedTx := *r.Renders[0].(*presenters.Tx)
-	assert.Equal(t, &tx.From, renderedTx.From)
+	renderedTx := *r.Renders[0].(*presenters.EthTx)
+	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {
@@ -860,7 +864,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -871,9 +875,9 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
-	require.Len(t, tx.Attempts, 1)
-	assert.Equal(t, tx.Attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+	renderedAttempts := *r.Renders[0].(*[]presenters.EthTx)
+	require.Len(t, tx.EthTxAttempts, 1)
+	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
@@ -882,7 +886,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
+	renderedAttempts = *r.Renders[1].(*[]presenters.EthTx)
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
@@ -1141,4 +1145,52 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	// Only fixture key remains
 	require.Len(t, keys, 1)
+}
+
+func TestClient_RunOCRJob_HappyPath(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.TriggerOCRJobRun(c))
+}
+
+func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	assert.EqualError(t, client.TriggerOCRJobRun(c), "Must pass the job id to trigger a run")
+}
+
+func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{"1"})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; could not create pipeline run: record not found")
 }

@@ -122,12 +122,21 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.New("failed to instantiate oracle or bootstrapper service, OCR_LISTEN_PORT is required and must be set to a non-zero value")
 	}
 
+	// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
+	// Fallback to P2PListenPort if it wasn't made explicit
+	var announcePort uint16
+	if d.config.P2PAnnounceIP() != nil && d.config.P2PAnnouncePort() != 0 {
+		announcePort = d.config.P2PAnnouncePort()
+	} else if d.config.P2PAnnounceIP() != nil {
+		announcePort = listenPort
+	}
+
 	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
 		PrivKey:      p2pkey.PrivKey,
 		ListenIP:     d.config.P2PListenIP(),
 		ListenPort:   listenPort,
 		AnnounceIP:   d.config.P2PAnnounceIP(),
-		AnnouncePort: d.config.P2PAnnouncePort(),
+		AnnouncePort: announcePort,
 		Logger:       ocrLogger,
 		Peerstore:    peerstore,
 		EndpointConfig: ocrnetworking.EndpointConfig{

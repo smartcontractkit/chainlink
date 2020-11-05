@@ -675,6 +675,22 @@ type Tx struct {
 	Value     string          `json:"value,omitempty"`
 }
 
+// EthTx is a jsonapi wrapper for an Ethereum Transaction.
+type EthTx struct {
+	ID       int64           `json:"-"`
+	State    string          `json:"confirmed,omitempty"`
+	Data     hexutil.Bytes   `json:"data,omitempty"`
+	From     *common.Address `json:"from,omitempty"`
+	GasLimit string          `json:"gasLimit,omitempty"`
+	GasPrice string          `json:"gasPrice,omitempty"`
+	Hash     common.Hash     `json:"hash,omitempty"`
+	Hex      string          `json:"rawHex,omitempty"`
+	Nonce    string          `json:"nonce,omitempty"`
+	SentAt   string          `json:"sentAt,omitempty"`
+	To       *common.Address `json:"to,omitempty"`
+	Value    string          `json:"value,omitempty"`
+}
+
 // NewTx builds a transaction presenter.
 func NewTx(tx *models.Tx) Tx {
 	return Tx{
@@ -712,6 +728,60 @@ func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
 	tx.SentAt = txAttempt.SentAt
 	tx.SignedRawTx = txAttempt.SignedRawTx
 	return NewTx(tx)
+}
+
+// NewEthTx builds a transaction presenter.
+func NewEthTx(tx *models.EthTx) EthTx {
+	return EthTx{
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
+		ID:       tx.ID,
+		Nonce:    strconv.FormatUint(uint64(*tx.Nonce), 10),
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    tx.Value.String(),
+	}
+}
+
+func NewEthTxWithAttempt(tx *models.EthTx, txa *models.EthTxAttempt) EthTx {
+	ethTX := EthTx{
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
+		GasPrice: txa.GasPrice.String(),
+		Hash:     txa.Hash,
+		Hex:      hexutil.Encode(txa.SignedRawTx),
+		ID:       tx.ID,
+		Nonce:    strconv.FormatUint(uint64(*tx.Nonce), 10),
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    tx.Value.String(),
+	}
+	if txa.BroadcastBeforeBlockNum != nil {
+		ethTX.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)
+	}
+	return ethTX
+}
+
+func NewEthTxFromAttempt(txa *models.EthTxAttempt) EthTx {
+	return NewEthTxWithAttempt(&txa.EthTx, txa)
+}
+
+// GetID returns the jsonapi ID.
+func (t EthTx) GetID() string {
+	return fmt.Sprint(t.ID)
+}
+
+// GetName returns the collection name for jsonapi.
+func (EthTx) GetName() string {
+	return "eth_transactions"
+}
+
+// SetID is used to conform to the UnmarshallIdentifier interface for
+// deserializing from jsonapi documents.
+func (t *EthTx) SetID(hex string) error {
+	return nil
 }
 
 // GetID returns the jsonapi ID.
