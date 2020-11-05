@@ -275,6 +275,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			ocr.GET("/specs/:ID", ocrjsc.Show)
 			ocr.POST("/specs", ocrjsc.Create)
 			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
+			ocr.POST("/specs/:ID/runs", ocrjsc.Run)
 		}
 	}
 

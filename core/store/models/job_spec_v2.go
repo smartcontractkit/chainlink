@@ -20,6 +20,10 @@ type (
 		PipelineSpecID                int32                        `json:"-"`
 	}
 
+	OCRJobRun struct {
+		ID int64 `json:"-" gorm:"primary_key"`
+	}
+
 	OffchainReportingOracleSpec struct {
 		ID                                     int32          `json:"-" toml:"-"                 gorm:"primary_key"`
 		ContractAddress                        EIP55Address   `json:"contractAddress" toml:"contractAddress"`
@@ -69,6 +73,19 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 
 func (p PeerID) String() string {
 	return peer.ID(p).String()
+}
+
+func (jr OCRJobRun) GetID() string {
+	return fmt.Sprintf("%v", jr.ID)
+}
+
+func (jr *OCRJobRun) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return err
+	}
+	jr.ID = int64(ID)
+	return nil
 }
 
 func (p *PeerID) UnmarshalText(bs []byte) error {

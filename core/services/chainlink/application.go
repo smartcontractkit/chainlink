@@ -8,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -24,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/gobuffalo/packr"
 	"go.uber.org/multierr"
 )
 
@@ -55,6 +54,7 @@ type Application interface {
 	AddJobV2(ctx context.Context, job job.Spec) (int32, error)
 	ArchiveJob(*models.ID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
 	services.RunManager
@@ -306,6 +306,10 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 
 func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec) (int32, error) {
 	return app.jobSpawner.CreateJob(ctx, job)
+}
+
+func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
+	return app.pipelineRunner.CreateRun(ctx, jobID, meta)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
