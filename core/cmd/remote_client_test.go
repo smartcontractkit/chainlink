@@ -840,7 +840,6 @@ func TestClient_ShowTransaction(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	// tx := cltest.CreateTx(t, store, from, 1)
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -864,7 +863,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 
 	client, r := app.NewClientAndRenderer()
 
@@ -875,9 +874,9 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts := *r.Renders[0].(*[]models.TxAttempt)
-	require.Len(t, tx.Attempts, 1)
-	assert.Equal(t, tx.Attempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
+	renderedAttempts := *r.Renders[0].(*[]presenters.EthTx)
+	require.Len(t, tx.EthTxAttempts, 1)
+	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
 
 	// page 2 which doesn't exist
 	set = flag.NewFlagSet("test transactions", 0)
@@ -886,7 +885,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts = *r.Renders[1].(*[]models.TxAttempt)
+	renderedAttempts = *r.Renders[1].(*[]presenters.EthTx)
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 

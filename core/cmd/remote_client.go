@@ -546,7 +546,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTransactions(c *clipkg.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
+	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.EthTx{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
@@ -572,7 +572,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
+	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]presenters.EthTx{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
