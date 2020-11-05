@@ -840,17 +840,19 @@ func TestClient_ShowTransaction(t *testing.T) {
 
 	store := app.GetStore()
 	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	// tx := cltest.CreateTx(t, store, from, 1)
+	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
+	attempt := tx.EthTxAttempts[0]
 
 	client, r := app.NewClientAndRenderer()
 
 	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{tx.Hash.Hex()})
+	set.Parse([]string{attempt.Hash.Hex()})
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowTransaction(c))
 
-	renderedTx := *r.Renders[0].(*presenters.Tx)
-	assert.Equal(t, &tx.From, renderedTx.From)
+	renderedTx := *r.Renders[0].(*presenters.EthTx)
+	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
 func TestClient_IndexTxAttempts(t *testing.T) {

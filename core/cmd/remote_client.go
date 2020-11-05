@@ -564,7 +564,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var tx presenters.Tx
+	var tx presenters.EthTx
 	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
