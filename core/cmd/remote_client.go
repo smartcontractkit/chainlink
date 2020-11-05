@@ -298,6 +298,23 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	return nil
 }
 
+// TriggerOCRJobRun triggers an off-chain reporting job run based on a job ID
+func (cli *Client) TriggerOCRJobRun(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+	}
+	resp, err := cli.HTTP.Post("/v2/ocr/specs/"+c.Args().First()+"/runs", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Printf("Pipeline run successfully triggered for job ID %v.\n", c.Args().First())
+	return nil
+}
+
 // CreateJobRun creates job run based on SpecID and optional JSON
 func (cli *Client) CreateJobRun(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
