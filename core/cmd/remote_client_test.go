@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"context"
 	"flag"
 	"io/ioutil"
 	"math/big"
@@ -10,18 +11,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BurntSushi/toml"
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -1141,4 +1143,52 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	// Only fixture key remains
 	require.Len(t, keys, 1)
+}
+
+func TestClient_RunOCRJob_HappyPath(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	require.NoError(t, client.TriggerOCRJobRun(c))
+}
+
+func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	assert.EqualError(t, client.TriggerOCRJobRun(c), "Must pass the job id to trigger a run")
+}
+
+func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	set.Parse([]string{"1"})
+	c := cli.NewContext(nil, set, nil)
+
+	require.NoError(t, client.RemoteLogin(c))
+	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; could not create pipeline run: record not found")
 }

@@ -106,6 +106,28 @@ func TestOCRJobSpecsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
+func TestOCRJobSpecsController_Run_HappyPath(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+
+	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	parsedResponse := models.OCRJobRun{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
+	assert.NoError(t, err)
+	assert.NotNil(t, parsedResponse.ID)
+}
+
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
