@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"math/big"
 	"regexp"
 	"testing"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/stretchr/testify/assert"
@@ -211,44 +209,19 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 	}
 }
 
-func TestRendererTable_Render_TxAttempts(t *testing.T) {
-	t.Parallel()
-
-	attempts := []models.TxAttempt{
-		models.TxAttempt{
-			Hash:      cltest.NewHash(),
-			TxID:      1,
-			GasPrice:  utils.NewBig(big.NewInt(1)),
-			Confirmed: false,
-			SentAt:    1,
-		},
-	}
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-	assert.NoError(t, r.Render(&attempts))
-	output := buffer.String()
-
-	assert.Contains(t, output, fmt.Sprint(attempts[0].TxID))
-	assert.Contains(t, output, attempts[0].Hash.Hex())
-	assert.Contains(t, output, fmt.Sprint(attempts[0].GasPrice))
-	assert.Contains(t, output, fmt.Sprint(attempts[0].SentAt))
-	assert.Contains(t, output, fmt.Sprint(attempts[0].Confirmed))
-}
-
 func TestRendererTable_Render_Tx(t *testing.T) {
 	t.Parallel()
 
 	from := cltest.NewAddress()
 	to := cltest.NewAddress()
-	tx := presenters.Tx{
-		Hash:      cltest.NewHash(),
-		Nonce:     "1",
-		From:      &from,
-		To:        &to,
-		GasPrice:  "2",
-		Confirmed: false,
-		SentAt:    "3",
+	tx := presenters.EthTx{
+		Hash:     cltest.NewHash(),
+		Nonce:    "1",
+		From:     &from,
+		To:       &to,
+		GasPrice: "2",
+		State:    "confirmed",
+		SentAt:   "3",
 	}
 
 	buffer := bytes.NewBufferString("")
@@ -260,21 +233,21 @@ func TestRendererTable_Render_Tx(t *testing.T) {
 	assert.Contains(t, output, tx.Nonce)
 	assert.Contains(t, output, from.Hex())
 	assert.Contains(t, output, to.Hex())
-	assert.Contains(t, output, fmt.Sprint(tx.Confirmed))
+	assert.Contains(t, output, fmt.Sprint(tx.State))
 }
 
 func TestRendererTable_Render_Txs(t *testing.T) {
 	t.Parallel()
 
 	a := cltest.NewAddress()
-	txs := []presenters.Tx{
+	txs := []presenters.EthTx{
 		{
-			Hash:      cltest.NewHash(),
-			Nonce:     "1",
-			From:      &a,
-			GasPrice:  "2",
-			Confirmed: false,
-			SentAt:    "3",
+			Hash:     cltest.NewHash(),
+			Nonce:    "1",
+			From:     &a,
+			GasPrice: "2",
+			State:    "confirmed",
+			SentAt:   "3",
 		},
 	}
 
@@ -288,7 +261,7 @@ func TestRendererTable_Render_Txs(t *testing.T) {
 	assert.Contains(t, output, txs[0].GasPrice)
 	assert.Contains(t, output, txs[0].SentAt)
 	assert.Contains(t, output, a.Hex())
-	assert.Contains(t, output, fmt.Sprint(txs[0].Confirmed))
+	assert.Contains(t, output, fmt.Sprint(txs[0].State))
 }
 
 func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }
