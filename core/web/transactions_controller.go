@@ -23,8 +23,8 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	ptxs := make([]presenters.EthTx, len(txs))
 	for i, tx := range txs {
 		if len(tx.EthTxAttempts) > 0 {
-			lastIDS := len(tx.EthTxAttempts) - 1
-			ptxs[i] = presenters.NewEthTxWithAttempt(&tx, &tx.EthTxAttempts[lastIDS])
+			lastAttempt := len(tx.EthTxAttempts) - 1
+			ptxs[i] = presenters.NewEthTxWithAttempt(&tx, &tx.EthTxAttempts[lastAttempt])
 		} else {
 			ptxs[i] = presenters.NewEthTx(&tx)
 		}
