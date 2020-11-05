@@ -665,6 +665,23 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 	}
 }
 
+// EthTransactions returns all transactions limited by passed parameters.
+func (orm *ORM) EthTransactionsWithOrderedAttempts(offset, limit int) ([]models.EthTx, int, error) {
+	count, err := orm.CountOf(&models.EthTx{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var txs []models.EthTx
+	err = orm.DB.
+		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at asc")
+		}).
+		Order("id desc").Limit(limit).Offset(offset).
+		Find(&txs).Error
+	return txs, count, err
+}
+
 // FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
 func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTaskRunTx, error) {
 	etrt := &models.EthTaskRunTx{}
@@ -808,6 +825,16 @@ func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 		return nil, errors.Wrap(err, "FindTxByAttempt First(txAttempt) failed")
 	}
 	return txAttempt, nil
+}
+
+// FindEthTxAttempt returns an individual TxAttempt
+func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error) {
+	orm.MustEnsureAdvisoryLock()
+	ethTxAttempt := &models.EthTxAttempt{}
+	if err := orm.DB.Preload("EthTx").First(ethTxAttempt, "hash = ?", hash).Error; err != nil {
+		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
+	}
+	return ethTxAttempt, nil
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account
