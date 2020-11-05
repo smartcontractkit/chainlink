@@ -66,12 +66,10 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderBridges(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *[]models.TxAttempt:
-		return rt.renderTxAttempts(*typed)
-	case *[]presenters.Tx:
-		return rt.renderTxs(*typed)
-	case *presenters.Tx:
-		return rt.renderTx(*typed)
+	case *[]presenters.EthTx:
+		return rt.renderEthTxs(*typed)
+	case *presenters.EthTx:
+		return rt.renderEthTx(*typed)
 	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
@@ -350,37 +348,21 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	return table
 }
 
-func (rt RendererTable) renderTxAttempts(attempts []models.TxAttempt) error {
-	table := rt.newTable([]string{"TxID", "Hash", "GasPrice", "SentAt", "Confirmed"})
-	for _, a := range attempts {
-		table.Append([]string{
-			fmt.Sprint(a.TxID),
-			a.Hash.Hex(),
-			fmt.Sprint(a.GasPrice),
-			fmt.Sprint(a.SentAt),
-			fmt.Sprint(a.Confirmed),
-		})
-	}
-
-	render("Ethereum Transaction Attempts", table)
-	return nil
-}
-
-func (rt RendererTable) renderTx(tx presenters.Tx) error {
-	table := rt.newTable([]string{"From", "Nonce", "To", "Confirmed"})
+func (rt RendererTable) renderEthTx(tx presenters.EthTx) error {
+	table := rt.newTable([]string{"From", "Nonce", "To", "State"})
 	table.Append([]string{
 		tx.From.Hex(),
 		tx.Nonce,
 		tx.To.Hex(),
-		fmt.Sprint(tx.Confirmed),
+		fmt.Sprint(tx.State),
 	})
 
 	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
 	return nil
 }
 
-func (rt RendererTable) renderTxs(txs []presenters.Tx) error {
-	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "Confirmed"})
+func (rt RendererTable) renderEthTxs(txs []presenters.EthTx) error {
+	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "State"})
 	for _, tx := range txs {
 		table.Append([]string{
 			tx.Hash.Hex(),
@@ -388,7 +370,7 @@ func (rt RendererTable) renderTxs(txs []presenters.Tx) error {
 			tx.From.Hex(),
 			tx.GasPrice,
 			tx.SentAt,
-			fmt.Sprint(tx.Confirmed),
+			fmt.Sprint(tx.State),
 		})
 	}
 
