@@ -13,7 +13,6 @@ require (
 	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/edsrzf/mmap-go v1.0.0 // indirect
 	github.com/ethereum/go-ethereum v1.9.22
 	github.com/fatih/color v1.10.0
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
@@ -44,7 +43,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.3
-	github.com/pborman/uuid v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/tsdb v0.10.0 // indirect
@@ -68,8 +66,9 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.4
+	golang.org/x/tools v0.0.0-20201103235415-b653051172e4 // indirect
 	gonum.org/v1/gonum v0.8.1
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
