@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,6 +14,10 @@ type TxAttemptsController struct {
 
 // Index returns paginated transaction attempts
 func (tac *TxAttemptsController) Index(c *gin.Context, size, page, offset int) {
-	tas, count, err := tac.App.GetStore().TxAttempts(offset, size)
-	paginatedResponse(c, "TxAttempts", size, page, tas, count, err)
+	attempts, count, err := tac.App.GetStore().EthTxAttempts(offset, size)
+	ptxs := make([]presenters.EthTx, len(attempts))
+	for i, attempt := range attempts {
+		ptxs[i] = presenters.NewEthTxFromAttempt(&attempt)
+	}
+	paginatedResponse(c, "eth_transactions", size, page, ptxs, count, err)
 }

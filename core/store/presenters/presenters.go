@@ -764,9 +764,13 @@ func NewEthTxWithAttempt(tx *models.EthTx, txa *models.EthTxAttempt) EthTx {
 	return ethTX
 }
 
+func NewEthTxFromAttempt(txa *models.EthTxAttempt) EthTx {
+	return NewEthTxWithAttempt(&txa.EthTx, txa)
+}
+
 // GetID returns the jsonapi ID.
 func (t EthTx) GetID() string {
-	return string(t.ID)
+	return fmt.Sprint(t.ID)
 }
 
 // GetName returns the collection name for jsonapi.

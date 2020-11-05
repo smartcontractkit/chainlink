@@ -699,6 +699,24 @@ func (orm *ORM) FindEthTxWithAttempts(etxID int64) (models.EthTx, error) {
 	return etx, err
 }
 
+// EthTxAttempts returns the last tx attempts sorted by created_at descending.
+func (orm *ORM) EthTxAttempts(offset, limit int) ([]models.EthTxAttempt, int, error) {
+	count, err := orm.CountOf(&models.EthTxAttempt{})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var attempts []models.EthTxAttempt
+	err = orm.DB.
+		Preload("EthTx").
+		Order("created_at desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&attempts).Error
+
+	return attempts, count, err
+}
+
 // CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
 // creates it
 func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
