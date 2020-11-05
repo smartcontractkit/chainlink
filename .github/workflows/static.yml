@@ -11,6 +11,15 @@ jobs:
           go-version: 1.15
       - run: go mod download
       - run: go vet ./...
+  mod:
+    name: mod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: 1.15
+      - run: go mod tidy && test -z "$(git status --porcelain go.sum go.mod)"
   shadow:
     name: shadow
     runs-on: ubuntu-latest
