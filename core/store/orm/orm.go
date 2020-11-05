@@ -845,7 +845,7 @@ func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
 	return txAttempt, nil
 }
 
-// FindEthTxAttempt returns an individual TxAttempt
+// FindEthTxAttempt returns an individual EthTxAttempt
 func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
 	ethTxAttempt := &models.EthTxAttempt{}

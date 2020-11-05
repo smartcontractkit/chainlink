@@ -45,7 +45,6 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	_, count, err := store.EthTransactionsWithOrderedAttempts(0, 100)
 	require.NoError(t, err)
-
 	require.Equal(t, count, 3)
 
 	size := 2
