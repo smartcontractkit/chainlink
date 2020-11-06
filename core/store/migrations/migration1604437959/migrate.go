@@ -5,7 +5,7 @@ import "github.com/jinzhu/gorm"
 const up = `
 	CREATE TABLE "pipeline_spec_errors" (
 		"id" bigserial primary key,
-		"pipeline_spec_id" int REFERENCES pipeline_specs (id),
+		"pipeline_spec_id" int REFERENCES pipeline_specs(id) ON DELETE CASCADE,
 		"description" text NOT NULL,
 		"occurrences" integer DEFAULT 1 NOT NULL,
 		"created_at" timestamptz NOT NULL,
