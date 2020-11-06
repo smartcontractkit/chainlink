@@ -1053,29 +1053,6 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.TxAttempt {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var tas []models.TxAttempt
-	var count int
-	var err error
-	if want == 0 {
-		g.Consistently(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	} else {
-		g.Eventually(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	}
-	return tas
-}
-
 func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
@@ -1083,6 +1060,21 @@ func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []mod
 	var txas []models.EthTxAttempt
 	var err error
 	g.Eventually(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+// AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
+func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Consistently(func() []models.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1352,32 +1344,6 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
-	t.Helper()
-
-	var attempt models.TxAttempt
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&attempt).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return attempt
-}
-
-func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
-	t.Helper()
-
-	var tx models.Tx
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&tx).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return tx
-}
-
 func GetLastEthTx(t testing.TB, store *strpkg.Store) models.EthTx {
 	t.Helper()
 
@@ -1521,23 +1487,4 @@ func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
 	require.NoError(t, err)
 	return k
-}
-
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
-	etx := NewEthTx(t, store)
-
-	etx.BroadcastAt = nil
-	etx.Nonce = &nonce
-	etx.State = models.EthTxInProgress
-	require.NoError(t, store.DB.Save(&etx).Error)
-	attempt := NewEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = models.EthTxAttemptInProgress
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
 }
