@@ -343,5 +343,8 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		err = jobORM.DeleteJob(context.Background(), jb.ID)
 		require.NoError(t, err)
+		err = db.Find(&se).Error
+		require.NoError(t, err)
+		require.Len(t, se, 0)
 	})
 }
