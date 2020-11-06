@@ -31,7 +31,7 @@ type EthTx struct {
 	GasLimit         uint64                  `json:"gasLimit,omitempty"`
 
 	// GasPrice only needed for legacy tx manager
-	GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
+	// GasPrice *utils.Big `json:"gasPrice" gorm:"type:numeric"`
 
 	// MinRequiredOutgoingConfirmations only works with bulletprooftxmanager
 	MinRequiredOutgoingConfirmations uint64 `json:"minRequiredOutgoingConfirmations,omitempty"`
