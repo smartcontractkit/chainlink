@@ -10,8 +10,8 @@ import {
   OcrJobSpecRequest,
   OcrJobSpec,
   JobSpecRequest,
-  JobSpec,
 } from 'core/store/models'
+import { JobSpec } from 'core/store/presenters'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
