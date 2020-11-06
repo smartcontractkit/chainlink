@@ -115,7 +115,18 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "could not make new peerstore")
 	}
 
-	ocrLogger := NewLogger(logger.Default, d.config.OCRTraceLogging())
+	var jb models.JobSpecV2
+	err = d.db.First(&jb, "id = ?", spec.JobID()).Error
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not find job with ID %d", spec.JobID())
+	}
+
+	loggerWith := logger.CreateLogger(logger.Default.With(
+		"contractAddress", concreteSpec.ContractAddress,
+		"jobID", concreteSpec.jobID))
+	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
+		d.pipelineRunner.RecordError(context.Background(), jb.PipelineSpecID, msg)
+	})
 
 	listenPort := d.config.P2PListenPort()
 	if listenPort == 0 {

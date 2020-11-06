@@ -22,6 +22,7 @@ type (
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
+		RecordError(ctx context.Context, specID int32, description string)
 	}
 
 	runner struct {
@@ -134,6 +135,10 @@ func (r *runner) ResultsForRun(ctx context.Context, runID int64) ([]Result, erro
 	ctx, cancel := utils.CombinedContext(r.chStop, ctx)
 	defer cancel()
 	return r.orm.ResultsForRun(ctx, runID)
+}
+
+func (r *runner) RecordError(ctx context.Context, specID int32, description string) {
+	r.orm.RecordError(specID, description)
 }
 
 // NOTE: This could potentially run on a different machine in the cluster than
