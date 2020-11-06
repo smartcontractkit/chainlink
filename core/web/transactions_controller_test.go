@@ -43,7 +43,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	attempt.BroadcastBeforeBlockNum = &blockNum
 	require.NoError(t, store.DB.Create(&attempt).Error)
 
-	_, count, err := store.EthTransactionsWithOrderedAttempts(0, 100)
+	_, count, err := store.EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
@@ -107,7 +107,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 
 	ptx := presenters.EthTx{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
-	txp := presenters.NewEthTxWithAttempt(&tx, &attempt)
+	txp := presenters.NewEthTxFromAttempt(&attempt)
 
 	assert.Equal(t, txp.State, ptx.State)
 	assert.Equal(t, txp.Data, ptx.Data)

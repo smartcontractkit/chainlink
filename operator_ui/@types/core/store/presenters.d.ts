@@ -93,7 +93,7 @@ declare module 'core/store/presenters' {
    * Tx is a jsonapi wrapper for an Ethereum Transaction.
    */
   export interface Tx {
-    confirmed?: boolean
+    state?: string
     data?: hexutil.Bytes
     from?: Pointer<common.Address>
     gasLimit?: string
