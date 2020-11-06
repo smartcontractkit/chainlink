@@ -3,7 +3,6 @@ package cltest
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -183,131 +182,6 @@ func NewJobWithRandomnessLog() models.JobSpec {
 		},
 	}}
 	return j
-}
-
-// NewTx returns a Tx using a specified from address and sentAt
-func NewTx(from common.Address, sentAt uint64) *models.Tx {
-	tx := &models.Tx{
-		From:     from,
-		Nonce:    0,
-		Data:     []byte{},
-		Value:    utils.NewBig(big.NewInt(0)),
-		GasLimit: 250000,
-		SentAt:   sentAt,
-	}
-	copy(tx.Hash[:], randomBytes(common.HashLength))
-	return tx
-}
-
-func NewTransaction(nonce uint64, sentAtV ...uint64) *models.Tx {
-	from := common.HexToAddress("0xf208000000000000000000000000000000000000")
-	to := common.HexToAddress("0x7000000000000000000000000000000000000000")
-
-	value := new(big.Int).Exp(big.NewInt(10), big.NewInt(36), nil)
-	gasLimit := uint64(50000)
-	data := hexutil.MustDecode("0xda7ada7a")
-
-	sentAt := uint64(0)
-	if len(sentAtV) > 0 {
-		sentAt = sentAtV[0]
-	}
-
-	transaction := types.NewTransaction(nonce, to, value, gasLimit, new(big.Int), data)
-	return &models.Tx{
-		From:        from,
-		SentAt:      sentAt,
-		To:          *transaction.To(),
-		Nonce:       transaction.Nonce(),
-		Data:        transaction.Data(),
-		Value:       utils.NewBig(transaction.Value()),
-		GasLimit:    transaction.Gas(),
-		GasPrice:    utils.NewBig(transaction.GasPrice()),
-		Hash:        transaction.Hash(),
-		SignedRawTx: hexutil.MustDecode("0xcafe11"),
-	}
-}
-
-// CreateTx creates a Tx from a specified address, and sentAt
-func CreateTx(
-	t testing.TB,
-	store *strpkg.Store,
-	from common.Address,
-	sentAt uint64,
-) *models.Tx {
-	return CreateTxWithNonceAndGasPrice(t, store, from, sentAt, 0, 1)
-}
-
-// CreateTxWithNonceAndGasPrice creates a Tx from a specified address, sentAt, nonce and gas price
-func CreateTxWithNonceAndGasPrice(
-	t testing.TB,
-	store *strpkg.Store,
-	from common.Address,
-	sentAt uint64,
-	nonce uint64,
-	gasPrice int64,
-) *models.Tx {
-	return CreateTxWithNonceGasPriceAndRecipient(t, store, from, common.Address{}, sentAt, nonce, gasPrice)
-}
-
-// CreateTxWithNonceGasPriceAndRecipient creates a Tx from a specified sender, recipient, sentAt, nonce and gas price
-func CreateTxWithNonceGasPriceAndRecipient(
-	t testing.TB,
-	store *strpkg.Store,
-	from common.Address,
-	to common.Address,
-	sentAt uint64,
-	nonce uint64,
-	gasPrice int64,
-) *models.Tx {
-	data := make([]byte, 36)
-	binary.LittleEndian.PutUint64(data, sentAt)
-
-	transaction := types.NewTransaction(nonce, to, big.NewInt(0), 250000, big.NewInt(gasPrice), data)
-	tx := &models.Tx{
-		From:        from,
-		SentAt:      sentAt,
-		To:          *transaction.To(),
-		Nonce:       transaction.Nonce(),
-		Data:        transaction.Data(),
-		Value:       utils.NewBig(transaction.Value()),
-		GasLimit:    transaction.Gas(),
-		GasPrice:    utils.NewBig(transaction.GasPrice()),
-		Hash:        transaction.Hash(),
-		SignedRawTx: hexutil.MustDecode("0xcafe22"),
-	}
-
-	tx, err := store.CreateTx(tx)
-	require.NoError(t, err)
-	_, err = store.AddTxAttempt(tx, tx)
-	require.NoError(t, err)
-	return tx
-}
-
-func AddTxAttempt(
-	t testing.TB,
-	store *strpkg.Store,
-	tx *models.Tx,
-	etx *types.Transaction,
-	blkNum uint64,
-) *models.TxAttempt {
-	transaction := types.NewTransaction(tx.Nonce, common.Address{}, big.NewInt(0), 250000, big.NewInt(1), tx.Data)
-
-	newTxAttempt := &models.Tx{
-		From:        tx.From,
-		SentAt:      blkNum,
-		To:          *transaction.To(),
-		Nonce:       transaction.Nonce(),
-		Data:        transaction.Data(),
-		Value:       utils.NewBig(transaction.Value()),
-		GasLimit:    transaction.Gas(),
-		GasPrice:    utils.NewBig(transaction.GasPrice()),
-		Hash:        transaction.Hash(),
-		SignedRawTx: []byte{byte(len(tx.Attempts))},
-	}
-
-	txAttempt, err := store.AddTxAttempt(tx, newTxAttempt)
-	require.NoError(t, err)
-	return txAttempt
 }
 
 // NewHash return random Keccak256
@@ -761,6 +635,25 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	attempt.State = models.EthTxAttemptBroadcast
 	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx.EthTxAttempts = append(etx.EthTxAttempts, attempt)
+	return etx
+}
+
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
+	etx := NewEthTx(t, store)
+
+	etx.BroadcastAt = nil
+	etx.Nonce = &nonce
+	etx.State = models.EthTxInProgress
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+	attempt.State = models.EthTxAttemptInProgress
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
 	return etx
 }
 

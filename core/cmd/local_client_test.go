@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v3"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
@@ -446,9 +445,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
-			account, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
@@ -463,18 +460,11 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
-			j := cltest.NewJobWithWebInitiator()
-			require.NoError(t, store.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
-			tx.SurrogateID = null.StringFrom(jr.ID.String())
-			require.NoError(t, store.SaveTx(tx))
-
+			from := cltest.GetDefaultFromAddress(t, store)
+			cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1, from)
+			cltest.WaitForEthTxAttemptCount(t, store, 1)
 			assert.NoError(t, client.RebroadcastTransactions(c))
-
-			jr = cltest.FindJobRun(t, store, jr.ID)
-			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
-
+			cltest.AssertEthTxAttemptCountStays(t, store, 1)
 			app.AssertExpectations(t)
 		})
 	}

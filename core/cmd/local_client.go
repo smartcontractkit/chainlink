@@ -278,9 +278,7 @@ func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*model
 }
 
 // RebroadcastTransactions run locally to force manual rebroadcasting of
-// transactions in a given nonce range. This MUST NOT be run concurrently with
-// the node. Currently the advisory lock in FindAllTxsInNonceRange prevents
-// this.
+// transactions in a given nonce range.
 func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	beginningNonce := c.Uint("beginningNonce")
 	endingNonce := c.Uint("endingNonce")
