@@ -659,21 +659,6 @@ func (a NewAccount) GetName() string {
 	return "keys"
 }
 
-// Tx is a jsonapi wrapper for an Ethereum Transaction.
-type Tx struct {
-	Confirmed bool            `json:"confirmed,omitempty"`
-	Data      hexutil.Bytes   `json:"data,omitempty"`
-	From      *common.Address `json:"from,omitempty"`
-	GasLimit  string          `json:"gasLimit,omitempty"`
-	GasPrice  string          `json:"gasPrice,omitempty"`
-	Hash      common.Hash     `json:"hash,omitempty"`
-	Hex       string          `json:"rawHex,omitempty"`
-	Nonce     string          `json:"nonce,omitempty"`
-	SentAt    string          `json:"sentAt,omitempty"`
-	To        *common.Address `json:"to,omitempty"`
-	Value     string          `json:"value,omitempty"`
-}
-
 // EthTx is a jsonapi wrapper for an Ethereum Transaction.
 type EthTx struct {
 	ID       int64           `json:"-"`
@@ -688,45 +673,6 @@ type EthTx struct {
 	SentAt   string          `json:"sentAt,omitempty"`
 	To       *common.Address `json:"to,omitempty"`
 	Value    string          `json:"value,omitempty"`
-}
-
-// NewTx builds a transaction presenter.
-func NewTx(tx *models.Tx) Tx {
-	return Tx{
-		Confirmed: tx.Confirmed,
-		Data:      hexutil.Bytes(tx.Data),
-		From:      &tx.From,
-		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
-		GasPrice:  tx.GasPrice.String(),
-		Hash:      tx.Hash,
-		Hex:       hexutil.Encode(tx.SignedRawTx),
-		Nonce:     strconv.FormatUint(tx.Nonce, 10),
-		SentAt:    strconv.FormatUint(tx.SentAt, 10),
-		To:        &tx.To,
-		Value:     tx.Value.String(),
-	}
-}
-
-// NewTxFromAttempt builds a transaction presenter from a TxAttempt
-//
-// models.Tx represents a transaction in progress, with a series of
-// models.TxAttempts, each one of these represents an ethereum transaction. A
-// TxAttempt only stores the unique details of an ethereum transaction, with
-// the rest of the details on its related Tx.
-//
-// So for presenting a TxAttempt, we take its Hash, GasPrice etc. and get the
-// rest of the details from its Tx.
-//
-// NOTE: We take a copy here as we don't want side effects.
-//
-func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
-	tx := txAttempt.Tx
-	tx.Hash = txAttempt.Hash
-	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
-	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = txAttempt.SignedRawTx
-	return NewTx(tx)
 }
 
 func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {
@@ -768,23 +714,6 @@ func (EthTx) GetName() string {
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
 func (t *EthTx) SetID(hex string) error {
-	t.Hash = common.HexToHash(hex)
-	return nil
-}
-
-// GetID returns the jsonapi ID.
-func (t Tx) GetID() string {
-	return t.Hash.String()
-}
-
-// GetName returns the collection name for jsonapi.
-func (Tx) GetName() string {
-	return "transactions"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (t *Tx) SetID(hex string) error {
 	t.Hash = common.HexToHash(hex)
 	return nil
 }
