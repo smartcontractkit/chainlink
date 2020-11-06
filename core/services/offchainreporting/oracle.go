@@ -146,6 +146,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
 			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
 		},
+		LimiterFactory: new(limiterFactory),
 	})
 	if err != nil {
 		return nil, err
