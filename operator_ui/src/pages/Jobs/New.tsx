@@ -39,7 +39,7 @@ import {
 import { useLocation, useHistory } from 'react-router-dom'
 import { setPersistJobSpec, getPersistJobSpec } from 'utils/storage'
 
-export const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
+const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
 export const SELECTED_FORMAT = 'persistSpecFormat'
 
 const styles = (theme: Theme) =>
