@@ -41,16 +41,29 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
 		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec.toml")),
 	})
-	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
+	response, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
 	defer cleanup()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	job := models.JobSpecV2{}
 	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&job).Error)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("{\"jobID\":%v}", job.ID), string(b))
+	ocrJobSpec := models.JobSpecV2{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
+	assert.NoError(t, err)
+
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
