@@ -337,5 +337,11 @@ func TestRunner(t *testing.T) {
 		require.Len(t, se, 2)
 		assert.Equal(t, uint(1), se[0].Occurrences)
 		assert.Equal(t, uint(1), se[1].Occurrences)
+
+		// Ensure we can delete an errored job.
+		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
+		require.NoError(t, err)
+		err = jobORM.DeleteJob(context.Background(), jb.ID)
+		require.NoError(t, err)
 	})
 }
