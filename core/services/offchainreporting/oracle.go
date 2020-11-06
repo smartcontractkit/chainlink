@@ -140,11 +140,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		Logger:       ocrLogger,
 		Peerstore:    peerstore,
 		EndpointConfig: ocrnetworking.EndpointConfig{
-			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
-			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
-			NewStreamTimeout:          d.config.OCRNewStreamTimeout(),
-			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
-			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
+			IncomingMessageBufferSize:   d.config.OCRIncomingMessageBufferSize(),
+			IncomingMessagesLimitPerSec: d.config.OCRIncomingMessagesLimitPerSec(),
+			OutgoingMessageBufferSize:   d.config.OCROutgoingMessageBufferSize(),
+			NewStreamTimeout:            d.config.OCRNewStreamTimeout(),
+			DHTLookupInterval:           d.config.OCRDHTLookupInterval(),
+			BootstrapCheckInterval:      d.config.OCRBootstrapCheckInterval(),
 		},
 		LimiterFactory: new(limiterFactory),
 	})

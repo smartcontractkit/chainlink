@@ -197,6 +197,7 @@ type EnvPrinter struct {
 	P2PListenIP                           string          `json:"ocrListenIP"`
 	P2PListenPort                         uint16          `json:"ocrListenPort"`
 	OCRIncomingMessageBufferSize          int             `json:"ocrIncomingMessageBufferSize"`
+	OCRIncomingMessagesLimitPerSec        uint            `json:"ocrIncomingMessagesLimitPerSec"`
 	OCROutgoingMessageBufferSize          int             `json:"ocrOutgoingMessageBufferSize"`
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
@@ -288,6 +289,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			P2PListenIP:                           config.P2PListenIP().String(),
 			P2PListenPort:                         config.P2PListenPort(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
+			OCRIncomingMessagesLimitPerSec:        config.OCRIncomingMessagesLimitPerSec(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
 			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
 			OCRDHTLookupInterval:                  config.OCRDHTLookupInterval(),

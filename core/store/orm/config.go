@@ -502,6 +502,10 @@ func (c Config) OCRIncomingMessageBufferSize() int {
 	return c.viper.GetInt(EnvVarName("OCRIncomingMessageBufferSize"))
 }
 
+func (c Config) OCRIncomingMessagesLimitPerSec() int {
+	return c.viper.GetInt(EnvVarName("OCRIncomingMessagesLimitPerSec"))
+}
+
 func (c Config) OCRNewStreamTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRNewStreamTimeout"))
 }
