@@ -44,7 +44,7 @@ declare module 'core/store/models' {
    * individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
    */
   export interface JobSpec {
-    id?: string // FIXME -- why is this nullable?
+    id: string
     createdAt?: time.Time
     initiators: Initiator[]
     minPayment: Pointer<assets.Link>
@@ -452,4 +452,15 @@ declare module 'core/store/models' {
     deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
+
+  /**
+   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   */
+  export interface OcrJobSpecRequest {
+    toml: string
+  }
+
+  export interface OcrJobSpec {
+    id: string
+  }
 }
