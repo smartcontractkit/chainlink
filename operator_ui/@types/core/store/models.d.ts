@@ -44,7 +44,7 @@ declare module 'core/store/models' {
    * individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
    */
   export interface JobSpec {
-    id: string
+    id?: string // FIXME -- why is this nullable?
     createdAt?: time.Time
     initiators: Initiator[]
     minPayment: Pointer<assets.Link>
