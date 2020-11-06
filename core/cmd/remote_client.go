@@ -254,16 +254,17 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	type responseBody struct {
-		JobID int32 `json:"jobID"`
-	}
-	var body responseBody
-	err = json.NewDecoder(resp.Body).Decode(&body)
+	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	fmt.Printf("Job added (job ID: %v).\n", body.JobID)
+	ocrJobSpec := models.JobSpecV2{}
+	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Printf("Job added (job ID: %v).\n", ocrJobSpec.ID)
 	return nil
 }
 
