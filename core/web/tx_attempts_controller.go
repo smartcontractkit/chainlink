@@ -17,7 +17,7 @@ func (tac *TxAttemptsController) Index(c *gin.Context, size, page, offset int) {
 	attempts, count, err := tac.App.GetStore().EthTxAttempts(offset, size)
 	ptxs := make([]presenters.EthTx, len(attempts))
 	for i, attempt := range attempts {
-		ptxs[i] = presenters.NewEthTxFromAttempt(&attempt)
+		ptxs[i] = presenters.NewEthTxFromAttempt(attempt)
 	}
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }

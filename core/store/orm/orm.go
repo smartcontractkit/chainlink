@@ -668,10 +668,16 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 // EthTransactionsWithAttempts returns all eth transactions with at least one attempt
 // limited by passed parameters. Attempts are sorted by created_at.
 func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, int, error) {
-	ethTXIDs := orm.DB.Select("DISTINCT eth_tx_id").Table("eth_tx_attempts").QueryExpr()
+	ethTXIDs := orm.DB.
+		Select("DISTINCT eth_tx_id").
+		Table("eth_tx_attempts").
+		QueryExpr()
 
 	var count int
-	err := orm.DB.Table("eth_txes").Where("id IN (?)", ethTXIDs).Count(&count).Error
+	err := orm.DB.
+		Table("eth_txes").
+		Where("id IN (?)", ethTXIDs).
+		Count(&count).Error
 	if err != nil {
 		return nil, 0, err
 	}

@@ -107,7 +107,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 
 	ptx := presenters.EthTx{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
-	txp := presenters.NewEthTxFromAttempt(&attempt)
+	txp := presenters.NewEthTxFromAttempt(attempt)
 
 	assert.Equal(t, txp.State, ptx.State)
 	assert.Equal(t, txp.Data, ptx.Data)
