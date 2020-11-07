@@ -29,10 +29,13 @@ RUN echo "listen_addresses='*'" >> /etc/postgresql/10/main/postgresql.conf
 RUN /etc/init.d/postgresql start &&\
   createdb chainlink_test &&\
   createdb node_dev &&\
+  # createdb chainlink_1_test &&\
+  # createdb chainlink_2_test &&\
+  # createdb chainlink_3_test &&\
+  # createdb chainlink_4_test &&\
   createdb explorer_dev &&\
   createdb explorer_test &&\
-  createuser --superuser --no-password root &&\
-  psql -c "ALTER USER postgres PASSWORD 'node';"
+  createuser --superuser --no-password root &&\ 
 
 USER root
 

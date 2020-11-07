@@ -993,22 +993,22 @@ func (cli *Client) ImportOCRKeyBundle(c *clipkg.Context) error {
 	jsonFile.Read(byteValue)
 	jsonFile.Close()
 
-	// cli.Config.Dialect = orm.DialectPostgresWithoutLock
-	// store := cli.AppFactory.NewApplication(cli.Config).GetStore()
-	// password, err := getPassword(c)
-	// if err != nil {
-	// 	return err
-	// }
-	// key, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle(string(password))
-	// if err != nil {
-	// 	return err
-	// }
-	// addressOnChain := key.PublicKeyAddressOnChain()
-	// fmt.Printf(
-	// 	createMsg,
-	// 	key.ID,
-	// 	hex.EncodeToString(addressOnChain[:]),
-	// 	hex.EncodeToString(key.PublicKeyOffChain()),
+
+	resp, err := cli.HTTP.Post("/v2/off_chain_reporting_keys", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	if resp.StatusCode == 200 {
+		fmt.Printf("Created OCR key bundle.\n\n")
+	}
+	var key ocrkey.EncryptedKeyBundle
+	return cli.renderAPIResponse(resp, &key)
 	// )
 	return nil
 }

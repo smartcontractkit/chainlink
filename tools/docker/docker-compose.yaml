@@ -1,5 +1,4 @@
 version: '3.5'
-
 services:
   node:
     container_name: chainlink-node
@@ -9,22 +8,26 @@ services:
       dockerfile: core/chainlink.Dockerfile
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
     depends_on:
       - node-db
     environment:
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/chainlink_1_test?sslmode=disable
       - LOG_LEVEL=info
     env_file:
       - chainlink-variables.env
     ports:
-      - 6711:6688
+      - 6711:6688      
     secrets:
       - node_password
       - apicredentials
       - keystore
   node-2:
     depends_on:
-      - node-db-2
+      - node-db
     container_name: chainlink-node-2
     image: chainlink-dev
     build:
@@ -32,42 +35,73 @@ services:
       dockerfile: core/chainlink.Dockerfile
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always    
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s
     environment:      
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db-2:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/chainlink_2_test?sslmode=disable
       - LOG_LEVEL=info
     env_file:
       - chainlink-variables.env
     ports:
-      - 6722:6688
+      - 6722:6688      
     secrets:
       - node_password
       - apicredentials
-      - keystore
+      - keystore       
   node-3:
     depends_on:
-      - node-db-3
+      - node-db
     container_name: chainlink-node-3
     image: chainlink-dev
     build:
       context: ../../
       dockerfile: core/chainlink.Dockerfile
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
-    restart: always    
+    restart: always  
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s  
     environment:
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db-3:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/chainlink_3_test?sslmode=disable
       - LOG_LEVEL=info
     env_file:
       - chainlink-variables.env
     ports:
-      - 6733:6688
+      - 6755:6688 # had to change ports, because docker says its being used for some reason
     secrets:
       - node_password
       - apicredentials
-      - keystore
+      - keystore    
   node-4:
     depends_on:
-      - node-db-4
+      - node-db
     container_name: chainlink-node-4
+    image: chainlink-dev
+    build:
+      context: ../../
+      dockerfile: core/chainlink.Dockerfile
+    command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
+    restart: always   
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 10s 
+    environment:
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/chainlink_4_test?sslmode=disable
+      - LOG_LEVEL=info
+    env_file:
+      - chainlink-variables.env
+    ports:
+      - 6744:6688      
+    secrets:
+      - node_password
+      - apicredentials
+      - keystore    
+  node-5:    
+    container_name: chainlink-node-5
     image: chainlink-dev
     build:
       context: ../../
@@ -75,17 +109,16 @@ services:
     command: node start -d -p /run/secrets/node_password -a /run/secrets/apicredentials
     restart: always    
     environment:
-      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db-4:5432/$CHAINLINK_DB_NAME?sslmode=disable
+      - DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@node-db:5432/chainlink_5_test?sslmode=disable
       - LOG_LEVEL=info
     env_file:
       - chainlink-variables.env
     ports:
-      - 6744:6688
+      - 6766:6688    
     secrets:
       - node_password
       - apicredentials
-      - keystore
-  
+      - keystore       
   node-db:
     container_name: chainlink-db
     image: postgres:11.6
@@ -96,31 +129,63 @@ services:
       POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
     ports:
       - 5432:5432
-  node-db-2:
-    container_name: chainlink-db-2
-    image: postgres:11.6
-    volumes:
-      - node-db-2-data:/var/lib/postgresql/data
+  # node-db-2:
+  #   container_name: chainlink-db-2
+  #   image: postgres:11.6
+  #   volumes:
+  #     - node-db-2-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: $CHAINLINK_DB_NAME
+  #     POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD    
+  # node-db-3:
+  #   container_name: chainlink-db-3
+  #   image: postgres:11.6
+  #   volumes:
+  #     - node-db-3-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: $CHAINLINK_DB_NAME
+  #     POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD    
+  # node-db-4:
+  #   container_name: chainlink-db-4
+  #   image: postgres:11.6
+  #   volumes:
+  #     - node-db-4-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: $CHAINLINK_DB_NAME
+  #     POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD    
+  echo-server:
+    container_name: echo-server
+    image: smartcontract/echo-server
+    build:
+      context: ../../
+      dockerfile: tools/echo-server/Dockerfile
+      args:
+        - SRCROOT    
     environment:
-      POSTGRES_DB: $CHAINLINK_DB_NAME
-      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
-  node-db-3:
-    container_name: chainlink-db-3
-    image: postgres:11.6
-    volumes:
-      - node-db-3-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: $CHAINLINK_DB_NAME
-      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
-  node-db-4:
-    container_name: chainlink-db-4
-    image: postgres:11.6
-    volumes:
-      - node-db-4-data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: $CHAINLINK_DB_NAME
-      POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
-  
+      - PORT=8000
+  # external-adapter:
+  #   container_name: external-adapter
+  #   image: smartcontract/external-adapter
+  #   build:
+  #     context: ../../
+  #     dockerfile: tools/external-adapter/Dockerfile
+  #   ports:
+  #     - '6644:6644'
+  #   environment:
+  #     - EXTERNAL_ADAPTER_PORT=$EXTERNAL_ADAPTER_PORT
+  # node-db-5:
+  #   container_name: chainlink-db-5
+  #   image: postgres:11.6
+  #   volumes:
+  #     - node-db-5-data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: $CHAINLINK_DB_NAME
+  #     POSTGRES_PASSWORD: $CHAINLINK_PGPASSWORD
+  #   expose: [5432]
+  #   networks:
+  #     chainlink_net:
+  #       aliases:
+  #         - chainlink-db-5
 secrets:
   node_password:
     file: ../clroot/password.txt
@@ -130,8 +195,7 @@ secrets:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
 volumes:
   node-db-data:
-  node-db-2-data:
-  node-db-3-data:
-  node-db-4-data:
-
-  
+  # node-db-2-data:
+  # node-db-3-data:
+  # node-db-4-data:
+  # node-db-5-data:

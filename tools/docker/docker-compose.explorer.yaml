@@ -8,8 +8,8 @@ services:
     restart: always
     ports:
       - 8080:3001
-    depends_on:
-      - explorer-db
+    # depends_on:
+    #   - explorer-db
     environment:
       - EXPLORER_COOKIE_SECRET
       - EXPLORER_SERVER_PORT
