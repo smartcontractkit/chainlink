@@ -27,7 +27,7 @@ func Test_EthNewTx(t *testing.T) {
 		State:                   models.EthTxAttemptBroadcast,
 		BroadcastBeforeBlockNum: &broadcastBefore,
 	}
-	ptx := NewEthTxFromAttempt(&txa)
+	ptx := NewEthTxFromAttempt(txa)
 
 	assert.Equal(t, hash, ptx.Hash)
 	assert.Equal(t, "5000", ptx.GasLimit)

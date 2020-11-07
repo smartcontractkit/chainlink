@@ -106,7 +106,7 @@ func TestTx_PresenterMatchesHex(t *testing.T) {
 	}
 	txAttempt.EthTx = createdTx
 
-	ptx := presenters.NewEthTxFromAttempt(&txAttempt)
+	ptx := presenters.NewEthTxFromAttempt(txAttempt)
 	bytes, err := json.Marshal(ptx)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{`+
