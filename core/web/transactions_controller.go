@@ -23,7 +23,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 	ptxs := make([]presenters.EthTx, len(txs))
 	for i, tx := range txs {
 		tx.EthTxAttempts[0].EthTx = tx
-		ptxs[i] = presenters.NewEthTxFromAttempt(&tx.EthTxAttempts[0])
+		ptxs[i] = presenters.NewEthTxFromAttempt(tx.EthTxAttempts[0])
 	}
 	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
@@ -44,5 +44,5 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewEthTxFromAttempt(ethTxAttempt), "transaction")
+	jsonAPIResponse(c, presenters.NewEthTxFromAttempt(*ethTxAttempt), "transaction")
 }

@@ -730,11 +730,11 @@ func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
 	return NewTx(tx)
 }
 
-func NewEthTxFromAttempt(txa *models.EthTxAttempt) EthTx {
-	return newEthTxWithAttempt(&txa.EthTx, txa)
+func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {
+	return newEthTxWithAttempt(txa.EthTx, txa)
 }
 
-func newEthTxWithAttempt(tx *models.EthTx, txa *models.EthTxAttempt) EthTx {
+func newEthTxWithAttempt(tx models.EthTx, txa models.EthTxAttempt) EthTx {
 	ethTX := EthTx{
 		Data:     hexutil.Bytes(tx.EncodedPayload),
 		From:     &tx.FromAddress,
