@@ -4,10 +4,12 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
@@ -132,4 +134,38 @@ func (ocrjsc *OCRJobSpecsController) Run(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, models.OCRJobRun{ID: jobRunID}, "offChainReportingJobRun")
+}
+
+// Runs returns all pipeline runs for an OCR job.
+// Example:
+// "GET <application>/ocr/specs/:ID/runs"
+func (ocrjsc *OCRJobSpecsController) Runs(c *gin.Context) {
+	jobSpec := models.JobSpecV2{}
+	err := jobSpec.SetID(c.Param("ID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var pipelineRuns []pipeline.Run
+	err = ocrjsc.App.GetStore().DB.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(`pipeline_task_runs.type != 'result'`).
+				Order("created_at ASC, id ASC")
+		}).
+		Preload("PipelineTaskRuns.PipelineTaskSpec").
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
+		Where("jobs.id = ?", jobSpec.ID).
+		Order("created_at ASC, id ASC").
+		Find(&pipelineRuns).Error
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, pipelineRuns, "offChainReportingJobRun")
 }
