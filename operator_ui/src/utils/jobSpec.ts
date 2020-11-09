@@ -1,13 +1,13 @@
 import TOML from '@iarna/toml'
 
 export enum JobSpecFormats {
-  JSON = 'JSON',
-  TOML = 'TOML',
+  JSON = 'json',
+  TOML = 'toml',
 }
 
 export type JobSpecFormat = keyof typeof JobSpecFormats
 
-export function isJson({ value }: { value: string }): JobSpecFormat | false {
+export function isJson({ value }: { value: string }): JobSpecFormats | false {
   try {
     if (JSON.parse(value)) {
       return JobSpecFormats.JSON
@@ -19,7 +19,7 @@ export function isJson({ value }: { value: string }): JobSpecFormat | false {
   }
 }
 
-export function isToml({ value }: { value: string }): JobSpecFormat | false {
+export function isToml({ value }: { value: string }): JobSpecFormats | false {
   try {
     if (value !== '' && TOML.parse(value)) {
       return JobSpecFormats.TOML
@@ -35,7 +35,7 @@ export function getJobSpecFormat({
   value,
 }: {
   value: string
-}): JobSpecFormat | false {
+}): JobSpecFormats | false {
   return isJson({ value }) || isToml({ value }) || false
 }
 

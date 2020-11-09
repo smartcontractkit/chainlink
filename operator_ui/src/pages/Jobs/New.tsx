@@ -72,7 +72,7 @@ export function validate({
   format,
   value,
 }: {
-  format: JobSpecFormat
+  format: JobSpecFormats
   value: string
 }) {
   if (format === JobSpecFormats.JSON && isJson({ value })) {
@@ -88,7 +88,7 @@ function apiCall({
   format,
   value,
 }: {
-  format: JobSpecFormat
+  format: JobSpecFormats
   value: string
 }): Promise<ApiResponse<JobSpec | OcrJobSpec>> {
   if (format === JobSpecFormats.JSON) {
@@ -108,7 +108,7 @@ function getInitialValues({
   query,
 }: {
   query: string
-}): { jobSpec: string; format: JobSpecFormat } {
+}): { jobSpec: string; format: JobSpecFormats } {
   const params = new URLSearchParams(query)
   const jobSpec = (params.get('definition') as string) || getPersistJobSpec()
 
@@ -116,7 +116,7 @@ function getInitialValues({
     getJobSpecFormat({
       value: jobSpec,
     }) ||
-    JobSpecFormats[params.get('format') as JobSpecFormat] ||
+    JobSpecFormats[params.get('format')?.toUpperCase() as JobSpecFormat] ||
     (storage.get(SELECTED_FORMAT) as JobSpecFormat) ||
     JobSpecFormats.JSON
 
@@ -138,7 +138,7 @@ export const New = ({
     }),
   )
 
-  const [format, setFormat] = React.useState<JobSpecFormat>(
+  const [format, setFormat] = React.useState<JobSpecFormats>(
     initialValues.format,
   )
   const [value, setValue] = React.useState<string>(initialValues.jobSpec)
@@ -202,7 +202,7 @@ export const New = ({
                         name="select-format"
                         value={format}
                         onChange={(event: any) =>
-                          setFormat(event.target.value as JobSpecFormat)
+                          setFormat(event.target.value as JobSpecFormats)
                         }
                         row
                       >
