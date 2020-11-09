@@ -28,7 +28,6 @@ type ORM interface {
 	DeleteRunsOlderThan(threshold time.Duration) error
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
-	RecordError(specID int32, description string)
 }
 
 type orm struct {
@@ -432,19 +431,6 @@ func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
 
 func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	return FindBridge(o.db, name)
-}
-
-func (o *orm) RecordError(pipelineSpecID int32, description string) {
-	pse := SpecError{PipelineSpecID: pipelineSpecID, Description: description, Occurrences: 1}
-	err := o.db.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (pipeline_spec_id, description)
-			DO UPDATE SET occurrences = pipeline_spec_errors.occurrences + 1, updated_at = excluded.updated_at`,
-		).
-		Create(&pse).
-		Error
-	logger.ErrorIf(err, fmt.Sprintf("Unable to create PipelineSpecError: %v", err))
 }
 
 // FindBridge find a bridge using the given database

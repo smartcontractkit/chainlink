@@ -93,7 +93,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
@@ -110,7 +110,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB1.On("Start").Return(nil).Once()
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
-		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
+		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateB)
 
 		jobSpecIDB, err := spawner.CreateJob(context.Background(), jobSpecB)
@@ -153,7 +153,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
@@ -184,7 +184,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		defer orm.Close()
 		spawner := job.NewSpawner(orm, config)
 
-		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil)}
+		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)

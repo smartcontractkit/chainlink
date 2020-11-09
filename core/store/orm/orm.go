@@ -1039,7 +1039,11 @@ func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpecV2
-	err := orm.DB.Preload("OffchainreportingOracleSpec").First(&job, "id = ?", id).Error
+	err := orm.DB.
+		Preload("OffchainreportingOracleSpec").
+		Preload("JobSpecErrors").
+		First(&job, "jobs.id = ?", id).
+		Error
 	return job, err
 }
 

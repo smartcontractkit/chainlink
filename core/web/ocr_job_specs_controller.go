@@ -48,6 +48,7 @@ func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
 		return
 	}
+
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
