@@ -57,6 +57,7 @@ type Application interface {
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
+	AwaitRun(ctx context.Context, runID int64) error
 	services.RunManager
 }
 
@@ -310,6 +311,10 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec) (in
 
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	return app.pipelineRunner.CreateRun(ctx, jobID, meta)
+}
+
+func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) error {
+	return app.pipelineRunner.AwaitRun(ctx, runID)
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
