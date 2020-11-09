@@ -1031,7 +1031,11 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
-	err := orm.DB.Preload("OffchainreportingOracleSpec").Find(&jobs).Error
+	err := orm.DB.
+		Preload("OffchainreportingOracleSpec").
+		Preload("JobSpecErrors").
+		Find(&jobs).
+		Error
 	return jobs, err
 }
 
