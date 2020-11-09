@@ -77,7 +77,7 @@ describe('pages/Jobs/New', () => {
     )
 
     expect(wrapper.text()).toContain('"foo": "bar"')
-    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} Blob`)
+    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(wrapper.text()).toContain(JSON.stringify(expected, null, 4))
   })
 
@@ -92,7 +92,7 @@ describe('pages/Jobs/New', () => {
     )
 
     expect(wrapper.text()).toContain('"foo"="bar"')
-    expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} Blob`)
+    expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
   })
 
   it('saves spec definition in storage', async () => {
@@ -148,19 +148,19 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new?format=${JobSpecFormats.JSON}`],
       },
     )
-    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} Blob`)
+    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
 
     wrapper.find(`input[value="${JobSpecFormats.TOML}"]`).simulate('change', {
       target: { value: JobSpecFormats.TOML },
     })
-    expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} Blob`)
+    expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.TOML)
 
     wrapper.find(`input[value="${JobSpecFormats.JSON}"]`).simulate('change', {
       target: { value: JobSpecFormats.JSON },
     })
-    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} Blob`)
+    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
   })
 })
