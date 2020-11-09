@@ -7,7 +7,7 @@ import {
   stringifyJobSpec,
   isJson,
   isToml,
-} from 'utils/jobSpec'
+} from './utils'
 import { ApiResponse } from '@chainlink/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
@@ -75,7 +75,9 @@ export function validate({
   format: JobSpecFormats
   value: string
 }) {
-  if (format === JobSpecFormats.JSON && isJson({ value })) {
+  if (value.trim() === '') {
+    return false
+  } else if (format === JobSpecFormats.JSON && isJson({ value })) {
     return true
   } else if (format === JobSpecFormats.TOML && isToml({ value })) {
     return true
@@ -121,8 +123,8 @@ function getInitialValues({
     JobSpecFormats.JSON
 
   return {
-    jobSpec: stringifyJobSpec({ value: jobSpec || '' }),
-    format: format || JobSpecFormats.JSON,
+    jobSpec: stringifyJobSpec({ value: jobSpec, format }),
+    format,
   }
 }
 
