@@ -38,6 +38,8 @@ type (
 		ID             int64 `gorm:"primary_key"`
 		PipelineSpecID int32
 		Meta           JSONSerializable
+		Errors         *JSONSerializable `gorm:"type:jsonb"`
+		Outputs        *JSONSerializable `gorm:"type:jsonb"`
 		CreatedAt      time.Time
 		FinishedAt     time.Time
 	}
