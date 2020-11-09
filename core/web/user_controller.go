@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -160,8 +161,8 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 	return nil
 }
 
-func getETHAccount(ctx *gin.Context, str *store.Store, account accounts.Account) presenters.ETHKey {
-	ethBalance, err := str.EthClient.BalanceAt(context.TODO(), account.Address, nil)
+func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
+	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
 		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -169,7 +170,7 @@ func getETHAccount(ctx *gin.Context, str *store.Store, account accounts.Account)
 		return presenters.ETHKey{}
 	}
 
-	linkBalance, err := store.GetLINKBalance(str.Config, str.EthClient, account.Address)
+	linkBalance, err := bulletprooftxmanager.GetLINKBalance(store.Config, store.EthClient, account.Address)
 	if err != nil {
 		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -177,7 +178,7 @@ func getETHAccount(ctx *gin.Context, str *store.Store, account accounts.Account)
 		return presenters.ETHKey{}
 	}
 
-	key, err := str.ORM.KeyByAddress(account.Address)
+	key, err := store.ORM.KeyByAddress(account.Address)
 	if err != nil {
 		err = fmt.Errorf("error fetching ETH key from DB: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)

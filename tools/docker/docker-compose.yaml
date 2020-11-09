@@ -55,7 +55,6 @@ services:
       - SECURE_COOKIES
       - CHAINLINK_TLS_PORT
       - ENABLE_EXPERIMENTAL_ADAPTERS
-      - ENABLE_BULLETPROOF_TX_MANAGER
     env_file:
       - chainlink-variables.env
     ports:

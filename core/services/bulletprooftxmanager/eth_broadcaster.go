@@ -85,7 +85,6 @@ func (eb *ethBroadcaster) Start() error {
 	if !eb.OkayToStart() {
 		return errors.New("EthBroadcaster is already started")
 	}
-	logger.Info("BulletproofTxManager: Enabled")
 
 	var err error
 	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")

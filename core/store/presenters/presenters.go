@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -83,17 +84,16 @@ func showBalanceForAccount(store *store.Store, account accounts.Account, balance
 	return keysAndValues, nil
 }
 
-// func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
-func getBalance(str *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
+func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
 	switch balanceType {
 	case ethRequest:
-		bal, err := str.EthClient.BalanceAt(context.TODO(), account.Address, nil)
+		bal, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 		if err != nil {
 			return nil, err
 		}
 		return (*assets.Eth)(bal), nil
 	case linkRequest:
-		return store.GetLINKBalance(str.Config, str.EthClient, account.Address)
+		return bulletprooftxmanager.GetLINKBalance(store.Config, store.EthClient, account.Address)
 	}
 	return nil, fmt.Errorf("impossible to get balance for %T with value %v", balanceType, balanceType)
 }
