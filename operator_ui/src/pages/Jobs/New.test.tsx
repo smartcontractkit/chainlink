@@ -21,7 +21,7 @@ describe('pages/Jobs/New', () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
       {
-        initialEntries: ['/jobs/new'],
+        initialEntries: [`/jobs/new`],
       },
     )
 
@@ -66,19 +66,33 @@ describe('pages/Jobs/New', () => {
     )
   })
 
-  it('loads and indents JSON spec definition from storage', async () => {
+  it('loads and indents JSON spec definition from search param', async () => {
     const expected = { foo: 'bar' }
-    setPersistJobSpec(JSON.stringify(expected))
 
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
       {
-        initialEntries: ['/jobs/new'],
+        initialEntries: [`/jobs/new?definition=${JSON.stringify(expected)}`],
       },
     )
 
     expect(wrapper.text()).toContain('"foo": "bar"')
+    expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} Blob`)
     expect(wrapper.text()).toContain(JSON.stringify(expected, null, 4))
+  })
+
+  it('loads TOML spec definition from search param', async () => {
+    const expected = '"foo"="bar"'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new?definition=${expected}`],
+      },
+    )
+
+    expect(wrapper.text()).toContain('"foo"="bar"')
+    expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} Blob`)
   })
 
   it('saves spec definition in storage', async () => {

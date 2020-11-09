@@ -25,7 +25,6 @@ import ErrorMessage from 'components/Notifications/DefaultError'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { JobData } from './sharedTypes'
-import { JobSpecFormats } from 'utils/jobSpec'
 import { setPersistJobSpec } from 'utils/storage'
 
 const styles = (theme: Theme) =>
@@ -257,10 +256,7 @@ const RegionalNavComponent = ({
                     onClick={() =>
                       setPersistJobSpec(JSON.stringify(definition))
                     }
-                    href={{
-                      pathname: '/jobs/new',
-                      query: { format: JobSpecFormats.JSON },
-                    }}
+                    href={`/jobs/new?definition=${JSON.stringify(definition)}`}
                     component={BaseLink}
                     className={classes.regionalNavButton}
                   >
