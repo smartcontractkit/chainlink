@@ -256,7 +256,9 @@ const RegionalNavComponent = ({
                     onClick={() =>
                       setPersistJobSpec(JSON.stringify(definition))
                     }
-                    href={`/jobs/new?definition=${JSON.stringify(definition)}`}
+                    href={`/jobs/new?definition=${encodeURIComponent(
+                      JSON.stringify(definition),
+                    )}`}
                     component={BaseLink}
                     className={classes.regionalNavButton}
                   >
