@@ -461,6 +461,21 @@ declare module 'core/store/models' {
   }
 
   export interface OcrJobSpec {
-    id: string
+    offChainReportingOracleSpec: {
+      contractAddress: common.Address
+      p2pPeerID: string
+      p2pBootstrapPeers: string[]
+      isBootstrapPeer: boolean
+      keyBundleID: string
+      monitoringEndpoint: string
+      transmitterAddress: common.Address
+      observationTimeout: string
+      blockchainTimeout: string
+      contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerPollInterval: string
+      contractConfigConfirmations: number
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
   }
 }

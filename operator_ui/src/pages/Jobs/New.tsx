@@ -53,11 +53,7 @@ const styles = (theme: Theme) =>
     },
   })
 
-const SuccessNotification = ({
-  id,
-}: {
-  id: JobSpec['id'] | OcrJobSpec['id']
-}) => (
+const SuccessNotification = ({ id }: { id: string }) => (
   <>
     Successfully created job{' '}
     <BaseLink id="created-job" href={`/jobs/${id}`}>
