@@ -1,9 +1,15 @@
 import React from 'react'
 import Radio from '@material-ui/core/Radio'
-import { JobSpecFormats, JobSpecFormat } from 'utils/jobSpec'
+import {
+  JobSpecFormats,
+  JobSpecFormat,
+  getJobSpecFormat,
+  stringifyJobSpec,
+  isJson,
+  isToml,
+} from 'utils/jobSpec'
 import { ApiResponse } from '@chainlink/json-api-client'
 import Button from 'components/Button'
-import TOML from '@iarna/toml'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
 import {
@@ -69,14 +75,11 @@ export function validate({
   format: JobSpecFormat
   value: string
 }) {
-  try {
-    if (format === JobSpecFormats.JSON) {
-      JSON.parse(value)
-    } else if (format === JobSpecFormats.TOML) {
-      TOML.parse(value)
-    }
+  if (format === JobSpecFormats.JSON && isJson({ value })) {
     return true
-  } catch {
+  } else if (format === JobSpecFormats.TOML && isToml({ value })) {
+    return true
+  } else {
     return false
   }
 }
@@ -101,21 +104,25 @@ function apiCall({
   return Promise.reject('Invalid format')
 }
 
-function initialFormat({ query }: { query: string }): JobSpecFormat {
+function getInitialValues({
+  query,
+}: {
+  query: string
+}): { jobSpec: string; format: JobSpecFormat } {
   const params = new URLSearchParams(query)
-  return (
-    (params.get('format') as JobSpecFormat) ||
+  const jobSpec = (params.get('definition') as string) || getPersistJobSpec()
+
+  const format =
+    getJobSpecFormat({
+      value: jobSpec,
+    }) ||
+    JobSpecFormats[params.get('format') as JobSpecFormat] ||
     (storage.get(SELECTED_FORMAT) as JobSpecFormat) ||
     JobSpecFormats.JSON
-  )
-}
 
-function initialJobSpec(): string {
-  const jobSpec = getPersistJobSpec()
-  try {
-    return JSON.stringify(JSON.parse(jobSpec), null, 4)
-  } catch {
-    return jobSpec || ''
+  return {
+    jobSpec: stringifyJobSpec({ value: jobSpec || '' }),
+    format: format || JobSpecFormats.JSON,
   }
 }
 
@@ -125,12 +132,16 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const location = useLocation()
-  const [format, setFormat] = React.useState<JobSpecFormat>(
-    initialFormat({
+  const [initialValues] = React.useState(
+    getInitialValues({
       query: location.search,
     }),
   )
-  const [value, setValue] = React.useState<string>(initialJobSpec())
+
+  const [format, setFormat] = React.useState<JobSpecFormat>(
+    initialValues.format,
+  )
+  const [value, setValue] = React.useState<string>(initialValues.jobSpec)
   const [valid, setValid] = React.useState<boolean>(true)
   const [loading, setLoading] = React.useState<boolean>(false)
   const dispatch = useDispatch()
@@ -144,7 +155,7 @@ export const New = ({
   React.useEffect(() => {
     storage.set(SELECTED_FORMAT, format)
     setValid(true)
-    history.push({
+    history.replace({
       search: `?format=${format}`,
     })
   }, [format, history])
