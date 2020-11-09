@@ -2,7 +2,7 @@ import * as jsonapi from '@chainlink/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 /**
- * Create adds validates, saves, and starts a new OcrJobSpec.
+ * Create validates, saves and starts a new off-chain reporting job.
  *
  * @example "POST <application>/ocr/specs"
  */
