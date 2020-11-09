@@ -4,7 +4,7 @@ import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { CREATE_ENDPOINT as JSON_CREATE_ENDPOINT } from 'api/v2/specs'
 import { ENDPOINT as TOML_CREATE_ENDPOINT } from 'api/v2/ocrSpecs'
-import { JobSpecFormats } from 'utils/jobSpec'
+import { JobSpecFormats } from './utils'
 import { Route } from 'react-router-dom'
 import * as storage from '@chainlink/local-storage'
 import New, { validate, SELECTED_FORMAT } from './New'
@@ -111,36 +111,6 @@ describe('pages/Jobs/New', () => {
     expect(getPersistJobSpec()).toContain(expected)
   })
 
-  it('validate JSON and TOML formats', async () => {
-    expect(
-      validate({
-        format: JobSpecFormats.TOML,
-        value: '"foo"="bar"',
-      }),
-    ).toEqual(true)
-
-    expect(
-      validate({
-        format: JobSpecFormats.TOML,
-        value: '"foo""bar"',
-      }),
-    ).toEqual(false)
-
-    expect(
-      validate({
-        format: JobSpecFormats.JSON,
-        value: '{"foo":"bar"}',
-      }),
-    ).toEqual(true)
-
-    expect(
-      validate({
-        format: JobSpecFormats.JSON,
-        value: '{"foo":"bar"',
-      }),
-    ).toEqual(false)
-  })
-
   it('saves last selected spec format in a storage', async () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
@@ -162,5 +132,55 @@ describe('pages/Jobs/New', () => {
     })
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
+  })
+
+  describe('validate', () => {
+    it('string', () => {
+      expect(
+        validate({
+          format: JobSpecFormats.JSON,
+          value: '           ',
+        }),
+      ).toEqual(false)
+
+      expect(
+        validate({
+          format: JobSpecFormats.JSON,
+          value: '',
+        }),
+      ).toEqual(false)
+    })
+
+    it('JSON format', () => {
+      expect(
+        validate({
+          format: JobSpecFormats.JSON,
+          value: '{"foo":"bar"}',
+        }),
+      ).toEqual(true)
+
+      expect(
+        validate({
+          format: JobSpecFormats.JSON,
+          value: '{"foo":"bar"',
+        }),
+      ).toEqual(false)
+    })
+
+    it('TOML format', () => {
+      expect(
+        validate({
+          format: JobSpecFormats.TOML,
+          value: '"foo"="bar"',
+        }),
+      ).toEqual(true)
+
+      expect(
+        validate({
+          format: JobSpecFormats.TOML,
+          value: '"foo""bar"',
+        }),
+      ).toEqual(false)
+    })
   })
 })

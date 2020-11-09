@@ -39,10 +39,20 @@ export function getJobSpecFormat({
   return isJson({ value }) || isToml({ value }) || false
 }
 
-export function stringifyJobSpec({ value }: { value: string }): string {
-  try {
-    return JSON.stringify(JSON.parse(value), null, 4)
-  } catch {
-    return value || ''
+export function stringifyJobSpec({
+  value,
+  format,
+}: {
+  value: string
+  format: JobSpecFormats
+}): string {
+  if (format === JobSpecFormats.JSON) {
+    try {
+      return JSON.stringify(JSON.parse(value), null, 4)
+    } catch {
+      return value || ''
+    }
   }
+
+  return value
 }
