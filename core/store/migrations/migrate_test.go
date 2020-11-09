@@ -41,8 +41,8 @@ func TestMigrate_Migrations(t *testing.T) {
 		assert.True(t, db.HasTable("sessions"))
 		assert.True(t, db.HasTable("task_runs"))
 		assert.True(t, db.HasTable("task_specs"))
-		assert.True(t, db.HasTable("tx_attempts"))
-		assert.True(t, db.HasTable("txes"))
+		assert.True(t, db.HasTable("eth_tx_attempts"))
+		assert.True(t, db.HasTable("eth_txes"))
 		assert.True(t, db.HasTable("users"))
 		return nil
 	})
