@@ -18,7 +18,7 @@ type OCRJobRunsController struct {
 // Index returns all pipeline runs for an OCR job.
 // Example:
 // "GET <application>/ocr/specs/:ID/runs"
-func (ocrjrc *OCRJobRunsController) Index(c *gin.Context) {
+func (ocrjrc *OCRJobRunsController) Index(c *gin.Context, size, page, offset int) {
 	jobSpec := models.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
@@ -27,19 +27,36 @@ func (ocrjrc *OCRJobRunsController) Index(c *gin.Context) {
 	}
 
 	var pipelineRuns []pipeline.Run
-	err = preloadPipelineRunDependencies(ocrjrc.App.GetStore().DB).
+	var count int
+	err = ocrjrc.App.GetStore().DB.
+		Model(pipeline.Run{}).
 		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
 		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
 		Where("jobs.id = ?", jobSpec.ID).
-		Order("created_at ASC, id ASC").
-		Find(&pipelineRuns).Error
+		Count(&count).
+		Error
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	jsonAPIResponse(c, pipelineRuns, "offChainReportingJobRun")
+	err = preloadPipelineRunDependencies(ocrjrc.App.GetStore().DB).
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
+		Where("jobs.id = ?", jobSpec.ID).
+		Limit(size).
+		Offset(offset).
+		Order("created_at ASC, id ASC").
+		Find(&pipelineRuns).
+		Error
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	paginatedResponse(c, "offChainReportingJobRun", size, page, pipelineRuns, count, err)
 }
 
 // Show returns a specified pipeline run.
