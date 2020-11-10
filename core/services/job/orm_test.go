@@ -118,7 +118,7 @@ func TestORM(t *testing.T) {
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
 		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, db)
-		err = orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
+		err := orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
 		require.NoError(t, err)
 		var jobSpec models.JobSpecV2
 		err = db.
@@ -144,7 +144,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
 		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
 		var j2 models.JobSpecV2
-		err := db.
+		err = db.
 			Preload("OffchainreportingOracleSpec").
 			Preload("JobSpecErrors").
 			First(&j2, "jobs.id = ?", jobSpec.ID).
