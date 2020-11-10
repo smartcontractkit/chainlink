@@ -186,6 +186,18 @@ func TestOCRJobSpecsController_ShowRun_HappyPath(t *testing.T) {
 	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
 }
 
+func TestOCRJobSpecsController_ShowRun_InvalidID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+
+	response, cleanup := client.Get("/v2/ocr/specs/1/runs/invalid-run-ID")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
+}
+
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
