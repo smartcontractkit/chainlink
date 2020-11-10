@@ -26,30 +26,7 @@ func (ocrjrc *OCRJobRunsController) Index(c *gin.Context, size, page, offset int
 		return
 	}
 
-	var pipelineRuns []pipeline.Run
-	var count int
-	err = ocrjrc.App.GetStore().DB.
-		Model(pipeline.Run{}).
-		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
-		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
-		Where("jobs.id = ?", jobSpec.ID).
-		Count(&count).
-		Error
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	err = preloadPipelineRunDependencies(ocrjrc.App.GetStore().DB).
-		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
-		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
-		Where("jobs.id = ?", jobSpec.ID).
-		Limit(size).
-		Offset(offset).
-		Order("created_at ASC, id ASC").
-		Find(&pipelineRuns).
-		Error
+	pipelineRuns, count, err := ocrjrc.App.GetStore().OffChainReportingJobRuns(jobSpec.ID, offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
