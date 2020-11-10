@@ -29,7 +29,7 @@ describe('Owned', () => {
   const ownedEvents = ownedTestHelperFactory.interface.events
 
   beforeEach(async () => {
-    owned = await ownedTestHelperFactory.connect(owner).deploy()
+    owned = await ownedTestHelperFactory.connect(owner).deploy(owner.address)
   })
 
   it('has a limited public interface', () => {
