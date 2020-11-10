@@ -487,7 +487,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
+	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }

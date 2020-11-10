@@ -252,7 +252,7 @@ func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*model
 	if err != nil {
 		return nil, nil, err
 	}
-	exportedJSON, err := str.KeyStore.Export(ethAccount, pwd, pwd)
+	exportedJSON, err := str.KeyStore.Export(ethAccount.Address, pwd)
 	if err != nil {
 		return nil, nil, err
 	}
