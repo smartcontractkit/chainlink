@@ -143,43 +143,9 @@ func TestOCRJobSpecsController_Run_HappyPath(t *testing.T) {
 }
 
 func TestOCRJobSpecsController_Runs_HappyPath(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	client, jobID, runID, cleanup, cleanupHTTP := setupOCRJobRunsTests(t)
 	defer cleanup()
-	require.NoError(t, app.Start())
-	client := app.NewHTTPClient()
-	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 	defer cleanupHTTP()
-	httpURL := mockHTTP.URL
-
-	var ocrJobSpec offchainreporting.OracleSpec
-	toml.Decode(fmt.Sprintf(`
-	type               = "offchainreporting"
-	schemaVersion      = 1
-	contractAddress    = "%s"
-	p2pPeerID          = "%s"
-	p2pBootstrapPeers  = [
-		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
-	]
-	keyBundleID        = "%s"
-	transmitterAddress = "%s"
-	observationSource = """
-		// data source 1
-		ds          [type=http method=GET url="%s"];
-		ds_parse    [type=jsonparse path="USD"];
-		ds_multiply [type=multiply times=3];
-
-		ds -> ds_parse -> ds_multiply -> answer;
-
-		answer [type=median index=0];
-	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, httpURL), &ocrJobSpec)
-	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
-	require.NoError(t, err)
-	runID, err := app.RunJobV2(context.Background(), jobID, nil)
-	require.NoError(t, err)
-	err = app.AwaitRun(context.Background(), runID)
-	require.NoError(t, err)
 
 	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs")
 	defer cleanup()
@@ -189,13 +155,47 @@ func TestOCRJobSpecsController_Runs_HappyPath(t *testing.T) {
 	responseBytes := cltest.ParseResponseBody(t, response)
 	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
 
-	err = web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
+	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
 
 	assert.Equal(t, parsedResponse[0].ID, runID)
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
 	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
+}
+
+func TestOCRJobSpecsController_ShowRun_HappyPath(t *testing.T) {
+	client, jobID, runID, cleanup, cleanupHTTP := setupOCRJobRunsTests(t)
+	defer cleanup()
+	defer cleanupHTTP()
+
+	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runID))
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	var parsedResponse pipeline.Run
+	responseBytes := cltest.ParseResponseBody(t, response)
+	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
+
+	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
+	assert.NoError(t, err)
+
+	assert.Equal(t, parsedResponse.ID, runID)
+	assert.NotNil(t, parsedResponse.CreatedAt)
+	assert.NotNil(t, parsedResponse.FinishedAt)
+	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
+}
+
+func TestOCRJobSpecsController_ShowRun_InvalidID(t *testing.T) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+
+	response, cleanup := client.Get("/v2/ocr/specs/1/runs/invalid-run-ID")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
@@ -239,4 +239,44 @@ func setupOCRJobSpecsWControllerTestsWithJob(t *testing.T) (cltest.HTTPClientCle
 	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
 	return client, cleanup, ocrJobSpecFromFile, jobID
+}
+
+func setupOCRJobRunsTests(t *testing.T) (cltest.HTTPClientCleaner, int32, int64, func(), func()) {
+	t.Parallel()
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
+	httpURL := mockHTTP.URL
+
+	var ocrJobSpec offchainreporting.OracleSpec
+	toml.Decode(fmt.Sprintf(`
+	type               = "offchainreporting"
+	schemaVersion      = 1
+	contractAddress    = "%s"
+	p2pPeerID          = "%s"
+	p2pBootstrapPeers  = [
+		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+	]
+	keyBundleID        = "%s"
+	transmitterAddress = "%s"
+	observationSource = """
+		// data source 1
+		ds          [type=http method=GET url="%s"];
+		ds_parse    [type=jsonparse path="USD"];
+		ds_multiply [type=multiply times=3];
+
+		ds -> ds_parse -> ds_multiply -> answer;
+
+		answer [type=median index=0];
+	"""
+	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, httpURL), &ocrJobSpec)
+	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
+	require.NoError(t, err)
+	runID, err := app.RunJobV2(context.Background(), jobID, nil)
+	require.NoError(t, err)
+	err = app.AwaitRun(context.Background(), runID)
+	require.NoError(t, err)
+
+	return client, jobID, runID, cleanup, cleanupHTTP
 }

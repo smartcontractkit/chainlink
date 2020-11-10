@@ -23,6 +23,7 @@
     "@chainlink/local-storage": "0.0.2",
     "@chainlink/redux": "0.0.2",
     "@chainlink/styleguide": "0.0.4",
+    "@iarna/toml": "3.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
     "autobind-decorator": "^2.4.0",

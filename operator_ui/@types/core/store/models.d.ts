@@ -452,4 +452,30 @@ declare module 'core/store/models' {
     deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
+
+  /**
+   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   */
+  export interface OcrJobSpecRequest {
+    toml: string
+  }
+
+  export interface OcrJobSpec {
+    offChainReportingOracleSpec: {
+      contractAddress: common.Address
+      p2pPeerID: string
+      p2pBootstrapPeers: string[]
+      isBootstrapPeer: boolean
+      keyBundleID: string
+      monitoringEndpoint: string
+      transmitterAddress: common.Address
+      observationTimeout: string
+      blockchainTimeout: string
+      contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerPollInterval: string
+      contractConfigConfirmations: number
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+  }
 }
