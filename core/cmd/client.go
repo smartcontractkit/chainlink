@@ -529,7 +529,7 @@ func confirmAction(c *clipkg.Context) bool {
 	prompt := NewTerminalPrompter()
 	var answer string
 	for {
-		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no) ")
 		if answer == "yes" {
 			return true
 		} else if answer == "no" {

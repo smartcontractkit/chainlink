@@ -1,6 +1,7 @@
 package web
 
 import (
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
+
+// KeysController manages account keys
 
 // KeysController manages account keys
 type ETHKeysController struct {
@@ -136,7 +139,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	} else if !exists {
-		jsonAPIError(c, http.StatusNotFound, err)
+		jsonAPIError(c, http.StatusNotFound, errors.New("Key does not exist"))
 		return
 	}
 
@@ -179,4 +182,78 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		DeletedAt:   key.DeletedAt,
 	}
 	jsonAPIResponse(c, pek, "account")
+}
+
+func (ekc *ETHKeysController) Import(c *gin.Context) {
+	defer logger.ErrorIfCalling(c.Request.Body.Close)
+
+	store := ekc.App.GetStore()
+
+	bytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	oldPassword := c.Query("oldpassword")
+
+	acct, err := store.KeyStore.Import(bytes, oldPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = store.SyncDiskKeyStoreToDB()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	ethBalance, err := store.EthClient.BalanceAt(c.Request.Context(), acct.Address, nil)
+	if err != nil {
+		err = errors.Errorf("error calling getEthBalance on Ethereum node: %v", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
+	linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, acct.Address)
+	if err != nil {
+		err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	key, err := store.ORM.KeyByAddress(acct.Address)
+	if err != nil {
+		err = errors.Errorf("error fetching ETH key from DB: %v", err)
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	pek := presenters.ETHKey{
+		Address:     key.Address.Hex(),
+		EthBalance:  (*assets.Eth)(ethBalance),
+		LinkBalance: linkBalance,
+		NextNonce:   key.NextNonce,
+		LastUsed:    key.LastUsed,
+		IsFunding:   key.IsFunding,
+		CreatedAt:   key.CreatedAt,
+		UpdatedAt:   key.UpdatedAt,
+		DeletedAt:   key.DeletedAt,
+	}
+	jsonAPIResponse(c, pek, "account")
+}
+
+func (ekc *ETHKeysController) Export(c *gin.Context) {
+	defer logger.ErrorIfCalling(c.Request.Body.Close)
+
+	addressStr := c.Param("address")
+	address := common.HexToAddress(addressStr)
+	newPassword := c.Query("newpassword")
+
+	bytes, err := ekc.App.GetStore().KeyStore.Export(address, newPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	c.Data(http.StatusOK, MediaType, bytes)
 }

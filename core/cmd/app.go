@@ -231,6 +231,32 @@ func NewApp(client *Client) *cli.App {
 							},
 							Action: client.DeleteETHKey,
 						},
+						{
+							Name:  "import",
+							Usage: format(`Imports an ETH key from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "the password that the key in the JSON file was encrypted with",
+								},
+							},
+							Action: client.ImportETHKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an ETH key to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "the password with which to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "the path where the JSON file will be saved",
+								},
+							},
+							Action: client.ExportETHKey,
+						},
 					},
 				},
 				cli.Command{
