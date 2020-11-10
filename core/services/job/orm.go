@@ -2,7 +2,10 @@ package job
 
 import (
 	"context"
+	"fmt"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
@@ -21,6 +24,7 @@ type ORM interface {
 	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
 	CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
 	DeleteJob(ctx context.Context, id int32) error
+	RecordError(ctx context.Context, jobID int32, description string)
 	Close() error
 }
 
@@ -175,4 +179,17 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 		o.claimedJobs = o.claimedJobs[:len(o.claimedJobs)-1]     // Truncate slice.
 		return nil
 	})
+}
+
+func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
+	pse := models.JobSpecErrorV2{JobID: jobID, Description: description, Occurrences: 1}
+	err := o.db.
+		Set(
+			"gorm:insert_option",
+			`ON CONFLICT (job_id, description)
+			DO UPDATE SET occurrences = job_spec_errors_v2.occurrences + 1, updated_at = excluded.updated_at`,
+		).
+		Create(&pse).
+		Error
+	logger.ErrorIf(err, fmt.Sprintf("Unable to create JobSpecErrorV2: %v", err))
 }

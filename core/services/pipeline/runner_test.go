@@ -294,7 +294,7 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
-	t.Run("test pipeline spec error is created", func(t *testing.T) {
+	t.Run("test job spec error is created", func(t *testing.T) {
 		// Create a keystore with an ocr key bundle and p2p key.
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
@@ -315,9 +315,10 @@ func TestRunner(t *testing.T) {
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
+			jobORM,
 			config.Config,
 			keyStore,
-			runner,
+			nil,
 			nil,
 			nil)
 		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
@@ -331,7 +332,7 @@ func TestRunner(t *testing.T) {
 		err = service[0].Close()
 		require.NoError(t, err)
 
-		var se []pipeline.SpecError
+		var se []models.JobSpecErrorV2
 		err = db.Find(&se).Error
 		require.NoError(t, err)
 		require.Len(t, se, 2)
