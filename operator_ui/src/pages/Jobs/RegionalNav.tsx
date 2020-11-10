@@ -252,10 +252,9 @@ const RegionalNavComponent = ({
                 )}
                 {definition && (
                   <Button
-                    href={{
-                      pathname: '/jobs/new',
-                      state: { definition },
-                    }}
+                    href={`/jobs/new?definition=${encodeURIComponent(
+                      JSON.stringify(definition),
+                    )}`}
                     component={BaseLink}
                     className={classes.regionalNavButton}
                   >
