@@ -17,19 +17,15 @@ type TransactionsController struct {
 	App chainlink.Application
 }
 
-// Index returns paginated transaction attempts
+// Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.GetStore().EthTransactionsWithOrderedAttempts(offset, size)
+	txs, count, err := tc.App.GetStore().EthTransactionsWithAttempts(offset, size)
 	ptxs := make([]presenters.EthTx, len(txs))
 	for i, tx := range txs {
-		if len(tx.EthTxAttempts) > 0 {
-			lastAttempt := len(tx.EthTxAttempts) - 1
-			ptxs[i] = presenters.NewEthTxWithAttempt(&tx, &tx.EthTxAttempts[lastAttempt])
-		} else {
-			ptxs[i] = presenters.NewEthTx(&tx)
-		}
+		tx.EthTxAttempts[0].EthTx = tx
+		ptxs[i] = presenters.NewEthTxFromAttempt(tx.EthTxAttempts[0])
 	}
-	paginatedResponse(c, "eth_transactions", size, page, ptxs, count, err)
+	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
 
 // Show returns the details of a Ethereum Transasction details.
@@ -48,5 +44,5 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewEthTxWithAttempt(&ethTxAttempt.EthTx, ethTxAttempt), "transaction")
+	jsonAPIResponse(c, presenters.NewEthTxFromAttempt(*ethTxAttempt), "transaction")
 }

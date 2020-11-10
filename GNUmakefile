@@ -83,6 +83,13 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 testdb: ## Prepares the test database
 	go run ./core/main.go local db preparetest
 
+# Format for CI
+.PHONY: presubmit
+presubmit:
+	goimports -w ./core
+	gofmt -w ./core
+	go mod tidy
+
 .PHONY: docker
 docker: ## Build the docker image.
 		docker build \

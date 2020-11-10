@@ -8,12 +8,11 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -275,7 +274,7 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		}
 
 		if ptRun.PipelineTaskSpec.IsFinalPipelineOutput() {
-			err = tx.Exec(`UPDATE pipeline_runs SET finished_at = ? WHERE id = ?`, time.Now(), ptRun.PipelineTaskSpecID).Error
+			err = tx.Exec(`UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ? WHERE id = ?`, time.Now(), out, errString, ptRun.PipelineRunID).Error
 			if err != nil {
 				return errors.Wrap(err, "could not mark pipeline_run as finished")
 			}

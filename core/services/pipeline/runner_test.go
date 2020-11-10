@@ -2,9 +2,14 @@ package pipeline_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -287,5 +292,60 @@ func TestRunner(t *testing.T) {
 				t.Fatalf("unknown task '%v'", run.DotID())
 			}
 		}
+	})
+
+	t.Run("test job spec error is created", func(t *testing.T) {
+		// Create a keystore with an ocr key bundle and p2p key.
+		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		require.NoError(t, err)
+		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		require.NoError(t, err)
+		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, cltest.DefaultKey, fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		ocrspec, dbSpec := makeOCRJobSpecWithHTTPURL(t, db, spec)
+
+		// Create an OCR job
+		err = jobORM.CreateJob(context.Background(), dbSpec, ocrspec.TaskDAG())
+		require.NoError(t, err)
+		var jb models.JobSpecV2
+		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+			Find(&jb).Error
+		require.NoError(t, err)
+
+		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		sd := offchainreporting.NewJobSpawnerDelegate(
+			db,
+			jobORM,
+			config.Config,
+			keyStore,
+			nil,
+			nil,
+			nil)
+		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
+		require.NoError(t, err)
+
+		// Start and stop the service to generate errors.
+		// We expect a database timeout and a context cancellation
+		// error to show up as pipeline_spec_errors.
+		err = service[0].Start()
+		require.NoError(t, err)
+		err = service[0].Close()
+		require.NoError(t, err)
+
+		var se []models.JobSpecErrorV2
+		err = db.Find(&se).Error
+		require.NoError(t, err)
+		require.Len(t, se, 2)
+		assert.Equal(t, uint(1), se[0].Occurrences)
+		assert.Equal(t, uint(1), se[1].Occurrences)
+
+		// Ensure we can delete an errored job.
+		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
+		require.NoError(t, err)
+		err = jobORM.DeleteJob(context.Background(), jb.ID)
+		require.NoError(t, err)
+		err = db.Find(&se).Error
+		require.NoError(t, err)
+		require.Len(t, se, 0)
 	})
 }
