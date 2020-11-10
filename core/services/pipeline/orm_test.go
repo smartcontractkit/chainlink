@@ -421,30 +421,4 @@ func TestORM(t *testing.T) {
 		}
 	})
 
-	t.Run("increase pipeline spec occurrence", func(t *testing.T) {
-		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
-		defer cleanup()
-
-		g := pipeline.NewTaskDAG()
-		specID, err := orm.CreateSpec(context.Background(), *g)
-		require.NoError(t, err)
-
-		ocrSpecError1 := "ocr spec 1 errored"
-		ocrSpecError2 := "ocr spec 2 errored"
-		orm.RecordError(specID, ocrSpecError1)
-		orm.RecordError(specID, ocrSpecError1)
-		orm.RecordError(specID, ocrSpecError2)
-
-		var specErrors []pipeline.SpecError
-		err = db.Find(&specErrors).Error
-		require.NoError(t, err)
-		require.Len(t, specErrors, 2)
-
-		assert.Equal(t, specErrors[0].Occurrences, uint(2))
-		assert.Equal(t, specErrors[1].Occurrences, uint(1))
-		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt))
-		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
-		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
-		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
-	})
 }

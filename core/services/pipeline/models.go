@@ -16,15 +16,6 @@ type (
 		CreatedAt    time.Time
 	}
 
-	SpecError struct {
-		ID             int64 `gorm:"primary_key"`
-		PipelineSpecID int32
-		Description    string
-		Occurrences    uint
-		CreatedAt      time.Time
-		UpdatedAt      time.Time
-	}
-
 	TaskSpec struct {
 		ID             int32            `json:"-" gorm:"primary_key"`
 		DotID          string           `json:"dotId"`
@@ -62,11 +53,10 @@ type (
 	}
 )
 
-func (Spec) TableName() string      { return "pipeline_specs" }
-func (SpecError) TableName() string { return "pipeline_spec_errors" }
-func (Run) TableName() string       { return "pipeline_runs" }
-func (TaskSpec) TableName() string  { return "pipeline_task_specs" }
-func (TaskRun) TableName() string   { return "pipeline_task_runs" }
+func (Spec) TableName() string     { return "pipeline_specs" }
+func (Run) TableName() string      { return "pipeline_runs" }
+func (TaskSpec) TableName() string { return "pipeline_task_specs" }
+func (TaskRun) TableName() string  { return "pipeline_task_runs" }
 
 func (r Run) GetID() string {
 	return fmt.Sprintf("%v", r.ID)
