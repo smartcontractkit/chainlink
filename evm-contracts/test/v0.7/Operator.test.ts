@@ -48,7 +48,7 @@ describe('Operator', () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operator = await operatorFactory
       .connect(roles.defaultAccount)
-      .deploy(link.address)
+      .deploy(link.address, roles.defaultAccount.address)
     await operator.setFulfillmentPermission(roles.oracleNode.address, true)
   })
 
