@@ -59,9 +59,10 @@ contract Operator is
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
    * @param link The address of the LINK token
+   * @param owner The address of the owner
    */
-  constructor(address link)
-    Owned()
+  constructor(address link, address owner)
+    Owned(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
