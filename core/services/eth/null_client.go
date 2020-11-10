@@ -7,6 +7,7 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -30,6 +31,11 @@ func (nc *NullClient) Close() {
 func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error) {
 	logger.Debug("NullClient#GetERC20Balance")
 	return big.NewInt(0), nil
+}
+
+func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	logger.Debug("NullClient#GetLINKBalancelinkAddress")
+	return assets.NewLink(0), nil
 }
 
 func (nc *NullClient) SendRawTx(bytes []byte) (common.Hash, error) {

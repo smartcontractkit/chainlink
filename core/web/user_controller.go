@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -15,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -170,7 +170,8 @@ func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Accoun
 		return presenters.ETHKey{}
 	}
 
-	linkBalance, err := bulletprooftxmanager.GetLINKBalance(store.Config, store.EthClient, account.Address)
+	linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
+	linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, account.Address)
 	if err != nil {
 		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)

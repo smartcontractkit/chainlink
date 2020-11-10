@@ -146,16 +146,6 @@ func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.Eth
 	})
 }
 
-// GetLINKBalance returns the balance of LINK at the given address
-func GetLINKBalance(config orm.ConfigReader, client eth.Client, address gethCommon.Address) (*assets.Link, error) {
-	contractAddress := gethCommon.HexToAddress(config.LinkContractAddress())
-	balance, err := client.GetERC20Balance(address, contractAddress)
-	if err != nil {
-		return assets.NewLink(0), err
-	}
-	return (*assets.Link)(balance), nil
-}
-
 // BumpGas computes the next gas price to attempt as the largest of:
 // - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
