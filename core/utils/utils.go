@@ -12,7 +12,6 @@ import (
 	"reflect"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,11 +58,6 @@ func WithoutZeroAddresses(addresses []common.Address) []common.Address {
 		}
 	}
 	return withoutZeros
-}
-
-// HexToUint64 converts a given hex string to 64-bit unsigned integer.
-func HexToUint64(hex string) (uint64, error) {
-	return strconv.ParseUint(RemoveHexPrefix(hex), 16, 64)
 }
 
 // Uint64ToHex converts the given uint64 value to a hex-value string.
@@ -485,10 +479,6 @@ func Uint256ToHex(n *big.Int) (string, error) {
 		return "", err
 	}
 	return common.BigToHash(n).Hex(), nil
-}
-
-func DecimalFromBigInt(i *big.Int, precision int32) decimal.Decimal {
-	return decimal.NewFromBigInt(i, -precision)
 }
 
 func ToDecimal(input interface{}) (decimal.Decimal, error) {
