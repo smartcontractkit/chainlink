@@ -58,6 +58,10 @@ func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[strin
 	return 1, nil
 }
 
+func (_m *Application) AwaitRun(ctx context.Context, runID int64) error {
+	return nil
+}
+
 // AddServiceAgreement provides a mock function with given fields: _a0
 func (_m *Application) AddServiceAgreement(_a0 *models.ServiceAgreement) error {
 	ret := _m.Called(_a0)
