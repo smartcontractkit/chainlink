@@ -25,6 +25,7 @@ const JobType job.Type = "offchainreporting"
 
 func RegisterJobType(
 	db *gorm.DB,
+	jobORM job.ORM,
 	config *orm.Config,
 	keyStore *KeyStore,
 	jobSpawner job.Spawner,
@@ -33,12 +34,13 @@ func RegisterJobType(
 	logBroadcaster eth.LogBroadcaster,
 ) {
 	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, config, keyStore, pipelineRunner, ethClient, logBroadcaster),
+		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster),
 	)
 }
 
 type jobSpawnerDelegate struct {
 	db             *gorm.DB
+	jobORM         job.ORM
 	config         *orm.Config
 	keyStore       *KeyStore
 	pipelineRunner pipeline.Runner
@@ -48,13 +50,14 @@ type jobSpawnerDelegate struct {
 
 func NewJobSpawnerDelegate(
 	db *gorm.DB,
+	jobORM job.ORM,
 	config *orm.Config,
 	keyStore *KeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
 ) *jobSpawnerDelegate {
-	return &jobSpawnerDelegate{db, config, keyStore, pipelineRunner, ethClient, logBroadcaster}
+	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster}
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
@@ -115,7 +118,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "could not make new peerstore")
 	}
 
-	ocrLogger := NewLogger(logger.Default, d.config.OCRTraceLogging())
+	loggerWith := logger.CreateLogger(logger.Default.With(
+		"contractAddress", concreteSpec.ContractAddress,
+		"jobID", concreteSpec.jobID))
+	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
+		d.jobORM.RecordError(context.Background(), spec.JobID(), msg)
+	})
 
 	listenPort := d.config.P2PListenPort()
 	if listenPort == 0 {

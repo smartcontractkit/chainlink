@@ -7,7 +7,7 @@ import * as presenters from 'core/store/presenters'
  *
  * @example "<application>/specs"
  */
-const CREATE_ENDPOINT = '/v2/specs'
+export const CREATE_ENDPOINT = '/v2/specs'
 
 /**
  * Index lists JobSpecs, one page at a time.

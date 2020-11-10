@@ -392,5 +392,36 @@ func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, 
 	for _, k := range m.Undecoded() {
 		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
 	}
+	if spec.IsBootstrapPeer {
+		return validatedBootstrapSpec(m, spec)
+	}
 	return
+}
+
+var bootstrapKeys = map[string]struct{}{
+	`type`:                                   struct{}{},
+	`schemaVersion`:                          struct{}{},
+	`contractAddress`:                        struct{}{},
+	`p2pPeerID`:                              struct{}{},
+	`p2pBootstrapPeers`:                      struct{}{},
+	`isBootstrapPeer`:                        struct{}{},
+	`blockchainTimeout`:                      struct{}{},
+	`contractConfigTrackerSubscribeInterval`: struct{}{},
+	`contractConfigTrackerPollInterval`:      struct{}{},
+	`contractConfigConfirmations`:            struct{}{},
+}
+
+func validatedBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) (offchainreporting.OracleSpec, error) {
+	var err error
+	for _, ks := range m.Keys() {
+		if len(ks) > 1 {
+			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for bootstrap peer: %s", ks))
+		}
+		k := ks[0]
+
+		if _, ok := bootstrapKeys[k]; !ok {
+			err = multierr.Append(err, errors.Errorf("unrecognised key for bootstrap peer: %s", k))
+		}
+	}
+	return spec, err
 }

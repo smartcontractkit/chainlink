@@ -41,16 +41,29 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
 		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec.toml")),
 	})
-	resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
+	response, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
 	defer cleanup()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	job := models.JobSpecV2{}
 	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&job).Error)
 
-	b, err := ioutil.ReadAll(resp.Body)
-	require.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("{\"jobID\":%v}", job.ID), string(b))
+	ocrJobSpec := models.JobSpecV2{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
+	assert.NoError(t, err)
+
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractAddress, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress)
+	assert.Equal(t, job.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
+	assert.Equal(t, job.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
+	assert.Equal(t, job.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
+	assert.Equal(t, job.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, job.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
+	assert.Equal(t, job.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
+	assert.Equal(t, job.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
@@ -104,28 +117,6 @@ func TestOCRJobSpecsController_Show_NonExistentID(t *testing.T) {
 	response, cleanup := client.Get("/v2/ocr/specs/999999999")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
-}
-
-func TestOCRJobSpecsController_Run_HappyPath(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
-
-	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
-
-	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
-	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusOK)
-
-	parsedResponse := models.OCRJobRun{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-	assert.NoError(t, err)
-	assert.NotNil(t, parsedResponse.ID)
 }
 
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
