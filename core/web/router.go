@@ -256,6 +256,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/keys/eth", ekc.Index)
 		authv2.POST("/keys/eth", ekc.Create)
 		authv2.DELETE("/keys/eth/:keyID", ekc.Delete)
+		authv2.POST("/keys/eth/import", ekc.Import)
+		authv2.POST("/keys/eth/export/:address", ekc.Export)
 
 		ocrkc := OCRKeysController{app}
 		authv2.GET("/keys/ocr", ocrkc.Index)

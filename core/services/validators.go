@@ -8,24 +8,24 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
-
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
