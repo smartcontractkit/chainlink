@@ -10,11 +10,16 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
+	clipkg "github.com/urfave/cli"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -22,9 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	"github.com/tidwall/gjson"
-	clipkg "github.com/urfave/cli"
-	"go.uber.org/multierr"
 )
 
 var errUnauthorized = errors.New("401 Unauthorized")
@@ -554,6 +556,13 @@ func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
 	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]presenters.EthTx{})
 }
 
+func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
+	if len(flag) > 0 {
+		return cli.FileSessionRequestBuilder.Build(flag)
+	}
+	return cli.PromptingSessionRequestBuilder.Build("")
+}
+
 func getTOMLString(s string) (string, error) {
 	var val interface{}
 	err := toml.Unmarshal([]byte(s), &val)
@@ -568,6 +577,19 @@ func getTOMLString(s string) (string, error) {
 		return "", fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
 	return buf.String(), nil
+}
+
+func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
+	b, err := parseResponse(resp)
+	if err == errUnauthorized {
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
+	}
+	if err != nil {
+		jae := models.JSONAPIErrors{}
+		unmarshalErr := json.Unmarshal(b, &jae)
+		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
+	}
+	return b, err
 }
 
 func (cli *Client) printResponseBody(resp *http.Response) error {
@@ -708,13 +730,17 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
 	}
 
-	if !confirmAction(c) {
+	if c.Bool("hard") && !confirmAction(c) {
 		return nil
 	}
 
 	var queryStr string
+	var confirmationMsg string
 	if c.Bool("hard") {
 		queryStr = "?hard=true"
+		confirmationMsg = "ETH key deleted.\n\n"
+	} else {
+		confirmationMsg = "ETH key archived.\n\n"
 	}
 
 	address := c.Args().Get(0)
@@ -729,11 +755,95 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Printf("ETH key deleted.\n\n")
+		fmt.Printf(confirmationMsg)
 	}
 	fmt.Println("🔑 Deleted ETH key")
 	var key presenters.ETHKey
 	return cli.renderAPIResponse(resp, &key)
+}
+
+func normalizePassword(password string) string {
+	return url.PathEscape(strings.TrimSpace(password))
+}
+
+func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the address of the key to be imported"))
+	}
+
+	oldPasswordFile := c.String("oldpassword")
+	if len(oldPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+	}
+	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.Args().Get(0)
+	keyJSON, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/import?oldpassword="+normalizePassword(string(oldPassword)), bytes.NewReader(keyJSON))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	fmt.Println("🔑 Imported ETH key")
+	var key presenters.ETHKey
+	return cli.renderAPIResponse(resp, &key)
+}
+
+func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the address of the key to export"))
+	}
+
+	newPasswordFile := c.String("newpassword")
+	if len(newPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+	}
+	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.String("output")
+	if len(newPassword) == 0 {
+		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+	}
+
+	address := c.Args().Get(0)
+
+	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?newpassword="+normalizePassword(string(newPassword)), nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	keyJSON, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+	}
+
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+	}
+
+	fmt.Println("🔑 Exported ETH key", address, "to", filepath)
+	return nil
 }
 
 func (cli *Client) CreateP2PKey(c *clipkg.Context) (err error) {
@@ -877,13 +987,6 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &key)
 }
 
-func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
-	if len(flag) > 0 {
-		return cli.FileSessionRequestBuilder.Build(flag)
-	}
-	return cli.PromptingSessionRequestBuilder.Build("")
-}
-
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	if gjson.Valid(s) {
 		return bytes.NewBufferString(s), nil
@@ -936,19 +1039,6 @@ func (cli *Client) deserializeAPIResponse(resp *http.Response, dst interface{}, 
 		return cli.errorOut(err)
 	}
 	return nil
-}
-
-func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
-	b, err := parseResponse(resp)
-	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
-	}
-	if err != nil {
-		jae := models.JSONAPIErrors{}
-		unmarshalErr := json.Unmarshal(b, &jae)
-		return nil, cli.errorOut(multierr.Combine(err, unmarshalErr, &jae))
-	}
-	return b, err
 }
 
 func parseResponse(resp *http.Response) ([]byte, error) {

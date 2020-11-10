@@ -1,7 +1,6 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 )
 
@@ -26,13 +26,13 @@ type KeyStoreInterface interface {
 	Wallets() []accounts.Wallet
 	HasAccounts() bool
 	HasAccountWithAddress(common.Address) bool
-	Unlock(phrase string) error
+	Unlock(password string) error
 	NewAccount() (accounts.Account, error)
-	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
-	Export(a accounts.Account, passphrase, newPassphrase string) ([]byte, error)
+	Import(keyJSON []byte, oldPassword string) (accounts.Account, error)
+	Export(address common.Address, newPassword string) ([]byte, error)
+	Delete(address common.Address) error
 	GetAccounts() []accounts.Account
 	GetAccountByAddress(common.Address) (accounts.Account, error)
-
 	SignTx(account accounts.Account, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
 }
 
@@ -109,4 +109,29 @@ func (ks *KeyStore) GetAccountByAddress(address common.Address) (accounts.Accoun
 		}
 	}
 	return accounts.Account{}, errors.New("no account found with that address")
+}
+
+func (ks *KeyStore) Import(keyJSON []byte, oldPassword string) (accounts.Account, error) {
+	acct, err := ks.KeyStore.Import(keyJSON, oldPassword, ks.password)
+	if err != nil {
+		return accounts.Account{}, errors.Wrap(err, "could not import ETH key")
+	}
+	err = ks.KeyStore.Unlock(acct, ks.password)
+	return acct, err
+}
+
+func (ks *KeyStore) Export(address common.Address, newPassword string) ([]byte, error) {
+	acct, err := ks.GetAccountByAddress(address)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not export ETH key")
+	}
+	return ks.KeyStore.Export(acct, ks.password, newPassword)
+}
+
+func (ks *KeyStore) Delete(address common.Address) error {
+	acct, err := ks.GetAccountByAddress(address)
+	if err != nil {
+		return errors.Wrap(err, "could not delete ETH key")
+	}
+	return ks.KeyStore.Delete(acct, ks.password)
 }

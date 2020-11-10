@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -151,6 +152,34 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		}
 	}
 	return merr
+}
+
+// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
+func (s *Store) ArchiveKey(address common.Address) error {
+	err := s.ORM.DB.Where("address = ?", address).Delete(models.Key{}).Error
+	if err != nil {
+		return err
+	}
+
+	acct, err := s.KeyStore.GetAccountByAddress(address)
+	if err != nil {
+		return err
+	}
+
+	archivedKeysDir := filepath.Join(s.Config.RootDir(), "archivedkeys")
+	err = utils.EnsureDirAndMaxPerms(archivedKeysDir, os.FileMode(0700))
+	if err != nil {
+		return errors.Wrap(err, "could not create "+archivedKeysDir)
+	}
+
+	basename := filepath.Base(acct.URL.Path)
+	dst := filepath.Join(archivedKeysDir, basename)
+	err = utils.CopyFileWithMaxPerms(acct.URL.Path, dst, os.FileMode(0700))
+	if err != nil {
+		return errors.Wrap(err, "could not copy "+acct.URL.Path+" to "+dst)
+	}
+
+	return s.KeyStore.Delete(address)
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {

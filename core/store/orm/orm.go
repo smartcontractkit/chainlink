@@ -1159,11 +1159,6 @@ func (orm *ORM) KeyExists(address common.Address) (bool, error) {
 	return true, err
 }
 
-// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
-func (orm *ORM) ArchiveKey(address common.Address) error {
-	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
-}
-
 // DeleteKey deletes a key whose address matches the supplied bytes.
 func (orm *ORM) DeleteKey(address common.Address) error {
 	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
@@ -1173,7 +1168,7 @@ func (orm *ORM) DeleteKey(address common.Address) error {
 // If a key with this address exists, it does nothing
 func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 	orm.MustEnsureAdvisoryLock()
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO NOTHING").Create(&k).Error
+	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET deleted_at = NULL").Create(&k).Error
 	if err == nil || err.Error() == "sql: no rows in result set" {
 		return nil
 	}
