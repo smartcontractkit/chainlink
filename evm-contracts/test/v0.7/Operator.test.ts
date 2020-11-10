@@ -295,6 +295,17 @@ describe('Operator', () => {
       })
     })
 
+    describe('when dataVersion is higher than 255', () => {
+      const paid = 100
+      const args = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0', 256)
+
+      it('throws an error', async () => {
+        await matchers.evmRevert(async () => {
+          await link.transferAndCall(operator.address, paid, args)
+        })
+      })
+    })
+
     describe('when not called through the LINK token', () => {
       it('reverts', async () => {
         await matchers.evmRevert(async () => {

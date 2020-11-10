@@ -183,7 +183,7 @@ contract Operator is
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 expiration,
-    bytes memory data
+    bytes calldata data
   )
     external
     override
@@ -285,14 +285,7 @@ contract Operator is
     external
     override
   {
-    bytes31 paramsHash = bytes31(keccak256(
-      abi.encodePacked(
-        payment,
-        msg.sender,
-        callbackFunc,
-        expiration
-      )
-    ));
+    bytes31 paramsHash = buildFunctionHash(payment, msg.sender, callbackFunc, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
@@ -344,21 +337,12 @@ contract Operator is
     uint256 nonce,
     uint256 dataVersion
   ) internal returns (bytes32 requestId, uint256 expiration) {
-    require(dataVersion < 2**8, "dataVersion too big");
-    uint8 smallDataVersion = uint8(dataVersion);
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     expiration = block.timestamp.add(EXPIRY_TIME);
-    bytes31 paramsHash = bytes31(keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
-    ));
-    s_commitments[requestId] = Commitment(paramsHash, smallDataVersion);
+    bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    s_commitments[requestId] = Commitment(paramsHash, safeCastToUint8(dataVersion));
     return (requestId, expiration);
   }
 
@@ -380,9 +364,31 @@ contract Operator is
   )
   internal
   {
-    require(dataVersion < 2**8, "dataVersion too big");
-    uint8 smallDataVersion = uint8(dataVersion);
-    bytes31 paramsHash = bytes31(keccak256(
+    bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+    require(s_commitments[requestId].dataVersion <= safeCastToUint8(dataVersion), "Data versions must match");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
+  }
+
+  /**
+   * @notice Build the bytes31 function hash from the payment, callback and expiration.
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   * @return hash bytes31
+   */
+  function buildFunctionHash(
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration
+  )
+  internal
+  returns (bytes31)
+  {
+    return bytes31(keccak256(
       abi.encodePacked(
         payment,
         callbackAddress,
@@ -390,10 +396,16 @@ contract Operator is
         expiration
       )
     ));
-    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
-    require(s_commitments[requestId].dataVersion <= smallDataVersion, "Data versions must match");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
-    delete s_commitments[requestId];
+  }
+
+  /**
+   * @notice Safely cast uint256 to uint8
+   * @param number uint256
+   * @return uint8 number
+   */
+  function safeCastToUint8(uint256 number) internal returns (uint8) {
+    require(number < 2**8, "number too big to cast");
+    return uint8(number);
   }
 
   // MODIFIERS
