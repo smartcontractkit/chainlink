@@ -148,14 +148,7 @@ func (ocrjsc *OCRJobSpecsController) Runs(c *gin.Context) {
 	}
 
 	var pipelineRuns []pipeline.Run
-	err = ocrjsc.App.GetStore().DB.
-		Preload("PipelineSpec").
-		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Where(`pipeline_task_runs.type != 'result'`).
-				Order("created_at ASC, id ASC")
-		}).
-		Preload("PipelineTaskRuns.PipelineTaskSpec").
+	err = preloadPipelineRunDependencies(ocrjsc.App.GetStore().DB).
 		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
 		Where("jobs.offchainreporting_oracle_spec_id IS NOT NULL").
 		Where("jobs.id = ?", jobSpec.ID).
@@ -168,4 +161,38 @@ func (ocrjsc *OCRJobSpecsController) Runs(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, pipelineRuns, "offChainReportingJobRun")
+}
+
+// ShowRun returns a specified pipeline run.
+// Example:
+// "GET <application>/ocr/specs/:ID/runs/:runID"
+func (ocrjsc *OCRJobSpecsController) ShowRun(c *gin.Context) {
+	pipelineRun := pipeline.Run{}
+	err := pipelineRun.SetID(c.Param("runID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	err = preloadPipelineRunDependencies(ocrjsc.App.GetStore().DB).
+		Where("pipeline_runs.id = ?", pipelineRun.ID).
+		First(&pipelineRun).Error
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, pipelineRun, "offChainReportingJobRun")
+}
+
+func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
+	return db.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(`pipeline_task_runs.type != 'result'`).
+				Order("created_at ASC, id ASC")
+		}).
+		Preload("PipelineTaskRuns.PipelineTaskSpec")
 }
