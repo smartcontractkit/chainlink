@@ -25,7 +25,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -315,20 +314,6 @@ func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
 	}
 }
 
-func NewLink(t *testing.T, amount string) *assets.Link {
-	link := assets.NewLink(0)
-	link, ok := link.SetString(amount, 10)
-	assert.True(t, ok)
-	return link
-}
-
-func NewEth(t *testing.T, amount string) *assets.Eth {
-	eth := assets.NewEth(0)
-	eth, ok := eth.SetString(amount, 10)
-	assert.True(t, ok)
-	return eth
-}
-
 func StringToVersionedLogData20190207withoutIndexes(
 	t *testing.T,
 	internalID string,
@@ -383,34 +368,6 @@ func BigHexInt(val interface{}) hexutil.Big {
 		logger.Panicf("Could not convert %v of type %T to hexutil.Big", val, val)
 		return hexutil.Big{}
 	}
-}
-
-func Int(val interface{}) *utils.Big {
-	switch x := val.(type) {
-	case int:
-		return (*utils.Big)(big.NewInt(int64(x)))
-	case uint32:
-		return (*utils.Big)(big.NewInt(int64(x)))
-	case uint64:
-		return (*utils.Big)(big.NewInt(int64(x)))
-	case int64:
-		return (*utils.Big)(big.NewInt(x))
-	default:
-		logger.Panicf("Could not convert %v of type %T to utils.Big", val, val)
-		return &utils.Big{}
-	}
-}
-
-func MustEVMUintHexFromBase10String(t *testing.T, strings ...string) string {
-	var allBytes []byte
-	for _, s := range strings {
-		i, ok := big.NewInt(0).SetString(s, 10)
-		require.True(t, ok)
-		bs, err := utils.EVMWordBigInt(i)
-		require.NoError(t, err)
-		allBytes = append(allBytes, bs...)
-	}
-	return fmt.Sprintf("0x%0x", allBytes)
 }
 
 type MockSigner struct{}
@@ -518,35 +475,6 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	return checker
 }
 
-func NewGethHeader(height interface{}) *types.Header {
-	var h int64
-	switch v := height.(type) {
-	case int64:
-		h = v
-	case int:
-		h = int64(v)
-	case uint64:
-		h = int64(v)
-	default:
-		panic(fmt.Sprintf("invalid type: %t", height))
-	}
-
-	return &types.Header{
-		Number:     big.NewInt(h),
-		ParentHash: NewHash(),
-		Time:       uint64(time.Now().Unix()),
-	}
-}
-
-func NewHeadFromGethHeader(gethHeader *types.Header) *models.Head {
-	return &models.Head{
-		Hash:       NewHash(),
-		Number:     gethHeader.Number.Int64(),
-		ParentHash: gethHeader.ParentHash,
-		Timestamp:  time.Unix(int64(gethHeader.Time), 0),
-	}
-}
-
 func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	taskRunID := models.NewID()
 
@@ -572,14 +500,6 @@ func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) mo
 	}
 	require.NoError(t, store.DB.Save(&key).Error)
 	return key
-}
-
-func MustIDFromString(t *testing.T, input string) *models.ID {
-	t.Helper()
-
-	id, err := models.NewIDFromString(input)
-	require.NoError(t, err)
-	return id
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {

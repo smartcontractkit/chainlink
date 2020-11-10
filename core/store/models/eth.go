@@ -287,9 +287,6 @@ func (f FunctionSelector) String() string { return hexutil.Encode(f[:]) }
 // Bytes returns the FunctionSelector as a byte slice
 func (f FunctionSelector) Bytes() []byte { return f[:] }
 
-// WithoutPrefix returns the FunctionSelector as a string without the '0x' prefix.
-func (f FunctionSelector) WithoutPrefix() string { return f.String()[2:] }
-
 // SetBytes sets the FunctionSelector to that of the given bytes (will trim).
 func (f *FunctionSelector) SetBytes(b []byte) { copy(f[:], b[:FunctionSelectorLength]) }
 
