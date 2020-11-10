@@ -7,15 +7,10 @@ jobs:
       docker_layer_caching: true
     steps:
       - checkout
-      - run:
-          name: Docker Hub login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - setup-aws-ecr
       - run:
           name: Docker build
-          command: |
-            DOCKER_TAG=circleci make docker
-      - setup-aws-ecr
+          command: DOCKER_TAG=circleci make docker
       - run:
           name: Docker push, if applicable
           command: |

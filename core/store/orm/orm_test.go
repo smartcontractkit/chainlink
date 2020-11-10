@@ -1398,6 +1398,50 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
 }
 
+func TestORM_EthTransactionsWithAttempts(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := cltest.GetAccountAddress(t, store)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
+
+	// add 2nd attempt to tx2
+	blockNum := int64(3)
+	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt.State = models.EthTxAttemptBroadcast
+	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, store.DB.Create(&attempt).Error)
+
+	// tx 3 has no attempts
+	tx3 := cltest.NewEthTx(t, store, from)
+	tx3.State = models.EthTxUnstarted
+	tx3.FromAddress = from
+	require.NoError(t, store.DB.Save(&tx3).Error)
+
+	count, err := store.CountOf(models.EthTx{})
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+
+	txs, count, err := store.EthTransactionsWithAttempts(0, 100) // should omit tx3
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
+	assert.Len(t, txs, 2)
+	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
+	assert.Len(t, txs[0].EthTxAttempts, 2, "all eth tx attempts are preloaded")
+	assert.Len(t, txs[1].EthTxAttempts, 1)
+	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
+	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
+
+	txs, count, err = store.EthTransactionsWithAttempts(0, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
+	assert.Len(t, txs, 1, "limit should apply to length of results")
+	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+}
+
 func TestORM_UpdateBridgeType(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
