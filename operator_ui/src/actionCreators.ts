@@ -143,30 +143,6 @@ export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
 export const submitSignOut = () => sendSignOut()
 
-export const createJobSpec = (
-  data: Parameter<typeof api.v2.specs.createJobSpec>,
-  successCallback: React.ReactNode,
-  errorCallback: React.ReactNode,
-) => {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: ResourceActionType.REQUEST_CREATE })
-
-    return api.v2.specs
-      .createJobSpec(data)
-      .then((doc) => {
-        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
-        dispatch(notifySuccess(successCallback, doc))
-      })
-      .catch((error: Errors) => {
-        curryErrorHandler(
-          dispatch,
-          ResourceActionType.RECEIVE_CREATE_ERROR,
-        )(error)
-        dispatch(notifyError(errorCallback, error))
-      })
-  }
-}
-
 export const deleteJobSpec = (
   id: string,
   successCallback: React.ReactNode,

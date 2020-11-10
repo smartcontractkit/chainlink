@@ -484,3 +484,109 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidatedOracleSpec(t *testing.T) {
+	t.Run("decodes valid oracle spec toml", func(t *testing.T) {
+		toml := `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
+contractConfigTrackerPollInterval = "1m"
+contractConfigConfirmations = 3
+observationSource = """
+    // data source 1
+    ds1          [type=bridge name=voter_turnout];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+
+    // data source 2
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
+    ds2_parse    [type=jsonparse path="three,four"];
+    ds2_multiply [type=multiply times=4.56];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name=election_winner index=1];
+"""
+`
+		s, err := services.ValidatedOracleSpec(toml)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, int(s.SchemaVersion))
+		require.False(t, s.IsBootstrapPeer)
+	})
+
+	t.Run("decodes valid bootstrap toml", func(t *testing.T) {
+		toml := `
+	type               = "offchainreporting"
+	schemaVersion      = 1
+	contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+	p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+	p2pBootstrapPeers  = []
+	isBootstrapPeer    = true
+	blockchainTimeout  = "20s"
+	contractConfigTrackerSubscribeInterval = "2m"
+	contractConfigTrackerPollInterval = "1m"
+	contractConfigConfirmations = 3
+	`
+
+		s, err := services.ValidatedOracleSpec(toml)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, int(s.SchemaVersion))
+		require.True(t, s.IsBootstrapPeer)
+	})
+
+	t.Run("raises error for bootstrap peer with extra keys", func(t *testing.T) {
+		toml := `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = true
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
+contractConfigTrackerPollInterval = "1m"
+contractConfigConfirmations = 3
+observationSource = """
+    // data source 1
+    ds1          [type=bridge name=voter_turnout];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+
+    // data source 2
+    ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\\"hi\\": \\"hello\\"}"];
+    ds2_parse    [type=jsonparse path="three,four"];
+    ds2_multiply [type=multiply times=4.56];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+    answer1 [type=median                      index=0];
+    answer2 [type=bridge name=election_winner index=1];
+"""
+`
+		_, err := services.ValidatedOracleSpec(toml)
+		require.EqualError(t, err, "unrecognised key for bootstrap peer: keyBundleID; unrecognised key for bootstrap peer: monitoringEndpoint; unrecognised key for bootstrap peer: transmitterAddress; unrecognised key for bootstrap peer: observationTimeout; unrecognised key for bootstrap peer: observationSource")
+	})
+}

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/require"
 
@@ -112,5 +114,41 @@ func TestORM(t *testing.T) {
 		err = db.Find(&pipelineTaskSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, pipelineTaskSpecs, 9) // 8 explicitly-defined tasks + 1 automatically added ResultTask
+	})
+
+	t.Run("increase job spec error occurrence", func(t *testing.T) {
+		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, db)
+		err := orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
+		require.NoError(t, err)
+		var jobSpec models.JobSpecV2
+		err = db.
+			First(&jobSpec).
+			Error
+		require.NoError(t, err)
+
+		ocrSpecError1 := "ocr spec 1 errored"
+		ocrSpecError2 := "ocr spec 2 errored"
+		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
+		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
+		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError2)
+
+		var specErrors []models.JobSpecErrorV2
+		err = db.Find(&specErrors).Error
+		require.NoError(t, err)
+		require.Len(t, specErrors, 2)
+
+		assert.Equal(t, specErrors[0].Occurrences, uint(2))
+		assert.Equal(t, specErrors[1].Occurrences, uint(1))
+		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt))
+		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
+		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
+		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
+		var j2 models.JobSpecV2
+		err = db.
+			Preload("OffchainreportingOracleSpec").
+			Preload("JobSpecErrors").
+			First(&j2, "jobs.id = ?", jobSpec.ID).
+			Error
+		require.NoError(t, err)
 	})
 }

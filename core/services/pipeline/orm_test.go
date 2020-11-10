@@ -9,14 +9,14 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func clearDB(t *testing.T, db *gorm.DB) {
@@ -392,6 +392,13 @@ func TestORM(t *testing.T) {
 							require.Equal(t, test.answers[run.DotID()].Error.Error(), run.Error.ValueOrZero())
 						}
 					}
+
+					var pipelineRun pipeline.Run
+					err = db.First(&pipelineRun).Error
+					require.NoError(t, err)
+
+					assert.NotNil(t, pipelineRun.Errors.Val)
+					assert.NotNil(t, pipelineRun.Outputs.Val)
 				}
 
 				// Ensure that we can retrieve the correct results by calling .ResultsForRun
@@ -413,4 +420,5 @@ func TestORM(t *testing.T) {
 			})
 		}
 	})
+
 }
