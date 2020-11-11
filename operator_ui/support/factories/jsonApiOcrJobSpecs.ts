@@ -10,7 +10,7 @@ function getRandomInt(max: number) {
 export const jsonApiOcrJobSpecs = (jobs: Partial<any>[] = []) => {
   return {
     data: jobs.map((config) => {
-      const id = config.id || getRandomInt(1_000_000)
+      const id = config.id || getRandomInt(1_000_000).toString()
       const offChainReportingOracleSpec = partialAsFull<
         OcrJobSpec['offChainReportingOracleSpec']
       >({

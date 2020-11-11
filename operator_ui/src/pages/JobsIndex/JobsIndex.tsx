@@ -43,7 +43,7 @@ interface Job<T> {
 
 export type DirectRequest = Job<models.JobSpec>
 export type OffChainReporting = Job<models.OcrJobSpec>
-type CombinedJobs = DirectRequest | OffChainReporting
+export type CombinedJobs = DirectRequest | OffChainReporting
 
 function isDirectRequest(job: CombinedJobs): job is DirectRequest {
   return job.type === JobSpecTypes.jobSpec
