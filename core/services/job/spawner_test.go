@@ -76,9 +76,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	jobTypeA := job.Type("AAA")
 	jobTypeB := job.Type("BBB")
 
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_spawner", true, true)
-	defer cleanupDB()
-	db := oldORM.DB
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+	db := store.DB
 
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()

@@ -354,8 +354,6 @@ func (o *orm) AwaitRun(ctx context.Context, runID int64) error {
 }
 
 func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) {
-	// TODO(sam): I think this can be optimised by condensing it down into one query
-	// See: https://www.pivotaltracker.com/story/show/175288635
 	done, err := o.RunFinished(runID)
 	if err != nil {
 		return nil, err
