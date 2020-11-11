@@ -8,11 +8,13 @@
   "private": false,
   "scripts": {
     "compile": "belt compile all",
-    "compile:clean": "yarn clean && yarn compile",
+    "compile:ovm": "yarn belt compile all-ovm --config app.config.ovm.json",
+    "compile:clean": "yarn clean && yarn compile && yarn compile:ovm",
     "setup": "yarn compile:clean && tsc -b tsconfig.test.json tsconfig.ethers.json",
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "test": "jest --testTimeout 80000 --forceExit",
+    "test:ovm": "env USE_OVM=true jest --testTimeout 1600000 --forceExit --testRegex 'test/.*-ovm/.*.(spec|test).(js|ts)?$'",
     "test:ci": "./scripts/test_ci",
     "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
   },

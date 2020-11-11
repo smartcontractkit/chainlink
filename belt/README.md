@@ -79,7 +79,7 @@ USAGE
   $ belt compile [COMPILER]
 
 ARGUMENTS
-  COMPILER  (solc|ethers|truffle|all) Compile solidity smart contracts and output their artifacts
+  COMPILER  (solc|solc-ovm|ethers|truffle|all|all-ovm) Compile solidity smart contracts and output their artifacts
 
 OPTIONS
   -c, --config=config  [default: app.config.json] Location of the configuration file
