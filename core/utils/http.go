@@ -82,23 +82,25 @@ func makeHTTPCall(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
-) (responseBody []byte, statusCode int, err error) {
+) (responseBody []byte, statusCode int, _ error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 	requestWithTimeout := originalRequest.Clone(ctx)
 
 	// XXX: Workaround for https://github.com/golang/go/issues/36095
 	// http.Request#Clone actually only does a shallow copy
-	originalRequestBody, err := originalRequest.GetBody()
-	if err != nil {
-		return nil, 0, err
+	if originalRequest.GetBody != nil {
+		originalRequestBody, err := originalRequest.GetBody()
+		if err != nil {
+			return nil, 0, err
+		}
+		var b bytes.Buffer
+		_, err = b.ReadFrom(originalRequestBody)
+		if err != nil {
+			return nil, 0, err
+		}
+		requestWithTimeout.Body = ioutil.NopCloser(&b)
 	}
-	var b bytes.Buffer
-	_, err = b.ReadFrom(originalRequestBody)
-	if err != nil {
-		return nil, 0, err
-	}
-	requestWithTimeout.Body = ioutil.NopCloser(&b)
 
 	start := time.Now()
 
