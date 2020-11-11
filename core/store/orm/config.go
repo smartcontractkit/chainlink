@@ -103,11 +103,11 @@ func (c *Config) Validate() error {
 	}
 
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
-		return errors.Errorf("OCR_ANNOUNCE_PORT was given as %v but OCR_ANNOUNCE_IP was unset. You must also set OCR_ANNOUNCE_IP if OCR_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
+		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
-		return errors.New("OCR_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
 	return nil
 }

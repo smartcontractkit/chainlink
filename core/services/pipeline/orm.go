@@ -16,25 +16,28 @@ import (
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
+//go:generate mockery --name Unloader --output ./../../internal/mocks/ --case=underscore
 
-type ORM interface {
-	CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error)
-	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
-	ListenForNewRuns() (postgres.Subscription, error)
-	AwaitRun(ctx context.Context, runID int64) error
-	RunFinished(runID int64) (bool, error)
-	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-	DeleteRunsOlderThan(threshold time.Duration) error
+type (
+	ORM interface {
+		CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error)
+		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+		ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
+		ListenForNewRuns() (postgres.Subscription, error)
+		AwaitRun(ctx context.Context, runID int64) error
+		RunFinished(runID int64) (bool, error)
+		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
+		DeleteRunsOlderThan(threshold time.Duration) error
 
-	FindBridge(name models.TaskType) (models.BridgeType, error)
-}
+		FindBridge(name models.TaskType) (models.BridgeType, error)
+	}
 
-type orm struct {
-	db               *gorm.DB
-	config           Config
-	eventBroadcaster postgres.EventBroadcaster
-}
+	orm struct {
+		db               *gorm.DB
+		config           Config
+		eventBroadcaster postgres.EventBroadcaster
+	}
+)
 
 var _ ORM = (*orm)(nil)
 
@@ -111,13 +114,11 @@ func (o *orm) CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error) {
 // per TaskSpec associated with the given Spec.  Processing of the
 // TaskRuns is maximally parallelized across all of the Chainlink nodes in the
 // cluster.
-func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
-	var runID int64
-
+func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error) {
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
+	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
 		// Create the job run
 		run := Run{}
 
@@ -126,7 +127,9 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT pipeline_spec_id, $1, NOW()
             FROM jobs WHERE id = $2
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
-		if err != nil {
+		if gorm.IsRecordNotFoundError(err) {
+			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
+		} else if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
 		}
 
