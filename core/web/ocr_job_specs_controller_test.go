@@ -31,7 +31,7 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	assert.Equal(t, "{\"errors\":[{\"detail\":\"unrecognised key: isBootstrapNode\"}]}", string(b))
+	assert.Equal(t, "{\"errors\":[{\"detail\":\"isBootstrapPeer is not defined\"}]}", string(b))
 }
 
 func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
