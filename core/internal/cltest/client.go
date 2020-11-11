@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -161,6 +162,10 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 	}
 	balance = new(big.Int)
 	return balance, balanceOfABI.Unpack(balance, "balanceOf", b)
+}
+
+func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	panic("not implemented")
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

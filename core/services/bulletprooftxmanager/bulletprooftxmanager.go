@@ -131,16 +131,6 @@ func sendEmptyTransaction(
 	return signedTx, err
 }
 
-// BumpGas returns a new gas price increased by the largest of:
-// - A configured percentage bump (ETH_GAS_BUMP_PERCENT)
-// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI)
-// - The configured default base gas price (ETH_GAS_PRICE_DEFAULT)
-func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, error) {
-	// Currently this lives in store because TxManager also needs it.
-	// It can move here permanently once the old TxManager has been deleted.
-	return strpkg.BumpGas(config, originalGasPrice)
-}
-
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {
 	if oldAttempt.State != models.EthTxAttemptInProgress || replacementAttempt.State != models.EthTxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
@@ -154,4 +144,40 @@ func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.Eth
 		}
 		return errors.Wrap(tx.Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
 	})
+}
+
+// BumpGas computes the next gas price to attempt as the largest of:
+// - A configured percentage bump (ETH_GAS_BUMP_PERCENT) on top of the baseline price.
+// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
+// The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
+func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, error) {
+	baselinePrice := max(originalGasPrice, config.EthGasPriceDefault())
+
+	var priceByPercentage = new(big.Int)
+	priceByPercentage.Mul(baselinePrice, big.NewInt(int64(100+config.EthGasBumpPercent())))
+	priceByPercentage.Div(priceByPercentage, big.NewInt(100))
+
+	var priceByIncrement = new(big.Int)
+	priceByIncrement.Add(baselinePrice, config.EthGasBumpWei())
+
+	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
+	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
+		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s)",
+			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String())
+	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
+		// NOTE: This really shouldn't happen since we enforce minimums for
+		// ETH_GAS_BUMP_PERCENT and ETH_GAS_BUMP_WEI in the config validation,
+		// but it's here anyway for a "belts and braces" approach
+		return bumpedGasPrice, errors.Errorf("bumped gas price of %s is equal to original gas price of %s."+
+			" ACTION REQUIRED: This is a configuration error, you must increase either "+
+			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
+	}
+	return bumpedGasPrice, nil
+}
+
+func max(a, b *big.Int) *big.Int {
+	if a.Cmp(b) >= 0 {
+		return a
+	}
+	return b
 }

@@ -699,32 +699,6 @@ func setupWithdrawalsApplication(t *testing.T, config *cltest.TestConfig) (*clte
 	return app, cleanup
 }
 
-func TestClient_SendEther_From_LegacyTxManager(t *testing.T) {
-	t.Parallel()
-
-	config, cleanup := cltest.NewConfig(t)
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
-	defer cleanup()
-	app, cleanup := setupWithdrawalsApplication(t, config)
-	defer cleanup()
-	app.EthMock.Register("eth_getTransactionCount", "0x100")
-
-	require.NoError(t, app.StartAndConnect())
-
-	client, _ := app.NewClientAndRenderer()
-	set := flag.NewFlagSet("sendether", 0)
-	set.Parse([]string{"100", app.Store.TxManager.NextActiveAccount().Address.String(), "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"})
-
-	app.EthMock.Context("manager.CreateTx#1", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_sendRawTransaction", cltest.NewHash())
-	})
-
-	cliapp := cli.NewApp()
-	c := cli.NewContext(cliapp, set, nil)
-
-	assert.NoError(t, client.SendEther(c))
-}
-
 func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 

@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -58,7 +57,6 @@ type runManager struct {
 	orm         *orm.ORM
 	statsPusher synchronization.StatsPusher
 	runQueue    RunQueue
-	txManager   store.TxManager
 	config      orm.ConfigReader
 	clock       utils.AfterNower
 }
@@ -143,13 +141,11 @@ func NewRunManager(
 	config orm.ConfigReader,
 	orm *orm.ORM,
 	statsPusher synchronization.StatsPusher,
-	txManager store.TxManager,
 	clock utils.AfterNower) RunManager {
 	return &runManager{
 		orm:         orm,
 		statsPusher: statsPusher,
 		runQueue:    runQueue,
-		txManager:   txManager,
 		config:      config,
 		clock:       clock,
 	}
