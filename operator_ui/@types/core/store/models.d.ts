@@ -45,7 +45,7 @@ declare module 'core/store/models' {
    */
   export interface JobSpec {
     id?: string // FIXME -- why is this nullable?
-    createdAt?: time.Time
+    createdAt: time.Time
     initiators: Initiator[]
     minPayment: Pointer<assets.Link>
     tasks: TaskSpec[]
@@ -54,6 +54,7 @@ declare module 'core/store/models' {
     name: string
     earnings: number | null
     errors: JobSpecErrors[]
+    updatedAt: time.time
   }
 
   // Types of Initiators (see Initiator struct just below.)
@@ -476,6 +477,7 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
+      name?: string // Upcoming field
     }
   }
 }
