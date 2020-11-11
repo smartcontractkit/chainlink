@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -55,6 +56,8 @@ type (
 		ServicesForSpec(spec Spec) ([]Service, error)
 	}
 )
+
+const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 
@@ -116,7 +119,7 @@ func (js *spawner) runLoop() {
 	defer close(js.chDone)
 	defer js.destroy()
 
-	// Initialize the Postgres event listener for new jobs
+	// Initialize the Postgres event listener for created and deleted jobs
 	var newJobEvents <-chan postgres.Event
 	newJobs, err := js.orm.ListenForNewJobs()
 	if err != nil {
@@ -125,10 +128,27 @@ func (js *spawner) runLoop() {
 		defer newJobs.Close()
 		newJobEvents = newJobs.Events()
 	}
+	var pgDeletedJobEvents <-chan postgres.Event
+	deletedJobs, err := js.orm.ListenForDeletedJobs()
+	if err != nil {
+		logger.Warn("Job spawner could not subscribe to deleted job events")
+	} else {
+		defer deletedJobs.Close()
+		pgDeletedJobEvents = deletedJobs.Events()
+	}
 
 	// Initialize the DB poll ticker
 	dbPollTicker := time.NewTicker(js.config.JobPipelineDBPollInterval())
 	defer dbPollTicker.Stop()
+
+	// Initialize the poll that checks for deleted jobs and removes them
+	// This is only necessary as a fallback in case the event doesn't fire for some reason
+	// It doesn't need to run very often
+	deletedPollTicker := time.NewTicker(checkForDeletedJobsPollInterval)
+	defer deletedPollTicker.Stop()
+
+	ctx, cancel := utils.CombinedContext(js.chStop)
+	defer cancel()
 
 	js.startUnclaimedServicesWorker.WakeUp()
 	for {
@@ -141,6 +161,12 @@ func (js *spawner) runLoop() {
 
 		case jobID := <-js.chStopJob:
 			js.stopService(jobID)
+
+		case <-deletedPollTicker.C:
+			js.checkForDeletedJobs(ctx)
+
+		case deleteJobEvent := <-pgDeletedJobEvents:
+			js.handlePGDeleteEvent(ctx, deleteJobEvent)
 
 		case <-js.chStop:
 			return
@@ -212,6 +238,37 @@ func (js *spawner) stopService(jobID int32) {
 		}
 	}
 	delete(js.services, jobID)
+}
+
+func (js *spawner) checkForDeletedJobs(ctx context.Context) {
+	jobIDs, err := js.orm.CheckForDeletedJobs(ctx)
+	if err != nil {
+		logger.Errorw("failed to CheckForDeletedJobs", "err", err)
+		return
+	}
+	for _, jobID := range jobIDs {
+		js.unloadDeletedJob(ctx, jobID)
+	}
+}
+
+func (js *spawner) unloadDeletedJob(ctx context.Context, jobID int32) {
+	logger.Infow("Unloading deleted job", "jobID", jobID)
+	js.stopService(jobID)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	if err := js.orm.UnclaimJob(ctx, jobID); err != nil {
+		logger.Errorw("Unexpected error unclaiming job", "jobID", jobID)
+	}
+}
+
+func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
+	jobIDString := ev.Payload
+	jobID64, err := strconv.ParseInt(jobIDString, 10, 32)
+	if err != nil {
+		logger.Errorw("Unexpected error decoding deleted job event payload, expected 32-bit integer", "payload", jobIDString, "channel", ev.Channel)
+	}
+	jobID := int32(jobID64)
+	js.unloadDeletedJob(ctx, jobID)
 }
 
 func (js *spawner) CreateJob(ctx context.Context, spec Spec) (int32, error) {
