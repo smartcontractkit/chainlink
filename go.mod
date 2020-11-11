@@ -55,7 +55,7 @@ require (
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
-	github.com/tidwall/gjson v1.6.1
+	github.com/tidwall/gjson v1.6.3
 	github.com/tidwall/sjson v1.1.2
 	github.com/tyler-smith/go-bip39 v1.0.2 // indirect
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
