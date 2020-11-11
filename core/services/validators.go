@@ -418,21 +418,8 @@ func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error
 	} else if err := validateNonBootstrapSpec(m, spec); err != nil {
 		return spec, err
 	}
-	// TODO: expose these various constants from libocr so they are defined in one place.
-	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return spec, errors.Errorf("require 1ms <= observation timeout <= 20s")
-	}
-	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return spec, errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
-		return spec, errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
-		return spec, errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
-	}
-	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
-		return spec, errors.Errorf("require 2 <= contract config confirmations <= 10 ")
+	if err := validateTimingParameters(spec); err != nil {
+		return spec, err
 	}
 	return spec, nil
 }
@@ -468,23 +455,24 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
-	var err error
-	for _, ks := range m.Keys() {
-		if len(ks) > 1 {
-			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
-		}
-		k := ks[0]
-
-		if _, ok := notExpected[k]; ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
-		}
-		delete(expected, k)
+func validateTimingParameters(spec offchainreporting.OracleSpec) error {
+	// TODO: expose these various constants from libocr so they are defined in one place.
+	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return errors.Errorf("require 1ms <= observation timeout <= 20s")
 	}
-	for missing := range expected {
-		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
+	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
 	}
-	return err
+	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
+		return errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
+	}
+	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
+		return errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
+	}
+	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
+		return errors.Errorf("require 2 <= contract config confirmations <= 10 ")
+	}
+	return nil
 }
 
 func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
@@ -523,4 +511,23 @@ func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec
 		}
 	}
 	return nil
+}
+
+func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
+	var err error
+	for _, ks := range m.Keys() {
+		if len(ks) > 1 {
+			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
+		}
+		k := ks[0]
+
+		if _, ok := notExpected[k]; ok {
+			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
+		}
+		delete(expected, k)
+	}
+	for missing := range expected {
+		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
+	}
+	return err
 }
