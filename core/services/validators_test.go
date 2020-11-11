@@ -531,10 +531,6 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.NoError(t, err)
@@ -557,10 +553,6 @@ keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c389
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
 observationTimeout = "10s"
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
    ds1          [type=bridge name=voter_turnout];
    ds1_parse    [type=jsonparse path="one,two"];
@@ -582,10 +574,6 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = false
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)
@@ -600,10 +588,6 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = false
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
 ->
 """
@@ -621,10 +605,6 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/invalid/peer/address"]
 isBootstrapPeer    = false
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
 blah
 """
@@ -643,9 +623,6 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 isBootstrapPeer    = false
 blockchainTimeout  = "0s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
 blah
 """
@@ -663,10 +640,7 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 isBootstrapPeer    = false
-blockchainTimeout  = "1ms"
 contractConfigTrackerSubscribeInterval = "0s"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
 blah
 """
