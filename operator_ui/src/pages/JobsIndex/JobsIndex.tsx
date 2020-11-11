@@ -81,8 +81,6 @@ async function getJobs() {
   })
 }
 
-// Simple Job filter. TODO: @deividas how do you feel about update this with a better object traversal functionality?
-
 export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
   const textSearch = search.toLowerCase()
   if (isDirectRequest(job)) {

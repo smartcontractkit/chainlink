@@ -1,13 +1,16 @@
-import { v4 as uuid } from 'uuid'
 import { ApiResponse } from '@chainlink/json-api-client'
 import { partialAsFull } from '@chainlink/ts-helpers'
 import { OcrJobSpec } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
+function getRandomInt(max: number) {
+  return Math.floor(Math.random() * Math.floor(max))
+}
+
 export const jsonApiOcrJobSpecs = (jobs: Partial<any>[] = []) => {
   return {
     data: jobs.map((config) => {
-      const id = config.id || uuid().replace(/-/g, '')
+      const id = config.id || getRandomInt(1_000_000)
       const offChainReportingOracleSpec = partialAsFull<
         OcrJobSpec['offChainReportingOracleSpec']
       >({
