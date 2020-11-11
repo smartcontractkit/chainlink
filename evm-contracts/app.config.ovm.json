@@ -1,0 +1,16 @@
+{
+  "contractsDir": "src",
+  "artifactsDir": "abi",
+  "contractAbstractionDir": ".",
+  "useDockerisedSolc": false,
+  "compilerSettings": {
+    "optimizer": {
+      "runs": 1000000,
+      "enabled": true
+    },
+    "versions": {
+      "v0.6-ovm": "0.6.12"
+    }
+  },
+  "publicVersions": ["0.6.12"]
+}
