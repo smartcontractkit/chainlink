@@ -81,35 +81,40 @@ async function getJobs() {
   })
 }
 
+const searchIncludes = (searchParam: string) => {
+  const lowerCaseSearchParam = searchParam.toLowerCase()
+
+  return (stringToSearch: string) => {
+    return stringToSearch.toLowerCase().includes(lowerCaseSearchParam)
+  }
+}
+
 export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
-  const textSearch = search.toLowerCase()
+  const test = searchIncludes(search)
+
   if (isDirectRequest(job)) {
     return (
-      job.id.toLowerCase().includes(textSearch) ||
-      job.attributes.name.toLowerCase().includes(textSearch) ||
-      job.attributes.initiators.some((initiator) =>
-        initiator.type.includes(textSearch),
-      ) ||
-      'direct request'.includes(textSearch)
+      test(job.id) ||
+      test(job.attributes.name) ||
+      job.attributes.initiators.some((initiator) => test(initiator.type)) ||
+      test('direct request')
     )
   }
 
   if (isOffChainReporting(job)) {
     return (
-      job.id.toLowerCase().includes(textSearch) ||
-      job.attributes.offChainReportingOracleSpec.contractAddress
-        .toLowerCase()
-        .includes(textSearch) ||
-      job.attributes.offChainReportingOracleSpec.keyBundleID
-        .toLowerCase()
-        .includes(textSearch) ||
-      job.attributes.offChainReportingOracleSpec.p2pPeerID
-        .toLowerCase()
-        .includes(textSearch) ||
-      job.attributes.offChainReportingOracleSpec.transmitterAddress
-        .toLowerCase()
-        .includes(textSearch) ||
-      'off-chain reporting'.includes(textSearch)
+      test(job.id) ||
+      ([
+        'contractAddress',
+        'keyBundleID',
+        'p2pPeerID',
+        'transmitterAddress',
+      ] as Array<
+        keyof models.OcrJobSpec['offChainReportingOracleSpec']
+      >).some((property) =>
+        test(String(job.attributes.offChainReportingOracleSpec[property])),
+      ) ||
+      test('off-chain reporting')
     )
   }
 
