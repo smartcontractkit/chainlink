@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/multiformats/go-multiaddr"
 
 	"github.com/BurntSushi/toml"
@@ -379,9 +381,21 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpec validates an oracle spec that came from TOML
-func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, err error) {
+func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error) {
 	var m toml.MetaData
-	m, err = toml.Decode(tomlString, &spec)
+
+	// Sane defaults
+	spec := offchainreporting.OracleSpec{
+		OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
+			P2PBootstrapPeers:                      pq.StringArray{},
+			ObservationTimeout:                     models.Interval(10 * time.Second),
+			BlockchainTimeout:                      models.Interval(20 * time.Second),
+			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+			ContractConfigConfirmations:            uint16(3),
+		},
+	}
+	m, err := toml.Decode(tomlString, &spec)
 	if err != nil {
 		return spec, err
 	}
@@ -394,44 +408,134 @@ func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, 
 	for _, k := range m.Undecoded() {
 		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
 	}
+	if !m.IsDefined("isBootstrapPeer") {
+		return spec, errors.New("isBootstrapPeer is not defined")
+	}
 	if spec.IsBootstrapPeer {
-		return validatedBootstrapSpec(m, spec)
-	} else if err := validateNonBootstrapSpec(spec); err != nil {
+		if err := validateBootstrapSpec(m, spec); err != nil {
+			return spec, err
+		}
+	} else if err := validateNonBootstrapSpec(m, spec); err != nil {
 		return spec, err
 	}
-	return
+	// TODO: expose these various constants from libocr so they are defined in one place.
+	/*
+		err = multierr.Append(err,
+			boundTimeDuration(
+				c.DataSourceTimeout.Seconds(), "data source timeout", "s",
+				0.001  20,
+			))
+		err = multierr.Append(err,
+			boundTimeDuration(
+				c.BlockchainTimeout.Seconds(), "block chain timeout", "s",
+				0.001, 20,
+			))
+		err = multierr.Append(err,
+			boundTimeDuration(
+				c.ContractConfigTrackerPollInterval.Seconds(),
+				"contract config tracker poll interval", "s", 15, 120,
+			))
+		err = multierr.Append(err,
+			boundTimeDuration(
+				c.ContractConfigTrackerSubscribeInterval.Minutes(),
+				"contract config tracker subscribe interval", "min", 2, 5,
+			))
+		if c.ContractConfigConfirmations < 2 {
+			err = multierr.Append(err, errors.Errorf(
+				"contract config block-depth confirmation threshold %d is unreasonably low",
+				c.ContractConfigConfirmations))
+		}
+		if c.ContractConfigConfirmations > 10 {
+			err = multierr.Append(err, errors.Errorf(
+				"contract config block-depth confirmation threshold %d is unreasonably large",
+				c.ContractConfigConfirmations))
+		}
+	*/
+	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return spec, errors.Errorf("require 1ms < observation timeout < 20s")
+	}
+	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return spec, errors.Errorf("require 1ms < blockchain timeout  < 20s ")
+	}
+	// TODO other checks
+	return spec, nil
 }
 
-// TODO: are these required for non-bootstrap nodes also?
-var bootstrapKeys = map[string]struct{}{
-	`type`:                                   {},
-	`schemaVersion`:                          {},
-	`contractAddress`:                        {},
-	`p2pPeerID`:                              {},
-	`p2pBootstrapPeers`:                      {},
-	`isBootstrapPeer`:                        {},
-	`blockchainTimeout`:                      {},
-	`contractConfigTrackerSubscribeInterval`: {},
-	`contractConfigTrackerPollInterval`:      {},
-	`contractConfigConfirmations`:            {},
-}
+// Parameters required for both bootstrap and non-bootstrap nodes.
+var (
+	params = map[string]struct{}{
+		"type":              {},
+		"schemaVersion":     {},
+		"contractAddress":   {},
+		"isBootstrapPeer":   {},
+		"p2pPeerID":         {},
+		"p2pBootstrapPeers": {},
+	}
+	bootstrapParams    = map[string]struct{}{}
+	nonBootstrapParams = map[string]struct{}{
+		"monitoringEndpoint": {},
+		"observationSource":  {},
+		"observationTimeout": {},
+		"keyBundleID":        {},
+		"transmitterAddress": {},
+	}
+)
 
-func validatedBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) (offchainreporting.OracleSpec, error) {
+func checkKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
 	var err error
 	for _, ks := range m.Keys() {
 		if len(ks) > 1 {
-			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for bootstrap peer: %s", ks))
+			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
 		}
 		k := ks[0]
 
-		if _, ok := bootstrapKeys[k]; !ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for bootstrap peer: %s", k))
+		if _, ok := notExpected[k]; ok {
+			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
+		}
+		if _, ok := expected[k]; ok {
+			delete(expected, k)
 		}
 	}
-	return spec, err
+	for missing := range expected {
+		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
+	}
+	return err
 }
 
-func validateNonBootstrapSpec(spec offchainreporting.OracleSpec) error {
+func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+	expected, notExpected := make(map[string]struct{}), make(map[string]struct{})
+	for k := range params {
+		expected[k] = struct{}{}
+	}
+	for k := range bootstrapParams {
+		expected[k] = struct{}{}
+	}
+	for k := range nonBootstrapParams {
+		notExpected[k] = struct{}{}
+	}
+	if err := checkKeys(m, expected, notExpected, "bootstrap"); err != nil {
+		return err
+	}
+	if len(spec.P2PBootstrapPeers) > 0 {
+		return errors.New("not expecting bootstrap peers on bootstrap node")
+	}
+	return nil
+}
+
+func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+	expected, notExpected := make(map[string]struct{}), make(map[string]struct{})
+	for k := range params {
+		expected[k] = struct{}{}
+	}
+	for k := range nonBootstrapParams {
+		expected[k] = struct{}{}
+	}
+	for k := range bootstrapParams {
+		notExpected[k] = struct{}{}
+	}
+	if err := checkKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
+		return err
+	}
 	if spec.Pipeline.DOTSource == "" {
 		return errors.New("no pipeline specified")
 	}
@@ -442,12 +546,6 @@ func validateNonBootstrapSpec(spec offchainreporting.OracleSpec) error {
 		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
 			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
 		}
-	}
-	if time.Duration(spec.ObservationTimeout) <= time.Duration(0) {
-		return errors.Errorf("observation timeout must be > 0")
-	}
-	if time.Duration(spec.BlockchainTimeout) <= time.Duration(0) {
-		return errors.Errorf("blockchain timeout must be > 0")
 	}
 	return nil
 }
