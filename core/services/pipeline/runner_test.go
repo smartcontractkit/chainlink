@@ -348,4 +348,50 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, se, 0)
 	})
+
+	t.Run("deleting jobs", func(t *testing.T) {
+		var httpURL string
+		{
+			resp := `{"USD": 42.42}`
+			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", resp)
+			defer cleanupHTTP()
+			httpURL = mockHTTP.URL
+		}
+
+		// Need a job in order to create a run
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
+		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		require.NoError(t, err)
+
+		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = runner.AwaitRun(ctx, runID)
+		require.NoError(t, err)
+
+		// Verify the results
+		results, err := runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+
+		assert.Len(t, results, 1)
+		assert.Nil(t, results[0].Error)
+		assert.Equal(t, "4242", results[0].Value)
+
+		// Delete the job
+		err = jobORM.DeleteJob(ctx, dbSpec.ID)
+		require.NoError(t, err)
+
+		// Create another run
+		_, err = runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		require.EqualError(t, err, fmt.Sprintf("no job found with id %v (most likely it was deleted)", dbSpec.ID))
+
+		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		err = runner.AwaitRun(ctx, runID)
+		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v): record not found", runID))
+	})
 }
