@@ -247,7 +247,7 @@ export interface RequestAccountBalanceAction
 export interface UpsertAccountBalanceAction
   extends Action<ResourceActionType.UPSERT_ACCOUNT_BALANCE> {
   data: {
-    accountBalances: any
+    eThKeys: any
   }
 }
 

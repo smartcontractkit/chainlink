@@ -1192,5 +1192,5 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; could not create pipeline run: record not found")
+	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
 }
