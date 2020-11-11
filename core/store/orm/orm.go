@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -1049,6 +1050,43 @@ func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 		First(&job, "jobs.id = ?", id).
 		Error
 	return job, err
+}
+
+// OffChainReportingJobRuns returns OCR job runs
+func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
+	orm.MustEnsureAdvisoryLock()
+
+	var pipelineRuns []pipeline.Run
+	var count int
+
+	err := orm.DB.
+		Model(pipeline.Run{}).
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return pipelineRuns, 0, err
+	}
+
+	err = orm.DB.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(`pipeline_task_runs.type != 'result'`).
+				Order("created_at ASC, id ASC")
+		}).
+		Preload("PipelineTaskRuns.PipelineTaskSpec").
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Limit(size).
+		Offset(offset).
+		Order("created_at ASC, id ASC").
+		Find(&pipelineRuns).
+		Error
+
+	return pipelineRuns, count, err
 }
 
 // TxFrom returns all transactions from a particular address.
