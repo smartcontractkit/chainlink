@@ -9,10 +9,12 @@ import * as config from './config'
 export function getContractDirs(conf: config.App) {
   const contractDirs = ls(conf.contractsDir)
 
-  return contractDirs.map((d) => ({
-    dir: d,
-    version: conf.compilerSettings.versions[d],
-  }))
+  return contractDirs
+    .map((d) => ({
+      dir: d,
+      version: conf.compilerSettings.versions[d],
+    }))
+    .filter((p) => !!p.version)
 }
 
 /**
@@ -21,10 +23,12 @@ export function getContractDirs(conf: config.App) {
 export function getArtifactDirs(conf: config.App) {
   const artifactDirs = ls(conf.artifactsDir)
 
-  return artifactDirs.map((d) => ({
-    dir: d,
-    version: conf.compilerSettings.versions[d],
-  }))
+  return artifactDirs
+    .map((d) => ({
+      dir: d,
+      version: conf.compilerSettings.versions[d],
+    }))
+    .filter((p) => !!p.version)
 }
 
 /**
