@@ -94,7 +94,10 @@ func makeHTTPCall(
 		return nil, 0, err
 	}
 	var b bytes.Buffer
-	b.ReadFrom(originalRequestBody)
+	_, err = b.ReadFrom(originalRequestBody)
+	if err != nil {
+		return nil, 0, err
+	}
 	requestWithTimeout.Body = ioutil.NopCloser(&b)
 
 	start := time.Now()
