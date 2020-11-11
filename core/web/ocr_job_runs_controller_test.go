@@ -39,9 +39,8 @@ func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOCRJobRunsController_Index_HappyPath(t *testing.T) {
-	client, jobID, runID, cleanup, cleanupHTTP := setupOCRJobRunsControllerTests(t)
+	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
 	defer cleanup()
-	defer cleanupHTTP()
 
 	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs")
 	defer cleanup()
@@ -54,18 +53,41 @@ func TestOCRJobRunsController_Index_HappyPath(t *testing.T) {
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
 
-	assert.Equal(t, parsedResponse[0].ID, runID)
+	require.Len(t, parsedResponse, 2)
+	assert.Equal(t, parsedResponse[0].ID, runIDs[0])
+	assert.NotNil(t, parsedResponse[0].CreatedAt)
+	assert.NotNil(t, parsedResponse[0].FinishedAt)
+	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
+}
+
+func TestOCRJobRunsController_Index_Pagination(t *testing.T) {
+	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
+	defer cleanup()
+
+	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs?page=2&size=1")
+	defer cleanup()
+	cltest.AssertServerResponse(t, response, http.StatusOK)
+
+	var parsedResponse []pipeline.Run
+	responseBytes := cltest.ParseResponseBody(t, response)
+	assert.Contains(t, string(responseBytes), `"meta":null,"errors":[null],"outputs":["3"]`)
+	assert.Contains(t, string(responseBytes), `"meta":{"count":2}`)
+
+	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
+	assert.NoError(t, err)
+
+	require.Len(t, parsedResponse, 1)
+	assert.Equal(t, parsedResponse[0].ID, runIDs[1])
 	assert.NotNil(t, parsedResponse[0].CreatedAt)
 	assert.NotNil(t, parsedResponse[0].FinishedAt)
 	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
 }
 
 func TestOCRJobRunsController_Show_HappyPath(t *testing.T) {
-	client, jobID, runID, cleanup, cleanupHTTP := setupOCRJobRunsControllerTests(t)
+	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
 	defer cleanup()
-	defer cleanupHTTP()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runID))
+	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -76,7 +98,7 @@ func TestOCRJobRunsController_Show_HappyPath(t *testing.T) {
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
 	assert.NoError(t, err)
 
-	assert.Equal(t, parsedResponse.ID, runID)
+	assert.Equal(t, parsedResponse.ID, runIDs[0])
 	assert.NotNil(t, parsedResponse.CreatedAt)
 	assert.NotNil(t, parsedResponse.FinishedAt)
 	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
@@ -94,13 +116,12 @@ func TestOCRJobRunsController_ShowRun_InvalidID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
-func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, int64, func(), func()) {
+func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
-	httpURL := mockHTTP.URL
 
 	var ocrJobSpec offchainreporting.OracleSpec
 	toml.Decode(fmt.Sprintf(`
@@ -123,13 +144,23 @@ func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, httpURL), &ocrJobSpec)
+	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL), &ocrJobSpec)
+
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
 	require.NoError(t, err)
-	runID, err := app.RunJobV2(context.Background(), jobID, nil)
+
+	firstRunID, err := app.RunJobV2(context.Background(), jobID, nil)
 	require.NoError(t, err)
-	err = app.AwaitRun(context.Background(), runID)
+	secondRunID, err := app.RunJobV2(context.Background(), jobID, nil)
 	require.NoError(t, err)
 
-	return client, jobID, runID, cleanup, cleanupHTTP
+	err = app.AwaitRun(context.Background(), firstRunID)
+	require.NoError(t, err)
+	err = app.AwaitRun(context.Background(), secondRunID)
+	require.NoError(t, err)
+
+	return client, jobID, []int64{firstRunID, secondRunID}, func() {
+		cleanup()
+		cleanupHTTP()
+	}
 }
