@@ -392,7 +392,7 @@ func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error
 			BlockchainTimeout:                      models.Interval(20 * time.Second),
 			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
 			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-			ContractConfigConfirmations:            uint16(3),
+			ContractConfigConfirmations:            uint16(3), // TODO: why a uint16? just forcing casting everywhere
 		},
 	}
 	m, err := toml.Decode(tomlString, &spec)
@@ -419,50 +419,27 @@ func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error
 		return spec, err
 	}
 	// TODO: expose these various constants from libocr so they are defined in one place.
-	/*
-		err = multierr.Append(err,
-			boundTimeDuration(
-				c.DataSourceTimeout.Seconds(), "data source timeout", "s",
-				0.001  20,
-			))
-		err = multierr.Append(err,
-			boundTimeDuration(
-				c.BlockchainTimeout.Seconds(), "block chain timeout", "s",
-				0.001, 20,
-			))
-		err = multierr.Append(err,
-			boundTimeDuration(
-				c.ContractConfigTrackerPollInterval.Seconds(),
-				"contract config tracker poll interval", "s", 15, 120,
-			))
-		err = multierr.Append(err,
-			boundTimeDuration(
-				c.ContractConfigTrackerSubscribeInterval.Minutes(),
-				"contract config tracker subscribe interval", "min", 2, 5,
-			))
-		if c.ContractConfigConfirmations < 2 {
-			err = multierr.Append(err, errors.Errorf(
-				"contract config block-depth confirmation threshold %d is unreasonably low",
-				c.ContractConfigConfirmations))
-		}
-		if c.ContractConfigConfirmations > 10 {
-			err = multierr.Append(err, errors.Errorf(
-				"contract config block-depth confirmation threshold %d is unreasonably large",
-				c.ContractConfigConfirmations))
-		}
-	*/
 	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return spec, errors.Errorf("require 1ms < observation timeout < 20s")
+		return spec, errors.Errorf("require 1ms <= observation timeout <= 20s")
 	}
 	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return spec, errors.Errorf("require 1ms < blockchain timeout  < 20s ")
+		return spec, errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
 	}
-	// TODO other checks
+	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
+		return spec, errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
+	}
+	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
+		return spec, errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
+	}
+	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
+		return spec, errors.Errorf("require 2 <= contract config confirmations <= 10 ")
+	}
 	return spec, nil
 }
 
-// Parameters required for both bootstrap and non-bootstrap nodes.
+// Parameters that must be explicitly set by the operator.
 var (
+	// Common to both bootstrap and non-boostrap
 	params = map[string]struct{}{
 		"type":              {},
 		"schemaVersion":     {},
@@ -471,6 +448,8 @@ var (
 		"p2pPeerID":         {},
 		"p2pBootstrapPeers": {},
 	}
+	// Boostrap and non-bootstrap parameters
+	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
 		"monitoringEndpoint": {},
@@ -481,7 +460,15 @@ var (
 	}
 )
 
-func checkKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
+func cloneSet(in map[string]struct{}) map[string]struct{} {
+	out := make(map[string]struct{})
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
 	var err error
 	for _, ks := range m.Keys() {
 		if len(ks) > 1 {
@@ -492,9 +479,7 @@ func checkKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[st
 		if _, ok := notExpected[k]; ok {
 			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
 		}
-		if _, ok := expected[k]; ok {
-			delete(expected, k)
-		}
+		delete(expected, k)
 	}
 	for missing := range expected {
 		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
@@ -503,37 +488,27 @@ func checkKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[st
 }
 
 func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
-	expected, notExpected := make(map[string]struct{}), make(map[string]struct{})
-	for k := range params {
-		expected[k] = struct{}{}
-	}
+	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
 	}
-	for k := range nonBootstrapParams {
-		notExpected[k] = struct{}{}
-	}
-	if err := checkKeys(m, expected, notExpected, "bootstrap"); err != nil {
+	if err := validateExplicitlySetKeys(m, expected, notExpected, "bootstrap"); err != nil {
 		return err
 	}
-	if len(spec.P2PBootstrapPeers) > 0 {
-		return errors.New("not expecting bootstrap peers on bootstrap node")
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+		}
 	}
 	return nil
 }
 
 func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
-	expected, notExpected := make(map[string]struct{}), make(map[string]struct{})
-	for k := range params {
-		expected[k] = struct{}{}
-	}
+	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
 	}
-	for k := range bootstrapParams {
-		notExpected[k] = struct{}{}
-	}
-	if err := checkKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
+	if err := validateExplicitlySetKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
 		return err
 	}
 	if spec.Pipeline.DOTSource == "" {

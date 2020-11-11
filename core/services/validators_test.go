@@ -508,10 +508,6 @@ keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c389
 monitoringEndpoint = "chain.link:4321"
 transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
 observationTimeout = "10s"
-blockchainTimeout  = "20s"
-contractConfigTrackerSubscribeInterval = "2m"
-contractConfigTrackerPollInterval = "1m"
-contractConfigConfirmations = 3
 observationSource = """
   ds1          [type=bridge name=voter_turnout];
   ds1_parse    [type=jsonparse path="one,two"];
@@ -667,8 +663,8 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 isBootstrapPeer    = false
-blockchainTimeout  = "0s"
-contractConfigTrackerSubscribeInterval = "2m"
+blockchainTimeout  = "1ms"
+contractConfigTrackerSubscribeInterval = "0s"
 contractConfigTrackerPollInterval = "1m"
 contractConfigConfirmations = 3
 observationSource = """
@@ -677,6 +673,26 @@ blah
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)
+			},
+		},
+		{
+			name: "sane defaults",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = true 
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, os.ContractConfigConfirmations, uint16(3))
+				assert.Equal(t, os.ObservationTimeout, models.Interval(10*time.Second))
+				assert.Equal(t, os.BlockchainTimeout, models.Interval(20*time.Second))
+				assert.Equal(t, os.ContractConfigTrackerSubscribeInterval, models.Interval(2*time.Minute))
+				assert.Equal(t, os.ContractConfigTrackerPollInterval, models.Interval(1*time.Minute))
+				assert.Len(t, os.P2PBootstrapPeers, 0)
 			},
 		},
 	}
