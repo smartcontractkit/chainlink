@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/multiformats/go-multiaddr"
+
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
@@ -394,21 +396,24 @@ func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, 
 	}
 	if spec.IsBootstrapPeer {
 		return validatedBootstrapSpec(m, spec)
+	} else if err := validateNonBootstrapSpec(spec); err != nil {
+		return spec, err
 	}
 	return
 }
 
+// TODO: are these required for non-bootstrap nodes also?
 var bootstrapKeys = map[string]struct{}{
-	`type`:                                   struct{}{},
-	`schemaVersion`:                          struct{}{},
-	`contractAddress`:                        struct{}{},
-	`p2pPeerID`:                              struct{}{},
-	`p2pBootstrapPeers`:                      struct{}{},
-	`isBootstrapPeer`:                        struct{}{},
-	`blockchainTimeout`:                      struct{}{},
-	`contractConfigTrackerSubscribeInterval`: struct{}{},
-	`contractConfigTrackerPollInterval`:      struct{}{},
-	`contractConfigConfirmations`:            struct{}{},
+	`type`:                                   {},
+	`schemaVersion`:                          {},
+	`contractAddress`:                        {},
+	`p2pPeerID`:                              {},
+	`p2pBootstrapPeers`:                      {},
+	`isBootstrapPeer`:                        {},
+	`blockchainTimeout`:                      {},
+	`contractConfigTrackerSubscribeInterval`: {},
+	`contractConfigTrackerPollInterval`:      {},
+	`contractConfigConfirmations`:            {},
 }
 
 func validatedBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) (offchainreporting.OracleSpec, error) {
@@ -424,4 +429,25 @@ func validatedBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) 
 		}
 	}
 	return spec, err
+}
+
+func validateNonBootstrapSpec(spec offchainreporting.OracleSpec) error {
+	if spec.Pipeline.DOTSource == "" {
+		return errors.New("no pipeline specified")
+	}
+	if len(spec.P2PBootstrapPeers) < 1 {
+		return errors.New("must specify at least one bootstrap peer")
+	}
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+		}
+	}
+	if time.Duration(spec.ObservationTimeout) <= time.Duration(0) {
+		return errors.Errorf("observation timeout must be > 0")
+	}
+	if time.Duration(spec.BlockchainTimeout) <= time.Duration(0) {
+		return errors.Errorf("blockchain timeout must be > 0")
+	}
+	return nil
 }
