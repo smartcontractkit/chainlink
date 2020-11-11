@@ -184,7 +184,6 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
-	// setup the claimed jobs
 	claimedJobs := make([]models.JobSpecV2, 3)
 	for i := range claimedJobs {
 		ocrSpec, dbSpec := makeOCRJobSpec(t, db)
@@ -193,11 +192,9 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	}
 	job.SetORMClaimedJobs(orm, claimedJobs)
 
-	// Delete one
 	deletedID := claimedJobs[0].ID
 	require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, deletedID).Error)
 
-	// Perform CheckForDeletedJobs
 	deletedJobIDs, err := orm.CheckForDeletedJobs(context.Background())
 	require.NoError(t, err)
 
@@ -222,10 +219,8 @@ func TestORM_UnclaimJob(t *testing.T) {
 	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker)
 	defer orm.Close()
 
-	// Does nothing if it isn't in claimed jobs
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
 
-	// setup the claimed jobs
 	claimedJobs := make([]models.JobSpecV2, 3)
 	for i := range claimedJobs {
 		_, dbSpec := makeOCRJobSpec(t, db)
@@ -237,7 +232,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 	jobID := claimedJobs[0].ID
 	advisoryLocker.On("Unlock", mock.Anything, job.GetORMAdvisoryLockClassID(orm), jobID).Once().Return(nil)
-	// Removes it if its claimed
+
 	require.NoError(t, orm.UnclaimJob(context.Background(), jobID))
 
 	claimedJobs = job.GetORMClaimedJobs(orm)
