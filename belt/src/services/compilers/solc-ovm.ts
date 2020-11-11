@@ -1,4 +1,4 @@
-import { Compiler, CompilerOptions } from '@0x/sol-compiler'
+import { Compiler, CompilerOptions } from '@krebernisak/ovm-compiler'
 import { join } from 'path'
 import * as config from '../config'
 import { debug, getContractDirs } from '../utils'
@@ -46,6 +46,9 @@ function compiler(
   const compilerSettingCopy: any = JSON.parse(JSON.stringify(compilerSettings))
   delete compilerSettingCopy.versions
 
+  // Update version string to be detected by forked 0x/sol-compiler
+  solcVersion += '_ovm'
+
   const settings: CompilerOptions = {
     artifactsDir: join(artifactsDir, subDir),
     compilerSettings: {
@@ -68,7 +71,7 @@ function compiler(
     },
     contracts: '*',
     contractsDir: join(contractsDir, subDir),
-    isOfflineMode: false,
+    isOfflineMode: true,
     shouldSaveStandardInput: false,
     solcVersion,
     useDockerisedSolc,

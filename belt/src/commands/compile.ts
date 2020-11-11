@@ -2,6 +2,7 @@ import { Command, flags } from '@oclif/command'
 import * as Parser from '@oclif/parser'
 import { App } from '../services/config'
 
+type Compilers = typeof import('../services/compilers')
 export default class Compile extends Command {
   static description =
     'Run various compilers and/or codegenners that target solidity smart contracts.'
@@ -35,7 +36,7 @@ Chainlink artifact saved!
       name: 'compiler',
       description:
         'Compile solidity smart contracts and output their artifacts',
-      options: ['solc', 'ethers', 'truffle', 'all'],
+      options: ['solc', 'solc-ovm', 'ethers', 'truffle', 'all', 'all-ovm'],
     },
   ]
 
@@ -48,30 +49,33 @@ Chainlink artifact saved!
     try {
       const config = await import('../services/config')
       const conf = config.load(flags.config)
-      const compilation =
-        args.compiler === 'all'
-          ? this.compileAll(conf)
-          : this.compileSingle(args.compiler, conf)
 
-      await compilation
+      switch (args.compiler) {
+        case 'all':
+          return await this.compileAll('solc', conf)
+        case 'all-ovm':
+          return await this.compileAll('solc-ovm', conf)
+        default:
+          return await this.compile(args.compiler, conf)
+      }
     } catch (e) {
       this.error(e)
     }
   }
 
-  private async compileSingle(compilerName: string, conf: App) {
-    type Compilers = typeof import('../services/compilers')
-    const compiler: Compilers[keyof Compilers] = await import(
-      `../services/compilers/${compilerName}`
-    )
+  private async getCompiler(name: string): Promise<Compilers[keyof Compilers]> {
+    return await import(`../services/compilers/${name}`)
+  }
 
+  private async compile(compilerName: string, conf: App) {
+    const compiler = await this.getCompiler(compilerName)
     await compiler.compileAll(conf)
   }
 
-  private async compileAll(conf: App) {
+  private async compileAll(compilerName: string, conf: App) {
     const compilers = await import('../services/compilers')
 
-    await compilers.solc.compileAll(conf)
+    await this.compile(compilerName, conf)
     await Promise.all([
       compilers.truffle.compileAll(conf),
       compilers.ethers.compileAll(conf),

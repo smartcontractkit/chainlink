@@ -15,15 +15,13 @@ This cli tool is currently used within `@chainlink/contracts` for the usage of r
 build and development tools across multiple solidity contract versions.
 
 <!-- toc -->
-
-- [Usage](#usage)
-- [Commands](#commands)
-  <!-- tocstop -->
+* [Usage](#usage)
+* [Commands](#commands)
+<!-- tocstop -->
 
 # Usage
 
 <!-- usage -->
-
 ```sh-session
 $ npm install -g @chainlink/belt
 $ belt COMMAND
@@ -35,16 +33,14 @@ USAGE
   $ belt COMMAND
 ...
 ```
-
 <!-- usagestop -->
 
 # Commands
 
 <!-- commands -->
-
-- [`belt box [PATH]`](#belt-box-path)
-- [`belt compile [COMPILER]`](#belt-compile-compiler)
-- [`belt help [COMMAND]`](#belt-help-command)
+* [`belt box [PATH]`](#belt-box-path)
+* [`belt compile [COMPILER]`](#belt-compile-compiler)
+* [`belt help [COMMAND]`](#belt-help-command)
 
 ## `belt box [PATH]`
 
@@ -83,7 +79,7 @@ USAGE
   $ belt compile [COMPILER]
 
 ARGUMENTS
-  COMPILER  (solc|ethers|truffle|all) Compile solidity smart contracts and output their artifacts
+  COMPILER  (solc|solc-ovm|ethers|truffle|all|all-ovm) Compile solidity smart contracts and output their artifacts
 
 OPTIONS
   -c, --config=config  [default: app.config.json] Location of the configuration file
@@ -122,5 +118,4 @@ OPTIONS
 ```
 
 _See code: [@oclif/plugin-help](https://github.com/oclif/plugin-help/blob/v2.2.3/src/commands/help.ts)_
-
 <!-- commandsstop -->
