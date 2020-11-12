@@ -10,7 +10,7 @@
 version: '3.5'
 services:
   node:
-    container_name: chainlink-node
+    container_name: chainlink-node-1
     image: chainlink-dev
     build:
       context: ../../
