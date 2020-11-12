@@ -22,6 +22,12 @@ Numerous key-related UX improvements:
 - Deleting an OCR/P2P/VRF key now requires confirmation from the user. To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
 - The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
 
+## [0.9.5] - 2020-11-12
+
+### Changed
+
+- Updated from Go 1.15.4 to 1.15.5.
+
 ## [0.9.4] - 2020-11-04
 
 ### Fixed
