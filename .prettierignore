@@ -26,6 +26,9 @@ belt/tmp
 belt/node_modules
 belt/testfs
 
+# evm-test-helpers
+evm-test-helpers/abi/**/*
+
 # evm-contracts
 evm-contracts/dist/**/*
 evm-contracts/abi/**/*
