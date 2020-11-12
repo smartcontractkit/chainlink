@@ -13,7 +13,9 @@
     "setup": "yarn compile:clean && tsc -b tsconfig.test.json tsconfig.ethers.json",
     "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
-    "test": "jest --testTimeout 80000 --forceExit",
+    "lint:sol": "solhint -f table ./src/**/*.sol",
+    "test:reset": "yarn setup && yarn test",
+    "test": "env USE_OVM=false jest --testTimeout 80000 --forceExit --testRegex 'test/.*(?<!-ovm)/.*.(spec|test).(js|ts)?$'",
     "test:ovm": "env USE_OVM=true jest --testTimeout 1600000 --forceExit --testRegex 'test/.*-ovm/.*.(spec|test).(js|ts)?$'",
     "test:ci": "./scripts/test_ci",
     "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
