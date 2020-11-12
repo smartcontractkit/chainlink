@@ -3,9 +3,12 @@ package pipeline_test
 import (
 	"context"
 	"fmt"
+	"github.com/lib/pq"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/BurntSushi/toml"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -292,6 +295,55 @@ func TestRunner(t *testing.T) {
 				t.Fatalf("unknown task '%v'", run.DotID())
 			}
 		}
+	})
+
+	t.Run("test min bootstrap", func(t *testing.T) {
+		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		require.NoError(t, err)
+		minimalBootstrapTemplate := `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		p2pPeerID          = "%s"
+		p2pBootstrapPeers  = [
+	]
+		isBootstrapPeer    = true
+`
+		var os = offchainreporting.OracleSpec{
+			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
+				P2PBootstrapPeers:                      pq.StringArray{},
+				ObservationTimeout:                     models.Interval(10 * time.Second),
+				BlockchainTimeout:                      models.Interval(20 * time.Second),
+				ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+				ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+				ContractConfigConfirmations:            uint16(3),
+			},
+			Pipeline: *pipeline.NewTaskDAG(),
+		}
+		err = toml.Unmarshal([]byte(fmt.Sprintf(minimalBootstrapTemplate, cltest.DefaultKey, ek.PeerID)), &os)
+		require.NoError(t, err)
+		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+		}, os.TaskDAG())
+		require.NoError(t, err)
+		var jb models.JobSpecV2
+		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+			Find(&jb).Error
+		require.NoError(t, err)
+
+		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		sd := offchainreporting.NewJobSpawnerDelegate(
+			db,
+			jobORM,
+			config.Config,
+			keyStore,
+			nil,
+			nil,
+			nil)
+		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
+		require.NoError(t, err)
+		t.Log(service)
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
