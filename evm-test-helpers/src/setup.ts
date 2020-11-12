@@ -29,7 +29,8 @@ const debug = makeDebug('helpers')
 export function provider(): ethers.providers.JsonRpcProvider {
   const providerEngine = new Web3ProviderEngine()
 
-  if (process.env.DEBUG) {
+  // OVM CHANGE: sol-trace does not seem to work on OVM
+  if (process.env.DEBUG && !isOVM()) {
     debug('Debugging enabled, using sol-trace module...')
     const defaultFromAddress = ''
     const artifactAdapter = new SolCompilerArtifactAdapter(

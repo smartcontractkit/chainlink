@@ -17,7 +17,7 @@ import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6-ovm/Simple
 
 let personas: setup.Personas
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.ovm.LinkTokenFactory()
 const fluxAggregatorFactory = new FluxAggregatorFactory()
 const validatorMockFactory = new AggregatorValidatorMockFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
@@ -46,7 +46,7 @@ describe('FluxAggregator', () => {
   const maxSubmissionValue = h.bigNum('100000000000000000000')
 
   let aggregator: contract.Instance<FluxAggregatorFactory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.ovm.LinkTokenFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let validator: contract.Instance<AggregatorValidatorMockFactory>
   let gasGuzzler: contract.Instance<GasGuzzlerFactory>

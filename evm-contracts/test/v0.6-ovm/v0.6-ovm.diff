@@ -1,8 +1,8 @@
 diff --git a/test/v0.6/AccessControlledAggregator.test.ts b/test/v0.6-ovm/AccessControlledAggregator.test.ts
-index f3ad69d73..0bc70b2be 100644
+index f3ad69d73..67676b54f 100644
 --- a/test/v0.6/AccessControlledAggregator.test.ts
 +++ b/test/v0.6-ovm/AccessControlledAggregator.test.ts
-@@ -5,8 +5,8 @@ import {
+@@ -5,11 +5,11 @@ import {
    setup,
  } from '@chainlink/test-helpers'
  import { assert } from 'chai'
@@ -12,7 +12,20 @@ index f3ad69d73..0bc70b2be 100644
 +import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6-ovm/FluxAggregatorTestHelperFactory'
  
  const aggregatorFactory = new AccessControlledAggregatorFactory()
- const linkTokenFactory = new contract.LinkTokenFactory()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ const testHelperFactory = new FluxAggregatorTestHelperFactory()
+ const provider = setup.provider()
+ let personas: setup.Personas
+@@ -32,7 +32,7 @@ describe('AccessControlledAggregator', () => {
+   const maxSubmissionValue = h.bigNum('100000000000000000000')
+   const emptyAddress = '0x0000000000000000000000000000000000000000'
+ 
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
+   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
+   let nextRound: number
 diff --git a/test/v0.6/AggregatorFacade.test.ts b/test/v0.6/AggregatorFacade.test.ts
 deleted file mode 100644
 index a108d92ec..000000000
@@ -183,10 +196,10 @@ index a108d92ec..000000000
 -  })
 -})
 diff --git a/test/v0.6/AggregatorProxy.test.ts b/test/v0.6-ovm/AggregatorProxy.test.ts
-index fa2146d88..fd78fb37d 100644
+index fa2146d88..78d0b151e 100644
 --- a/test/v0.6/AggregatorProxy.test.ts
 +++ b/test/v0.6-ovm/AggregatorProxy.test.ts
-@@ -7,12 +7,12 @@ import {
+@@ -7,18 +7,18 @@ import {
  import { assert } from 'chai'
  import { ethers } from 'ethers'
  import { BigNumber } from 'ethers/utils'
@@ -205,11 +218,27 @@ index fa2146d88..fd78fb37d 100644
  
  let personas: setup.Personas
  let defaultAccount: ethers.Wallet
+ 
+ const provider = setup.provider()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ const aggregatorFactory = new MockV3AggregatorFactory()
+ const historicAggregatorFactory = new MockV2AggregatorFactory()
+ const aggregatorFacadeFactory = new AggregatorFacadeFactory()
+@@ -40,7 +40,7 @@ describe('AggregatorProxy', () => {
+   const decimals = 18
+   const phaseBase = h.bigNum(2).pow(64)
+ 
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let aggregator: contract.Instance<MockV3AggregatorFactory>
+   let aggregator2: contract.Instance<MockV3AggregatorFactory>
+   let historicAggregator: contract.Instance<MockV2AggregatorFactory>
 diff --git a/test/v0.6/BasicConsumer.test.ts b/test/v0.6-ovm/BasicConsumer.test.ts
-index 91231d3ed..73f87d512 100644
+index 91231d3ed..c83025127 100644
 --- a/test/v0.6/BasicConsumer.test.ts
 +++ b/test/v0.6-ovm/BasicConsumer.test.ts
-@@ -9,8 +9,8 @@ import {
+@@ -9,13 +9,13 @@ import {
  import cbor from 'cbor'
  import { assert } from 'chai'
  import { ethers } from 'ethers'
@@ -220,6 +249,21 @@ index 91231d3ed..73f87d512 100644
  
  const d = debug.makeDebug('BasicConsumer')
  const basicConsumerFactory = new BasicConsumerFactory()
+ const oracleFactory = new OracleFactory()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ 
+ // create ethers provider from that web3js instance
+ const provider = setup.provider()
+@@ -32,7 +32,7 @@ describe('BasicConsumer', () => {
+   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
+   const currency = 'USD'
+   const payment = h.toWei('1')
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let oc: contract.Instance<OracleFactory>
+   let cc: contract.Instance<BasicConsumerFactory>
+   const deployment = setup.snapshot(provider, async () => {
 diff --git a/test/v0.6/BlockhashStore.test.ts b/test/v0.6/BlockhashStore.test.ts
 deleted file mode 100644
 index 782096b1f..000000000
@@ -423,10 +467,10 @@ index 7d8fbe658..3cdb3f33b 100644
  let personas: setup.Personas
  const provider = setup.provider()
 diff --git a/test/v0.6/EACAggregatorProxy.test.ts b/test/v0.6-ovm/EACAggregatorProxy.test.ts
-index a9093369b..eaa79af83 100644
+index a9093369b..59a1f1baf 100644
 --- a/test/v0.6/EACAggregatorProxy.test.ts
 +++ b/test/v0.6-ovm/EACAggregatorProxy.test.ts
-@@ -6,10 +6,10 @@ import {
+@@ -6,16 +6,16 @@ import {
  } from '@chainlink/test-helpers'
  import { assert } from 'chai'
  import { ethers } from 'ethers'
@@ -441,6 +485,22 @@ index a9093369b..eaa79af83 100644
  
  let personas: setup.Personas
  let defaultAccount: ethers.Wallet
+ 
+ const provider = setup.provider()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ const accessControlFactory = new SimpleReadAccessControllerFactory()
+ const aggregatorFactory = new MockV3AggregatorFactory()
+ const testHelperFactory = new FluxAggregatorTestHelperFactory()
+@@ -38,7 +38,7 @@ describe('EACAggregatorProxy', () => {
+   const timestamp = 678
+   const startedAt = 677
+ 
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let controller: contract.Instance<SimpleReadAccessControllerFactory>
+   let aggregator: contract.Instance<MockV3AggregatorFactory>
+   let aggregator2: contract.Instance<MockV3AggregatorFactory>
 diff --git a/test/v0.6/Flags.test.ts b/test/v0.6-ovm/Flags.test.ts
 index 52cea4461..c5d8783cb 100644
 --- a/test/v0.6/Flags.test.ts
@@ -459,10 +519,10 @@ index 52cea4461..c5d8783cb 100644
  const provider = setup.provider()
  const flagsFactory = new FlagsFactory()
 diff --git a/test/v0.6/FluxAggregator.test.ts b/test/v0.6-ovm/FluxAggregator.test.ts
-index 21b4b64e3..68d1ce949 100644
+index 21b4b64e3..03a2df422 100644
 --- a/test/v0.6/FluxAggregator.test.ts
 +++ b/test/v0.6-ovm/FluxAggregator.test.ts
-@@ -7,13 +7,13 @@ import {
+@@ -7,17 +7,17 @@ import {
  } from '@chainlink/test-helpers'
  import { assert } from 'chai'
  import { ethers } from 'ethers'
@@ -483,6 +543,20 @@ index 21b4b64e3..68d1ce949 100644
  
  let personas: setup.Personas
  const provider = setup.provider()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ const fluxAggregatorFactory = new FluxAggregatorFactory()
+ const validatorMockFactory = new AggregatorValidatorMockFactory()
+ const testHelperFactory = new FluxAggregatorTestHelperFactory()
+@@ -46,7 +46,7 @@ describe('FluxAggregator', () => {
+   const maxSubmissionValue = h.bigNum('100000000000000000000')
+ 
+   let aggregator: contract.Instance<FluxAggregatorFactory>
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
+   let validator: contract.Instance<AggregatorValidatorMockFactory>
+   let gasGuzzler: contract.Instance<GasGuzzlerFactory>
 diff --git a/test/v0.6/Median.test.ts b/test/v0.6-ovm/Median.test.ts
 index def8f6690..c417581b9 100644
 --- a/test/v0.6/Median.test.ts
@@ -510,10 +584,10 @@ index 99e04198d..29cf94b54 100644
  const ownedTestHelperFactory = new OwnedTestHelperFactory()
  const provider = setup.provider()
 diff --git a/test/v0.6/PreCoordinator.test.ts b/test/v0.6-ovm/PreCoordinator.test.ts
-index 07873bbb8..259e83ed2 100644
+index 07873bbb8..cbce136bf 100644
 --- a/test/v0.6/PreCoordinator.test.ts
 +++ b/test/v0.6-ovm/PreCoordinator.test.ts
-@@ -8,9 +8,9 @@ import {
+@@ -8,15 +8,15 @@ import {
  import cbor from 'cbor'
  import { assert } from 'chai'
  import { ethers } from 'ethers'
@@ -526,6 +600,22 @@ index 07873bbb8..259e83ed2 100644
  
  const provider = setup.provider()
  const oracleFactory = new OracleFactory()
+ const preCoordinatorFactory = new PreCoordinatorFactory()
+ const requesterConsumerFactory = new BasicConsumerFactory()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ 
+ let roles: setup.Roles
+ beforeAll(async () => {
+@@ -43,7 +43,7 @@ describe('PreCoordinator', () => {
+   const payment = h.toWei('1')
+   const totalPayment = h.toWei('4')
+ 
+-  let link: contract.Instance<contract.LinkTokenFactory>
++  let link: contract.Instance<contract.ovm.LinkTokenFactory>
+   let oc1: contract.Instance<OracleFactory>
+   let oc2: contract.Instance<OracleFactory>
+   let oc3: contract.Instance<OracleFactory>
 diff --git a/test/v0.6/SignedSafeMath.test.ts b/test/v0.6-ovm/SignedSafeMath.test.ts
 index 5040eff33..69e258965 100644
 --- a/test/v0.6/SignedSafeMath.test.ts
@@ -565,10 +655,10 @@ index b3be9f940..955c786f7 100644
  
  const controllerFactory = new SimpleWriteAccessControllerFactory()
 diff --git a/test/v0.6/gasUsage.test.ts b/test/v0.6-ovm/gasUsage.test.ts
-index 2c3a304f3..6c88312b2 100644
+index 2c3a304f3..fe3a21e49 100644
 --- a/test/v0.6/gasUsage.test.ts
 +++ b/test/v0.6-ovm/gasUsage.test.ts
-@@ -4,9 +4,9 @@ import {
+@@ -4,14 +4,14 @@ import {
    helpers as h,
    setup,
  } from '@chainlink/test-helpers'
@@ -581,3 +671,9 @@ index 2c3a304f3..6c88312b2 100644
  
  let personas: setup.Personas
  
+ const provider = setup.provider()
+-const linkTokenFactory = new contract.LinkTokenFactory()
++const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+ const aggregatorFactory = new AccessControlledAggregatorFactory()
+ const testHelperFactory = new FluxAggregatorTestHelperFactory()
+ const proxyFactory = new EACAggregatorProxyFactory()

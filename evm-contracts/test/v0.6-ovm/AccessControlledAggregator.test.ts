@@ -9,7 +9,7 @@ import { AccessControlledAggregatorFactory } from '../../ethers/v0.6-ovm/AccessC
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6-ovm/FluxAggregatorTestHelperFactory'
 
 const aggregatorFactory = new AccessControlledAggregatorFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.ovm.LinkTokenFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const provider = setup.provider()
 let personas: setup.Personas
@@ -32,7 +32,7 @@ describe('AccessControlledAggregator', () => {
   const maxSubmissionValue = h.bigNum('100000000000000000000')
   const emptyAddress = '0x0000000000000000000000000000000000000000'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.ovm.LinkTokenFactory>
   let aggregator: contract.Instance<AccessControlledAggregatorFactory>
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number

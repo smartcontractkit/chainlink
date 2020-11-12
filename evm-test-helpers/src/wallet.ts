@@ -87,11 +87,12 @@ export async function fundWallet(
 
   const signer = provider.getSigner(nodeOwnedAccounts[0])
 
-  const txParams: ethers.providers.TransactionRequest = {
+  let txParams: ethers.providers.TransactionRequest = {
     to: wallet.address,
     value: ethers.utils.parseEther('10'),
     ...overrides,
   }
+
   debug('sending tx with the following parameters: %o', txParams)
   const tx = await signer.sendTransaction(txParams)
 

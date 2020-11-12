@@ -18,7 +18,7 @@ let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.ovm.LinkTokenFactory()
 const aggregatorFactory = new MockV3AggregatorFactory()
 const historicAggregatorFactory = new MockV2AggregatorFactory()
 const aggregatorFacadeFactory = new AggregatorFacadeFactory()
@@ -40,7 +40,7 @@ describe('AggregatorProxy', () => {
   const decimals = 18
   const phaseBase = h.bigNum(2).pow(64)
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.ovm.LinkTokenFactory>
   let aggregator: contract.Instance<MockV3AggregatorFactory>
   let aggregator2: contract.Instance<MockV3AggregatorFactory>
   let historicAggregator: contract.Instance<MockV2AggregatorFactory>
