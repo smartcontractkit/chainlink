@@ -28,7 +28,6 @@ const debug = makeDebug('helpers')
  */
 export function provider(): ethers.providers.JsonRpcProvider {
   const providerEngine = new Web3ProviderEngine()
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(5 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
 
   if (process.env.DEBUG) {
     debug('Debugging enabled, using sol-trace module...')
@@ -45,8 +44,13 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
+  // OVM CHANGE: over the top gas settings to make the tests run on OVM
+  // Ganache does a poor job of estimating gas, so just crank it up for testing.
+  providerEngine.addProvider(new FakeGasEstimateSubprovider(1_900 * 10 ** 6))
+
   const options = {
-    gasLimit: 8_000_000,
+    gasLimit: 2_000_000_000,
+    allowUnlimitedContractSize: true,
   }
 
   const ganacheProvider = isOVM()
