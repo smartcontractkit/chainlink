@@ -232,5 +232,5 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		).
 		Create(&pse).
 		Error
-	logger.ErrorIf(err, fmt.Sprintf("Unable to create JobSpecErrorV2: %v", err))
+	logger.ErrorIf(err, fmt.Sprintf("error creating JobSpecErrorV2 %v", description))
 }
