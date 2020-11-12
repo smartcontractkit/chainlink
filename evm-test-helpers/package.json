@@ -8,10 +8,11 @@
   "author": "Chainlink Devs",
   "license": "MIT",
   "scripts": {
-    "generate-typings": "typechain --target ethers --outDir src/generated src/LinkToken.json",
+    "generate-typings": "typechain --target ethers --outDir src/generated abi/LinkToken.json",
+    "generate-typings:ovm": "typechain --target ethers --outDir src/generated/ovm abi/ovm/LinkToken.json",
     "test": "jest",
     "clean": "tsc -b --clean && rimraf -rf src/generated",
-    "setup": "yarn generate-typings && tsc -b",
+    "setup": "yarn generate-typings && yarn generate-typings:ovm && tsc -b",
     "prepublishOnly": "yarn setup --force && yarn test"
   },
   "dependencies": {

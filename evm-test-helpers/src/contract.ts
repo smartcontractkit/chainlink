@@ -8,6 +8,11 @@ import { Provider } from 'ethers/providers'
 import { FunctionFragment } from 'ethers/utils'
 export * from './generated/LinkTokenFactory'
 
+// TODO: supported form TypeScript >= 3.8
+// export * as ovm from './generated/ovm/LinkTokenFactory'
+import * as ovm from './generated/ovm/LinkTokenFactory'
+export { ovm }
+
 /**
  * The type of any function that is deployable
  */
