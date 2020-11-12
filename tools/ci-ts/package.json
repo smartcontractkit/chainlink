@@ -14,7 +14,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@chainlink/contracts": "0.1.6",
+    "@chainlink/contracts": "0.1.7",
     "@chainlink/test-helpers": "0.0.6",
     "@types/chai": "^4.2.11",
     "@types/dockerode": "^2.5.24",

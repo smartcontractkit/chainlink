@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
