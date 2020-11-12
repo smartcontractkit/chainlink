@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/lib/pq"
 
 	"github.com/multiformats/go-multiaddr"
@@ -394,6 +396,7 @@ func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error
 			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
 			ContractConfigConfirmations:            uint16(3), // TODO: why a uint16? just forcing casting everywhere
 		},
+		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	m, err := toml.Decode(tomlString, &spec)
 	if err != nil {
