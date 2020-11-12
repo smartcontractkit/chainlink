@@ -36,7 +36,7 @@
     "eslint-plugin-prettier": "^3.1.4",
     "eslint-plugin-react": "^7.19.0",
     "eslint-plugin-react-hooks": "^4.0.0",
-    "patch-package": "^6.2.1",
+    "patch-package": "^6.2.2",
     "postinstall-postinstall": "^2.0.0",
     "prettier": "^2.1.2",
     "typescript": "^3.7.4",
@@ -53,8 +53,10 @@
     "**/serialize-javascript": "^3.1.0",
     "**/sha3": "^2.0.7",
     "**/solc": "^0.6.4",
+    "**/@0x/subproviders": "^6.2.0",
     "**/source-map-support": "0.5.16",
-    "**/yargs-parser": "^15.0.1"
+    "**/yargs-parser": "^15.0.1",
+    "**/ganache-core": "2.11.2"
   },
   "dependencies": {
     "tslib": "^1.11.1"
