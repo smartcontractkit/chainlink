@@ -84,4 +84,5 @@ type ConfigReader interface {
 	CreateProductionLogger() *logger.Logger
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
+	TriggerFallbackDBPollInterval() time.Duration
 }

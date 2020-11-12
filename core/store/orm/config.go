@@ -419,8 +419,8 @@ func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-func (c Config) JobPipelineDBPollInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+func (c Config) TriggerFallbackDBPollInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("TriggerFallbackDBPollInterval"))
 }
 
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
