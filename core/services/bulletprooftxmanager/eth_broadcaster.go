@@ -84,11 +84,7 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader, eventBroadca
 func (eb *ethBroadcaster) Start() error {
 	if !eb.OkayToStart() {
 		return errors.New("EthBroadcaster is already started")
-	} else if !eb.config.EnableBulletproofTxManager() {
-		logger.Info("BulletproofTxManager: Disabled, falling back to legacy TxManager")
-		return nil
 	}
-	logger.Info("BulletproofTxManager: Enabled")
 
 	var err error
 	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
@@ -108,8 +104,6 @@ func (eb *ethBroadcaster) Start() error {
 func (eb *ethBroadcaster) Stop() error {
 	if !eb.OkayToStop() {
 		return errors.New("EthBroadcaster is already stopped")
-	} else if !eb.config.EnableBulletproofTxManager() {
-		return nil
 	}
 
 	if eb.ethTxInsertListener != nil {

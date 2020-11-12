@@ -247,12 +247,6 @@ func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
 }
 
-// EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
-// toggling this on and off could cause transactions to become lost
-func (c Config) EnableBulletproofTxManager() bool {
-	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
-}
-
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))

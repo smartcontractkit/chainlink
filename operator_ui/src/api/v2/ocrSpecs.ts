@@ -12,11 +12,18 @@ export class OcrSpecs {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
+  public getJobSpecs(): Promise<jsonapi.ApiResponse<models.OcrJobSpec[]>> {
+    return this.index()
+  }
+
+  @boundMethod
   public createJobSpec(
     ocrJobSpecRequest: models.OcrJobSpecRequest,
   ): Promise<jsonapi.ApiResponse<models.OcrJobSpec>> {
     return this.create(ocrJobSpecRequest)
   }
+
+  private index = this.api.fetchResource<{}, models.OcrJobSpec[]>(ENDPOINT)
 
   private create = this.api.createResource<
     models.OcrJobSpecRequest,
