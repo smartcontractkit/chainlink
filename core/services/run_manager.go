@@ -232,7 +232,7 @@ func (rm *runManager) Create(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return run, nil
 }
@@ -293,8 +293,7 @@ RETURNING id;`
 	}
 
 	for _, runID := range runIDs {
-		// FIXME: this is safe, but probably better to change Run to just take an ID here
-		rm.runQueue.Run(&models.JobRun{ID: runID})
+		rm.runQueue.Run(runID)
 	}
 	rm.statsPusher.PushNow()
 	return nil
@@ -366,7 +365,8 @@ func (rm *runManager) ResumePendingBridge(
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
 func (rm *runManager) ResumeAllInProgress() error {
-	return rm.orm.UnscopedJobRunsWithStatus(rm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
+	queueRun := func(run *models.JobRun) { rm.runQueue.Run(run.ID) }
+	return rm.orm.UnscopedJobRunsWithStatus(queueRun, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }
 
 // Cancel suspends a running task.
@@ -405,7 +405,7 @@ func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 	}
 	rm.statsPusher.PushNow()
 	if run.GetStatus() == models.RunStatusInProgress {
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return nil
 }
