@@ -37,7 +37,7 @@
     "app.config.json"
   ],
   "optionalDependencies": {
-    "@truffle/contract": "^4.2.6",
+    "@truffle/contract": "^4.2.29",
     "ethers": "^4.0.45"
   }
 }
