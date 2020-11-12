@@ -8,6 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lib/pq"
+
+	"github.com/multiformats/go-multiaddr"
+
 	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
@@ -377,9 +381,21 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpec validates an oracle spec that came from TOML
-func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, err error) {
+func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error) {
 	var m toml.MetaData
-	m, err = toml.Decode(tomlString, &spec)
+
+	// Sane defaults
+	spec := offchainreporting.OracleSpec{
+		OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
+			P2PBootstrapPeers:                      pq.StringArray{},
+			ObservationTimeout:                     models.Interval(10 * time.Second),
+			BlockchainTimeout:                      models.Interval(20 * time.Second),
+			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+			ContractConfigConfirmations:            uint16(3), // TODO: why a uint16? just forcing casting everywhere
+		},
+	}
+	m, err := toml.Decode(tomlString, &spec)
 	if err != nil {
 		return spec, err
 	}
@@ -392,36 +408,126 @@ func ValidatedOracleSpec(tomlString string) (spec offchainreporting.OracleSpec, 
 	for _, k := range m.Undecoded() {
 		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
 	}
-	if spec.IsBootstrapPeer {
-		return validatedBootstrapSpec(m, spec)
+	if !m.IsDefined("isBootstrapPeer") {
+		return spec, errors.New("isBootstrapPeer is not defined")
 	}
-	return
+	if spec.IsBootstrapPeer {
+		if err := validateBootstrapSpec(m, spec); err != nil {
+			return spec, err
+		}
+	} else if err := validateNonBootstrapSpec(m, spec); err != nil {
+		return spec, err
+	}
+	if err := validateTimingParameters(spec); err != nil {
+		return spec, err
+	}
+	return spec, nil
 }
 
-var bootstrapKeys = map[string]struct{}{
-	`type`:                                   struct{}{},
-	`schemaVersion`:                          struct{}{},
-	`contractAddress`:                        struct{}{},
-	`p2pPeerID`:                              struct{}{},
-	`p2pBootstrapPeers`:                      struct{}{},
-	`isBootstrapPeer`:                        struct{}{},
-	`blockchainTimeout`:                      struct{}{},
-	`contractConfigTrackerSubscribeInterval`: struct{}{},
-	`contractConfigTrackerPollInterval`:      struct{}{},
-	`contractConfigConfirmations`:            struct{}{},
+// Parameters that must be explicitly set by the operator.
+var (
+	// Common to both bootstrap and non-boostrap
+	params = map[string]struct{}{
+		"type":              {},
+		"schemaVersion":     {},
+		"contractAddress":   {},
+		"isBootstrapPeer":   {},
+		"p2pPeerID":         {},
+		"p2pBootstrapPeers": {},
+	}
+	// Boostrap and non-bootstrap parameters
+	// are mutually exclusive.
+	bootstrapParams    = map[string]struct{}{}
+	nonBootstrapParams = map[string]struct{}{
+		"monitoringEndpoint": {},
+		"observationSource":  {},
+		"observationTimeout": {},
+		"keyBundleID":        {},
+		"transmitterAddress": {},
+	}
+)
+
+func cloneSet(in map[string]struct{}) map[string]struct{} {
+	out := make(map[string]struct{})
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
-func validatedBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) (offchainreporting.OracleSpec, error) {
+func validateTimingParameters(spec offchainreporting.OracleSpec) error {
+	// TODO: expose these various constants from libocr so they are defined in one place.
+	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return errors.Errorf("require 1ms <= observation timeout <= 20s")
+	}
+	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+		return errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
+	}
+	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
+		return errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
+	}
+	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
+		return errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
+	}
+	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
+		return errors.Errorf("require 2 <= contract config confirmations <= 10 ")
+	}
+	return nil
+}
+
+func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
+	for k := range bootstrapParams {
+		expected[k] = struct{}{}
+	}
+	if err := validateExplicitlySetKeys(m, expected, notExpected, "bootstrap"); err != nil {
+		return err
+	}
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+		}
+	}
+	return nil
+}
+
+func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
+	for k := range nonBootstrapParams {
+		expected[k] = struct{}{}
+	}
+	if err := validateExplicitlySetKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
+		return err
+	}
+	if spec.Pipeline.DOTSource == "" {
+		return errors.New("no pipeline specified")
+	}
+	if len(spec.P2PBootstrapPeers) < 1 {
+		return errors.New("must specify at least one bootstrap peer")
+	}
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+		}
+	}
+	return nil
+}
+
+func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
 	var err error
 	for _, ks := range m.Keys() {
 		if len(ks) > 1 {
-			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for bootstrap peer: %s", ks))
+			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
 		}
 		k := ks[0]
 
-		if _, ok := bootstrapKeys[k]; !ok {
-			err = multierr.Append(err, errors.Errorf("unrecognised key for bootstrap peer: %s", k))
+		if _, ok := notExpected[k]; ok {
+			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
 		}
+		delete(expected, k)
 	}
-	return spec, err
+	for missing := range expected {
+		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
+	}
+	return err
 }
