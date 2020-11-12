@@ -99,7 +99,7 @@ type EnvPrinter struct {
 	GasUpdaterEnabled                     bool            `json:"gasUpdaterEnabled"`
 	GasUpdaterTransactionPercentile       uint16          `json:"gasUpdaterTransactionPercentile"`
 	InsecureFastScrypt                    bool            `json:"insecureFastScrypt"`
-	JobPipelineDBPollInterval             time.Duration   `json:"jobPipelineDBPollInterval"`
+	TriggerFallbackDBPollInterval         time.Duration   `json:"jobPipelineDBPollInterval"`
 	JobPipelineMaxTaskDuration            time.Duration   `json:"jobPipelineMaxTaskDuration"`
 	JobPipelineParallelism                uint8           `json:"jobPipelineParallelism"`
 	JobPipelineReaperInterval             time.Duration   `json:"jobPipelineReaperInterval"`
@@ -189,7 +189,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			GasUpdaterEnabled:                     config.GasUpdaterEnabled(),
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
 			InsecureFastScrypt:                    config.InsecureFastScrypt(),
-			JobPipelineDBPollInterval:             config.JobPipelineDBPollInterval(),
+			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
 			JobPipelineMaxTaskDuration:            config.JobPipelineMaxTaskDuration(),
 			JobPipelineParallelism:                config.JobPipelineParallelism(),
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
