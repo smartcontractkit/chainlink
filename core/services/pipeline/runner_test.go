@@ -347,6 +347,9 @@ func TestRunner(t *testing.T) {
 		err = db.Find(&se).Error
 		require.NoError(t, err)
 		require.Len(t, se, 0)
+
+		// Should be no error log once the job is gone.
+		jobORM.RecordError(context.Background(), jb.ID, "test")
 	})
 
 	t.Run("deleting jobs", func(t *testing.T) {
