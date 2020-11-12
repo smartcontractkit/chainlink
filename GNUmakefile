@@ -2,6 +2,7 @@
 
 ENVIRONMENT ?= release
 
+BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell cat VERSION)
@@ -89,7 +90,7 @@ presubmit:
 docker: ## Build the docker image.
 		docker build \
 		-f $(DOCKERFILE) \
-		--build-arg "BUILDER=$(AWS_ECR_URL)/builder" \
+		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		-t $(TAGGED_REPO) \
