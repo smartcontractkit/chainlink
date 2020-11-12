@@ -314,9 +314,6 @@ func (_FluxAggregator *FluxAggregatorCaller) GetRoundData(opts *bind.CallOpts, _
 	err := _FluxAggregator.contract.Call(opts, &out, "getRoundData", _roundId)
 
 	outstruct := new(GetRoundData)
-	if err != nil {
-		return *outstruct, err
-	}
 
 	outstruct.RoundId = out[0].(*big.Int)
 	outstruct.Answer = out[1].(*big.Int)
@@ -413,9 +410,6 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestRoundData(opts *bind.CallOpts
 	err := _FluxAggregator.contract.Call(opts, &out, "latestRoundData")
 
 	outstruct := new(LatestRoundData)
-	if err != nil {
-		return *outstruct, err
-	}
 
 	outstruct.RoundId = out[0].(*big.Int)
 	outstruct.Answer = out[1].(*big.Int)
@@ -600,9 +594,6 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleRoundState(opts *bind.CallOpt
 	err := _FluxAggregator.contract.Call(opts, &out, "oracleRoundState", _oracle, _queriedRoundId)
 
 	outstruct := new(OracleRoundState)
-	if err != nil {
-		return *outstruct, err
-	}
 
 	outstruct.EligibleToSubmit = out[0].(bool)
 	outstruct.RoundId = out[1].(uint32)
