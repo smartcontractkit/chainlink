@@ -71,7 +71,7 @@
     "@babel/preset-typescript": "^7.9.0",
     "@chainlink/ts-helpers": "0.0.3",
     "@types/classnames": "^2.2.8",
-    "@types/cookie": "^0.3.3",
+    "@types/cookie": "^0.4.0",
     "@types/enzyme": "^3.10.8",
     "@types/fetch-mock": "^7.3.3",
     "@types/jest": "^26.0.8",
