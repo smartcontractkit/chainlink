@@ -108,11 +108,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
 	}
 
-	ocrkey, exists := d.keyStore.DecryptedOCRKey(concreteSpec.EncryptedOCRKeyBundleID)
-	if !exists {
-		return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
-	}
-
 	peerstore, err := NewPeerstore(context.Background(), d.db.DB())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not make new peerstore")
@@ -182,6 +177,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		}
 
 	} else {
+		ocrkey, exists := d.keyStore.DecryptedOCRKey(concreteSpec.EncryptedOCRKeyBundleID)
+		if !exists {
+			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
+		}
+
 		service, err = ocr.NewOracle(ocr.OracleArgs{
 			LocalConfig: ocrtypes.LocalConfig{
 				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
