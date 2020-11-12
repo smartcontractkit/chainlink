@@ -333,7 +333,7 @@ ds1 -> ds1_parse;
 			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.DefaultKey, ek.PeerID, cltest.DefaultKey, "chain.link:101", kb.ID)
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, "chain.link:101", kb.ID)
 		_, err = services.ValidatedOracleSpec(s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -384,7 +384,7 @@ ds1 -> ds1_parse;
 			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
-		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.DefaultKey, ek.PeerID)
+		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
 		_, err = services.ValidatedOracleSpec(s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
