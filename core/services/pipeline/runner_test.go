@@ -3,10 +3,12 @@ package pipeline_test
 import (
 	"context"
 	"fmt"
-	"github.com/lib/pq"
 	"net/http"
 	"testing"
 	"time"
+
+	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/services"
 
 	"github.com/BurntSushi/toml"
 
@@ -297,6 +299,68 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
+	t.Run("test min non-bootstrap", func(t *testing.T) {
+		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		require.NoError(t, err)
+		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
+		require.NoError(t, err)
+		minimalNonBootstrapTemplate := `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		p2pPeerID          = "%s"
+		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+		isBootstrapPeer    = false 
+		transmitterAddress = "%s"
+		monitoringEndpoint = "%s"
+		keyBundleID = "%s"
+		observationTimeout = "10s"
+		observationSource = """
+ds1          [type=http method=GET url="http://data.com"];
+ds1_parse    [type=jsonparse path="USD" lax=true];
+ds1 -> ds1_parse;
+"""
+`
+		var os = offchainreporting.OracleSpec{
+			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
+				P2PBootstrapPeers:                      pq.StringArray{},
+				ObservationTimeout:                     models.Interval(10 * time.Second),
+				BlockchainTimeout:                      models.Interval(20 * time.Second),
+				ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+				ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+				ContractConfigConfirmations:            uint16(3),
+			},
+			Pipeline: *pipeline.NewTaskDAG(),
+		}
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.DefaultKey, ek.PeerID, cltest.DefaultKey, "chain.link:101", kb.ID)
+		_, err = services.ValidatedOracleSpec(s)
+		require.NoError(t, err)
+		err = toml.Unmarshal([]byte(s), &os)
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+		}, os.TaskDAG())
+		require.NoError(t, err)
+		var jb models.JobSpecV2
+		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+			Find(&jb).Error
+		require.NoError(t, err)
+
+		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		sd := offchainreporting.NewJobSpawnerDelegate(
+			db,
+			jobORM,
+			config.Config,
+			keyStore,
+			nil,
+			nil,
+			nil)
+		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
+		require.NoError(t, err)
+	})
+
 	t.Run("test min bootstrap", func(t *testing.T) {
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
@@ -306,8 +370,7 @@ func TestRunner(t *testing.T) {
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		p2pPeerID          = "%s"
-		p2pBootstrapPeers  = [
-	]
+		p2pBootstrapPeers  = []
 		isBootstrapPeer    = true
 `
 		var os = offchainreporting.OracleSpec{
@@ -321,7 +384,10 @@ func TestRunner(t *testing.T) {
 			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
-		err = toml.Unmarshal([]byte(fmt.Sprintf(minimalBootstrapTemplate, cltest.DefaultKey, ek.PeerID)), &os)
+		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.DefaultKey, ek.PeerID)
+		_, err = services.ValidatedOracleSpec(s)
+		require.NoError(t, err)
+		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
@@ -341,9 +407,8 @@ func TestRunner(t *testing.T) {
 			nil,
 			nil,
 			nil)
-		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
+		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
-		t.Log(service)
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
