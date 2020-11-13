@@ -160,3 +160,4 @@ func (s *OffchainReportingOracleSpec) BeforeSave() error {
 func (JobSpecV2) TableName() string                   { return "jobs" }
 func (JobSpecErrorV2) TableName() string              { return "job_spec_errors_v2" }
 func (OffchainReportingOracleSpec) TableName() string { return "offchainreporting_oracle_specs" }
+func (PipelineSpec) TableName() string                { return "pipeline_specs" }
