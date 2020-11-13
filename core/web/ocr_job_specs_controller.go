@@ -64,7 +64,7 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	jobSpec, err := services.ValidatedOracleSpec(request.TOML)
+	jobSpec, err := services.ValidateOracleSpec(request.TOML, ocrjsc.App.GetStore().DB)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
