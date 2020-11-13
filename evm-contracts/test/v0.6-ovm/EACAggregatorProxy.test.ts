@@ -92,7 +92,8 @@ describe('EACAggregatorProxy', () => {
     ])
   })
 
-  describe('callers can call view functions without explicit access', () => {
+  // OVM CHANGE: tx.origin not supported, needs explicit access
+  describe.skip('callers can call view functions without explicit access', () => {
     it('#latestAnswer', async () => {
       await proxy.connect(personas.Carol).latestAnswer()
     })
