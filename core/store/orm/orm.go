@@ -905,6 +905,7 @@ func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
 	err := orm.DB.
+		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("JobSpecErrors").
 		Find(&jobs).
@@ -917,6 +918,7 @@ func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpecV2
 	err := orm.DB.
+		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("JobSpecErrors").
 		First(&job, "jobs.id = ?", id).

@@ -10,6 +10,14 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface JobSpecError {
+    id: string
+    description: string
+    occurrences: number
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
   /**
    * JobSpecRequest represents a schema for the incoming job spec request as used by the API.
    */
@@ -53,7 +61,7 @@ declare module 'core/store/models' {
     endAt: nullable.Time
     name: string
     earnings: number | null
-    errors: JobSpecErrors[]
+    errors: JobSpecError[]
     updatedAt: time.time
   }
 
@@ -461,7 +469,11 @@ declare module 'core/store/models' {
     toml: string
   }
 
+  type OcrTaskOutput = ?string
+  type OcrTaskError = ?string
+
   export interface OcrJobSpec {
+    errors: JobSpecError[]
     offChainReportingOracleSpec: {
       contractAddress: common.Address
       p2pPeerID: string
@@ -479,5 +491,32 @@ declare module 'core/store/models' {
       updatedAt: time.Time
       name?: string // Upcoming field
     }
+    pipelineSpec: {
+      dotDagSource: string
+    }
   }
+
+  export interface OcrJobRun {
+    outputs: OcrTaskOutput[]
+    errors: OcrTaskError[]
+    taskRuns: OcrTaskRun[]
+    createdAt: time.Time
+    finishedAt: nullable.Time
+    pipelineSpec: {
+      CreatedAt: time.Time
+      DotDagSource: string
+      ID: number
+    }
+  }
+}
+
+export interface OcrTaskRun {
+  createdAt: time.Time
+  error: OcrTaskError
+  finishedAt: nullable.Time
+  output: OcrTaskOutput
+  taskSpec: {
+    dotId: string
+  }
+  type: string
 }
