@@ -74,7 +74,9 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			p.writeToDB()
+			if err := p.writeToDB(); err != nil {
+				logger.Errorw("Error writing peerstore to DB", "err", err)
+			}
 		}
 	}
 }
@@ -111,7 +113,9 @@ func (p *Pstorewrapper) getPeers() (peers []p2pPeer, err error) {
 	for rows.Next() {
 		peer := p2pPeer{}
 		var maddr, peerID string
-		rows.Scan(&peerID, &maddr)
+		if err = rows.Scan(&peerID, &maddr); err != nil {
+			return nil, errors.Wrap(err, "unexpected error scanning row")
+		}
 		peer.ID, err = p2ppeer.Decode(peerID)
 		if err != nil {
 			return nil, errors.Wrap(err, "unexpectedly failed to decode peer ID")
