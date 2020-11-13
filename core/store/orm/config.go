@@ -419,8 +419,8 @@ func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-func (c Config) JobPipelineDBPollInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+func (c Config) TriggerFallbackDBPollInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("TriggerFallbackDBPollInterval"))
 }
 
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
@@ -591,6 +591,10 @@ func (c Config) P2PAnnounceIP() net.IP {
 // If this is set, P2PAnnounceIP MUST also be set.
 func (c Config) P2PAnnouncePort() uint16 {
 	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
+}
+
+func (c Config) P2PPeerstoreWriteInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
 }
 
 // Port represents the port Chainlink should listen on for client requests.
