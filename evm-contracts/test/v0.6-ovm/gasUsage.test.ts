@@ -25,7 +25,8 @@ beforeAll(async () => {
   personas = users.personas
 })
 
-describe('gas usage', () => {
+// OVM CHANGE: gas metering on OVM not implemented correctly
+describe.skip('gas usage', () => {
   let aggregator: contract.Instance<AccessControlledAggregator__factory>
   let proxy: contract.Instance<EACAggregatorProxy__factory>
   let testHelper: contract.Instance<FluxAggregatorTestHelper__factory>

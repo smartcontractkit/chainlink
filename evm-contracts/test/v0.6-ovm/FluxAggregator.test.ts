@@ -908,7 +908,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Nelly)
-          .submit(nextRound, answer, { gasLimit: 500000 })
+          // OVM CHANGE: gas metering on OVM not implemented correctly
+          // .submit(nextRound, answer, { gasLimit: 500000 })
+          .submit(nextRound, answer, { gasLimit: 2 * 500000 })
 
         matchers.bigNum(answer, await aggregator.latestAnswer())
       })
@@ -1179,10 +1181,11 @@ describe('FluxAggregator', () => {
           oracles = []
           for (let i = 0; i < limit; i++) {
             const account = await wallet.createWallet(provider, i + 100)
-            await personas.Default.sendTransaction({
-              to: account.address,
-              value: h.toWei('0.01'),
-            })
+            // OVM CHANGE: no native ETH, need to use WETH instead
+            // await personas.Default.sendTransaction({
+            //   to: account.address,
+            //   value: h.toWei('0.01'),
+            // })
             oracles.push(account)
           }
 
@@ -1203,7 +1206,8 @@ describe('FluxAggregator', () => {
             .changeOracles([], addresses, addresses, 1, oracles.length, rrDelay)
         })
 
-        it('not use too much gas', async () => {
+        // OVM CHANGE: gas metering on OVM not implemented correctly
+        it.skip('not use too much gas', async () => {
           let tx: any
           assert.deepEqual(
             // test adveserial quickselect algo
@@ -2350,7 +2354,8 @@ describe('FluxAggregator', () => {
         })
       })
 
-      it('reverts if called by a contract', async () => {
+      // OVM CHANGE: tx.origin not supported, can't check if contract is reading
+      it.skip('reverts if called by a contract', async () => {
         testHelper = await testHelperFactory.connect(personas.Carol).deploy()
         await matchers.evmRevert(
           testHelper.readOracleRoundState(

@@ -42,7 +42,8 @@ describe('SimpleReadAccessController', () => {
   })
 
   describe('#hasAccess', () => {
-    it('allows unauthorized calls originating from the same account', async () => {
+    // OVM CHANGE: tx.origin not supported, needs explicit access
+    it.skip('allows unauthorized calls originating from the same account', async () => {
       assert.isTrue(
         await controller
           .connect(personas.Eddy)
