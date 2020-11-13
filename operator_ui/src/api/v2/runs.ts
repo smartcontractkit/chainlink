@@ -10,7 +10,6 @@ import * as presenters from 'core/store/presenters'
  */
 export interface IndexParams extends jsonapi.PaginatedRequestParams {
   jobSpecId?: string
-  sort?: '-createdAt'
 }
 const INDEX_ENDPOINT = '/v2/runs'
 
@@ -37,18 +36,14 @@ const SHOW_ENDPOINT = '/v2/runs/:runId'
 export class Runs {
   constructor(private api: jsonapi.Api) {}
 
-  /**
-   * Get a paginated response of job spec runs
-   *
-   * @param params Job spec params
-   */
   @boundMethod
-  public getJobSpecRuns(
-    params: IndexParams,
-  ): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
+  public getJobSpecRuns({
+    jobSpecId,
+  }: jsonapi.PaginatedRequestParams & { jobSpecId: string }): Promise<
+    jsonapi.PaginatedApiResponse<models.JobRun[]>
+  > {
     return this.index({
-      sort: '-createdAt',
-      ...params,
+      jobSpecId,
     })
   }
   /**
@@ -60,7 +55,7 @@ export class Runs {
   public getRecentJobRuns(
     n: number,
   ): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
-    return this.index({ size: n, sort: '-createdAt' })
+    return this.index({ size: n })
   }
 
   /**

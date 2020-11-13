@@ -1,12 +1,9 @@
 import * as jsonapi from '@chainlink/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
-/**
- * Create validates, saves and starts a new off-chain reporting job.
- *
- * @example "POST <application>/ocr/specs"
- */
+
 export const ENDPOINT = '/v2/ocr/specs'
+const SHOW_ENDPOINT = `${ENDPOINT}/:specId`
 
 export class OcrSpecs {
   constructor(private api: jsonapi.Api) {}
@@ -14,6 +11,11 @@ export class OcrSpecs {
   @boundMethod
   public getJobSpecs(): Promise<jsonapi.ApiResponse<models.OcrJobSpec[]>> {
     return this.index()
+  }
+
+  @boundMethod
+  public getJobSpec(id: string): Promise<jsonapi.ApiResponse<models.JobSpec>> {
+    return this.show({}, { specId: id })
   }
 
   @boundMethod
@@ -29,4 +31,12 @@ export class OcrSpecs {
     models.OcrJobSpecRequest,
     models.OcrJobSpec
   >(ENDPOINT)
+
+  private show = this.api.fetchResource<
+    {},
+    models.JobSpec,
+    {
+      specId: string
+    }
+  >(SHOW_ENDPOINT)
 }

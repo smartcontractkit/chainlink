@@ -11,6 +11,8 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
+import { ApiResponse } from '@chainlink/json-api-client'
+import { JobSpec, OcrJobSpec, JobSpecError, Initiator } from 'core/store/models'
 import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -23,8 +25,6 @@ import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { isWebInitiator } from 'utils/jobSpecInitiators'
-import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -99,6 +99,10 @@ const styles = (theme: Theme) =>
     },
   })
 
+const isWebInitiator = (
+  initiators: ApiResponse<JobSpec>['data']['attributes']['initiators'],
+) => initiators.find((initiator) => initiator.type === 'web')
+
 const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
@@ -116,7 +120,16 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job: JobData['jobSpec']
+  job:
+    | {
+        type: 'Direct request'
+        jobSpec: ApiResponse<JobSpec>['data']
+      }
+    | {
+        type: 'Off-chain reporting'
+        jobSpec: ApiResponse<OcrJobSpec>['data']
+      }
+    | null
   url: string
   getJobSpecRuns: () => Promise<void>
 }
@@ -125,7 +138,7 @@ const RegionalNavComponent = ({
   classes,
   createJobRun,
   jobSpecId,
-  job,
+  job: mixedJob,
   deleteJobSpec,
   getJobSpecRuns,
 }: Props) => {
@@ -133,12 +146,42 @@ const RegionalNavComponent = ({
   const navErrorsActive = location.pathname.endsWith('/errors')
   const navDefinitionActive = location.pathname.endsWith('/json')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
-  const definition = job && jobSpecDefinition({ ...job, ...job.attributes })
+
+  let job:
+    | {
+        id: string
+        name?: string
+        errors: JobSpecError[]
+        definition: unknown
+        initiators: undefined | Initiator[]
+        createdAt: string
+      }
+    | undefined
+
+  if (mixedJob?.type === 'Off-chain reporting') {
+    job = {
+      ...mixedJob.jobSpec.attributes.offChainReportingOracleSpec,
+      id: mixedJob.jobSpec.id,
+      errors: mixedJob.jobSpec.attributes.errors,
+      definition: undefined,
+      initiators: undefined,
+    }
+  } else if (mixedJob?.type === 'Direct request') {
+    job = {
+      ...mixedJob.jobSpec.attributes,
+      id: mixedJob.jobSpec.id,
+      definition: jobSpecDefinition({
+        ...mixedJob.jobSpec,
+        ...mixedJob.jobSpec.attributes,
+      }),
+    }
+  }
+
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
-    job?.attributes.errors && job.attributes.errors.length > 0
-      ? `Errors (${job.attributes.errors.length})`
+    job?.errors && job.errors.length > 0
+      ? `Errors (${job.errors.length})`
       : 'Errors'
   const handleRun = () => {
     createJobRun(
@@ -216,7 +259,7 @@ const RegionalNavComponent = ({
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="secondary" gutterBottom>
-              Job spec detail
+              {mixedJob?.type} job spec detail
             </Typography>
           </Grid>
           <Grid item xs={12}>
@@ -232,7 +275,7 @@ const RegionalNavComponent = ({
                   color="secondary"
                   className={classes.jobSpecId}
                 >
-                  {job?.attributes.name || jobSpecId}
+                  {job?.name || jobSpecId}
                 </Typography>
               </Grid>
               <Grid item xs={6} className={classes.actions}>
@@ -242,7 +285,7 @@ const RegionalNavComponent = ({
                 >
                   Archive
                 </Button>
-                {job && isWebInitiator(job.attributes.initiators) && (
+                {job?.initiators && isWebInitiator(job.initiators) && (
                   <Button
                     onClick={handleRun}
                     className={classes.regionalNavButton}
@@ -250,10 +293,10 @@ const RegionalNavComponent = ({
                     Run
                   </Button>
                 )}
-                {definition && (
+                {job?.definition && (
                   <Button
                     href={`/jobs/new?definition=${encodeURIComponent(
-                      JSON.stringify(definition),
+                      JSON.stringify(job?.definition),
                     )}`}
                     component={BaseLink}
                     className={classes.regionalNavButton}
@@ -261,9 +304,9 @@ const RegionalNavComponent = ({
                     Duplicate
                   </Button>
                 )}
-                {definition && (
+                {job?.definition && (
                   <CopyJobSpec
-                    JobSpec={definition}
+                    JobSpec={job.definition}
                     className={classes.regionalNavButton}
                   />
                 )}
@@ -271,17 +314,17 @@ const RegionalNavComponent = ({
             </Grid>
           </Grid>
           <Grid item xs={12}>
-            {job?.attributes.name && (
+            {job?.name && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {job.attributes.id}
+                {job.id}
               </Typography>
             )}
             <Typography variant="subtitle2" color="textSecondary">
               Created{' '}
-              {job?.attributes.createdAt && (
+              {job?.createdAt && (
                 <>
-                  <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
-                  ({localizedTimestamp(job.attributes.createdAt)})
+                  <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
+                  {localizedTimestamp(job.createdAt)})
                 </>
               )}
             </Typography>
