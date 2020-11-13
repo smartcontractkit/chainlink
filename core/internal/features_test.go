@@ -116,6 +116,8 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+
+	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Do the thing
