@@ -64,7 +64,7 @@ RUN make chainlink-build
 FROM ubuntu:18.04
 
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update && apt-get install -y ca-certificates curl
 
 WORKDIR /root
 
@@ -72,4 +72,7 @@ COPY --from=1 /go/bin/chainlink /usr/local/bin/
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]
+
+HEALTHCHECK CMD curl -f http://localhost:6688 || exit 1
+
 CMD ["local", "node"]

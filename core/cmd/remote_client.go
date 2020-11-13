@@ -927,3 +927,19 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	var key ocrkey.EncryptedKeyBundle
 	return cli.renderAPIResponse(resp, &key)
 }
+
+// GetHealthcheck returns a error if any
+func (cli *Client) GetHealthcheck(c *clipkg.Context) (err error) {
+	resp, err := cli.HTTP.Get("/healthcheck")
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+	cwl := ""
+	err = cli.renderAPIResponse(resp, &cwl)
+	return err
+}
