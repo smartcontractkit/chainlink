@@ -218,9 +218,11 @@ const RegionalNavComponent = ({
       <Card className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
-            <Typography variant="subtitle2" color="secondary" gutterBottom>
-              {job?.type} job spec detail
-            </Typography>
+            {job && (
+              <Typography variant="subtitle2" color="secondary" gutterBottom>
+                {job?.type} job spec detail
+              </Typography>
+            )}
           </Grid>
           <Grid item xs={12}>
             <Grid
@@ -230,45 +232,51 @@ const RegionalNavComponent = ({
               className={classes.mainRow}
             >
               <Grid item xs={6}>
-                <Typography
-                  variant="h3"
-                  color="secondary"
-                  className={classes.jobSpecId}
-                >
-                  {job?.name || jobSpecId}
-                </Typography>
+                {job && (
+                  <Typography
+                    variant="h3"
+                    color="secondary"
+                    className={classes.jobSpecId}
+                  >
+                    {job.name || jobSpecId}
+                  </Typography>
+                )}
               </Grid>
               <Grid item xs={6} className={classes.actions}>
-                <Button
-                  className={classes.regionalNavButton}
-                  onClick={() => setModalOpen(true)}
-                >
-                  Archive
-                </Button>
-                {job?.initiators && isWebInitiator(job.initiators) && (
-                  <Button
-                    onClick={handleRun}
-                    className={classes.regionalNavButton}
-                  >
-                    Run
-                  </Button>
-                )}
-                {job?.definition && (
-                  <Button
-                    href={`/jobs/new?definition=${encodeURIComponent(
-                      JSON.stringify(job?.definition),
-                    )}`}
-                    component={BaseLink}
-                    className={classes.regionalNavButton}
-                  >
-                    Duplicate
-                  </Button>
-                )}
-                {job?.definition && (
-                  <CopyJobSpec
-                    JobSpec={job.definition}
-                    className={classes.regionalNavButton}
-                  />
+                {job && (
+                  <>
+                    <Button
+                      className={classes.regionalNavButton}
+                      onClick={() => setModalOpen(true)}
+                    >
+                      Archive
+                    </Button>
+                    {job.initiators && isWebInitiator(job.initiators) && (
+                      <Button
+                        onClick={handleRun}
+                        className={classes.regionalNavButton}
+                      >
+                        Run
+                      </Button>
+                    )}
+                    {job.definition && (
+                      <Button
+                        href={`/jobs/new?definition=${encodeURIComponent(
+                          JSON.stringify(job.definition),
+                        )}`}
+                        component={BaseLink}
+                        className={classes.regionalNavButton}
+                      >
+                        Duplicate
+                      </Button>
+                    )}
+                    {job.definition && (
+                      <CopyJobSpec
+                        JobSpec={job.definition}
+                        className={classes.regionalNavButton}
+                      />
+                    )}
+                  </>
                 )}
               </Grid>
             </Grid>
@@ -279,15 +287,12 @@ const RegionalNavComponent = ({
                 {job.id}
               </Typography>
             )}
-            <Typography variant="subtitle2" color="textSecondary">
-              Created{' '}
-              {job?.createdAt && (
-                <>
-                  <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
-                  {localizedTimestamp(job.createdAt)})
-                </>
-              )}
-            </Typography>
+            {job?.createdAt && (
+              <Typography variant="subtitle2" color="textSecondary">
+                Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
+                {localizedTimestamp(job.createdAt)})
+              </Typography>
+            )}
           </Grid>
           <Grid item xs={12}>
             <List className={classes.horizontalNav}>
@@ -310,7 +315,7 @@ const RegionalNavComponent = ({
                     navDefinitionActive && classes.activeNavLink,
                   )}
                 >
-                  JSON
+                  Definition
                 </Link>
               </ListItem>
               <ListItem className={classes.horizontalNavItem}>
