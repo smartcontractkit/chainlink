@@ -67,7 +67,7 @@ describe('fetchJobRun', () => {
     })
     const taskRunA = partialAsFull<models.TaskRun>({
       id: 'taskRunA',
-      status: RunStatus.COMPLETED,
+      status: 'completed' as RunStatus.COMPLETED,
       task: expectedTask,
     })
     const runResponse = jsonApiJobSpecRunFactory({

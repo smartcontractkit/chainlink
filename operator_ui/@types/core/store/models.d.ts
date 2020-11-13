@@ -8,19 +8,6 @@ declare module 'core/store/models' {
   import * as url from 'net/url'
   import * as time from 'time'
 
-  /**
-   * RunStatus is a string that represents the run status
-   */
-  export enum RunStatus {
-    IN_PROGRESS = 'in_progress',
-    PENDING_INCOMING_CONFIRMATIONS = 'pending_incoming_confirmations',
-    PENDING_CONNECTION = 'pending_connection',
-    PENDING_BRIDGE = 'pending_bridge',
-    PENDING_SLEEP = 'pending_sleep',
-    ERRORED = 'errored',
-    COMPLETED = 'completed',
-  }
-
   //#region job_spec.go
 
   export interface JobSpecError {
