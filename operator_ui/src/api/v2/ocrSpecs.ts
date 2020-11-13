@@ -14,7 +14,9 @@ export class OcrSpecs {
   }
 
   @boundMethod
-  public getJobSpec(id: string): Promise<jsonapi.ApiResponse<models.JobSpec>> {
+  public getJobSpec(
+    id: string,
+  ): Promise<jsonapi.ApiResponse<models.OcrJobSpec>> {
     return this.show({}, { specId: id })
   }
 
@@ -34,7 +36,7 @@ export class OcrSpecs {
 
   private show = this.api.fetchResource<
     {},
-    models.JobSpec,
+    models.OcrJobSpec,
     {
       specId: string
     }

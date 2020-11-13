@@ -3,7 +3,8 @@ import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
-import { JobData, JobRunsResponse, JobSpecResponse } from './sharedTypes'
+import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { JobData } from './sharedTypes'
 import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
@@ -21,7 +22,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
     recentRuns: [],
     recentRunsCount: 0,
   })
-  const { jobSpec } = state
+  const { job, jobSpec } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
@@ -31,35 +32,80 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
   const isOcrJob = !isNaN((jobSpecId as unknown) as number)
 
   const getJobSpecRuns = React.useCallback(() => {
-    const api = isOcrJob ? v2.ocrRuns : v2.runs
-
-    return api
-      .getJobSpecRuns({
-        jobSpecId,
-        page: DEFAULT_PAGE,
-        size: RECENT_RUNS_COUNT,
-      })
-      .then((jobSpecRunsResponse: JobRunsResponse) => {
-        setState((s) => ({
-          ...s,
-          recentRuns: jobSpecRunsResponse.data,
-          recentRunsCount: jobSpecRunsResponse.meta.count,
-        }))
-      })
-      .catch(setError)
+    if (isOcrJob) {
+      return v2.ocrRuns
+        .getJobSpecRuns({
+          jobSpecId,
+          page: DEFAULT_PAGE,
+          size: RECENT_RUNS_COUNT,
+        })
+        .then((jobSpecRunsResponse) => {
+          setState((s) => ({
+            ...s,
+            recentRuns: jobSpecRunsResponse.data,
+            recentRunsCount: jobSpecRunsResponse.meta.count,
+          }))
+        })
+        .catch(setError)
+    } else {
+      return v2.runs
+        .getJobSpecRuns({
+          jobSpecId,
+          page: DEFAULT_PAGE,
+          size: RECENT_RUNS_COUNT,
+        })
+        .then((jobSpecRunsResponse) => {
+          setState((s) => ({
+            ...s,
+            recentRuns: jobSpecRunsResponse.data,
+            recentRunsCount: jobSpecRunsResponse.meta.count,
+          }))
+        })
+        .catch(setError)
+    }
   }, [isOcrJob, jobSpecId, setError])
 
   const getJobSpec = React.useCallback(async () => {
-    const api = isOcrJob ? v2.ocrSpecs : v2.specs
-    return api
-      .getJobSpec(jobSpecId)
-      .then((response: JobSpecResponse) =>
-        setState((s) => ({
-          ...s,
-          jobSpec: response.data,
-        })),
-      )
-      .catch(setError)
+    if (isOcrJob) {
+      return v2.ocrSpecs
+        .getJobSpec(jobSpecId)
+        .then((response) => {
+          const jobSpec = response.data
+          setState((s) => ({
+            ...s,
+            jobSpec,
+            job: {
+              ...jobSpec.attributes.offChainReportingOracleSpec,
+              id: jobSpec.id,
+              errors: jobSpec.attributes.errors,
+              definition: undefined,
+              initiators: undefined,
+              type: 'Off-chain-reporting',
+            },
+          }))
+        })
+        .catch(setError)
+    } else {
+      return v2.specs
+        .getJobSpec(jobSpecId)
+        .then((response) => {
+          const jobSpec = response.data
+          setState((s) => ({
+            ...s,
+            jobSpec,
+            job: {
+              ...jobSpec.attributes,
+              id: jobSpec.id,
+              definition: jobSpecDefinition({
+                ...jobSpec,
+                ...jobSpec.attributes,
+              }),
+              type: 'Direct request',
+            },
+          }))
+        })
+        .catch(setError)
+    }
   }, [isOcrJob, jobSpecId, setError])
 
   React.useEffect(() => {
@@ -70,14 +116,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
     <div>
       <RegionalNav
         jobSpecId={jobSpecId}
-        job={
-          jobSpec
-            ? {
-                type: isOcrJob ? 'Off-chain reporting' : 'Direct request',
-                jobSpec,
-              }
-            : null
-        }
+        job={job}
         getJobSpecRuns={getJobSpecRuns}
       />
       <Switch>

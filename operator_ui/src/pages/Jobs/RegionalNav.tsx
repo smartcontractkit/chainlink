@@ -12,7 +12,7 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import { ApiResponse } from '@chainlink/json-api-client'
-import { JobSpec, OcrJobSpec, JobSpecError, Initiator } from 'core/store/models'
+import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -24,7 +24,7 @@ import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { Job } from './sharedTypes'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -120,16 +120,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job:
-    | {
-        type: 'Direct request'
-        jobSpec: ApiResponse<JobSpec>['data']
-      }
-    | {
-        type: 'Off-chain reporting'
-        jobSpec: ApiResponse<OcrJobSpec>['data']
-      }
-    | null
+  job?: Job
   url: string
   getJobSpecRuns: () => Promise<void>
 }
@@ -138,7 +129,7 @@ const RegionalNavComponent = ({
   classes,
   createJobRun,
   jobSpecId,
-  job: mixedJob,
+  job,
   deleteJobSpec,
   getJobSpecRuns,
 }: Props) => {
@@ -146,37 +137,6 @@ const RegionalNavComponent = ({
   const navErrorsActive = location.pathname.endsWith('/errors')
   const navDefinitionActive = location.pathname.endsWith('/json')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
-
-  let job:
-    | {
-        id: string
-        name?: string
-        errors: JobSpecError[]
-        definition: unknown
-        initiators: undefined | Initiator[]
-        createdAt: string
-      }
-    | undefined
-
-  if (mixedJob?.type === 'Off-chain reporting') {
-    job = {
-      ...mixedJob.jobSpec.attributes.offChainReportingOracleSpec,
-      id: mixedJob.jobSpec.id,
-      errors: mixedJob.jobSpec.attributes.errors,
-      definition: undefined,
-      initiators: undefined,
-    }
-  } else if (mixedJob?.type === 'Direct request') {
-    job = {
-      ...mixedJob.jobSpec.attributes,
-      id: mixedJob.jobSpec.id,
-      definition: jobSpecDefinition({
-        ...mixedJob.jobSpec,
-        ...mixedJob.jobSpec.attributes,
-      }),
-    }
-  }
-
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
@@ -259,7 +219,7 @@ const RegionalNavComponent = ({
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <Typography variant="subtitle2" color="secondary" gutterBottom>
-              {mixedJob?.type} job spec detail
+              {job?.type} job spec detail
             </Typography>
           </Grid>
           <Grid item xs={12}>
