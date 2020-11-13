@@ -1,11 +1,12 @@
 import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
 import {
-  JobSpec,
-  OcrJobSpec,
-  JobRun,
-  OcrJobRun,
-  JobSpecError,
   Initiator,
+  JobRun,
+  JobSpec,
+  JobSpecError,
+  OcrJobRun,
+  OcrJobSpec,
+  TaskSpec,
 } from 'core/store/models'
 
 export type JobRunsResponse =
@@ -14,18 +15,28 @@ export type JobRunsResponse =
 
 export type JobSpecResponse = ApiResponse<JobSpec> | ApiResponse<OcrJobSpec>
 
-export type Job = {
+export type BaseJob = {
   createdAt: string
   definition: unknown
   errors: JobSpecError[]
   id: string
-  initiators: undefined | Initiator[]
   name?: string
-  type: 'Off-chain-reporting' | 'Direct request'
+}
+
+export type OffChainReportingJob = BaseJob & {
+  type: 'Off-chain reporting'
+}
+
+export type DirectRequestJob = BaseJob & {
+  earnings: number | null
+  initiators: Initiator[]
+  minPayment?: string | null
+  tasks: TaskSpec[]
+  type: 'Direct request'
 }
 
 export type JobData = {
-  job?: Job
+  job?: DirectRequestJob | OffChainReportingJob
   jobSpec?: JobSpecResponse['data']
   recentRuns?: JobRunsResponse['data']
   recentRunsCount: number

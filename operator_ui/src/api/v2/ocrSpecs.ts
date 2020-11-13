@@ -4,6 +4,7 @@ import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/ocr/specs'
 const SHOW_ENDPOINT = `${ENDPOINT}/:specId`
+const DESTROY_ENDPOINT = `${ENDPOINT}/:specId`
 
 export class OcrSpecs {
   constructor(private api: jsonapi.Api) {}
@@ -27,6 +28,11 @@ export class OcrSpecs {
     return this.create(ocrJobSpecRequest)
   }
 
+  @boundMethod
+  public destroyJobSpec(id: string): Promise<jsonapi.ApiResponse<null>> {
+    return this.destroy(undefined, { specId: id })
+  }
+
   private index = this.api.fetchResource<{}, models.OcrJobSpec[]>(ENDPOINT)
 
   private create = this.api.createResource<
@@ -41,4 +47,12 @@ export class OcrSpecs {
       specId: string
     }
   >(SHOW_ENDPOINT)
+
+  private destroy = this.api.deleteResource<
+    undefined,
+    null,
+    {
+      specId: string
+    }
+  >(DESTROY_ENDPOINT)
 }

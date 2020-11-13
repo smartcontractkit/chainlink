@@ -24,7 +24,7 @@ import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import { Job } from './sharedTypes'
+import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -120,7 +120,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job?: Job
+  job: JobData['job']
   url: string
   getJobSpecRuns: () => Promise<void>
 }
@@ -135,7 +135,7 @@ const RegionalNavComponent = ({
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
-  const navDefinitionActive = location.pathname.endsWith('/json')
+  const navDefinitionActive = location.pathname.endsWith('/definition')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
@@ -151,7 +151,12 @@ const RegionalNavComponent = ({
     ).then(() => getJobSpecRuns())
   }
   const handleDelete = (id: string) => {
-    deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
+    deleteJobSpec(
+      id,
+      () => DeleteSuccessNotification({ id }),
+      ErrorMessage,
+      job?.type,
+    )
     setArchived(true)
   }
   return (
@@ -251,14 +256,16 @@ const RegionalNavComponent = ({
                     >
                       Archive
                     </Button>
-                    {job.initiators && isWebInitiator(job.initiators) && (
-                      <Button
-                        onClick={handleRun}
-                        className={classes.regionalNavButton}
-                      >
-                        Run
-                      </Button>
-                    )}
+                    {job.type === 'Direct request' &&
+                      job.initiators &&
+                      isWebInitiator(job.initiators) && (
+                        <Button
+                          onClick={handleRun}
+                          className={classes.regionalNavButton}
+                        >
+                          Run
+                        </Button>
+                      )}
                     {job.definition && (
                       <Button
                         href={`/jobs/new?definition=${encodeURIComponent(
@@ -307,28 +314,32 @@ const RegionalNavComponent = ({
                   Overview
                 </Link>
               </ListItem>
-              <ListItem className={classes.horizontalNavItem}>
-                <Link
-                  href={`/jobs/${jobSpecId}/json`}
-                  className={classNames(
-                    classes.horizontalNavLink,
-                    navDefinitionActive && classes.activeNavLink,
-                  )}
-                >
-                  Definition
-                </Link>
-              </ListItem>
-              <ListItem className={classes.horizontalNavItem}>
-                <Link
-                  href={`/jobs/${jobSpecId}/errors`}
-                  className={classNames(
-                    classes.horizontalNavLink,
-                    navErrorsActive && classes.activeNavLink,
-                  )}
-                >
-                  {errorsTabText}
-                </Link>
-              </ListItem>
+              {job?.type === 'Direct request' && (
+                <>
+                  <ListItem className={classes.horizontalNavItem}>
+                    <Link
+                      href={`/jobs/${jobSpecId}/definition`}
+                      className={classNames(
+                        classes.horizontalNavLink,
+                        navDefinitionActive && classes.activeNavLink,
+                      )}
+                    >
+                      Definition
+                    </Link>
+                  </ListItem>
+                  <ListItem className={classes.horizontalNavItem}>
+                    <Link
+                      href={`/jobs/${jobSpecId}/errors`}
+                      className={classNames(
+                        classes.horizontalNavLink,
+                        navErrorsActive && classes.activeNavLink,
+                      )}
+                    >
+                      {errorsTabText}
+                    </Link>
+                  </ListItem>
+                </>
+              )}
             </List>
           </Grid>
         </Grid>

@@ -79,8 +79,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
               id: jobSpec.id,
               errors: jobSpec.attributes.errors,
               definition: undefined,
-              initiators: undefined,
-              type: 'Off-chain-reporting',
+              type: 'Off-chain reporting',
             },
           }))
         })
@@ -121,7 +120,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
       />
       <Switch>
         <Route
-          path={`${match.path}/json`}
+          path={`${match.path}/definition`}
           render={() => (
             <JobsDefinition
               {...{
