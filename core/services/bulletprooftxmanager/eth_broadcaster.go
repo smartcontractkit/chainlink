@@ -21,14 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// databasePollInterval indicates how long to wait each time before polling
-	// the database for new eth_txes to send
-	//
-	// This poll is really just a fallback in case the trigger fails for some reason
-	databasePollInterval = 5 * time.Second
-)
-
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
 // somewhere has received the transaction successfully.
@@ -138,7 +130,7 @@ func (eb *ethBroadcaster) ethTxInsertTriggerer() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer eb.wg.Done()
 	for {
-		pollDBTimer := time.NewTimer(databasePollInterval)
+		pollDBTimer := time.NewTimer(eb.config.TriggerFallbackDBPollInterval())
 
 		keys, err := eb.store.SendKeys()
 

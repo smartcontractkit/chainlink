@@ -94,7 +94,7 @@ func (r *runner) runLoop() {
 		newRunEvents = newRunsSubscription.Events()
 	}
 
-	dbPollTicker := time.NewTicker(r.config.JobPipelineDBPollInterval())
+	dbPollTicker := time.NewTicker(r.config.TriggerFallbackDBPollInterval())
 	defer dbPollTicker.Stop()
 
 	runReaperTicker := time.NewTicker(r.config.JobPipelineReaperInterval())
