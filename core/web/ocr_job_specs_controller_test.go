@@ -64,7 +64,7 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
-	assert.Equal(t, job.PipelineSpec.DotDagSource, ocrJobSpec.PipelineSpec.DotDagSource)
+	assert.NotNil(t, ocrJobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
