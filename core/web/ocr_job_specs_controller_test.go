@@ -64,6 +64,7 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.NotNil(t, ocrJobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
@@ -132,6 +133,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.Equal(t, ocrJobSpecFromFile.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDagSource)
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
