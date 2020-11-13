@@ -47,11 +47,12 @@ export function provider(): ethers.providers.JsonRpcProvider {
 
   // OVM CHANGE: over the top gas settings to make the tests run on OVM
   // Ganache does a poor job of estimating gas, so just crank it up for testing.
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(1_900 * 10 ** 6))
+  const gasAmount = (isOVM() ? 1_900 : 5) * 10 ** 6
+  providerEngine.addProvider(new FakeGasEstimateSubprovider(gasAmount))
 
   const options = {
-    gasLimit: 2_000_000_000,
-    allowUnlimitedContractSize: true,
+    gasLimit: isOVM() ? 2_000_000_000 : 8_000_000,
+    allowUnlimitedContractSize: isOVM(),
   }
 
   const ganacheProvider = isOVM()

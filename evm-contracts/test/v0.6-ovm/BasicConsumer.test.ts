@@ -47,7 +47,8 @@ describe('BasicConsumer', () => {
     await deployment()
   })
 
-  it('has a predictable gas price', async () => {
+  // OVM CHANGE: gas metering on OVM not implemented correctly
+  it.skip('has a predictable gas price', async () => {
     const rec = await provider.getTransactionReceipt(
       cc.deployTransaction.hash ?? '',
     )
@@ -86,7 +87,8 @@ describe('BasicConsumer', () => {
         assert.deepEqual(expected, cbor.decodeFirstSync(request.data))
       })
 
-      it('has a reasonable gas cost', async () => {
+      // OVM CHANGE: gas metering on OVM not implemented correctly
+      it.skip('has a reasonable gas cost', async () => {
         const tx = await cc.requestEthereumPrice(currency, payment)
         const receipt = await tx.wait()
 
