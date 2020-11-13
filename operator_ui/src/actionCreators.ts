@@ -1,11 +1,11 @@
 import * as jsonapi from '@chainlink/json-api-client'
+import { RunStatus } from 'core/store/models'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
 import { ThunkAction } from 'redux-thunk'
 import * as api from './api'
 import { Sessions } from './api/sessions'
-import { RunStatus } from './core/store/models'
 import { AppState } from './reducers'
 import {
   AuthActionType,
