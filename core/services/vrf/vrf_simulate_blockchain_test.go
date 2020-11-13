@@ -79,6 +79,8 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	jr := runs[0]
 	require.Len(t, jr.TaskRuns, 2)
 	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
+
+	app.EthBroadcaster.Trigger()
 	attempts := cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 	require.Len(t, attempts, 1)
 

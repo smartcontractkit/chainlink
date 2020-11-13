@@ -100,7 +100,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		*logger.Default,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error calling NewOCRContract")
 	}
 
 	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(concreteSpec.P2PPeerID))
@@ -108,9 +108,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
 	}
 
-	peerstore, err := NewPeerstore(context.Background(), d.db.DB())
+	pstorewrapper, err := NewPeerstoreWrapper(context.TODO(), d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
 	if err != nil {
-		return nil, errors.Wrap(err, "could not make new peerstore")
+		return nil, errors.Wrap(err, "could not make new pstorewrapper")
 	}
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
@@ -141,7 +141,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		AnnounceIP:   d.config.P2PAnnounceIP(),
 		AnnouncePort: announcePort,
 		Logger:       ocrLogger,
-		Peerstore:    peerstore,
+		Peerstore:    pstorewrapper.Peerstore,
 		EndpointConfig: ocrnetworking.EndpointConfig{
 			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
 			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
@@ -151,7 +151,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		},
 	})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error calling NewPeer")
 	}
 
 	var service job.Service
@@ -173,7 +173,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			Logger: ocrLogger,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
 
 	} else {
@@ -203,11 +203,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			Bootstrappers:                concreteSpec.P2PBootstrapPeers,
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
 	}
 
-	return []job.Service{service}, nil
+	return []job.Service{pstorewrapper, service}, nil
 }
 
 // dataSource is an abstraction over the process of initiating a pipeline run

@@ -593,6 +593,10 @@ func (c Config) P2PAnnouncePort() uint16 {
 	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
 }
 
+func (c Config) P2PPeerstoreWriteInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
+}
+
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
 	return c.getWithFallback("Port", parseUint16).(uint16)

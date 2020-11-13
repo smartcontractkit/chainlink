@@ -250,10 +250,15 @@ func waitForRunsAndAttemptsCount(
 	t *testing.T,
 	job models.JobSpec,
 	runCount int,
-	store *store.Store,
+	app *cltest.TestApplication,
 	backend *backends.SimulatedBackend,
 ) []models.JobRun {
+	store := app.Store
+
 	jrs := cltest.WaitForRuns(t, job, store, runCount) // Submit answer from
+
+	app.EthBroadcaster.Trigger()
+
 	cltest.WaitForEthTxAttemptCount(t, store, runCount)
 	txa := cltest.GetLastEthTxAttempt(t, store)
 	cltest.WaitForTxInMempool(t, backend, txa.Hash)
@@ -334,7 +339,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	jrs := waitForRunsAndAttemptsCount(t, j, 1, app.Store, fa.backend)
+	jrs := waitForRunsAndAttemptsCount(t, j, 1, app, fa.backend)
 
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
 	assert.Equal(t, reportedPrice, fmt.Sprintf("%d", atomic.LoadInt64(&reportPrice)), "failed to report correct price to contract")
