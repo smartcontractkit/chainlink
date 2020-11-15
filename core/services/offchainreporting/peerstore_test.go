@@ -1,7 +1,6 @@
 package offchainreporting_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -45,7 +44,7 @@ func Test_Peerstore_Start(t *testing.T) {
 	`).Error
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(context.Background(), store.DB, 1*time.Second, 1)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, 1)
 	require.NoError(t, err)
 
 	err = wrapper.Start()
