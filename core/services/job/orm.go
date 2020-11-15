@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,6 +19,10 @@ import (
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
+var (
+	ErrViolatesForeignKeyConstraint = errors.New("violates foreign key constraint")
+)
 
 type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
@@ -214,17 +219,8 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 }
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
-	// Noop if the job has been deleted.
-	err := o.db.First(&models.JobSpecV2{}, "id = ?", jobID).Error
-	if err == gorm.ErrRecordNotFound {
-		return
-	} else if err != nil {
-		logger.Errorf("error checking for job existence %v", err)
-		return
-	}
-	// Job exists, log an error.
 	pse := models.JobSpecErrorV2{JobID: jobID, Description: description, Occurrences: 1}
-	err = o.db.
+	err := o.db.
 		Set(
 			"gorm:insert_option",
 			`ON CONFLICT (job_id, description)
@@ -232,5 +228,9 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		).
 		Create(&pse).
 		Error
+	// Noop if the job has been deleted.
+	if err != nil && strings.Contains(err.Error(), ErrViolatesForeignKeyConstraint.Error()) {
+		return
+	}
 	logger.ErrorIf(err, fmt.Sprintf("error creating JobSpecErrorV2 %v", description))
 }
