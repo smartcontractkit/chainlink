@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -250,10 +249,13 @@ func waitForRunsAndAttemptsCount(
 	t *testing.T,
 	job models.JobSpec,
 	runCount int,
-	store *store.Store,
+	app *cltest.TestApplication,
 	backend *backends.SimulatedBackend,
 ) []models.JobRun {
+	t.Helper()
+	store := app.Store
 	jrs := cltest.WaitForRuns(t, job, store, runCount) // Submit answer from
+	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, store, runCount)
 	txa := cltest.GetLastEthTxAttempt(t, store)
 	cltest.WaitForTxInMempool(t, backend, txa.Hash)
@@ -278,6 +280,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Set up chainlink app
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
@@ -334,7 +337,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	initr.InitiatorParams.Address = fa.aggregatorContractAddress
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	jrs := waitForRunsAndAttemptsCount(t, j, 1, app.Store, fa.backend)
+	jrs := waitForRunsAndAttemptsCount(t, j, 1, app, fa.backend)
 
 	reportedPrice := jrs[0].RunRequest.RequestParams.Get("result").String()
 	assert.Equal(t, reportedPrice, fmt.Sprintf("%d", atomic.LoadInt64(&reportPrice)), "failed to report correct price to contract")
@@ -361,7 +364,8 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	nextRoundBalance := initialBalance - fee
 	// Triggers a new round, since price deviation exceeds threshold
 	atomic.StoreInt64(&reportPrice, answer+1)
-	waitForRunsAndAttemptsCount(t, j, 2, app.Store, fa.backend)
+
+	waitForRunsAndAttemptsCount(t, j, 2, app, fa.backend)
 
 	select {
 	case log := <-submissionReceived:
@@ -403,7 +407,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	err = app.FluxMonitor.(maliciousFluxMonitor).CreateJob(t, j.ID, decimal.New(processedAnswer, precision), big.NewInt(newRound))
 	require.NoError(t, err)
 
-	waitForRunsAndAttemptsCount(t, j, 3, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, j, 3, app, fa.backend)
 
 	select {
 	case <-submissionReceived:
@@ -428,7 +432,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 		completesAnswer: true})
 	// start a legitimate new round
 	atomic.StoreInt64(&reportPrice, reportPrice+3)
-	waitForRunsAndAttemptsCount(t, j, 4, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, j, 4, app, fa.backend)
 
 	select {
 	case <-submissionReceived:
@@ -451,6 +455,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
@@ -499,21 +504,21 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	// lower global kill switch flag - should trigger job run
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{utils.ZeroAddress})
 	fa.backend.Commit()
-	waitForRunsAndAttemptsCount(t, job, 1, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, job, 1, app, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(2)
-	waitForRunsAndAttemptsCount(t, job, 2, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, job, 2, app, fa.backend)
 
 	// lower contract's flag - should have no effect (but currently does)
 	// TODO - https://www.pivotaltracker.com/story/show/175419789
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
-	waitForRunsAndAttemptsCount(t, job, 3, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, job, 3, app, fa.backend)
 
 	// change in price should trigger run
 	reportPrice = int64(4)
-	waitForRunsAndAttemptsCount(t, job, 4, app.Store, fa.backend)
+	waitForRunsAndAttemptsCount(t, job, 4, app, fa.backend)
 
 	// raise both flags
 	fa.flagsContract.RaiseFlag(fa.sergey, initr.Address)

@@ -116,6 +116,8 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	j := cltest.CreateHelloWorldJobViaWeb(t, app, mockServer.URL)
 	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, cltest.CreateJobRunViaWeb(t, app, j))
+
+	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Do the thing
@@ -256,6 +258,7 @@ func TestIntegration_RunLog(t *testing.T) {
 				eth.Register("eth_getTransactionReceipt", confirmedReceipt)
 			})
 
+			app.EthBroadcaster.Trigger()
 			jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
 			assert.True(t, jr.FinishedAt.Valid)
 			assert.Equal(t, int64(requiredConfs), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
@@ -772,10 +775,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
 	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
-	// Single task ethTx receives configuration from FM init and writes to chain.
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
-		Return(logsSub, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 	// Initial tx attempt sent
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -807,6 +808,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	jr := cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
+
+	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-chchNewHeads
@@ -949,8 +952,10 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	newRounds := <-chchLogs
 	newRounds <- log
+
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
+	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-chchNewHeads

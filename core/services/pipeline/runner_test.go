@@ -438,16 +438,18 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil)
-		service, err := sd.ServicesForSpec(sd.FromDBRow(jb))
+		services, err := sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 
 		// Start and stop the service to generate errors.
 		// We expect a database timeout and a context cancellation
 		// error to show up as pipeline_spec_errors.
-		err = service[0].Start()
-		require.NoError(t, err)
-		err = service[0].Close()
-		require.NoError(t, err)
+		for _, s := range services {
+			err = s.Start()
+			require.NoError(t, err)
+			err = s.Close()
+			require.NoError(t, err)
+		}
 
 		var se []models.JobSpecErrorV2
 		err = db.Find(&se).Error
