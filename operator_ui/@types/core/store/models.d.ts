@@ -10,6 +10,14 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface JobSpecError {
+    id: string
+    description: string
+    occurrences: number
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
   /**
    * JobSpecRequest represents a schema for the incoming job spec request as used by the API.
    */
@@ -45,7 +53,7 @@ declare module 'core/store/models' {
    */
   export interface JobSpec {
     id?: string // FIXME -- why is this nullable?
-    createdAt?: time.Time
+    createdAt: time.Time
     initiators: Initiator[]
     minPayment: Pointer<assets.Link>
     tasks: TaskSpec[]
@@ -53,7 +61,8 @@ declare module 'core/store/models' {
     endAt: nullable.Time
     name: string
     earnings: number | null
-    errors: JobSpecErrors[]
+    errors: JobSpecError[]
+    updatedAt: time.time
   }
 
   // Types of Initiators (see Initiator struct just below.)
@@ -452,4 +461,62 @@ declare module 'core/store/models' {
     deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
+
+  /**
+   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   */
+  export interface OcrJobSpecRequest {
+    toml: string
+  }
+
+  type OcrTaskOutput = ?string
+  type OcrTaskError = ?string
+
+  export interface OcrJobSpec {
+    errors: JobSpecError[]
+    offChainReportingOracleSpec: {
+      contractAddress: common.Address
+      p2pPeerID: string
+      p2pBootstrapPeers: string[]
+      isBootstrapPeer: boolean
+      keyBundleID: string
+      monitoringEndpoint: string
+      transmitterAddress: common.Address
+      observationTimeout: string
+      blockchainTimeout: string
+      contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerPollInterval: string
+      contractConfigConfirmations: number
+      createdAt: time.Time
+      updatedAt: time.Time
+      name?: string // Upcoming field
+    }
+    pipelineSpec: {
+      dotDagSource: string
+    }
+  }
+
+  export interface OcrJobRun {
+    outputs: OcrTaskOutput[]
+    errors: OcrTaskError[]
+    taskRuns: OcrTaskRun[]
+    createdAt: time.Time
+    finishedAt: nullable.Time
+    pipelineSpec: {
+      CreatedAt: time.Time
+      DotDagSource: string
+      ID: number
+    }
+  }
+}
+
+export interface OcrTaskRun {
+  createdAt: time.Time
+  error: OcrTaskError
+  finishedAt: nullable.Time
+  output: OcrTaskOutput
+  taskSpec: {
+    dotId: string
+  }
+  type: string
 }

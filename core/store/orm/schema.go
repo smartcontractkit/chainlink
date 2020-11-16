@@ -32,7 +32,6 @@ type ConfigSchema struct {
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
 	Dev                                       bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters                bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
-	EnableBulletproofTxManager                bool            `env:"ENABLE_BULLETPROOF_TX_MANAGER" default:"true"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
@@ -58,7 +57,6 @@ type ConfigSchema struct {
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
 	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
-	JobPipelineDBPollInterval                 time.Duration   `env:"JOB_PIPELINE_DB_POLL_INTERVAL" default:"10s"`
 	JobPipelineMaxTaskDuration                time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"10m"`
 	JobPipelineParallelism                    uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
@@ -91,12 +89,14 @@ type ConfigSchema struct {
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
 	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
+	P2PPeerstoreWriteInterval                 time.Duration   `env:"P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                           int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`
 	RootDir                                   string          `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies                             bool            `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                            models.Duration `env:"SESSION_TIMEOUT" default:"15m"`
+	TriggerFallbackDBPollInterval             time.Duration   `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	TLSCertPath                               string          `env:"TLS_CERT_PATH" `
 	TLSHost                                   string          `env:"CHAINLINK_TLS_HOST" `
 	TLSKeyPath                                string          `env:"TLS_KEY_PATH" `

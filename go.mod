@@ -41,6 +41,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.3.3
 	github.com/multiformats/go-multiaddr v0.3.1
+	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.3
 	github.com/pkg/errors v0.9.1
@@ -55,12 +56,12 @@ require (
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.6.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
-	github.com/tidwall/gjson v1.6.1
+	github.com/tidwall/gjson v1.6.3
 	github.com/tidwall/sjson v1.1.2
 	github.com/tyler-smith/go-bip39 v1.0.2 // indirect
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
-	github.com/urfave/cli v1.22.4
+	github.com/urfave/cli v1.22.5
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
 	go.uber.org/multierr v1.6.0
@@ -73,5 +74,5 @@ require (
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
 	gopkg.in/guregu/null.v4 v4.0.0
-	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
+	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
 )

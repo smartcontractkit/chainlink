@@ -2,20 +2,33 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 import { jsonApiJobSpecs } from 'factories/jsonApiJobSpecs'
+import { jsonApiOcrJobSpecs } from 'factories/jsonApiOcrJobSpecs'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
-import { JobsIndex, simpleJobFilter } from 'pages/Jobs/Index'
+import JobsIndex, { simpleJobFilter, CombinedJobs } from './JobsIndex'
 import { partialAsFull } from '@chainlink/ts-helpers'
 import { Initiator, InitiatorType } from 'core/store/models'
+import { INDEX_ENDPOINT as JSON_ENDPOINT } from 'api/v2/specs'
+import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/ocrSpecs'
 
-describe('pages/Jobs/Index', () => {
+describe('pages/JobsIndex/JobsIndex', () => {
   it('renders the list of jobs', async () => {
     global.fetch.getOnce(
-      globPath('/v2/specs'),
+      globPath(JSON_ENDPOINT),
       jsonApiJobSpecs([
         {
-          id: 'c60b9927eeae43168ddbe92584937b1b',
+          id: 'JsonId',
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    )
+
+    global.fetch.getOnce(
+      globPath(OCR_ENDPOINT),
+      jsonApiOcrJobSpecs([
+        {
+          id: '1000000',
           createdAt: new Date().toISOString(),
         },
       ]),
@@ -24,14 +37,16 @@ describe('pages/Jobs/Index', () => {
     const wrapper = mountWithProviders(<Route component={JobsIndex} />)
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
+
+    expect(wrapper.text()).toContain('JsonId')
+    expect(wrapper.text()).toContain('1000000')
     expect(wrapper.text()).toContain('web')
     expect(wrapper.text()).toContain('just now')
   })
 
   it('allows searching', async () => {
     global.fetch.getOnce(
-      globPath('/v2/specs'),
+      globPath(JSON_ENDPOINT),
       jsonApiJobSpecs([
         {
           initiators: [
@@ -52,13 +67,22 @@ describe('pages/Jobs/Index', () => {
         },
       ]),
     )
+    global.fetch.getOnce(
+      globPath(OCR_ENDPOINT),
+      jsonApiOcrJobSpecs([
+        {
+          id: 'OcrId',
+          createdAt: new Date().toISOString(),
+        },
+      ]),
+    )
 
     const wrapper = mountWithProviders(<Route component={JobsIndex} />)
 
     await syncFetch(wrapper)
 
     // Expect to have 3 jobs initially
-    expect(wrapper.find('tbody').children().length).toEqual(3)
+    expect(wrapper.find('tbody').children().length).toEqual(4)
 
     wrapper
       .find('input[name="search"]')
@@ -124,6 +148,29 @@ describe('pages/Jobs/Index', () => {
       expect(jobs.filter(simpleJobFilter('id-')).length).toEqual(4)
       expect(jobs.filter(simpleJobFilter('id-1')).length).toEqual(3)
       expect(jobs.filter(simpleJobFilter('id-1c')).length).toEqual(1)
+    })
+
+    it('filters by job type', () => {
+      let jobs: CombinedJobs[] = jsonApiJobSpecs([
+        {
+          id: 'id-1a',
+        },
+        {
+          id: 'id-1b',
+        },
+      ]).data
+
+      jobs = jobs.concat(
+        jsonApiOcrJobSpecs([
+          {
+            id: '1',
+          },
+        ]).data,
+      )
+
+      expect(jobs.filter(simpleJobFilter('direct')).length).toEqual(2)
+      expect(jobs.filter(simpleJobFilter('off')).length).toEqual(1)
+      expect(jobs.filter(simpleJobFilter('chain')).length).toEqual(1)
     })
   })
 })

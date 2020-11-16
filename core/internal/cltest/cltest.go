@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -91,10 +90,9 @@ const (
 
 var (
 	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress          = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressDowncased = strings.ToLower(DefaultKey)
-	DefaultKeyAddressEIP55     models.EIP55Address
-	DefaultP2PPeerID           p2ppeer.ID
+	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
+	DefaultKeyAddressEIP55 models.EIP55Address
+	DefaultP2PPeerID       p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
@@ -180,18 +178,6 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
-}
-
-func NewRandomInt32() int32 {
-	return int32(randIntRange(0, math.MaxInt32))
-}
-
-// Generate random integer between min and max
-func randIntRange(min, max int) int {
-	if min == max {
-		return min
-	}
-	return rand.Intn((max+1)-min) + min
 }
 
 // NewTestConfig returns a test configuration
@@ -725,16 +711,6 @@ func ReadLogs(config orm.ConfigReader) (string, error) {
 	return string(b), err
 }
 
-// FindJob returns JobSpec for given JobID
-func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
-	t.Helper()
-
-	j, err := s.FindJob(id)
-	require.NoError(t, err)
-
-	return j
-}
-
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	t.Helper()
 
@@ -1022,6 +998,29 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+// WaitForRuns waits for the wanted number of completed runs then returns a slice of the JobRuns
+func WaitForCompletedRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jrs []models.JobRun
+	var err error
+	if want == 0 {
+		g.Consistently(func() []models.JobRun {
+			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
+			assert.NoError(t, err)
+			return jrs
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	} else {
+		g.Eventually(func() []models.JobRun {
+			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
+			assert.NoError(t, err)
+			return jrs
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}
+	return jrs
+}
+
 // AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
 func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1053,27 +1052,18 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.TxAttempt {
+func WaitForEthTxCount(t testing.TB, store *strpkg.Store, want int) []models.EthTx {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var tas []models.TxAttempt
-	var count int
+	var txes []models.EthTx
 	var err error
-	if want == 0 {
-		g.Consistently(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	} else {
-		g.Eventually(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	}
-	return tas
+	g.Eventually(func() []models.EthTx {
+		err = store.DB.Find(&txes).Error
+		assert.NoError(t, err)
+		return txes
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txes
 }
 
 func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
@@ -1083,6 +1073,21 @@ func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []mod
 	var txas []models.EthTxAttempt
 	var err error
 	g.Eventually(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+// AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
+func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Consistently(func() []models.EthTxAttempt {
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
@@ -1185,17 +1190,6 @@ func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
 	require.NoError(t, err)
 
 	return account.Address
-}
-
-// GetAccountAddresses returns the Address of all registered accounts
-func GetAccountAddresses(store *strpkg.Store) []common.Address {
-	accounts := store.KeyStore.GetAccounts()
-
-	addresses := []common.Address{}
-	for _, account := range accounts {
-		addresses = append(addresses, account.Address)
-	}
-	return addresses
 }
 
 func StringToHash(s string) common.Hash {
@@ -1352,45 +1346,6 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
-	t.Helper()
-
-	var attempt models.TxAttempt
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&attempt).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return attempt
-}
-
-func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
-	t.Helper()
-
-	var tx models.Tx
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&tx).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return tx
-}
-
-func GetLastEthTx(t testing.TB, store *strpkg.Store) models.EthTx {
-	t.Helper()
-
-	var tx models.EthTx
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&tx).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return tx
-}
-
 func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
 	t.Helper()
 
@@ -1503,41 +1458,8 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
-	jr, err := store.FindJobRun(id)
-	require.NoError(t, err)
-	return jr
-}
-
-func MustHexToUint64(t *testing.T, hex string) uint64 {
-	res, err := utils.HexToUint64(hex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
 func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
 	require.NoError(t, err)
 	return k
-}
-
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64) models.EthTx {
-	etx := NewEthTx(t, store)
-
-	etx.BroadcastAt = nil
-	etx.Nonce = &nonce
-	etx.State = models.EthTxInProgress
-	require.NoError(t, store.DB.Save(&etx).Error)
-	attempt := NewEthTxAttempt(t, etx.ID)
-	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = models.EthTxAttemptInProgress
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
 }

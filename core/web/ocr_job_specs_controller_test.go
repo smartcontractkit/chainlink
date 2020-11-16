@@ -31,7 +31,7 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 
 	b, err := ioutil.ReadAll(resp.Body)
 	require.NoError(t, err)
-	assert.Equal(t, "{\"errors\":[{\"detail\":\"unrecognised key: isBootstrapNode\"}]}", string(b))
+	assert.Equal(t, "{\"errors\":[{\"detail\":\"isBootstrapPeer is not defined\"}]}", string(b))
 }
 
 func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
@@ -52,18 +52,19 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractAddress, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress)
+	assert.Equal(t, job.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
+	assert.Equal(t, job.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
+	assert.Equal(t, job.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
+	assert.Equal(t, job.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, job.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
+	assert.Equal(t, job.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
+	assert.Equal(t, job.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.NotNil(t, ocrJobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
@@ -119,28 +120,6 @@ func TestOCRJobSpecsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func TestOCRJobSpecsController_Run_HappyPath(t *testing.T) {
-	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
-
-	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
-
-	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
-	defer cleanup()
-	cltest.AssertServerResponse(t, response, http.StatusOK)
-
-	parsedResponse := models.OCRJobRun{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
-	assert.NoError(t, err)
-	assert.NotNil(t, parsedResponse.ID)
-}
-
 func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
@@ -154,6 +133,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.Equal(t, ocrJobSpecFromFile.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDagSource)
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the

@@ -275,7 +275,11 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			ocr.GET("/specs/:ID", ocrjsc.Show)
 			ocr.POST("/specs", ocrjsc.Create)
 			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
-			ocr.POST("/specs/:ID/runs", ocrjsc.Run)
+
+			ocrjrc := OCRJobRunsController{app}
+			ocr.GET("/specs/:ID/runs", paginatedRequest(ocrjrc.Index))
+			ocr.GET("/specs/:ID/runs/:runID", ocrjrc.Show)
+			ocr.POST("/specs/:ID/runs", ocrjrc.Create)
 		}
 	}
 

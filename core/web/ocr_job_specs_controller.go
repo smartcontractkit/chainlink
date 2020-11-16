@@ -46,6 +46,7 @@ func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
 		return
 	}
+
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -111,25 +112,4 @@ func (ocrjsc *OCRJobSpecsController) Delete(c *gin.Context) {
 	}
 
 	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
-}
-
-// Run triggers a pipeline run for an OCR job.
-// Example:
-// "POST <application>/ocr/specs/:ID/runs"
-func (ocrjsc *OCRJobSpecsController) Run(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
-	err := jobSpec.SetID(c.Param("ID"))
-	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	jobRunID, err := ocrjsc.App.RunJobV2(c, jobSpec.ID, nil)
-
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, models.OCRJobRun{ID: jobRunID}, "offChainReportingJobRun")
 }
