@@ -7,6 +7,7 @@ import {
   OcrJobRun,
   OcrJobSpec,
   TaskSpec,
+  RunStatus,
 } from 'core/store/models'
 
 export type JobRunsResponse =
@@ -21,6 +22,13 @@ export type BaseJob = {
   errors: JobSpecError[]
   id: string
   name?: string
+}
+
+export type BaseJobRun = {
+  createdAt: string
+  id: string
+  status: RunStatus
+  jobId: string
 }
 
 export type OffChainReportingJob = BaseJob & {
@@ -38,6 +46,6 @@ export type DirectRequestJob = BaseJob & {
 export type JobData = {
   job?: DirectRequestJob | OffChainReportingJob
   jobSpec?: JobSpecResponse['data']
-  recentRuns?: JobRunsResponse['data']
+  recentRuns?: BaseJobRun[]
   recentRunsCount: number
 }

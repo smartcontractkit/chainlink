@@ -37,14 +37,10 @@ export class Runs {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
-  public getJobSpecRuns({
-    jobSpecId,
-  }: jsonapi.PaginatedRequestParams & { jobSpecId: string }): Promise<
-    jsonapi.PaginatedApiResponse<models.JobRun[]>
-  > {
-    return this.index({
-      jobSpecId,
-    })
+  public getJobSpecRuns(
+    params: jsonapi.PaginatedRequestParams & { jobSpecId: string },
+  ): Promise<jsonapi.PaginatedApiResponse<models.JobRun[]>> {
+    return this.index(params)
   }
   /**
    * Get n most recent job runs

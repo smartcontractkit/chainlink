@@ -4,6 +4,8 @@ import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { PaginatedApiResponse } from '@chainlink/json-api-client'
+import { OcrJobRun, RunStatus } from 'core/store/models'
 import { JobData } from './sharedTypes'
 import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
@@ -16,6 +18,18 @@ type Props = RouteComponentProps<{
 
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
+
+function getOcrJobStatus({
+  attributes: { finishedAt, errors },
+}: NonNullable<PaginatedApiResponse<OcrJobRun[]>>['data'][0]) {
+  if (finishedAt === null) {
+    return RunStatus.IN_PROGRESS
+  }
+  if (errors[0] !== null) {
+    return RunStatus.ERRORED
+  }
+  return RunStatus.COMPLETED
+}
 
 export const JobsShow: React.FC<Props> = ({ match }) => {
   const [state, setState] = React.useState<JobData>({
@@ -42,7 +56,12 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         .then((jobSpecRunsResponse) => {
           setState((s) => ({
             ...s,
-            recentRuns: jobSpecRunsResponse.data,
+            recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
+              createdAt: jobRun.attributes.createdAt,
+              id: jobRun.id,
+              status: getOcrJobStatus(jobRun),
+              jobId: jobSpecId,
+            })),
             recentRunsCount: jobSpecRunsResponse.meta.count,
           }))
         })
@@ -57,7 +76,12 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         .then((jobSpecRunsResponse) => {
           setState((s) => ({
             ...s,
-            recentRuns: jobSpecRunsResponse.data,
+            recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
+              createdAt: jobRun.attributes.createdAt,
+              id: jobRun.id,
+              status: jobRun.attributes.status,
+              jobId: jobSpecId,
+            })),
             recentRunsCount: jobSpecRunsResponse.meta.count,
           }))
         })

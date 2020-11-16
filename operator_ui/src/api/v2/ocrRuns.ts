@@ -10,10 +10,12 @@ export class OcrRuns {
   @boundMethod
   public getJobSpecRuns({
     jobSpecId,
+    page,
+    size,
   }: jsonapi.PaginatedRequestParams & { jobSpecId: string }): Promise<
     jsonapi.PaginatedApiResponse<models.OcrJobRun[]>
   > {
-    return this.index(undefined, { jobSpecId })
+    return this.index({ page, size }, { jobSpecId })
   }
 
   private index = this.api.fetchResource<{}, models.OcrJobRun[]>(ENDPOINT)

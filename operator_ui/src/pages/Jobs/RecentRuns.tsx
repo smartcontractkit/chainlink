@@ -1,13 +1,17 @@
 import { CardTitle, KeyValueList } from '@chainlink/styleguide'
 import {
-  createStyles,
+  Card,
+  Grid,
+  TableCell,
+  TableRow,
   Theme,
   Typography,
   WithStyles,
+  createStyles,
   withStyles,
-  Card,
-  Grid,
 } from '@material-ui/core'
+import Button from 'components/Button'
+import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
 import React from 'react'
@@ -58,6 +62,11 @@ const chartCardStyles = ({ spacing, palette }: Theme) =>
     status: {
       marginRight: spacing.unit * 2,
       marginLeft: -22,
+    },
+    runDetails: {
+      paddingTop: spacing.unit * 2,
+      paddingBottom: spacing.unit * 2,
+      paddingLeft: spacing.unit * 2,
     },
   })
 
@@ -110,15 +119,31 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 <CardTitle divider>Recent Job Runs</CardTitle>
 
                 {recentRuns && (
-                  <JobRunsList
-                    jobSpecId={job.id}
-                    runs={recentRuns.map((jobRun) => ({
-                      ...jobRun,
-                      ...jobRun.attributes,
-                    }))}
-                    count={recentRunsCount}
-                    showJobRunsCount={showJobRunsCount}
-                  />
+                  <>
+                    <JobRunsList
+                      runs={recentRuns.map(
+                        (jobRun: NonNullable<JobData['recentRuns']>[0]) => ({
+                          ...jobRun,
+                        }),
+                      )}
+                      hideLinks={job?.type === 'Off-chain reporting'}
+                    />
+                    {job?.type === 'Direct request' &&
+                      recentRuns.length > showJobRunsCount && (
+                        <TableRow>
+                          <TableCell>
+                            <div className={classes.runDetails}>
+                              <Button
+                                href={`/jobs/${job.id}/runs`}
+                                component={BaseLink}
+                              >
+                                View More
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                  </>
                 )}
               </Card>
             </Grid>
@@ -135,7 +160,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
                           Link Payment
                         </Typography>
                         <Typography className={classes.earnedText}>
-                          {totalLinkEarned(jobSpec)}
+                          {totalLinkEarned(job)}
                         </Typography>
                       </Grid>
                     </Card>
