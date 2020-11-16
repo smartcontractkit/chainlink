@@ -33,6 +33,7 @@ contract Operator is
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
+  uint256 constant private MAXIMUM_DATA_VERSION = 256;
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
@@ -404,7 +405,7 @@ contract Operator is
    * @return uint8 number
    */
   function safeCastToUint8(uint256 number) internal returns (uint8) {
-    require(number < 2**8, "number too big to cast");
+    require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
     return uint8(number);
   }
 
