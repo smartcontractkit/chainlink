@@ -116,8 +116,8 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
-// JobPipelineDBPollInterval provides a mock function with given fields:
-func (_m *Config) JobPipelineDBPollInterval() time.Duration {
+// TriggerFallbackDBPollInterval provides a mock function with given fields:
+func (_m *Config) TriggerFallbackDBPollInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration

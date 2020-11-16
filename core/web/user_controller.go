@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -161,7 +162,6 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 }
 
 func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
-	txm := store.TxManager
 	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
 	if err != nil {
 		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
@@ -170,7 +170,8 @@ func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Accoun
 		return presenters.ETHKey{}
 	}
 
-	linkBalance, err := txm.GetLINKBalance(account.Address)
+	linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
+	linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, account.Address)
 	if err != nil {
 		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(ctx, http.StatusInternalServerError, err)

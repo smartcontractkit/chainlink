@@ -28,7 +28,7 @@ var (
 type RunQueue interface {
 	Start() error
 	Stop()
-	Run(*models.JobRun)
+	Run(*models.ID)
 
 	WorkerCount() int
 }
@@ -89,7 +89,7 @@ func (rq *runQueue) decrementQueue(runID string) bool {
 }
 
 // Run tells the job runner to start executing a job
-func (rq *runQueue) Run(run *models.JobRun) {
+func (rq *runQueue) Run(runID *models.ID) {
 	rq.workersMutex.Lock()
 	if rq.stopRequested {
 		rq.workersMutex.Unlock()
@@ -97,8 +97,8 @@ func (rq *runQueue) Run(run *models.JobRun) {
 	}
 	rq.workersMutex.Unlock()
 
-	runID := run.ID.String()
-	if !rq.incrementQueue(runID) {
+	id := runID.String()
+	if !rq.incrementQueue(id) {
 		return
 	}
 
@@ -107,11 +107,11 @@ func (rq *runQueue) Run(run *models.JobRun) {
 		defer rq.workersWg.Done()
 
 		for {
-			if err := rq.runExecutor.Execute(run.ID); err != nil {
-				logger.Errorw(fmt.Sprint("Error executing run ", runID), "error", err)
+			if err := rq.runExecutor.Execute(runID); err != nil {
+				logger.Errorw(fmt.Sprint("Error executing run ", id), "error", err)
 			}
 
-			if rq.decrementQueue(runID) {
+			if rq.decrementQueue(id) {
 				return
 			}
 		}

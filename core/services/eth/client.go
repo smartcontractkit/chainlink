@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,6 +34,8 @@ type Client interface {
 	Close()
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
+	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
+
 	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -179,6 +182,15 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 	}
 	numLinkBigInt.SetString(result, 0)
 	return numLinkBigInt, nil
+}
+
+// GetLINKBalance returns the balance of LINK at the given address
+func (client *client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	balance, err := client.GetERC20Balance(address, linkAddress)
+	if err != nil {
+		return assets.NewLink(0), err
+	}
+	return (*assets.Link)(balance), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
