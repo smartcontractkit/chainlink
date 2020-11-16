@@ -119,12 +119,9 @@ describe('reducers/notifications', () => {
   })
 
   describe('MATCH_ROUTE', () => {
-    const sameUrlAction: MatchRouteAction = {
-      type: RouterActionType.MATCH_ROUTE,
-    }
     const changeUrlAction: MatchRouteAction = {
       type: RouterActionType.MATCH_ROUTE,
-      match: { url: '/to' },
+      pathname: '/jobs',
     }
 
     it('clears errors when currentUrl changes', () => {
@@ -133,7 +130,6 @@ describe('reducers/notifications', () => {
       }
 
       let state = reducer(INITIAL_STATE, errorAction)
-      state = reducer(state, sameUrlAction)
       expect(state.notifications.errors.length).toEqual(1)
       expect(state.notifications.successes.length).toEqual(0)
       expect(state.notifications.currentUrl).toBeUndefined()
@@ -141,7 +137,7 @@ describe('reducers/notifications', () => {
       state = reducer(INITIAL_STATE, changeUrlAction)
       expect(state.notifications.errors.length).toEqual(0)
       expect(state.notifications.successes.length).toEqual(0)
-      expect(state.notifications.currentUrl).toEqual('/to')
+      expect(state.notifications.currentUrl).toEqual('/jobs')
     })
 
     it('clears success when currentUrl changes', () => {
@@ -152,13 +148,12 @@ describe('reducers/notifications', () => {
       }
 
       let state = reducer(INITIAL_STATE, successAction)
-      state = reducer(state, sameUrlAction)
       expect(state.notifications.successes.length).toEqual(1)
       expect(state.notifications.currentUrl).toBeUndefined()
 
       state = reducer(INITIAL_STATE, changeUrlAction)
       expect(state.notifications.successes.length).toEqual(0)
-      expect(state.notifications.currentUrl).toEqual('/to')
+      expect(state.notifications.currentUrl).toEqual('/jobs')
     })
   })
 })

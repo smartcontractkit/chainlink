@@ -157,7 +157,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                   <JobRunsIndex {...props} pagePath="/runs/page" />
                 )}
               />
-              ;<PrivateRoute exact path="/bridges" component={BridgesIndex} />
+              <PrivateRoute exact path="/bridges" component={BridgesIndex} />
               <PrivateRoute
                 exact
                 path="/bridges/page/:bridgePage"
