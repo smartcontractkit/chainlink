@@ -46,7 +46,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	from := cltest.GetAccountAddress(t, app.GetStore())
+	from := cltest.DefaultKeyAddress
 	balances := *r.Renders[0].(*[]presenters.ETHKey)
 	assert.Equal(t, from.Hex(), balances[0].Address)
 }
@@ -778,7 +778,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -814,7 +814,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -837,7 +837,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 
 	client, r := app.NewClientAndRenderer()
