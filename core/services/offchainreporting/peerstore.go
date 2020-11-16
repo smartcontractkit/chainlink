@@ -2,6 +2,8 @@ package offchainreporting
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -16,9 +18,9 @@ import (
 )
 
 type (
-	p2pPeer struct {
-		ID        p2ppeer.ID
-		Addr      ma.Multiaddr
+	P2PPeer struct {
+		ID        string
+		Addr      string
 		JobID     int32
 		CreatedAt time.Time
 		UpdatedAt time.Time
@@ -35,6 +37,10 @@ type (
 		chDone        chan struct{}
 	}
 )
+
+func (P2PPeer) TableName() string {
+	return "p2p_peers"
+}
 
 // NewPeerstoreWrapper creates a new database-backed peerstore wrapper scoped to the given jobID
 // Multiple peerstore wrappers should not be instantiated with the same jobID
@@ -74,7 +80,7 @@ func (p *Pstorewrapper) dbLoop() {
 		case <-p.ctx.Done():
 			return
 		case <-ticker.C:
-			if err := p.writeToDB(); err != nil {
+			if err := p.WriteToDB(); err != nil {
 				logger.Errorw("Error writing peerstore to DB", "err", err)
 			}
 		}
@@ -96,33 +102,32 @@ func (p *Pstorewrapper) readFromDB() error {
 		return err
 	}
 	for _, peer := range peers {
-		p.Peerstore.AddAddr(peer.ID, peer.Addr, p2ppeerstore.PermanentAddrTTL)
+		peerID, err := p2ppeer.Decode(peer.ID)
+		if err != nil {
+			return errors.Wrapf(err, "unexpectedly failed to decode peer ID '%s'", peer.ID)
+		}
+		peerAddr, err := ma.NewMultiaddr(peer.Addr)
+		if err != nil {
+			return errors.Wrapf(err, "unexpectedly failed to decode peer multiaddr '%s'", peer.Addr)
+		}
+		p.Peerstore.AddAddr(peerID, peerAddr, p2ppeerstore.PermanentAddrTTL)
 	}
 	return nil
 }
 
-func (p *Pstorewrapper) getPeers() (peers []p2pPeer, err error) {
+func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
 	rows, err := p.db.DB().QueryContext(p.ctx, `SELECT id, addr FROM p2p_peers WHERE job_id = $1`, p.jobID)
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
 	defer logger.ErrorIfCalling(rows.Close)
 
-	peers = make([]p2pPeer, 0)
+	peers = make([]P2PPeer, 0)
 
 	for rows.Next() {
-		peer := p2pPeer{}
-		var maddr, peerID string
-		if err = rows.Scan(&peerID, &maddr); err != nil {
+		peer := P2PPeer{}
+		if err = rows.Scan(&peer.ID, &peer.Addr); err != nil {
 			return nil, errors.Wrap(err, "unexpected error scanning row")
-		}
-		peer.ID, err = p2ppeer.Decode(peerID)
-		if err != nil {
-			return nil, errors.Wrap(err, "unexpectedly failed to decode peer ID")
-		}
-		peer.Addr, err = ma.NewMultiaddr(maddr)
-		if err != nil {
-			return nil, errors.Wrap(err, "unexpectedly failed to decode peer multiaddr")
 		}
 		peers = append(peers, peer)
 	}
@@ -130,25 +135,37 @@ func (p *Pstorewrapper) getPeers() (peers []p2pPeer, err error) {
 	return peers, nil
 }
 
-func (p *Pstorewrapper) writeToDB() error {
+func (p *Pstorewrapper) WriteToDB() error {
 	err := postgres.GormTransaction(p.ctx, p.db, func(tx *gorm.DB) error {
-		err := tx.Exec(`DELETE FROM p2p_peerstore WHERE job_id = ?`, p.jobID).Error
+		err := tx.Exec(`DELETE FROM p2p_peers WHERE job_id = ?`, p.jobID).Error
 		if err != nil {
 			return err
 		}
-		peers := make([]p2pPeer, 0)
+		peers := make([]P2PPeer, 0)
 		for _, pid := range p.Peerstore.PeersWithAddrs() {
 			addrs := p.Peerstore.Addrs(pid)
 			for _, addr := range addrs {
-				p := p2pPeer{
-					ID:    pid,
-					Addr:  addr,
+				p := P2PPeer{
+					ID:    pid.String(),
+					Addr:  addr.String(),
 					JobID: p.jobID,
 				}
 				peers = append(peers, p)
 			}
 		}
-		return tx.Create(&peers).Error
+		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
+		// manually construct it ourselves
+		valueStrings := []string{}
+		valueArgs := []interface{}{}
+		for _, p := range peers {
+			valueStrings = append(valueStrings, "(?, ?, ?, NOW(), NOW())")
+			valueArgs = append(valueArgs, p.ID)
+			valueArgs = append(valueArgs, p.Addr)
+			valueArgs = append(valueArgs, p.JobID)
+		}
+
+		stmt := fmt.Sprintf("INSERT INTO p2p_peers (id, addr, job_id, created_at, updated_at) VALUES %s", strings.Join(valueStrings, ","))
+		return tx.Exec(stmt, valueArgs...).Error
 	})
 	return errors.Wrap(err, "could not write peers to DB")
 }
