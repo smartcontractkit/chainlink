@@ -18,10 +18,27 @@ type (
 		OffchainreportingOracleSpecID int32                        `json:"-"`
 		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
 		PipelineSpecID                int32                        `json:"-"`
+		PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
+		JobSpecErrors                 []JobSpecErrorV2             `json:"errors" gorm:"foreignKey:JobID"`
+	}
+
+	JobSpecErrorV2 struct {
+		ID          int64     `json:"id" gorm:"primary_key"`
+		JobID       int32     `json:"-"`
+		Description string    `json:"description"`
+		Occurrences uint      `json:"occurences"`
+		CreatedAt   time.Time `json:"createdAt"`
+		UpdatedAt   time.Time `json:"updatedAt"`
 	}
 
 	OCRJobRun struct {
 		ID int64 `json:"-" gorm:"primary_key"`
+	}
+
+	PipelineSpec struct {
+		ID           int32     `json:"-" gorm:"primary_key"`
+		DotDagSource string    `json:"dotDagSource"`
+		CreatedAt    time.Time `json:"-"`
 	}
 
 	OffchainReportingOracleSpec struct {
@@ -141,4 +158,5 @@ func (s *OffchainReportingOracleSpec) BeforeSave() error {
 }
 
 func (JobSpecV2) TableName() string                   { return "jobs" }
+func (JobSpecErrorV2) TableName() string              { return "job_spec_errors_v2" }
 func (OffchainReportingOracleSpec) TableName() string { return "offchainreporting_oracle_specs" }

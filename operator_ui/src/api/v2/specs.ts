@@ -17,7 +17,7 @@ export const CREATE_ENDPOINT = '/v2/specs'
 interface IndexParams extends jsonapi.PaginatedRequestParams {
   sort?: '-createdAt'
 }
-const INDEX_ENDPOINT = '/v2/specs'
+export const INDEX_ENDPOINT = '/v2/specs'
 
 /**
  * Show returns the details of a JobSpec.

@@ -49,7 +49,7 @@ func TestRunManager_ResumePendingBridge(t *testing.T) {
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 
 	input := cltest.JSONFromString(t, `{"address":"0xdfcfc2b9200dbb10952c2b7cce60fc7260e03c6f"}`)
 
@@ -135,7 +135,7 @@ func TestRunManager_ResumeAllPendingNextBlock(t *testing.T) {
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 
 	t.Run("input, should go from pending_incoming_confirmations -> in_progress and save the input", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
@@ -165,7 +165,7 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 	runQueue := new(mocks.RunQueue)
 	runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 
 	t.Run("reject a run with no tasks", func(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, models.NewJob())
@@ -603,7 +603,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			run, err := runManager.Create(job.ID, &initiator, creationHeight, runRequest)
 			require.NoError(t, err)
 
@@ -690,7 +690,7 @@ func TestRunManager_ResumeConfirmingTasks(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			runManager.ResumeAllPendingNextBlock(big.NewInt(3821))
 
 			runQueue.AssertExpectations(t)
@@ -724,7 +724,7 @@ func TestRunManager_ResumeAllInProgress(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -760,7 +760,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -798,7 +798,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgress(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)
@@ -837,7 +837,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			runQueue := new(mocks.RunQueue)
 			runQueue.On("Run", mock.Anything).Maybe().Return(nil)
 
-			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.TxManager, store.Clock)
+			runManager := services.NewRunManager(runQueue, store.Config, store.ORM, pusher, store.Clock)
 			runManager.ResumeAllInProgress()
 
 			runQueue.AssertExpectations(t)

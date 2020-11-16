@@ -110,7 +110,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	runExecutor := services.NewRunExecutor(store, statsPusher)
 	runQueue := services.NewRunQueue(runExecutor)
-	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.TxManager, store.Clock)
+	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	logBroadcaster := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
@@ -133,7 +133,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	)
 
 	if config.Dev() || config.FeatureOffchainReporting() {
-		offchainreporting.RegisterJobType(store.ORM.DB, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
+		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
 	}
 
 	store.NotifyNewEthTx = ethBroadcaster
@@ -165,14 +165,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
 
-	if store.Config.EnableBulletproofTxManager() {
-		headTrackables = append(headTrackables, ethConfirmer)
-	} else {
-		headTrackables = append(headTrackables, store.TxManager)
-	}
-
 	headTrackables = append(
 		headTrackables,
+		ethConfirmer,
 		jobSubscriber,
 		pendingConnectionResumer,
 		balanceMonitor,
