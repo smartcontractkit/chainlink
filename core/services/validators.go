@@ -385,6 +385,12 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	return fe.CoerceEmptyToNil()
 }
 
+var (
+	ErrNoSuchPeerID             = errors.New("no such peer id exists")
+	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
+)
+
 func ValidateOracleSpec(tomlString string, db *gorm.DB) (offchainreporting.OracleSpec, error) {
 	var (
 		spec offchainreporting.OracleSpec
@@ -400,7 +406,7 @@ func ValidateOracleSpec(tomlString string, db *gorm.DB) (offchainreporting.Oracl
 	err = db.Find(&pk, "peer_id = ?", spec.P2PPeerID.String()).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return spec, errors.Errorf("no such peer id exists %s", spec.P2PPeerID.String())
+			return spec, errors.Wrapf(ErrNoSuchPeerID, "%s", spec.P2PPeerID.String())
 		}
 		return spec, errors.Wrapf(err, "unable to confirm peer id existence %s, try again", spec.P2PPeerID.String())
 	}
@@ -413,7 +419,7 @@ func ValidateOracleSpec(tomlString string, db *gorm.DB) (offchainreporting.Oracl
 		err = db.Find(&encryptedOCRKeyBundle, "id = ?", spec.EncryptedOCRKeyBundleID).Error
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
-				return spec, errors.Errorf("no such key bundle exists %s", spec.EncryptedOCRKeyBundleID.String())
+				return spec, errors.Wrapf(ErrNoSuchKeyBundle, "%s", spec.EncryptedOCRKeyBundleID.String())
 			}
 			return spec, errors.Wrapf(err, "unable to confirm key bundle existence %s, try again", spec.EncryptedOCRKeyBundleID.String())
 		}
@@ -421,7 +427,7 @@ func ValidateOracleSpec(tomlString string, db *gorm.DB) (offchainreporting.Oracl
 		err = db.Find(&transmitterKey, "address = ?", spec.TransmitterAddress.Bytes()).Error
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
-				return spec, errors.Errorf("no such key bundle exists %s", spec.EncryptedOCRKeyBundleID.String())
+				return spec, errors.Wrapf(ErrNoSuchTransmitterAddress, "%s", spec.EncryptedOCRKeyBundleID.String())
 			}
 			return spec, errors.Wrapf(err, "unable to confirm key bundle existence %s, try again", spec.EncryptedOCRKeyBundleID.String())
 		}

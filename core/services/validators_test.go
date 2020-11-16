@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -675,6 +678,64 @@ isBootstrapPeer    = true
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := services.ValidatedOracleSpecToml(tc.toml)
 			tc.assertion(t, s, err)
+		})
+	}
+}
+
+func TestValidateOracleSpecDB(t *testing.T) {
+	store, td := cltest.NewStore(t)
+	defer td()
+	acc, err := store.KeyStore.GetFirstAccount()
+	require.NoError(t, err)
+	_, pk, err := store.OCRKeyStore.GenerateEncryptedP2PKey()
+	require.NoError(t, err)
+	kb, _, err := store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+
+	var (
+		contractAddress    = cltest.NewEIP55Address()
+		monitoringEndpoint = "chain.link:101"
+	)
+
+	var tt = []struct {
+		name        string
+		pid         models.PeerID
+		kb          models.Sha256Hash
+		ta          models.EIP55Address
+		expectedErr error
+	}{
+		{
+			name:        "invalid keybundle",
+			pid:         pk.PeerID,
+			kb:          models.NewRandSha256(),
+			ta:          models.EIP55Address(acc.Address.String()),
+			expectedErr: services.ErrNoSuchKeyBundle,
+		},
+		{
+			name:        "invalid peerID",
+			pid:         p2pkey.MustCreateKey().MustGetPeerID(),
+			kb:          kb.ID,
+			ta:          models.EIP55Address(acc.Address.String()),
+			expectedErr: services.ErrNoSuchPeerID,
+		},
+		{
+			name:        "invalid transmitter address",
+			pid:         pk.PeerID,
+			kb:          kb.ID,
+			ta:          cltest.NewEIP55Address(),
+			expectedErr: services.ErrNoSuchTransmitterAddress,
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, tc.ta, tc.pid, monitoringEndpoint, tc.kb)
+			_, err := services.ValidateOracleSpec(sp, store.DB)
+			if tc.expectedErr != nil {
+				assert.Equal(t, tc.expectedErr, errors.Cause(err))
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

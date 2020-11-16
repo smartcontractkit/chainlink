@@ -12,7 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-const ocrJobSpecText = `
+const (
+	ocrJobSpecText = `
 type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "%s"
@@ -47,6 +48,28 @@ observationSource = """
     answer2 [type=bridge name=election_winner index=1];
 """
 `
+	minimalOCRNonBootstrapTemplate = `
+			type               = "offchainreporting"
+			schemaVersion      = 1
+			contractAddress    = "%s"
+			p2pPeerID          = "%s"
+			p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+			isBootstrapPeer    = false 
+			transmitterAddress = "%s"
+			monitoringEndpoint = "%s"
+			keyBundleID = "%s"
+			observationTimeout = "10s"
+			observationSource = """
+	ds1          [type=http method=GET url="http://data.com"];
+	ds1_parse    [type=jsonparse path="USD" lax=true];
+	ds1 -> ds1_parse;
+	"""
+	`
+)
+
+func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55Address, peerID models.PeerID, monitoringEndpoint string, keyBundleID models.Sha256Hash) string {
+	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, monitoringEndpoint, keyBundleID)
+}
 
 func MakeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()

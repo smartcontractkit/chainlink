@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -728,6 +729,17 @@ func MustSha256HashFromHex(x string) Sha256Hash {
 	var hash Sha256Hash
 	copy(hash[:], bs)
 	return hash
+}
+
+func NewRandSha256() (rh Sha256Hash) {
+	rand.Seed(time.Now().UnixNano())
+	bytes := make([]byte, 32)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		panic(err)
+	}
+	copy(rh[:], bytes)
+	return
 }
 
 func (s Sha256Hash) String() string {

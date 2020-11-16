@@ -57,6 +57,14 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 	return models.PeerID(peerID), err
 }
 
+func (k Key) MustGetPeerID() models.PeerID {
+	peerID, err := peer.IDFromPrivateKey(k)
+	if err != nil {
+		panic(err)
+	}
+	return models.PeerID(peerID)
+}
+
 type EncryptedP2PKey struct {
 	ID               int32          `json:"id" gorm:"primary_key"`
 	PeerID           models.PeerID  `json:"peerId"`
@@ -95,6 +103,16 @@ func CreateKey() (Key, error) {
 	return Key{
 		p2pPrivkey,
 	}, nil
+}
+
+func MustCreateKey() Key {
+	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	return Key{
+		p2pPrivkey,
+	}
 }
 
 // type is added to the beginning of the passwords for
