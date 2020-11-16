@@ -105,16 +105,6 @@ func CreateKey() (Key, error) {
 	}, nil
 }
 
-func MustCreateKey() Key {
-	p2pPrivkey, _, err := cryptop2p.GenerateEd25519Key(rand.Reader)
-	if err != nil {
-		panic(err)
-	}
-	return Key{
-		p2pPrivkey,
-	}
-}
-
 // type is added to the beginning of the passwords for
 // P2P key, so that the keys can't accidentally be mis-used
 // in the wrong place
