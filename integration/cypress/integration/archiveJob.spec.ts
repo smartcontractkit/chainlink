@@ -16,7 +16,7 @@ context('End to end', function () {
 
     // Archive Job
     cy.get('#created-job').click()
-    cy.contains('h6', 'Job spec detail').should('exist')
+    cy.contains('h6', 'job spec detail').should('exist')
     cy.clickButton('Archive')
     cy.contains('h5', 'Warning').should('exist')
     cy.get('@jobId').then((jobId) => {
