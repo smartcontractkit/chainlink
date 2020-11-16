@@ -21,7 +21,7 @@ contract OperatorGenerator {
 
     /**
      * @notice Create a new Operator contract with the msg.sender as owner
-     * @return operator address
+     * @return operatorAddress
      */
     function createOperator() external returns (address operatorAddress){
         Operator operator = new Operator(link, msg.sender);
