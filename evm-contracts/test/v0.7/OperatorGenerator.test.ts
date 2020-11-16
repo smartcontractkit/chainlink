@@ -1,5 +1,6 @@
 import { contract, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
+import { ContractReceipt } from 'ethers/contract'
 import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
 import { OperatorGeneratorFactory } from '../../ethers/v0.7/OperatorGeneratorFactory'
 
@@ -21,27 +22,42 @@ describe('OperatorGenerator', () => {
   let operatorGenerator: contract.Instance<OperatorGeneratorFactory>
   let operator: contract.Instance<OperatorFactory>
 
-  beforeEach(async () => {
+  const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operatorGenerator = await operatorGeneratorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address)
   })
 
-  it('creates a new Operator', async () => {
-    const tx = await operatorGenerator
-      .connect(roles.oracleNode)
-      .createOperator()
+  beforeEach(async () => {
+    await deployment()
+  })
 
-    const receipt = await tx.wait()
-    const args = receipt.events?.[0].args
+  describe('#createOperator', () => {
+    let receipt: ContractReceipt
 
-    operator = await operatorFactory
-      .connect(roles.defaultAccount)
-      .attach(args?.[0])
+    beforeEach(async () => {
+      const tx = await operatorGenerator
+        .connect(roles.oracleNode)
+        .createOperator()
 
-    const ownerString = await operator.owner()
+      receipt = await tx.wait()
+    })
 
-    assert.equal(ownerString, roles.oracleNode.address)
+    it('emits an event', async () => {
+      const event = receipt.events?.[0]
+      assert.equal(event?.event, 'OperatorCreated')
+      assert.equal(event?.args?.[1], roles.oracleNode.address)
+    })
+
+    it('sets the correct owner', async () => {
+      const args = receipt.events?.[0].args
+
+      operator = await operatorFactory
+        .connect(roles.defaultAccount)
+        .attach(args?.[0])
+      const ownerString = await operator.owner()
+      assert.equal(ownerString, roles.oracleNode.address)
+    })
   })
 })
