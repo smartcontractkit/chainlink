@@ -14,6 +14,7 @@ import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
+import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
@@ -44,34 +45,12 @@ const chartCardStyles = ({ spacing, palette }: Theme) =>
       color: palette.text.secondary,
       fontSize: spacing.unit * 2,
     },
-    container: {
-      margin: 0,
-      marginLeft: spacing.unit * 2,
-      paddingLeft: 0,
-    },
-    item: {
-      borderLeft: 'solid 2px',
-      borderColor: palette.grey[200],
-      display: 'flex',
-      alignItems: 'center',
-      listStyle: 'none',
-      paddingBottom: spacing.unit * 1,
-      paddingTop: spacing.unit * 1,
-      marginLeft: spacing.unit * 2,
-    },
-    status: {
-      marginRight: spacing.unit * 2,
-      marginLeft: -22,
-    },
     runDetails: {
       paddingTop: spacing.unit * 2,
       paddingBottom: spacing.unit * 2,
       paddingLeft: spacing.unit * 2,
     },
   })
-
-import ListIcon from 'components/Icons/ListIcon'
-import titleize from 'utils/titleize'
 
 interface Props extends WithStyles<typeof chartCardStyles> {
   ErrorComponent: React.FC
@@ -168,22 +147,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
                   <Grid item xs>
                     <Card>
                       <CardTitle divider>Task List</CardTitle>
-                      <ul className={classes.container}>
-                        {job.tasks &&
-                          job.tasks.map((task, idx) => {
-                            return (
-                              <li key={idx} className={classes.item}>
-                                <ListIcon
-                                  width={40}
-                                  className={classes.status}
-                                />
-                                <Typography variant="body1" inline>
-                                  {titleize(task.type)}
-                                </Typography>
-                              </li>
-                            )
-                          })}
-                      </ul>
+                      <TaskList tasks={job.tasks} />
                     </Card>
                   </Grid>
                   <Grid item xs>
