@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -25,11 +24,10 @@ const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 type KeyStoreInterface interface {
 	Accounts() []accounts.Account
 	Wallets() []accounts.Wallet
-	GetFirstAccount() (accounts.Account, error)
 	HasAccounts() bool
+	HasAccountWithAddress(common.Address) bool
 	Unlock(phrase string) error
 	NewAccount(passphrase string) (accounts.Account, error)
-	SignHash(hash common.Hash) (models.Signature, error)
 	Import(keyJSON []byte, passphrase, newPassphrase string) (accounts.Account, error)
 	Export(a accounts.Account, passphrase, newPassphrase string) ([]byte, error)
 	GetAccounts() []accounts.Account
@@ -97,54 +95,18 @@ func (ks *KeyStore) SignTx(account accounts.Account, tx *types.Transaction, chai
 	return ks.KeyStore.SignTx(account, tx, chainID)
 }
 
-// SignHash signs a precomputed digest, using the first account's private key
-// This method adds an ethereum message prefix to the message before signing it,
-// invalidating any would-be valid Ethereum transactions
-func (ks *KeyStore) SignHash(hash common.Hash) (models.Signature, error) {
-	prefixedMessageBytes, err := utils.Keccak256(append([]byte(EthereumMessageHashPrefix), hash.Bytes()...))
-	if err != nil {
-		return models.Signature{}, err
-	}
-
-	signature, err := ks.unsafeSignHash(common.BytesToHash(prefixedMessageBytes))
-	if err != nil {
-		return models.Signature{}, err
-	}
-
-	return signature, nil
-}
-
-// unsafeSignHash signs a precomputed digest, using the first account's private
-// key
-// NOTE: Do not use this method to sign arbitrary message hashes, it may be an
-// Ethereum transaction in disguise! Use SignHashSafe instead unless this is
-// strictly needed
-func (ks *KeyStore) unsafeSignHash(hash common.Hash) (models.Signature, error) {
-	account, err := ks.GetFirstAccount()
-	if err != nil {
-		return models.Signature{}, err
-	}
-	output, err := ks.KeyStore.SignHash(account, hash.Bytes())
-	if err != nil {
-		return models.Signature{}, err
-	}
-	var signature models.Signature
-	signature.SetBytes(output)
-	return signature, nil
-}
-
-// GetFirstAccount returns the unlocked account in the KeyStore object. The client
-// ensures that an account exists during authentication.
-func (ks *KeyStore) GetFirstAccount() (accounts.Account, error) {
-	if len(ks.Accounts()) == 0 {
-		return accounts.Account{}, errors.New("no Ethereum Accounts configured")
-	}
-	return ks.Accounts()[0], nil
-}
-
 // GetAccounts returns all accounts
 func (ks *KeyStore) GetAccounts() []accounts.Account {
 	return ks.Accounts()
+}
+
+func (ks *KeyStore) HasAccountWithAddress(address common.Address) bool {
+	for _, acct := range ks.Accounts() {
+		if acct.Address == address {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAccountByAddress returns the account matching the address provided, or an error if it is missing

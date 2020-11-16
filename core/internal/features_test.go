@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -729,10 +730,16 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer appCleanup()
+	kst := new(mocks.KeyStoreInterface)
+	kst.On("HasAccountWithAddress", cltest.DefaultKeyAddress).Return(true)
+	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
+	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(&types.Transaction{}, nil)
+
+	app.Store.KeyStore = kst
 
 	// Start, connect, and initialize node
 	sub.On("Err").Return(nil)
@@ -748,11 +755,25 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	logsSub.On("Err").Return(nil)
 	logsSub.On("Unsubscribe").Return(nil).Maybe()
 
+	// GetOracles()
+	rpcClient.On(
+		"Call",
+		mock.Anything,
+		"eth_call",
+		mock.MatchedBy(func(callArgs eth.CallArgs) bool {
+			if (callArgs.To.Hex() == "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42") && (hexutil.Encode(callArgs.Data) == "0x40884c52") {
+				return true
+			}
+			return false
+		}),
+		mock.Anything,
+		mock.Anything,
+	).Return(nil).Once()
+
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
 	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.

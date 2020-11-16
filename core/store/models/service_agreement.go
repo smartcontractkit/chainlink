@@ -94,6 +94,12 @@ type Signer interface {
 	SignHash(hash common.Hash) (Signature, error)
 }
 
+type NullSigner struct{}
+
+func (NullSigner) SignHash(common.Hash) (Signature, error) {
+	return Signature{}, nil
+}
+
 // BuildServiceAgreement builds a signed service agreement
 func BuildServiceAgreement(us UnsignedServiceAgreement, signer Signer) (ServiceAgreement, error) {
 	signature, err := signer.SignHash(us.ID)

@@ -346,14 +346,9 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 		fe.Add(fmt.Sprintf("Service agreement encumbrance error: Expiration is below minimum %v", config.MinimumRequestExpiration()))
 	}
 
-	account, err := store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return err // 500
-	}
-
 	found := false
 	for _, oracle := range sa.Encumbrance.Oracles {
-		if oracle.Address() == account.Address {
+		if store.KeyStore.HasAccountWithAddress(oracle.Address()) {
 			found = true
 		}
 	}
