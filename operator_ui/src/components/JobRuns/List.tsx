@@ -7,11 +7,9 @@ import TableCell from '@material-ui/core/TableCell'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import { JobRun } from 'core/store/models'
+import { RunStatus } from 'core/store/models'
 import React from 'react'
 import titleize from '../../utils/titleize'
-import BaseLink from '../BaseLink'
-import Button from '../Button'
 import Link from '../Link'
 
 const styles = (theme: any) =>
@@ -75,7 +73,16 @@ const classFromStatus = (classes: any, status: string) => {
   return classes[status.toLowerCase()]
 }
 
-const renderRuns = (runs: JobRun[], classes: any) => {
+const renderRuns = (
+  runs: {
+    createdAt: string
+    id: string
+    status: RunStatus
+    jobId: string
+  }[],
+  classes: any,
+  hideLinks: undefined | boolean,
+) => {
   if (runs && runs.length === 0) {
     return (
       <TableRow>
@@ -91,15 +98,21 @@ const renderRuns = (runs: JobRun[], classes: any) => {
       </TableRow>
     )
   } else if (runs) {
-    return runs.map((r: JobRun) => (
+    return runs.map((r) => (
       <TableRow key={r.id}>
         <TableCell className={classes.idCell} scope="row">
           <div className={classes.runDetails}>
-            <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
-              <Typography variant="h5" color="primary" component="span">
+            {hideLinks ? (
+              <Typography variant="h5" color="textPrimary" component="span">
                 {r.id}
               </Typography>
-            </Link>
+            ) : (
+              <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                <Typography variant="h5" color="primary" component="span">
+                  {r.id}
+                </Typography>
+              </Link>
+            )}
           </div>
         </TableCell>
         <TableCell className={classes.stampCell}>
@@ -134,30 +147,20 @@ const renderRuns = (runs: JobRun[], classes: any) => {
 }
 
 interface Props extends WithStyles<typeof styles> {
-  jobSpecId: string
-  runs: JobRun[]
-  count: number
-  showJobRunsCount: number
+  runs: {
+    createdAt: string
+    id: string
+    status: RunStatus
+    jobId: string
+  }[]
+  hideLinks?: boolean
 }
 
-const List = ({ jobSpecId, runs, count, showJobRunsCount, classes }: Props) => {
+const List = ({ runs, classes, hideLinks }: Props) => {
   return (
     <Card className={classes.jobRunsCard}>
       <Table padding="none">
-        <TableBody>
-          {renderRuns(runs, classes)}
-          {runs && count > showJobRunsCount && (
-            <TableRow>
-              <TableCell>
-                <div className={classes.runDetails}>
-                  <Button href={`/jobs/${jobSpecId}/runs`} component={BaseLink}>
-                    View More
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
+        <TableBody>{renderRuns(runs, classes, hideLinks)}</TableBody>
       </Table>
     </Card>
   )

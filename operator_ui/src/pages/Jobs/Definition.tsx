@@ -32,15 +32,15 @@ const Definition: React.FC<
     error: unknown
     ErrorComponent: React.FC
     LoadingPlaceholder: React.FC
+    job?: JobData['job']
     jobSpec?: JobData['jobSpec']
   } & WithStyles<typeof definitionStyles>
-> = ({ classes, error, ErrorComponent, LoadingPlaceholder, jobSpec }) => {
+> = ({ classes, error, ErrorComponent, LoadingPlaceholder, job, jobSpec }) => {
   React.useEffect(() => {
-    document.title =
-      jobSpec && jobSpec.attributes.name
-        ? `${jobSpec.attributes.name} | Job definition`
-        : 'Job definition'
-  }, [jobSpec])
+    document.title = job?.name
+      ? `${job.name} | Job definition`
+      : 'Job definition'
+  }, [job])
 
   return (
     <Content>

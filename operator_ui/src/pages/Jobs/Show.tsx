@@ -3,6 +3,9 @@ import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
+import jobSpecDefinition from 'utils/jobSpecDefinition'
+import { PaginatedApiResponse } from '@chainlink/json-api-client'
+import { OcrJobRun, RunStatus } from 'core/store/models'
 import { JobData } from './sharedTypes'
 import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
@@ -16,20 +19,35 @@ type Props = RouteComponentProps<{
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
+function getOcrJobStatus({
+  attributes: { finishedAt, errors },
+}: NonNullable<PaginatedApiResponse<OcrJobRun[]>>['data'][0]) {
+  if (finishedAt === null) {
+    return RunStatus.IN_PROGRESS
+  }
+  if (errors[0] !== null) {
+    return RunStatus.ERRORED
+  }
+  return RunStatus.COMPLETED
+}
+
 export const JobsShow: React.FC<Props> = ({ match }) => {
   const [state, setState] = React.useState<JobData>({
     recentRuns: [],
     recentRunsCount: 0,
   })
-  const { jobSpec } = state
+  const { job, jobSpec } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
   const { jobSpecId } = match.params
+  // `isNaN` actually accepts strings and we don't want to `parseInt` or `parseFloat`
+  //  as it doesn't have the behaviour we want.
+  const isOcrJob = !isNaN((jobSpecId as unknown) as number)
 
-  const getJobSpecRuns = React.useCallback(
-    () =>
-      v2.runs
+  const getJobSpecRuns = React.useCallback(() => {
+    if (isOcrJob) {
+      return v2.ocrRuns
         .getJobSpecRuns({
           jobSpecId,
           page: DEFAULT_PAGE,
@@ -38,27 +56,80 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         .then((jobSpecRunsResponse) => {
           setState((s) => ({
             ...s,
-            recentRuns: jobSpecRunsResponse.data,
+            recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
+              createdAt: jobRun.attributes.createdAt,
+              id: jobRun.id,
+              status: getOcrJobStatus(jobRun),
+              jobId: jobSpecId,
+            })),
             recentRunsCount: jobSpecRunsResponse.meta.count,
           }))
         })
-        .catch(setError),
-    [jobSpecId, setError],
-  )
-
-  const getJobSpec = React.useCallback(
-    async () =>
-      v2.specs
-        .getJobSpec(jobSpecId)
-        .then((response) =>
+        .catch(setError)
+    } else {
+      return v2.runs
+        .getJobSpecRuns({
+          jobSpecId,
+          page: DEFAULT_PAGE,
+          size: RECENT_RUNS_COUNT,
+        })
+        .then((jobSpecRunsResponse) => {
           setState((s) => ({
             ...s,
-            jobSpec: response.data,
-          })),
-        )
-        .catch(setError),
-    [jobSpecId, setError],
-  )
+            recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
+              createdAt: jobRun.attributes.createdAt,
+              id: jobRun.id,
+              status: jobRun.attributes.status,
+              jobId: jobSpecId,
+            })),
+            recentRunsCount: jobSpecRunsResponse.meta.count,
+          }))
+        })
+        .catch(setError)
+    }
+  }, [isOcrJob, jobSpecId, setError])
+
+  const getJobSpec = React.useCallback(async () => {
+    if (isOcrJob) {
+      return v2.ocrSpecs
+        .getJobSpec(jobSpecId)
+        .then((response) => {
+          const jobSpec = response.data
+          setState((s) => ({
+            ...s,
+            jobSpec,
+            job: {
+              ...jobSpec.attributes.offChainReportingOracleSpec,
+              id: jobSpec.id,
+              errors: jobSpec.attributes.errors,
+              definition: undefined,
+              type: 'Off-chain reporting',
+            },
+          }))
+        })
+        .catch(setError)
+    } else {
+      return v2.specs
+        .getJobSpec(jobSpecId)
+        .then((response) => {
+          const jobSpec = response.data
+          setState((s) => ({
+            ...s,
+            jobSpec,
+            job: {
+              ...jobSpec.attributes,
+              id: jobSpec.id,
+              definition: jobSpecDefinition({
+                ...jobSpec,
+                ...jobSpec.attributes,
+              }),
+              type: 'Direct request',
+            },
+          }))
+        })
+        .catch(setError)
+    }
+  }, [isOcrJob, jobSpecId, setError])
 
   React.useEffect(() => {
     getJobSpec()
@@ -68,12 +139,12 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
     <div>
       <RegionalNav
         jobSpecId={jobSpecId}
-        job={jobSpec}
+        job={job}
         getJobSpecRuns={getJobSpecRuns}
       />
       <Switch>
         <Route
-          path={`${match.path}/json`}
+          path={`${match.path}/definition`}
           render={() => (
             <JobsDefinition
               {...{

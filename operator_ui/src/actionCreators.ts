@@ -147,11 +147,15 @@ export const deleteJobSpec = (
   id: string,
   successCallback: React.ReactNode,
   errorCallback: React.ReactNode,
+  jobType: 'Off-chain reporting' | 'Direct request',
 ) => {
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    return api.v2.specs
+    const endpoint =
+      jobType === 'Direct request' ? api.v2.specs : api.v2.ocrSpecs
+
+    return endpoint
       .destroyJobSpec(id)
       .then((doc) => {
         dispatch(receiveDeleteSuccess(id))
