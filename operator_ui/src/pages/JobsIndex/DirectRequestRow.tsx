@@ -28,7 +28,11 @@ export const DirectRequestRow = withStyles(styles)(
     const history = useHistory()
 
     return (
-      <TableRow hover onClick={() => history.push(`/jobs/${job.id}`)}>
+      <TableRow
+        style={{ cursor: 'pointer' }}
+        hover
+        onClick={() => history.push(`/jobs/${job.id}`)}
+      >
         <TableCell className={classes.cell} component="th" scope="row">
           {job.attributes.name || job.id}
           {job.attributes.name && (
