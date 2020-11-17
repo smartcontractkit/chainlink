@@ -3,6 +3,7 @@ package job
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -18,6 +19,10 @@ import (
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
+
+var (
+	ErrViolatesForeignKeyConstraint = errors.New("violates foreign key constraint")
+)
 
 type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
@@ -223,5 +228,9 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		).
 		Create(&pse).
 		Error
-	logger.ErrorIf(err, fmt.Sprintf("Unable to create JobSpecErrorV2: %v", err))
+	// Noop if the job has been deleted.
+	if err != nil && strings.Contains(err.Error(), ErrViolatesForeignKeyConstraint.Error()) {
+		return
+	}
+	logger.ErrorIf(err, fmt.Sprintf("error creating JobSpecErrorV2 %v", description))
 }
