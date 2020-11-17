@@ -47,9 +47,6 @@ func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcast
 
 // The tx argument must be an already started transaction.
 func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG) (int32, error) {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-
 	var specID int32
 	spec := Spec{
 		DotDagSource: taskDAG.DOTSource,
