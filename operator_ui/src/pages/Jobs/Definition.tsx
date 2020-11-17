@@ -57,7 +57,14 @@ const Definition: React.FC<
                 <Divider light className={classes.divider} />
               </Grid>
               <Grid item xs={12}>
-                <PrettyJson object={job.definition} />
+                {job.type === 'Direct request' && (
+                  <PrettyJson object={job.definition} />
+                )}
+                {job.type === 'Off-chain reporting' && (
+                  <pre style={{ margin: 0 }}>
+                    <code>{job.definition}</code>
+                  </pre>
+                )}
               </Grid>
             </Grid>
           </CardContent>

@@ -42,11 +42,16 @@ export function getJobSpecFormat({
 export function stringifyJobSpec({
   value,
   format,
-}: {
-  value: string
-  format: JobSpecFormats
-}): string {
-  if (format === JobSpecFormats.JSON) {
+}:
+  | {
+      value: string
+      format: JobSpecFormats.JSON
+    }
+  | {
+      value: { [key: string]: any }
+      format: JobSpecFormats.TOML
+    }): string {
+  if (format === JobSpecFormats.JSON && typeof value === 'string') {
     try {
       return JSON.stringify(JSON.parse(value), null, 4)
     } catch {
@@ -54,5 +59,9 @@ export function stringifyJobSpec({
     }
   }
 
-  return value
+  if (format === JobSpecFormats.TOML && typeof value === 'object') {
+    return TOML.stringify(value)
+  }
+
+  return ''
 }

@@ -3,7 +3,10 @@ import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
-import { generateJSONDefinition } from './generateJobSpecDefinition'
+import {
+  generateJSONDefinition,
+  generateTOMLDefinition,
+} from './generateJobSpecDefinition'
 import { PaginatedApiResponse } from '@chainlink/json-api-client'
 import { OcrJobRun, RunStatus } from 'core/store/models'
 import { JobData } from './sharedTypes'
@@ -11,6 +14,7 @@ import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
+import { JobSpecFormats, stringifyJobSpec } from './utils'
 
 type Props = RouteComponentProps<{
   jobSpecId: string
@@ -102,7 +106,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
               ...jobSpec.attributes.offChainReportingOracleSpec,
               id: jobSpec.id,
               errors: jobSpec.attributes.errors,
-              definition: {},
+              definition: generateTOMLDefinition(jobSpec.attributes),
               type: 'Off-chain reporting',
             },
           }))
@@ -123,9 +127,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
               ...jobSpec.attributes,
               id: jobSpec.id,
               type: 'Direct request',
-              definition: generateJSONDefinition({
-                ...jobSpec.attributes,
-              }),
+              definition: generateJSONDefinition(jobSpec.attributes),
             },
           }))
         })

@@ -1,5 +1,6 @@
 import { ApiResponse } from '@chainlink/json-api-client'
-import { JobSpec } from 'core/store/models'
+import { JobSpec, OcrJobSpec } from 'core/store/models'
+import { stringifyJobSpec, JobSpecFormats } from './utils'
 
 type DIRECT_REQUEST_DEFINITION_VALID_KEYS =
   | 'name'
@@ -72,3 +73,23 @@ export const generateJSONDefinition = (
       [key]: value,
     }
   }, {} as JobSpec)
+
+export const generateTOMLDefinition = (
+  jobSpecAttributes: ApiResponse<OcrJobSpec>['data']['attributes'],
+): string => {
+  const ocrSpecWithoutDates = {
+    ...jobSpecAttributes.offChainReportingOracleSpec,
+    createdAt: undefined,
+    updatedAt: undefined,
+  }
+
+  return stringifyJobSpec({
+    value: {
+      type: 'offchainreporting',
+      schemaVersion: 1,
+      ...ocrSpecWithoutDates,
+      observationSource: jobSpecAttributes.pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
