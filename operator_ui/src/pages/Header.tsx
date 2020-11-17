@@ -31,7 +31,6 @@ import fetchCountSelector from '../selectors/fetchCount'
 
 const SHARED_NAV_ITEMS = [
   ['/jobs', 'Jobs'],
-  ['/runs', 'Runs'],
   ['/bridges', 'Bridges'],
   ['/transactions', 'Transactions'],
   ['/keys', 'Keys'],
