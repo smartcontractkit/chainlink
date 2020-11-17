@@ -3,7 +3,6 @@ package job
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -139,23 +138,23 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		// TODO(connor): this needs to accept the tx to be transactional?
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
-		if err != nil {
-			if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_p2p_peer_id_fkey"`) {
+		pqErr, ok := err.(*pq.Error)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.Constraint == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
 			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_transmitter_address_fkey"`) {
+				if pqErr.Constraint == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 				}
-				if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey"`) {
+				if pqErr.Constraint == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}

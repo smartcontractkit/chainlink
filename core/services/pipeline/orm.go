@@ -20,7 +20,7 @@ import (
 
 type (
 	ORM interface {
-		CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error)
+		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG) (int32, error)
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
 		ListenForNewRuns() (postgres.Subscription, error)
@@ -45,68 +45,64 @@ func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcast
 	return &orm{db, config, eventBroadcaster}
 }
 
-func (o *orm) CreateSpec(ctx context.Context, taskDAG TaskDAG) (int32, error) {
-	var specID int32
-
+// The tx argument must be an already started transaction.
+func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG) (int32, error) {
 	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		// Create the pipeline spec
-		spec := Spec{
-			DotDagSource: taskDAG.DOTSource,
+	var specID int32
+	spec := Spec{
+		DotDagSource: taskDAG.DOTSource,
+	}
+	err := tx.Create(&spec).Error
+	if err != nil {
+		return specID, err
+	}
+	specID = spec.ID
+
+	// Create the pipeline task specs in dependency order so
+	// that we know what the successor ID for each task is
+	tasks, err := taskDAG.TasksInDependencyOrder()
+	if err != nil {
+		return specID, err
+	}
+
+	// Create the final result task that collects the answers from the pipeline's
+	// outputs.  This is a Postgres-related performance optimization.
+	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
+	for _, task := range tasks {
+		if task.DotID() == ResultTaskDotID {
+			return specID, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
 		}
-		err := tx.Create(&spec).Error
+		if task.OutputTask() == nil {
+			task.SetOutputTask(&resultTask)
+		}
+	}
+	tasks = append([]Task{&resultTask}, tasks...)
+
+	taskSpecIDs := make(map[Task]int32)
+	for _, task := range tasks {
+		var successorID null.Int
+		if task.OutputTask() != nil {
+			successor := task.OutputTask()
+			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
+		}
+
+		taskSpec := TaskSpec{
+			DotID:          task.DotID(),
+			PipelineSpecID: spec.ID,
+			Type:           task.Type(),
+			JSON:           JSONSerializable{task},
+			Index:          task.OutputIndex(),
+			SuccessorID:    successorID,
+		}
+		err = tx.Create(&taskSpec).Error
 		if err != nil {
-			return err
-		}
-		specID = spec.ID
-
-		// Create the pipeline task specs in dependency order so
-		// that we know what the successor ID for each task is
-		tasks, err := taskDAG.TasksInDependencyOrder()
-		if err != nil {
-			return err
+			return specID, err
 		}
 
-		// Create the final result task that collects the answers from the pipeline's
-		// outputs.  This is a Postgres-related performance optimization.
-		resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
-		for _, task := range tasks {
-			if task.DotID() == ResultTaskDotID {
-				return errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
-			}
-			if task.OutputTask() == nil {
-				task.SetOutputTask(&resultTask)
-			}
-		}
-		tasks = append([]Task{&resultTask}, tasks...)
-
-		taskSpecIDs := make(map[Task]int32)
-		for _, task := range tasks {
-			var successorID null.Int
-			if task.OutputTask() != nil {
-				successor := task.OutputTask()
-				successorID = null.IntFrom(int64(taskSpecIDs[successor]))
-			}
-
-			taskSpec := TaskSpec{
-				DotID:          task.DotID(),
-				PipelineSpecID: spec.ID,
-				Type:           task.Type(),
-				JSON:           JSONSerializable{task},
-				Index:          task.OutputIndex(),
-				SuccessorID:    successorID,
-			}
-			err = tx.Create(&taskSpec).Error
-			if err != nil {
-				return err
-			}
-
-			taskSpecIDs[task] = taskSpec.ID
-		}
-		return nil
-	})
+		taskSpecIDs[task] = taskSpec.ID
+	}
 	return specID, errors.WithStack(err)
 }
 

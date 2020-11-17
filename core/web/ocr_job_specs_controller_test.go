@@ -69,7 +69,6 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 			b, err := ioutil.ReadAll(resp.Body)
 			require.NoError(t, err)
 			assert.Contains(t, string(b), tc.expectedErr.Error())
-			t.Log(string(b))
 		})
 	}
 }
