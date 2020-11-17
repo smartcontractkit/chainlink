@@ -100,10 +100,16 @@ jobs:
           username: ${{ secrets.DOCKER_READONLY_USERNAME }}
           password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose ${{ matrix.test }}
+        run: timeout --foreground 1200s ./compose ${{ matrix.test }}
+        working-directory: ./tools/docker
+      - name: Cleanup
+        if: always()
+        run: ./compose ${{ matrix.test }}:down
+        working-directory: ./tools/docker
       - name: Capture logs on failure
         if: failure()
-        run: cd ./tools/docker && CI_SKIP_PRE_HOOK=1 ./compose logs:test:save
+        run: ./compose logs:test:save
+        working-directory: ./tools/docker
       - name: Store logs artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v1
