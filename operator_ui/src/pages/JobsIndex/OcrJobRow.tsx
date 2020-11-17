@@ -1,4 +1,5 @@
 import React from 'react'
+import { useHistory } from 'react-router-dom'
 import { TableCell, TableRow, Typography } from '@material-ui/core'
 import { TimeAgo } from '@chainlink/styleguide'
 import { OffChainReporting } from './JobsIndex'
@@ -22,8 +23,13 @@ interface Props extends WithStyles<typeof styles> {
 }
 
 export const OcrJobRow = withStyles(styles)(({ job, classes }: Props) => {
+  const history = useHistory()
   return (
-    <TableRow>
+    <TableRow
+      style={{ cursor: 'pointer' }}
+      hover
+      onClick={() => history.push(`/jobs/${job.id}`)}
+    >
       <TableCell className={classes.cell} component="th" scope="row">
         {job.attributes.offChainReportingOracleSpec.name || job.id}
         {job.attributes.offChainReportingOracleSpec.name && (

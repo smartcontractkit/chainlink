@@ -18,6 +18,7 @@ export const JobsErrors: React.FC<{
   error: unknown
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
+  job?: JobData['job']
   jobSpec?: JobData['jobSpec']
   setState: React.Dispatch<React.SetStateAction<JobData>>
   getJobSpec: () => Promise<void>
@@ -26,15 +27,13 @@ export const JobsErrors: React.FC<{
   ErrorComponent,
   getJobSpec,
   LoadingPlaceholder,
+  job,
   jobSpec,
   setState,
 }) => {
   React.useEffect(() => {
-    document.title =
-      jobSpec && jobSpec.attributes.name
-        ? `${jobSpec.attributes.name} | Job errors`
-        : 'Job errors'
-  }, [jobSpec])
+    document.title = job?.name ? `${job?.name} | Job errors` : 'Job errors'
+  }, [job])
 
   const handleDismiss = async (jobSpecErrorId: string) => {
     // Optimistic delete

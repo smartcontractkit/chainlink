@@ -956,7 +956,7 @@ func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipel
 		Where("jobs.id = ?", jobID).
 		Limit(size).
 		Offset(offset).
-		Order("created_at ASC, id ASC").
+		Order("created_at DESC, id DESC").
 		Find(&pipelineRuns).
 		Error
 

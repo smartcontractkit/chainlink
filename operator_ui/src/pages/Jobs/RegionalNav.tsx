@@ -11,6 +11,8 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
+import { ApiResponse } from '@chainlink/json-api-client'
+import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 import React from 'react'
 import { connect } from 'react-redux'
@@ -22,8 +24,6 @@ import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
-import { isWebInitiator } from 'utils/jobSpecInitiators'
 import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
@@ -99,6 +99,10 @@ const styles = (theme: Theme) =>
     },
   })
 
+const isWebInitiator = (
+  initiators: ApiResponse<JobSpec>['data']['attributes']['initiators'],
+) => initiators.find((initiator) => initiator.type === 'web')
+
 const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
@@ -116,7 +120,7 @@ interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
   deleteJobSpec: Function
   jobSpecId: string
-  job: JobData['jobSpec']
+  job: JobData['job']
   url: string
   getJobSpecRuns: () => Promise<void>
 }
@@ -131,14 +135,13 @@ const RegionalNavComponent = ({
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
-  const navDefinitionActive = location.pathname.endsWith('/json')
+  const navDefinitionActive = location.pathname.endsWith('/definition')
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
-  const definition = job && jobSpecDefinition({ ...job, ...job.attributes })
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const errorsTabText =
-    job?.attributes.errors && job.attributes.errors.length > 0
-      ? `Errors (${job.attributes.errors.length})`
+    job?.errors && job.errors.length > 0
+      ? `Errors (${job.errors.length})`
       : 'Errors'
   const handleRun = () => {
     createJobRun(
@@ -148,7 +151,12 @@ const RegionalNavComponent = ({
     ).then(() => getJobSpecRuns())
   }
   const handleDelete = (id: string) => {
-    deleteJobSpec(id, () => DeleteSuccessNotification({ id }), ErrorMessage)
+    deleteJobSpec(
+      id,
+      () => DeleteSuccessNotification({ id }),
+      ErrorMessage,
+      job?.type,
+    )
     setArchived(true)
   }
   return (
@@ -215,9 +223,11 @@ const RegionalNavComponent = ({
       <Card className={classes.container}>
         <Grid container spacing={0}>
           <Grid item xs={12}>
-            <Typography variant="subtitle2" color="secondary" gutterBottom>
-              Job spec detail
-            </Typography>
+            {job && (
+              <Typography variant="subtitle2" color="secondary" gutterBottom>
+                {job?.type} job spec detail
+              </Typography>
+            )}
           </Grid>
           <Grid item xs={12}>
             <Grid
@@ -227,64 +237,69 @@ const RegionalNavComponent = ({
               className={classes.mainRow}
             >
               <Grid item xs={6}>
-                <Typography
-                  variant="h3"
-                  color="secondary"
-                  className={classes.jobSpecId}
-                >
-                  {job?.attributes.name || jobSpecId}
-                </Typography>
+                {job && (
+                  <Typography
+                    variant="h3"
+                    color="secondary"
+                    className={classes.jobSpecId}
+                  >
+                    {job.name || jobSpecId}
+                  </Typography>
+                )}
               </Grid>
               <Grid item xs={6} className={classes.actions}>
-                <Button
-                  className={classes.regionalNavButton}
-                  onClick={() => setModalOpen(true)}
-                >
-                  Archive
-                </Button>
-                {job && isWebInitiator(job.attributes.initiators) && (
-                  <Button
-                    onClick={handleRun}
-                    className={classes.regionalNavButton}
-                  >
-                    Run
-                  </Button>
-                )}
-                {definition && (
-                  <Button
-                    href={`/jobs/new?definition=${encodeURIComponent(
-                      JSON.stringify(definition),
-                    )}`}
-                    component={BaseLink}
-                    className={classes.regionalNavButton}
-                  >
-                    Duplicate
-                  </Button>
-                )}
-                {definition && (
-                  <CopyJobSpec
-                    JobSpec={definition}
-                    className={classes.regionalNavButton}
-                  />
+                {job && (
+                  <>
+                    <Button
+                      className={classes.regionalNavButton}
+                      onClick={() => setModalOpen(true)}
+                    >
+                      Archive
+                    </Button>
+                    {job.type === 'Direct request' &&
+                      job.initiators &&
+                      isWebInitiator(job.initiators) && (
+                        <Button
+                          onClick={handleRun}
+                          className={classes.regionalNavButton}
+                        >
+                          Run
+                        </Button>
+                      )}
+                    {job.definition && (
+                      <Button
+                        href={`/jobs/new?definition=${encodeURIComponent(
+                          JSON.stringify(job.definition),
+                        )}`}
+                        component={BaseLink}
+                        className={classes.regionalNavButton}
+                      >
+                        Duplicate
+                      </Button>
+                    )}
+                    {job.definition && (
+                      <CopyJobSpec
+                        JobSpec={job.definition}
+                        className={classes.regionalNavButton}
+                      />
+                    )}
+                  </>
                 )}
               </Grid>
             </Grid>
           </Grid>
           <Grid item xs={12}>
-            {job?.attributes.name && (
+            {job?.name && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {job.attributes.id}
+                {job.id}
               </Typography>
             )}
-            <Typography variant="subtitle2" color="textSecondary">
-              Created{' '}
-              {job?.attributes.createdAt && (
-                <>
-                  <TimeAgo tooltip={false}>{job.attributes.createdAt}</TimeAgo>{' '}
-                  ({localizedTimestamp(job.attributes.createdAt)})
-                </>
-              )}
-            </Typography>
+            {job?.createdAt && (
+              <Typography variant="subtitle2" color="textSecondary">
+                Created <TimeAgo tooltip={false}>{job.createdAt}</TimeAgo> (
+                {localizedTimestamp(job.createdAt)})
+              </Typography>
+            )}
           </Grid>
           <Grid item xs={12}>
             <List className={classes.horizontalNav}>
@@ -299,28 +314,32 @@ const RegionalNavComponent = ({
                   Overview
                 </Link>
               </ListItem>
-              <ListItem className={classes.horizontalNavItem}>
-                <Link
-                  href={`/jobs/${jobSpecId}/json`}
-                  className={classNames(
-                    classes.horizontalNavLink,
-                    navDefinitionActive && classes.activeNavLink,
-                  )}
-                >
-                  JSON
-                </Link>
-              </ListItem>
-              <ListItem className={classes.horizontalNavItem}>
-                <Link
-                  href={`/jobs/${jobSpecId}/errors`}
-                  className={classNames(
-                    classes.horizontalNavLink,
-                    navErrorsActive && classes.activeNavLink,
-                  )}
-                >
-                  {errorsTabText}
-                </Link>
-              </ListItem>
+              {job?.type === 'Direct request' && (
+                <>
+                  <ListItem className={classes.horizontalNavItem}>
+                    <Link
+                      href={`/jobs/${jobSpecId}/definition`}
+                      className={classNames(
+                        classes.horizontalNavLink,
+                        navDefinitionActive && classes.activeNavLink,
+                      )}
+                    >
+                      Definition
+                    </Link>
+                  </ListItem>
+                  <ListItem className={classes.horizontalNavItem}>
+                    <Link
+                      href={`/jobs/${jobSpecId}/errors`}
+                      className={classNames(
+                        classes.horizontalNavLink,
+                        navErrorsActive && classes.activeNavLink,
+                      )}
+                    >
+                      {errorsTabText}
+                    </Link>
+                  </ListItem>
+                </>
+              )}
             </List>
           </Grid>
         </Grid>

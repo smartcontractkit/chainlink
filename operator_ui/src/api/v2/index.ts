@@ -9,6 +9,7 @@ import { Transactions } from './transactions'
 import { User } from './user'
 import { OcrKeys } from './ocrKeys'
 import { P2PKeys } from './p2pKeys'
+import { OcrRuns } from './ocrRuns'
 import { OcrSpecs } from './ocrSpecs'
 
 export class V2 {
@@ -25,4 +26,5 @@ export class V2 {
   public ocrKeys = new OcrKeys(this.api)
   public p2pKeys = new P2PKeys(this.api)
   public ocrSpecs = new OcrSpecs(this.api)
+  public ocrRuns = new OcrRuns(this.api)
 }
