@@ -737,7 +737,18 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	// Helps to avoid deadlocks caused by multiple tests simultaneously writing
 	// to eth_txes in different order and locking on nonce
-	cltest.RandomiseNonce(t, app.Store)
+	//
+	// We have two tests (transactions because we're using txdb) which, for the same DefaultKeyAddress, try to:
+	// Tx1:
+	//     Read the nonce from keys (locking on address, nonce)
+	//     Write to eth_txes
+	// Tx 2:
+	//     Write to eth_txes (I guess updating the state of the tx as completed?)
+	//     Update nonce in keys (blocked on lock from tx 1)
+	//
+	// If every test/transaction has a different random nonce, then tx 2 doesn't have to wait for tx 1 to release the lock on that (address, nonce)
+
+	cltest.RandomizeNonce(t, app.Store)
 
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccountWithAddress", cltest.DefaultKeyAddress).Return(true)
