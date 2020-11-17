@@ -357,6 +357,7 @@ type PollingDeviationChecker struct {
 	logBroadcaster eth.LogBroadcaster
 	fetcher        Fetcher
 	flagsContract  *contracts.Flags
+	oracleAddress  common.Address
 
 	initr         models.Initiator
 	minJobPayment *assets.Link
@@ -538,6 +539,10 @@ func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err erro
 func (p *PollingDeviationChecker) consume() {
 	defer close(p.waitOnStop)
 
+	if err := p.SetOracleAddress(); err != nil {
+		logger.Warnw("unable to set oracle address, this flux monitor job may not work correctly", "err", err)
+	}
+
 	// subscribe to contract logs
 	isConnected, unsubscribeFALogs := p.fluxAggregator.SubscribeToLogs(p)
 	defer unsubscribeFALogs()
@@ -604,6 +609,31 @@ func (p *PollingDeviationChecker) consume() {
 			p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 		}
 	}
+}
+
+func (p *PollingDeviationChecker) SetOracleAddress() error {
+	oracleAddrs, err := p.fluxAggregator.GetOracles()
+	if err != nil {
+		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
+	}
+	accounts := p.store.KeyStore.Accounts()
+	for _, acct := range accounts {
+		for _, oracleAddr := range oracleAddrs {
+			if acct.Address == oracleAddr {
+				p.oracleAddress = oracleAddr
+				return nil
+			}
+		}
+	}
+	if len(accounts) > 0 {
+		addr := accounts[0].Address
+		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr)
+		p.oracleAddress = addr
+	} else {
+		logger.Error("No keys found. This flux monitor job may not work correctly")
+	}
+	return errors.New("none of the node's keys matched any oracle addresses")
+
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
@@ -799,11 +829,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 	}
 
 	// Ignore rounds we started
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching account from keystore: %v", err), p.loggerFieldsForNewRound(log)...)
-		return
-	} else if log.StartedBy == acct.Address {
+	if p.oracleAddress == log.StartedBy {
 		logger.Infow("Ignoring new round request: we started this round", p.loggerFieldsForNewRound(log)...)
 		return
 	}
@@ -996,11 +1022,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggregatorRoundState, error) {
-	acct, err := p.store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return contracts.FluxAggregatorRoundState{}, err
-	}
-	roundState, err := p.fluxAggregator.RoundState(acct.Address, roundID)
+	roundState, err := p.fluxAggregator.RoundState(p.oracleAddress, roundID)
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}

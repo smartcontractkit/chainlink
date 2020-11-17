@@ -666,7 +666,7 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.Store
 
-	account := cltest.GetAccountAddress(t, store)
+	account := cltest.DefaultKeyAddress
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -687,7 +687,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1)
-	account := cltest.GetAccountAddress(t, store)
+	account := cltest.DefaultKeyAddress
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -1138,7 +1138,7 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
 
