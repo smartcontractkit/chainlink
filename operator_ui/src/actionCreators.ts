@@ -10,9 +10,7 @@ import { AppState } from './reducers'
 import {
   AuthActionType,
   NotifyActionType,
-  RedirectAction,
   ResourceActionType,
-  RouterActionType,
 } from './reducers/actions'
 
 export type GetNormalizedData<T extends AnyFunc> = ReturnType<
@@ -34,16 +32,11 @@ const createErrorAction = (error: Error, type: string) => ({
   error: error.stack,
 })
 
-const REDIRECT_TO_SIGNOUT_ACTION: RedirectAction = {
-  type: RouterActionType.REDIRECT,
-  to: '/signout',
-}
-
 const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error,
 ) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
+    sendSignOut()
   } else {
     dispatch(createErrorAction(error, type))
   }
@@ -251,7 +244,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    dispatch(REDIRECT_TO_SIGNOUT_ACTION)
+    sendSignOut()
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }
