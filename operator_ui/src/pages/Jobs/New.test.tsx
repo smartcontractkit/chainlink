@@ -76,9 +76,9 @@ describe('pages/Jobs/New', () => {
       },
     )
 
-    expect(wrapper.text()).toContain('"foo": "bar"')
+    expect(wrapper.text()).toContain('"foo":"bar"')
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
-    expect(wrapper.text()).toContain(JSON.stringify(expected, null, 4))
+    expect(wrapper.text()).toContain(JSON.stringify(expected))
   })
 
   it('loads TOML spec definition from search param', async () => {

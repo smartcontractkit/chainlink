@@ -76,22 +76,44 @@ describe('generateJSONDefinition', () => {
       earnings: null,
     }
 
-    const expectedOutput = {
-      initiators: [{ type: 'web' }],
-      name: 'Bitstamp ticker',
-      startAt: '2020-02-09T15:13:03Z',
-      tasks: [
+    const expectedOutput = `{
+    "name": "Bitstamp ticker",
+    "initiators": [
         {
-          confirmations: 0,
-          params: { get: 'https://bitstamp.net/api/ticker/' },
-          type: 'httpget',
+            "type": "web"
+        }
+    ],
+    "tasks": [
+        {
+            "type": "httpget",
+            "confirmations": 0,
+            "params": {
+                "get": "https://bitstamp.net/api/ticker/"
+            }
         },
-        { params: { path: ['last'] }, type: 'jsonparse' },
-        { params: { times: 100 }, type: 'multiply' },
-        { type: 'ethuint256' },
-        { type: 'ethtx' },
-      ],
-    }
+        {
+            "type": "jsonparse",
+            "params": {
+                "path": [
+                    "last"
+                ]
+            }
+        },
+        {
+            "type": "multiply",
+            "params": {
+                "times": 100
+            }
+        },
+        {
+            "type": "ethuint256"
+        },
+        {
+            "type": "ethtx"
+        }
+    ],
+    "startAt": "2020-02-09T15:13:03Z"
+}`
 
     const output = generateJSONDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)

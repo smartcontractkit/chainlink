@@ -42,25 +42,21 @@ export function getJobSpecFormat({
 export function stringifyJobSpec({
   value,
   format,
-}:
-  | {
-      value: string
-      format: JobSpecFormats.JSON
+}: {
+  value: { [key: string]: any }
+  format: JobSpecFormats
+}): string {
+  try {
+    if (format === JobSpecFormats.JSON) {
+      return JSON.stringify(value, null, 4)
+    } else if (format === JobSpecFormats.TOML) {
+      return TOML.stringify(value)
     }
-  | {
-      value: { [key: string]: any }
-      format: JobSpecFormats.TOML
-    }): string {
-  if (format === JobSpecFormats.JSON && typeof value === 'string') {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 4)
-    } catch {
-      return value || ''
-    }
-  }
-
-  if (format === JobSpecFormats.TOML && typeof value === 'object') {
-    return TOML.stringify(value)
+  } catch (e) {
+    console.error(
+      `Failed to stringify ${format} job spec with the following error: ${e.message}`,
+    )
+    return ''
   }
 
   return ''

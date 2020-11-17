@@ -4,7 +4,6 @@ import {
   JobSpecFormats,
   JobSpecFormat,
   getJobSpecFormat,
-  stringifyJobSpec,
   isJson,
   isToml,
 } from './utils'
@@ -123,7 +122,7 @@ function getInitialValues({
     JobSpecFormats.JSON
 
   return {
-    jobSpec: stringifyJobSpec({ value: jobSpec, format }),
+    jobSpec,
     format,
   }
 }

@@ -58,12 +58,12 @@ const Definition: React.FC<
               </Grid>
               <Grid item xs={12}>
                 {job.type === 'Direct request' && (
-                  <PrettyJson object={job.definition} />
+                  <PrettyJson object={JSON.parse(job.definition)} />
                 )}
                 {job.type === 'Off-chain reporting' && (
-                  <pre style={{ margin: 0 }}>
-                    <code>{job.definition}</code>
-                  </pre>
+                  <Typography variant="body1">
+                    <pre style={{ margin: 0 }}>{job.definition}</pre>
+                  </Typography>
                 )}
               </Grid>
             </Grid>

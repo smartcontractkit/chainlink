@@ -52,8 +52,8 @@ type ScrubbedJobSpec = { [key in DIRECT_REQUEST_DEFINITION_VALID_KEYS]: any }
 
 export const generateJSONDefinition = (
   job: ApiResponse<JobSpec>['data']['attributes'],
-): ScrubbedJobSpec =>
-  ([
+): string => {
+  const scrubbedJobSpec: ScrubbedJobSpec = ([
     'name',
     'initiators',
     'tasks',
@@ -72,7 +72,13 @@ export const generateJSONDefinition = (
       ...accumulator,
       [key]: value,
     }
-  }, {} as JobSpec)
+  }, {} as ScrubbedJobSpec)
+
+  return stringifyJobSpec({
+    value: scrubbedJobSpec,
+    format: JobSpecFormats.JSON,
+  })
+}
 
 export const generateTOMLDefinition = (
   jobSpecAttributes: ApiResponse<OcrJobSpec>['data']['attributes'],

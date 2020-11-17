@@ -14,7 +14,6 @@ import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
-import { JobSpecFormats, stringifyJobSpec } from './utils'
 
 type Props = RouteComponentProps<{
   jobSpecId: string
@@ -117,9 +116,6 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         .getJobSpec(jobSpecId)
         .then((response) => {
           const jobSpec = response.data
-
-          console.log('jobSpec', jobSpec)
-
           setState((s) => ({
             ...s,
             jobSpec,

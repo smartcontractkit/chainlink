@@ -267,21 +267,21 @@ const RegionalNavComponent = ({
                         </Button>
                       )}
                     {job.definition && (
-                      <Button
-                        href={`/jobs/new?definition=${encodeURIComponent(
-                          JSON.stringify(job.definition),
-                        )}`}
-                        component={BaseLink}
-                        className={classes.regionalNavButton}
-                      >
-                        Duplicate
-                      </Button>
-                    )}
-                    {job.definition && (
-                      <CopyJobSpec
-                        JobSpec={job.definition}
-                        className={classes.regionalNavButton}
-                      />
+                      <>
+                        <Button
+                          href={`/jobs/new?definition=${encodeURIComponent(
+                            job.definition,
+                          )}`}
+                          component={BaseLink}
+                          className={classes.regionalNavButton}
+                        >
+                          Duplicate
+                        </Button>
+                        <CopyJobSpec
+                          JobSpec={job.definition}
+                          className={classes.regionalNavButton}
+                        />
+                      </>
                     )}
                   </>
                 )}
