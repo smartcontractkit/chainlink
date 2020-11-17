@@ -314,31 +314,29 @@ const RegionalNavComponent = ({
                   Overview
                 </Link>
               </ListItem>
+              <ListItem className={classes.horizontalNavItem}>
+                <Link
+                  href={`/jobs/${jobSpecId}/definition`}
+                  className={classNames(
+                    classes.horizontalNavLink,
+                    navDefinitionActive && classes.activeNavLink,
+                  )}
+                >
+                  Definition
+                </Link>
+              </ListItem>
               {job?.type === 'Direct request' && (
-                <>
-                  <ListItem className={classes.horizontalNavItem}>
-                    <Link
-                      href={`/jobs/${jobSpecId}/definition`}
-                      className={classNames(
-                        classes.horizontalNavLink,
-                        navDefinitionActive && classes.activeNavLink,
-                      )}
-                    >
-                      Definition
-                    </Link>
-                  </ListItem>
-                  <ListItem className={classes.horizontalNavItem}>
-                    <Link
-                      href={`/jobs/${jobSpecId}/errors`}
-                      className={classNames(
-                        classes.horizontalNavLink,
-                        navErrorsActive && classes.activeNavLink,
-                      )}
-                    >
-                      {errorsTabText}
-                    </Link>
-                  </ListItem>
-                </>
+                <ListItem className={classes.horizontalNavItem}>
+                  <Link
+                    href={`/jobs/${jobSpecId}/errors`}
+                    className={classNames(
+                      classes.horizontalNavLink,
+                      navErrorsActive && classes.activeNavLink,
+                    )}
+                  >
+                    {errorsTabText}
+                  </Link>
+                </ListItem>
               )}
             </List>
           </Grid>
