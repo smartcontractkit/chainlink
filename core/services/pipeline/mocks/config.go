@@ -116,20 +116,6 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
-// TriggerFallbackDBPollInterval provides a mock function with given fields:
-func (_m *Config) TriggerFallbackDBPollInterval() time.Duration {
-	ret := _m.Called()
-
-	var r0 time.Duration
-	if rf, ok := ret.Get(0).(func() time.Duration); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(time.Duration)
-	}
-
-	return r0
-}
-
 // JobPipelineMaxTaskDuration provides a mock function with given fields:
 func (_m *Config) JobPipelineMaxTaskDuration() time.Duration {
 	ret := _m.Called()
@@ -174,6 +160,20 @@ func (_m *Config) JobPipelineReaperInterval() time.Duration {
 
 // JobPipelineReaperThreshold provides a mock function with given fields:
 func (_m *Config) JobPipelineReaperThreshold() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
+// TriggerFallbackDBPollInterval provides a mock function with given fields:
+func (_m *Config) TriggerFallbackDBPollInterval() time.Duration {
 	ret := _m.Called()
 
 	var r0 time.Duration

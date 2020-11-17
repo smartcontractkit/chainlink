@@ -881,7 +881,7 @@ func CreateExternalInitiatorViaWeb(
 }
 
 const (
-	DBWaitTimeout = 5 * time.Second
+	DBWaitTimeout = 10 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
 )
@@ -1066,11 +1066,25 @@ func WaitForEthTxCount(t testing.TB, store *strpkg.Store, want int) []models.Eth
 	var txes []models.EthTx
 	var err error
 	g.Eventually(func() []models.EthTx {
-		err = store.DB.Find(&txes).Error
+		err = store.DB.Order("nonce desc").Find(&txes).Error
 		assert.NoError(t, err)
 		return txes
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txes
+}
+
+func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx models.EthTx) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var attempts []models.EthTxAttempt
+	var err error
+	g.Eventually(func() int {
+		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
+		assert.NoError(t, err)
+		return len(attempts)
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">", 0))
+	return attempts
 }
 
 func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
@@ -1187,16 +1201,6 @@ func BlockWithTransactions(gasPrices ...int64) *types.Block {
 		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
 	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
-}
-
-// GetAccountAddress returns Address of the account in the keystore of the passed in store
-func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
-	t.Helper()
-
-	account, err := store.KeyStore.GetFirstAccount()
-	require.NoError(t, err)
-
-	return account.Address
 }
 
 func StringToHash(s string) common.Hash {
@@ -1469,4 +1473,11 @@ func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
 	require.NoError(t, err)
 	return k
+}
+
+func RandomizeNonce(t *testing.T, s *strpkg.Store) {
+	t.Helper()
+	n := rand.Intn(32767) + 100
+	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
+	require.NoError(t, err)
 }
