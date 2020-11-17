@@ -6,8 +6,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/jinzhu/gorm"
@@ -141,18 +139,6 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-			eb := ocrkey.EncryptedKeyBundle{}
-			if err := tx.Find(&eb, "id = ?",
-				jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID).Error; err != nil {
-				return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-			}
-			tm := models.Key{}
-			if err := tx.Find(&tm, "address = ?",
-				jobSpec.OffchainreportingOracleSpec.TransmitterAddress.Bytes()).Error; err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-			}
-		}
 		// TODO(connor): this needs to accept the tx to be transactional?
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
 		if err != nil {
@@ -161,8 +147,18 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
-		if err != nil && strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_p2p_peer_id_fkey"`) {
-			return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+		if err != nil {
+			if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_p2p_peer_id_fkey"`) {
+				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+			}
+			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_transmitter_address_fkey"`) {
+					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+				}
+				if strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey"`) {
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+				}
+			}
 		}
 		return errors.Wrap(err, "failed to create job")
 	})
