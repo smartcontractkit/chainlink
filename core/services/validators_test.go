@@ -313,10 +313,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 	assert.NoError(t, err)
 	defer cleanup()
 
-	account, err := store.KeyStore.GetFirstAccount()
-	assert.NoError(t, err)
-
-	oracles := []string{account.Address.Hex()}
+	oracles := []string{cltest.DefaultKeyAddress.Hex()}
 
 	basic := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)

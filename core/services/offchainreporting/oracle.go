@@ -120,7 +120,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
 	}
 
-	pstorewrapper, err := NewPeerstoreWrapper(context.TODO(), d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
+	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not make new pstorewrapper")
 	}
