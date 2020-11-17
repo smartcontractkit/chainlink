@@ -54,17 +54,17 @@ func TestOCRJobRunsController_Index_HappyPath(t *testing.T) {
 	assert.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
-	assert.Equal(t, parsedResponse[0].ID, runIDs[0])
-	assert.NotNil(t, parsedResponse[0].CreatedAt)
-	assert.NotNil(t, parsedResponse[0].FinishedAt)
-	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
+	assert.Equal(t, parsedResponse[1].ID, runIDs[0])
+	assert.NotNil(t, parsedResponse[1].CreatedAt)
+	assert.NotNil(t, parsedResponse[1].FinishedAt)
+	require.Len(t, parsedResponse[1].PipelineTaskRuns, 4)
 }
 
 func TestOCRJobRunsController_Index_Pagination(t *testing.T) {
 	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs?page=2&size=1")
+	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
