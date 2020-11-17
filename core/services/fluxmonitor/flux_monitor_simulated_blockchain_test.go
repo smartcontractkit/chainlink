@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	goEthereumEth "github.com/ethereum/go-ethereum/eth"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -160,90 +159,90 @@ func checkOraclesAdded(t *testing.T, f fluxAggregatorUniverse, oracleList []comm
 	}
 }
 
-type answerParams struct {
-	fa                          *fluxAggregatorUniverse
-	roundId, answer             int64
-	from                        *bind.TransactOpts
-	isNewRound, completesAnswer bool
-}
+// type answerParams struct {
+//     fa                          *fluxAggregatorUniverse
+//     roundId, answer             int64
+//     from                        *bind.TransactOpts
+//     isNewRound, completesAnswer bool
+// }
 
-// checkSubmission verifies all the logs emitted by fa's FluxAggregator
-// contract after an updateAnswer with the given values.
-func checkSubmission(t *testing.T, p answerParams,
-	currentBalance int64, receiptBlock uint64) {
-	t.Helper()
-	if receiptBlock == 0 {
-		receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
-	}
-	fromBlock := &bind.FilterOpts{Start: receiptBlock, End: &receiptBlock}
+// // checkSubmission verifies all the logs emitted by fa's FluxAggregator
+// // contract after an updateAnswer with the given values.
+// func checkSubmission(t *testing.T, p answerParams,
+//     currentBalance int64, receiptBlock uint64) {
+//     t.Helper()
+//     if receiptBlock == 0 {
+//         receiptBlock = p.fa.backend.Blockchain().CurrentBlock().Number().Uint64()
+//     }
+//     fromBlock := &bind.FilterOpts{Start: receiptBlock, End: &receiptBlock}
 
-	// Could filter for the known values here, but while that would be more
-	// succinct it leads to less informative error messages... Did the log not
-	// appear at all, or did it just have a wrong value?
-	ilogs, err := p.fa.aggregatorContract.FilterSubmissionReceived(fromBlock, []*big.Int{}, []uint32{}, []common.Address{})
-	require.NoError(t, err, "failed to get SubmissionReceived logs")
+//     // Could filter for the known values here, but while that would be more
+//     // succinct it leads to less informative error messages... Did the log not
+//     // appear at all, or did it just have a wrong value?
+//     ilogs, err := p.fa.aggregatorContract.FilterSubmissionReceived(fromBlock, []*big.Int{}, []uint32{}, []common.Address{})
+//     require.NoError(t, err, "failed to get SubmissionReceived logs")
 
-	var srlogs []*faw.FluxAggregatorSubmissionReceived
-	_ = cltest.GetLogs(t, &srlogs, ilogs)
-	require.Len(t, srlogs, 1, "FluxAggregator did not emit correct SubmissionReceived log")
-	assert.Equal(t, uint32(p.roundId), srlogs[0].Round, "SubmissionReceived log has wrong round")
-	assert.Equal(t, p.from.From, srlogs[0].Oracle, "SubmissionReceived log has wrong oracle")
+//     var srlogs []*faw.FluxAggregatorSubmissionReceived
+//     _ = cltest.GetLogs(t, &srlogs, ilogs)
+//     require.Len(t, srlogs, 1, "FluxAggregator did not emit correct SubmissionReceived log")
+//     assert.Equal(t, uint32(p.roundId), srlogs[0].Round, "SubmissionReceived log has wrong round")
+//     assert.Equal(t, p.from.From, srlogs[0].Oracle, "SubmissionReceived log has wrong oracle")
 
-	inrlogs, err := p.fa.aggregatorContract.FilterNewRound(fromBlock, []*big.Int{}, []common.Address{})
-	require.NoError(t, err, "failed to get NewRound logs")
+//     inrlogs, err := p.fa.aggregatorContract.FilterNewRound(fromBlock, []*big.Int{}, []common.Address{})
+//     require.NoError(t, err, "failed to get NewRound logs")
 
-	if p.isNewRound {
-		var nrlogs []*faw.FluxAggregatorNewRound
-		cltest.GetLogs(t, &nrlogs, inrlogs)
-		require.Len(t, nrlogs, 1, "FluxAggregator did not emit correct NewRound log")
-		assert.Equal(t, p.roundId, nrlogs[0].RoundId.Int64(), "NewRound log has wrong roundId")
-		assert.Equal(t, p.from.From, nrlogs[0].StartedBy, "NewRound log started by wrong oracle")
-	} else {
-		assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0, "FluxAggregator emitted unexpected NewRound log")
-	}
+//     if p.isNewRound {
+//         var nrlogs []*faw.FluxAggregatorNewRound
+//         cltest.GetLogs(t, &nrlogs, inrlogs)
+//         require.Len(t, nrlogs, 1, "FluxAggregator did not emit correct NewRound log")
+//         assert.Equal(t, p.roundId, nrlogs[0].RoundId.Int64(), "NewRound log has wrong roundId")
+//         assert.Equal(t, p.from.From, nrlogs[0].StartedBy, "NewRound log started by wrong oracle")
+//     } else {
+//         assert.Len(t, cltest.GetLogs(t, nil, inrlogs), 0, "FluxAggregator emitted unexpected NewRound log")
+//     }
 
-	iaflogs, err := p.fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock, []*big.Int{})
-	require.NoError(t, err, "failed to get AvailableFundsUpdated logs")
+//     iaflogs, err := p.fa.aggregatorContract.FilterAvailableFundsUpdated(fromBlock, []*big.Int{})
+//     require.NoError(t, err, "failed to get AvailableFundsUpdated logs")
 
-	var aflogs []*faw.FluxAggregatorAvailableFundsUpdated
-	_ = cltest.GetLogs(t, &aflogs, iaflogs)
-	assert.Len(t, aflogs, 1, "FluxAggregator did not emit correct AvailableFundsUpdated log")
-	assert.Equal(t, currentBalance-fee, aflogs[0].Amount.Int64(), "AvailableFundsUpdated log has wrong amount")
+//     var aflogs []*faw.FluxAggregatorAvailableFundsUpdated
+//     _ = cltest.GetLogs(t, &aflogs, iaflogs)
+//     assert.Len(t, aflogs, 1, "FluxAggregator did not emit correct AvailableFundsUpdated log")
+//     assert.Equal(t, currentBalance-fee, aflogs[0].Amount.Int64(), "AvailableFundsUpdated log has wrong amount")
 
-	iaulogs, err := p.fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
-		[]*big.Int{big.NewInt(p.answer)}, []*big.Int{big.NewInt(p.roundId)})
-	require.NoError(t, err, "failed to get AnswerUpdated logs")
-	if p.completesAnswer {
-		var aulogs []*faw.FluxAggregatorAnswerUpdated
-		_ = cltest.GetLogs(t, &aulogs, iaulogs)
-		assert.Len(t, aulogs, 1, "FluxAggregator did not emit correct AnswerUpdated log")
-		assert.Equal(t, p.roundId, aulogs[0].RoundId.Int64(), "AnswerUpdated log has wrong roundId")
-		assert.Equal(t, p.answer, aulogs[0].Current.Int64(), "AnswerUpdated log has wrong current value")
-	}
-}
+//     iaulogs, err := p.fa.aggregatorContract.FilterAnswerUpdated(fromBlock,
+//         []*big.Int{big.NewInt(p.answer)}, []*big.Int{big.NewInt(p.roundId)})
+//     require.NoError(t, err, "failed to get AnswerUpdated logs")
+//     if p.completesAnswer {
+//         var aulogs []*faw.FluxAggregatorAnswerUpdated
+//         _ = cltest.GetLogs(t, &aulogs, iaulogs)
+//         assert.Len(t, aulogs, 1, "FluxAggregator did not emit correct AnswerUpdated log")
+//         assert.Equal(t, p.roundId, aulogs[0].RoundId.Int64(), "AnswerUpdated log has wrong roundId")
+//         assert.Equal(t, p.answer, aulogs[0].Current.Int64(), "AnswerUpdated log has wrong current value")
+//     }
+// }
 
-// currentbalance returns the current balance of fa's FluxAggregator
-func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
-	currentBalance, err := fa.aggregatorContract.AvailableFunds(nil)
-	require.NoError(t, err, "failed to get current FA balance")
-	return currentBalance
-}
+// // currentbalance returns the current balance of fa's FluxAggregator
+// func currentBalance(t *testing.T, fa *fluxAggregatorUniverse) *big.Int {
+//     currentBalance, err := fa.aggregatorContract.AvailableFunds(nil)
+//     require.NoError(t, err, "failed to get current FA balance")
+//     return currentBalance
+// }
 
-// submitAnswer simulates a call to fa's FluxAggregator contract from from, with
-// the given roundId and answer, and checks that all the logs emitted by the
-// contract are correct
-func submitAnswer(t *testing.T, p answerParams) {
-	cb := currentBalance(t, p.fa)
-	_, err := p.fa.aggregatorContract.Submit(p.from, big.NewInt(p.roundId), big.NewInt(p.answer))
-	require.NoError(t, err, "failed to initialize first flux aggregation round:")
+// // submitAnswer simulates a call to fa's FluxAggregator contract from from, with
+// // the given roundId and answer, and checks that all the logs emitted by the
+// // contract are correct
+// func submitAnswer(t *testing.T, p answerParams) {
+//     cb := currentBalance(t, p.fa)
+//     _, err := p.fa.aggregatorContract.Submit(p.from, big.NewInt(p.roundId), big.NewInt(p.answer))
+//     require.NoError(t, err, "failed to initialize first flux aggregation round:")
 
-	p.fa.backend.Commit()
-	checkSubmission(t, p, cb.Int64(), 0)
-}
+//     p.fa.backend.Commit()
+//     checkSubmission(t, p, cb.Int64(), 0)
+// }
 
-type maliciousFluxMonitor interface {
-	CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
-}
+// type maliciousFluxMonitor interface {
+//     CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
+// }
 
 func waitForRunsAndEthTxCount(
 	t *testing.T,
