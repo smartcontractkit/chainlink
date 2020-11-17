@@ -734,6 +734,10 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer appCleanup()
+
+	// Helps to avoid deadlocks
+	cltest.RandomiseNonce(t, app.Store)
+
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccountWithAddress", cltest.DefaultKeyAddress).Return(true)
 	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
