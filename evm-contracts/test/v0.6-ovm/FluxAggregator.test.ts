@@ -906,7 +906,9 @@ describe('FluxAggregator', () => {
 
         await aggregator
           .connect(personas.Nelly)
-          .submit(nextRound, answer, { gasLimit: 500000 })
+          // OVM CHANGE: gas metering on OVM not implemented correctly
+          // .submit(nextRound, answer, { gasLimit: 500000 })
+          .submit(nextRound, answer, { gasLimit: 2 * 500000 })
 
         matchers.bigNum(answer, await aggregator.latestAnswer())
       })
