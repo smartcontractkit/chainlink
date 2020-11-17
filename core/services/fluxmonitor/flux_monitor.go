@@ -627,7 +627,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	}
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		logger.Warnw("none of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr)
+		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr)
 		p.oracleAddress = addr
 	} else {
 		logger.Error("No keys found. This flux monitor job may not work correctly")

@@ -266,6 +266,7 @@ func waitForRunsAndEthTxCount(
 // TODO: This test is non-deterministic and needs to be rewritten or rethought
 // See: https://www.pivotaltracker.com/story/show/175757546
 // func TestFluxMonitorAntiSpamLogic(t *testing.T) {
+//     t.Skip()
 //     // Comments starting with "-" describe the steps this test executes.
 
 //     // - deploy a brand new FM contract
@@ -295,7 +296,7 @@ func waitForRunsAndEthTxCount(
 
 //     //- have one of the fake nodes start a round.
 //     roundId := int64(1)
-//     processedAnswer := answer * 100 [> job has multiply times 100 <]
+//     processedAnswer := answer * 100 // [> job has multiply times 100 <]
 //     submitAnswer(t, answerParams{
 //         fa:              &fa,
 //         roundId:         roundId,
