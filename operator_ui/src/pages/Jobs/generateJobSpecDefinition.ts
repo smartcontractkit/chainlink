@@ -1,19 +1,74 @@
-const DEFINITION_KEYS = ['initiators', 'tasks', 'startAt', 'endAt']
-const SCRUBBED_KEYS = ['ID', 'CreatedAt', 'DeletedAt', 'UpdatedAt']
+import { ApiResponse } from '@chainlink/json-api-client'
+import { JobSpec } from 'core/store/models'
 
-const scrub = (payload) => {
-  if (Array.isArray(payload)) {
-    return payload.map((p) => scrub(p))
-  }
-  if (typeof payload !== 'object' || payload === null) {
+type DIRECT_REQUEST_DEFINITION_VALID_KEYS =
+  | 'name'
+  | 'initiators'
+  | 'tasks'
+  | 'startAt'
+  | 'endAt'
+
+const asUnknownObject = (object: object) => object as { [key: string]: unknown }
+
+const scrub = ({
+  payload,
+  keysToRemove,
+}: {
+  payload: unknown
+  keysToRemove: string[]
+}): JSONValue => {
+  if (typeof payload === 'string' || payload === null) {
     return payload
   }
-  const keepers = Object.keys(payload).filter((k) => !SCRUBBED_KEYS.includes(k))
-  return keepers.reduce((obj, key) => ({ ...obj, [key]: payload[key] }), {})
+
+  if (Array.isArray(payload)) {
+    return payload.map((p) => scrub({ payload: p, keysToRemove }))
+  }
+
+  if (typeof payload === 'object' && payload !== null) {
+    const typedPayload = asUnknownObject(payload)
+    const keepers = Object.keys(typedPayload).filter(
+      (k) => !keysToRemove.includes(k),
+    )
+    return keepers.reduce((accumulator, key) => {
+      const value = typedPayload[key]
+      if (
+        value === null ||
+        (typeof value === 'object' &&
+          value !== null &&
+          Object.keys(value).length === 0)
+      ) {
+        return accumulator
+      }
+      return { ...accumulator, [key]: value }
+    }, {})
+  }
+
+  return null
 }
 
-export default (jobSpec) =>
-  DEFINITION_KEYS.reduce(
-    (obj, key) => ({ ...obj, [key]: scrub(jobSpec[key]) }),
-    {},
-  )
+type ScrubbedJobSpec = { [key in DIRECT_REQUEST_DEFINITION_VALID_KEYS]: any }
+
+export const generateJSONDefinition = (
+  job: ApiResponse<JobSpec>['data']['attributes'],
+): ScrubbedJobSpec =>
+  ([
+    'name',
+    'initiators',
+    'tasks',
+    'startAt',
+    'endAt',
+  ] as DIRECT_REQUEST_DEFINITION_VALID_KEYS[]).reduce((accumulator, key) => {
+    const value = scrub({
+      payload: job[key],
+      keysToRemove: ['ID', 'CreatedAt', 'DeletedAt', 'UpdatedAt'],
+    })
+
+    if (value === null) {
+      return accumulator
+    }
+    return {
+      ...accumulator,
+      [key]: value,
+    }
+  }, {} as JobSpec)
