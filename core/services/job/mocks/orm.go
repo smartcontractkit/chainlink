@@ -153,6 +153,11 @@ func (_m *ORM) ListenForNewJobs() (postgres.Subscription, error) {
 	return r0, r1
 }
 
+// RecordError provides a mock function with given fields: ctx, jobID, description
+func (_m *ORM) RecordError(ctx context.Context, jobID int32, description string) {
+	_m.Called(ctx, jobID, description)
+}
+
 // UnclaimJob provides a mock function with given fields: ctx, id
 func (_m *ORM) UnclaimJob(ctx context.Context, id int32) error {
 	ret := _m.Called(ctx, id)

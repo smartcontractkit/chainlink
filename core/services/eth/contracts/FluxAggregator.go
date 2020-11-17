@@ -15,6 +15,7 @@ import (
 type FluxAggregator interface {
 	eth.ConnectedContract
 	RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error)
+	GetOracles() ([]common.Address, error)
 }
 
 const (
@@ -95,4 +96,13 @@ func (fa *fluxAggregator) RoundState(oracle common.Address, roundID uint32) (Flu
 		return FluxAggregatorRoundState{}, errors.Wrap(err, "unable to encode message call")
 	}
 	return result, nil
+}
+
+func (fa *fluxAggregator) GetOracles() (oracles []common.Address, err error) {
+	oracles = make([]common.Address, 0)
+	err = fa.Call(&oracles, "getOracles")
+	if err != nil {
+		return nil, errors.Wrap(err, "error calling flux aggregator getOracles")
+	}
+	return oracles, nil
 }

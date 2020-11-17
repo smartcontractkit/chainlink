@@ -34,7 +34,7 @@ func (sac *ServiceAgreementsController) Create(c *gin.Context) {
 
 	sa, err := sac.App.GetStore().FindServiceAgreement(us.ID.String())
 	if errors.Cause(err) == orm.ErrorNotFound {
-		sa, err = models.BuildServiceAgreement(us, sac.App.GetStore().KeyStore)
+		sa, err = models.BuildServiceAgreement(us, models.NullSigner{})
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
 			return

@@ -147,7 +147,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.Len(t, keys, 1, "key should already exist because of Application#Start")
 
 	// get account
-	acc, err := store.KeyStore.GetFirstAccount()
+	acc := store.KeyStore.Accounts()[0]
 	require.NoError(t, err)
 
 	require.NoError(t, store.SyncDiskKeyStoreToDB()) // sync
