@@ -1,4 +1,4 @@
-name: Continuous Integration Workflow
+name: CI
 
 on: [push]
 
@@ -84,7 +84,7 @@ jobs:
     strategy:
       matrix:
         test: ['test', 'test:ts']
-        node: [ 'geth', 'parity']
+        node: ['geth', 'parity']
     env:
       GETH_MODE: ${{ matrix.node == 'geth' }}
       CI: true
