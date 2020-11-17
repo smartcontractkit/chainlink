@@ -874,7 +874,7 @@ func CreateExternalInitiatorViaWeb(
 }
 
 const (
-	DBWaitTimeout = 5 * time.Second
+	DBWaitTimeout = 10 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
 )
