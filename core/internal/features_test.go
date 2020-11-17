@@ -735,7 +735,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	)
 	defer appCleanup()
 
-	// Helps to avoid deadlocks
+	// Helps to avoid deadlocks caused by multiple tests simultaneously writing
+	// to eth_txes in different order and locking on nonce
 	cltest.RandomiseNonce(t, app.Store)
 
 	kst := new(mocks.KeyStoreInterface)

@@ -37,13 +37,8 @@ const oracleCount uint8 = 17
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
 	submitSelector = submitHash[:4]
-	oracles        = make([]common.Address, 2)
+	oracles        = []common.Address{cltest.DefaultKeyAddress, cltest.NewAddress()}
 )
-
-func init() {
-	oracles[0] = cltest.DefaultKeyAddress
-	oracles[1] = cltest.NewAddress()
-}
 
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
 	t.Helper()
