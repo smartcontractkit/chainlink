@@ -61,8 +61,12 @@ const Definition: React.FC<
                   <PrettyJson object={JSON.parse(job.definition)} />
                 )}
                 {job.type === 'Off-chain reporting' && (
-                  <Typography variant="body1">
-                    <pre style={{ margin: 0 }}>{job.definition}</pre>
+                  <Typography
+                    style={{ margin: 0 }}
+                    variant="body1"
+                    component="pre"
+                  >
+                    {job.definition}
                   </Typography>
                 )}
               </Grid>
