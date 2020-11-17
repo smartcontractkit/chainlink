@@ -1468,7 +1468,7 @@ func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	return k
 }
 
-func RandomiseNonce(t *testing.T, s *strpkg.Store) {
+func RandomizeNonce(t *testing.T, s *strpkg.Store) {
 	t.Helper()
 	n := rand.Intn(32767) + 100
 	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
