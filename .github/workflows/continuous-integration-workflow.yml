@@ -79,14 +79,14 @@ jobs:
           args: logs ${{ job.services.postgres.id }}
 
   integration:
-    name: Integration tests
+    name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
     runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         test: ['test', 'test:ts']
-        geth: [true, false]
+        node: [ 'geth', 'parity']
     env:
-      GETH_MODE: ${{ matrix.geth }}
+      GETH_MODE: ${{ matrix.node == 'geth' }}
       CI: true
       CHAINLINK_DB_NAME: postgres
       EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }} # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
