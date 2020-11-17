@@ -67,7 +67,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
 	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_job_id_fkey DEFERRED`).Error)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(context.Background(), store.DB, 1*time.Second, 1)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, 1)
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
