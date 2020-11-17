@@ -12,3 +12,5 @@ configure({ adapter: new Adapter() })
 
 global.fetch = require('fetch-mock').sandbox()
 global.fetch.config.overwriteRoutes = true
+
+process.env.TZ = 'UTC'
