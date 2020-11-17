@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -676,57 +675,6 @@ isBootstrapPeer    = true
 		t.Run(tc.name, func(t *testing.T) {
 			s, err := services.ValidatedOracleSpecToml(tc.toml)
 			tc.assertion(t, s, err)
-		})
-	}
-}
-
-func TestValidateOracleSpecDB(t *testing.T) {
-	store, td := cltest.NewStore(t)
-	defer td()
-	var (
-		contractAddress    = cltest.NewEIP55Address()
-		monitoringEndpoint = "chain.link:101"
-	)
-
-	var tt = []struct {
-		name        string
-		pid         models.PeerID
-		kb          models.Sha256Hash
-		ta          models.EIP55Address
-		expectedErr error
-	}{
-		{
-			name:        "invalid keybundle",
-			pid:         models.PeerID(cltest.DefaultP2PPeerID),
-			kb:          models.Sha256Hash(cltest.Random32Byte()),
-			ta:          cltest.DefaultKeyAddressEIP55,
-			expectedErr: services.ErrNoSuchKeyBundle,
-		},
-		{
-			name:        "invalid peerID",
-			pid:         models.PeerID(cltest.NonExistentP2PPeerID),
-			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.DefaultKeyAddressEIP55,
-			expectedErr: services.ErrNoSuchPeerID,
-		},
-		{
-			name:        "invalid transmitter address",
-			pid:         models.PeerID(cltest.DefaultP2PPeerID),
-			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.NewEIP55Address(),
-			expectedErr: services.ErrNoSuchTransmitterAddress,
-		},
-	}
-
-	for _, tc := range tt {
-		t.Run(tc.name, func(t *testing.T) {
-			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, tc.ta, tc.pid, monitoringEndpoint, tc.kb)
-			_, err := services.ValidateOracleSpec(sp, store.DB)
-			if tc.expectedErr != nil {
-				assert.Equal(t, tc.expectedErr, errors.Cause(err))
-			} else {
-				assert.NoError(t, err)
-			}
 		})
 	}
 }

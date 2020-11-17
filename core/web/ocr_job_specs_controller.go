@@ -2,11 +2,13 @@ package web
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -64,7 +66,7 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	jobSpec, err := services.ValidateOracleSpec(request.TOML, ocrjsc.App.GetStore().DB)
+	jobSpec, err := services.ValidatedOracleSpecToml(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -77,6 +79,14 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 
 	jobID, err := ocrjsc.App.AddJobV2(c.Request.Context(), jobSpec)
 	if err != nil {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+		if strings.Contains(err.Error(), `no such ocr key bundle exists`) {
+			jsonAPIError(c, http.StatusBadRequest, errors.New("no such key bundle exists"))
+			return
+		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

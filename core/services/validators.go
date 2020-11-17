@@ -8,9 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
-
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/lib/pq"
@@ -383,57 +380,6 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	}
 
 	return fe.CoerceEmptyToNil()
-}
-
-var (
-	ErrNoSuchPeerID             = errors.New("no such peer id exists")
-	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
-	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
-)
-
-func ValidateOracleSpec(tomlString string, db *gorm.DB) (offchainreporting.OracleSpec, error) {
-	var (
-		spec offchainreporting.OracleSpec
-		err  error
-	)
-	spec, err = ValidatedOracleSpecToml(tomlString)
-	if err != nil {
-		return spec, err
-	}
-
-	// If toml is valid, proceed to db-level validation.
-	var pk p2pkey.EncryptedP2PKey
-	err = db.Find(&pk, "peer_id = ?", spec.P2PPeerID.String()).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return spec, errors.Wrapf(ErrNoSuchPeerID, "%s", spec.P2PPeerID.String())
-		}
-		return spec, errors.Wrapf(err, "unable to confirm peer id existence %s, try again", spec.P2PPeerID.String())
-	}
-
-	if !spec.IsBootstrapPeer {
-		var (
-			transmitterKey        models.Key
-			encryptedOCRKeyBundle ocrkey.EncryptedKeyBundle
-		)
-		err = db.Find(&encryptedOCRKeyBundle, "id = ?", spec.EncryptedOCRKeyBundleID).Error
-		if err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return spec, errors.Wrapf(ErrNoSuchKeyBundle, "%s", spec.EncryptedOCRKeyBundleID.String())
-			}
-			return spec, errors.Wrapf(err, "unable to confirm key bundle existence %s, try again", spec.EncryptedOCRKeyBundleID.String())
-		}
-
-		err = db.Find(&transmitterKey, "address = ?", spec.TransmitterAddress.Bytes()).Error
-		if err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return spec, errors.Wrapf(ErrNoSuchTransmitterAddress, "%s", spec.EncryptedOCRKeyBundleID.String())
-			}
-			return spec, errors.Wrapf(err, "unable to confirm key bundle existence %s, try again", spec.EncryptedOCRKeyBundleID.String())
-		}
-	}
-
-	return spec, nil
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

@@ -3,7 +3,10 @@ package job
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -15,6 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+)
+
+var (
+	ErrNoSuchPeerID             = errors.New("no such peer id exists")
+	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -132,6 +141,19 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+			eb := ocrkey.EncryptedKeyBundle{}
+			if err := tx.Find(&eb, "id = ?",
+				jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID).Error; err != nil {
+				return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+			}
+			tm := models.Key{}
+			if err := tx.Find(&tm, "address = ?",
+				jobSpec.OffchainreportingOracleSpec.TransmitterAddress.Bytes()).Error; err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+			}
+		}
+		// TODO(connor): this needs to accept the tx to be transactional?
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
@@ -139,6 +161,9 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
+		if err != nil && strings.Contains(err.Error(), `violates foreign key constraint "offchainreporting_oracle_specs_p2p_peer_id_fkey"`) {
+			return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+		}
 		return errors.Wrap(err, "failed to create job")
 	})
 }
