@@ -47,9 +47,9 @@ type (
 		P2PPeerID                              PeerID         `json:"p2pPeerID" toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
 		P2PBootstrapPeers                      pq.StringArray `json:"p2pBootstrapPeers" toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
 		IsBootstrapPeer                        bool           `json:"isBootstrapPeer" toml:"isBootstrapPeer"`
-		EncryptedOCRKeyBundleID                Sha256Hash     `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`
+		EncryptedOCRKeyBundleID                *Sha256Hash    `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`
 		MonitoringEndpoint                     string         `json:"monitoringEndpoint" toml:"monitoringEndpoint"`
-		TransmitterAddress                     EIP55Address   `json:"transmitterAddress" toml:"transmitterAddress"`
+		TransmitterAddress                     *EIP55Address  `json:"transmitterAddress" toml:"transmitterAddress"`
 		ObservationTimeout                     Interval       `json:"observationTimeout" toml:"observationTimeout" gorm:"type:bigint"`
 		BlockchainTimeout                      Interval       `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint"`
 		ContractConfigTrackerSubscribeInterval Interval       `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval"`
