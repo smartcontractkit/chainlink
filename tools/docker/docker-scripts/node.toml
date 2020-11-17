@@ -3,7 +3,7 @@ schemaVersion      = 1
 contractAddress    = "0x6FCb4b66E23A39A5723B21A084B671b8c40bd136"
 p2pPeerID          = "12D3KooWDLThzujR4NMxBcp8Q3PhRmS2RhZtGB4dLWKR4zrCLr4C"
 p2pBootstrapPeers  = [
-     "/dns4/chainlink-node/tcp/6690/p2p/12D3KooWC4dcricEik8DJRVgKRHmW5Fs5B2wdNCmjwT2q1dg9Cqf"  
+     "/dns4/chainlink-node-1/tcp/6690/p2p/12D3KooWBLub2stbaEnzUeQ1Van3h5HVzahY9LFYBkVgH4VNSbhb"  
 ]
 isBootstrapPeer    = false
 keyBundleID        = ""

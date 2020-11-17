@@ -1,0 +1,15 @@
+blockchainTimeout = "20s"
+contractAddress = "0xD4988baC598e872F326fBEDab223E7B8cA3CEe95"
+contractConfigConfirmations = 3
+contractConfigTrackerPollInterval = "1m"
+contractConfigTrackerSubscribeInterval = "2m"
+isBootstrapPeer = false
+keyBundleID = "b78d5c745687ab7c1980fee1c5ed414663e443010d5b25017a8fd1f41c71fc3b"
+monitoringEndpoint = "chain.link:4321"
+observationSource = "    fetch    [type=http method=POST url=\"http://external-adapter:6644\" requestData=\"{}\"];\n    parse    [type=jsonparse path=\"data,result\"];    \n    fetch -> parse;\n"
+observationTimeout = "10s"
+p2pBootstrapPeers = ["/dns4/chainlink-node-1/tcp/6690/p2p/12D3KooWBLub2stbaEnzUeQ1Van3h5HVzahY9LFYBkVgH4VNSbhb"]
+p2pPeerID = "12D3KooWHRLKhr3VVggvXtv29EYakr2rb2pTfKn17WiAEkjz12vd"
+schemaVersion = 1
+transmitterAddress = "0xfb9eA93a4CE38529244a2e134d91B130BEd4a745"
+type = "offchainreporting"

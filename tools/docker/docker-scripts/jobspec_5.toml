@@ -1,9 +1,9 @@
 type               = "offchainreporting"
 schemaVersion      = 1
-contractAddress    = "0x559e34D0B09770Ca225844678394792e584a1C9b"
+contractAddress    = "0x6FCb4b66E23A39A5723B21A084B671b8c40bd136"
 p2pPeerID          = "12D3KooWDMTozD7C5Ff7mkjx2fsYTsi1Ha2HDgy819prsrj8wfXk"
 p2pBootstrapPeers  = [
-     "/dns4/chainlink-node/tcp/6690/p2p/12D3KooWDb3PEJKA8trc3kRCsvvyTn8mjWD8DCe3xENcHTUADhHv"  
+     "/dns4/chainlink-node/tcp/6690/p2p/12D3KooWC4dcricEik8DJRVgKRHmW5Fs5B2wdNCmjwT2q1dg9Cqf"  
 ]
 isBootstrapPeer    = false
 keyBundleID        = "bd8635f1f068522bdafd4a75c3168f99d953d2dae15df3d10cffb95368e55fbf"

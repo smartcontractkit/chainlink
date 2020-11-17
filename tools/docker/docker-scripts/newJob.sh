@@ -5,11 +5,11 @@
 # To run it:
 # ./newJob.sh (jobID to delete)
 # 
-docker cp jobspec_1.toml chainlink-node-1:/root
-docker cp jobspec_2.toml chainlink-node-2:/root
-docker cp jobspec_3.toml chainlink-node-3:/root
-docker cp jobspec_4.toml chainlink-node-4:/root
-docker cp jobspec_5.toml chainlink-node-5:/root
+docker cp jobs/jobspec_1.toml chainlink-node-1:/root
+docker cp jobs/jobspec_2.toml chainlink-node-2:/root
+docker cp jobs/jobspec_3.toml chainlink-node-3:/root
+docker cp jobs/jobspec_4.toml chainlink-node-4:/root
+docker cp jobs/jobspec_5.toml chainlink-node-5:/root
 docker cp apicredentials chainlink-node-1:/root
 docker cp apicredentials chainlink-node-2:/root
 docker cp apicredentials chainlink-node-3:/root
