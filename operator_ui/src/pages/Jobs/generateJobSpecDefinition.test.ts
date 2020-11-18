@@ -118,6 +118,59 @@ describe('generateJSONDefinition', () => {
     const output = generateJSONDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)
   })
+
+  it('removes the name if it is auto-generated (has a job ID in it)', () => {
+    const jobSpecAttributesInput = {
+      initiators: [
+        {
+          type: 'web' as InitiatorType.WEB,
+        },
+      ],
+      id: '7f4e4ca5f9ce4131a080a214947736c5',
+      name: 'Job7f4e4ca5f9ce4131a080a214947736c5',
+      createdAt: '2020-11-17T10:25:44.040459Z',
+      tasks: [
+        {
+          ID: 6,
+          type: 'httpget',
+          confirmations: 0,
+          params: {
+            get: 'https://bitstamp.net/api/ticker/',
+          },
+          CreatedAt: '2020-11-17T10:25:44.043094Z',
+          UpdatedAt: '2020-11-17T10:25:44.043094Z',
+          DeletedAt: null,
+        },
+      ],
+      minPayment: '1000000',
+      updatedAt: '2020-02-09T15:13:03Z',
+      startAt: '2020-02-09T15:13:03Z',
+      endAt: null,
+      errors: [],
+      earnings: null,
+    }
+
+    const expectedOutput = `{
+    "initiators": [
+        {
+            "type": "web"
+        }
+    ],
+    "tasks": [
+        {
+            "type": "httpget",
+            "confirmations": 0,
+            "params": {
+                "get": "https://bitstamp.net/api/ticker/"
+            }
+        }
+    ],
+    "startAt": "2020-02-09T15:13:03Z"
+}`
+
+    const output = generateJSONDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
 })
 
 describe('generateTOMLDefinition', () => {

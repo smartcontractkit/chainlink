@@ -74,6 +74,15 @@ export const generateJSONDefinition = (
     }
   }, {} as ScrubbedJobSpec)
 
+  /**
+   * We want to remove the name field if it was auto-generated
+   * to avoid running into FK constraint errors when duplicating
+   * a job spec.
+   */
+  if (scrubbedJobSpec.name.includes(job.id)) {
+    delete scrubbedJobSpec.name
+  }
+
   return stringifyJobSpec({
     value: scrubbedJobSpec,
     format: JobSpecFormats.JSON,
