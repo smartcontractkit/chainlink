@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml"
+
+	//"github.com/BurntSushi/toml"
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"

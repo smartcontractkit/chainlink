@@ -3,7 +3,6 @@ module github.com/smartcontractkit/chainlink
 go 1.15
 
 require (
-	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/allegro/bigcache v1.2.1 // indirect
@@ -42,6 +41,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.3
+	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.8.0
 	github.com/prometheus/tsdb v0.10.0 // indirect

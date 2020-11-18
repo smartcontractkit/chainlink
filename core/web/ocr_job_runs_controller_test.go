@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml"
+
+	//"github.com/BurntSushi/toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -25,7 +27,11 @@ func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	require.NoError(t, err)
+	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	require.NoError(t, err)
+
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
 
 	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)

@@ -437,6 +437,14 @@ func MustHash(in string) common.Hash {
 	return common.BytesToHash(out)
 }
 
+func MustHexDecodeString(s string) []byte {
+	a, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
 // LogListeningAddress returns the LogListeningAddress
 func LogListeningAddress(address common.Address) string {
 	if address == ZeroAddress {
