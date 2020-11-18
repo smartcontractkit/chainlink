@@ -1,11 +1,11 @@
-import { contract, setup } from '@chainlink/test-helpers'
+import { contract, setup, helpers } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ContractReceipt } from 'ethers/contract'
 import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
-import { OperatorGeneratorFactory } from '../../ethers/v0.7/OperatorGeneratorFactory'
+import { ChainlinkOperatorFactoryFactory } from '../../ethers/v0.7/ChainlinkOperatorFactoryFactory'
 
 const linkTokenFactory = new contract.LinkTokenFactory()
-const operatorGeneratorFactory = new OperatorGeneratorFactory()
+const operatorGeneratorFactory = new ChainlinkOperatorFactoryFactory()
 const operatorFactory = new OperatorFactory()
 
 let roles: setup.Roles
@@ -17,9 +17,9 @@ beforeAll(async () => {
   roles = users.roles
 })
 
-describe('OperatorGenerator', () => {
+describe('ChainlinkOperatorFactory', () => {
   let link: contract.Instance<contract.LinkTokenFactory>
-  let operatorGenerator: contract.Instance<OperatorGeneratorFactory>
+  let operatorGenerator: contract.Instance<ChainlinkOperatorFactoryFactory>
   let operator: contract.Instance<OperatorFactory>
 
   const deployment = setup.snapshot(provider, async () => {
@@ -37,25 +37,26 @@ describe('OperatorGenerator', () => {
     let receipt: ContractReceipt
 
     beforeEach(async () => {
-      const tx = await operatorGenerator
-        .connect(roles.oracleNode)
-        .createOperator()
+      const tx = await operatorGenerator.connect(roles.oracleNode).fallback()
 
       receipt = await tx.wait()
     })
 
     it('emits an event', async () => {
-      const event = receipt.events?.[0]
-      assert.equal(event?.event, 'OperatorCreated')
-      assert.equal(event?.args?.[1], roles.oracleNode.address)
+      const emittedOwner = helpers.evmWordToAddress(
+        receipt.logs?.[0].topics?.[2],
+      )
+      assert.equal(emittedOwner, roles.oracleNode.address)
     })
 
     it('sets the correct owner', async () => {
-      const args = receipt.events?.[0].args
+      const emittedAddress = helpers.evmWordToAddress(
+        receipt.logs?.[0].topics?.[1],
+      )
 
       operator = await operatorFactory
         .connect(roles.defaultAccount)
-        .attach(args?.[0])
+        .attach(emittedAddress)
       const ownerString = await operator.owner()
       assert.equal(ownerString, roles.oracleNode.address)
     })
