@@ -998,7 +998,21 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-// WaitForRuns waits for the wanted number of completed runs then returns a slice of the JobRuns
+// WaitForRunsCountAtLeast waits for the wanted number of runs
+func WaitForRunsCountAtLeast(
+	t testing.TB, j models.JobSpec, store *strpkg.Store, want int,
+) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	g.Eventually(func() bool {
+		jrs, err := store.JobRunsFor(j.ID)
+		assert.NoError(t, err)
+		return len(jrs) >= want
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
+}
+
+// WaitForCompletedRuns waits for the wanted number of completed runs then returns a slice of the JobRuns
 func WaitForCompletedRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
@@ -1052,17 +1066,17 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForEthTxCount(t testing.TB, store *strpkg.Store, want int) []models.EthTx {
+func WaitForEthTxCountAtLeast(t testing.TB, store *strpkg.Store, want int) []models.EthTx {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
 	var txes []models.EthTx
 	var err error
-	g.Eventually(func() []models.EthTx {
+	g.Eventually(func() bool {
 		err = store.DB.Order("nonce desc").Find(&txes).Error
 		assert.NoError(t, err)
-		return txes
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+		return len(txes) >= want
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 	return txes
 }
 
@@ -1091,6 +1105,22 @@ func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []mod
 		assert.NoError(t, err)
 		return txas
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+func WaitForEthTxAttemptCountAtLeast(
+	t testing.TB, store *strpkg.Store, want int,
+) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Eventually(func() bool {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return len(txas) >= want
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 	return txas
 }
 

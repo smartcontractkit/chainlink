@@ -282,7 +282,9 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 		return nil
 	}
 
-	return c.b.SendTransaction(ctx, tx)
+	err = c.b.SendTransaction(ctx, tx)
+	c.b.Commit()
+	return err
 }
 
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
