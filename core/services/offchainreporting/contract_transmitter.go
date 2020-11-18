@@ -30,7 +30,12 @@ type (
 	}
 )
 
-func NewOCRContractTransmitter(address gethCommon.Address, contractCaller *offchainaggregator.OffchainAggregatorCaller, contractABI abi.ABI, transmitter Transmitter) *OCRContractTransmitter {
+func NewOCRContractTransmitter(
+	address gethCommon.Address,
+	contractCaller *offchainaggregator.OffchainAggregatorCaller,
+	contractABI abi.ABI,
+	transmitter Transmitter,
+) *OCRContractTransmitter {
 	return &OCRContractTransmitter{
 		contractAddress: address,
 		contractABI:     contractABI,

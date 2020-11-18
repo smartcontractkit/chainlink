@@ -32,9 +32,15 @@ type (
 	}
 )
 
-func NewOCRContractConfigTracker(address gethCommon.Address, contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
+func NewOCRContractConfigTracker(
+	address gethCommon.Address,
+	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
-	ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, logger logger.Logger) (o *OCRContractConfigTracker, err error) {
+	ethClient eth.Client,
+	logBroadcaster eth.LogBroadcaster,
+	jobID int32,
+	logger logger.Logger,
+) (o *OCRContractConfigTracker, err error) {
 	return &OCRContractConfigTracker{
 		ethClient,
 		contractFilterer,
