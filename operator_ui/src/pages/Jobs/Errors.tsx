@@ -19,7 +19,6 @@ export const JobsErrors: React.FC<{
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   job?: JobData['job']
-  jobSpec?: JobData['jobSpec']
   setState: React.Dispatch<React.SetStateAction<JobData>>
   getJobSpec: () => Promise<void>
 }> = ({
@@ -28,7 +27,6 @@ export const JobsErrors: React.FC<{
   getJobSpec,
   LoadingPlaceholder,
   job,
-  jobSpec,
   setState,
 }) => {
   React.useEffect(() => {
@@ -37,34 +35,30 @@ export const JobsErrors: React.FC<{
 
   const handleDismiss = async (jobSpecErrorId: string) => {
     // Optimistic delete
-    const jobSpecCopy: NonNullable<JobData['jobSpec']> = JSON.parse(
-      JSON.stringify(jobSpec),
-    )
-    jobSpecCopy.attributes.errors = jobSpecCopy.attributes.errors.filter(
-      (e) => e.id !== jobSpecErrorId,
-    )
-    setState((state) => ({ ...state, jobSpec: jobSpecCopy }))
+    const jobCopy: NonNullable<JobData['job']> = JSON.parse(JSON.stringify(job))
+    jobCopy.errors = jobCopy.errors.filter((e) => e.id !== jobSpecErrorId)
+    setState((state) => ({ ...state, job: jobCopy }))
 
     await v2.jobSpecErrors.destroyJobSpecError(jobSpecErrorId)
     await getJobSpec()
+  }
+
+  const tableHeaders = ['Occurrences', 'Created', 'Last Seen', 'Message']
+
+  if (job?.type === 'Direct request') {
+    tableHeaders.push('Actions')
   }
 
   return (
     <Content>
       <ErrorComponent />
       <LoadingPlaceholder />
-      {!error && jobSpec && (
+      {!error && job && (
         <Card>
           <Table>
             <TableHead>
               <TableRow>
-                {[
-                  'Occurrences',
-                  'Created',
-                  'Last Seen',
-                  'Message',
-                  'Actions',
-                ].map((header) => (
+                {tableHeaders.map((header) => (
                   <TableCell key={header}>
                     <Typography variant="body1" color="textSecondary">
                       {header}
@@ -74,14 +68,14 @@ export const JobsErrors: React.FC<{
               </TableRow>
             </TableHead>
             <TableBody>
-              {jobSpec.attributes.errors.length === 0 ? (
+              {job.errors.length === 0 ? (
                 <TableRow>
                   <TableCell component="th" scope="row" colSpan={5}>
                     No errors
                   </TableCell>
                 </TableRow>
               ) : (
-                jobSpec.attributes.errors.map((jobSpecError) => (
+                job.errors.map((jobSpecError) => (
                   <TableRow key={jobSpecError.id}>
                     <TableCell>
                       <Typography variant="body1">
@@ -111,17 +105,19 @@ export const JobsErrors: React.FC<{
                         {jobSpecError.description}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="danger"
-                        size="small"
-                        onClick={() => {
-                          handleDismiss(jobSpecError.id)
-                        }}
-                      >
-                        Dismiss
-                      </Button>
-                    </TableCell>
+                    {job?.type === 'Direct request' && (
+                      <TableCell>
+                        <Button
+                          variant="danger"
+                          size="small"
+                          onClick={() => {
+                            handleDismiss(jobSpecError.id)
+                          }}
+                        >
+                          Dismiss
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
