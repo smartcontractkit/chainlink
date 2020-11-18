@@ -10,9 +10,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cmd: [ 'go_core_tests' ]
+        cmd: ['go_core_tests']
     name: Core Tests
-    runs-on: [ self-hosted, sdlc-ghr-prod ]
+    runs-on: [self-hosted, sdlc-ghr-prod]
     container:
       image: smartcontract/builder:1.0.37
       credentials:
