@@ -377,8 +377,8 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 	return fe.CoerceEmptyToNil()
 }
 
-// ValidatedOracleSpec validates an oracle spec that came from TOML
-func ValidatedOracleSpec(tomlString string) (offchainreporting.OracleSpec, error) {
+// ValidatedOracleSpecToml validates an oracle spec that came from TOML
+func ValidatedOracleSpecToml(tomlString string) (offchainreporting.OracleSpec, error) {
 	var m toml.MetaData
 
 	// Sane defaults
