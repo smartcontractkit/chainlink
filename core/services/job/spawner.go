@@ -138,7 +138,7 @@ func (js *spawner) runLoop() {
 	}
 
 	// Initialize the DB poll ticker
-	dbPollTicker := time.NewTicker(js.config.TriggerFallbackDBPollInterval())
+	dbPollTicker := time.NewTicker(utils.WithJitter(js.config.TriggerFallbackDBPollInterval()))
 	defer dbPollTicker.Stop()
 
 	// Initialize the poll that checks for deleted jobs and removes them
