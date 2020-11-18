@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	mrand "math/rand"
 	"reflect"
 	"runtime"
 	"sort"
@@ -912,4 +913,11 @@ func (once *StartStopOnce) State() StartStopOnceState {
 	once.RLock()
 	defer once.RUnlock()
 	return once.state
+}
+
+// WithJitter adds +/- 10% to a duration
+func WithJitter(d time.Duration) time.Duration {
+	jitter := mrand.Intn(int(d) / 5)
+	jitter = jitter - (jitter / 2)
+	return time.Duration(int(d) + jitter)
 }
