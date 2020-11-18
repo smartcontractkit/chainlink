@@ -13,8 +13,8 @@ export const useErrorHandler = (): {
 
   React.useEffect(() => {
     if (error instanceof AuthenticationError) {
-      history.push('/signin')
       setAuthentication({ allowed: false })
+      history.push('/signin')
     }
   }, [error, history])
 

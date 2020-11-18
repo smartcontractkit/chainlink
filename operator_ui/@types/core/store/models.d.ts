@@ -102,11 +102,11 @@ declare module 'core/store/models' {
    * to a parent JobID.
    */
   export interface Initiator {
-    id: number
-    jobSpecId: string
+    id?: number
+    jobSpecId?: string
     type: InitiatorType
     // FIXME - missing json struct tag
-    CreatedAt: time.Time
+    CreatedAt?: time.Time
     params?: InitiatorParams
   }
 
@@ -127,11 +127,10 @@ declare module 'core/store/models' {
    * Type will be an adapter, and the Params will contain any
    * additional information that adapter would need to operate.
    */
-  export interface TaskSpec<T extends JSONValue = JSONValue>
-    extends gorm.Model {
+  export interface TaskSpec extends gorm.Model {
     type: TaskType
-    confirmations: number
-    params: T
+    confirmations: number | null
+    params: { [key: string]: JSONValue | undefined }
   }
 
   /**

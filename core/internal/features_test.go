@@ -758,7 +758,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	app.Store.KeyStore = kst
 
 	// Start, connect, and initialize node
-	sub.On("Err").Return(nil)
+	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)

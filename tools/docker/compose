@@ -39,20 +39,12 @@ dev_integration="$test -f docker-compose.dev-integration.yaml"          # config
 dev_ts_integration="$ts_test -f docker-compose.dev-ts-integration.yaml" # config to run integration tests in dev mode
 
 clean_docker() {
-  $base down -v
-  $dev down -v
-  $test down -v
-  $deps down -v
-  $dev_integration down -v
-  $ts_test down -v
-}
-
-# Executed before command line args are parsed
-pre_hook() {
-  if [ "$CI" ] && [ -z "$CI_SKIP_PRE_HOOK" ]; then
-    # If this script is running in CI, clean up our state before running tests
-    clean_docker
-  fi
+  $base down -v --remove-orphans
+  $dev down -v --remove-orphans
+  $test down -v --remove-orphans
+  $deps down -v --remove-orphans
+  $dev_integration down -v --remove-orphans
+  $ts_test down -v --remove-orphans
 }
 
 function save_test_logs() {
@@ -82,8 +74,10 @@ Commands:
     acceptance            Run the services required to perform an acceptance test
 
     test                  Run integration test suite
+    test:down             Cleanup resources that may have been left over by ./compose test, used for CI
     test:dev              Run integration test suite with /tools/ci/ethereum_test and /integration bind-mounted
     test:ts               Run integration test suite in typescript (WIP)
+    test:ts:down          Cleanup resources that may have been left over by ./compose test:ts, used for CI
     test:ts:dev           Run integration test suite with /tools/ci-ts bind-mounted (WIP)
 
     integration | i       Run docker-compose with config for integration tests
@@ -95,7 +89,6 @@ Commands:
 
     *                     Run docker-compose with base config"
 
-pre_hook
 case "$1" in
 help)
   echo "$usage"
@@ -113,13 +106,13 @@ cld)
   $dev build
   $dev up -d node
   docker exec -it chainlink-node bash
-  $dev down -v
+  $dev down -v --remove-orphans
   ;;
 cldo)
   $dev build
   $dev up -d operator-ui
   docker exec -it chainlink-node bash
-  $dev down -v
+  $dev down -v --remove-orphans
   ;;
 
 acceptance)
@@ -132,12 +125,15 @@ test)
   $deps up --exit-code-from wait-db wait-db
   $test up --exit-code-from integration
   save_test_logs
-  $test down -v
+  $test down -v --remove-orphans
+  ;;
+test:down)
+  $test down -v --remove-orphans
   ;;
 test:dev)
   $deps up --exit-code-from wait-db wait-db
   $dev_integration up --exit-code-from integration
-  $dev_integration down -v
+  $dev_integration down -v --remove-orphans
   ;;
 test:ts)
   $ts_test build $DOCKER_COMPOSE_BUILD_OPTS
@@ -150,8 +146,11 @@ test:ts)
   exit_code=$?
   set -e
   save_test_logs
-  $ts_test down -v
+  $ts_test down -v --remove-orphans
   exit $exit_code
+  ;;
+test:ts:down)
+  $test down -v --remove-orphans
   ;;
 test:ts:dev)
   $deps up --exit-code-from wait-db wait-db
@@ -163,7 +162,7 @@ test:ts:dev)
   exit_code=$?
   set -e
   save_test_logs
-  $dev_ts_integration down -v
+  $dev_ts_integration down -v --remove-orphans
   exit $exit_code
   ;;
 integration | i)

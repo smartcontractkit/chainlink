@@ -23,16 +23,21 @@ contract Operator is
 {
   using SafeMathChainlink for uint256;
 
+  struct Commitment {
+    bytes31 paramsHash;
+    uint8 dataVersion;
+  }
+
   uint256 constant public EXPIRY_TIME = 5 minutes;
+  uint256 constant private MAXIMUM_DATA_VERSION = 256;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
   // We initialize fields to 1 instead of 0 so that the first invocation
   // does not cost more gas.
   uint256 constant private ONE_FOR_CONSISTENT_GAS_COST = 1;
 
   LinkTokenInterface internal immutable linkToken;
-  mapping(bytes32 => bytes32) private s_commitments;
+  mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_authorizedNodes;
-  mapping(bytes32 => uint256) private s_dataVersions;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -179,7 +184,7 @@ contract Operator is
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 expiration,
-    bytes memory data
+    bytes calldata data
   )
     external
     override
@@ -281,14 +286,8 @@ contract Operator is
     external
     override
   {
-    bytes32 paramsHash = keccak256(
-      abi.encodePacked(
-        payment,
-        msg.sender,
-        callbackFunc,
-        expiration)
-    );
-    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
+    bytes31 paramsHash = buildFunctionHash(payment, msg.sender, callbackFunc, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     // solhint-disable-next-line not-rely-on-time
     require(expiration <= block.timestamp, "Request is not expired");
 
@@ -340,18 +339,11 @@ contract Operator is
     uint256 dataVersion
   ) internal returns (bytes32 requestId, uint256 expiration) {
     requestId = keccak256(abi.encodePacked(sender, nonce));
-    require(s_commitments[requestId] == 0, "Must use a unique ID");
+    require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
     expiration = block.timestamp.add(EXPIRY_TIME);
-    s_commitments[requestId] = keccak256(
-      abi.encodePacked(
-        payment,
-        callbackAddress,
-        callbackFunctionId,
-        expiration
-      )
-    );
-    s_dataVersions[requestId] = dataVersion;
+    bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    s_commitments[requestId] = Commitment(paramsHash, safeCastToUint8(dataVersion));
     return (requestId, expiration);
   }
 
@@ -373,19 +365,48 @@ contract Operator is
   )
   internal
   {
-    bytes32 paramsHash = keccak256(
+    bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
+    require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
+    require(s_commitments[requestId].dataVersion <= safeCastToUint8(dataVersion), "Data versions must match");
+    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    delete s_commitments[requestId];
+  }
+
+  /**
+   * @notice Build the bytes31 function hash from the payment, callback and expiration.
+   * @param payment The payment amount that will be released for the oracle (specified in wei)
+   * @param callbackAddress The callback address to call for fulfillment
+   * @param callbackFunctionId The callback function ID to use for fulfillment
+   * @param expiration The expiration that the node should respond by before the requester can cancel
+   * @return hash bytes31
+   */
+  function buildFunctionHash(
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration
+  )
+  internal
+  returns (bytes31)
+  {
+    return bytes31(keccak256(
       abi.encodePacked(
         payment,
         callbackAddress,
         callbackFunctionId,
         expiration
       )
-    );
-    require(s_commitments[requestId] == paramsHash, "Params do not match request ID");
-    require(s_dataVersions[requestId] <= dataVersion, "Incorrect data version");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
-    delete s_commitments[requestId];
-    delete s_dataVersions[requestId];
+    ));
+  }
+
+  /**
+   * @notice Safely cast uint256 to uint8
+   * @param number uint256
+   * @return uint8 number
+   */
+  function safeCastToUint8(uint256 number) internal returns (uint8) {
+    require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
+    return uint8(number);
   }
 
   // MODIFIERS
@@ -419,7 +440,7 @@ contract Operator is
    * @param requestId The given request ID to check in stored `commitments`
    */
   modifier isValidRequest(bytes32 requestId) {
-    require(s_commitments[requestId] != 0, "Must have a valid requestId");
+    require(s_commitments[requestId].paramsHash != 0, "Must have a valid requestId");
     _;
   }
 

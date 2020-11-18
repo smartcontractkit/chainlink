@@ -18,7 +18,7 @@ export type JobSpecResponse = ApiResponse<JobSpec> | ApiResponse<OcrJobSpec>
 
 export type BaseJob = {
   createdAt: string
-  definition: unknown
+  definition: string
   errors: JobSpecError[]
   id: string
   name?: string
@@ -37,8 +37,10 @@ export type OffChainReportingJob = BaseJob & {
 
 export type DirectRequestJob = BaseJob & {
   earnings: number | null
+  endAt: string | null
   initiators: Initiator[]
   minPayment?: string | null
+  startAt: string | null
   tasks: TaskSpec[]
   type: 'Direct request'
 }

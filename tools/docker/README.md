@@ -181,8 +181,12 @@ To remove any containers, volumes, and networks related to our docker-compose se
 ./compose clean
 ```
 
-If running in a CI environment where the `CI` environment variable is set, a cleanup will be run before any command
-is executed.
+Individual clean commands are included for CI purposes when matrix jobs are being executed.
+
+```sh
+./compose test:down
+./compose test:ts:down
+```
 
 ### Running your own commands based off of docker-compose
 
