@@ -31,6 +31,8 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+var _ eth.Client = (*SimulatedBackendClient)(nil)
+
 func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
@@ -39,8 +41,6 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
 }
-
-var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
@@ -258,7 +258,23 @@ func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel c
 			if h == nil {
 				channel <- nil
 			} else {
-				channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+				func() {
+					head := &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+					// Catch a potential panic and print a warning about it.
+					//
+					// Seems that chainlink can shut itself down before the simulated
+					// backend is done sealing blocks, leading to a panic when this
+					// handler tries to push information about a new head onto a closed
+					// channel.
+					defer func() {
+						if r := recover(); r != nil {
+							fmt.Println(
+								"warning: SubscribeNewHead attempted to put a head on a "+
+									"closed channel:", head)
+						}
+					}()
+					channel <- head
+				}()
 			}
 		}
 		close(channel)
@@ -282,7 +298,9 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 		return nil
 	}
 
-	return c.b.SendTransaction(ctx, tx)
+	err = c.b.SendTransaction(ctx, tx)
+	c.b.Commit()
+	return err
 }
 
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
