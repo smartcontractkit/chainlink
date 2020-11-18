@@ -6,6 +6,78 @@ env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        cmd: [ 'go_core_tests' ]
+    name: Core Tests
+    runs-on: [ self-hosted, sdlc-ghr-prod ]
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    env:
+      DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
+    services:
+      postgres:
+        image: postgres
+        credentials:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        # Set health checks to wait until postgres has started
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Set up Postgres user
+        uses: docker://postgres
+        with:
+          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
+      - name: Cache Yarn dependencies
+        uses: actions/cache@v2
+        with:
+          path: /usr/local/share/.cache/yarn
+          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            yarn-${{ env.CACHE_VERSION }}
+      - name: Install Yarn dependencies
+        run: make yarndep
+      - name: Cache Go vendor packages
+        uses: actions/cache@v2
+        with:
+          path: /go/pkg/mod
+          key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            go-mod-${{ env.CACHE_VERSION }}
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Set up Yarn for Contracts
+        run: yarn setup:contracts
+      - name: Setup DB
+        run: go run ./core local db preparetest
+      - name: Run tests
+        run: ./tools/bin/${{ matrix.cmd }}
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: ${{ matrix.cmd }}_logs
+          path: ./output.txt
+      - name: Print postgres logs
+        if: always()
+        uses: docker://docker:latest
+        with:
+          args: logs ${{ job.services.postgres.id }}
+
   integration:
     name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
     runs-on: [self-hosted, sdlc-ghr-prod]
