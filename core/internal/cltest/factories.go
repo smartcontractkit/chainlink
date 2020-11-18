@@ -17,7 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	"github.com/smartcontractkit/chainlink/core/store"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -661,4 +663,14 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	j := NewJob()
 	require.NoError(t, s.CreateJob(&j))
 	return j
+}
+
+func NewRoundStateForRoundID(store *store.Store, roundID uint32, latestAnswer *big.Int) contracts.FluxAggregatorRoundState {
+	return contracts.FluxAggregatorRoundState{
+		ReportableRoundID: roundID,
+		EligibleToSubmit:  true,
+		LatestAnswer:      latestAnswer,
+		AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
+		PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+	}
 }

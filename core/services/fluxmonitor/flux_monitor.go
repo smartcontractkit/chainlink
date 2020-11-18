@@ -562,9 +562,17 @@ func (p *PollingDeviationChecker) consume() {
 
 	p.readyForLogs()
 	p.setIsHibernatingStatus()
-	p.resetTickers(contracts.FluxAggregatorRoundState{
-		StartedAt: uint64(time.Now().Unix()),
-	})
+
+	// p.resetTickers(contracts.FluxAggregatorRoundState{
+	// 	StartedAt: uint64(time.Now().Unix()),
+	// })
+
+	roundState, err := p.roundState(0)
+	if err != nil {
+		logger.Warnw("Unable to call roundState method on provided contract", "err", err)
+		p.store.UpsertErrorFor(p.JobID(), "Unable to call roundState method on provided contract. Check contract address.")
+	}
+	p.resetTickers(roundState)
 	p.performInitialPoll()
 
 	for {
