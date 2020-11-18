@@ -41,6 +41,8 @@ type (
 		CreatedAt    time.Time `json:"-"`
 	}
 
+	// TODO: remove pointers when upgrading to gormv2
+	// which has https://github.com/go-gorm/gorm/issues/2748 fixed.
 	OffchainReportingOracleSpec struct {
 		ID                                     int32          `json:"-" toml:"-"                 gorm:"primary_key"`
 		ContractAddress                        EIP55Address   `json:"contractAddress" toml:"contractAddress"`

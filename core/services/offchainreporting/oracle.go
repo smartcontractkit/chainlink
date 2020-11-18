@@ -189,6 +189,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		}
 
 	} else {
+		if concreteSpec.EncryptedOCRKeyBundleID == nil {
+			return nil, errors.Errorf("OCR key must be specified")
+		}
 		ocrkey, exists := d.keyStore.DecryptedOCRKey(*concreteSpec.EncryptedOCRKeyBundleID)
 		if !exists {
 			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
