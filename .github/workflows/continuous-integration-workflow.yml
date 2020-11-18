@@ -171,8 +171,8 @@ jobs:
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    needs: check
-    if: needs.check.outputs.run_job == 'true'
+    needs: frontend-changed
+    if: needs.frontend-changed.outputs.run_job == 'true'
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -196,8 +196,8 @@ jobs:
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    needs: check
-    if: needs.check.outputs.run_job == 'true'
+    needs: frontend-changed
+    if: needs.frontend-changed.outputs.run_job == 'true'
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -221,8 +221,8 @@ jobs:
   prettier:
     name: Prettier formatting check
     runs-on: ubuntu-latest
-    needs: check
-    if: needs.check.outputs.run_job == 'true'
+    needs: frontend-changed
+    if: needs.frontend-changed.outputs.run_job == 'true'
     container:
       image: smartcontract/builder:1.0.37
       credentials:
@@ -246,8 +246,8 @@ jobs:
   prepublish_npm:
     name: Prepublish NPM
     runs-on: [self-hosted, sdlc-ghr-prod]
-    needs: check
-    if: needs.check.outputs.run_job == 'true'
+    needs: frontend-changed
+    if: needs.frontend-changed.outputs.run_job == 'true'
     container:
       image: smartcontract/builder:1.0.37
       credentials:
