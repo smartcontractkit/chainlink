@@ -18,6 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+var (
+	ErrNoSuchPeerID             = errors.New("no such peer id exists")
+	ErrNoSuchKeyBundle          = errors.New("no such key bundle exists")
+	ErrNoSuchTransmitterAddress = errors.New("no such transmitter address exists")
+)
+
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
 var (
@@ -137,13 +143,27 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, taskDAG)
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
+		pqErr, ok := err.(*pq.Error)
+		if err != nil && ok && pqErr.Code == "23503" {
+			if pqErr.Constraint == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
+			}
+			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+				if pqErr.Constraint == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+				}
+				if pqErr.Constraint == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+				}
+			}
+		}
 		return errors.Wrap(err, "failed to create job")
 	})
 }
