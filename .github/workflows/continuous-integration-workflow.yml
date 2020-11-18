@@ -6,144 +6,43 @@ env:
   CACHE_VERSION: 9c3bfa173ea0aca1f9939f8896feb4a4
 
 jobs:
-#  frontend-changed:
-#    name: Frontend changed
-#    runs-on: [self-hosted, sdlc-ghr-prod]
-#    outputs:
-#      run_job: ${{ steps.check_files.outputs.run_job }}
-#    steps:
-#      - name: Checkout code
-#        uses: actions/checkout@v2
-#        with:
-#          fetch-depth: 2
-#      - name: Check frontend changed
-#        id: check_files
-#        run: |
-#          echo "=============== list changed files ==============="
-#          git diff --name-only HEAD^ HEAD
-#
-#          echo "========== check paths of changed files =========="
-#          git diff --name-only HEAD^ HEAD > files.txt
-#          while IFS= read -r file
-#          do
-#            echo $file
-#            if [[ $file == "operator_ui/"* ]]; then
-#              echo "Frontend changed"
-#              echo "::set-output name=run_job::true"
-#              break
-#            else
-#              echo "::set-output name=run_job::false"
-#            fi
-#          done < files.txt
-#  core:
-#    strategy:
-#      fail-fast: false
-#      matrix:
-#        cmd: ['go_core_tests']
-#    name: Core Tests
-#    runs-on: [self-hosted, sdlc-ghr-prod]
-#    container:
-#      image: smartcontract/builder:1.0.37
-#      credentials:
-#        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#    env:
-#      DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
-#    services:
-#      postgres:
-#        image: postgres
-#        credentials:
-#          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#        env:
-#          POSTGRES_USER: postgres
-#          POSTGRES_HOST_AUTH_METHOD: trust
-#        # Set health checks to wait until postgres has started
-#        options: >-
-#          --health-cmd pg_isready
-#          --health-interval 10s
-#          --health-timeout 5s
-#          --health-retries 5
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Set up Postgres user
-#        uses: docker://postgres
-#        with:
-#          args: psql -v ON_ERROR_STOP=1 --username postgres -h postgres -c "CREATE USER chainlink NOSUPERUSER CREATEDB;"
-#      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
-#      - name: Cache Go vendor packages
-#        uses: actions/cache@v2
-#        with:
-#          path: /go/pkg/mod
-#          key: go-mod-${{ env.CACHE_VERSION }}-${{ hashFiles('go.sum') }}
-#          restore-keys: |
-#            go-mod-${{ env.CACHE_VERSION }}
-#      - name: Download Go vendor packages
-#        run: go mod download
-#      - name: Set up Yarn for Contracts
-#        run: yarn setup:contracts
-#      - name: Setup DB
-#        run: go run ./core local db preparetest
-#      - name: Run tests
-#        run: ./tools/bin/${{ matrix.cmd }}
-#      - name: Store logs artifacts on failure
-#        if: failure()
-#        uses: actions/upload-artifact@v1
-#        with:
-#          name: ${{ matrix.cmd }}_logs
-#          path: ./output.txt
-#      - name: Print postgres logs
-#        if: always()
-#        uses: docker://docker:latest
-#        with:
-#          args: logs ${{ job.services.postgres.id }}
-#
-#  integration:
-#    name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
-#    runs-on: [self-hosted, sdlc-ghr-prod]
-#    strategy:
-#      matrix:
-#        test: ['test', 'test:ts']
-#        node: ['geth', 'parity']
-#    env:
-#      GETH_MODE: ${{ matrix.node == 'geth' }}
-#      CI: true
-#      CHAINLINK_DB_NAME: postgres
-#      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }} # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Login to DockerHub
-#        uses: docker/login-action@v1
-#        with:
-#          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#      - name: Run tests
-#        run: timeout --foreground 1200s ./compose ${{ matrix.test }}
-#        working-directory: ./tools/docker
-#      - name: Cleanup
-#        if: always()
-#        run: ./compose ${{ matrix.test }}:down
-#        working-directory: ./tools/docker
-#      - name: Capture logs on failure
-#        if: failure()
-#        run: ./compose logs:test:save
-#        working-directory: ./tools/docker
-#      - name: Store logs artifacts on failure
-#        if: failure()
-#        uses: actions/upload-artifact@v1
-#        with:
-#          name: logs
-#          path: ./tools/docker/logs
+  integration:
+    name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    strategy:
+      matrix:
+        test: ['test', 'test:ts']
+        node: ['geth', 'parity']
+    env:
+      GETH_MODE: ${{ matrix.node == 'geth' }}
+      CI: true
+      CHAINLINK_DB_NAME: postgres
+      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }} # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+      - name: Run tests
+        run: timeout --foreground 1200s ./compose ${{ matrix.test }}
+        working-directory: ./tools/docker
+      - name: Cleanup
+        if: always()
+        run: ./compose ${{ matrix.test }}:down
+        working-directory: ./tools/docker
+      - name: Capture logs on failure
+        if: failure()
+        run: ./compose logs:test:save
+        working-directory: ./tools/docker
+      - name: Store logs artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v1
+        with:
+          name: logs
+          path: ./tools/docker/logs
 
   solidity:
     name: Solidity
@@ -156,10 +55,10 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache node modules
+      - name: Yarn cache
         uses: actions/cache@v2
         env:
-          cache-name: cache-solidity-node-modules
+          cache-name: yarn-cache
         with:
           path: |
             ~/.npm
@@ -172,166 +71,177 @@ jobs:
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
       - run: ./tools/bin/restore-solc-cache
-      #      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
       - name: Run tests
         run: ./tools/ci/solidity_test
 
-#  operator-ui:
-#    name: Operator UI
-#    runs-on: ubuntu-latest
-#    needs: frontend-changed
-#    if: needs.frontend-changed.outputs.run_job == 'true'
-#    container:
-#      image: smartcontract/builder:1.0.37
-#      credentials:
-#        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
-#      - name: Run Operator UI tests
-#        run: ./tools/ci/operator_ui_test
-#
-#  lint:
-#    name: Yarn lint
-#    runs-on: ubuntu-latest
-#    needs: frontend-changed
-#    if: needs.frontend-changed.outputs.run_job == 'true'
-#    container:
-#      image: smartcontract/builder:1.0.37
-#      credentials:
-#        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
-#      - name: Run Yarn lint
-#        run: yarn lint
-#
-#  prettier:
-#    name: Prettier formatting check
-#    runs-on: ubuntu-latest
-#    needs: frontend-changed
-#    if: needs.frontend-changed.outputs.run_job == 'true'
-#    container:
-#      image: smartcontract/builder:1.0.37
-#      credentials:
-#        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
-#      - name: Run Yarn lint
-#        run: yarn prettier:check
-#
-#  prepublish_npm:
-#    name: Prepublish NPM
-#    runs-on: [self-hosted, sdlc-ghr-prod]
-#    needs: frontend-changed
-#    if: needs.frontend-changed.outputs.run_job == 'true'
-#    container:
-#      image: smartcontract/builder:1.0.37
-#      credentials:
-#        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Cache Yarn dependencies
-#        uses: actions/cache@v2
-#        with:
-#          path: /usr/local/share/.cache/yarn
-#          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
-#          restore-keys: |
-#            yarn-${{ env.CACHE_VERSION }}
-#      - name: Install Yarn dependencies
-#        run: make yarndep
-#      - name: Run prepublish NPM test
-#        run: ./tools/ci/prepublish_npm_test
-#
-#  build-chainlink:
-#    name: Build chainlink image
-#    runs-on: [self-hosted, sdlc-ghr-prod]
-#    strategy:
-#      matrix:
-#        dockerfile: [core/chainlink.Dockerfile]
-#    steps:
-#      - name: Checkout the repo
-#        uses: actions/checkout@v2
-#      - name: Configure AWS credentials
-#        uses: aws-actions/configure-aws-credentials@v1
-#        with:
-#          aws-access-key-id: '${{ secrets.GHA_AWS_ACCESS_KEY_ID }}'
-#          aws-secret-access-key: '${{ secrets.GHA_AWS_SECRET_ACCESS_KEY }}'
-#          aws-region: '${{ secrets.AWS_DEFAULT_REGION }}'
-#          role-to-assume: '${{ secrets.GHA_AWS_ROLE_TO_ASSUME }}'
-#          role-duration-seconds: 1200
-#          role-session-name: 'temp-session'
-#          role-skip-session-tagging: true
-#      - name: Docker login to ECR
-#        uses: aws-actions/amazon-ecr-login@v1
-#        id: login-ecr
-#      # https://github.com/docker/build-push-action/issues/20
-#      - name: Get ecr password
-#        id: get-ecr-password
-#        run: |
-#          aws ecr get-login-password \
-#          | {
-#            read PASSWORD
-#            echo "::add-mask::$PASSWORD"
-#            echo "::set-output name=password::$PASSWORD"
-#            }
-#      - name: Login to DockerHub
-#        uses: docker/login-action@v1
-#        with:
-#          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
-#          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
-#      - name: Build image
-#        uses: docker/build-push-action@v1
-#        with:
-#          registry: ${{ steps.login-ecr.outputs.registry }}
-#          repository: ${{ secrets.ECR_REPO }}
-#          username: AWS # temporary
-#          password: ${{ steps.get-ecr-password.outputs.password }} # temporary
-#          dockerfile: ${{ matrix.dockerfile }}
-#          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
-#          tags: githubactions
-#          add_git_labels: true
-#          tag_with_ref: true
-#          tag_with_sha: true
-#          push: false
+  operator-ui:
+    name: Operator UI
+    runs-on: ubuntu-latest
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
+      - name: Run Operator UI tests
+        run: ./tools/ci/operator_ui_test
+
+  lint:
+    name: Yarn lint
+    runs-on: ubuntu-latest
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
+      - name: Run Yarn lint
+        run: yarn lint
+
+  prettier:
+    name: Prettier formatting check
+    runs-on: ubuntu-latest
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
+      - name: Run Yarn lint
+        run: yarn prettier:check
+
+  prepublish_npm:
+    name: Prepublish NPM
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
+      - name: Run prepublish NPM test
+        run: ./tools/ci/prepublish_npm_test
+
+  build-chainlink:
+    name: Build chainlink image
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    strategy:
+      matrix:
+        dockerfile: [core/chainlink.Dockerfile]
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: '${{ secrets.GHA_AWS_ACCESS_KEY_ID }}'
+          aws-secret-access-key: '${{ secrets.GHA_AWS_SECRET_ACCESS_KEY }}'
+          aws-region: '${{ secrets.AWS_DEFAULT_REGION }}'
+          role-to-assume: '${{ secrets.GHA_AWS_ROLE_TO_ASSUME }}'
+          role-duration-seconds: 1200
+          role-session-name: 'temp-session'
+          role-skip-session-tagging: true
+      - name: Docker login to ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        id: login-ecr
+      # https://github.com/docker/build-push-action/issues/20
+      - name: Get ecr password
+        id: get-ecr-password
+        run: |
+          aws ecr get-login-password \
+          | {
+            read PASSWORD
+            echo "::add-mask::$PASSWORD"
+            echo "::set-output name=password::$PASSWORD"
+            }
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+      - name: Build image
+        uses: docker/build-push-action@v1
+        with:
+          registry: ${{ steps.login-ecr.outputs.registry }}
+          repository: ${{ secrets.ECR_REPO }}
+          username: AWS # temporary
+          password: ${{ steps.get-ecr-password.outputs.password }} # temporary
+          dockerfile: ${{ matrix.dockerfile }}
+          build_args: COMMIT_SHA=${{ github.sha }},ENVIRONMENT=release
+          tags: githubactions
+          add_git_labels: true
+          tag_with_ref: true
+          tag_with_sha: true
+          push: false
