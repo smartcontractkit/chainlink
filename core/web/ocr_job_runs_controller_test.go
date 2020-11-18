@@ -150,6 +150,7 @@ func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int
 		answer [type=median index=0];
 	"""
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL)), &ocrJobSpec)
+	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
 	require.NoError(t, err)
