@@ -559,7 +559,7 @@ observationSource = """
 """
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
-				require.EqualError(t, err, "unrecognised key for bootstrap peer: keyBundleID; unrecognised key for bootstrap peer: monitoringEndpoint; unrecognised key for bootstrap peer: transmitterAddress; unrecognised key for bootstrap peer: observationTimeout; unrecognised key for bootstrap peer: observationSource")
+				require.EqualError(t, err, "unrecognised key for bootstrap peer: keyBundleID; unrecognised key for bootstrap peer: transmitterAddress; unrecognised key for bootstrap peer: observationTimeout; unrecognised key for bootstrap peer: observationSource")
 			},
 		},
 		{
