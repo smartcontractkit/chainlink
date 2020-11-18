@@ -3,7 +3,11 @@ package offchainreporting
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -88,15 +92,23 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
 	}
 
-	gasLimit := d.config.EthGasLimitDefault()
-	transmitter := NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), gasLimit)
+	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
+	}
 
-	ocrContract, err := NewOCRContract(
+	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(concreteSpec.ContractAddress.Address(), d.ethClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+	}
+
+	ocrContract, err := NewOCRContractConfigTracker(
 		concreteSpec.ContractAddress.Address(),
+		contractFilterer,
+		contractCaller,
 		d.ethClient,
 		d.logBroadcaster,
 		concreteSpec.JobID(),
-		transmitter,
 		*logger.Default,
 	)
 	if err != nil {
@@ -177,10 +189,19 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		}
 
 	} else {
-		ocrkey, exists := d.keyStore.DecryptedOCRKey(concreteSpec.EncryptedOCRKeyBundleID)
+		if concreteSpec.EncryptedOCRKeyBundleID == nil {
+			return nil, errors.Errorf("OCR key must be specified")
+		}
+		ocrkey, exists := d.keyStore.DecryptedOCRKey(*concreteSpec.EncryptedOCRKeyBundleID)
 		if !exists {
 			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
 		}
+		contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
+		if err != nil {
+			return nil, errors.Wrap(err, "could not get contract ABI JSON")
+		}
+		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
+			NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), d.config.EthGasLimitDefault()))
 
 		service, err = ocr.NewOracle(ocr.OracleArgs{
 			LocalConfig: ocrtypes.LocalConfig{
@@ -194,7 +215,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			},
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
-			ContractTransmitter:          ocrContract,
+			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peer,

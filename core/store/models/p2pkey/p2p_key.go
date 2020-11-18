@@ -57,6 +57,14 @@ func (k Key) GetPeerID() (models.PeerID, error) {
 	return models.PeerID(peerID), err
 }
 
+func (k Key) MustGetPeerID() models.PeerID {
+	peerID, err := peer.IDFromPrivateKey(k)
+	if err != nil {
+		panic(err)
+	}
+	return models.PeerID(peerID)
+}
+
 type EncryptedP2PKey struct {
 	ID               int32          `json:"id" gorm:"primary_key"`
 	PeerID           models.PeerID  `json:"peerId"`
