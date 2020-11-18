@@ -29,16 +29,22 @@ var (
 )
 
 type (
-	OCRContract struct {
+	OCRContractTracker struct {
 		ethClient        eth.Client
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		contractAddress  gethCommon.Address
 		logBroadcaster   eth.LogBroadcaster
 		jobID            int32
-		transmitter      Transmitter
-		contractABI      abi.ABI
 		logger           logger.Logger
+	}
+
+	OCRContractTransmitter struct {
+		contractAddress gethCommon.Address
+		contractCaller  *offchainaggregator.OffchainAggregatorCaller
+		transmitter     Transmitter
+		contractABI     abi.ABI
+		logger          logger.Logger
 	}
 
 	Transmitter interface {
@@ -48,13 +54,13 @@ type (
 )
 
 var (
-	_ ocrtypes.ContractConfigTracker      = &OCRContract{}
-	_ ocrtypes.ContractTransmitter        = &OCRContract{}
+	_ ocrtypes.ContractConfigTracker      = &OCRContractTracker{}
+	_ ocrtypes.ContractTransmitter        = &OCRContractTransmitter{}
 	_ ocrtypes.ContractConfigSubscription = &OCRContractConfigSubscription{}
 	_ eth.LogListener                     = &OCRContractConfigSubscription{}
 )
 
-func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, transmitter Transmitter, logger logger.Logger) (o *OCRContract, err error) {
+func NewOCRContractTracker(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, logger logger.Logger) (o *OCRContractTracker, err error) {
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(address, ethClient)
 	if err != nil {
 		return o, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
@@ -65,34 +71,18 @@ func NewOCRContract(address gethCommon.Address, ethClient eth.Client, logBroadca
 		return o, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
-	if err != nil {
-		return o, errors.Wrap(err, "could not get contract ABI JSON")
-	}
-
-	return &OCRContract{
+	return &OCRContractTracker{
 		ethClient,
 		contractFilterer,
 		contractCaller,
 		address,
 		logBroadcaster,
 		jobID,
-		transmitter,
-		contractABI,
 		logger,
 	}, nil
 }
 
-func (oc *OCRContract) Transmit(ctx context.Context, report []byte, rs, ss [][32]byte, vs [32]byte) error {
-	payload, err := oc.contractABI.Pack("transmit", report, rs, ss, vs)
-	if err != nil {
-		return errors.Wrap(err, "abi.Pack failed")
-	}
-
-	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
-}
-
-func (oc *OCRContract) SubscribeToNewConfigs(context.Context) (ocrtypes.ContractConfigSubscription, error) {
+func (oc *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.ContractConfigSubscription, error) {
 	sub := &OCRContractConfigSubscription{
 		oc.logger,
 		oc.contractAddress,
@@ -114,7 +104,7 @@ func (oc *OCRContract) SubscribeToNewConfigs(context.Context) (ocrtypes.Contract
 	return sub, nil
 }
 
-func (oc *OCRContract) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+func (oc *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestConfigDetails(&opts)
 	if err != nil {
@@ -123,7 +113,7 @@ func (oc *OCRContract) LatestConfigDetails(ctx context.Context) (changedInBlock 
 	return uint64(result.BlockNumber), ocrtypes.BytesToConfigDigest(result.ConfigDigest[:]), err
 }
 
-func (oc *OCRContract) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
+func (oc *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
 	q := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(changedInBlock)),
 		ToBlock:   big.NewInt(int64(changedInBlock)),
@@ -152,7 +142,7 @@ func (oc *OCRContract) ConfigFromLogs(ctx context.Context, changedInBlock uint64
 	return confighelper.ContractConfigFromConfigSetEvent(*latest), err
 }
 
-func (oc *OCRContract) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
+func (oc *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	h, err := oc.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -164,7 +154,36 @@ func (oc *OCRContract) LatestBlockHeight(ctx context.Context) (blockheight uint6
 	return uint64(h.Number), nil
 }
 
-func (oc *OCRContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer ocrtypes.Observation, latestTimestamp time.Time, err error) {
+func NewOCRContractTransmitter(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, transmitter Transmitter, logger logger.Logger) (o *OCRContractTransmitter, err error) {
+	contractABI, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
+	if err != nil {
+		return o, errors.Wrap(err, "could not get contract ABI JSON")
+	}
+	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(address, ethClient)
+	if err != nil {
+		return o, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
+	}
+
+	return &OCRContractTransmitter{
+		address,
+		contractCaller,
+		transmitter,
+		contractABI,
+		logger,
+	}, nil
+
+}
+
+func (oc *OCRContractTransmitter) Transmit(ctx context.Context, report []byte, rs, ss [][32]byte, vs [32]byte) error {
+	payload, err := oc.contractABI.Pack("transmit", report, rs, ss, vs)
+	if err != nil {
+		return errors.Wrap(err, "abi.Pack failed")
+	}
+
+	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, oc.contractAddress, payload), "failed to send Eth transaction")
+}
+
+func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, latestAnswer ocrtypes.Observation, latestTimestamp time.Time, err error) {
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := oc.contractCaller.LatestTransmissionDetails(&opts)
 	if err != nil {
@@ -173,7 +192,7 @@ func (oc *OCRContract) LatestTransmissionDetails(ctx context.Context) (configDig
 	return result.ConfigDigest, result.Epoch, result.Round, ocrtypes.Observation(result.LatestAnswer), time.Unix(int64(result.LatestTimestamp), 0), nil
 }
 
-func (oc *OCRContract) FromAddress() gethCommon.Address {
+func (oc *OCRContractTransmitter) FromAddress() gethCommon.Address {
 	return oc.transmitter.FromAddress()
 }
 
@@ -187,7 +206,7 @@ type OCRContractConfigSubscription struct {
 	processLogsWorker utils.SleeperTask
 	queue             []ocrtypes.ContractConfig
 	queueMu           sync.Mutex
-	oc                *OCRContract
+	oc                *OCRContractTracker
 	closer            sync.Once
 	chStop            chan struct{}
 }

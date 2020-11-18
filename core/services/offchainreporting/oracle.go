@@ -88,21 +88,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
 	}
 
-	gasLimit := d.config.EthGasLimitDefault()
-	transmitter := NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), gasLimit)
-
-	ocrContract, err := NewOCRContract(
-		concreteSpec.ContractAddress.Address(),
-		d.ethClient,
-		d.logBroadcaster,
-		concreteSpec.JobID(),
-		transmitter,
-		*logger.Default,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewOCRContract")
-	}
-
 	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(concreteSpec.P2PPeerID))
 	if !exists {
 		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
@@ -154,12 +139,24 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "error calling NewPeer")
 	}
 
+	// func NewOCRContractTracker(address gethCommon.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster, jobID int32, transmitter Transmitter, logger logger.Logger) (o *OCRContractTracker, err error) {
+	ocrContractTracker, err := NewOCRContractTracker(
+		concreteSpec.ContractAddress.Address(),
+		d.ethClient,
+		d.logBroadcaster,
+		concreteSpec.JobID(),
+		*logger.Default,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, "error calling NewOCRContractTracker")
+	}
+
 	var service job.Service
 	if concreteSpec.IsBootstrapPeer {
 		service, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peer,
 			Bootstrappers:         concreteSpec.P2PBootstrapPeers,
-			ContractConfigTracker: ocrContract,
+			ContractConfigTracker: ocrContractTracker,
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
 			LocalConfig: ocrtypes.LocalConfig{
 				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
@@ -177,6 +174,20 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		}
 
 	} else {
+		gasLimit := d.config.EthGasLimitDefault()
+		transmitter := NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), gasLimit)
+
+		ocrContractTransmitter, err := NewOCRContractTransmitter(
+			concreteSpec.ContractAddress.Address(),
+			d.ethClient,
+			d.logBroadcaster,
+			transmitter,
+			*logger.Default,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "error calling NewOCRContractTransmitter")
+		}
+
 		ocrkey, exists := d.keyStore.DecryptedOCRKey(concreteSpec.EncryptedOCRKeyBundleID)
 		if !exists {
 			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
@@ -194,8 +205,8 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			},
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
-			ContractTransmitter:          ocrContract,
-			ContractConfigTracker:        ocrContract,
+			ContractTransmitter:          ocrContractTransmitter,
+			ContractConfigTracker:        ocrContractTracker,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peer,
 			MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
