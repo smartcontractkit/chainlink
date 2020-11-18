@@ -46,6 +46,7 @@ func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
 		return
 	}
+
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -79,9 +80,14 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(http.StatusOK, struct {
-		JobID int32 `json:"jobID"`
-	}{jobID})
+
+	job, err := ocrjsc.App.GetStore().ORM.FindOffChainReportingJob(jobID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, job, "offChainReportingJobSpec")
 }
 
 // Delete soft deletes an OCR job spec.

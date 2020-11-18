@@ -1,6 +1,8 @@
 package web_test
 
 import (
+	"fmt"
+	"math/big"
 	"net/http"
 	"testing"
 
@@ -27,29 +29,37 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
+	from := cltest.DefaultKeyAddress
 
-	from := cltest.GetAccountAddress(t, store)
-	tx1 := cltest.CreateTxWithNonceAndGasPrice(t, store, from, 1, 0, 1)
-	transaction := cltest.NewTransaction(0)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx1, transaction)))
-	cltest.CreateTxWithNonceAndGasPrice(t, store, from, 3, 1, 1)
-	cltest.CreateTxWithNonceAndGasPrice(t, store, from, 4, 2, 1)
-	_, count, err := store.Transactions(0, 100)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 2, from) // tx2
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 4, from)        // tx3
+
+	// add second tx attempt for tx2
+	blockNum := int64(3)
+	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt.State = models.EthTxAttemptBroadcast
+	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, store.DB.Create(&attempt).Error)
+
+	_, count, err := store.EthTransactionsWithAttempts(0, 100)
 	require.NoError(t, err)
 	require.Equal(t, count, 3)
 
-	resp, cleanup := client.Get("/v2/transactions?size=2")
+	size := 2
+	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	var txs []presenters.Tx
+	var txs []presenters.EthTx
 	body := cltest.ParseResponseBody(t, resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	require.Len(t, txs, 2)
+	require.Len(t, txs, size)
 	require.Equal(t, "4", txs[0].SentAt, "expected tx attempts order by sentAt descending")
 	require.Equal(t, "3", txs[1].SentAt, "expected tx attempts order by sentAt descending")
 }
@@ -84,45 +94,29 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 
-	tx := cltest.CreateTx(t, store, from, 1)
-	tx1 := *tx
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
+	require.Len(t, tx.EthTxAttempts, 1)
+	attempt := tx.EthTxAttempts[0]
+	attempt.EthTx = tx
 
-	transaction := cltest.NewTransaction(2)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
-	tx2 := *tx
+	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
+	defer cleanup()
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	tests := []struct {
-		name string
-		hash string
-		want models.Tx
-	}{
-		{"old hash", tx1.Hash.String(), tx1},
-		{"current hash", tx2.Hash.String(), tx2},
-	}
+	ptx := presenters.EthTx{}
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
+	txp := presenters.NewEthTxFromAttempt(attempt)
 
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-			resp, cleanup := client.Get("/v2/transactions/" + test.hash)
-			defer cleanup()
-			cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-			ptx := presenters.Tx{}
-			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
-
-			txp := presenters.NewTx(&test.want)
-			assert.Equal(t, txp.Confirmed, ptx.Confirmed)
-			assert.Equal(t, txp.Data, ptx.Data)
-			assert.Equal(t, txp.GasLimit, ptx.GasLimit)
-			assert.Equal(t, txp.GasPrice, ptx.GasPrice)
-			assert.Equal(t, txp.Hash, ptx.Hash)
-			assert.Equal(t, txp.SentAt, ptx.SentAt)
-			assert.Equal(t, txp.To, ptx.To)
-			assert.Equal(t, txp.Value, ptx.Value)
-		})
-	}
+	assert.Equal(t, txp.State, ptx.State)
+	assert.Equal(t, txp.Data, ptx.Data)
+	assert.Equal(t, txp.GasLimit, ptx.GasLimit)
+	assert.Equal(t, txp.GasPrice, ptx.GasPrice)
+	assert.Equal(t, txp.Hash, ptx.Hash)
+	assert.Equal(t, txp.SentAt, ptx.SentAt)
+	assert.Equal(t, txp.To, ptx.To)
+	assert.Equal(t, txp.Value, ptx.Value)
 }
 
 func TestTransactionsController_Show_NotFound(t *testing.T) {
@@ -137,10 +131,12 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
+	from := cltest.DefaultKeyAddress
+	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
+	require.Len(t, tx.EthTxAttempts, 1)
+	attempt := tx.EthTxAttempts[0]
 
-	resp, cleanup := client.Get("/v2/transactions/" + (tx.Hash.String() + "1"))
+	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }

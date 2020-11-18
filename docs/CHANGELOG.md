@@ -24,6 +24,16 @@ Numerous key-related UX improvements:
 - Two new env variables are added `P2P_ANNOUNCE_IP` and `P2P_ANNOUNCE_PORT` which allow node operators to override locally detected values for the chainlink node's externally reachable IP/port.
 - `OCR_LISTEN_IP` and `OCR_LISTEN_PORT` have been renamed to `P2P_LISTEN_IP` and `P2P_LISTEN_PORT` for consistency.
 
+### Fixed
+
+- Fixed an issue where the HTTP adapter would send an empty body on retries.
+
+## [0.9.4] - 2020-11-04
+
+### Fixed
+
+- Hotfix to fix an issue with httpget adapter
+
 ## [0.9.3] - 2020-11-02
 
 ### Added

@@ -102,6 +102,29 @@ func (_m *FluxAggregator) GetMethodID(method string) ([]byte, error) {
 	return r0, r1
 }
 
+// GetOracles provides a mock function with given fields:
+func (_m *FluxAggregator) GetOracles() ([]common.Address, error) {
+	ret := _m.Called()
+
+	var r0 []common.Address
+	if rf, ok := ret.Get(0).(func() []common.Address); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]common.Address)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // RoundState provides a mock function with given fields: oracle, roundID
 func (_m *FluxAggregator) RoundState(oracle common.Address, roundID uint32) (contracts.FluxAggregatorRoundState, error) {
 	ret := _m.Called(oracle, roundID)

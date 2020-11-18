@@ -254,16 +254,17 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	type responseBody struct {
-		JobID int32 `json:"jobID"`
-	}
-	var body responseBody
-	err = json.NewDecoder(resp.Body).Decode(&body)
+	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	fmt.Printf("Job added (job ID: %v).\n", body.JobID)
+	ocrJobSpec := models.JobSpecV2{}
+	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Printf("Job added (job ID: %v).\n", ocrJobSpec.ID)
 	return nil
 }
 
@@ -295,6 +296,23 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+	return nil
+}
+
+// TriggerOCRJobRun triggers an off-chain reporting job run based on a job ID
+func (cli *Client) TriggerOCRJobRun(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+	}
+	resp, err := cli.HTTP.Post("/v2/ocr/specs/"+c.Args().First()+"/runs", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Printf("Pipeline run successfully triggered for job ID %v.\n", c.Args().First())
 	return nil
 }
 
@@ -529,7 +547,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTransactions(c *clipkg.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
+	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.EthTx{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
@@ -547,7 +565,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var tx presenters.Tx
+	var tx presenters.EthTx
 	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
@@ -555,7 +573,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
+	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]presenters.EthTx{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {

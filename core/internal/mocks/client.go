@@ -3,10 +3,13 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
+	assets "github.com/smartcontractkit/chainlink/core/assets"
+
 	common "github.com/ethereum/go-ethereum/common"
+
+	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
@@ -250,6 +253,29 @@ func (_m *Client) GetERC20Balance(address common.Address, contractAddress common
 	var r1 error
 	if rf, ok := ret.Get(1).(func(common.Address, common.Address) error); ok {
 		r1 = rf(address, contractAddress)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetLINKBalance provides a mock function with given fields: linkAddress, address
+func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	ret := _m.Called(linkAddress, address)
+
+	var r0 *assets.Link
+	if rf, ok := ret.Get(0).(func(common.Address, common.Address) *assets.Link); ok {
+		r0 = rf(linkAddress, address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Link)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(common.Address, common.Address) error); ok {
+		r1 = rf(linkAddress, address)
 	} else {
 		r1 = ret.Error(1)
 	}

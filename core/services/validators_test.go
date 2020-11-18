@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -311,10 +313,7 @@ func TestValidateServiceAgreement(t *testing.T) {
 	assert.NoError(t, err)
 	defer cleanup()
 
-	account, err := store.KeyStore.GetFirstAccount()
-	assert.NoError(t, err)
-
-	oracles := []string{account.Address.Hex()}
+	oracles := []string{cltest.DefaultKeyAddress.Hex()}
 
 	basic := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
@@ -481,6 +480,198 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 			initr.Feeds = cltest.JSONFromString(t, test.FeedsJSON)
 			err := services.ValidateInitiator(initr, job, store)
 			require.Error(t, err)
+		})
+	}
+}
+
+func TestValidateOracleSpec(t *testing.T) {
+	var tt = []struct {
+		name      string
+		toml      string
+		assertion func(t *testing.T, os offchainreporting.OracleSpec, err error)
+	}{
+		{
+			name: "decodes valid oracle spec toml",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+observationSource = """
+  ds1          [type=bridge name=voter_turnout];
+  ds1_parse    [type=jsonparse path="one,two"];
+  ds1_multiply [type=multiply times=1.23];
+  ds1 -> ds1_parse -> ds1_multiply -> answer1;
+  answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, int(os.SchemaVersion))
+				assert.False(t, os.IsBootstrapPeer)
+			},
+		},
+		{
+			name: "decodes bootstrap toml",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = true
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, 1, int(os.SchemaVersion))
+				assert.True(t, os.IsBootstrapPeer)
+			},
+		},
+		{
+			name: "raises error on extra keys",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+   "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = true
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+observationSource = """
+   ds1          [type=bridge name=voter_turnout];
+   ds1_parse    [type=jsonparse path="one,two"];
+   ds1_multiply [type=multiply times=1.23];
+   ds1 -> ds1_parse -> ds1_multiply -> answer1;
+   answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.EqualError(t, err, "unrecognised key for bootstrap peer: keyBundleID; unrecognised key for bootstrap peer: monitoringEndpoint; unrecognised key for bootstrap peer: transmitterAddress; unrecognised key for bootstrap peer: observationTimeout; unrecognised key for bootstrap peer: observationSource")
+			},
+		},
+		{
+			name: "empty pipeline string non-bootstrap node",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = false
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid dot",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = false
+observationSource = """
+->
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "invalid peer address",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/invalid/peer/address"]
+isBootstrapPeer    = false
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "non-zero timeouts",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+isBootstrapPeer    = false
+blockchainTimeout  = "0s"
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "non-zero intervals",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+isBootstrapPeer    = false
+contractConfigTrackerSubscribeInterval = "0s"
+observationSource = """
+blah
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+		},
+		{
+			name: "sane defaults",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = true 
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, os.ContractConfigConfirmations, uint16(3))
+				assert.Equal(t, os.ObservationTimeout, models.Interval(10*time.Second))
+				assert.Equal(t, os.BlockchainTimeout, models.Interval(20*time.Second))
+				assert.Equal(t, os.ContractConfigTrackerSubscribeInterval, models.Interval(2*time.Minute))
+				assert.Equal(t, os.ContractConfigTrackerPollInterval, models.Interval(1*time.Minute))
+				assert.Len(t, os.P2PBootstrapPeers, 0)
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := services.ValidatedOracleSpec(tc.toml)
+			tc.assertion(t, s, err)
 		})
 	}
 }

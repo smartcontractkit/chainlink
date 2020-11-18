@@ -533,112 +533,6 @@ func TestORM_JobRunsCountFor(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
-func TestORM_CreateTx(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	transaction := cltest.NewTransaction(9182731)
-
-	tx, err := store.CreateTx(transaction)
-	require.NoError(t, err)
-	assert.Len(t, tx.Attempts, 0)
-
-	txs := []models.Tx{}
-	assert.NoError(t, store.RawDB(func(db *gorm.DB) error {
-		return db.Where("nonce = ?", transaction.Nonce).Find(&txs).Error
-	}))
-	require.Len(t, txs, 1)
-	ntx := txs[0]
-
-	assert.NotNil(t, ntx.ID)
-	assert.NotEmpty(t, ntx.From)
-	assert.NotEmpty(t, ntx.To)
-	assert.NotEmpty(t, ntx.Data)
-	assert.NotEmpty(t, ntx.Nonce)
-	assert.NotEmpty(t, ntx.Value.ToInt())
-	assert.NotEmpty(t, ntx.GasLimit)
-}
-
-func TestORM_CreateTx_WithSurrogateIDIsIdempotent(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	newNonce := uint64(13)
-
-	transaction := cltest.NewTransaction(11)
-	transaction.SurrogateID = null.StringFrom("9182323")
-	tx1, err := store.CreateTx(transaction)
-	assert.NoError(t, err)
-
-	transaction2 := cltest.NewTransaction(newNonce)
-	transaction2.SurrogateID = null.StringFrom("9182323")
-	tx2, err := store.CreateTx(transaction2)
-	assert.NoError(t, err)
-
-	// IDs should be the same because only record should ever be created
-	assert.Equal(t, tx1.ID, tx2.ID)
-
-	// New nonce should be saved
-	assert.Equal(t, newNonce, tx2.Nonce)
-
-	// New nonce should change the hash
-	assert.Equal(t, transaction2.Hash, tx2.Hash)
-}
-
-func TestORM_AddTxAttempt(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	transaction := cltest.NewTransaction(0)
-
-	tx, err := store.CreateTx(transaction)
-	assert.NoError(t, err)
-
-	txAttempt, err := store.AddTxAttempt(tx, transaction)
-	assert.NoError(t, err)
-	require.Len(t, tx.Attempts, 1)
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Attempts[0], txAttempt)
-
-	transaction = cltest.NewTransaction(1)
-	txAttempt, err = store.AddTxAttempt(tx, transaction)
-	assert.NoError(t, err)
-	require.Len(t, tx.Attempts, 2)
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Attempts[1], txAttempt)
-
-	tx, err = store.FindTx(tx.ID)
-	require.NoError(t, err)
-	assert.Equal(t, tx.Hash, txAttempt.Hash)
-
-	// Another attempt with exact same EthTx still generates a new attempt record
-	txAttempt, err = store.AddTxAttempt(tx, transaction)
-	assert.NoError(t, err)
-
-	require.Len(t, tx.Attempts, 3)
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Attempts[2], txAttempt)
-
-	transaction = cltest.NewTransaction(3)
-
-	// Another attempt with new EthTx updates Tx hash/rawTx etc.
-	txAttempt, err = store.AddTxAttempt(tx, transaction)
-	assert.NoError(t, err)
-
-	require.Len(t, tx.Attempts, 4)
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Attempts[3], txAttempt)
-	assert.Equal(t, tx.Hash, txAttempt.Hash)
-	assert.Equal(t, tx.SignedRawTx, txAttempt.SignedRawTx)
-
-	tx, err = store.FindTx(tx.ID)
-	require.NoError(t, err)
-	assert.Equal(t, tx.Hash, txAttempt.Hash)
-}
-
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
 
@@ -772,7 +666,7 @@ func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.Store
 
-	account := cltest.GetAccountAddress(t, store)
+	account := cltest.DefaultKeyAddress
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -793,7 +687,7 @@ func TestORM_GetLastNonce_Valid(t *testing.T) {
 	assert.NoError(t, app.StartAndConnect())
 
 	cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1)
-	account := cltest.GetAccountAddress(t, store)
+	account := cltest.DefaultKeyAddress
 	nonce, err := store.GetLastNonce(account)
 
 	assert.NoError(t, err)
@@ -966,23 +860,6 @@ func TestORM_CreateSession(t *testing.T) {
 	}
 }
 
-func TestORM_DeleteTransaction(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
-	transaction := cltest.NewTransaction(0)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
-
-	require.NoError(t, store.DeleteTransaction(tx))
-
-	_, err = store.FindTx(tx.ID)
-	require.Error(t, err)
-}
-
 func TestORM_AllSyncEvents(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -1092,147 +969,6 @@ func TestBulkDeleteRuns(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-}
-
-func TestORM_FindTxsBySenderAndRecipient(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-	to := cltest.NewAddress()
-	tx1 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 0, 1)
-	tx2 := cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, to, 0, 1, 1)
-	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, from, cltest.NewAddress(), 0, 2, 1)
-	cltest.CreateTxWithNonceGasPriceAndRecipient(t, store, cltest.NewAddress(), to, 0, 3, 1)
-
-	txs, err := store.FindTxsBySenderAndRecipient(from, to, 0, 4)
-	require.NoError(t, err)
-
-	require.Len(t, txs, 2)
-	expectedTxs := []*models.Tx{tx2, tx1}
-	for i, expected := range expectedTxs {
-		require.Equal(t, expected.To, txs[i].To)
-		require.Equal(t, expected.From, txs[i].From)
-		require.Equal(t, expected.Nonce, txs[i].Nonce)
-	}
-}
-
-func TestORM_FindTxAttempt_CurrentAttempt(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
-
-	txAttempt, err := store.FindTxAttempt(tx.Attempts[0].Hash)
-	require.NoError(t, err)
-
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Confirmed, txAttempt.Confirmed)
-	assert.Equal(t, tx.Hash, txAttempt.Hash)
-	assert.Equal(t, tx.GasPrice, txAttempt.GasPrice)
-	assert.Equal(t, tx.SentAt, txAttempt.SentAt)
-	assert.Equal(t, tx.SignedRawTx, txAttempt.SignedRawTx)
-}
-
-func TestORM_FindTxAttempt_PastAttempt(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-	tx := cltest.CreateTx(t, store, from, 1)
-	transaction := cltest.NewTransaction(0)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(tx, transaction)))
-
-	txAttempt, err := store.FindTxAttempt(tx.Attempts[0].Hash)
-	require.NoError(t, err)
-
-	assert.Equal(t, tx.ID, txAttempt.TxID)
-	assert.Equal(t, tx.Confirmed, txAttempt.Confirmed)
-	assert.NotEqual(t, tx.Hash, txAttempt.Hash)
-	assert.NotEqual(t, tx.GasPrice, txAttempt.GasPrice)
-	assert.NotEqual(t, tx.SentAt, txAttempt.SentAt)
-	assert.NotEqual(t, tx.SignedRawTx, txAttempt.SignedRawTx)
-}
-
-func TestORM_FindTxByAttempt_CurrentAttempt(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-
-	createdTx := cltest.CreateTx(t, store, from, 1)
-	fetchedTx, fetchedTxAttempt, err := store.FindTxByAttempt(createdTx.Hash)
-	assert.NoError(t, err, "failed to find tx:%s in store", createdTx.Hash)
-
-	assert.Equal(t, createdTx.ID, fetchedTx.ID)
-	assert.Equal(t, createdTx.From, fetchedTx.From)
-	assert.Equal(t, createdTx.To, fetchedTx.To)
-	assert.Equal(t, createdTx.Nonce, fetchedTx.Nonce)
-	assert.Equal(t, createdTx.Value, fetchedTx.Value)
-	assert.Equal(t, createdTx.GasLimit, fetchedTx.GasLimit)
-	assert.Equal(t, createdTx.Confirmed, fetchedTx.Confirmed)
-	assert.Equal(t, createdTx.Hash, fetchedTx.Hash)
-	assert.Equal(t, createdTx.GasPrice, fetchedTx.GasPrice)
-	assert.Equal(t, createdTx.SentAt, fetchedTx.SentAt)
-
-	assert.Equal(t, createdTx.ID, fetchedTxAttempt.TxID)
-	assert.Equal(t, createdTx.Confirmed, fetchedTxAttempt.Confirmed)
-	assert.Equal(t, createdTx.Hash, fetchedTxAttempt.Hash)
-	assert.Equal(t, createdTx.GasPrice, fetchedTxAttempt.GasPrice)
-	assert.Equal(t, createdTx.SentAt, fetchedTxAttempt.SentAt)
-}
-
-func TestORM_FindTxByAttempt_PastAttempt(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
-	defer cleanup()
-
-	from := cltest.GetAccountAddress(t, store)
-	createdTx := cltest.CreateTx(t, store, from, 1)
-	pastTxAttempt := createdTx.Attempts[0]
-
-	transaction := cltest.NewTransaction(0)
-	require.NoError(t, utils.JustError(store.AddTxAttempt(createdTx, transaction)))
-
-	fetchedTx, pastTxAttempt, err := store.FindTxByAttempt(pastTxAttempt.Hash)
-	require.NoError(t, err)
-
-	assert.Equal(t, createdTx.ID, fetchedTx.ID)
-	assert.Equal(t, createdTx.From, fetchedTx.From)
-	assert.Equal(t, createdTx.To, fetchedTx.To)
-	assert.Equal(t, createdTx.Nonce, fetchedTx.Nonce)
-	assert.Equal(t, createdTx.Value, fetchedTx.Value)
-	assert.Equal(t, createdTx.GasLimit, fetchedTx.GasLimit)
-	assert.Equal(t, createdTx.Confirmed, fetchedTx.Confirmed)
-	assert.Equal(t, createdTx.Hash, fetchedTx.Hash)
-	assert.Equal(t, createdTx.GasPrice, fetchedTx.GasPrice)
-	assert.Equal(t, createdTx.SentAt, fetchedTx.SentAt)
-
-	assert.Equal(t, createdTx.ID, pastTxAttempt.TxID)
-	assert.NotEqual(t, createdTx.Hash, pastTxAttempt.Hash)
-	assert.NotEqual(t, createdTx.GasPrice, pastTxAttempt.GasPrice)
-	assert.NotEqual(t, createdTx.SentAt, pastTxAttempt.SentAt)
-	assert.NotEqual(t, createdTx.SignedRawTx, pastTxAttempt.SignedRawTx)
 }
 
 func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
@@ -1398,6 +1134,50 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
 }
 
+func TestORM_EthTransactionsWithAttempts(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	from := cltest.DefaultKeyAddress
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
+	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
+
+	// add 2nd attempt to tx2
+	blockNum := int64(3)
+	attempt := cltest.NewEthTxAttempt(t, tx2.ID)
+	attempt.State = models.EthTxAttemptBroadcast
+	attempt.GasPrice = *utils.NewBig(big.NewInt(3))
+	attempt.BroadcastBeforeBlockNum = &blockNum
+	require.NoError(t, store.DB.Create(&attempt).Error)
+
+	// tx 3 has no attempts
+	tx3 := cltest.NewEthTx(t, store, from)
+	tx3.State = models.EthTxUnstarted
+	tx3.FromAddress = from
+	require.NoError(t, store.DB.Save(&tx3).Error)
+
+	count, err := store.CountOf(models.EthTx{})
+	require.NoError(t, err)
+	require.Equal(t, 3, count)
+
+	txs, count, err := store.EthTransactionsWithAttempts(0, 100) // should omit tx3
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
+	assert.Len(t, txs, 2)
+	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+	assert.Equal(t, int64(0), *txs[1].Nonce, "transactions should be sorted by nonce")
+	assert.Len(t, txs[0].EthTxAttempts, 2, "all eth tx attempts are preloaded")
+	assert.Len(t, txs[1].EthTxAttempts, 1)
+	assert.Equal(t, int64(3), *txs[0].EthTxAttempts[0].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
+	assert.Equal(t, int64(2), *txs[0].EthTxAttempts[1].BroadcastBeforeBlockNum, "attempts shoud be sorted by created_at")
+
+	txs, count, err = store.EthTransactionsWithAttempts(0, 1)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count, "only eth txs with attempts are counted")
+	assert.Len(t, txs, 1, "limit should apply to length of results")
+	assert.Equal(t, int64(1), *txs[0].Nonce, "transactions should be sorted by nonce")
+}
+
 func TestORM_UpdateBridgeType(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -1435,120 +1215,6 @@ func isDirEmpty(t *testing.T, dir string) bool {
 	}
 
 	return false
-}
-
-func TestORM_UnconfirmedTxAttempts(t *testing.T) {
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	t.Run("tx #1, 4 attempts", func(t *testing.T) {
-		transaction := cltest.NewTransaction(0, 0)
-		transaction.SurrogateID = null.StringFrom("0")
-		tx, err := store.CreateTx(transaction)
-		require.NoError(t, err)
-
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(0, 1)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(0, 2)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(0, 3)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-		require.Len(t, tx.Attempts, 4)
-
-		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(1111))
-		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(2222))
-		tx.Attempts[2].GasPrice = utils.NewBig(big.NewInt(3333))
-		tx.Attempts[3].GasPrice = utils.NewBig(big.NewInt(4444))
-
-		err = store.ORM.RawDB(func(db *gorm.DB) error {
-			return db.Save(&tx).Error
-		})
-		require.NoError(t, err)
-	})
-
-	t.Run("tx #2, 3 attempts", func(t *testing.T) {
-		transaction := cltest.NewTransaction(1)
-		transaction.SurrogateID = null.StringFrom("1")
-		tx, err := store.CreateTx(transaction)
-		require.NoError(t, err)
-
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(1, 1)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(1, 2)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-		require.Len(t, tx.Attempts, 3)
-
-		tx.Attempts[0].GasPrice = utils.NewBig(big.NewInt(5555))
-		tx.Attempts[1].GasPrice = utils.NewBig(big.NewInt(6666))
-		tx.Attempts[2].GasPrice = utils.NewBig(big.NewInt(7777))
-
-		err = store.ORM.RawDB(func(db *gorm.DB) error {
-			return db.Save(&tx).Error
-		})
-		require.NoError(t, err)
-	})
-
-	t.Run("tx #3, 2 attempts", func(t *testing.T) {
-		transaction := cltest.NewTransaction(2)
-		transaction.SurrogateID = null.StringFrom("2")
-		tx, err := store.CreateTx(transaction)
-		require.NoError(t, err)
-
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		transaction = cltest.NewTransaction(2, 1)
-		_, err = store.AddTxAttempt(tx, transaction)
-		require.NoError(t, err)
-
-		// This tx's attempts should not appear in the results
-		tx.Confirmed = true
-
-		err = store.ORM.RawDB(func(db *gorm.DB) error {
-			return db.Save(&tx).Error
-		})
-		require.NoError(t, err)
-	})
-
-	attempts, err := store.ORM.UnconfirmedTxAttempts()
-	require.NoError(t, err)
-
-	assert.Len(t, attempts, 7)
-}
-
-func TestORM_FindAllTxsInNonceRange(t *testing.T) {
-	var createdTxs []models.Tx
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	for _, nonce := range []uint64{1, 2, 3} {
-		tx := cltest.NewTransaction(nonce)
-		tx.SurrogateID = null.StringFrom(fmt.Sprintf("nonce-%v", nonce))
-		tx, err := store.CreateTx(tx)
-		require.NoError(t, err)
-		createdTxs = append(createdTxs, *tx)
-	}
-	assert.Len(t, createdTxs, 3)
-
-	txs, err := store.FindAllTxsInNonceRange(2, 3)
-	require.NoError(t, err)
-	assert.Len(t, txs, 2)
-	assert.Equal(t, "nonce-2", txs[0].SurrogateID.ValueOrZero())
-	assert.Equal(t, "nonce-3", txs[1].SurrogateID.ValueOrZero())
 }
 
 func TestJobs_All(t *testing.T) {

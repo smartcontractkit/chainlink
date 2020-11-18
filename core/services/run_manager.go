@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -58,7 +57,6 @@ type runManager struct {
 	orm         *orm.ORM
 	statsPusher synchronization.StatsPusher
 	runQueue    RunQueue
-	txManager   store.TxManager
 	config      orm.ConfigReader
 	clock       utils.AfterNower
 }
@@ -143,13 +141,11 @@ func NewRunManager(
 	config orm.ConfigReader,
 	orm *orm.ORM,
 	statsPusher synchronization.StatsPusher,
-	txManager store.TxManager,
 	clock utils.AfterNower) RunManager {
 	return &runManager{
 		orm:         orm,
 		statsPusher: statsPusher,
 		runQueue:    runQueue,
-		txManager:   txManager,
 		config:      config,
 		clock:       clock,
 	}
@@ -236,7 +232,7 @@ func (rm *runManager) Create(
 			fmt.Sprintf("Executing run originally initiated by %s", run.Initiator.Type),
 			run.ForLogger()...,
 		)
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return run, nil
 }
@@ -297,8 +293,7 @@ RETURNING id;`
 	}
 
 	for _, runID := range runIDs {
-		// FIXME: this is safe, but probably better to change Run to just take an ID here
-		rm.runQueue.Run(&models.JobRun{ID: runID})
+		rm.runQueue.Run(runID)
 	}
 	rm.statsPusher.PushNow()
 	return nil
@@ -370,7 +365,8 @@ func (rm *runManager) ResumePendingBridge(
 // To recap: This must run before anything else writes job run status to the db,
 // ie. tries to run a job.
 func (rm *runManager) ResumeAllInProgress() error {
-	return rm.orm.UnscopedJobRunsWithStatus(rm.runQueue.Run, models.RunStatusInProgress, models.RunStatusPendingSleep)
+	queueRun := func(run *models.JobRun) { rm.runQueue.Run(run.ID) }
+	return rm.orm.UnscopedJobRunsWithStatus(queueRun, models.RunStatusInProgress, models.RunStatusPendingSleep)
 }
 
 // Cancel suspends a running task.
@@ -409,7 +405,7 @@ func (rm *runManager) saveAndResumeIfInProgress(run *models.JobRun) error {
 	}
 	rm.statsPusher.PushNow()
 	if run.GetStatus() == models.RunStatusInProgress {
-		rm.runQueue.Run(run)
+		rm.runQueue.Run(run.ID)
 	}
 	return nil
 }
