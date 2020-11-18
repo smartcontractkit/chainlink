@@ -1,5 +1,5 @@
 ##### NOTES #####
-# Build a fresh image by running "compose build node"
+# Must build a fresh docker image that includes OCR named "chainlink-dev"
 # This container condenses the db's into 1 docker container, user must run the postgres container, and run the commands below.
 #psql -U postgres
 #CREATE DATABASE chainlink_1_test;
@@ -7,7 +7,6 @@
 #CREATE DATABASE chainlink_3_test;
 #CREATE DATABASE chainlink_4_test;
 #CREATE DATABASE chainlink_5_test;
-#To delete a database
 #DROP DATABASE chainlink_1_test;
 
 

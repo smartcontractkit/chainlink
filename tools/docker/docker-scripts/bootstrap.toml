@@ -1,0 +1,10 @@
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x6FCb4b66E23A39A5723B21A084B671b8c40bd136"
+p2pPeerID          = "12D3KooWC4dcricEik8DJRVgKRHmW5Fs5B2wdNCmjwT2q1dg9Cqf"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = true
+blockchainTimeout  = "20s"
+contractConfigTrackerSubscribeInterval = "2m"
+contractConfigTrackerPollInterval = "1m"
+contractConfigConfirmations = 3
