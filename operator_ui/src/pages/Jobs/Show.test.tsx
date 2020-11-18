@@ -54,35 +54,6 @@ describe('pages/Jobs/Show', () => {
     expect(wrapper.text()).not.toContain('View More')
   })
 
-  it('displays a view more link if there are more runs than the display count', async () => {
-    const runs = [
-      { id: 'runA', jobId: JOB_SPEC_ID },
-      { id: 'runB', jobId: JOB_SPEC_ID },
-      { id: 'runC', jobId: JOB_SPEC_ID },
-      { id: 'runD', jobId: JOB_SPEC_ID },
-      { id: 'runE', jobId: JOB_SPEC_ID },
-      { id: 'runF', jobId: JOB_SPEC_ID },
-    ]
-
-    const jobSpecResponse = jsonApiJobSpecFactory({
-      id: JOB_SPEC_ID,
-    })
-    const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
-
-    global.fetch.getOnce(globPath(`/v2/specs/${JOB_SPEC_ID}`), jobSpecResponse)
-    global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
-
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}`],
-      },
-    )
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('View More')
-  })
-
   describe('RegionalNav', () => {
     it('clicking on "Run" button triggers a new job and updates the recent jobs list', async () => {
       const runs = [{ id: 'runA', jobId: JOB_SPEC_ID }]
