@@ -295,6 +295,17 @@ describe('Operator', () => {
       })
     })
 
+    describe('when dataVersion is higher than 255', () => {
+      const paid = 100
+      const args = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0', 256)
+
+      it('throws an error', async () => {
+        await matchers.evmRevert(async () => {
+          await link.transferAndCall(operator.address, paid, args)
+        })
+      })
+    })
+
     describe('when not called through the LINK token', () => {
       it('reverts', async () => {
         await matchers.evmRevert(async () => {
@@ -386,7 +397,6 @@ describe('Operator', () => {
       })
 
       describe('when fulfilled with the wrong function', () => {
-        // TODO
         let v7Consumer
         beforeEach(async () => {
           v7Consumer = await v7ConsumerFactory
@@ -737,94 +747,6 @@ describe('Operator', () => {
             0,
             await provider.getBalance(maliciousConsumer.address),
           )
-        })
-      })
-    })
-  })
-
-  describe('#oracleRequest2', () => {
-    describe('when called through the LINK token', () => {
-      const paid = 100
-      let log: ethers.providers.Log | undefined
-      let receipt: ethers.providers.TransactionReceipt
-
-      beforeEach(async () => {
-        const args = oracle.encodeOracleRequest(specId, to, fHash, 2, '0x0')
-        const tx = await link.transferAndCall(operator.address, paid, args)
-        receipt = await tx.wait()
-        assert.equal(3, receipt?.logs?.length)
-
-        log = receipt.logs && receipt.logs[2]
-      })
-
-      it('logs an event', async () => {
-        assert.equal(operator.address, log?.address)
-
-        assert.equal(log?.topics?.[1], specId)
-
-        const req = oracle.decodeRunRequest(receipt?.logs?.[2])
-        assert.equal(roles.defaultAccount.address, req.requester)
-        matchers.bigNum(paid, req.payment)
-      })
-
-      it('uses the expected event signature', async () => {
-        // If updating this test, be sure to update models.RunLogTopic.
-        const eventSignature =
-          '0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65'
-        assert.equal(eventSignature, log?.topics?.[0])
-      })
-
-      it('does not allow the same requestId to be used twice', async () => {
-        const args2 = oracle.encodeOracleRequest(specId, to, fHash, 2, '0x0')
-        await matchers.evmRevert(async () => {
-          await link.transferAndCall(operator.address, paid, args2)
-        })
-      })
-
-      describe('when called with a payload less than 2 EVM words + function selector', () => {
-        const funcSelector =
-          operatorFactory.interface.functions.oracleRequest.sighash
-        const maliciousData =
-          funcSelector +
-          '0000000000000000000000000000000000000000000000000000000000000000000'
-
-        it('throws an error', async () => {
-          await matchers.evmRevert(async () => {
-            await link.transferAndCall(operator.address, paid, maliciousData)
-          })
-        })
-      })
-
-      describe('when called with a payload between 3 and 9 EVM words', () => {
-        const funcSelector =
-          operatorFactory.interface.functions.oracleRequest.sighash
-        const maliciousData =
-          funcSelector +
-          '000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
-
-        it('throws an error', async () => {
-          await matchers.evmRevert(async () => {
-            await link.transferAndCall(operator.address, paid, maliciousData)
-          })
-        })
-      })
-    })
-
-    describe('when not called through the LINK token', () => {
-      it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await operator
-            .connect(roles.oracleNode)
-            .oracleRequest(
-              '0x0000000000000000000000000000000000000000',
-              0,
-              specId,
-              to,
-              fHash,
-              1,
-              2,
-              '0x',
-            )
         })
       })
     })

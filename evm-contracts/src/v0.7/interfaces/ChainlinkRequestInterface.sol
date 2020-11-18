@@ -8,7 +8,7 @@ interface ChainlinkRequestInterface {
     address callbackAddress,
     bytes4 callbackFunctionId,
     uint256 nonce,
-    uint256 dataVersion, // Currently unused, always "1"
+    uint256 dataVersion,
     bytes calldata data
   ) external;
 
