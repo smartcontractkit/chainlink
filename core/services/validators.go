@@ -437,7 +437,6 @@ var (
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"monitoringEndpoint": {},
 		"observationSource":  {},
 		"observationTimeout": {},
 		"keyBundleID":        {},

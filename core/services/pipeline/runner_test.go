@@ -313,7 +313,6 @@ func TestRunner(t *testing.T) {
 		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 		isBootstrapPeer    = false 
 		transmitterAddress = "%s"
-		monitoringEndpoint = "%s"
 		keyBundleID = "%s"
 		observationTimeout = "10s"
 		observationSource = """
@@ -333,7 +332,8 @@ ds1 -> ds1_parse;
 			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, "chain.link:101", kb.ID)
+
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID)
 		_, err = services.ValidatedOracleSpecToml(s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
