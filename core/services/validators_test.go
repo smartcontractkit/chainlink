@@ -670,7 +670,7 @@ isBootstrapPeer    = true
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := services.ValidatedOracleSpec(tc.toml)
+			s, err := services.ValidatedOracleSpecToml(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}
