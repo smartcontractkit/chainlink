@@ -241,6 +241,7 @@ export function encodeOracleRequest(
   callbackFunctionId: string,
   nonce: number,
   data: BigNumberish,
+  dataVersion: BigNumberish = 1,
 ): string {
   const oracleRequestSighash = '0x40429946'
   return encodeRequest(
@@ -250,6 +251,7 @@ export function encodeOracleRequest(
     callbackFunctionId,
     nonce,
     data,
+    dataVersion,
   )
 }
 
@@ -260,6 +262,7 @@ function encodeRequest(
   callbackFunctionId: string,
   nonce: number,
   data: BigNumberish,
+  dataVersion: BigNumberish = 1,
 ): string {
   const oracleRequestInputs = [
     { name: '_sender', type: 'address' },
@@ -280,7 +283,7 @@ function encodeRequest(
       callbackAddr,
       callbackFunctionId,
       nonce,
-      1,
+      dataVersion,
       data,
     ],
   )
