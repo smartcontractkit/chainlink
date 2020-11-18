@@ -32,6 +32,8 @@ const styles = (theme: Theme) =>
     badgePadding: {
       paddingLeft: theme.spacing.unit * 2,
       paddingRight: theme.spacing.unit * 2,
+      marginLeft: theme.spacing.unit * -2,
+      marginRight: theme.spacing.unit * -2,
       lineHeight: '1rem',
     },
     container: {
@@ -54,10 +56,11 @@ const styles = (theme: Theme) =>
     },
     horizontalNavItem: {
       display: 'inline',
+      paddingLeft: 0,
+      paddingRight: 0,
     },
     horizontalNavLink: {
-      paddingTop: theme.spacing.unit * 4,
-      paddingBottom: theme.spacing.unit * 4,
+      padding: `${theme.spacing.unit * 4}px ${theme.spacing.unit * 2}px`,
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
@@ -327,19 +330,6 @@ const RegionalNavComponent = ({
                   Definition
                 </Link>
               </ListItem>
-              {job?.type === 'Direct request' && (
-                <ListItem className={classes.horizontalNavItem}>
-                  <Link
-                    href={`/jobs/${jobSpecId}/definition`}
-                    className={classNames(
-                      classes.horizontalNavLink,
-                      navDefinitionActive && classes.activeNavLink,
-                    )}
-                  >
-                    Definition
-                  </Link>
-                </ListItem>
-              )}
               <ListItem className={classes.horizontalNavItem}>
                 <Link
                   href={`/jobs/${jobSpecId}/errors`}
@@ -348,13 +338,17 @@ const RegionalNavComponent = ({
                     navErrorsActive && classes.activeNavLink,
                   )}
                 >
-                  <Badge
-                    badgeContent={job?.errors && job.errors.length}
-                    color="error"
-                    className={classes.badgePadding}
-                  >
-                    Errors
-                  </Badge>
+                  {job?.errors && job.errors.length > 0 ? (
+                    <Badge
+                      badgeContent={job.errors.length}
+                      color="error"
+                      className={classes.badgePadding}
+                    >
+                      Errors
+                    </Badge>
+                  ) : (
+                    'Errors'
+                  )}
                 </Link>
               </ListItem>
             </List>

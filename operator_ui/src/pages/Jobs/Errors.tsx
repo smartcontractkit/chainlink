@@ -19,7 +19,6 @@ export const JobsErrors: React.FC<{
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   job?: JobData['job']
-  jobSpec?: JobData['jobSpec']
   setState: React.Dispatch<React.SetStateAction<JobData>>
   getJobSpec: () => Promise<void>
 }> = ({
@@ -28,7 +27,6 @@ export const JobsErrors: React.FC<{
   getJobSpec,
   LoadingPlaceholder,
   job,
-  jobSpec,
   setState,
 }) => {
   React.useEffect(() => {
@@ -37,13 +35,9 @@ export const JobsErrors: React.FC<{
 
   const handleDismiss = async (jobSpecErrorId: string) => {
     // Optimistic delete
-    const jobSpecCopy: NonNullable<JobData['jobSpec']> = JSON.parse(
-      JSON.stringify(jobSpec),
-    )
-    jobSpecCopy.attributes.errors = jobSpecCopy.attributes.errors.filter(
-      (e) => e.id !== jobSpecErrorId,
-    )
-    setState((state) => ({ ...state, jobSpec: jobSpecCopy }))
+    const jobCopy: NonNullable<JobData['job']> = JSON.parse(JSON.stringify(job))
+    jobCopy.errors = jobCopy.errors.filter((e) => e.id !== jobSpecErrorId)
+    setState((state) => ({ ...state, job: jobCopy }))
 
     await v2.jobSpecErrors.destroyJobSpecError(jobSpecErrorId)
     await getJobSpec()
