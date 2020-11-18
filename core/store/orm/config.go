@@ -384,6 +384,9 @@ func (c Config) EthereumSecondaryURLs() []url.URL {
 	urlStrings := regexp.MustCompile("\\s*[;,]\\s*").Split(config, -1)
 	urls := []url.URL{}
 	for _, urlString := range urlStrings {
+		if urlString == "" {
+			continue
+		}
 		url, err := url.Parse(urlString)
 		if err != nil {
 			logger.Fatalf("Invalid Secondary Ethereum URL: %s, got error: %v", urlString, err)
