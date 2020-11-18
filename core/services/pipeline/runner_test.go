@@ -332,7 +332,7 @@ ds1 -> ds1_parse;
 			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
-    
+
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID)
 		_, err = services.ValidatedOracleSpecToml(s)
 		require.NoError(t, err)
