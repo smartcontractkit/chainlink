@@ -90,7 +90,7 @@ func TestORM(t *testing.T) {
 		err := g.UnmarshalText([]byte(dotStr))
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(context.Background(), *g)
+		specID, err = orm.CreateSpec(context.Background(), db, *g)
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec
