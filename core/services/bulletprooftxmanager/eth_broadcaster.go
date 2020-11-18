@@ -130,7 +130,7 @@ func (eb *ethBroadcaster) ethTxInsertTriggerer() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer eb.wg.Done()
 	for {
-		pollDBTimer := time.NewTimer(eb.config.TriggerFallbackDBPollInterval())
+		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		keys, err := eb.store.SendKeys()
 
