@@ -637,11 +637,13 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
-	if !p.initr.PollTimer.Disabled && !p.isHibernating {
-		p.pollIfEligible(DeviationThresholds{
-			Rel: float64(p.initr.Threshold),
-			Abs: float64(p.initr.AbsoluteThreshold),
-		})
+	if !p.initr.PollTimer.Disabled || !p.initr.IdleTimer.Disabled {
+		if !p.isHibernating {
+			p.pollIfEligible(DeviationThresholds{
+				Rel: float64(p.initr.Threshold),
+				Abs: float64(p.initr.AbsoluteThreshold),
+			})
+		}
 	}
 }
 
