@@ -20,7 +20,7 @@ describe('pages/Jobs/Definition', () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/:jobSpecId" component={JobsShow} />,
       {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}/json`],
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/definition`],
       },
     )
 

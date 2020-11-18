@@ -34,7 +34,6 @@ type ConfigReader interface {
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
-	EnableBulletproofTxManager() bool
 	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
@@ -85,4 +84,5 @@ type ConfigReader interface {
 	CreateProductionLogger() *logger.Logger
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
+	TriggerFallbackDBPollInterval() time.Duration
 }

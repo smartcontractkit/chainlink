@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
@@ -24,7 +24,7 @@
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
     "ethers": "^4.0.45",
-    "jest": "^25.1.0",
+    "jest": "^26.6.3",
     "solhint": "^3.2.1",
     "ts-jest": "^25.2.0",
     "typescript": "^3.7.5"
@@ -37,7 +37,7 @@
     "app.config.json"
   ],
   "optionalDependencies": {
-    "@truffle/contract": "^4.2.6",
+    "@truffle/contract": "^4.2.29",
     "ethers": "^4.0.45"
   }
 }

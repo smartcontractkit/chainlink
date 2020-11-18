@@ -38,7 +38,7 @@ type (
 
 	// EncryptedKeyBundle holds an encrypted KeyBundle
 	EncryptedKeyBundle struct {
-		ID                    models.Sha256Hash     `json:"-" gorm:"primary_key"`
+		ID                    models.Sha256Hash     `json:"id" gorm:"primary_key"`
 		OnChainSigningAddress OnChainSigningAddress `json:"onChainSigningAddress"`
 		OffChainPublicKey     OffChainPublicKey     `json:"offChainPublicKey"`
 		ConfigPublicKey       ConfigPublicKey       `json:"configPublicKey"`

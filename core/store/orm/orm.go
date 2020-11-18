@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -665,6 +666,35 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 	}
 }
 
+// EthTransactionsWithAttempts returns all eth transactions with at least one attempt
+// limited by passed parameters. Attempts are sorted by created_at.
+func (orm *ORM) EthTransactionsWithAttempts(offset, limit int) ([]models.EthTx, int, error) {
+	ethTXIDs := orm.DB.
+		Select("DISTINCT eth_tx_id").
+		Table("eth_tx_attempts").
+		QueryExpr()
+
+	var count int
+	err := orm.DB.
+		Table("eth_txes").
+		Where("id IN (?)", ethTXIDs).
+		Count(&count).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var txs []models.EthTx
+	err = orm.DB.
+		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+			return db.Order("created_at desc")
+		}).
+		Where("id IN (?)", ethTXIDs).
+		Order("id desc").Limit(limit).Offset(offset).
+		Find(&txs).Error
+
+	return txs, count, err
+}
+
 // FindEthTaskRunTxByTaskRunID finds the EthTaskRunTx with its EthTxes and EthTxAttempts preloaded
 func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTaskRunTx, error) {
 	etrt := &models.EthTaskRunTx{}
@@ -682,132 +712,32 @@ func (orm *ORM) FindEthTxWithAttempts(etxID int64) (models.EthTx, error) {
 	return etx, err
 }
 
-// CreateTx finds and overwrites a transaction by its surrogate key, if it exists, or
-// creates it
-func (orm *ORM) CreateTx(tx *models.Tx) (*models.Tx, error) {
-	orm.MustEnsureAdvisoryLock()
-
-	err := orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		var query *gorm.DB
-		foundTx := models.Tx{}
-		if tx.SurrogateID.Valid {
-			query = dbtx.First(&foundTx, "surrogate_id = ?", tx.SurrogateID.ValueOrZero())
-		} else {
-			query = dbtx.First(&foundTx, "hash = ?", tx.Hash)
-		}
-		err := query.Error
-
-		if err != nil && !gorm.IsRecordNotFoundError(err) {
-			return errors.Wrap(err, "CreateTx#First failed")
-		}
-
-		if gorm.IsRecordNotFoundError(err) {
-			return dbtx.Create(tx).Error
-		}
-
-		tx.ID = foundTx.ID
-		return dbtx.Save(tx).Error
-	})
+// EthTxAttempts returns the last tx attempts sorted by created_at descending.
+func (orm *ORM) EthTxAttempts(offset, limit int) ([]models.EthTxAttempt, int, error) {
+	count, err := orm.CountOf(&models.EthTxAttempt{})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return tx, nil
-}
 
-// AddTxAttempt attaches a new attempt to a Tx, after the attempt has been sent to the chain
-func (orm *ORM) AddTxAttempt(tx *models.Tx, newTxAttempt *models.Tx) (*models.TxAttempt, error) {
-	orm.MustEnsureAdvisoryLock()
-
-	tx.From = newTxAttempt.From
-	tx.Nonce = newTxAttempt.Nonce
-	tx.GasPrice = newTxAttempt.GasPrice
-	tx.Hash = newTxAttempt.Hash
-	tx.SentAt = newTxAttempt.SentAt
-	tx.SignedRawTx = newTxAttempt.SignedRawTx
-	txAttempt := &models.TxAttempt{
-		Hash:        newTxAttempt.Hash,
-		GasPrice:    newTxAttempt.GasPrice,
-		SentAt:      newTxAttempt.SentAt,
-		SignedRawTx: newTxAttempt.SignedRawTx,
-	}
-	tx.Attempts = append(tx.Attempts, txAttempt)
-
-	return txAttempt, orm.DB.Save(tx).Error
-}
-
-// MarkTxSafe updates the database for the given transaction and attempt to
-// show that the transaction has not just been confirmed,
-// but has met the minimum number of outgoing confirmations to be deemed
-// safely written on the blockchain.
-func (orm *ORM) MarkTxSafe(tx *models.Tx, txAttempt *models.TxAttempt) error {
-	orm.MustEnsureAdvisoryLock()
-	txAttempt.Confirmed = true
-	tx.Hash = txAttempt.Hash
-	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
-	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = txAttempt.SignedRawTx
-	return orm.DB.Save(tx).Error
-}
-
-func preloadAttempts(dbtx *gorm.DB) *gorm.DB {
-	return dbtx.
-		Preload("Attempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("created_at asc")
-		})
-}
-
-// FindTx returns the specific transaction for the passed ID.
-func (orm *ORM) FindTx(ID uint64) (*models.Tx, error) {
-	orm.MustEnsureAdvisoryLock()
-	tx := &models.Tx{}
-	err := preloadAttempts(orm.DB).First(tx, "id = ?", ID).Error
-	return tx, err
-}
-
-// FindAllTxsInNonceRange returns an array of transactions matching the inclusive range between beginningNonce and endingNonce
-func (orm *ORM) FindAllTxsInNonceRange(beginningNonce uint, endingNonce uint) ([]models.Tx, error) {
-	orm.MustEnsureAdvisoryLock()
-	var txs []models.Tx
-	err := orm.DB.Order("nonce ASC, sent_at ASC").Where(`nonce BETWEEN ? AND ?`, beginningNonce, endingNonce).Find(&txs).Error
-	return txs, err
-}
-
-// FindTxsBySenderAndRecipient returns an array of transactions sent by `sender` to `recipient`
-func (orm *ORM) FindTxsBySenderAndRecipient(sender, recipient common.Address, offset, limit uint) ([]models.Tx, error) {
-	orm.MustEnsureAdvisoryLock()
-	var txs []models.Tx
-	err := orm.DB.
-		Where(`"from" = ? AND "to" = ?`, sender, recipient).
-		Order("nonce DESC").
-		Offset(offset).
+	var attempts []models.EthTxAttempt
+	err = orm.DB.
+		Preload("EthTx").
+		Order("created_at desc").
 		Limit(limit).
-		Find(&txs).Error
-	return txs, err
+		Offset(offset).
+		Find(&attempts).Error
+
+	return attempts, count, err
 }
 
-// FindTxByAttempt returns the specific transaction attempt with the hash.
-func (orm *ORM) FindTxByAttempt(hash common.Hash) (*models.Tx, *models.TxAttempt, error) {
+// FindEthTxAttempt returns an individual EthTxAttempt
+func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error) {
 	orm.MustEnsureAdvisoryLock()
-	txAttempt := &models.TxAttempt{}
-	if err := orm.DB.First(txAttempt, "hash = ?", hash).Error; err != nil {
-		return nil, nil, err
+	ethTxAttempt := &models.EthTxAttempt{}
+	if err := orm.DB.Preload("EthTx").First(ethTxAttempt, "hash = ?", hash).Error; err != nil {
+		return nil, errors.Wrap(err, "FindEthTxAttempt First(ethTxAttempt) failed")
 	}
-	tx, err := orm.FindTx(txAttempt.TxID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return tx, txAttempt, nil
-}
-
-// FindTxAttempt returns an individual TxAttempt
-func (orm *ORM) FindTxAttempt(hash common.Hash) (*models.TxAttempt, error) {
-	orm.MustEnsureAdvisoryLock()
-	txAttempt := &models.TxAttempt{}
-	if err := orm.DB.Preload("Tx").First(txAttempt, "hash = ?", hash).Error; err != nil {
-		return nil, errors.Wrap(err, "FindTxByAttempt First(txAttempt) failed")
-	}
-	return txAttempt, nil
+	return ethTxAttempt, nil
 }
 
 // GetLastNonce retrieves the last known nonce in the database for an account
@@ -974,7 +904,12 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
-	err := orm.DB.Preload("OffchainreportingOracleSpec").Find(&jobs).Error
+	err := orm.DB.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("JobSpecErrors").
+		Find(&jobs).
+		Error
 	return jobs, err
 }
 
@@ -982,57 +917,50 @@ func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
 func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpecV2
-	err := orm.DB.Preload("OffchainreportingOracleSpec").First(&job, "id = ?", id).Error
+	err := orm.DB.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("JobSpecErrors").
+		First(&job, "jobs.id = ?", id).
+		Error
 	return job, err
 }
 
-// TxFrom returns all transactions from a particular address.
-func (orm *ORM) TxFrom(from common.Address) ([]models.Tx, error) {
+// OffChainReportingJobRuns returns OCR job runs
+func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	orm.MustEnsureAdvisoryLock()
-	txs := []models.Tx{}
-	return txs, preloadAttempts(orm.DB).Find(&txs, `"from" = ?`, from).Error
-}
 
-// Transactions returns all transactions limited by passed parameters.
-func (orm *ORM) Transactions(offset, limit int) ([]models.Tx, int, error) {
-	orm.MustEnsureAdvisoryLock()
-	count, err := orm.CountOf(&models.Tx{})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var txs []models.Tx
-	err = orm.getRecords(&txs, "id desc", offset, limit)
-	return txs, count, err
-}
-
-// TxAttempts returns the last tx attempts sorted by sent at descending.
-func (orm *ORM) TxAttempts(offset, limit int) ([]models.TxAttempt, int, error) {
-	orm.MustEnsureAdvisoryLock()
-	count, err := orm.CountOf(&models.TxAttempt{})
-	if err != nil {
-		return nil, 0, err
-	}
-
-	var attempts []models.TxAttempt
-	err = orm.getRecords(&attempts, "sent_at desc", offset, limit)
-	return attempts, count, err
-}
-
-// UnconfirmedTxAttempts returns all TxAttempts for which the associated Tx is still unconfirmed.
-func (orm *ORM) UnconfirmedTxAttempts() ([]models.TxAttempt, error) {
-	orm.MustEnsureAdvisoryLock()
-	var items []models.TxAttempt
+	var pipelineRuns []pipeline.Run
+	var count int
 
 	err := orm.DB.
-		Preload("Tx").
-		Joins("inner join txes on txes.id = tx_attempts.tx_id").
-		Where("txes.confirmed = ?", false).
-		Find(&items).Error
+		Model(pipeline.Run{}).
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Count(&count).
+		Error
+
 	if err != nil {
-		return nil, err
+		return pipelineRuns, 0, err
 	}
-	return items, err
+
+	err = orm.DB.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(`pipeline_task_runs.type != 'result'`).
+				Order("created_at ASC, id ASC")
+		}).
+		Preload("PipelineTaskRuns.PipelineTaskSpec").
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Limit(size).
+		Offset(offset).
+		Order("created_at DESC, id DESC").
+		Find(&pipelineRuns).
+		Error
+
+	return pipelineRuns, count, err
 }
 
 // JobRunsSorted returns job runs ordered and filtered by the passed params.
@@ -1092,12 +1020,6 @@ func (orm *ORM) SaveUser(user *models.User) error {
 func (orm *ORM) SaveSession(session *models.Session) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Save(session).Error
-}
-
-// SaveTx saves the Ethereum Transaction.
-func (orm *ORM) SaveTx(tx *models.Tx) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.DB.Save(tx).Error
 }
 
 // CreateBridgeType saves the bridge type.
@@ -1212,16 +1134,6 @@ func (orm *ORM) LastHead() (*models.Head, error) {
 func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	orm.MustEnsureAdvisoryLock()
 	return orm.DB.Where("last_used < ?", before).Delete(models.Session{}).Error
-}
-
-// DeleteTransaction deletes a transaction an all of its attempts.
-func (orm *ORM) DeleteTransaction(ethtx *models.Tx) error {
-	orm.MustEnsureAdvisoryLock()
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		err := dbtx.Where("id = ?", ethtx.ID).Delete(models.Tx{}).Error
-		err = multierr.Append(err, dbtx.Where("tx_id = ?", ethtx.ID).Delete(models.TxAttempt{}).Error)
-		return err
-	})
 }
 
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and

@@ -16,7 +16,10 @@ describe('reducers/redirect', () => {
     let state = reducer(INITIAL_STATE, redirectAction)
     expect(state.redirect.to).toBeDefined()
 
-    state = reducer(state, { type: RouterActionType.MATCH_ROUTE })
+    state = reducer(state, {
+      type: RouterActionType.MATCH_ROUTE,
+      pathname: '/any',
+    })
     expect(state.redirect.to).toBeUndefined()
   })
 })

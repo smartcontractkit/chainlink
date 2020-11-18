@@ -102,16 +102,12 @@ func (c *Config) Validate() error {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
 
-	if c.P2PAnnouncePort() != 0 || c.P2PAnnounceIP() != nil {
-		if c.P2PAnnouncePort() == 0 {
-			return errors.Errorf("OCR_ANNOUNCE_IP was given as %s but OCR_ANNOUNCE_PORT was unset. You must set both OCR_ANNOUNCE_IP and OCR_ANNOUNCE_PORT together, or leave both unset for automatic detection", c.P2PAnnounceIP().String())
-		} else if c.P2PAnnounceIP().IsUnspecified() {
-			return errors.Errorf("OCR_ANNOUNCE_PORT was given as %v but OCR_ANNOUNCE_IP was unset. You must set both OCR_ANNOUNCE_IP and OCR_ANNOUNCE_PORT together, or leave both unset for automatic detection", c.P2PAnnouncePort())
-		}
+	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
+		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
-		return errors.New("OCR_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
 	return nil
 }
@@ -249,12 +245,6 @@ func (c Config) Dev() bool {
 // EnableExperimentalAdapters enables support for experimental adapters
 func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
-}
-
-// EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
-// toggling this on and off could cause transactions to become lost
-func (c Config) EnableBulletproofTxManager() bool {
-	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
 }
 
 // FeatureExternalInitiators enables the External Initiator feature.
@@ -429,8 +419,8 @@ func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-func (c Config) JobPipelineDBPollInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+func (c Config) TriggerFallbackDBPollInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("TriggerFallbackDBPollInterval"))
 }
 
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
@@ -601,6 +591,10 @@ func (c Config) P2PAnnounceIP() net.IP {
 // If this is set, P2PAnnounceIP MUST also be set.
 func (c Config) P2PAnnouncePort() uint16 {
 	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
+}
+
+func (c Config) P2PPeerstoreWriteInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
 }
 
 // Port represents the port Chainlink should listen on for client requests.

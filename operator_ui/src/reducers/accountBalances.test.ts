@@ -10,7 +10,7 @@ describe('reducers/accountBalances', () => {
     const action = partialAsFull<UpsertAccountBalanceAction>({
       type: ResourceActionType.UPSERT_ACCOUNT_BALANCE,
       data: {
-        accountBalances: {
+        eThKeys: {
           '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f': {
             id: '0x9CA9d2D5E04012C9Ed24C0e513C9bfAa4A2dD77f',
             attributes: {

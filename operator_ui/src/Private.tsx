@@ -28,7 +28,7 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
-const JobsIndex = universal(import('./pages/Jobs/Index'), uniOpts)
+const JobsIndex = universal(import('./pages/JobsIndex/JobsIndex'), uniOpts)
 const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
 const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
@@ -106,11 +106,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 )}
               />
               <PrivateRoute exact path="/jobs" component={JobsIndex} />
-              <PrivateRoute
-                exact
-                path="/jobs/page/:pageNumber"
-                component={JobsIndex}
-              />
               <PrivateRoute exact path="/jobs/new" component={JobsNew} />
               <PrivateRoute
                 exact
@@ -148,21 +143,7 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 component={JobRunsShowErrorLog}
               />
               <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
-              <PrivateRoute
-                exact
-                path="/runs"
-                render={(props) => (
-                  <JobRunsIndex {...props} pagePath="/runs/page" />
-                )}
-              />
-              <PrivateRoute
-                exact
-                path="/runs/page/:jobRunsPage"
-                render={(props) => (
-                  <JobRunsIndex {...props} pagePath="/runs/page" />
-                )}
-              />
-              ;<PrivateRoute exact path="/bridges" component={BridgesIndex} />
+              <PrivateRoute exact path="/bridges" component={BridgesIndex} />
               <PrivateRoute
                 exact
                 path="/bridges/page/:bridgePage"

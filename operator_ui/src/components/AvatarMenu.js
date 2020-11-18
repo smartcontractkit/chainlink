@@ -12,7 +12,6 @@ import ClickAwayListener from '@material-ui/core/ClickAwayListener'
 import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { grey } from '@material-ui/core/colors'
-import BaseLink from '../components/BaseLink'
 import face from 'images/face.svg'
 import { submitSignOut } from 'actionCreators'
 
@@ -90,16 +89,11 @@ const AvatarMenu = ({ classes, submitSignOut }) => {
             <Paper square={false}>
               <ClickAwayListener onClickAway={handleClose}>
                 <MenuList>
-                  <BaseLink href="/signout" className={classes.link}>
-                    <MenuItem
-                      onClick={handleLogOut}
-                      className={classes.menuItem}
-                    >
-                      <Typography variant="body1" className={classes.link}>
-                        Log out
-                      </Typography>
-                    </MenuItem>
-                  </BaseLink>
+                  <MenuItem onClick={handleLogOut} className={classes.menuItem}>
+                    <Typography variant="body1" className={classes.link}>
+                      Log out
+                    </Typography>
+                  </MenuItem>
                 </MenuList>
               </ClickAwayListener>
             </Paper>

@@ -12,7 +12,7 @@ DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
-ECR_REPO := "$(AWS_ECR_ACCOUNT_URL):$(DOCKER_TAG)"
+ECR_REPO := "$(AWS_ECR_URL)/chainlink:$(DOCKER_TAG)"
 
 .PHONY: install
 install: operator-ui-autoinstall install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -35,11 +35,6 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 
 .PHONY: yarndep
 yarndep: ## Ensure all yarn dependencies are installed
-	yarn install --frozen-lockfile
-	./tools/bin/restore-solc-cache
-
-.PHONY: gen-builder-cache
-gen-builder-cache: gomod # generate a cache for the builder image
 	yarn install --frozen-lockfile
 	./tools/bin/restore-solc-cache
 
@@ -83,18 +78,25 @@ go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrapp
 testdb: ## Prepares the test database
 	go run ./core/main.go local db preparetest
 
+# Format for CI
+.PHONY: presubmit
+presubmit:
+	goimports -w ./core
+	gofmt -w ./core
+	go mod tidy
+
 .PHONY: docker
 docker: ## Build the docker image.
-	docker build \
+		docker build \
+		-f $(DOCKERFILE) \
+		--build-arg "BUILDER=$(AWS_ECR_URL)/builder" \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 		-t $(TAGGED_REPO) \
-		-f $(DOCKERFILE) \
 		.
 
 .PHONY: dockerpush
-dockerpush: ## Push the docker image to dockerhub
-	docker push $(TAGGED_REPO)
+dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
 
 help:

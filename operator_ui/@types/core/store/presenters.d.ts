@@ -38,7 +38,6 @@ declare module 'core/store/presenters' {
     databaseTimeout: time.Duration
     defaultHttpLimit: number
     defaultHttpTimeout: time.Duration
-    enableBulletproofTxManager: boolean
     enableExperimentalAdapters: boolean
     ethChainId: number
     ethFinalityDepth: number
@@ -93,7 +92,7 @@ declare module 'core/store/presenters' {
    * Tx is a jsonapi wrapper for an Ethereum Transaction.
    */
   export interface Tx {
-    confirmed?: boolean
+    state?: string
     data?: hexutil.Bytes
     from?: Pointer<common.Address>
     gasLimit?: string
