@@ -230,7 +230,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		var wg sync.WaitGroup
 		defer wg.Wait()
 		wg.Add(1)
-		go func() {
+		go func(gethClient GethClient) {
 			defer wg.Done()
 			err := NewSendError(gethClient.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
@@ -239,7 +239,7 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 				return
 			}
 			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
-		}()
+		}(gethClient)
 	}
 
 	return client.GethClient.SendTransaction(ctx, tx)
