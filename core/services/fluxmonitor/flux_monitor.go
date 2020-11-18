@@ -562,9 +562,13 @@ func (p *PollingDeviationChecker) consume() {
 
 	p.readyForLogs()
 	p.setIsHibernatingStatus()
-	p.resetTickers(contracts.FluxAggregatorRoundState{
-		StartedAt: uint64(time.Now().Unix()),
-	})
+
+	roundState, err := p.roundState(0)
+	if err != nil {
+		logger.Warnw("Unable to call roundState method on provided contract", "err", err)
+		p.store.UpsertErrorFor(p.JobID(), "Unable to call roundState method on provided contract. Check contract address.")
+	}
+	p.resetTickers(roundState)
 	p.performInitialPoll()
 
 	for {
@@ -637,14 +641,16 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
-	if !p.initr.PollTimer.Disabled || !p.initr.IdleTimer.Disabled {
-		if !p.isHibernating {
-			p.pollIfEligible(DeviationThresholds{
-				Rel: float64(p.initr.Threshold),
-				Abs: float64(p.initr.AbsoluteThreshold),
-			})
-		}
+	if p.shouldPerformInitialPoll() {
+		p.pollIfEligible(DeviationThresholds{
+			Rel: float64(p.initr.Threshold),
+			Abs: float64(p.initr.AbsoluteThreshold),
+		})
 	}
+}
+
+func (p *PollingDeviationChecker) shouldPerformInitialPoll() bool {
+	return !(p.initr.PollTimer.Disabled && p.initr.IdleTimer.Disabled || p.isHibernating)
 }
 
 // hibernate restarts the PollingDeviationChecker in hibernation mode
