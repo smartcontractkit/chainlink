@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/BurntSushi/toml"
+	//"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"

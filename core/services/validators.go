@@ -4,19 +4,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
-	"github.com/lib/pq"
-
 	"github.com/multiformats/go-multiaddr"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"go.uber.org/multierr"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -378,42 +376,63 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(tomlString string) (offchainreporting.OracleSpec, error) {
-	var m toml.MetaData
+func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSpec, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("panicked with err %v", r)
+		}
+	}()
 
-	// Sane defaults
-	spec := offchainreporting.OracleSpec{
-		OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
-			P2PBootstrapPeers:                      pq.StringArray{},
-			ObservationTimeout:                     models.Interval(10 * time.Second),
-			BlockchainTimeout:                      models.Interval(20 * time.Second),
-			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-			ContractConfigConfirmations:            uint16(3), // TODO: why a uint16? just forcing casting everywhere
-		},
+	var oros models.OffchainReportingOracleSpec
+	spec = offchainreporting.OracleSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
-	m, err := toml.Decode(tomlString, &spec)
+	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return spec, err
 	}
+	err = tree.Unmarshal(&oros)
+	if err != nil {
+		return spec, err
+	}
+	err = tree.Unmarshal(&spec)
+	if err != nil {
+		return spec, err
+	}
+	spec.OffchainReportingOracleSpec = oros
+
+	// TODO: upstream a way to check for undecoded keys in go-toml
+	// TODO: upstream support for time.Duration defaults in go-toml
+	var defaults = map[string]interface{}{
+		"observationTimeout":                     models.Interval(10 * time.Second),
+		"blockchainTimeout":                      models.Interval(20 * time.Second),
+		"contractConfigTrackerSubscribeInterval": models.Interval(2 * time.Minute),
+		"contractConfigTrackerPollInterval":      models.Interval(1 * time.Minute),
+	}
+	for k, v := range defaults {
+		cv := v
+		if !tree.Has(k) {
+			reflect.ValueOf(&spec.OffchainReportingOracleSpec).
+				Elem().
+				FieldByName(strings.Title(k)).
+				Set(reflect.ValueOf(cv))
+		}
+	}
+
 	if spec.Type != "offchainreporting" {
 		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
 	}
 	if spec.SchemaVersion != uint32(1) {
 		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
 	}
-	for _, k := range m.Undecoded() {
-		err = multierr.Append(err, errors.Errorf("unrecognised key: %s", k))
-	}
-	if !m.IsDefined("isBootstrapPeer") {
+	if !tree.Has("isBootstrapPeer") {
 		return spec, errors.New("isBootstrapPeer is not defined")
 	}
 	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(m, spec); err != nil {
+		if err := validateBootstrapSpec(tree, spec); err != nil {
 			return spec, err
 		}
-	} else if err := validateNonBootstrapSpec(m, spec); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, spec); err != nil {
 		return spec, err
 	}
 	if err := validateTimingParameters(spec); err != nil {
@@ -472,12 +491,12 @@ func validateTimingParameters(spec offchainreporting.OracleSpec) error {
 	return nil
 }
 
-func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
 	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
 	}
-	if err := validateExplicitlySetKeys(m, expected, notExpected, "bootstrap"); err != nil {
+	if err := validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
 		return err
 	}
 	for i := range spec.P2PBootstrapPeers {
@@ -488,12 +507,12 @@ func validateBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) e
 	return nil
 }
 
-func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec) error {
+func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
 	}
-	if err := validateExplicitlySetKeys(m, expected, notExpected, "non-bootstrap"); err != nil {
+	if err := validateExplicitlySetKeys(tree, expected, notExpected, "non-bootstrap"); err != nil {
 		return err
 	}
 	if spec.Pipeline.DOTSource == "" {
@@ -510,14 +529,11 @@ func validateNonBootstrapSpec(m toml.MetaData, spec offchainreporting.OracleSpec
 	return nil
 }
 
-func validateExplicitlySetKeys(m toml.MetaData, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
+func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, notExpected map[string]struct{}, peerType string) error {
 	var err error
-	for _, ks := range m.Keys() {
-		if len(ks) > 1 {
-			err = multierr.Append(err, errors.Errorf("unrecognised multiple key for %s peer: %s", peerType, ks))
-		}
-		k := ks[0]
-
+	// top level keys only
+	for _, k := range tree.Keys() {
+		// TODO: upstream a way to check for children in go-toml
 		if _, ok := notExpected[k]; ok {
 			err = multierr.Append(err, errors.Errorf("unrecognised key for %s peer: %s", peerType, k))
 		}
