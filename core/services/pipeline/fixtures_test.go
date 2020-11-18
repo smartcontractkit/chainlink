@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"testing"
 
-	//"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
 	"github.com/shopspring/decimal"

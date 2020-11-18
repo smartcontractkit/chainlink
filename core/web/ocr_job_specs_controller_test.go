@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	//"github.com/BurntSushi/toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"

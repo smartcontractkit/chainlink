@@ -8,7 +8,6 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	//"github.com/BurntSushi/toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -39,7 +38,7 @@ func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	parsedResponse := models.OCRJobRun{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResponse.ID)
 }
@@ -130,7 +129,7 @@ func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int
 	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 
 	var ocrJobSpec offchainreporting.OracleSpec
-	toml.Decode(fmt.Sprintf(`
+	err := toml.Unmarshal([]byte(fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
 	contractAddress    = "%s"
@@ -150,7 +149,7 @@ func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL), &ocrJobSpec)
+	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL)), &ocrJobSpec)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
 	require.NoError(t, err)

@@ -12,8 +12,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 
-	//"github.com/BurntSushi/toml"
-
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"

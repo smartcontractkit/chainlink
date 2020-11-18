@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	//"github.com/BurntSushi/toml"
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
