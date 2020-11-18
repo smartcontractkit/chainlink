@@ -26,7 +26,7 @@ type (
 		ID          int64     `json:"id" gorm:"primary_key"`
 		JobID       int32     `json:"-"`
 		Description string    `json:"description"`
-		Occurrences uint      `json:"occurences"`
+		Occurrences uint      `json:"occurrences"`
 		CreatedAt   time.Time `json:"createdAt"`
 		UpdatedAt   time.Time `json:"updatedAt"`
 	}
