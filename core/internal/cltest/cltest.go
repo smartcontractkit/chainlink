@@ -82,6 +82,8 @@ const (
 	AllowUnstarted = "allow_unstarted"
 	// DefaultPeerID is the peer ID of the fixture p2p key
 	DefaultPeerID = "12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp"
+	// A peer ID without an associated p2p key.
+	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
@@ -93,6 +95,7 @@ var (
 	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
 	DefaultKeyAddressEIP55 models.EIP55Address
 	DefaultP2PPeerID       p2ppeer.ID
+	NonExistentP2PPeerID   p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
@@ -135,6 +138,10 @@ func init() {
 	rand.Seed(seed)
 
 	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	if err != nil {
+		panic(err)
+	}
+	NonExistentP2PPeerID, err = p2ppeer.Decode(NonExistentPeerID)
 	if err != nil {
 		panic(err)
 	}
