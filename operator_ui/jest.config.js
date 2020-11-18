@@ -7,6 +7,7 @@ module.exports = {
     '<rootDir>/__tests__',
   ],
   setupFiles: ['<rootDir>/jest.setup.js'],
+  globalSetup: './jest.globalSetup.js',
   testPathIgnorePatterns: [
     '<rootDir>/dist/',
     '<rootDir>/tmp/',
