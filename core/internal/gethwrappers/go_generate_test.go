@@ -111,15 +111,15 @@ func compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 	contract, err := ExtractContractDetails(apath)
 	require.NoError(t, err, "could not get details for contract %s", versionInfo)
 	hash := contract.VersionHash()
-	thisDir, err := os.Getwd()
+	thisDir, _ := os.Getwd()
+	rootDir, err := filepath.Abs(filepath.Join(thisDir, "../../.."))
 	if err != nil {
-		thisDir = "<could not get absolute path to gethwrappers package>"
+		rootDir = "<chainlink root directory>"
 	}
-	recompileCommand := color.HiRedString(fmt.Sprintf("`%s && go generate %s`",
-		compileCommand(t), thisDir))
+	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
 		boxOutput(`compiler artifact %s has changed; please rerun
-%s
+%s,
 and commit the changes`, apath, recompileCommand))
 
 	// Check that each of the contract source codes hasn't changed
@@ -134,7 +134,7 @@ and commit the changes`, apath, recompileCommand))
 			boxOutput(`Change detected in %s,
 which is a dependency of %s.
 
-For the gethwrappers package, please rerun
+For the gethwrappers package, please run
 
 %s
 
