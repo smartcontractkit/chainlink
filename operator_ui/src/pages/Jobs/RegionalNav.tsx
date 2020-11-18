@@ -4,6 +4,7 @@ import Dialog from '@material-ui/core/Dialog'
 import Grid from '@material-ui/core/Grid'
 import List from '@material-ui/core/List'
 import ListItem from '@material-ui/core/ListItem'
+import Badge from '@material-ui/core/Badge'
 import {
   createStyles,
   Theme,
@@ -28,6 +29,11 @@ import { JobData } from './sharedTypes'
 
 const styles = (theme: Theme) =>
   createStyles({
+    badgePadding: {
+      paddingLeft: theme.spacing.unit * 2,
+      paddingRight: theme.spacing.unit * 2,
+      lineHeight: '1rem',
+    },
     container: {
       backgroundColor: theme.palette.common.white,
       padding: theme.spacing.unit * 5,
@@ -139,10 +145,6 @@ const RegionalNavComponent = ({
   const navOverviewActive = !navDefinitionActive && !navErrorsActive
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
-  const errorsTabText =
-    job?.errors && job.errors.length > 0
-      ? `Errors (${job.errors.length})`
-      : 'Errors'
   const handleRun = () => {
     createJobRun(
       jobSpecId,
@@ -328,16 +330,33 @@ const RegionalNavComponent = ({
               {job?.type === 'Direct request' && (
                 <ListItem className={classes.horizontalNavItem}>
                   <Link
-                    href={`/jobs/${jobSpecId}/errors`}
+                    href={`/jobs/${jobSpecId}/definition`}
                     className={classNames(
                       classes.horizontalNavLink,
-                      navErrorsActive && classes.activeNavLink,
+                      navDefinitionActive && classes.activeNavLink,
                     )}
                   >
-                    {errorsTabText}
+                    Definition
                   </Link>
                 </ListItem>
               )}
+              <ListItem className={classes.horizontalNavItem}>
+                <Link
+                  href={`/jobs/${jobSpecId}/errors`}
+                  className={classNames(
+                    classes.horizontalNavLink,
+                    navErrorsActive && classes.activeNavLink,
+                  )}
+                >
+                  <Badge
+                    badgeContent={job?.errors && job.errors.length}
+                    color="error"
+                    className={classes.badgePadding}
+                  >
+                    Errors
+                  </Badge>
+                </Link>
+              </ListItem>
             </List>
           </Grid>
         </Grid>
