@@ -348,3 +348,11 @@ export async function getLog(
   }
   return logs[index]
 }
+
+/**
+ * Tells you whether or not the OVM is in use.
+ *
+ */
+export function isOVM(): boolean {
+  return process.env.USE_OVM == 'true'
+}
