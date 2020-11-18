@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 
-	//"github.com/BurntSushi/toml"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
