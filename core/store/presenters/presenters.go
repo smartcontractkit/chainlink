@@ -142,17 +142,12 @@ type EnvPrinter struct {
 // NewConfigPrinter creates an instance of ConfigPrinter
 func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	config := store.Config
-	account, err := store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return ConfigPrinter{}, err
-	}
 
 	explorerURL := ""
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
 	return ConfigPrinter{
-		AccountAddress: account.Address.Hex(),
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
 			BalanceMonitorEnabled:                 config.BalanceMonitorEnabled(),

@@ -29,7 +29,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 2, from) // tx2
@@ -94,7 +94,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
@@ -131,7 +131,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	require.NoError(t, app.Start())
 	store := app.GetStore()
 	client := app.NewHTTPClient()
-	from := cltest.GetAccountAddress(t, store)
+	from := cltest.DefaultKeyAddress
 	tx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, from)
 	require.Len(t, tx.EthTxAttempts, 1)
 	attempt := tx.EthTxAttempts[0]

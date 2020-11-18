@@ -155,11 +155,6 @@ func (_m *ORM) ProcessNextUnclaimedTaskRun(ctx context.Context, fn pipeline.Proc
 	return r0, r1
 }
 
-// RecordError provides a mock function with given fields: specID, description
-func (_m *ORM) RecordError(specID int32, description string) {
-	_m.Called(specID, description)
-}
-
 // ResultsForRun provides a mock function with given fields: ctx, runID
 func (_m *ORM) ResultsForRun(ctx context.Context, runID int64) ([]pipeline.Result, error) {
 	ret := _m.Called(ctx, runID)
