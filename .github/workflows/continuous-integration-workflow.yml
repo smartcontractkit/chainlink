@@ -13,9 +13,9 @@ jobs:
       run_job: ${{ steps.check_files.outputs.run_job }}
     steps:
       - name: Checkout code
-          uses: actions/checkout@v2
-          with:
-            fetch-depth: 2
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
       - name: Check frontend changed
         id: check_files
         run: |
