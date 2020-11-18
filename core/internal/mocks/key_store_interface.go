@@ -11,8 +11,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
-
 	types "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -97,25 +95,18 @@ func (_m *KeyStoreInterface) GetAccounts() []accounts.Account {
 	return r0
 }
 
-// GetFirstAccount provides a mock function with given fields:
-func (_m *KeyStoreInterface) GetFirstAccount() (accounts.Account, error) {
-	ret := _m.Called()
+// HasAccountWithAddress provides a mock function with given fields: _a0
+func (_m *KeyStoreInterface) HasAccountWithAddress(_a0 common.Address) bool {
+	ret := _m.Called(_a0)
 
-	var r0 accounts.Account
-	if rf, ok := ret.Get(0).(func() accounts.Account); ok {
-		r0 = rf()
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(common.Address) bool); ok {
+		r0 = rf(_a0)
 	} else {
-		r0 = ret.Get(0).(accounts.Account)
+		r0 = ret.Get(0).(bool)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // HasAccounts provides a mock function with given fields:
@@ -167,29 +158,6 @@ func (_m *KeyStoreInterface) NewAccount(passphrase string) (accounts.Account, er
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(passphrase)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// SignHash provides a mock function with given fields: hash
-func (_m *KeyStoreInterface) SignHash(hash common.Hash) (models.Signature, error) {
-	ret := _m.Called(hash)
-
-	var r0 models.Signature
-	if rf, ok := ret.Get(0).(func(common.Hash) models.Signature); ok {
-		r0 = rf(hash)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(models.Signature)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(hash)
 	} else {
 		r1 = ret.Error(1)
 	}
