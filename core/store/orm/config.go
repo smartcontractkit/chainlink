@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -366,11 +367,31 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
-// EthereumSecondaryURL is an optional backup RPC URL
+// EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
-func (c Config) EthereumSecondaryURL() string {
-	return c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
+func (c Config) EthereumSecondaryURLs() []url.URL {
+	oldConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
+	newConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURLs"))
+
+	config := ""
+	if newConfig != "" {
+		config = newConfig
+	} else if oldConfig != "" {
+		config = oldConfig
+	}
+
+	urlStrings := regexp.MustCompile("\\s*[;,]\\s*").Split(config, -1)
+	urls := []url.URL{}
+	for _, urlString := range urlStrings {
+		url, err := url.Parse(urlString)
+		if err != nil {
+			logger.Fatalf("Invalid Secondary Ethereum URL: %s, got error: %v", urlString, err)
+		}
+		urls = append(urls, *url)
+	}
+
+	return urls
 }
 
 // EthereumDisabled shows whether Ethereum interactions are supported.

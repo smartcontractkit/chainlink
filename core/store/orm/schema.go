@@ -50,6 +50,7 @@ type ConfigSchema struct {
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY" default:"1"`
 	EthereumURL                               string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumSecondaryURL                      string          `env:"ETH_SECONDARY_URL" default:""`
+	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
 	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
