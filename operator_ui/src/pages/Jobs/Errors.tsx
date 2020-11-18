@@ -49,22 +49,22 @@ export const JobsErrors: React.FC<{
     await getJobSpec()
   }
 
+  const tableHeaders = ['Occurrences', 'Created', 'Last Seen', 'Message']
+
+  if (job?.type === 'Direct request') {
+    tableHeaders.push('Actions')
+  }
+
   return (
     <Content>
       <ErrorComponent />
       <LoadingPlaceholder />
-      {!error && jobSpec && (
+      {!error && job && (
         <Card>
           <Table>
             <TableHead>
               <TableRow>
-                {[
-                  'Occurrences',
-                  'Created',
-                  'Last Seen',
-                  'Message',
-                  'Actions',
-                ].map((header) => (
+                {tableHeaders.map((header) => (
                   <TableCell key={header}>
                     <Typography variant="body1" color="textSecondary">
                       {header}
@@ -74,14 +74,14 @@ export const JobsErrors: React.FC<{
               </TableRow>
             </TableHead>
             <TableBody>
-              {jobSpec.attributes.errors.length === 0 ? (
+              {job.errors.length === 0 ? (
                 <TableRow>
                   <TableCell component="th" scope="row" colSpan={5}>
                     No errors
                   </TableCell>
                 </TableRow>
               ) : (
-                jobSpec.attributes.errors.map((jobSpecError) => (
+                job.errors.map((jobSpecError) => (
                   <TableRow key={jobSpecError.id}>
                     <TableCell>
                       <Typography variant="body1">
@@ -111,17 +111,19 @@ export const JobsErrors: React.FC<{
                         {jobSpecError.description}
                       </Typography>
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="danger"
-                        size="small"
-                        onClick={() => {
-                          handleDismiss(jobSpecError.id)
-                        }}
-                      >
-                        Dismiss
-                      </Button>
-                    </TableCell>
+                    {job?.type === 'Direct request' && (
+                      <TableCell>
+                        <Button
+                          variant="danger"
+                          size="small"
+                          onClick={() => {
+                            handleDismiss(jobSpecError.id)
+                          }}
+                        >
+                          Dismiss
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))
               )}
