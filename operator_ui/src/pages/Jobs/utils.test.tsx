@@ -39,14 +39,7 @@ describe('pages/jobs/utils', () => {
     it('stringify and indent JSON job spec', async () => {
       expect(
         stringifyJobSpec({
-          value: '{"foo":"bar"',
-          format: JobSpecFormats.JSON,
-        }),
-      ).toEqual('{"foo":"bar"')
-
-      expect(
-        stringifyJobSpec({
-          value: '{"foo":"bar"}',
+          value: { foo: 'bar' },
           format: JobSpecFormats.JSON,
         }),
       ).toEqual(
@@ -56,13 +49,14 @@ describe('pages/jobs/utils', () => {
       )
     })
 
-    it('returns TOML format value', async () => {
+    it('stringify TOML spec', async () => {
       expect(
         stringifyJobSpec({
-          value: 'foo="bar"',
+          value: { foo: 'bar' },
           format: JobSpecFormats.TOML,
         }),
-      ).toEqual('foo="bar"')
+      ).toEqual(`foo = "bar"
+`)
     })
   })
 })
