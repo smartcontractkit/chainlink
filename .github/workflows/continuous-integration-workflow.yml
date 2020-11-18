@@ -157,6 +157,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v2
       - name: Cache node modules
+        uses: actions/cache@v2
         env:
           cache-name: cache-solidity-node-modules
         with:
@@ -164,14 +165,13 @@ jobs:
             ~/.npm
             ~/.cache
             **/node_modules
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('./flux_emulator/yarn.lock') }}
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-        run: yarn install --frozen-lockfile
-      - name: solc stuff
-        run: ./tools/bin/restore-solc-cache
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       #      - name: Cache Yarn dependencies
 #        uses: actions/cache@v2
 #        with:
