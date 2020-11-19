@@ -12,12 +12,18 @@ import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
+import TaskListDag from 'components/Jobs/TaskListDag'
 import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import { DirectRequestJob, JobData } from './sharedTypes'
+import {
+  DirectRequestJob,
+  JobData,
+  isDirectRequest,
+  isOffChainReporting,
+} from './sharedTypes'
 
 const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
@@ -47,6 +53,9 @@ const chartCardStyles = ({ spacing, palette }: Theme) =>
       paddingTop: spacing.unit * 2,
       paddingBottom: spacing.unit * 2,
       paddingLeft: spacing.unit * 2,
+    },
+    card: {
+      overflow: 'visible',
     },
   })
 
@@ -121,6 +130,16 @@ export const RecentRuns = withStyles(chartCardStyles)(
               </Card>
             </Grid>
             <Grid item xs={4}>
+              {job?.type === 'Off-chain reporting' && jobSpec && (
+                <Grid item xs>
+                  <Card className={classes.card}>
+                    <CardTitle divider>Task List</CardTitle>
+                    <TaskListDag
+                      dotSource={jobSpec.attributes.pipelineSpec.dotDagSource}
+                    />
+                  </Card>
+                </Grid>
+              )}
               {job?.type === 'Direct request' && jobSpec && (
                 <Grid container direction="column">
                   <Grid item xs>
