@@ -132,7 +132,7 @@ interface Props extends WithStyles<typeof styles> {
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
   url: string
-  getJobSpecRuns: () => Promise<void>
+  getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
 }
 
 const RegionalNavComponent = ({
@@ -152,12 +152,19 @@ const RegionalNavComponent = ({
     !navDefinitionActive && !navErrorsActive && !navRunsActive
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
+
   const handleRun = () => {
-    createJobRun(
-      jobSpecId,
-      CreateRunSuccessNotification,
-      ErrorMessage,
-    ).then(() => getJobSpecRuns())
+    const params = new URLSearchParams(location.search)
+    const page = params.get('page')
+    const size = params.get('size')
+
+    createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
+      () =>
+        getJobSpecRuns({
+          page: page ? parseInt(page, 10) : undefined,
+          size: size ? parseInt(size, 10) : undefined,
+        }),
+    )
   }
   const handleDelete = (id: string) => {
     deleteJobSpec(
