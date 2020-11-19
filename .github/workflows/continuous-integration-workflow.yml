@@ -127,15 +127,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run tests
         run: ./tools/ci/solidity_test
 
@@ -150,15 +157,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
 
@@ -173,15 +187,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn lint
 
@@ -196,15 +217,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn prettier:check
 
@@ -219,15 +247,22 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
 
