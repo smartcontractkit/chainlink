@@ -18,12 +18,7 @@ import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
-import {
-  DirectRequestJob,
-  JobData,
-  isDirectRequest,
-  isOffChainReporting,
-} from './sharedTypes'
+import { DirectRequestJob, JobData } from './sharedTypes'
 
 const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
