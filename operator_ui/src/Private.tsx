@@ -35,17 +35,6 @@ const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
-const JobRunsIndex: UniversalComponent<
-  Pick<
-    {
-      classes: any
-    },
-    never
-  > &
-    StyledComponentProps<'wrapper' | 'text'> & {
-      pagePath: string
-    }
-> = universal(import('./pages/JobRuns/Index'), uniOpts)
 const JobRunsShowOverview = universal(
   import('./pages/JobRuns/Show/Overview'),
   uniOpts,
