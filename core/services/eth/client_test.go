@@ -11,6 +11,7 @@ import (
 
 	"math/big"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -319,7 +320,7 @@ func TestEthClient_SendTransaction_NoSecondaryURL(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestEthClient_SendTransaction_WithSecondaryURL(t *testing.T) {
+func TestEthClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	t.Parallel()
 
 	tx := types.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -337,19 +338,25 @@ func TestEthClient_SendTransaction_WithSecondaryURL(t *testing.T) {
 	})
 	defer cleanup()
 
+	requests := make(chan struct{}, 2)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte(response))
 		require.NoError(t, err)
-
+		requests <- struct{}{}
 	})
 	server := httptest.NewServer(handler)
 	defer server.Close()
 
-	ethClient, err := eth.NewClient(url, server.URL)
+	secondaryUrl := *cltest.MustParseURL(server.URL)
+	ethClient, err := eth.NewClient(url, secondaryUrl, secondaryUrl)
 	require.NoError(t, err)
 	err = ethClient.Dial(context.Background())
 	require.NoError(t, err)
 
 	err = ethClient.SendTransaction(context.Background(), tx)
 	assert.NoError(t, err)
+
+	gomega.NewGomegaWithT(t).Eventually(func() int {
+		return len(requests)
+	}).Should(gomega.Equal(2))
 }
