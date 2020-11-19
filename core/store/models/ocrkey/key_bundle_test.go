@@ -2,9 +2,10 @@ package ocrkey
 
 import (
 	"encoding/json"
-	"golang.org/x/crypto/curve25519"
 	"math/big"
 	"testing"
+
+	"golang.org/x/crypto/curve25519"
 
 	"github.com/pkg/errors"
 
@@ -65,7 +66,7 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 func TestOCRKeys_ScalarTooBig(t *testing.T) {
 	t.Parallel()
 	tooBig := new(big.Int)
-	buf := make([]byte, curve25519.PointSize + 1)
+	buf := make([]byte, curve25519.PointSize+1)
 	buf[0] = 0x01
 	tooBig.SetBytes(buf)
 	kbr := keyBundleRawData{
