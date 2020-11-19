@@ -60,7 +60,7 @@ const styles = (theme: Theme) =>
       paddingRight: 0,
     },
     horizontalNavLink: {
-      padding: `${theme.spacing.unit * 4}px ${theme.spacing.unit * 2}px`,
+      padding: `${theme.spacing.unit * 4}px ${theme.spacing.unit * 4}px`,
       textDecoration: 'none',
       display: 'inline-block',
       borderBottom: 'solid 1px',
@@ -130,6 +130,7 @@ interface Props extends WithStyles<typeof styles> {
   deleteJobSpec: Function
   jobSpecId: string
   job: JobData['job']
+  runsCount: JobData['recentRunsCount']
   url: string
   getJobSpecRuns: () => Promise<void>
 }
@@ -141,11 +142,14 @@ const RegionalNavComponent = ({
   job,
   deleteJobSpec,
   getJobSpecRuns,
+  runsCount,
 }: Props) => {
   const location = useLocation()
   const navErrorsActive = location.pathname.endsWith('/errors')
   const navDefinitionActive = location.pathname.endsWith('/definition')
-  const navOverviewActive = !navDefinitionActive && !navErrorsActive
+  const navRunsActive = location.pathname.endsWith('/runs')
+  const navOverviewActive =
+    !navDefinitionActive && !navErrorsActive && !navRunsActive
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
   const handleRun = () => {
@@ -349,6 +353,24 @@ const RegionalNavComponent = ({
                   ) : (
                     'Errors'
                   )}
+                </Link>
+              </ListItem>
+              <ListItem className={classes.horizontalNavItem}>
+                <Link
+                  href={`/jobs/${jobSpecId}/runs`}
+                  className={classNames(
+                    classes.horizontalNavLink,
+                    navRunsActive && classes.activeNavLink,
+                  )}
+                >
+                  <Badge
+                    badgeContent={runsCount || 0}
+                    color="primary"
+                    className={classes.badgePadding}
+                    max={99999}
+                  >
+                    Runs
+                  </Badge>
                 </Link>
               </ListItem>
             </List>
