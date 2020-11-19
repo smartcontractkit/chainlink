@@ -709,6 +709,7 @@ func (p *PollingDeviationChecker) processLogs() {
 			logger.ErrorIf(err, "Error marking log as consumed")
 
 		case *flags_wrapper.FlagsFlagLowered:
+			fmt.Println("we land in the lowered handler")
 			p.reactivate()
 			err = broadcast.MarkConsumed()
 			logger.ErrorIf(err, "Error marking log as consumed")

@@ -549,7 +549,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// lower contract's flag - should have no effect (but currently does)
 	// TODO - https://www.pivotaltracker.com/story/show/175419789
-	// XXX: What effect is expected, here?
+	fmt.Println("lowering flag")
 	fa.flagsContract.LowerFlags(fa.sergey, []common.Address{initr.Address})
 	fa.backend.Commit()
 	waitForRunsAndEthTxCount(t, job, 3, app, fa.backend)

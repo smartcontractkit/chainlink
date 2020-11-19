@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -31,6 +32,8 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+var _ eth.Client = (*SimulatedBackendClient)(nil)
+
 func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
@@ -39,8 +42,6 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
 }
-
-var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
@@ -279,6 +280,8 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 	// ignore the situation where nonces are reused
 	// github.com/ethereum/go-ethereum/blob/fb2c79df1995b4e8dfe79f9c75464d29d23aaaf4/accounts/abi/bind/backends/simulated.go#L556
 	if tx.Nonce() < pendingNonce {
+		fmt.Println("whaaat? ************************************************************************")
+		debug.PrintStack()
 		return nil
 	}
 
