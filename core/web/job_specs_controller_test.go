@@ -685,6 +685,27 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
 
+func TestJobSpecsController_DestroyAdd(t *testing.T) {
+	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+	job := cltest.NewJobWithLogInitiator()
+	job.Name = "testjob"
+	require.NoError(t, app.Store.CreateJob(&job))
+
+	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
+
+	job = cltest.NewJobWithLogInitiator()
+	job.Name = "testjob"
+	require.NoError(t, app.Store.CreateJob(&job))
+}
+
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
