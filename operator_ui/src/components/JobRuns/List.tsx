@@ -1,5 +1,4 @@
 import { TimeAgo } from '@chainlink/styleguide'
-import Card from '@material-ui/core/Card'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
@@ -158,11 +157,9 @@ interface Props extends WithStyles<typeof styles> {
 
 const List = ({ runs, classes, hideLinks }: Props) => {
   return (
-    <Card className={classes.jobRunsCard}>
-      <Table padding="none">
-        <TableBody>{renderRuns(runs, classes, hideLinks)}</TableBody>
-      </Table>
-    </Card>
+    <Table padding="none">
+      <TableBody>{renderRuns(runs, classes, hideLinks)}</TableBody>
+    </Table>
   )
 }
 

@@ -2,8 +2,6 @@ import { CardTitle, KeyValueList } from '@chainlink/styleguide'
 import {
   Card,
   Grid,
-  TableCell,
-  TableRow,
   Theme,
   Typography,
   WithStyles,
@@ -108,19 +106,15 @@ export const RecentRuns = withStyles(chartCardStyles)(
                       hideLinks={job?.type === 'Off-chain reporting'}
                     />
                     {job?.type === 'Direct request' &&
-                      recentRuns.length > showJobRunsCount && (
-                        <TableRow>
-                          <TableCell>
-                            <div className={classes.runDetails}>
-                              <Button
-                                href={`/jobs/${job.id}/runs`}
-                                component={BaseLink}
-                              >
-                                View More
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
+                      recentRunsCount > showJobRunsCount && (
+                        <div className={classes.runDetails}>
+                          <Button
+                            href={`/jobs/${job.id}/runs`}
+                            component={BaseLink}
+                          >
+                            View More
+                          </Button>
+                        </div>
                       )}
                   </>
                 )}
