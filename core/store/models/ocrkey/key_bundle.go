@@ -55,6 +55,10 @@ type (
 	}
 )
 
+var (
+	ErrScalarTooBig = errors.Errorf("can't handle scalars greater than %d", curve25519.PointSize)
+)
+
 func (cpk ConfigPublicKey) String() string {
 	return hex.EncodeToString(cpk[:])
 }
@@ -273,6 +277,10 @@ func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
 	err = json.Unmarshal(b, &rawKeyData)
 	if err != nil {
 		return err
+	}
+	ecdsaDSize := len(rawKeyData.EcdsaD.Bytes())
+	if ecdsaDSize > curve25519.PointSize {
+		return errors.Wrapf(ErrScalarTooBig, "got %d byte ecdsa scalar", ecdsaDSize)
 	}
 
 	publicKey := ecdsa.PublicKey{Curve: curve}
