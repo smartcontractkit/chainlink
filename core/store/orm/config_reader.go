@@ -47,7 +47,7 @@ type ConfigReader interface {
 	EthHeadTrackerMaxBufferSize() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
-	EthereumSecondaryURL() string
+	EthereumSecondaryURLs() []url.URL
 	GasUpdaterBlockDelay() uint16
 	GasUpdaterBlockHistorySize() uint16
 	GasUpdaterTransactionPercentile() uint16
