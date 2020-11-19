@@ -672,7 +672,7 @@ isBootstrapPeer    = true
 		},
 		{
 			name: "toml parse doesn't panic",
-			toml: string(utils.MustHexDecodeString("2222220d5c22223b22225c0d21222222")),
+			toml: string(cltest.MustHexDecodeString("2222220d5c22223b22225c0d21222222")),
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)
 			},
