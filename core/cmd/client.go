@@ -74,7 +74,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 		ethClient = &eth.NullClient{}
 	} else {
 		var err error
-		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURL())
+		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURLs()...)
 		if err != nil {
 			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
 		}
