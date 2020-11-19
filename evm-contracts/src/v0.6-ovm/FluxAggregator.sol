@@ -89,7 +89,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
   uint256 constant private RESERVE_ROUNDS = 2;
   uint256 constant private MAX_ORACLE_COUNT = 77;
   uint32 constant private ROUND_MAX = 2**32-1;
-  uint256 private constant VALIDATOR_GAS_LIMIT = 100000;
+  // OVM CHANGE: gas metering on OVM not implemented correctly
+  uint256 private constant VALIDATOR_GAS_LIMIT = 100000 * 3;
   // An error specific to the Aggregator V3 Interface, to prevent possible
   // confusion around accidentally reading unset values as reported values.
   string constant private V3_NO_DATA_ERROR = "No data present";
