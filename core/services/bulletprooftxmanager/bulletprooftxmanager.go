@@ -6,6 +6,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -28,6 +30,18 @@ const (
 	// maxEthNodeRequestTime is the worst case time we will wait for a response
 	// from the eth node before we consider it to be an error
 	maxEthNodeRequestTime = 15 * time.Second
+)
+
+var (
+	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_gas_bumps",
+		Help: "Number of gas bumps",
+	})
+
+	promGasBumpExceedsLimit = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_gas_bump_exceeds_limit",
+		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
+	})
 )
 
 // SendEther creates a transaction that transfers the given value of ether
@@ -162,6 +176,7 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 
 	bumpedGasPrice := max(priceByPercentage, priceByIncrement)
 	if bumpedGasPrice.Cmp(config.EthMaxGasPriceWei()) > 0 {
+		promGasBumpExceedsLimit.Inc()
 		return config.EthMaxGasPriceWei(), errors.Errorf("bumped gas price of %s would exceed configured max gas price of %s (original price was %s)",
 			bumpedGasPrice.String(), config.EthMaxGasPriceWei(), originalGasPrice.String())
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
@@ -172,6 +187,7 @@ func BumpGas(config orm.ConfigReader, originalGasPrice *big.Int) (*big.Int, erro
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI", bumpedGasPrice.String(), originalGasPrice.String())
 	}
+	promNumGasBumps.Inc()
 	return bumpedGasPrice, nil
 }
 
