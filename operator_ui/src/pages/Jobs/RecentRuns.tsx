@@ -54,7 +54,7 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   error: unknown
-  getJobSpecRuns: (props: { page: number; size: number }) => Promise<void>
+  getJobSpecRuns: (props?: { page?: number; size?: number }) => Promise<void>
   job?: JobData['job']
   jobSpec?: JobData['jobSpec']
   recentRuns?: JobData['recentRuns']
