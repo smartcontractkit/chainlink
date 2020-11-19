@@ -381,7 +381,7 @@ func (c Config) EthereumSecondaryURLs() []url.URL {
 		config = oldConfig
 	}
 
-	urlStrings := regexp.MustCompile("\\s*[;,]\\s*").Split(config, -1)
+	urlStrings := regexp.MustCompile(`\s*[;,]\s*`).Split(config, -1)
 	urls := []url.URL{}
 	for _, urlString := range urlStrings {
 		if urlString == "" {
