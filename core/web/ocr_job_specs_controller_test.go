@@ -9,9 +9,10 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/pelletier/go-toml"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/BurntSushi/toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -198,7 +199,10 @@ func setupOCRJobSpecsWControllerTestsWithJob(t *testing.T) (cltest.HTTPClientCle
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	require.NoError(t, err)
+	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	require.NoError(t, err)
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
 	return client, cleanup, ocrJobSpecFromFile, jobID
 }
