@@ -704,6 +704,13 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 	job = cltest.NewJobWithLogInitiator()
 	job.Name = "testjob"
 	require.NoError(t, app.Store.CreateJob(&job))
+
+	// Can delete this new job
+	resp, cleanup = client.Delete("/v2/specs/" + job.ID.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
+	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
 
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
