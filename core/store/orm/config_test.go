@@ -61,6 +61,38 @@ func TestConfig_sessionOptions(t *testing.T) {
 	require.True(t, opts.Secure)
 }
 
+func TestConfig_EthereumSecondaryURLs(t *testing.T) {
+	t.Parallel()
+	config := NewConfig()
+
+	localhost, err := url.Parse("http://localhost")
+	require.NoError(t, err)
+	readme, err := url.Parse("http://readme.net")
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		oldInput string
+		newInput string
+		output   []url.URL
+	}{
+		{"nothing specified", "", "", []url.URL{}},
+		{"old option specified", "http://localhost", "", []url.URL{*localhost}},
+		{"new option specified", "", "http://localhost", []url.URL{*localhost}},
+		{"multipl new options specified", "", "http://localhost ; http://readme.net", []url.URL{*localhost, *readme}},
+		{"multipl new options specified comma", "", "http://localhost,http://readme.net", []url.URL{*localhost, *readme}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config.Set("ETH_SECONDARY_URL", test.oldInput)
+			config.Set("ETH_SECONDARY_URLS", test.newInput)
+
+			urls := config.EthereumSecondaryURLs()
+			assert.Equal(t, test.output, urls)
+		})
+	}
+}
+
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
 	v.Set("ROOT", "../../../tools/clroot/")

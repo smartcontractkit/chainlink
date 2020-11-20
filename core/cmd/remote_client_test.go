@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
+	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -1129,7 +1129,11 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	var ocrJobSpecFromFile offchainreporting.OracleSpec
-	toml.DecodeFile("testdata/oracle-spec.toml", &ocrJobSpecFromFile)
+	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	require.NoError(t, err)
+	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	require.NoError(t, err)
+
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
 
 	set := flag.NewFlagSet("test", 0)
