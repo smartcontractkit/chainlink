@@ -73,7 +73,7 @@ func (p *Pstorewrapper) Start() error {
 
 func (p *Pstorewrapper) dbLoop() {
 	defer close(p.chDone)
-	ticker := time.NewTicker(p.writeInterval)
+	ticker := time.NewTicker(utils.WithJitter(p.writeInterval))
 	defer ticker.Stop()
 	for {
 		select {
