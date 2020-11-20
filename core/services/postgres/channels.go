@@ -2,6 +2,7 @@ package postgres
 
 const (
 	ChannelJobCreated   = "insert_on_jobs"
+	ChannelJobDeleted   = "delete_from_jobs"
 	ChannelRunStarted   = "pipeline_run_started"
 	ChannelRunCompleted = "pipeline_run_completed"
 

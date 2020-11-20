@@ -34,7 +34,6 @@ type ConfigReader interface {
 	MaximumServiceDuration() models.Duration
 	MinimumServiceDuration() models.Duration
 	EnableExperimentalAdapters() bool
-	EnableBulletproofTxManager() bool
 	EthBalanceMonitorBlockDelay() uint16
 	EthGasBumpPercent() uint16
 	EthGasBumpThreshold() uint64
@@ -48,7 +47,7 @@ type ConfigReader interface {
 	EthHeadTrackerMaxBufferSize() uint
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
-	EthereumSecondaryURL() string
+	EthereumSecondaryURLs() []url.URL
 	GasUpdaterBlockDelay() uint16
 	GasUpdaterBlockHistorySize() uint16
 	GasUpdaterTransactionPercentile() uint16
@@ -85,4 +84,5 @@ type ConfigReader interface {
 	CreateProductionLogger() *logger.Logger
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
+	TriggerFallbackDBPollInterval() time.Duration
 }

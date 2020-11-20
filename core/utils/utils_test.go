@@ -520,3 +520,13 @@ func TestCombinedContext(t *testing.T) {
 		}
 	})
 }
+
+func Test_WithJitter(t *testing.T) {
+	d := 10 * time.Second
+
+	for i := 0; i < 32; i++ {
+		r := utils.WithJitter(d)
+		require.GreaterOrEqual(t, int(r), int(9*time.Second))
+		require.LessOrEqual(t, int(r), int(11*time.Second))
+	}
+}

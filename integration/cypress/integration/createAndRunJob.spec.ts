@@ -4,16 +4,16 @@ context('End to end', function () {
 
     // Create Job
     cy.clickLink('New Job')
-    cy.contains('h5', 'New Job').should('exist')
+    cy.contains('span', 'New Job').should('exist')
     cy.getJobJson().then((jobJson) => {
-      cy.get('textarea[id=json]').paste(jobJson)
+      cy.get('textarea[id=jobSpec]').paste(jobJson)
     })
     cy.clickButton('Create Job')
     cy.contains('p', 'Successfully created job').should('exist')
 
     // Run Job
     cy.get('#created-job').click()
-    cy.contains('Job spec detail')
+    cy.contains('job spec detail')
     cy.clickButton('Run')
     cy.contains('p', 'Successfully created job run')
       .children('a')

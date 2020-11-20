@@ -1,4 +1,4 @@
-name: Continuous Integration Workflow
+name: CI
 
 on: [push]
 
@@ -13,12 +13,19 @@ jobs:
         cmd: ['go_core_tests']
     name: Core Tests
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
     services:
       postgres:
         image: postgres
+        credentials:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
         env:
           POSTGRES_USER: postgres
           POSTGRES_HOST_AUTH_METHOD: trust
@@ -72,26 +79,36 @@ jobs:
           args: logs ${{ job.services.postgres.id }}
 
   integration:
-    name: Integration tests
+    name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
     runs-on: [self-hosted, sdlc-ghr-prod]
     strategy:
       matrix:
         test: ['test', 'test:ts']
-        geth: [true, false]
-        explorer: ['latest', 'develop']
+        node: ['geth', 'parity']
     env:
-      GETH_MODE: ${{ matrix.geth }}
+      GETH_MODE: ${{ matrix.node == 'geth' }}
       CI: true
       CHAINLINK_DB_NAME: postgres
-      EXPLORER_DOCKER_TAG: ${{ matrix.explorer }}
+      EXPLORER_DOCKER_TAG: ${{ fromJSON('["latest", "develop"]')[github.ref == 'refs/heads/master'] }} # https://github.community/t/do-expressions-support-ternary-operators-to-change-their-returned-value/18114/4
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Run tests
-        run: cd ./tools/docker && timeout --foreground 1200s ./compose ${{ matrix.test }}
+        run: timeout --foreground 1200s ./compose ${{ matrix.test }}
+        working-directory: ./tools/docker
+      - name: Cleanup
+        if: always()
+        run: ./compose ${{ matrix.test }}:down
+        working-directory: ./tools/docker
       - name: Capture logs on failure
         if: failure()
-        run: cd ./tools/docker && CI_SKIP_PRE_HOOK=1 ./compose logs:test:save
+        run: ./compose logs:test:save
+        working-directory: ./tools/docker
       - name: Store logs artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v1
@@ -102,95 +119,150 @@ jobs:
   solidity:
     name: Solidity
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run tests
         run: ./tools/ci/solidity_test
 
   operator-ui:
     name: Operator UI
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
 
   lint:
     name: Yarn lint
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn lint
 
   prettier:
     name: Prettier formatting check
     runs-on: ubuntu-latest
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn prettier:check
 
   prepublish_npm:
     name: Prepublish NPM
     runs-on: [self-hosted, sdlc-ghr-prod]
-    container: smartcontract/builder:1.0.37
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
-      - name: Cache Yarn dependencies
+      - name: Yarn cache
         uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
         with:
-          path: /usr/local/share/.cache/yarn
-          key: yarn-${{ env.CACHE_VERSION }}-${{ hashFiles('yarn.lock') }}
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            yarn-${{ env.CACHE_VERSION }}
-      - name: Install Yarn dependencies
-        run: make yarndep
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
 
@@ -226,6 +298,11 @@ jobs:
             echo "::add-mask::$PASSWORD"
             echo "::set-output name=password::$PASSWORD"
             }
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+          password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
       - name: Build image
         uses: docker/build-push-action@v1
         with:

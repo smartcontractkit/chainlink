@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -33,6 +34,8 @@ type Client interface {
 	Close()
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
+	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
+
 	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -84,16 +87,16 @@ type Subscription interface {
 type client struct {
 	GethClient
 	RPCClient
-	url                 string // For reestablishing the connection after a disconnect
-	SecondaryGethClient GethClient
-	SecondaryRPCClient  RPCClient
-	secondaryURL        string
-	mocked              bool
+	url                  string // For reestablishing the connection after a disconnect
+	SecondaryGethClients []GethClient
+	SecondaryRPCClients  []RPCClient
+	secondaryURLs        []url.URL
+	mocked               bool
 }
 
 var _ Client = (*client)(nil)
 
-func NewClient(rpcUrl string, secondaryRPCURLs ...string) (*client, error) {
+func NewClient(rpcUrl string, secondaryRPCURLs ...url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -102,18 +105,12 @@ func NewClient(rpcUrl string, secondaryRPCURLs ...string) (*client, error) {
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}
 
-	var secondaryRPCURL string
-	if len(secondaryRPCURLs) > 0 && secondaryRPCURLs[0] != "" {
-		secondaryRPCURL = secondaryRPCURLs[0]
-		secondaryParsed, err := url.ParseRequestURI(secondaryRPCURL)
-		if err != nil {
-			return nil, err
-		}
-		if secondaryParsed.Scheme != "http" && secondaryParsed.Scheme != "https" {
-			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", secondaryParsed.String())
+	for _, url := range secondaryRPCURLs {
+		if url.Scheme != "http" && url.Scheme != "https" {
+			return nil, errors.Errorf("secondary ethereum rpc url scheme must be http(s): %s", url.String())
 		}
 	}
-	return &client{url: rpcUrl, secondaryURL: secondaryRPCURL}, nil
+	return &client{url: rpcUrl, secondaryURLs: secondaryRPCURLs}, nil
 }
 
 // This alternate constructor exists for testing purposes.
@@ -140,13 +137,15 @@ func (client *client) Dial(ctx context.Context) error {
 	client.RPCClient = &rpcClientWrapper{rpcClient}
 	client.GethClient = ethclient.NewClient(rpcClient)
 
-	if client.secondaryURL != "" {
-		secondaryRPCClient, err := rpc.DialContext(ctx, client.secondaryURL)
+	client.SecondaryGethClients = []GethClient{}
+	client.SecondaryRPCClients = []RPCClient{}
+	for _, url := range client.secondaryURLs {
+		secondaryRPCClient, err := rpc.DialContext(ctx, url.String())
 		if err != nil {
 			return err
 		}
-		client.SecondaryRPCClient = &rpcClientWrapper{secondaryRPCClient}
-		client.SecondaryGethClient = ethclient.NewClient(secondaryRPCClient)
+		client.SecondaryRPCClients = append(client.SecondaryRPCClients, &rpcClientWrapper{secondaryRPCClient})
+		client.SecondaryGethClients = append(client.SecondaryGethClients, ethclient.NewClient(secondaryRPCClient))
 	}
 	return nil
 }
@@ -179,6 +178,15 @@ func (client *client) GetERC20Balance(address common.Address, contractAddress co
 	}
 	numLinkBigInt.SetString(result, 0)
 	return numLinkBigInt, nil
+}
+
+// GetLINKBalance returns the balance of LINK at the given address
+func (client *client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
+	balance, err := client.GetERC20Balance(address, linkAddress)
+	if err != nil {
+		return assets.NewLink(0), err
+	}
+	return (*assets.Link)(balance), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
@@ -215,26 +223,23 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 		"tx", tx,
 	)
 
-	if client.secondaryURL != "" {
+	for _, gethClient := range client.SecondaryGethClients {
 		// Parallel send to secondary node
-
-		logger.Tracew("eth.SecondaryClient#SendTransaction(...)",
-			"tx", tx,
-		)
+		logger.Tracew("eth.SecondaryClient#SendTransaction(...)", "tx", tx)
 
 		var wg sync.WaitGroup
 		defer wg.Wait()
 		wg.Add(1)
-		go func() {
+		go func(gethClient GethClient) {
 			defer wg.Done()
-			err := NewSendError(client.SecondaryGethClient.SendTransaction(ctx, tx))
+			err := NewSendError(gethClient.SendTransaction(ctx, tx))
 			if err == nil || err.IsNonceTooLowError() || err.IsTransactionAlreadyInMempool() {
 				// Nonce too low or transaction known errors are expected since
 				// the primary SendTransaction may well have succeeded already
 				return
 			}
 			logger.Warnw("secondary eth client returned error", "err", err, "tx", tx)
-		}()
+		}(gethClient)
 	}
 
 	return client.GethClient.SendTransaction(ctx, tx)

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v3"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/jinzhu/gorm"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -42,8 +43,8 @@ func TestMigrate_Migrations(t *testing.T) {
 		assert.True(t, db.HasTable("sessions"))
 		assert.True(t, db.HasTable("task_runs"))
 		assert.True(t, db.HasTable("task_specs"))
-		assert.True(t, db.HasTable("tx_attempts"))
-		assert.True(t, db.HasTable("txes"))
+		assert.True(t, db.HasTable("eth_tx_attempts"))
+		assert.True(t, db.HasTable("eth_txes"))
 		assert.True(t, db.HasTable("users"))
 		return nil
 	})
@@ -193,49 +194,6 @@ func TestMigrate_Migration1565877314(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestMigrate_Migration1586369235(t *testing.T) {
-	// Make sure that the data still reads OK afterward
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
-	defer cleanup()
-
-	err := orm.RawDB(func(db *gorm.DB) error {
-		require.NoError(t, migrations.MigrateTo(db, "1586163842"))
-		hexEncodedData := "0x3162323831336636383832373462366261623565663264366135343866323038"
-		binaryData := hexutil.MustDecode(hexEncodedData)
-		address := hexutil.MustDecode("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")
-		bigInt := "42000000000000000000" // 42 LINK
-
-		require.NoError(t, db.Exec(`INSERT INTO encumbrances (payment, aggregator, agg_initiate_job_selector, agg_fulfill_selector) VALUES (?, 'a', E'\\xDEADBEEF', E'\\xDEADBEEF')`, bigInt).Error)
-		require.NoError(t, db.Exec(`INSERT INTO run_requests (request_id) VALUES (?::text)`, hexEncodedData).Error)
-		require.NoError(t, db.Exec(`INSERT INTO txes (signed_raw_tx, "from", "to", data, nonce, value, gas_limit, hash, gas_price, confirmed, sent_at) VALUES (?::text, ?, ?, E'\\xDEADBEEF', 42, ?, 42, ?, ?, false, 42)`, hexEncodedData, address, address, bigInt, binaryData, bigInt).Error)
-		require.NoError(t, db.Exec(`INSERT INTO tx_attempts (signed_raw_tx, created_at, hash, gas_price, confirmed, sent_at) VALUES (?::text, NOW(), ?, ?, false, 42)`, hexEncodedData, binaryData, bigInt).Error)
-
-		require.NoError(t, migrations.MigrateTo(db, "1586369235"))
-
-		var e models.Encumbrance
-		require.NoError(t, db.First(&e, "true").Error)
-		assert.Equal(t, e.Payment.ToInt().String(), bigInt)
-
-		var rr models.RunRequest
-		require.NoError(t, db.First(&rr, "true").Error)
-		assert.Equal(t, rr.RequestID.Bytes(), binaryData)
-
-		var tx models.Tx
-		require.NoError(t, db.First(&tx, "true").Error)
-		assert.Equal(t, tx.SignedRawTx, binaryData)
-		assert.Equal(t, tx.GasPrice.String(), bigInt)
-		assert.Equal(t, tx.Value.String(), bigInt)
-
-		var txa models.TxAttempt
-		require.NoError(t, db.First(&txa, "true").Error)
-		assert.Equal(t, txa.SignedRawTx, binaryData)
-		assert.Equal(t, txa.GasPrice.String(), bigInt)
-
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 func TestMigrate_NewerVersionGuard(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
@@ -255,6 +213,31 @@ func TestMigrate_NewerVersionGuard(t *testing.T) {
 
 		// Run migrations again, should error
 		require.Error(t, migrations.Migrate(db))
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestMigration_1605816413(t *testing.T) {
+	t.Skip() // Slowish test, don't run in CI.
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
+	defer cleanup()
+	err := orm.RawDB(func(db *gorm.DB) error {
+		// Migrate just before 1605816413
+		require.NoError(t, migrations.MigrateTo(db, "migration1605630295"))
+		jb := models.JobSpec{ID: models.NewID(), Name: "test"}
+		require.NoError(t, db.Create(&jb).Error)
+		require.Error(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test"}).Error)
+		require.NoError(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test2", DeletedAt: null.NewTime(time.Now(), true)}).Error)
+		require.Error(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test2", DeletedAt: null.NewTime(time.Now(), true)}).Error)
+		require.NoError(t, db.Model(&jb).Update("deleted_at", time.Now()).Error)
+
+		// Before migration, we can't re-add
+		jb2 := models.JobSpec{ID: models.NewID(), Name: "test"}
+		require.Error(t, db.Create(&jb2).Error)
+		require.NoError(t, migrations.MigrateTo(db, "migration1605816413"))
+		// After this migration we can
+		require.NoError(t, db.Create(&jb2).Error)
 		return nil
 	})
 	require.NoError(t, err)

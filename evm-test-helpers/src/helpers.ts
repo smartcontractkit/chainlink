@@ -13,6 +13,22 @@ import { ContractReceipt } from 'ethers/contract'
 import { EventDescription } from 'ethers/utils'
 
 /**
+ * Convert string to hex bytes
+ * @param data string to onvert to hex bytes
+ */
+export function stringToBytes(data: string): string {
+  return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(data))
+}
+
+/**
+ * Convert hex bytes to utf8 string
+ * @param data bytes to convert to utf8 stirng
+ */
+export function bytesToString(data: string): string {
+  return ethers.utils.toUtf8String(data)
+}
+
+/**
  * Parse out an evm word (32 bytes) into an address (20 bytes) representation
  *
  * @param hex The evm word in hex string format to parse the address
