@@ -1,34 +1,10 @@
 import React from 'react'
-import {
-  createStyles,
-  Theme,
-  withStyles,
-  WithStyles,
-} from '@material-ui/core/styles'
+import { theme } from 'index'
 import Typography from '@material-ui/core/Typography'
 import titleize from '../../utils/titleize'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
 import { parseDot, Stratify } from './parseDot'
-
-const styles = ({ spacing }: Theme) =>
-  createStyles({
-    graph: {
-      padding: `${spacing.unit * 3}px 0px`,
-    },
-    graphContainer: {
-      position: 'relative',
-    },
-    tooltip: {
-      position: 'absolute',
-      left: '-305px',
-      border: '1px solid rgba(0, 0, 0, 0.1)',
-      padding: spacing.unit,
-      background: 'white',
-      borderRadius: 5,
-      minWidth: '300px',
-    },
-  })
 
 type Node = {
   x: number
@@ -140,11 +116,11 @@ function createDag({
     .attr('fill', 'black')
 }
 
-interface Props extends WithStyles<typeof styles> {
+interface Props {
   dotSource: string
 }
 
-const TaskList = ({ classes, dotSource }: Props) => {
+const TaskList = ({ dotSource }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
   const graph = React.useRef<HTMLInputElement>(null)
 
@@ -155,11 +131,17 @@ const TaskList = ({ classes, dotSource }: Props) => {
   }, [dotSource])
 
   return (
-    <div className={classes.graphContainer}>
+    <div style={{ position: 'relative' }}>
       {tooltip && (
         <div
-          className={classes.tooltip}
           style={{
+            position: 'absolute',
+            left: '-305px',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            padding: theme.spacing.unit,
+            background: 'white',
+            borderRadius: 5,
+            minWidth: '300px',
             transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
           }}
         >
@@ -175,9 +157,13 @@ const TaskList = ({ classes, dotSource }: Props) => {
           ))}
         </div>
       )}
-      <div id="graph" className={classes.graph} ref={graph} />
+      <div
+        id="graph"
+        style={{ padding: `${theme.spacing.unit * 3}px 0px` }}
+        ref={graph}
+      />
     </div>
   )
 }
 
-export default withStyles(styles)(TaskList)
+export default TaskList

@@ -1,4 +1,4 @@
-import { theme } from '@chainlink/styleguide'
+import { theme as mainTheme } from '@chainlink/styleguide'
 import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
@@ -14,6 +14,8 @@ promiseFinally.shim(Promise)
 JavascriptTimeAgo.locale(en)
 moment.defaultFormat = 'YYYY-MM-DD h:mm:ss A'
 
+export const theme = createMuiTheme(mainTheme)
+
 export default App
 
 if (typeof document !== 'undefined') {
@@ -22,7 +24,7 @@ if (typeof document !== 'undefined') {
   const render = (Comp) => {
     renderMethod(
       <AppContainer>
-        <MuiThemeProvider theme={createMuiTheme(theme)}>
+        <MuiThemeProvider theme={theme}>
           <Comp />
         </MuiThemeProvider>
       </AppContainer>,
