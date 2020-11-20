@@ -1,7 +1,6 @@
 import React from 'react'
 import { theme } from 'index'
 import Typography from '@material-ui/core/Typography'
-import titleize from '../../utils/titleize'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
 import { parseDot, Stratify } from './parseDot'
@@ -106,7 +105,7 @@ function createDag({
 
   nodes
     .append('text')
-    .text((node) => titleize(node.data.id))
+    .text((node) => node.data.id)
     .attr('x', 30)
     .attr('font-weight', 'normal')
     .attr('font-family', 'sans-serif')
@@ -146,7 +145,7 @@ const TaskList = ({ dotSource }: Props) => {
           }}
         >
           <Typography variant="body1" color="textPrimary">
-            <b>{titleize(tooltip.data.id)}</b>
+            <b>{tooltip.data.id}</b>
           </Typography>
           {Object.entries(tooltip.data.attributes).map(([key, value]) => (
             <div key={key}>
