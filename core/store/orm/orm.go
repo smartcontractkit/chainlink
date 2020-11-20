@@ -740,19 +740,6 @@ func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error)
 	return ethTxAttempt, nil
 }
 
-// GetLastNonce retrieves the last known nonce in the database for an account
-func (orm *ORM) GetLastNonce(address common.Address) (uint64, error) {
-	orm.MustEnsureAdvisoryLock()
-	var transaction models.EthTx
-	err := orm.DB.Order("nonce desc").Where(`"from_address" = ?`, address).First(&transaction).Error
-	if err == gorm.ErrRecordNotFound {
-		return 0, nil
-	} else if err != nil {
-		return 0, err
-	}
-	return uint64(*transaction.Nonce), nil
-}
-
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 	orm.MustEnsureAdvisoryLock()

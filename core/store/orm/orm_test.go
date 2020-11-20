@@ -658,42 +658,6 @@ func TestORM_PendingBridgeType_success(t *testing.T) {
 	assert.Equal(t, retrievedBt, *bt)
 }
 
-func TestORM_GetLastNonce_StormNotFound(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-	store := app.Store
-
-	account := cltest.DefaultKeyAddress
-	nonce, err := store.GetLastNonce(account)
-
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(0), nonce)
-}
-
-func TestORM_GetLastNonce_Valid(t *testing.T) {
-	t.Parallel()
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-
-	store := app.Store
-	assert.NoError(t, app.StartAndConnect())
-
-	cltest.MustInsertInProgressEthTxWithAttempt(t, store, 1)
-	account := cltest.DefaultKeyAddress
-	nonce, err := store.GetLastNonce(account)
-
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(1), nonce)
-}
-
 func TestORM_MarkRan(t *testing.T) {
 	t.Parallel()
 
