@@ -27,7 +27,7 @@
     "@0x/sol-compiler": "^4.0.8",
     "@0x/sol-trace": "^3.0.29",
     "@chainlink/contracts": "0.1.6",
-    "@chainlink/test-helpers": "0.0.5",
+    "@chainlink/test-helpers": "0.0.6",
     "@typechain/ethers-v4": "^4.0.0",
     "chalk": "^4.1.0",
     "ethers": "^4.0.45",

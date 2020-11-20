@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "@chainlink/belt": "0.0.3",
-    "@chainlink/test-helpers": "0.0.5",
+    "@chainlink/test-helpers": "0.0.6",
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
     "ethers": "^4.0.45",

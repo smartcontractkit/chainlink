@@ -7,6 +7,7 @@
 import { ethers } from 'ethers'
 import { JsonRpcProvider } from 'ethers/providers'
 import { makeDebug } from './debug'
+import { isOVM } from './helpers'
 
 interface RCreateFundedWallet {
   /**
@@ -16,7 +17,7 @@ interface RCreateFundedWallet {
   /**
    * The receipt of the tx that funded the created wallet
    */
-  receipt: ethers.providers.TransactionReceipt
+  receipt?: ethers.providers.TransactionReceipt
 }
 /**
  * Create a pre-funded wallet with all defaults
@@ -30,7 +31,6 @@ export async function createFundedWallet(
 ): Promise<RCreateFundedWallet> {
   const wallet = createWallet(provider, accountIndex)
   const receipt = await fundWallet(wallet, provider)
-
   return { wallet, receipt }
 }
 
@@ -72,8 +72,12 @@ export async function fundWallet(
   wallet: ethers.Wallet,
   provider: ethers.providers.JsonRpcProvider,
   overrides?: Omit<ethers.providers.TransactionRequest, 'to' | 'from'>,
-): Promise<ethers.providers.TransactionReceipt> {
+): Promise<ethers.providers.TransactionReceipt | undefined> {
   const debug = makeDebug('wallet:fundWallet')
+
+  // OVM has no native ETH/value, so wallet funding is not supported
+  if (isOVM()) return
+
   debug('funding wallet')
 
   debug('retreiving accounts...')
