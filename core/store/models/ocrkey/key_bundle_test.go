@@ -1,7 +1,13 @@
 package ocrkey
 
 import (
+	"encoding/json"
+	"math/big"
 	"testing"
+
+	"golang.org/x/crypto/curve25519"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
@@ -55,4 +61,21 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	pkDecrypted, err := pkEncrypted.Decrypt("password")
 	require.NoError(t, err)
 	assertKeyBundlesEqual(t, pk, pkDecrypted)
+}
+
+func TestOCRKeys_ScalarTooBig(t *testing.T) {
+	t.Parallel()
+	tooBig := new(big.Int)
+	buf := make([]byte, curve25519.PointSize+1)
+	buf[0] = 0x01
+	tooBig.SetBytes(buf)
+	kbr := keyBundleRawData{
+		EcdsaD: *tooBig,
+	}
+	jb, err := json.Marshal(&kbr)
+	require.NoError(t, err)
+
+	kb := KeyBundle{}
+	err = kb.UnmarshalJSON(jb)
+	assert.Equal(t, ErrScalarTooBig, errors.Cause(err))
 }

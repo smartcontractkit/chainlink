@@ -56,7 +56,7 @@ type (
 		BlockchainTimeout                      Interval       `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint"`
 		ContractConfigTrackerSubscribeInterval Interval       `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval"`
 		ContractConfigTrackerPollInterval      Interval       `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
-		ContractConfigConfirmations            uint16         `json:"contractConfigConfirmations" toml:"contractConfigConfirmations"`
+		ContractConfigConfirmations            uint16         `json:"contractConfigConfirmations" toml:"contractConfigConfirmations" default:"3"`
 		CreatedAt                              time.Time      `json:"createdAt" toml:"-"`
 		UpdatedAt                              time.Time      `json:"updatedAt" toml:"-"`
 	}
