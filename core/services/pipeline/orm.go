@@ -16,7 +16,6 @@ import (
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
-//go:generate mockery --name Unloader --output ./../../internal/mocks/ --case=underscore
 
 type (
 	ORM interface {
