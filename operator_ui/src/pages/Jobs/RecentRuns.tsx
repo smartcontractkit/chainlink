@@ -60,7 +60,6 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   error: unknown
   getJobSpecRuns: () => Promise<void>
   job?: JobData['job']
-  jobSpec?: JobData['jobSpec']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
   showJobRunsCount?: number
@@ -74,7 +73,6 @@ export const RecentRuns = withStyles(chartCardStyles)(
     error,
     getJobSpecRuns,
     job,
-    jobSpec,
     recentRuns,
     recentRunsCount,
     showJobRunsCount = 5,
@@ -125,17 +123,15 @@ export const RecentRuns = withStyles(chartCardStyles)(
               </Card>
             </Grid>
             <Grid item xs={4}>
-              {job?.type === 'Off-chain reporting' && jobSpec && (
+              {job?.type === 'Off-chain reporting' && (
                 <Grid item xs>
                   <Card className={classes.card}>
                     <CardTitle divider>Task List</CardTitle>
-                    <TaskListDag
-                      dotSource={jobSpec.attributes.pipelineSpec.dotDagSource}
-                    />
+                    <TaskListDag dotSource={job.dotDagSource} />
                   </Card>
                 </Grid>
               )}
-              {job?.type === 'Direct request' && jobSpec && (
+              {job?.type === 'Direct request' && (
                 <Grid container direction="column">
                   <Grid item xs>
                     <Card>

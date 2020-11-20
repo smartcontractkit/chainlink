@@ -8,7 +8,7 @@ import { parseDot, Stratify } from './parseDot'
 type Node = {
   x: number
   y: number
-} & Stratify
+}
 
 type NodeElement = {
   data: Stratify
@@ -42,7 +42,7 @@ function createDag({
     .append('g')
     .attr('transform', `translate(${nodeRadius * 2}, 0)`)
 
-  const dag = d3dag.dagStratify()(stratify)
+  const dag = d3dag.dagStratify<Stratify>()(stratify)
 
   d3dag
     .sugiyama()
@@ -52,7 +52,7 @@ function createDag({
     .coord(d3dag.coordVert())(dag)
 
   const line = d3
-    .line<NodeElement>()
+    .line<Node>()
     .curve(d3.curveCatmullRom)
     .x((node) => node.x)
     .y((node) => node.y)
@@ -76,20 +76,20 @@ function createDag({
     .append('g')
     .attr('style', 'cursor: default')
     .attr('id', (node) => node.id)
-    .attr('transform', ({ x, y }) => `translate(${x}, ${y})`)
+    .attr('transform', ({ x, y }: any) => `translate(${x}, ${y})`)
     .on('mouseover', (_, node) => {
       setTooltip(node)
-      d3.select(`#circle-${node.data.id}`)
+      d3.select<d3.BaseType, NodeElement>(`#circle-${node.data.id}`)
         .transition()
         .attr('r', nodeRadius + 3)
-        .duration('50')
+        .duration(50)
     })
     .on('mouseout', (_, node) => {
       setTooltip(null)
       d3.select(`#circle-${node.data.id}`)
         .transition()
         .attr('r', nodeRadius)
-        .duration('50')
+        .duration(50)
     })
 
   nodes
