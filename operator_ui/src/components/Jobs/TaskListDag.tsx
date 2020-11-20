@@ -147,13 +147,18 @@ const TaskList = ({ dotSource }: Props) => {
           <Typography variant="body1" color="textPrimary">
             <b>{tooltip.data.id}</b>
           </Typography>
-          {Object.entries(tooltip.data.attributes).map(([key, value]) => (
-            <div key={key}>
-              <Typography variant="body1" color="textSecondary" component="div">
-                <b>{key}:</b> {value}
-              </Typography>
-            </div>
-          ))}
+          {tooltip.data?.attributes &&
+            Object.entries(tooltip.data.attributes).map(([key, value]) => (
+              <div key={key}>
+                <Typography
+                  variant="body1"
+                  color="textSecondary"
+                  component="div"
+                >
+                  <b>{key}:</b> {value}
+                </Typography>
+              </div>
+            ))}
         </div>
       )}
       <div
