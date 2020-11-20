@@ -113,6 +113,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
+	promReporter := services.NewPromReporter(store.DB.DB())
 	logBroadcaster := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
@@ -171,6 +172,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSubscriber,
 		pendingConnectionResumer,
 		balanceMonitor,
+		promReporter,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
