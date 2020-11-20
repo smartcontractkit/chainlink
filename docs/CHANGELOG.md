@@ -29,6 +29,12 @@ Numerous key-related UX improvements:
 
 - Fixed an issue where the HTTP adapter would send an empty body on retries.
 
+## [0.9.5] - 2020-11-12
+
+### Changed
+
+- Updated from Go 1.15.4 to 1.15.5.
+
 ## [0.9.4] - 2020-11-04
 
 ### Fixed
