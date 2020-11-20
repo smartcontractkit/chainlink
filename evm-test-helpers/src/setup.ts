@@ -18,6 +18,8 @@ import { ethers } from 'ethers'
 import * as path from 'path'
 import { makeDebug } from './debug'
 import { createFundedWallet } from './wallet'
+import { isOVM } from './helpers'
+import { OVMGanacheSubprovider } from './subproviders'
 
 const debug = makeDebug('helpers')
 
@@ -43,7 +45,15 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
-  providerEngine.addProvider(new GanacheSubprovider({ gasLimit: 8_000_000 }))
+  const options = {
+    gasLimit: 8_000_000,
+  }
+
+  const ganacheProvider = isOVM()
+    ? new OVMGanacheSubprovider(options)
+    : new GanacheSubprovider(options)
+  providerEngine.addProvider(ganacheProvider)
+
   providerEngine.start()
 
   return new ethers.providers.Web3Provider(providerEngine)
