@@ -175,6 +175,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 					case reflect.TypeOf(true):
 						b, err2 := strconv.ParseBool(data.(string))
 						return b, err2
+					case reflect.TypeOf(MaybeBool("")):
+						return MaybeBoolFromString(data.(string))
 					}
 				}
 				return data, nil

@@ -14,11 +14,46 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type (
+	MaybeBool string
+)
+
+const (
+	MaybeBoolTrue  = MaybeBool("true")
+	MaybeBoolFalse = MaybeBool("false")
+	MaybeBoolNull  = MaybeBool("")
+)
+
+func MaybeBoolFromString(s string) (MaybeBool, error) {
+	switch s {
+	case "true":
+		return MaybeBoolTrue, nil
+	case "false":
+		return MaybeBoolFalse, nil
+	case "":
+		return MaybeBoolNull, nil
+	default:
+		return "", errors.Errorf("unknown value for bool: %s", s)
+	}
+}
+
+func (m MaybeBool) Bool() (b bool, isSet bool) {
+	switch m {
+	case MaybeBoolTrue:
+		return true, true
+	case MaybeBoolFalse:
+		return false, true
+	default:
+		return false, false
+	}
+}
+
 type HTTPTask struct {
-	BaseTask    `mapstructure:",squash"`
-	Method      string
-	URL         models.WebURL
-	RequestData HttpRequestData `json:"requestData"`
+	BaseTask                       `mapstructure:",squash"`
+	Method                         string
+	URL                            models.WebURL
+	RequestData                    HttpRequestData `json:"requestData"`
+	AllowUnrestrictedNetworkAccess MaybeBool
 
 	config Config
 }
@@ -58,7 +93,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
 		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
 		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.config.DefaultHTTPAllowUnrestrictedNetworkAccess(),
+		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(),
 	}
 
 	httpRequest := utils.HTTPRequest{
@@ -81,6 +116,14 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		"url", t.URL.String(),
 	)
 	return Result{Value: responseBytes}
+}
+
+func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
+	b, isSet := t.AllowUnrestrictedNetworkAccess.Bool()
+	if isSet {
+		return b
+	}
+	return t.config.DefaultHTTPAllowUnrestrictedNetworkAccess()
 }
 
 func bestEffortExtractError(responseBytes []byte) string {

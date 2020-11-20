@@ -121,6 +121,8 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
+	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
+
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
 		var httpURL string
 		resp := `{"USD": null}`
@@ -164,6 +166,7 @@ func TestRunner(t *testing.T) {
 		for _, run := range runs {
 			if run.DotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
+				require.NotNil(t, resp, run.Output)
 				assert.Equal(t, resp, run.Output.Val)
 			} else if run.DotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
