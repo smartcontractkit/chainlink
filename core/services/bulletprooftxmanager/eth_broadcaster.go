@@ -21,14 +21,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// databasePollInterval indicates how long to wait each time before polling
-	// the database for new eth_txes to send
-	//
-	// This poll is really just a fallback in case the trigger fails for some reason
-	databasePollInterval = 5 * time.Second
-)
-
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
 // somewhere has received the transaction successfully.
@@ -84,11 +76,7 @@ func NewEthBroadcaster(store *store.Store, config orm.ConfigReader, eventBroadca
 func (eb *ethBroadcaster) Start() error {
 	if !eb.OkayToStart() {
 		return errors.New("EthBroadcaster is already started")
-	} else if !eb.config.EnableBulletproofTxManager() {
-		logger.Info("BulletproofTxManager: Disabled, falling back to legacy TxManager")
-		return nil
 	}
-	logger.Info("BulletproofTxManager: Enabled")
 
 	var err error
 	eb.ethTxInsertListener, err = eb.eventBroadcaster.Subscribe(postgres.ChannelInsertOnEthTx, "")
@@ -108,8 +96,6 @@ func (eb *ethBroadcaster) Start() error {
 func (eb *ethBroadcaster) Stop() error {
 	if !eb.OkayToStop() {
 		return errors.New("EthBroadcaster is already stopped")
-	} else if !eb.config.EnableBulletproofTxManager() {
-		return nil
 	}
 
 	if eb.ethTxInsertListener != nil {
@@ -144,7 +130,7 @@ func (eb *ethBroadcaster) ethTxInsertTriggerer() {
 func (eb *ethBroadcaster) monitorEthTxs() {
 	defer eb.wg.Done()
 	for {
-		pollDBTimer := time.NewTimer(databasePollInterval)
+		pollDBTimer := time.NewTimer(utils.WithJitter(eb.config.TriggerFallbackDBPollInterval()))
 
 		keys, err := eb.store.SendKeys()
 
@@ -382,8 +368,8 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func findNextUnstartedTransactionFromAddress(tx *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
-	return tx.
+func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fromAddress gethCommon.Address) error {
+	return db.
 		Where("from_address = ? AND state = 'unstarted'", fromAddress).
 		Order("value ASC, created_at ASC, id ASC").
 		First(etx).

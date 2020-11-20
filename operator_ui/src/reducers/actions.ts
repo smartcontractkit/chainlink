@@ -22,9 +22,7 @@ export interface RedirectAction extends Action<RouterActionType.REDIRECT> {
  */
 
 export interface MatchRouteAction extends Action<RouterActionType.MATCH_ROUTE> {
-  match?: {
-    url: string
-  }
+  pathname: string
 }
 
 export enum NotifyActionType {
@@ -247,7 +245,7 @@ export interface RequestAccountBalanceAction
 export interface UpsertAccountBalanceAction
   extends Action<ResourceActionType.UPSERT_ACCOUNT_BALANCE> {
   data: {
-    accountBalances: any
+    eThKeys: any
   }
 }
 

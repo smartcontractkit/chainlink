@@ -10,7 +10,7 @@ import (
 )
 
 func TestD20ExampleContract(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash, _, _ := registerProvingKey(t, coordinator)
 	d20Address, _, d20, err := vrf_testnet_d20.DeployVRFTestnetD20(coordinator.sergey,
 		coordinator.backend, coordinator.rootContractAddress,

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
@@ -59,18 +60,20 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 	return bind.NewKeyedTransactor(key)
 }
 
-// deployCoordinator sets up all identities and contracts associated with
+// newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func deployCoordinator(t *testing.T) coordinatorUniverse {
+func newVRFCoordinatorUniverse(t *testing.T) coordinatorUniverse {
 	var (
-		sergey = newIdentity(t)
-		neil   = newIdentity(t)
-		carol  = newIdentity(t)
+		sergey  = newIdentity(t)
+		neil    = newIdentity(t)
+		carol   = newIdentity(t)
+		nallory = cltest.OracleTransactor
 	)
 	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: oneEth},
-		neil.From:   {Balance: oneEth},
-		carol.From:  {Balance: oneEth},
+		sergey.From:  {Balance: oneEth},
+		neil.From:    {Balance: oneEth},
+		carol.From:   {Balance: oneEth},
+		nallory.From: {Balance: oneEth},
 	}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	consumerABI, err := abi.JSON(strings.NewReader(
@@ -116,7 +119,7 @@ func deployCoordinator(t *testing.T) coordinatorUniverse {
 
 func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
-	baseContract := deployCoordinator(t).requestIDBase
+	baseContract := newVRFCoordinatorUniverse(t).requestIDBase
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
 	goRequestLog := &models.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
@@ -146,7 +149,7 @@ func registerProvingKey(t *testing.T, coordinator coordinatorUniverse) (
 }
 
 func TestRegisterProvingKey(t *testing.T) {
-	coord := deployCoordinator(t)
+	coord := newVRFCoordinatorUniverse(t)
 	keyHash, jobID, fee := registerProvingKey(t, coord)
 	log, err := coord.rootContract.FilterNewServiceAgreement(nil)
 	require.NoError(t, err, "failed to subscribe to NewServiceAgreement logs on simulated ethereum blockchain")
@@ -173,7 +176,7 @@ func TestRegisterProvingKey(t *testing.T) {
 // from the VRFCoordinator in response to the request
 func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 	keyHash common.Hash, fee, seed *big.Int) *models.RandomnessRequestLog {
-	_, err := coordinator.consumerContract.RequestRandomness(coordinator.carol,
+	_, err := coordinator.consumerContract.TestRequestRandomness(coordinator.carol,
 		keyHash, fee, seed)
 	require.NoError(t, err, "problem during initial VRF randomness request")
 	coordinator.backend.Commit()
@@ -189,7 +192,7 @@ func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
-	coord := deployCoordinator(t)
+	coord := newVRFCoordinatorUniverse(t)
 	keyHash_, jobID_, fee := registerProvingKey(t, coord)
 	keyHash := common.BytesToHash(keyHash_[:])
 	jobID := common.BytesToHash(jobID_[:])
@@ -246,7 +249,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 }
 
 func TestFulfillRandomness(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee, seed)
 	proof := fulfillRandomnessRequest(t, coordinator, *randomnessRequestLog)
@@ -270,7 +273,7 @@ func TestFulfillRandomness(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	log := requestRandomness(t, coordinator, keyHash, fee, rawSeed)
 	fulfillRandomnessRequest(t, coordinator, *log)

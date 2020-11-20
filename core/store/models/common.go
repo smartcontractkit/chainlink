@@ -9,7 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
+	"github.com/pelletier/go-toml"
+
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
@@ -607,6 +608,11 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
+// CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
+type CreateOCRJobSpecRequest struct {
+	TOML string `json:"toml"`
+}
+
 // AddressCollection is an array of common.Address
 // serializable to and from a database.
 type AddressCollection []common.Address
@@ -683,6 +689,27 @@ func Merge(inputs ...JSON) (JSON, error) {
 
 // Explicit type indicating a 32-byte sha256 hash
 type Sha256Hash [32]byte
+
+// MarshalJSON converts a Sha256Hash to a JSON byte slice.
+func (s Sha256Hash) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.String())
+}
+
+// UnmarshalJSON converts a bytes slice of JSON to a TaskType.
+func (s *Sha256Hash) UnmarshalJSON(input []byte) error {
+	var shaHash string
+	if err := json.Unmarshal(input, &shaHash); err != nil {
+		return err
+	}
+
+	sha, err := Sha256HashFromHex(shaHash)
+	if err != nil {
+		return err
+	}
+
+	*s = sha
+	return nil
+}
 
 func Sha256HashFromHex(x string) (Sha256Hash, error) {
 	bs, err := hex.DecodeString(x)

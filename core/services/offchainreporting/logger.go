@@ -1,6 +1,8 @@
 package offchainreporting
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
@@ -8,14 +10,16 @@ import (
 var _ ocrtypes.Logger = &ocrLogger{}
 
 type ocrLogger struct {
-	internal *logger.Logger
-	trace    bool
+	internal  *logger.Logger
+	trace     bool
+	saveError func(string)
 }
 
-func NewLogger(internal *logger.Logger, trace bool) ocrtypes.Logger {
+func NewLogger(internal *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
 	return &ocrLogger{
-		internal: internal,
-		trace:    trace,
+		internal:  internal,
+		trace:     trace,
+		saveError: saveError,
 	}
 }
 
@@ -40,10 +44,18 @@ func (ol *ocrLogger) Warn(msg string, fields ocrtypes.LogFields) {
 }
 
 func (ol *ocrLogger) Error(msg string, fields ocrtypes.LogFields) {
+	ol.saveError(msg + toString(fields))
 	ol.internal.Errorw(msg, toKeysAndValues(fields)...)
 }
 
 // Helpers
+func toString(fields ocrtypes.LogFields) string {
+	res := ""
+	for key, val := range fields {
+		res += fmt.Sprintf("%s: %v", key, val)
+	}
+	return res
+}
 
 func toKeysAndValues(fields ocrtypes.LogFields) []interface{} {
 	out := []interface{}{}

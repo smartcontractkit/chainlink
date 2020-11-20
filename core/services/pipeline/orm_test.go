@@ -9,14 +9,14 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func clearDB(t *testing.T, db *gorm.DB) {
@@ -90,7 +90,7 @@ func TestORM(t *testing.T) {
 		err := g.UnmarshalText([]byte(dotStr))
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(context.Background(), *g)
+		specID, err = orm.CreateSpec(context.Background(), db, *g)
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec
@@ -392,6 +392,13 @@ func TestORM(t *testing.T) {
 							require.Equal(t, test.answers[run.DotID()].Error.Error(), run.Error.ValueOrZero())
 						}
 					}
+
+					var pipelineRun pipeline.Run
+					err = db.First(&pipelineRun).Error
+					require.NoError(t, err)
+
+					assert.NotNil(t, pipelineRun.Errors.Val)
+					assert.NotNil(t, pipelineRun.Outputs.Val)
 				}
 
 				// Ensure that we can retrieve the correct results by calling .ResultsForRun
@@ -413,4 +420,20 @@ func TestORM(t *testing.T) {
 			})
 		}
 	})
+
+}
+
+func TestORM_CreateRunWhenJobDeleted(t *testing.T) {
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(config)
+	defer cleanup()
+	db := store.DB
+
+	orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
+	defer cleanup()
+
+	// Use non-existent job ID to simulate situation if a job is deleted between runs
+	_, err := orm.CreateRun(context.Background(), -1, nil)
+	require.EqualError(t, err, "no job found with id -1 (most likely it was deleted)")
 }

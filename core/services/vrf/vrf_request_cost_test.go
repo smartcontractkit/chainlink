@@ -9,12 +9,12 @@ import (
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
-	coordinator := deployCoordinator(t)
+	coordinator := newVRFCoordinatorUniverse(t)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
 	estimate := estimateGas(t, coordinator.backend, common.Address{},
 		coordinator.consumerContractAddress, coordinator.consumerABI,
-		"requestRandomness", common.BytesToHash(keyHash_[:]), fee, big.NewInt(1))
+		"testRequestRandomness", common.BytesToHash(keyHash_[:]), fee, big.NewInt(1))
 
 	assert.Greater(t, estimate, uint64(134000),
 		"requestRandomness tx gas cost lower than expected")

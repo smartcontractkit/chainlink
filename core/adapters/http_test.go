@@ -2,12 +2,16 @@ package adapters_test
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -104,6 +108,40 @@ func TestHTTPGet_Perform(t *testing.T) {
 			assert.Equal(t, false, result.Status().PendingBridge())
 		})
 	}
+}
+
+func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
+	t.Parallel()
+
+	store := leanStore()
+	timeout := 30 * time.Millisecond
+	store.Config.Set("DEFAULT_HTTP_TIMEOUT", strconv.Itoa(int(timeout)))
+	store.Config.Set("MAX_HTTP_ATTEMPTS", "2")
+
+	attempts := make(chan struct{}, 2)
+	timeoutOnce := sync.Once{}
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		assert.Greater(t, len(b), 0)
+		attempts <- struct{}{}
+		timeoutOnce.Do(func() { time.Sleep(timeout + 1) })
+	})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+
+	hga := adapters.HTTPPost{
+		URL:                            cltest.WebURL(t, server.URL),
+		AllowUnrestrictedNetworkAccess: true,
+	}
+
+	input := cltest.NewRunInputWithResult("inputValue")
+	result := hga.Perform(input, store)
+	require.NoError(t, result.Error())
+
+	gomega.NewGomegaWithT(t).Eventually(func() int {
+		return len(attempts)
+	}).Should(gomega.Equal(2))
 }
 
 func TestHTTP_TooLarge(t *testing.T) {

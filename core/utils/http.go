@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -81,16 +82,32 @@ func makeHTTPCall(
 	client *http.Client,
 	originalRequest *http.Request,
 	config HTTPRequestConfig,
-) (responseBody []byte, statusCode int, err error) {
+) (responseBody []byte, statusCode int, _ error) {
 	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
 	defer cancel()
 	requestWithTimeout := originalRequest.Clone(ctx)
 
+	// XXX: Workaround for https://github.com/golang/go/issues/36095
+	// http.Request#Clone actually only does a shallow copy
+	if originalRequest.GetBody != nil {
+		originalRequestBody, err := originalRequest.GetBody()
+		if err != nil {
+			return nil, 0, err
+		}
+		var b bytes.Buffer
+		_, err = b.ReadFrom(originalRequestBody)
+		if err != nil {
+			return nil, 0, err
+		}
+		requestWithTimeout.Body = ioutil.NopCloser(&b)
+	}
+
 	start := time.Now()
 
-	r, e := client.Do(requestWithTimeout)
-	if e != nil {
-		return nil, 0, e
+	r, err := client.Do(requestWithTimeout)
+	if err != nil {
+		logger.Warnw("http adapter got error", "error", err)
+		return nil, 0, err
 	}
 	defer logger.ErrorIfCalling(r.Body.Close)
 
@@ -99,10 +116,10 @@ func makeHTTPCall(
 	logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 	source := NewMaxBytesReader(r.Body, config.SizeLimit)
-	bytes, e := ioutil.ReadAll(source)
-	if e != nil {
-		logger.Errorf("http adapter error reading body: %v", e.Error())
-		return nil, statusCode, e
+	bytes, err := ioutil.ReadAll(source)
+	if err != nil {
+		logger.Errorw("http adapter error reading body", "error", err)
+		return nil, statusCode, err
 	}
 	elapsed = time.Since(start)
 	logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)

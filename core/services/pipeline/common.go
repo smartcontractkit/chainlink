@@ -14,7 +14,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -46,7 +45,7 @@ type (
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
-		JobPipelineDBPollInterval() time.Duration
+		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
@@ -85,8 +84,6 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 	switch x := js.Val.(type) {
 	case []byte:
 		return json.Marshal(string(x))
-	case nil:
-		return nil, nil
 	default:
 		return json.Marshal(js.Val)
 	}

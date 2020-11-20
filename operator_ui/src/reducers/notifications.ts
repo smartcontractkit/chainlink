@@ -24,14 +24,10 @@ const INITIAL_STATE: State = {
 const reducer: Reducer<State, Actions> = (state = INITIAL_STATE, action) => {
   switch (action.type) {
     case RouterActionType.MATCH_ROUTE: {
-      if (action.match && state.currentUrl !== action.match.url) {
-        return {
-          ...INITIAL_STATE,
-          currentUrl: action.match.url,
-        }
+      return {
+        ...INITIAL_STATE,
+        currentUrl: action.pathname,
       }
-
-      return state
     }
     case NotifyActionType.NOTIFY_SUCCESS: {
       const success: ComponentNotification = {

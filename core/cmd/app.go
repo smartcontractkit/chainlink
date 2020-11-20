@@ -6,7 +6,6 @@ import (
 	"regexp"
 
 	"github.com/smartcontractkit/chainlink/core/store"
-
 	"github.com/urfave/cli"
 )
 
@@ -184,13 +183,18 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "createocr",
-					Usage:  "Create an offchain reporting job",
+					Usage:  "Create an off-chain reporting job",
 					Action: client.CreateOCRJobSpec,
 				},
 				{
 					Name:   "deletev2",
 					Usage:  "Delete a v2 job",
 					Action: client.DeleteJobV2,
+				},
+				{
+					Name:   "run",
+					Usage:  "Trigger an off-chain reporting job run",
+					Action: client.TriggerOCRJobRun,
 				},
 			},
 		},

@@ -12,7 +12,6 @@ import {
 } from '@material-ui/core'
 import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
-import jobSpecDefinition from 'utils/jobSpecDefinition'
 import { JobData } from './sharedTypes'
 
 const definitionStyles = (theme: Theme) =>
@@ -32,22 +31,21 @@ const Definition: React.FC<
     error: unknown
     ErrorComponent: React.FC
     LoadingPlaceholder: React.FC
-    jobSpec?: JobData['jobSpec']
+    job?: JobData['job']
   } & WithStyles<typeof definitionStyles>
-> = ({ classes, error, ErrorComponent, LoadingPlaceholder, jobSpec }) => {
+> = ({ classes, error, ErrorComponent, LoadingPlaceholder, job }) => {
   React.useEffect(() => {
-    document.title =
-      jobSpec && jobSpec.attributes.name
-        ? `${jobSpec.attributes.name} | Job definition`
-        : 'Job definition'
-  }, [jobSpec])
+    document.title = job?.name
+      ? `${job.name} | Job definition`
+      : 'Job definition'
+  }, [job])
 
   return (
     <Content>
       <Card>
         <ErrorComponent />
         <LoadingPlaceholder />
-        {!error && jobSpec && (
+        {!error && job && (
           <CardContent>
             <Grid container spacing={0}>
               <Grid item xs={12}>
@@ -59,12 +57,18 @@ const Definition: React.FC<
                 <Divider light className={classes.divider} />
               </Grid>
               <Grid item xs={12}>
-                <PrettyJson
-                  object={jobSpecDefinition({
-                    ...jobSpec,
-                    ...jobSpec.attributes,
-                  })}
-                />
+                {job.type === 'Direct request' && (
+                  <PrettyJson object={JSON.parse(job.definition)} />
+                )}
+                {job.type === 'Off-chain reporting' && (
+                  <Typography
+                    style={{ margin: 0 }}
+                    variant="body1"
+                    component="pre"
+                  >
+                    {job.definition}
+                  </Typography>
+                )}
               </Grid>
             </Grid>
           </CardContent>

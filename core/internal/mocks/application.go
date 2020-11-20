@@ -88,6 +88,20 @@ func (_m *Application) ArchiveJob(_a0 *models.ID) error {
 	return r0
 }
 
+// AwaitRun provides a mock function with given fields: ctx, runID
+func (_m *Application) AwaitRun(ctx context.Context, runID int64) error {
+	ret := _m.Called(ctx, runID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, runID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Cancel provides a mock function with given fields: runID
 func (_m *Application) Cancel(runID *models.ID) (*models.JobRun, error) {
 	ret := _m.Called(runID)
@@ -271,6 +285,27 @@ func (_m *Application) ResumePendingBridge(runID *models.ID, input models.Bridge
 	}
 
 	return r0
+}
+
+// RunJobV2 provides a mock function with given fields: ctx, jobID, meta
+func (_m *Application) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
+	ret := _m.Called(ctx, jobID, meta)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, int32, map[string]interface{}) int64); ok {
+		r0 = rf(ctx, jobID, meta)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int32, map[string]interface{}) error); ok {
+		r1 = rf(ctx, jobID, meta)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Start provides a mock function with given fields:

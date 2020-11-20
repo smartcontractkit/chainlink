@@ -501,12 +501,7 @@ func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain mode
 		"numCallbacks", len(ht.callbacks),
 	)
 
-	if ht.store.Config.EnableBulletproofTxManager() {
-		ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
-	} else {
-		// NOTE: Legacy tx manager probably has implicit ordering requirements, so it's not safe to parallelise
-		ht.seriallyExecuteCallbacks(ctx, headWithChain)
-	}
+	ht.concurrentlyExecuteCallbacks(ctx, headWithChain)
 }
 
 func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
@@ -522,15 +517,6 @@ func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWit
 		}(idx, trackable)
 	}
 	wg.Wait()
-}
-
-func (ht *HeadTracker) seriallyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
-	for i, t := range ht.callbacks {
-		start := time.Now()
-		t.OnNewLongestChain(ctx, headWithChain)
-		elapsed := time.Since(start)
-		logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
-	}
 }
 
 func (ht *HeadTracker) subscribeToHead() error {

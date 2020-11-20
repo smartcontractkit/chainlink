@@ -37,6 +37,7 @@ const oracleCount uint8 = 17
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
 	submitSelector = submitHash[:4]
+	oracles        = []common.Address{cltest.DefaultKeyAddress, cltest.NewAddress()}
 )
 
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
@@ -45,18 +46,12 @@ func ensureAccount(t *testing.T, store *store.Store) common.Address {
 	_, err := auth.Authenticate(store, cltest.Password)
 	assert.NoError(t, err)
 	assert.True(t, store.KeyStore.HasAccounts())
-	acct, err := store.KeyStore.GetFirstAccount()
-	assert.NoError(t, err)
-	return acct.Address
+	return cltest.DefaultKeyAddress
 }
 
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-
-	txm := new(mocks.TxManager)
-	store.TxManager = txm
-	txm.On("FilterLogs", mock.Anything).Return([]models.Log{}, nil)
 
 	t.Run("starts and stops DeviationCheckers when jobs are added and removed", func(t *testing.T) {
 		job := cltest.NewJobWithFluxMonitorInitiator()
@@ -70,7 +65,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 		checkerFactory := new(mocks.DeviationCheckerFactory)
 		checkerFactory.On("New", job.Initiators[0], mock.Anything, runManager, store.ORM, store.Config.DefaultHTTPTimeout()).Return(dc, nil)
-		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
@@ -104,7 +99,7 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 		job := cltest.NewJobWithRunLogInitiator()
 		runManager := new(mocks.RunManager)
 		checkerFactory := new(mocks.DeviationCheckerFactory)
-		lb := eth.NewLogBroadcaster(store.TxManager, store.ORM, store.Config.BlockBackfillDepth())
+		lb := eth.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 		require.NoError(t, lb.Start())
 		fm := fluxmonitor.New(store, runManager, lb)
 		fluxmonitor.ExportedSetCheckerFactory(fm, checkerFactory)
@@ -293,6 +288,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				if test.connected {
 					checker.OnConnect()
 				}
+				fluxAggregator.On("GetOracles").Return(oracles, nil)
+				checker.SetOracleAddress()
 
 				checker.ExportedPollIfEligible(test.threshold, test.absoluteThreshold)
 
@@ -337,6 +334,9 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	)
 	require.NoError(t, err)
 	checker.OnConnect()
+
+	fluxAggregator.On("GetOracles").Return(oracles, nil)
+	require.NoError(t, checker.SetOracleAddress())
 
 	checker.ExportedPollIfEligible(1, 1)
 
@@ -409,6 +409,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Once()
 	fluxAggregator.On("RoundState", nodeAddr, uint32(3)).Return(makeRoundStateForRoundID(3), nil).Once()
 	fluxAggregator.On("RoundState", nodeAddr, uint32(4)).Return(makeRoundStateForRoundID(4), nil).Once()
+	fluxAggregator.On("GetOracles").Return(oracles, nil)
 
 	fetcher := new(mocks.Fetcher)
 	fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
@@ -500,6 +501,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 
 			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("GetOracles").Return(oracles, nil)
 
 			idleDurationOccured := make(chan struct{}, 3)
 
@@ -613,6 +615,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	)
 	require.NoError(t, err)
 
+	fluxAggregator.On("GetOracles").Return(oracles, nil)
+
+	deviationChecker.SetOracleAddress()
 	deviationChecker.ExportedRoundState()
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
@@ -684,6 +689,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		func() {},
 	)
 	require.NoError(t, err)
+
+	fluxAggregator.On("GetOracles").Return(oracles, nil)
 
 	deviationChecker.Start()
 	deviationChecker.OnConnect()
@@ -871,6 +878,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			)
 			require.NoError(t, err)
 
+			fluxAggregator.On("GetOracles").Return(oracles, nil)
+			checker.SetOracleAddress()
 			checker.OnConnect()
 
 			var startedBy common.Address
@@ -1345,6 +1354,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		)
 		require.NoError(t, err)
 
+		fluxAggregator.On("GetOracles").Return(oracles, nil)
+		checker.SetOracleAddress()
 		checker.OnConnect()
 
 		// Fire off the NewRound log, which the node should respond to
@@ -1452,6 +1463,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
 			Return(&run, nil).
 			Once()
+		fluxAggregator.On("GetOracles").Return(oracles, nil)
+		checker.SetOracleAddress()
 		checker.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
