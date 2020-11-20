@@ -27,12 +27,13 @@ export const Runs = ({
 }: Props) => {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
-  const [page, setPage] = React.useState<number>(
-    parseInt(params.get('page') || '1', 10),
-  )
-  const [pageSize, setPageSize] = React.useState<number>(
-    parseInt(params.get('size') || '10', 10),
-  )
+  const [{ page, pageSize }, setPagination] = React.useState<{
+    page: number
+    pageSize: number
+  }>({
+    page: parseInt(params.get('page') || '1', 10),
+    pageSize: parseInt(params.get('size') || '10', 10),
+  })
 
   React.useEffect(() => {
     document.title = job?.name ? `${job.name} | Job runs` : 'Job runs'
@@ -68,14 +69,13 @@ export const Runs = ({
             () => {} /* handler required by component, so make it a no-op */
           }
           onChangeRowsPerPage={(e) => {
-            setPage(1)
-            setPageSize(parseInt(e.target.value, 10))
+            setPagination({ page: 1, pageSize: parseInt(e.target.value, 10) })
           }}
           ActionsComponent={() => (
             <TableButtons
               count={recentRunsCount}
               onChangePage={(_: React.SyntheticEvent, newPage: number) =>
-                setPage(newPage)
+                setPagination({ page: newPage, pageSize })
               }
               page={page}
               rowsPerPage={pageSize}
