@@ -207,18 +207,13 @@ func logIfNonceOutOfSync(store *strpkg.Store, key models.Key) {
 		logger.Error(fmt.Sprintf("error determining nonce for address %s: %v", key.Address.Hex(), err))
 		return
 	}
-	localNonce, err := store.GetLastNonce(key.Address.Address())
-	if err != nil {
-		logger.Error("database error when checking nonce: ", err)
-		return
+	var nonce int64
+	if key.NextNonce != nil {
+		nonce = *key.NextNonce
 	}
-	if localNonceIsNotCurrent(localNonce, onChainNonce) {
+	if nonce < int64(onChainNonce) {
 		logger.Warn(fmt.Sprintf("The account %s is being used by another wallet and is not safe to use with chainlink", key.Address.Hex()))
 	}
-}
-
-func localNonceIsNotCurrent(localNonce, onChainNonce uint64) bool {
-	return localNonce+1 < onChainNonce
 }
 
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
