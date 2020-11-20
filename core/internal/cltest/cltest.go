@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -1480,4 +1481,23 @@ func RandomizeNonce(t *testing.T, s *strpkg.Store) {
 	n := rand.Intn(32767) + 100
 	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
 	require.NoError(t, err)
+}
+
+func NewConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
+	t.Helper()
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return MustBytesToConfigDigest(t, b)
+}
+
+func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
+	t.Helper()
+	configDigest, err := ocrtypes.BytesToConfigDigest([]byte{42})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return configDigest
 }
