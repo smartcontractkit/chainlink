@@ -80,7 +80,11 @@ func (oc *OCRContractConfigTracker) LatestConfigDetails(ctx context.Context) (ch
 	if err != nil {
 		return 0, configDigest, errors.Wrap(err, "error getting LatestConfigDetails")
 	}
-	return uint64(result.BlockNumber), ocrtypes.BytesToConfigDigest(result.ConfigDigest[:]), err
+	configDigest, err = ocrtypes.BytesToConfigDigest(result.ConfigDigest[:])
+	if err != nil {
+		return 0, configDigest, errors.Wrap(err, "error getting config digest")
+	}
+	return uint64(result.BlockNumber), configDigest, err
 }
 
 func (oc *OCRContractConfigTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
