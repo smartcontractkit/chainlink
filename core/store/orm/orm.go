@@ -230,31 +230,6 @@ func (orm *ORM) FindJobRun(id *models.ID) (models.JobRun, error) {
 	return jr, err
 }
 
-// AllSyncEvents returns all sync events
-func (orm *ORM) AllSyncEvents(cb func(models.SyncEvent) error) error {
-	orm.MustEnsureAdvisoryLock()
-	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		var events []models.SyncEvent
-		err := orm.DB.
-			Limit(limit).
-			Offset(offset).
-			Order("id, created_at asc").
-			Find(&events).Error
-		if err != nil {
-			return 0, err
-		}
-
-		for _, event := range events {
-			err = cb(event)
-			if err != nil {
-				return 0, err
-			}
-		}
-
-		return uint(len(events)), err
-	})
-}
-
 // NOTE: Copied verbatim from gorm master
 // Transaction start a transaction as a block,
 // return error will rollback, otherwise to commit.

@@ -1495,7 +1495,7 @@ func NewConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 
 func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 	t.Helper()
-	configDigest, err := ocrtypes.BytesToConfigDigest([]byte{42})
+	configDigest, err := ocrtypes.BytesToConfigDigest(b)
 	if err != nil {
 		t.Fatal(err)
 	}
