@@ -1,5 +1,5 @@
 import React from 'react'
-import { theme } from 'index'
+import { theme } from 'theme'
 import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
