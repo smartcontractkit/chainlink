@@ -14,8 +14,6 @@ const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
 
 describe('pages/Jobs/Show', () => {
   it('renders the details of the job spec, its latest runs, its task list entries and its total earnings', async () => {
-    expect.assertions(9)
-
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
       id: JOB_SPEC_ID,
@@ -48,10 +46,9 @@ describe('pages/Jobs/Show', () => {
     expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('1.000000')
     expect(wrapper.text()).toContain('Httpget')
-    expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('Minimum Payment100 Link')
     expect(wrapper.text()).toContain('Pending')
-    expect(wrapper.text()).not.toContain('View More')
+    expect(wrapper.text()).not.toContain('View more')
   })
 
   describe('RegionalNav', () => {

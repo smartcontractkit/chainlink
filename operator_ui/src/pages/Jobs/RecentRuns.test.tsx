@@ -35,6 +35,6 @@ describe('pages/Jobs/RecentRuns', () => {
     )
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('View More')
+    expect(wrapper.text()).toContain('View more')
   })
 })
