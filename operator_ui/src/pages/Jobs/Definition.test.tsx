@@ -25,6 +25,6 @@ describe('pages/Jobs/Definition', () => {
     )
 
     await syncFetch(wrapper)
-    expect(wrapper.text()).toMatchSnapshot()
+    expect(wrapper.find('PrettyJson').text()).toMatchSnapshot()
   })
 })

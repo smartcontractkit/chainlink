@@ -501,11 +501,6 @@ declare module 'core/store/models' {
     taskRuns: OcrTaskRun[]
     createdAt: time.Time
     finishedAt: nullable.Time
-    pipelineSpec: {
-      CreatedAt: time.Time
-      DotDagSource: string
-      ID: number
-    }
   }
 }
 
