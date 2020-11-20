@@ -1,15 +1,13 @@
 import { ApiResponse } from '@chainlink/json-api-client'
-import { OcrJobSpec } from 'core/store/models'
-import { jobSpecV2 } from './jobSpecV2'
+import { OcrJobRun } from 'core/store/models'
+import { jobRunV2 } from './jobRunV2'
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * Math.floor(max))
 }
 
-export const jsonApiOcrJobSpecs = (
-  jobs: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string }
-  >[] = [],
+export const jsonApiOcrJobRuns = (
+  jobs: Partial<OcrJobRun & { id?: string }>[] = [],
   count?: number,
 ) => {
   const rc = count || jobs.length
@@ -19,11 +17,11 @@ export const jsonApiOcrJobSpecs = (
       const id = config.id || getRandomInt(1_000_000).toString()
 
       return {
-        type: 'jobSpecV2s',
+        type: 'runs',
         id,
-        attributes: jobSpecV2(config),
+        attributes: jobRunV2(config),
       }
     }),
     meta: { count: rc },
-  } as ApiResponse<OcrJobSpec[]>
+  } as ApiResponse<OcrJobRun[]>
 }

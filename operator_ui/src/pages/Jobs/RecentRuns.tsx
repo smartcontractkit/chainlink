@@ -58,7 +58,7 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   ErrorComponent: React.FC
   LoadingPlaceholder: React.FC
   error: unknown
-  getJobSpecRuns: () => Promise<void>
+  getJobSpecRuns: (props?: { page?: number; size?: number }) => Promise<void>
   job?: JobData['job']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
@@ -95,29 +95,24 @@ export const RecentRuns = withStyles(chartCardStyles)(
           <Grid container spacing={24}>
             <Grid item xs={8}>
               <Card>
-                <CardTitle divider>Recent Job Runs</CardTitle>
+                <CardTitle divider>Recent job runs</CardTitle>
 
                 {recentRuns && (
                   <>
                     <JobRunsList
-                      runs={recentRuns.map(
-                        (jobRun: NonNullable<JobData['recentRuns']>[0]) => ({
-                          ...jobRun,
-                        }),
-                      )}
+                      runs={recentRuns}
                       hideLinks={job?.type === 'Off-chain reporting'}
                     />
-                    {job?.type === 'Direct request' &&
-                      recentRunsCount > showJobRunsCount && (
-                        <div className={classes.runDetails}>
-                          <Button
-                            href={`/jobs/${job.id}/runs`}
-                            component={BaseLink}
-                          >
-                            View More
-                          </Button>
-                        </div>
-                      )}
+                    {recentRunsCount > showJobRunsCount && (
+                      <div className={classes.runDetails}>
+                        <Button
+                          href={`/jobs/${job.id}/runs`}
+                          component={BaseLink}
+                        >
+                          View more
+                        </Button>
+                      </div>
+                    )}
                   </>
                 )}
               </Card>
@@ -158,7 +153,6 @@ export const RecentRuns = withStyles(chartCardStyles)(
                     <KeyValueList
                       showHead={false}
                       entries={Object.entries({
-                        runCount: recentRunsCount,
                         initiator: formatInitiators(job.initiators),
                         minimumPayment: `${
                           formatMinPayment(Number(job.minPayment)) || 0
