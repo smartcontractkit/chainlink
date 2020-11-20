@@ -175,7 +175,7 @@ func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, err
 		go func() {
 			price, err := fetcher.Fetch(meta)
 			if err != nil {
-				logger.Error(err)
+				logger.Warn(err)
 				chResults <- result{err: err}
 			} else {
 				chResults <- result{price: price}
