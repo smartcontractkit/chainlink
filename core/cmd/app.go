@@ -79,7 +79,6 @@ func NewApp(client *Client) *cli.App {
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
-			Hidden:  !client.Config.Dev(),
 			Subcommands: []cli.Command{
 				{
 					Name:   "list",
@@ -204,14 +203,12 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for managing various types of keys used by the Chainlink node",
 			Subcommands: []cli.Command{
 				cli.Command{
-					Name:   "eth",
-					Usage:  "Local commands for administering the node's Ethereum keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "eth",
+					Usage: "Local commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
-							Hidden: !client.Config.Dev(),
 							Action: client.CreateExtraKey,
 						},
 						{
@@ -222,9 +219,8 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				cli.Command{
-					Name:   "p2p",
-					Usage:  "Remote commands for administering the node's p2p keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "p2p",
+					Usage: "Remote commands for administering the node's p2p keys",
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
@@ -256,9 +252,8 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				cli.Command{
-					Name:   "ocr",
-					Usage:  "Remote commands for administering the node's off chain reporting keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "ocr",
+					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
@@ -294,7 +289,6 @@ func NewApp(client *Client) *cli.App {
 					Usage: format(`Local commands for administering the database of VRF proof
            keys. These commands will not affect the extant in-memory keys of
            any live node.`),
-					Hidden: !client.Config.Dev(),
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
