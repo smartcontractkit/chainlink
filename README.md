@@ -176,14 +176,15 @@ go test -parallel=1 ./...
 2. Install the dependencies:
 
 ```bash
-cd evm
-yarn install
+yarn
+yarn setup:contracts
 ```
 
 3. Run tests:
 
 ```bash
-yarn run test-sol
+cd evm-contracts
+yarn test
 ```
 
 ### Use of Go Generate
