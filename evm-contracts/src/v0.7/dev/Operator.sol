@@ -37,7 +37,7 @@ contract Operator is
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
-  mapping(address => bool) private s_authorizedNodes;
+  mapping(address => bool) private s_authorizedSenders;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -145,7 +145,7 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
     isValidRequest(requestId)
     returns (bool)
   {
@@ -189,7 +189,7 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
     isValidRequest(requestId)
     isValidMultiWord(requestId, data)
     returns (bool)
@@ -216,13 +216,13 @@ contract Operator is
    * @param node The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function getAuthorizationStatus(address node)
+  function isAuthorizedSender(address node)
     external
     view
     override
     returns (bool)
   {
-    return s_authorizedNodes[node];
+    return s_authorizedSenders[node];
   }
 
   /**
@@ -230,12 +230,12 @@ contract Operator is
    * @param node The address of the Chainlink node
    * @param allowed Bool value to determine if the node can fulfill requests
    */
-  function setFulfillmentPermission(address node, bool allowed)
+  function setAuthorizedSender(address node, bool allowed)
     external
     override
     onlyOwner()
   {
-    s_authorizedNodes[node] = allowed;
+    s_authorizedSenders[node] = allowed;
   }
 
   /**
@@ -314,7 +314,7 @@ contract Operator is
 
   function forward(address _to, bytes calldata _data)
     public
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
   {
     require(_to != address(linkToken), "Cannot use #forward to send messages to Link token");
     (bool status,) = _to.call(_data);
@@ -448,8 +448,8 @@ contract Operator is
   /**
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
-  modifier onlyAuthorizedNode() {
-    require(s_authorizedNodes[msg.sender], "Not an authorized node to fulfill requests");
+  modifier onlyAuthorizedSender() {
+    require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
     _;
   }
 
