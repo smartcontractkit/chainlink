@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -65,6 +68,21 @@ type PossibleErrorResponses struct {
 
 var _ Task = (*HTTPTask)(nil)
 
+var (
+	promHTTPFetchTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_http_fetch_time",
+		Help: "Time taken to fully execute the HTTP request",
+	},
+		[]string{"pipeline_task_spec_id"},
+	)
+	promHTTPResponseBodySize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_http_response_body_size",
+		Help: "Size (in bytes) of the HTTP response body",
+	},
+		[]string{"pipeline_task_spec_id"},
+	)
+)
+
 func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
@@ -101,10 +119,14 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		Config:  config,
 	}
 
+	start := time.Now()
 	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
+	elapsed := time.Since(start)
+	promHTTPFetchTime.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
