@@ -49,7 +49,7 @@ require (
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20201120141554-a98a18922cd3
+	github.com/smartcontractkit/libocr v0.0.0-20201123232443-3e79f1439e8c
 	github.com/spf13/viper v1.7.1
 	github.com/status-im/keycard-go v0.0.0-20190424133014-d95853db0f48 // indirect
 	github.com/stretchr/testify v1.6.1
