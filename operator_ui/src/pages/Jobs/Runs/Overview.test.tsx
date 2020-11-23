@@ -1,36 +1,24 @@
 import React from 'react'
-import createStore from 'createStore'
+import { Route } from 'react-router-dom'
 import syncFetch from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
-import { Provider } from 'react-redux'
-import { MemoryRouter } from 'react-router-dom'
-import { ConnectedShow as Show } from 'pages/JobRuns/Show/Overview'
+import { Show } from './Overview'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
-import mountWithTheme from 'test-helpers/mountWithTheme'
+import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import globPath from 'test-helpers/globPath'
 
-const classes = {}
-const mountShow = (props) =>
-  mountWithTheme(
-    <Provider store={createStore()}>
-      <MemoryRouter>
-        <Show classes={classes} {...props} />
-      </MemoryRouter>
-    </Provider>,
-  )
-
 describe('pages/JobRuns/Show/Overview', () => {
-  const jobSpecId = '942e8b218d414e10a053-000455fdd470'
-  const jobRunId = 'ad24b72c12f441b99b9877bcf6cb506e'
+  const JOB_SPEC_ID = '942e8b218d414e10a053-000455fdd470'
+  const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
 
   it('renders the details of the job spec and its latest runs', async () => {
     expect.assertions(3)
 
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobRunResponse = jsonApiJobSpecRunFactory({
-      id: jobRunId,
+      id: JOB_RUN_ID,
       createdAt: minuteAgo,
-      jobId: jobSpecId,
+      jobId: JOB_SPEC_ID,
       initiator: {
         type: 'web',
         params: {},
@@ -49,12 +37,11 @@ describe('pages/JobRuns/Show/Overview', () => {
         },
       },
     })
-    global.fetch.getOnce(globPath(`/v2/runs/${jobRunId}`), jobRunResponse)
+    global.fetch.getOnce(globPath(`/v2/runs/${JOB_RUN_ID}`), jobRunResponse)
 
-    const props = {
-      match: { params: { jobSpecId, jobRunId } },
-    }
-    const wrapper = mountShow(props)
+    const wrapper = mountWithProviders(<Route component={Show} />, {
+      initialEntries: [`/jobs/${JOB_SPEC_ID}/runs/${JOB_RUN_ID}`],
+    })
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Web')

@@ -10,7 +10,7 @@ import ExpansionPanelSummary from '@material-ui/core/ExpansionPanelSummary'
 import ExpansionPanelDetails from '@material-ui/core/ExpansionPanelDetails'
 import Typography from '@material-ui/core/Typography'
 import ExpandMoreIcon from '@material-ui/icons/ExpandMore'
-import StatusIcon from '../JobRuns/StatusIcon'
+import StatusIcon from 'components/StatusIcon'
 import classNames from 'classnames'
 import { Grid } from '@material-ui/core'
 
@@ -29,8 +29,8 @@ const withChildrenStyles = () =>
 
 interface WithChildrenProps extends WithStyles<typeof withChildrenStyles> {
   summary: string
-  minConfirmations?: number
-  confirmations?: number
+  minConfirmations?: number | null
+  confirmations?: number | null
 }
 
 const withChildrenUnstyled: React.FC<WithChildrenProps> = ({
@@ -51,7 +51,7 @@ const withChildrenUnstyled: React.FC<WithChildrenProps> = ({
           <Typography variant="h5">{summary}</Typography>
         </Grid>
         <Grid item>
-          {minConfirmations && (
+          {minConfirmations && typeof confirmations === 'number' && (
             <Typography variant="h6" color="secondary">
               Confirmations {confirmations}/{minConfirmations}
             </Typography>
@@ -104,8 +104,8 @@ interface Props extends WithStyles<typeof styles> {
   borderTop: boolean
   children: React.ReactNode
   summary: string
-  minConfirmations?: number
-  confirmations?: number
+  minConfirmations?: number | null
+  confirmations?: number | null
 }
 
 const StatusItem = ({

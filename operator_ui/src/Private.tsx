@@ -36,12 +36,12 @@ const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
 const JobRunsShowOverview = universal(
-  import('./pages/JobRuns/Show/Overview'),
+  import('./pages/Jobs/Runs/Overview'),
   uniOpts,
 )
-const JobRunsShowJson = universal(import('./pages/JobRuns/Show/Json'), uniOpts)
+const JobRunsShowJson = universal(import('./pages/Jobs/Runs/Json'), uniOpts)
 const JobRunsShowErrorLog = universal(
-  import('./pages/JobRuns/Show/ErrorLog'),
+  import('./pages/Jobs/Runs/ErrorLog'),
   uniOpts,
 )
 const TransactionsIndex = universal(

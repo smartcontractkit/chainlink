@@ -168,11 +168,13 @@ declare module 'core/store/models' {
    */
   export interface TaskRun {
     id: string
-    result: RunResult
+    result:
+      | { data: { result: string }; error: null }
+      | { data: {}; error: string }
     status: RunStatus
     task: TaskSpec
-    minimumConfirmations: clnull.Uint32
-    confirmations: clnull.Uint32
+    minimumConfirmations?: number | null
+    confirmations?: number | null
   }
 
   /**

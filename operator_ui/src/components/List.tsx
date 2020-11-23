@@ -9,7 +9,7 @@ import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { RunStatus } from 'core/store/models'
-import titleize from '../../utils/titleize'
+import titleize from 'utils/titleize'
 
 const styles = (theme: any) =>
   createStyles({

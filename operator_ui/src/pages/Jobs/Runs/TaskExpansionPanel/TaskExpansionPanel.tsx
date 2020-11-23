@@ -1,11 +1,11 @@
+import React from 'react'
 import { createStyles } from '@material-ui/core'
 import Grid from '@material-ui/core/Grid'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import { stringify } from 'javascript-stringify'
 import capitalize from 'lodash/capitalize'
-import { JobRun, TaskRun } from 'operator_ui'
-import React from 'react'
 import StatusItem from './StatusItem'
+import { DirectRequestJobRun } from '../../sharedTypes'
 
 const fontStyles = () =>
   createStyles({
@@ -97,11 +97,12 @@ const Params = ({ params }: ParamsProps) => {
 }
 
 interface ResultProps {
-  run: TaskRun
+  run: DirectRequestJobRun['taskRuns'][0]
 }
 
 const Result = ({ run }: ResultProps) => {
-  const result = run.result && run.result.data && run.result.data.result
+  const data = run?.result?.data
+  const result = data && 'result' in data ? data.result : ''
 
   return (
     <Item
@@ -114,7 +115,7 @@ const Result = ({ run }: ResultProps) => {
 }
 
 interface Props {
-  jobRun: JobRun
+  jobRun: DirectRequestJobRun
 }
 
 const TaskExpansionPanel = ({ jobRun }: Props) => {
@@ -130,10 +131,10 @@ const TaskExpansionPanel = ({ jobRun }: Props) => {
           confirmations={0}
           minConfirmations={0}
         >
-          <Initiator params={initiator.params} />
+          <Initiator params={initiator.params || {}} />
         </StatusItem>
       </Grid>
-      {jobRun.taskRuns.map((taskRun: TaskRun) => {
+      {jobRun.taskRuns.map((taskRun) => {
         return (
           <Grid item xs={12} key={taskRun.id}>
             <StatusItem

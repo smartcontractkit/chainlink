@@ -5,10 +5,9 @@ import Typography from '@material-ui/core/Typography'
 import { titleCase } from 'title-case'
 import { noCase } from 'change-case'
 import classNames from 'classnames'
-import { JobRun } from 'operator_ui'
 import React, { useState, useEffect } from 'react'
 import { ElapsedDuration } from '@chainlink/styleguide'
-import StatusIcon from '../JobRuns/StatusIcon'
+import StatusIcon from 'components/StatusIcon'
 
 const styles = (theme: any) =>
   createStyles({
@@ -50,40 +49,45 @@ const styles = (theme: any) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  title: string
   children?: React.ReactNode
-  jobRun?: JobRun
+  createdAt?: string
+  finishedAt?: string | null
+  payment?: string | null
+  status?: string
+  title: string
 }
 
 const selectLink = (inWei: number) => inWei / 1e18
 const EarnedLink = ({
   classes,
-  jobRun,
+  linkEarned,
 }: {
-  jobRun?: JobRun
+  linkEarned?: string | null
   classes: WithStyles<typeof styles>['classes']
 }) => {
-  const linkEarned = jobRun && jobRun.payment
   return (
     <Typography className={classes.earnedLink} variant="h6">
-      +{linkEarned ? selectLink(linkEarned) : 0} Link
+      +{linkEarned ? selectLink(parseInt(linkEarned, 10)) : 0} Link
     </Typography>
   )
 }
 
-const StatusCard: React.FC<Props> = ({ title, classes, children, jobRun }) => {
+const StatusCard: React.FC<Props> = ({
+  title,
+  classes,
+  children,
+  payment,
+  status = '',
+  createdAt = '',
+  finishedAt = '',
+}) => {
   const statusClass = classes[title as keyof typeof classes] || classes.pending
-  const { status, createdAt, finishedAt } = jobRun || {
-    status: '',
-    createdAt: '',
-    finishedAt: '',
-  }
   const stillPending = status !== 'completed' && status !== 'errored'
   const [liveTime, setLiveTime] = useState(Date.now())
   useEffect(() => {
     if (stillPending) setInterval(() => setLiveTime(Date.now()), 1000)
   }, [stillPending])
-  const endDate = stillPending ? liveTime : finishedAt
+  const endDate = finishedAt || liveTime
 
   return (
     <PaddedCard className={classNames(classes.statusCard, statusClass)}>
@@ -104,7 +108,7 @@ const StatusCard: React.FC<Props> = ({ title, classes, children, jobRun }) => {
           </Grid>
           <Grid item xs={3}>
             {title === 'completed' && (
-              <EarnedLink classes={classes} jobRun={jobRun} />
+              <EarnedLink classes={classes} linkEarned={payment} />
             )}
           </Grid>
         </Grid>

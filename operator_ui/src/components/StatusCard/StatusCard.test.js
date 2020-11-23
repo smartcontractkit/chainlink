@@ -1,8 +1,8 @@
 import React from 'react'
-import StatusCard from 'components/JobRuns/StatusCard'
+import StatusCard from './StatusCard'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 
-describe('components/JobRuns/StatusCard', () => {
+describe('components/StatusCard', () => {
   const start = '2020-01-03T22:45:00.166261Z'
   const end1m = '2020-01-03T22:46:00.166261Z'
   const pendingRun = {
