@@ -1,5 +1,4 @@
-import { theme } from '@chainlink/styleguide'
-import { createMuiTheme, MuiThemeProvider } from '@material-ui/core/styles'
+import { MuiThemeProvider } from '@material-ui/core/styles'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
 import moment from 'moment'
@@ -8,6 +7,7 @@ import React from 'react'
 import ReactDOM from 'react-dom'
 import { AppContainer } from 'react-hot-loader'
 import App from './App'
+import { theme } from './theme'
 
 promiseFinally.shim(Promise)
 
@@ -22,7 +22,7 @@ if (typeof document !== 'undefined') {
   const render = (Comp) => {
     renderMethod(
       <AppContainer>
-        <MuiThemeProvider theme={createMuiTheme(theme)}>
+        <MuiThemeProvider theme={theme}>
           <Comp />
         </MuiThemeProvider>
       </AppContainer>,
