@@ -176,6 +176,7 @@ go test -parallel=1 ./...
 2. Install the dependencies:
 
 ```bash
+yarn
 yarn setup:contracts
 ```
 
