@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v3"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -211,6 +213,31 @@ func TestMigrate_NewerVersionGuard(t *testing.T) {
 
 		// Run migrations again, should error
 		require.Error(t, migrations.Migrate(db))
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestMigration_1605816413(t *testing.T) {
+	t.Skip() // Slowish test, don't run in CI.
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
+	defer cleanup()
+	err := orm.RawDB(func(db *gorm.DB) error {
+		// Migrate just before 1605816413
+		require.NoError(t, migrations.MigrateTo(db, "migration1605630295"))
+		jb := models.JobSpec{ID: models.NewID(), Name: "test"}
+		require.NoError(t, db.Create(&jb).Error)
+		require.Error(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test"}).Error)
+		require.NoError(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test2", DeletedAt: null.NewTime(time.Now(), true)}).Error)
+		require.Error(t, db.Create(&models.JobSpec{ID: models.NewID(), Name: "test2", DeletedAt: null.NewTime(time.Now(), true)}).Error)
+		require.NoError(t, db.Model(&jb).Update("deleted_at", time.Now()).Error)
+
+		// Before migration, we can't re-add
+		jb2 := models.JobSpec{ID: models.NewID(), Name: "test"}
+		require.Error(t, db.Create(&jb2).Error)
+		require.NoError(t, migrations.MigrateTo(db, "migration1605816413"))
+		// After this migration we can
+		require.NoError(t, db.Create(&jb2).Error)
 		return nil
 	})
 	require.NoError(t, err)

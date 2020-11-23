@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`
+
 ### Changed
 
 Numerous key-related UX improvements:
@@ -23,10 +27,17 @@ Numerous key-related UX improvements:
 - The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
 - Two new env variables are added `P2P_ANNOUNCE_IP` and `P2P_ANNOUNCE_PORT` which allow node operators to override locally detected values for the chainlink node's externally reachable IP/port.
 - `OCR_LISTEN_IP` and `OCR_LISTEN_PORT` have been renamed to `P2P_LISTEN_IP` and `P2P_LISTEN_PORT` for consistency.
+- Support for adding a job with the same name as one that was deleted.
 
 ### Fixed
 
 - Fixed an issue where the HTTP adapter would send an empty body on retries.
+
+## [0.9.5] - 2020-11-12
+
+### Changed
+
+- Updated from Go 1.15.4 to 1.15.5.
 
 ## [0.9.4] - 2020-11-04
 

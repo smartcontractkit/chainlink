@@ -63,7 +63,7 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	defer cleanup()
 
 	explorerClient := synchronization.NoopExplorerClient{}
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	require.NoError(t, pusher.Start())
 	defer pusher.Close()
 
@@ -76,7 +76,7 @@ func TestJobRun_SavesASyncEvent(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []models.SyncEvent
-	err = store.AllSyncEvents(func(event models.SyncEvent) error {
+	err = pusher.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -116,11 +116,7 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	assert.NoError(t, err)
 
 	var events []models.SyncEvent
-	err = store.AllSyncEvents(func(event models.SyncEvent) error {
-		events = append(events, event)
-		return nil
-	})
-	require.NoError(t, err)
+	require.NoError(t, store.DB.Find(&events).Error)
 	require.Len(t, events, 0)
 }
 
