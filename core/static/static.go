@@ -1,4 +1,4 @@
-package store
+package static
 
 // Version the version of application
 var Version = "unset"

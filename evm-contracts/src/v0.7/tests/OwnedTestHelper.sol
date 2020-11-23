@@ -6,6 +6,8 @@ contract OwnedTestHelper is Owned {
 
   event Here();
 
+  constructor() Owned(msg.sender) {}
+
   function modifierOnlyOwner()
     public
     onlyOwner()

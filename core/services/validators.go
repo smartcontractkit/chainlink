@@ -438,6 +438,9 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 	if err := validateTimingParameters(spec); err != nil {
 		return spec, err
 	}
+	if err := validateMonitoringURL(spec); err != nil {
+		return spec, err
+	}
 	return spec, nil
 }
 
@@ -542,5 +545,13 @@ func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, no
 	for missing := range expected {
 		err = multierr.Append(err, errors.Errorf("missing required key %s", missing))
 	}
+	return err
+}
+
+func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
+	if spec.MonitoringEndpoint == "" {
+		return nil
+	}
+	_, err := url.Parse(spec.MonitoringEndpoint)
 	return err
 }

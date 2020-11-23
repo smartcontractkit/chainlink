@@ -32,6 +32,7 @@ export type BaseJobRun = {
 }
 
 export type OffChainReportingJob = BaseJob & {
+  dotDagSource: string
   type: 'Off-chain reporting'
 }
 

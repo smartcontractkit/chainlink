@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/jinzhu/gorm"
@@ -43,18 +42,20 @@ type StatsPusher interface {
 	PushNow()
 	GetURL() url.URL
 	GetStatus() ConnectionStatus
+	AllSyncEvents(cb func(models.SyncEvent) error) error
 }
 
 type NoopStatsPusher struct{}
 
-func (NoopStatsPusher) Start() error                { return nil }
-func (NoopStatsPusher) Close() error                { return nil }
-func (NoopStatsPusher) PushNow()                    {}
-func (NoopStatsPusher) GetURL() url.URL             { return url.URL{} }
-func (NoopStatsPusher) GetStatus() ConnectionStatus { return ConnectionStatusDisconnected }
+func (NoopStatsPusher) Start() error                                        { return nil }
+func (NoopStatsPusher) Close() error                                        { return nil }
+func (NoopStatsPusher) PushNow()                                            {}
+func (NoopStatsPusher) GetURL() url.URL                                     { return url.URL{} }
+func (NoopStatsPusher) GetStatus() ConnectionStatus                         { return ConnectionStatusDisconnected }
+func (NoopStatsPusher) AllSyncEvents(cb func(models.SyncEvent) error) error { return nil }
 
 type statsPusher struct {
-	ORM            *orm.ORM
+	DB             *gorm.DB
 	ExplorerClient ExplorerClient
 	Period         time.Duration
 	cancel         context.CancelFunc
@@ -69,7 +70,7 @@ const (
 )
 
 // NewStatsPusher returns a new StatsPusher service
-func NewStatsPusher(orm *orm.ORM, explorerClient ExplorerClient, afters ...utils.Afterer) StatsPusher {
+func NewStatsPusher(db *gorm.DB, explorerClient ExplorerClient, afters ...utils.Afterer) StatsPusher {
 	var clock utils.Afterer
 	if len(afters) == 0 {
 		clock = utils.Clock{}
@@ -78,7 +79,7 @@ func NewStatsPusher(orm *orm.ORM, explorerClient ExplorerClient, afters ...utils
 	}
 
 	return &statsPusher{
-		ORM:            orm,
+		DB:             db,
 		ExplorerClient: explorerClient,
 		Period:         30 * time.Minute,
 		clock:          clock,
@@ -103,15 +104,8 @@ func (sp *statsPusher) GetStatus() ConnectionStatus {
 // Start starts the stats pusher
 func (sp *statsPusher) Start() error {
 	gormCallbacksMutex.Lock()
-	err := sp.ORM.RawDB(func(db *gorm.DB) error {
-		db.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp, sp.ORM))
-		db.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp, sp.ORM))
-		return nil
-	})
-	if err != nil {
-		gormCallbacksMutex.Unlock()
-		return errors.Wrap(err, "error creating statsPusher orm callbacks")
-	}
+	sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
+	sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
 	gormCallbacksMutex.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -127,14 +121,8 @@ func (sp *statsPusher) Close() error {
 	}
 
 	gormCallbacksMutex.Lock()
-	err := sp.ORM.RawDB(func(db *gorm.DB) error {
-		db.Callback().Create().Remove(createCallbackName)
-		db.Callback().Update().Remove(updateCallbackName)
-		return nil
-	})
-	if err != nil {
-		logger.Errorw("error removing gorm statsPusher callbacks on shutdown", "error", err)
-	}
+	sp.DB.Callback().Create().Remove(createCallbackName)
+	sp.DB.Callback().Update().Remove(updateCallbackName)
 	gormCallbacksMutex.Unlock()
 
 	return nil
@@ -194,7 +182,7 @@ func (sp *statsPusher) pusherLoop(parentCtx context.Context) error {
 func (sp *statsPusher) pushEvents() error {
 	gormCallbacksMutex.RLock()
 	defer gormCallbacksMutex.RUnlock()
-	err := sp.ORM.AllSyncEvents(func(event models.SyncEvent) error {
+	err := sp.AllSyncEvents(func(event models.SyncEvent) error {
 		return sp.syncEvent(event)
 	})
 
@@ -203,6 +191,25 @@ func (sp *statsPusher) pushEvents() error {
 	}
 
 	sp.backoffSleeper.Reset()
+	return nil
+}
+
+func (sp *statsPusher) AllSyncEvents(cb func(models.SyncEvent) error) error {
+	var events []models.SyncEvent
+	err := sp.DB.
+		Order("id, created_at asc").
+		Find(&events).Error
+	if err != nil {
+		return err
+	}
+
+	for _, event := range events {
+		err = cb(event)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -225,9 +232,7 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 		return errors.New("event not created")
 	}
 
-	err = sp.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Delete(event).Error
-	})
+	err = sp.DB.Delete(event).Error
 	if err != nil {
 		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
@@ -235,7 +240,7 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Scope) {
+func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.Scope) {
 	return func(scope *gorm.Scope) {
 		if scope.HasError() {
 			return
@@ -250,8 +255,6 @@ func createSyncEventWithStatsPusher(sp StatsPusher, orm *orm.ORM) func(*gorm.Sco
 			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
 			return
 		}
-
-		orm.MustEnsureAdvisoryLock()
 
 		presenter := SyncJobRunPresenter{run}
 		bodyBytes, err := json.Marshal(presenter)

@@ -651,6 +651,21 @@ blah
 			},
 		},
 		{
+			name: "broken monitoring endpoint",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = []
+isBootstrapPeer    = true
+monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.EqualError(t, err, "(8, 23): invalid escape sequence: \\2")
+			},
+		},
+		{
 			name: "sane defaults",
 			toml: `
 type               = "offchainreporting"

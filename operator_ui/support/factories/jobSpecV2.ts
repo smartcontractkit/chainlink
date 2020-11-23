@@ -4,7 +4,9 @@ import { generateUuid } from '../test-helpers/generateUuid'
 
 export function jobSpecV2(
   config: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string }
+    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string } & {
+      dotDagSource?: string
+    }
   > = {},
 ): OcrJobSpec {
   const offChainReportingOracleSpec = partialAsFull<
@@ -32,6 +34,7 @@ export function jobSpecV2(
     errors: [],
     pipelineSpec: {
       dotDagSource:
+        config.dotDagSource ||
         '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
     },
   }
