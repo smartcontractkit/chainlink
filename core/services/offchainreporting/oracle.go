@@ -3,6 +3,7 @@ package offchainreporting
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -166,6 +169,24 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "error calling NewPeer")
 	}
 
+	var endpointURL *url.URL
+	if concreteSpec.MonitoringEndpoint != "" {
+		endpointURL, err = url.Parse(concreteSpec.MonitoringEndpoint)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid monitoring url: %s", concreteSpec.MonitoringEndpoint)
+		}
+	} else {
+		endpointURL = d.config.ExplorerURL()
+	}
+
+	var monitoringEndpoint ocrtypes.MonitoringEndpoint
+	if endpointURL != nil {
+		client := synchronization.NewExplorerClient(endpointURL, d.config.ExplorerAccessKey(), d.config.ExplorerSecret())
+		monitoringEndpoint = telemetry.NewAgent(client)
+	} else {
+		monitoringEndpoint = ocrtypes.MonitoringEndpoint(nil)
+	}
+
 	var service job.Service
 	if concreteSpec.IsBootstrapPeer {
 		service, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
@@ -182,7 +203,8 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 				DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
 			},
-			Logger: ocrLogger,
+			Logger:             ocrLogger,
+			MonitoringEndpoint: monitoringEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
@@ -219,7 +241,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peer,
-			MonitoringEndpoint:           ocrtypes.MonitoringEndpoint(nil),
+			MonitoringEndpoint:           monitoringEndpoint,
 			Logger:                       ocrLogger,
 			Bootstrappers:                concreteSpec.P2PBootstrapPeers,
 		})
