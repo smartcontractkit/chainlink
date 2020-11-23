@@ -1483,9 +1483,10 @@ func RandomizeNonce(t *testing.T, s *strpkg.Store) {
 	require.NoError(t, err)
 }
 
-func NewConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
+func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
+	/* #nosec G404 */
 	_, err := rand.Read(b)
 	if err != nil {
 		t.Fatal(err)

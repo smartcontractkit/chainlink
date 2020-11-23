@@ -21,7 +21,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	defer cleanup()
 
 	sqldb := store.DB.DB()
-	configDigest := cltest.NewConfigDigest(t)
+	configDigest := cltest.MakeConfigDigest(t)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 
 	t.Run("reads and writes state", func(t *testing.T) {
@@ -89,7 +89,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 		err := db.WriteState(ctx, configDigest, state)
 		require.NoError(t, err)
 
-		readState, err := db.ReadState(ctx, cltest.NewConfigDigest(t))
+		readState, err := db.ReadState(ctx, cltest.MakeConfigDigest(t))
 		require.NoError(t, err)
 
 		require.Nil(t, readState)
@@ -102,7 +102,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 
 	sqldb := store.DB.DB()
 	config := ocrtypes.ContractConfig{
-		ConfigDigest:         cltest.NewConfigDigest(t),
+		ConfigDigest:         cltest.MakeConfigDigest(t),
 		Signers:              []common.Address{cltest.NewAddress()},
 		Transmitters:         []common.Address{cltest.NewAddress()},
 		Threshold:            uint8(35),
@@ -127,7 +127,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		db := offchainreporting.NewDB(sqldb, spec.ID)
 
 		newConfig := ocrtypes.ContractConfig{
-			ConfigDigest:         cltest.NewConfigDigest(t),
+			ConfigDigest:         cltest.MakeConfigDigest(t),
 			Signers:              []common.Address{utils.ZeroAddress, cltest.DefaultKeyAddress, cltest.NewAddress()},
 			Transmitters:         []common.Address{utils.ZeroAddress, cltest.DefaultKeyAddress, cltest.NewAddress()},
 			Threshold:            uint8(36),
@@ -168,7 +168,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, store)
 	db := offchainreporting.NewDB(sqldb, spec.ID)
 	db2 := offchainreporting.NewDB(sqldb, spec2.ID)
-	configDigest := cltest.NewConfigDigest(t)
+	configDigest := cltest.MakeConfigDigest(t)
 
 	k := ocrtypes.PendingTransmissionKey{
 		ConfigDigest: configDigest,

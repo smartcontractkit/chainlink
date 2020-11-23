@@ -169,13 +169,19 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		return nil, errors.Wrap(err, "error calling NewPeer")
 	}
 
-	var monitoringEndpoint ocrtypes.MonitoringEndpoint
+	var endpointURL *url.URL
 	if concreteSpec.MonitoringEndpoint != "" {
-		url, err := url.Parse(concreteSpec.MonitoringEndpoint)
+		endpointURL, err = url.Parse(concreteSpec.MonitoringEndpoint)
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid monitoring url: %s", concreteSpec.MonitoringEndpoint)
 		}
-		client := synchronization.NewExplorerClient(url, d.config.ExplorerAccessKey(), d.config.ExplorerSecret())
+	} else {
+		endpointURL = d.config.ExplorerURL()
+	}
+
+	var monitoringEndpoint ocrtypes.MonitoringEndpoint
+	if endpointURL != nil {
+		client := synchronization.NewExplorerClient(endpointURL, d.config.ExplorerAccessKey(), d.config.ExplorerSecret())
 		monitoringEndpoint = telemetry.NewAgent(client)
 	} else {
 		monitoringEndpoint = ocrtypes.MonitoringEndpoint(nil)
