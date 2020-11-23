@@ -1,6 +1,6 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
-import syncFetch from 'test-helpers/syncFetch'
+import { syncFetch } from 'test-helpers/syncFetch'
 import jsonApiJobSpecRunFactory from 'factories/jsonApiJobSpecRun'
 import { Show } from './Overview'
 import isoDate, { MINUTE_MS } from 'test-helpers/isoDate'
@@ -12,8 +12,6 @@ describe('pages/JobRuns/Show/Overview', () => {
   const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
 
   it('renders the details of the job spec and its latest runs', async () => {
-    expect.assertions(3)
-
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobRunResponse = jsonApiJobSpecRunFactory({
       id: JOB_RUN_ID,
@@ -39,9 +37,12 @@ describe('pages/JobRuns/Show/Overview', () => {
     })
     global.fetch.getOnce(globPath(`/v2/runs/${JOB_RUN_ID}`), jobRunResponse)
 
-    const wrapper = mountWithProviders(<Route component={Show} />, {
-      initialEntries: [`/jobs/${JOB_SPEC_ID}/runs/${JOB_RUN_ID}`],
-    })
+    const wrapper = mountWithProviders(
+      <Route path={`/jobs/:jobSpecId/runs/:jobRunId`} component={Show} />,
+      {
+        initialEntries: [`/jobs/${JOB_SPEC_ID}/runs/${JOB_RUN_ID}`],
+      },
+    )
 
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('Web')

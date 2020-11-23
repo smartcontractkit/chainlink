@@ -17,7 +17,7 @@ describe('components/StatusCard', () => {
     status: 'completed',
     createdAt: start,
     finishedAt: end1m,
-    payment: 2000000000000000000,
+    payment: '2000000000000000000',
   }
   const erroredRun = {
     id: 'runA',
@@ -44,10 +44,10 @@ describe('components/StatusCard', () => {
 
   it('can display the elapsed time for finished jobruns', () => {
     const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" jobRun={erroredRun} />,
+      <StatusCard title="errored" {...erroredRun} />,
     )
     const completedStatus = mountWithTheme(
-      <StatusCard title="completed" jobRun={completedRun} />,
+      <StatusCard title="completed" {...completedRun} />,
     )
 
     expect(erroredStatus.text()).toContain('1m')
@@ -62,7 +62,7 @@ describe('components/StatusCard', () => {
       .mockImplementationOnce(() => new Date(now2m).valueOf())
 
     const pendingStatus = mountWithTheme(
-      <StatusCard title="pending" jobRun={pendingRun} />,
+      <StatusCard title="pending" {...pendingRun} />,
     )
 
     expect(pendingStatus.html()).toContain('2m')
@@ -70,17 +70,17 @@ describe('components/StatusCard', () => {
 
   it('can display link earned for completed jobs', () => {
     const completedStatus = mountWithTheme(
-      <StatusCard title="completed" jobRun={completedRun} />,
+      <StatusCard title="completed" {...completedRun} />,
     )
     expect(completedStatus.text()).toContain('+2 Link')
   })
 
   it('will not display link earned for errored or pending jobs', () => {
     const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" jobRun={erroredRun} />,
+      <StatusCard title="errored" {...erroredRun} />,
     )
     const pendingStatus = mountWithTheme(
-      <StatusCard title="pending_incoming_confirmations" jobRun={pendingRun} />,
+      <StatusCard title="pending_incoming_confirmations" {...pendingRun} />,
     )
     expect(erroredStatus.text()).not.toContain('Link')
     expect(pendingStatus.text()).not.toContain('Link')
