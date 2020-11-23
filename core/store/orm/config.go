@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -100,6 +101,14 @@ func (c *Config) Validate() error {
 
 	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
+	}
+
+	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
+		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
+	}
+
+	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
+		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
 	return nil
 }
@@ -239,12 +248,6 @@ func (c Config) EnableExperimentalAdapters() bool {
 	return c.viper.GetBool(EnvVarName("EnableExperimentalAdapters"))
 }
 
-// EnableBulletproofTxManager uses the new tx manager for ethtx tasks. Careful,
-// toggling this on and off could cause transactions to become lost
-func (c Config) EnableBulletproofTxManager() bool {
-	return c.viper.GetBool(EnvVarName("EnableBulletproofTxManager"))
-}
-
 // FeatureExternalInitiators enables the External Initiator feature.
 func (c Config) FeatureExternalInitiators() bool {
 	return c.viper.GetBool(EnvVarName("FeatureExternalInitiators"))
@@ -364,11 +367,34 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
-// EthereumSecondaryURL is an optional backup RPC URL
+// EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
-func (c Config) EthereumSecondaryURL() string {
-	return c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
+func (c Config) EthereumSecondaryURLs() []url.URL {
+	oldConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURL"))
+	newConfig := c.viper.GetString(EnvVarName("EthereumSecondaryURLs"))
+
+	config := ""
+	if newConfig != "" {
+		config = newConfig
+	} else if oldConfig != "" {
+		config = oldConfig
+	}
+
+	urlStrings := regexp.MustCompile(`\s*[;,]\s*`).Split(config, -1)
+	urls := []url.URL{}
+	for _, urlString := range urlStrings {
+		if urlString == "" {
+			continue
+		}
+		url, err := url.Parse(urlString)
+		if err != nil {
+			logger.Fatalf("Invalid Secondary Ethereum URL: %s, got error: %v", urlString, err)
+		}
+		urls = append(urls, *url)
+	}
+
+	return urls
 }
 
 // EthereumDisabled shows whether Ethereum interactions are supported.
@@ -417,8 +443,8 @@ func (c Config) InsecureFastScrypt() bool {
 	return c.viper.GetBool(EnvVarName("InsecureFastScrypt"))
 }
 
-func (c Config) JobPipelineDBPollInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineDBPollInterval"))
+func (c Config) TriggerFallbackDBPollInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("TriggerFallbackDBPollInterval"))
 }
 
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
@@ -494,14 +520,6 @@ func (c Config) OCRIncomingMessageBufferSize() int {
 	return c.viper.GetInt(EnvVarName("OCRIncomingMessageBufferSize"))
 }
 
-func (c Config) OCRListenIP() net.IP {
-	return c.getWithFallback("OCRListenIP", parseIP).(net.IP)
-}
-
-func (c Config) OCRListenPort() uint16 {
-	return c.getWithFallback("OCRListenPort", parseUint16).(uint16)
-}
-
 func (c Config) OCRNewStreamTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRNewStreamTimeout"))
 }
@@ -572,6 +590,35 @@ func (c Config) MinimumContractPayment() *assets.Link {
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
 	return c.viper.GetUint64(EnvVarName("MinimumRequestExpiration"))
+}
+
+// P2PListenIP is the ip that libp2p willl bind to and listen on
+func (c Config) P2PListenIP() net.IP {
+	return c.getWithFallback("P2PListenIP", parseIP).(net.IP)
+}
+
+// P2PListenPort is the port that libp2p willl bind to and listen on
+func (c Config) P2PListenPort() uint16 {
+	return uint16(c.viper.GetUint32(EnvVarName("P2PListenPort")))
+}
+
+// P2PAnnounceIP is an optional override. If specified it will force the p2p
+// layer to announce this IP as the externally reachable one to the DHT
+// If this is set, P2PAnnouncePort MUST also be set.
+func (c Config) P2PAnnounceIP() net.IP {
+	str := c.viper.GetString(EnvVarName("P2PAnnounceIP"))
+	return net.ParseIP(str)
+}
+
+// P2PAnnouncePort is an optional override. If specified it will force the p2p
+// layer to announce this port as the externally reachable one to the DHT.
+// If this is set, P2PAnnounceIP MUST also be set.
+func (c Config) P2PAnnouncePort() uint16 {
+	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
+}
+
+func (c Config) P2PPeerstoreWriteInterval() time.Duration {
+	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
 }
 
 // Port represents the port Chainlink should listen on for client requests.

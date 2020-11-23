@@ -3,7 +3,7 @@ pragma solidity 0.6.6;
 import "../VRFConsumerBase.sol";
 
 contract VRFTestnetD20 is VRFConsumerBase {
-    using SafeMath_Chainlink for uint;
+    using SafeMathChainlink for uint;
     uint256[] public d20Results;
     bytes32 internal keyHash;
     uint256 internal fee;

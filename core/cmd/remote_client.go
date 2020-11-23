@@ -11,9 +11,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/BurntSushi/toml"
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -215,17 +215,26 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	return err
 }
 
+// CreateOCRJobSpec creates an OCR job spec
+// Valid input is a TOML string or a path to TOML file
 func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in TOML or filepath"))
 	}
 
-	buf, err := getBufferFromTOML(c.Args().First())
+	tomlString, err := getTOMLString(c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/ocr/specs", buf)
+	request, err := json.Marshal(models.CreateOCRJobSpecRequest{
+		TOML: tomlString,
+	})
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	resp, err := cli.HTTP.Post("/v2/ocr/specs", bytes.NewReader(request))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -245,16 +254,17 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	type responseBody struct {
-		JobID int32 `json:"jobID"`
-	}
-	var body responseBody
-	err = json.NewDecoder(resp.Body).Decode(&body)
+	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	fmt.Printf("Job added (job ID: %v).\n", body.JobID)
+	ocrJobSpec := models.JobSpecV2{}
+	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
+		return cli.errorOut(err)
+	}
+
+	fmt.Printf("Job added (job ID: %v).\n", ocrJobSpec.ID)
 	return nil
 }
 
@@ -286,6 +296,23 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+	return nil
+}
+
+// TriggerOCRJobRun triggers an off-chain reporting job run based on a job ID
+func (cli *Client) TriggerOCRJobRun(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
+	}
+	resp, err := cli.HTTP.Post("/v2/ocr/specs/"+c.Args().First()+"/runs", nil)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	fmt.Printf("Pipeline run successfully triggered for job ID %v.\n", c.Args().First())
 	return nil
 }
 
@@ -520,7 +547,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTransactions(c *clipkg.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.Tx{})
+	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.EthTx{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
@@ -538,7 +565,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var tx presenters.Tx
+	var tx presenters.EthTx
 	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
@@ -546,7 +573,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]models.TxAttempt{})
+	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]presenters.EthTx{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
@@ -570,20 +597,20 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	return buf, nil
 }
 
-func getBufferFromTOML(s string) (*bytes.Buffer, error) {
+func getTOMLString(s string) (string, error) {
 	var val interface{}
 	err := toml.Unmarshal([]byte(s), &val)
 	if err == nil {
-		return bytes.NewBufferString(s), nil
+		return s, nil
 	}
 
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("invalid TOML or file not found '%s'", s)
+		return "", fmt.Errorf("invalid TOML or file not found '%s'", s)
 	} else if err != nil {
-		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
+		return "", fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
-	return buf, nil
+	return buf.String(), nil
 }
 
 func fromFile(arg string) (*bytes.Buffer, error) {

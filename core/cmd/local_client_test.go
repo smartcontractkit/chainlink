@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v3"
 )
 
 func TestClient_RunNodeShowsEnv(t *testing.T) {
@@ -363,7 +362,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.String("address", cltest.DefaultKey, "")
 	c := cli.NewContext(nil, set, nil)
 
-	// {"range_start", beginningNonce},
 	// Use the a non-transactional db for this test because we need to
 	// test multiple connections to the database, and changes made within
 	// the transaction cannot be seen from another connection.
@@ -420,166 +418,6 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	ethClient.AssertExpectations(t)
 }
 
-func TestClient_RebroadcastTransactions_WithinRange(t *testing.T) {
-	beginningNonce := uint(7)
-	endingNonce := uint(10)
-	gasPrice := big.NewInt(100000000000)
-	gasLimit := uint64(3000000)
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("beginningNonce", beginningNonce, "")
-	set.Uint("endingNonce", endingNonce, "")
-	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", cltest.DefaultKey, "")
-	c := cli.NewContext(nil, set, nil)
-
-	tests := []struct {
-		dbName string
-		nonce  uint
-	}{
-		{"range_start", beginningNonce},
-		{"mid_range", beginningNonce + 1},
-		{"range_end", endingNonce},
-	}
-	for _, test := range tests {
-		t.Run(test.dbName, func(t *testing.T) {
-			// Use the a non-transactional db for this test because we need to
-			// test multiple connections to the database, and changes made within
-			// the transaction cannot be seen from another connection.
-			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true)
-			defer cleanup()
-			config.Config.Dialect = orm.DialectPostgres
-			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", false)
-			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
-			defer connectedCleanup()
-
-			account, err := connectedStore.KeyStore.NewAccount(cltest.Password)
-			tx := cltest.CreateTxWithNonceAndGasPrice(t, connectedStore, account.Address, 0, uint64(test.nonce), 1000)
-			bumpedRaw := cltest.NewHash().Bytes()
-			bumpedRawHash := cltest.NewHash()
-			j := cltest.NewJobWithWebInitiator()
-			require.NoError(t, connectedStore.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, connectedStore, j, models.RunStatusPendingOutgoingConfirmations)
-			tx.SurrogateID = null.StringFrom(jr.ID.String())
-			require.NoError(t, connectedStore.SaveTx(tx))
-
-			// Use the same config as the connectedStore so that the advisory
-			// lock ID is the same. We set the config to be Postgres Without
-			// Lock, because the db locking strategy is decided when we
-			// initialize the store/ORM.
-			config.Config.Dialect = orm.DialectPostgresWithoutLock
-			store, cleanup := cltest.NewStoreWithConfig(config)
-			defer cleanup()
-			require.NoError(t, err)
-			require.NoError(t, connectedStore.Start())
-
-			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
-			app.On("Stop").Return(nil)
-			txManager := new(mocks.TxManager)
-			store.TxManager = txManager
-			txManager.On("Connect", mock.Anything).Return(nil)
-			txManager.On("Register", mock.Anything)
-			txManager.On("SignedRawTxWithBumpedGas", mock.MatchedBy(func(dbtx models.Tx) bool {
-				return dbtx.ID == tx.ID
-			}), gasLimit, *gasPrice).Return(bumpedRaw, nil)
-			txManager.On("SendRawTx", bumpedRaw).Return(bumpedRawHash, nil)
-
-			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
-			client := cmd.Client{
-				Config:                 config.Config,
-				AppFactory:             cltest.InstanceAppFactory{App: app},
-				KeyStoreAuthenticator:  auth,
-				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-				Runner:                 cltest.EmptyRunner{},
-			}
-
-			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
-			// We set the dialect back after initialization so that we can check
-			// that it was set back to WithoutLock at the end of the test.
-			assert.NoError(t, client.RebroadcastTransactions(c))
-			// Check that the Dialect was set back when the command was run.
-			assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
-
-			jr = cltest.FindJobRun(t, connectedStore, jr.ID)
-			assert.Equal(t, models.RunStatusErrored, jr.Status)
-			app.AssertExpectations(t)
-			txManager.AssertExpectations(t)
-		})
-	}
-}
-
-func TestClient_RebroadcastTransactions_OutsideRange_LegacyTxManager(t *testing.T) {
-	beginningNonce := uint(7)
-	endingNonce := uint(10)
-	gasPrice := big.NewInt(100000000000)
-	gasLimit := uint64(3000000)
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("beginningNonce", beginningNonce, "")
-	set.Uint("endingNonce", endingNonce, "")
-	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", cltest.DefaultKey, "")
-	c := cli.NewContext(nil, set, nil)
-
-	tests := []struct {
-		name  string
-		nonce uint
-	}{
-		{"below beginning", beginningNonce - 1},
-		{"above ending", endingNonce + 1},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
-			config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
-			store, strCleanup := cltest.NewStoreWithConfig(config)
-			defer strCleanup()
-
-			account, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
-
-			txManager := new(mocks.TxManager)
-			store.TxManager = txManager
-			app := new(mocks.Application)
-			app.On("GetStore").Return(store)
-			app.On("Stop").Return(nil)
-
-			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
-			client := cmd.Client{
-				Config:                 store.Config,
-				AppFactory:             cltest.InstanceAppFactory{App: app},
-				KeyStoreAuthenticator:  auth,
-				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-				Runner:                 cltest.EmptyRunner{},
-			}
-
-			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
-			j := cltest.NewJobWithWebInitiator()
-			require.NoError(t, store.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
-			tx.SurrogateID = null.StringFrom(jr.ID.String())
-			require.NoError(t, store.SaveTx(tx))
-
-			txManager.On("Connect", mock.Anything).Return(nil)
-			txManager.On("Register", mock.Anything)
-
-			assert.NoError(t, client.RebroadcastTransactions(c))
-
-			jr = cltest.FindJobRun(t, store, jr.ID)
-			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
-
-			app.AssertExpectations(t)
-			txManager.AssertExpectations(t)
-		})
-	}
-}
-
 func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
@@ -604,38 +442,61 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
+			// Use the a non-transactional db for this test because we need to
+			// test multiple connections to the database, and changes made within
+			// the transaction cannot be seen from another connection.
+			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
-			account, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
-			require.NoError(t, store.KeyStore.Unlock(cltest.Password)) // remove?
+			config.Config.Dialect = orm.DialectPostgres
+			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+			defer connectedCleanup()
+
+			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, int64(test.nonce), 42)
+
+			// Use the same config as the connectedStore so that the advisory
+			// lock ID is the same. We set the config to be Postgres Without
+			// Lock, because the db locking strategy is decided when we
+			// initialize the store/ORM.
+			config.Config.Dialect = orm.DialectPostgresWithoutLock
+			store, cleanup := cltest.NewStoreWithConfig(config)
+			defer cleanup()
+			store.KeyStore.Unlock(cltest.Password)
+			require.NoError(t, connectedStore.Start())
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
 			app.On("Stop").Return(nil)
+			ethClient := new(mocks.Client)
+			ethClient.On("Dial", mock.Anything).Return(nil)
+			store.EthClient = ethClient
 
 			auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
 			client := cmd.Client{
-				Config:                 store.Config,
+				Config:                 config.Config,
 				AppFactory:             cltest.InstanceAppFactory{App: app},
 				KeyStoreAuthenticator:  auth,
 				FallbackAPIInitializer: &cltest.MockAPIInitializer{},
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			tx := cltest.CreateTxWithNonceAndGasPrice(t, store, account.Address, 0, uint64(test.nonce), 1000)
-			j := cltest.NewJobWithWebInitiator()
-			require.NoError(t, store.CreateJob(&j))
-			jr := cltest.CreateJobRunWithStatus(t, store, j, models.RunStatusPendingOutgoingConfirmations)
-			tx.SurrogateID = null.StringFrom(jr.ID.String())
-			require.NoError(t, store.SaveTx(tx))
+			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
 
+			for i := beginningNonce; i <= endingNonce; i++ {
+				n := i
+				ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+					return uint(tx.Nonce()) == n
+				})).Once().Return(nil)
+			}
+
+			// We set the dialect back after initialization so that we can check
+			// that it was set back to WithoutLock at the end of the test.
 			assert.NoError(t, client.RebroadcastTransactions(c))
+			// Check that the Dialect was set back when the command was run.
+			assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
 
-			jr = cltest.FindJobRun(t, store, jr.ID)
-			assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, jr.Status)
-
+			cltest.AssertEthTxAttemptCountStays(t, store, 1)
 			app.AssertExpectations(t)
+			ethClient.AssertExpectations(t)
 		})
 	}
 }

@@ -14,8 +14,6 @@ const JOB_RUN_ID = 'ad24b72c12f441b99b9877bcf6cb506e'
 
 describe('pages/Jobs/Show', () => {
   it('renders the details of the job spec, its latest runs, its task list entries and its total earnings', async () => {
-    expect.assertions(9)
-
     const minuteAgo = isoDate(Date.now() - MINUTE_MS)
     const jobSpecResponse = jsonApiJobSpecFactory({
       id: JOB_SPEC_ID,
@@ -48,39 +46,9 @@ describe('pages/Jobs/Show', () => {
     expect(wrapper.text()).toContain('Created a minute ago')
     expect(wrapper.text()).toContain('1.000000')
     expect(wrapper.text()).toContain('Httpget')
-    expect(wrapper.text()).toContain('Run Count1')
     expect(wrapper.text()).toContain('Minimum Payment100 Link')
     expect(wrapper.text()).toContain('Pending')
-    expect(wrapper.text()).not.toContain('View More')
-  })
-
-  it('displays a view more link if there are more runs than the display count', async () => {
-    const runs = [
-      { id: 'runA', jobId: JOB_SPEC_ID },
-      { id: 'runB', jobId: JOB_SPEC_ID },
-      { id: 'runC', jobId: JOB_SPEC_ID },
-      { id: 'runD', jobId: JOB_SPEC_ID },
-      { id: 'runE', jobId: JOB_SPEC_ID },
-      { id: 'runF', jobId: JOB_SPEC_ID },
-    ]
-
-    const jobSpecResponse = jsonApiJobSpecFactory({
-      id: JOB_SPEC_ID,
-    })
-    const jobRunsResponse = jsonApiJobSpecRunsFactory(runs)
-
-    global.fetch.getOnce(globPath(`/v2/specs/${JOB_SPEC_ID}`), jobSpecResponse)
-    global.fetch.getOnce(globPath('/v2/runs'), jobRunsResponse)
-
-    const wrapper = mountWithProviders(
-      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
-      {
-        initialEntries: [`/jobs/${JOB_SPEC_ID}`],
-      },
-    )
-
-    await syncFetch(wrapper)
-    expect(wrapper.text()).toContain('View More')
+    expect(wrapper.text()).not.toContain('View more')
   })
 
   describe('RegionalNav', () => {

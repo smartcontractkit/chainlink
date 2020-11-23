@@ -1,7 +1,6 @@
 package store_test
 
 import (
-	"math/big"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -9,11 +8,9 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -23,24 +20,6 @@ func TestStore_Start(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	assert.NoError(t, store.Start())
-}
-
-func TestStore_LegacyTxManager_Start(t *testing.T) {
-	t.Parallel()
-
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	config.Set("ENABLE_BULLETPROOF_TX_MANAGER", "false")
-	store, storeCleanup := cltest.NewStoreWithConfig(config)
-	defer storeCleanup()
-
-	txManager := new(mocks.TxManager)
-	txManager.On("Register", mock.Anything).Return(big.NewInt(3), nil)
-	store.TxManager = txManager
-
-	assert.NoError(t, store.Start())
-
-	txManager.AssertExpectations(t)
 }
 
 func TestStore_Close(t *testing.T) {
@@ -168,7 +147,7 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.Len(t, keys, 1, "key should already exist because of Application#Start")
 
 	// get account
-	acc, err := store.KeyStore.GetFirstAccount()
+	acc := store.KeyStore.Accounts()[0]
 	require.NoError(t, err)
 
 	require.NoError(t, store.SyncDiskKeyStoreToDB()) // sync

@@ -2,12 +2,12 @@ package cltest
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"math/big"
 	"math/rand"
 	"net/http"
@@ -82,6 +82,8 @@ const (
 	AllowUnstarted = "allow_unstarted"
 	// DefaultPeerID is the peer ID of the fixture p2p key
 	DefaultPeerID = "12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp"
+	// A peer ID without an associated p2p key.
+	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
 	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
@@ -90,10 +92,10 @@ const (
 
 var (
 	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress          = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressDowncased = strings.ToLower(DefaultKey)
-	DefaultKeyAddressEIP55     models.EIP55Address
-	DefaultP2PPeerID           p2ppeer.ID
+	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
+	DefaultKeyAddressEIP55 models.EIP55Address
+	DefaultP2PPeerID       p2ppeer.ID
+	NonExistentP2PPeerID   p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
@@ -139,6 +141,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	NonExistentP2PPeerID, err = p2ppeer.Decode(NonExistentPeerID)
+	if err != nil {
+		panic(err)
+	}
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
 	if err != nil {
 		panic(err)
@@ -179,18 +185,6 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
-}
-
-func NewRandomInt32() int32 {
-	return int32(randIntRange(0, math.MaxInt32))
-}
-
-// Generate random integer between min and max
-func randIntRange(min, max int) int {
-	if min == max {
-		return min
-	}
-	return rand.Intn((max+1)-min) + min
 }
 
 // NewTestConfig returns a test configuration
@@ -724,16 +718,6 @@ func ReadLogs(config orm.ConfigReader) (string, error) {
 	return string(b), err
 }
 
-// FindJob returns JobSpec for given JobID
-func FindJob(t testing.TB, s *strpkg.Store, id *models.ID) models.JobSpec {
-	t.Helper()
-
-	j, err := s.FindJob(id)
-	require.NoError(t, err)
-
-	return j
-}
-
 func FindServiceAgreement(t testing.TB, s *strpkg.Store, id string) models.ServiceAgreement {
 	t.Helper()
 
@@ -897,7 +881,7 @@ func CreateExternalInitiatorViaWeb(
 }
 
 const (
-	DBWaitTimeout = 5 * time.Second
+	DBWaitTimeout = 10 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
 )
@@ -1021,6 +1005,29 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+// WaitForRuns waits for the wanted number of completed runs then returns a slice of the JobRuns
+func WaitForCompletedRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var jrs []models.JobRun
+	var err error
+	if want == 0 {
+		g.Consistently(func() []models.JobRun {
+			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
+			assert.NoError(t, err)
+			return jrs
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	} else {
+		g.Eventually(func() []models.JobRun {
+			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
+			assert.NoError(t, err)
+			return jrs
+		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}
+	return jrs
+}
+
 // AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
 func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1052,27 +1059,68 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 	}
 }
 
-func WaitForTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.TxAttempt {
+func WaitForEthTxCount(t testing.TB, store *strpkg.Store, want int) []models.EthTx {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 
-	var tas []models.TxAttempt
-	var count int
+	var txes []models.EthTx
 	var err error
-	if want == 0 {
-		g.Consistently(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	} else {
-		g.Eventually(func() int {
-			tas, count, err = store.TxAttempts(0, 1000)
-			assert.NoError(t, err)
-			return count
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
-	}
-	return tas
+	g.Eventually(func() []models.EthTx {
+		err = store.DB.Order("nonce desc").Find(&txes).Error
+		assert.NoError(t, err)
+		return txes
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txes
+}
+
+func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx models.EthTx) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var attempts []models.EthTxAttempt
+	var err error
+	g.Eventually(func() int {
+		err = store.DB.Order("created_at desc").Where("eth_tx_id = ?", ethTx.ID).Find(&attempts).Error
+		assert.NoError(t, err)
+		return len(attempts)
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">", 0))
+	return attempts
+}
+
+func WaitForEthTxAttemptCount(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Eventually(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+// AssertEthTxAttemptCountStays asserts that the number of tx attempts remains at the provided value
+func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) []models.EthTxAttempt {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var txas []models.EthTxAttempt
+	var err error
+	g.Consistently(func() []models.EthTxAttempt {
+		err = store.DB.Find(&txas).Error
+		assert.NoError(t, err)
+		return txas
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return txas
+}
+
+func WaitForTxInMempool(t *testing.T, client *backends.SimulatedBackend, txHash common.Hash) {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		_, isPending, err := client.TransactionByHash(context.TODO(), txHash)
+		return err == nil && isPending
+	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())
 }
 
 // WaitForSyncEventCount checks if the sync event count eventually reaches
@@ -1153,27 +1201,6 @@ func BlockWithTransactions(gasPrices ...int64) *types.Block {
 		txs[i] = types.NewTransaction(0, common.Address{}, nil, 0, big.NewInt(gasPrice), nil)
 	}
 	return types.NewBlock(&types.Header{}, txs, nil, nil, new(trie.Trie))
-}
-
-// GetAccountAddress returns Address of the account in the keystore of the passed in store
-func GetAccountAddress(t testing.TB, store *strpkg.Store) common.Address {
-	t.Helper()
-
-	account, err := store.KeyStore.GetFirstAccount()
-	require.NoError(t, err)
-
-	return account.Address
-}
-
-// GetAccountAddresses returns the Address of all registered accounts
-func GetAccountAddresses(store *strpkg.Store) []common.Address {
-	accounts := store.KeyStore.GetAccounts()
-
-	addresses := []common.Address{}
-	for _, account := range accounts {
-		addresses = append(addresses, account.Address)
-	}
-	return addresses
 }
 
 func StringToHash(s string) common.Hash {
@@ -1330,30 +1357,17 @@ func MustAllJobsWithStatus(t testing.TB, store *strpkg.Store, statuses ...models
 	return runs
 }
 
-func GetLastTxAttempt(t testing.TB, store *strpkg.Store) models.TxAttempt {
+func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt {
 	t.Helper()
 
-	var attempt models.TxAttempt
+	var txa models.EthTxAttempt
 	var count int
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&attempt).Count(&count).Error
+		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})
 	require.NoError(t, err)
 	require.NotEqual(t, 0, count)
-	return attempt
-}
-
-func GetLastTx(t testing.TB, store *strpkg.Store) models.Tx {
-	t.Helper()
-
-	var tx models.Tx
-	var count int
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Order("created_at desc").First(&tx).Count(&count).Error
-	})
-	require.NoError(t, err)
-	require.NotEqual(t, 0, count)
-	return tx
+	return txa
 }
 
 type Awaiter chan struct{}
@@ -1455,22 +1469,15 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-func FindJobRun(t *testing.T, store *strpkg.Store, id *models.ID) models.JobRun {
-	jr, err := store.FindJobRun(id)
-	require.NoError(t, err)
-	return jr
-}
-
-func MustHexToUint64(t *testing.T, hex string) uint64 {
-	res, err := utils.HexToUint64(hex)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return res
-}
-
 func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
 	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
 	require.NoError(t, err)
 	return k
+}
+
+func RandomizeNonce(t *testing.T, s *strpkg.Store) {
+	t.Helper()
+	n := rand.Intn(32767) + 100
+	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
+	require.NoError(t, err)
 }

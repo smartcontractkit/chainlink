@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -17,11 +18,54 @@ type OCRJobSpecsController struct {
 	App chainlink.Application
 }
 
-// Create adds validates, saves, and starts a new OCR job spec.
+// Index lists all OCR job specs.
 // Example:
-// "<application>/ocr/specs"
+// "GET <application>/ocr/specs"
+func (ocrjsc *OCRJobSpecsController) Index(c *gin.Context) {
+	jobs, err := ocrjsc.App.GetStore().ORM.OffChainReportingJobs()
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, jobs, "offChainReportingJobSpec")
+}
+
+// Show returns the details of a OCR job spec.
+// Example:
+// "GET <application>/ocr/specs/:ID"
+func (ocrjsc *OCRJobSpecsController) Show(c *gin.Context) {
+	jobSpec := models.JobSpecV2{}
+	err := jobSpec.SetID(c.Param("ID"))
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	jobSpec, err = ocrjsc.App.GetStore().ORM.FindOffChainReportingJob(jobSpec.ID)
+	if errors.Cause(err) == orm.ErrorNotFound {
+		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
+		return
+	}
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, jobSpec, "offChainReportingJobSpec")
+}
+
+// Create validates, saves and starts a new OCR job spec.
+// Example:
+// "POST <application>/ocr/specs"
 func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
-	jobSpec, err := services.ValidatedOracleSpec(c.Request.Body)
+	request := models.CreateOCRJobSpecRequest{}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	jobSpec, err := services.ValidatedOracleSpecToml(request.TOML)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -34,17 +78,26 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 
 	jobID, err := ocrjsc.App.AddJobV2(c.Request.Context(), jobSpec)
 	if err != nil {
+		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	c.JSON(http.StatusOK, struct {
-		JobID int32 `json:"jobID"`
-	}{jobID})
+
+	job, err := ocrjsc.App.GetStore().ORM.FindOffChainReportingJob(jobID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, job, "offChainReportingJobSpec")
 }
 
 // Delete soft deletes an OCR job spec.
 // Example:
-// "<application>/ocr/specs/:ID"
+// "DELETE <application>/ocr/specs/:ID"
 func (ocrjsc *OCRJobSpecsController) Delete(c *gin.Context) {
 	jobSpec := models.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
@@ -63,5 +116,5 @@ func (ocrjsc *OCRJobSpecsController) Delete(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponseWithStatus(c, nil, "job", http.StatusNoContent)
+	jsonAPIResponseWithStatus(c, nil, "offChainReportingJobSpec", http.StatusNoContent)
 }

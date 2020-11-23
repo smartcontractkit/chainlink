@@ -5,10 +5,10 @@ package presenters
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
@@ -26,82 +26,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
-	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v3"
 )
-
-type requestType int
-
-const (
-	ethRequest requestType = iota
-	linkRequest
-)
-
-// ShowEthBalance returns the current Eth Balance for current Account
-func ShowEthBalance(store *store.Store) ([]map[string]string, error) {
-	return showBalanceFor(store, ethRequest)
-}
-
-// ShowLinkBalance returns the current Link Balance for current Account
-func ShowLinkBalance(store *store.Store) ([]map[string]string, error) {
-	return showBalanceFor(store, linkRequest)
-}
-
-func showBalanceFor(store *store.Store, balanceType requestType) ([]map[string]string, error) {
-	if !store.KeyStore.HasAccounts() {
-		logger.Panic("KeyStore must have an account in order to show balance")
-	}
-
-	var merr error
-	info := []map[string]string{}
-	for _, account := range store.KeyStore.Accounts() {
-		b, err := showBalanceForAccount(store, account, balanceType)
-		merr = multierr.Append(merr, err)
-		if err == nil {
-			info = append(info, b)
-		}
-	}
-	return info, merr
-}
-
-// ShowEthBalance returns the current Eth Balance for current Account
-func showBalanceForAccount(store *store.Store, account accounts.Account, balanceType requestType) (map[string]string, error) {
-	balance, err := getBalance(store, account, balanceType)
-	if err != nil {
-		return nil, err
-	}
-	address := account.Address
-	keysAndValues := make(map[string]string)
-	keysAndValues["message"] = fmt.Sprintf("%v Balance for %v: %v", balance.Symbol(), address.Hex(), balance.String())
-	keysAndValues["balance"] = balance.String()
-	keysAndValues["address"] = address.String()
-	if balance.IsZero() && balanceType == ethRequest {
-		return nil, errors.New("0 ETH Balance. Chainlink node not fully functional, please deposit ETH into your address: " + address.Hex())
-	}
-	return keysAndValues, nil
-}
-
-func getBalance(store *store.Store, account accounts.Account, balanceType requestType) (balanceable, error) {
-	switch balanceType {
-	case ethRequest:
-		bal, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
-		if err != nil {
-			return nil, err
-		}
-		return (*assets.Eth)(bal), nil
-	case linkRequest:
-		return store.TxManager.GetLINKBalance(account.Address)
-	}
-	return nil, fmt.Errorf("impossible to get balance for %T with value %v", balanceType, balanceType)
-}
-
-type balanceable interface {
-	IsZero() bool
-	String() string
-	Symbol() string
-}
 
 // ETHKey holds the hex representation of the address plus it's ETH & LINK balances
 type ETHKey struct {
@@ -149,7 +76,6 @@ type EnvPrinter struct {
 	DefaultHTTPLimit                      int64           `json:"defaultHttpLimit"`
 	DefaultHTTPTimeout                    models.Duration `json:"defaultHttpTimeout"`
 	Dev                                   bool            `json:"chainlinkDev"`
-	EnableBulletproofTxManager            bool            `json:"enableBulletproofTxManager"`
 	EnableExperimentalAdapters            bool            `json:"enableExperimentalAdapters"`
 	EthBalanceMonitorBlockDelay           uint16          `json:"ethBalanceMonitorBlockDelay"`
 	EthereumDisabled                      bool            `json:"ethereumDisabled"`
@@ -163,7 +89,7 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize           uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                     *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                           string          `json:"ethUrl"`
-	EthereumSecondaryURL                  string          `json:"ethSecondaryURL"`
+	EthereumSecondaryURLs                 []url.URL       `json:"ethSecondaryURLs"`
 	ExplorerURL                           string          `json:"explorerUrl"`
 	FeatureExternalInitiators             bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor                    bool            `json:"featureFluxMonitor"`
@@ -174,7 +100,7 @@ type EnvPrinter struct {
 	GasUpdaterEnabled                     bool            `json:"gasUpdaterEnabled"`
 	GasUpdaterTransactionPercentile       uint16          `json:"gasUpdaterTransactionPercentile"`
 	InsecureFastScrypt                    bool            `json:"insecureFastScrypt"`
-	JobPipelineDBPollInterval             time.Duration   `json:"jobPipelineDBPollInterval"`
+	TriggerFallbackDBPollInterval         time.Duration   `json:"jobPipelineDBPollInterval"`
 	JobPipelineMaxTaskDuration            time.Duration   `json:"jobPipelineMaxTaskDuration"`
 	JobPipelineParallelism                uint8           `json:"jobPipelineParallelism"`
 	JobPipelineReaperInterval             time.Duration   `json:"jobPipelineReaperInterval"`
@@ -194,8 +120,8 @@ type EnvPrinter struct {
 	OCRBootstrapCheckInterval             time.Duration   `json:"ocrBootstrapCheckInterval"`
 	OCRContractTransmitterTransmitTimeout time.Duration   `json:"ocrContractTransmitterTransmitTimeout"`
 	OCRDatabaseTimeout                    time.Duration   `json:"ocrDatabaseTimeout"`
-	OCRListenIP                           string          `json:"ocrListenIP"`
-	OCRListenPort                         uint16          `json:"ocrListenPort"`
+	P2PListenIP                           string          `json:"ocrListenIP"`
+	P2PListenPort                         uint16          `json:"ocrListenPort"`
 	OCRIncomingMessageBufferSize          int             `json:"ocrIncomingMessageBufferSize"`
 	OCROutgoingMessageBufferSize          int             `json:"ocrOutgoingMessageBufferSize"`
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
@@ -217,17 +143,12 @@ type EnvPrinter struct {
 // NewConfigPrinter creates an instance of ConfigPrinter
 func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 	config := store.Config
-	account, err := store.KeyStore.GetFirstAccount()
-	if err != nil {
-		return ConfigPrinter{}, err
-	}
 
 	explorerURL := ""
 	if config.ExplorerURL() != nil {
 		explorerURL = config.ExplorerURL().String()
 	}
 	return ConfigPrinter{
-		AccountAddress: account.Address.Hex(),
 		EnvPrinter: EnvPrinter{
 			AllowOrigins:                          config.AllowOrigins(),
 			BalanceMonitorEnabled:                 config.BalanceMonitorEnabled(),
@@ -240,7 +161,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			DefaultHTTPTimeout:                    config.DefaultHTTPTimeout(),
 			DatabaseMaximumTxDuration:             config.DatabaseMaximumTxDuration(),
 			Dev:                                   config.Dev(),
-			EnableBulletproofTxManager:            config.EnableBulletproofTxManager(),
 			EnableExperimentalAdapters:            config.EnableExperimentalAdapters(),
 			EthBalanceMonitorBlockDelay:           config.EthBalanceMonitorBlockDelay(),
 			EthereumDisabled:                      config.EthereumDisabled(),
@@ -254,7 +174,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                     config.EthMaxGasPriceWei(),
 			EthereumURL:                           config.EthereumURL(),
-			EthereumSecondaryURL:                  config.EthereumSecondaryURL(),
+			EthereumSecondaryURLs:                 config.EthereumSecondaryURLs(),
 			ExplorerURL:                           explorerURL,
 			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:                    config.FeatureFluxMonitor(),
@@ -265,7 +185,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			GasUpdaterEnabled:                     config.GasUpdaterEnabled(),
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
 			InsecureFastScrypt:                    config.InsecureFastScrypt(),
-			JobPipelineDBPollInterval:             config.JobPipelineDBPollInterval(),
+			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
 			JobPipelineMaxTaskDuration:            config.JobPipelineMaxTaskDuration(),
 			JobPipelineParallelism:                config.JobPipelineParallelism(),
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
@@ -285,8 +205,8 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRBootstrapCheckInterval:             config.OCRBootstrapCheckInterval(),
 			OCRContractTransmitterTransmitTimeout: config.OCRContractTransmitterTransmitTimeout(),
 			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
-			OCRListenIP:                           config.OCRListenIP().String(),
-			OCRListenPort:                         config.OCRListenPort(),
+			P2PListenIP:                           config.P2PListenIP().String(),
+			P2PListenPort:                         config.P2PListenPort(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
 			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
@@ -660,73 +580,61 @@ func (a NewAccount) GetName() string {
 	return "keys"
 }
 
-// Tx is a jsonapi wrapper for an Ethereum Transaction.
-type Tx struct {
-	Confirmed bool            `json:"confirmed,omitempty"`
-	Data      hexutil.Bytes   `json:"data,omitempty"`
-	From      *common.Address `json:"from,omitempty"`
-	GasLimit  string          `json:"gasLimit,omitempty"`
-	GasPrice  string          `json:"gasPrice,omitempty"`
-	Hash      common.Hash     `json:"hash,omitempty"`
-	Hex       string          `json:"rawHex,omitempty"`
-	Nonce     string          `json:"nonce,omitempty"`
-	SentAt    string          `json:"sentAt,omitempty"`
-	To        *common.Address `json:"to,omitempty"`
-	Value     string          `json:"value,omitempty"`
+// EthTx is a jsonapi wrapper for an Ethereum Transaction.
+type EthTx struct {
+	ID       int64           `json:"-"`
+	State    string          `json:"state,omitempty"`
+	Data     hexutil.Bytes   `json:"data,omitempty"`
+	From     *common.Address `json:"from,omitempty"`
+	GasLimit string          `json:"gasLimit,omitempty"`
+	GasPrice string          `json:"gasPrice,omitempty"`
+	Hash     common.Hash     `json:"hash,omitempty"`
+	Hex      string          `json:"rawHex,omitempty"`
+	Nonce    string          `json:"nonce,omitempty"`
+	SentAt   string          `json:"sentAt,omitempty"`
+	To       *common.Address `json:"to,omitempty"`
+	Value    string          `json:"value,omitempty"`
 }
 
-// NewTx builds a transaction presenter.
-func NewTx(tx *models.Tx) Tx {
-	return Tx{
-		Confirmed: tx.Confirmed,
-		Data:      hexutil.Bytes(tx.Data),
-		From:      &tx.From,
-		GasLimit:  strconv.FormatUint(tx.GasLimit, 10),
-		GasPrice:  tx.GasPrice.String(),
-		Hash:      tx.Hash,
-		Hex:       hexutil.Encode(tx.SignedRawTx),
-		Nonce:     strconv.FormatUint(tx.Nonce, 10),
-		SentAt:    strconv.FormatUint(tx.SentAt, 10),
-		To:        &tx.To,
-		Value:     tx.Value.String(),
+func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {
+	return newEthTxWithAttempt(txa.EthTx, txa)
+}
+
+func newEthTxWithAttempt(tx models.EthTx, txa models.EthTxAttempt) EthTx {
+	ethTX := EthTx{
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
+		GasPrice: txa.GasPrice.String(),
+		Hash:     txa.Hash,
+		Hex:      hexutil.Encode(txa.SignedRawTx),
+		ID:       tx.ID,
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    tx.Value.String(),
 	}
-}
-
-// NewTxFromAttempt builds a transaction presenter from a TxAttempt
-//
-// models.Tx represents a transaction in progress, with a series of
-// models.TxAttempts, each one of these represents an ethereum transaction. A
-// TxAttempt only stores the unique details of an ethereum transaction, with
-// the rest of the details on its related Tx.
-//
-// So for presenting a TxAttempt, we take its Hash, GasPrice etc. and get the
-// rest of the details from its Tx.
-//
-// NOTE: We take a copy here as we don't want side effects.
-//
-func NewTxFromAttempt(txAttempt models.TxAttempt) Tx {
-	tx := txAttempt.Tx
-	tx.Hash = txAttempt.Hash
-	tx.GasPrice = txAttempt.GasPrice
-	tx.Confirmed = txAttempt.Confirmed
-	tx.SentAt = txAttempt.SentAt
-	tx.SignedRawTx = txAttempt.SignedRawTx
-	return NewTx(tx)
+	if tx.Nonce != nil {
+		ethTX.Nonce = strconv.FormatUint(uint64(*tx.Nonce), 10)
+	}
+	if txa.BroadcastBeforeBlockNum != nil {
+		ethTX.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)
+	}
+	return ethTX
 }
 
 // GetID returns the jsonapi ID.
-func (t Tx) GetID() string {
-	return t.Hash.String()
+func (t EthTx) GetID() string {
+	return t.Hash.Hex()
 }
 
 // GetName returns the collection name for jsonapi.
-func (Tx) GetName() string {
+func (EthTx) GetName() string {
 	return "transactions"
 }
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (t *Tx) SetID(hex string) error {
+func (t *EthTx) SetID(hex string) error {
 	t.Hash = common.HexToHash(hex)
 	return nil
 }

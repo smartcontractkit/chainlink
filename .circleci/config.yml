@@ -1,21 +1,16 @@
 version: 2.1
 jobs:
   build-publish-chainlink:
-    resource_class: large
+    resource_class: 2xlarge
     machine:
       image: circleci/classic:201808-01
       docker_layer_caching: true
     steps:
       - checkout
-      - run:
-          name: Docker Hub login
-          command: |
-            echo "$DOCKERHUB_PASS" | docker login -u "$DOCKERHUB_USER" --password-stdin
+      - setup-aws-ecr
       - run:
           name: Docker build
-          command: |
-            DOCKER_TAG=circleci make docker
-      - setup-aws-ecr
+          command: DOCKER_TAG=circleci make docker
       - run:
           name: Docker push, if applicable
           command: |

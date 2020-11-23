@@ -1,7 +1,6 @@
 package bulletprooftxmanager_test
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -28,25 +27,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 )
-
-func mustInsertInProgressEthTxWithAttempt(t *testing.T, store *store.Store, nonce int64) models.EthTx {
-	etx := cltest.NewEthTx(t, store)
-
-	etx.BroadcastAt = nil
-	etx.Nonce = &nonce
-	etx.State = models.EthTxInProgress
-	require.NoError(t, store.DB.Save(&etx).Error)
-	attempt := cltest.NewEthTxAttempt(t, etx.ID)
-	tx := gethTypes.NewTransaction(uint64(nonce), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
-	rlp := new(bytes.Buffer)
-	require.NoError(t, tx.EncodeRLP(rlp))
-	attempt.SignedRawTx = rlp.Bytes()
-	attempt.State = models.EthTxAttemptInProgress
-	require.NoError(t, store.DB.Save(&attempt).Error)
-	etx, err := store.FindEthTxWithAttempts(etx.ID)
-	require.NoError(t, err)
-	return etx
-}
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
@@ -438,7 +418,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(nonce)
@@ -485,7 +465,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(nonce)
@@ -532,7 +512,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(nonce)
@@ -578,7 +558,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(nonce)
@@ -626,7 +606,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(nonce)
@@ -678,7 +658,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		// the nonce to the eth_tx so keys.next_nonce has not been
 		// incremented yet
 		nonce := nextNonce
-		inProgressEthTx := mustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
+		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, store, nextNonce)
 		require.Len(t, inProgressEthTx.EthTxAttempts, 1)
 		attempt := inProgressEthTx.EthTxAttempts[0]
 
