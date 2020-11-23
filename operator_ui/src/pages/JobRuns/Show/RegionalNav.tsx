@@ -124,15 +124,15 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
-            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/${jobRunId}`}>
               Overview
             </NavItem>
-            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/${jobRunId}/json`}>
               JSON
             </NavItem>
             {jobRun && jobRun.status === 'errored' && (
               <NavItem
-                href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/error_log`}
+                href={`/jobs/${jobSpecId}/runs/${jobRunId}/error_log`}
                 error
               >
                 Error Log

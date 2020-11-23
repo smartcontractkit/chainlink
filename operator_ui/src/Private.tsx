@@ -98,17 +98,17 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/jobs/new" component={JobsNew} />
               <PrivateRoute
                 exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId"
+                path="/jobs/:jobSpecId/runs/:jobRunId"
                 component={JobRunsShowOverview}
               />
               <PrivateRoute
                 exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId/json"
+                path="/jobs/:jobSpecId/runs/:jobRunId/json"
                 component={JobRunsShowJson}
               />
               <PrivateRoute
                 exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
+                path="/jobs/:jobSpecId/runs/:jobRunId/error_log"
                 component={JobRunsShowErrorLog}
               />
               <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />

@@ -140,7 +140,7 @@ const Activity = ({ classes, runs }: Props) => {
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                        <Link href={`/jobs/${r.jobId}/runs/${r.id}`}>
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"
