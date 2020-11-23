@@ -3,7 +3,7 @@ pragma solidity 0.5.0;
 import "./CoordinatorInterface.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
-import "../vendor/SafeMath.sol";
+import "../vendor/SafeMathChainlink.sol";
 import "./ServiceAgreementDecoder.sol";
 import "./OracleSignaturesDecoder.sol";
 
@@ -12,7 +12,7 @@ import "./OracleSignaturesDecoder.sol";
  * @title The Chainlink Coordinator handles oracle service aggreements between one or more oracles
  */
 contract Coordinator is ChainlinkRequestInterface, CoordinatorInterface, ServiceAgreementDecoder, OracleSignaturesDecoder {
-  using SafeMath for uint256;
+  using SafeMathChainlink for uint256;
 
   uint256 constant public EXPIRY_TIME = 5 minutes;
   LinkTokenInterface internal LINK;

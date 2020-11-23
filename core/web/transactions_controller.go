@@ -17,15 +17,15 @@ type TransactionsController struct {
 	App chainlink.Application
 }
 
-// Index returns paginated transaction attempts
+// Index returns paginated transactions
 func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) {
-	txs, count, err := tc.App.GetStore().Transactions(offset, size)
-	ptxs := make([]presenters.Tx, len(txs))
+	txs, count, err := tc.App.GetStore().EthTransactionsWithAttempts(offset, size)
+	ptxs := make([]presenters.EthTx, len(txs))
 	for i, tx := range txs {
-		txp := presenters.NewTx(&tx)
-		ptxs[i] = txp
+		tx.EthTxAttempts[0].EthTx = tx
+		ptxs[i] = presenters.NewEthTxFromAttempt(tx.EthTxAttempts[0])
 	}
-	paginatedResponse(c, "Transactions", size, page, ptxs, count, err)
+	paginatedResponse(c, "transactions", size, page, ptxs, count, err)
 }
 
 // Show returns the details of a Ethereum Transasction details.
@@ -34,7 +34,7 @@ func (tc *TransactionsController) Index(c *gin.Context, size, page, offset int) 
 func (tc *TransactionsController) Show(c *gin.Context) {
 	hash := common.HexToHash(c.Param("TxHash"))
 
-	txAttempt, err := tc.App.GetStore().FindTxAttempt(hash)
+	ethTxAttempt, err := tc.App.GetStore().FindEthTxAttempt(hash)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Transaction not found"))
 		return
@@ -44,5 +44,5 @@ func (tc *TransactionsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, presenters.NewTxFromAttempt(*txAttempt), "transaction")
+	jsonAPIResponse(c, presenters.NewEthTxFromAttempt(*ethTxAttempt), "transaction")
 }

@@ -27,7 +27,7 @@ type (
 	Config interface {
 		DatabaseMaximumTxDuration() time.Duration
 		DatabaseURL() string
-		JobPipelineDBPollInterval() time.Duration
+		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineParallelism() uint8
 	}
 )

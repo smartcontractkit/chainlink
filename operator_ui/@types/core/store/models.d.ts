@@ -10,6 +10,14 @@ declare module 'core/store/models' {
 
   //#region job_spec.go
 
+  export interface JobSpecError {
+    id: string
+    description: string
+    occurrences: number
+    createdAt: time.Time
+    updatedAt: time.Time
+  }
+
   /**
    * JobSpecRequest represents a schema for the incoming job spec request as used by the API.
    */
@@ -45,7 +53,7 @@ declare module 'core/store/models' {
    */
   export interface JobSpec {
     id?: string // FIXME -- why is this nullable?
-    createdAt?: time.Time
+    createdAt: time.Time
     initiators: Initiator[]
     minPayment: Pointer<assets.Link>
     tasks: TaskSpec[]
@@ -53,7 +61,8 @@ declare module 'core/store/models' {
     endAt: nullable.Time
     name: string
     earnings: number | null
-    errors: JobSpecErrors[]
+    errors: JobSpecError[]
+    updatedAt: time.time
   }
 
   // Types of Initiators (see Initiator struct just below.)
@@ -93,11 +102,11 @@ declare module 'core/store/models' {
    * to a parent JobID.
    */
   export interface Initiator {
-    id: number
-    jobSpecId: string
+    id?: number
+    jobSpecId?: string
     type: InitiatorType
     // FIXME - missing json struct tag
-    CreatedAt: time.Time
+    CreatedAt?: time.Time
     params?: InitiatorParams
   }
 
@@ -118,11 +127,10 @@ declare module 'core/store/models' {
    * Type will be an adapter, and the Params will contain any
    * additional information that adapter would need to operate.
    */
-  export interface TaskSpec<T extends JSONValue = JSONValue>
-    extends gorm.Model {
+  export interface TaskSpec extends gorm.Model {
     type: TaskType
-    confirmations: number
-    params: T
+    confirmations: number | null
+    params: { [key: string]: JSONValue | undefined }
   }
 
   /**
@@ -452,4 +460,57 @@ declare module 'core/store/models' {
     deletedAt: time.Time
   }
   //#endregion p2pKey/p2p_key.go
+
+  /**
+   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   */
+  export interface OcrJobSpecRequest {
+    toml: string
+  }
+
+  type OcrTaskOutput = ?string
+  type OcrTaskError = ?string
+
+  export interface OcrJobSpec {
+    errors: JobSpecError[]
+    offChainReportingOracleSpec: {
+      contractAddress: common.Address
+      p2pPeerID: string
+      p2pBootstrapPeers: string[]
+      isBootstrapPeer: boolean
+      keyBundleID: string
+      monitoringEndpoint: string
+      transmitterAddress: common.Address
+      observationTimeout: string
+      blockchainTimeout: string
+      contractConfigTrackerSubscribeInterval: string
+      contractConfigTrackerPollInterval: string
+      contractConfigConfirmations: number
+      createdAt: time.Time
+      updatedAt: time.Time
+      name?: string // Upcoming field
+    }
+    pipelineSpec: {
+      dotDagSource: string
+    }
+  }
+
+  export interface OcrJobRun {
+    outputs: OcrTaskOutput[]
+    errors: OcrTaskError[]
+    taskRuns: OcrTaskRun[]
+    createdAt: time.Time
+    finishedAt: nullable.Time
+  }
+}
+
+export interface OcrTaskRun {
+  createdAt: time.Time
+  error: OcrTaskError
+  finishedAt: nullable.Time
+  output: OcrTaskOutput
+  taskSpec: {
+    dotId: string
+  }
+  type: string
 }

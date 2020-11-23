@@ -30,7 +30,7 @@ func TestRunQueue(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
+	runQueue.Run(models.NewID())
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
@@ -65,8 +65,8 @@ func TestRunQueue_OneWorkerPerRun(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
-	runQueue.Run(&models.JobRun{ID: models.NewID()})
+	runQueue.Run(models.NewID())
+	runQueue.Run(models.NewID())
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
@@ -103,8 +103,8 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 		})
 
 	id := models.NewID()
-	runQueue.Run(&models.JobRun{ID: id})
-	runQueue.Run(&models.JobRun{ID: id})
+	runQueue.Run(id)
+	runQueue.Run(id)
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()

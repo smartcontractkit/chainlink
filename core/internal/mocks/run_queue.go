@@ -13,7 +13,7 @@ type RunQueue struct {
 }
 
 // Run provides a mock function with given fields: _a0
-func (_m *RunQueue) Run(_a0 *models.JobRun) {
+func (_m *RunQueue) Run(_a0 *models.ID) {
 	_m.Called(_a0)
 }
 

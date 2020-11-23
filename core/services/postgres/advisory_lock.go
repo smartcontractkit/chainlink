@@ -25,7 +25,7 @@ const (
 	AdvisoryLockObjectID_EthConfirmer int32 = 0
 )
 
-//go:generate mockery --name AdvisoryLocker --output ../internal/mocks/ --case=underscore
+//go:generate mockery --name AdvisoryLocker --output ../../internal/mocks/ --case=underscore
 type (
 	postgresAdvisoryLock struct {
 		URI  string
