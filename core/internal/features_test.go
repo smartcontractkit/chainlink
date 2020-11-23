@@ -800,7 +800,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			*args.Get(0).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 		}).
 		Return(nil).
-		Once()
+		Twice()
 
 	// Have server respond with 102 for price when FM checks external price
 	// adapter for deviation. 102 is enough deviation to trigger a job run.

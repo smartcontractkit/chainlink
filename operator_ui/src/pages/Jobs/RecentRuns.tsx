@@ -12,6 +12,7 @@ import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
 import JobRunsList from 'components/JobRuns/List'
+import TaskListDag from 'components/Jobs/TaskListDag'
 import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
 import { GWEI_PER_TOKEN } from 'utils/constants'
@@ -48,6 +49,9 @@ const chartCardStyles = ({ spacing, palette }: Theme) =>
       paddingBottom: spacing.unit * 2,
       paddingLeft: spacing.unit * 2,
     },
+    card: {
+      overflow: 'visible',
+    },
   })
 
 interface Props extends WithStyles<typeof chartCardStyles> {
@@ -56,7 +60,6 @@ interface Props extends WithStyles<typeof chartCardStyles> {
   error: unknown
   getJobSpecRuns: (props?: { page?: number; size?: number }) => Promise<void>
   job?: JobData['job']
-  jobSpec?: JobData['jobSpec']
   recentRuns?: JobData['recentRuns']
   recentRunsCount: JobData['recentRunsCount']
   showJobRunsCount?: number
@@ -70,7 +73,6 @@ export const RecentRuns = withStyles(chartCardStyles)(
     error,
     getJobSpecRuns,
     job,
-    jobSpec,
     recentRuns,
     recentRunsCount,
     showJobRunsCount = 5,
@@ -116,7 +118,15 @@ export const RecentRuns = withStyles(chartCardStyles)(
               </Card>
             </Grid>
             <Grid item xs={4}>
-              {job?.type === 'Direct request' && jobSpec && (
+              {job?.type === 'Off-chain reporting' && (
+                <Grid item xs>
+                  <Card className={classes.card}>
+                    <CardTitle divider>Task List</CardTitle>
+                    <TaskListDag dotSource={job.dotDagSource} />
+                  </Card>
+                </Grid>
+              )}
+              {job?.type === 'Direct request' && (
                 <Grid container direction="column">
                   <Grid item xs>
                     <Card>
