@@ -16,6 +16,7 @@ type FluxAggregator interface {
 	eth.ConnectedContract
 	RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error)
 	GetOracles() ([]common.Address, error)
+	LatestRoundData() (FluxAggregatorRoundData, error)
 }
 
 const (
@@ -85,6 +86,14 @@ type FluxAggregatorRoundState struct {
 	OracleCount       uint8    `abi:"_oracleCount" json:"oracleCount"`
 }
 
+type FluxAggregatorRoundData struct {
+	RoundID         uint32   `abi:"roundId" json:"reportableRoundID"`
+	Answer          *big.Int `abi:"answer" json:"latestAnswer,omitempty"`
+	StartedAt       uint64   `abi:"startedAt" json:"startedAt"`
+	UpdatedAt       uint64   `abi:"updatedAt" json:"updatedAt"`
+	AnsweredInRound uint32   `abi:"answeredInRound" json:"availableFunds,omitempty"`
+}
+
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
 	return rs.StartedAt + rs.Timeout
 }
@@ -105,4 +114,14 @@ func (fa *fluxAggregator) GetOracles() (oracles []common.Address, err error) {
 		return nil, errors.Wrap(err, "error calling flux aggregator getOracles")
 	}
 	return oracles, nil
+}
+
+func (fa *fluxAggregator) LatestRoundData() (FluxAggregatorRoundData, error) {
+	var result FluxAggregatorRoundData
+	err := fa.Call(&result, "latestRoundData")
+	if err != nil {
+		return FluxAggregatorRoundData{},
+			errors.Wrap(err, "error calling fluxaggregator#latestRoundData - contract may have 0 rounds")
+	}
+	return result, nil
 }

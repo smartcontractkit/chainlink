@@ -18,8 +18,8 @@ contract Owned {
     address indexed to
   );
 
-  constructor() {
-    owner = msg.sender;
+  constructor(address newOwner) {
+    owner = newOwner;
   }
 
   /**
