@@ -1,5 +1,6 @@
 import React from 'react'
 import { createStyles } from '@material-ui/core'
+import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
 import { stringify } from 'javascript-stringify'
@@ -118,46 +119,46 @@ interface Props {
   jobRun: DirectRequestJobRun
 }
 
-const TaskExpansionPanel = ({ jobRun }: Props) => {
+export const Overview = ({ jobRun }: Props) => {
   const initiator = jobRun.initiator
 
   return (
-    <Grid container spacing={0}>
-      <Grid item xs={12}>
-        <StatusItem
-          summary={capitalize(initiator.type)}
-          status={jobRun.status}
-          borderTop={false}
-          confirmations={0}
-          minConfirmations={0}
-        >
-          <Initiator params={initiator.params || {}} />
-        </StatusItem>
+    <Card>
+      <Grid container spacing={0}>
+        <Grid item xs={12}>
+          <StatusItem
+            summary={capitalize(initiator.type)}
+            status={jobRun.status}
+            borderTop={false}
+            confirmations={0}
+            minConfirmations={0}
+          >
+            <Initiator params={initiator.params || {}} />
+          </StatusItem>
+        </Grid>
+        {jobRun.taskRuns.map((taskRun) => {
+          return (
+            <Grid item xs={12} key={taskRun.id}>
+              <StatusItem
+                borderTop
+                summary={capitalize(taskRun.task.type)}
+                status={taskRun.status}
+                confirmations={taskRun.confirmations}
+                minConfirmations={taskRun.minimumConfirmations}
+              >
+                <Grid container direction="column">
+                  <Grid item>
+                    {taskRun.task && <Params params={taskRun.task.params} />}
+                  </Grid>
+                  <Grid item>
+                    <Result run={taskRun} />
+                  </Grid>
+                </Grid>
+              </StatusItem>
+            </Grid>
+          )
+        })}
       </Grid>
-      {jobRun.taskRuns.map((taskRun) => {
-        return (
-          <Grid item xs={12} key={taskRun.id}>
-            <StatusItem
-              borderTop
-              summary={capitalize(taskRun.task.type)}
-              status={taskRun.status}
-              confirmations={taskRun.confirmations}
-              minConfirmations={taskRun.minimumConfirmations}
-            >
-              <Grid container direction="column">
-                <Grid item>
-                  {taskRun.task && <Params params={taskRun.task.params} />}
-                </Grid>
-                <Grid item>
-                  <Result run={taskRun} />
-                </Grid>
-              </Grid>
-            </StatusItem>
-          </Grid>
-        )
-      })}
-    </Grid>
+    </Card>
   )
 }
-
-export default TaskExpansionPanel

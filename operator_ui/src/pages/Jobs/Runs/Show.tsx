@@ -1,31 +1,31 @@
 import React from 'react'
 import { v2 } from 'api'
-import { RouteComponentProps } from 'react-router-dom'
+import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import Grid from '@material-ui/core/Grid'
-import Card from '@material-ui/core/Card'
 import Content from 'components/Content'
 import StatusCard from 'components/StatusCard/StatusCard'
-import TaskExpansionPanel from './TaskExpansionPanel/TaskExpansionPanel'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import RegionalNav from './RegionalNav'
 import { DirectRequestJobRun } from '../sharedTypes'
+import { Overview } from './Overview/Overview'
+import { Json } from './Json'
 
 type Props = RouteComponentProps<{
   jobSpecId: string
   jobRunId: string
 }>
 
-export const Show = (props: Props) => {
+export const Show = ({ match }: Props) => {
   const [jobRun, setState] = React.useState<DirectRequestJobRun>()
 
-  const { jobSpecId, jobRunId } = props.match.params
+  const { jobSpecId, jobRunId } = match.params
 
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobRun)
 
   React.useEffect(() => {
-    document.title = 'Show Job Run'
+    document.title = 'Show job run'
   }, [])
 
   const getJobRun = React.useCallback(async () => {
@@ -46,18 +46,24 @@ export const Show = (props: Props) => {
     getJobRun()
   }, [getJobRun])
 
+  console.log(`${match.path}/json`)
+
   return (
-    <div>
-      <RegionalNav {...props.match.params} jobRun={jobRun} />
+    <>
+      <RegionalNav {...match.params} jobRun={jobRun} />
       <Content>
         <ErrorComponent />
         <LoadingPlaceholder />
         {jobRun && (
           <Grid container spacing={40}>
             <Grid item xs={8}>
-              <Card>
-                <TaskExpansionPanel jobRun={jobRun} />
-              </Card>
+              <Switch>
+                <Route
+                  path={`${match.path}/json`}
+                  render={() => <Json jobRun={jobRun} />}
+                />
+                <Route render={() => <Overview jobRun={jobRun} />} />
+              </Switch>
             </Grid>
             <Grid item xs={4}>
               <StatusCard {...jobRun} title={jobRun.status} />
@@ -65,7 +71,7 @@ export const Show = (props: Props) => {
           </Grid>
         )}
       </Content>
-    </div>
+    </>
   )
 }
 
