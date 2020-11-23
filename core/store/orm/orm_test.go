@@ -833,8 +833,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	require.NoError(t, err)
 	defer explorerClient.Close()
 
-	orm := store.ORM
-	statsPusher := synchronization.NewStatsPusher(orm, explorerClient)
+	statsPusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	require.NoError(t, statsPusher.Start())
 	defer statsPusher.Close()
 
@@ -845,16 +844,16 @@ func TestORM_AllSyncEvents(t *testing.T) {
 
 	oldIncompleteRun := cltest.NewJobRun(job)
 	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
-	err = orm.CreateJobRun(&oldIncompleteRun)
+	err = store.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)
 	newCompletedRun.SetStatus(models.RunStatusCompleted)
-	err = orm.CreateJobRun(&newCompletedRun)
+	err = store.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 
 	events := []models.SyncEvent{}
-	err = orm.AllSyncEvents(func(event models.SyncEvent) error {
+	err = statsPusher.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})

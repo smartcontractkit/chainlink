@@ -5,8 +5,11 @@ package mocks
 import (
 	context "context"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	gorm "github.com/jinzhu/gorm"
+
 	mock "github.com/stretchr/testify/mock"
+
+	models "github.com/smartcontractkit/chainlink/core/store/models"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
@@ -55,20 +58,20 @@ func (_m *ORM) CreateRun(ctx context.Context, jobID int32, meta map[string]inter
 	return r0, r1
 }
 
-// CreateSpec provides a mock function with given fields: ctx, taskDAG
-func (_m *ORM) CreateSpec(ctx context.Context, taskDAG pipeline.TaskDAG) (int32, error) {
-	ret := _m.Called(ctx, taskDAG)
+// CreateSpec provides a mock function with given fields: ctx, db, taskDAG
+func (_m *ORM) CreateSpec(ctx context.Context, db *gorm.DB, taskDAG pipeline.TaskDAG) (int32, error) {
+	ret := _m.Called(ctx, db, taskDAG)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.TaskDAG) int32); ok {
-		r0 = rf(ctx, taskDAG)
+	if rf, ok := ret.Get(0).(func(context.Context, *gorm.DB, pipeline.TaskDAG) int32); ok {
+		r0 = rf(ctx, db, taskDAG)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.TaskDAG) error); ok {
-		r1 = rf(ctx, taskDAG)
+	if rf, ok := ret.Get(1).(func(context.Context, *gorm.DB, pipeline.TaskDAG) error); ok {
+		r1 = rf(ctx, db, taskDAG)
 	} else {
 		r1 = ret.Error(1)
 	}

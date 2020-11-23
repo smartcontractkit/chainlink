@@ -5,7 +5,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
 )
 
@@ -24,7 +24,7 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 func NewApp(client *Client) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
-	app.Version = fmt.Sprintf("%v@%v", store.Version, store.Sha)
+	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
