@@ -53,12 +53,7 @@ export const Runs = ({
       <ErrorComponent />
       <LoadingPlaceholder />
       <Card>
-        {!error && recentRuns && (
-          <JobRunsList
-            runs={recentRuns}
-            hideLinks={job?.type === 'Off-chain reporting'}
-          />
-        )}
+        {!error && recentRuns && <JobRunsList runs={recentRuns} />}
         <TablePagination
           component="div"
           count={recentRunsCount}

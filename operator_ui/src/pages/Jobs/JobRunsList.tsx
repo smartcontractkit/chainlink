@@ -79,10 +79,9 @@ interface Props extends WithStyles<typeof styles> {
     status: RunStatus
     jobId: string
   }[]
-  hideLinks?: boolean
 }
 
-const List = ({ runs, hideLinks, classes }: Props) => {
+const List = ({ runs, classes }: Props) => {
   const history = useHistory()
 
   return (
@@ -106,20 +105,12 @@ const List = ({ runs, hideLinks, classes }: Props) => {
           runs.map((r) => (
             <TableRow
               key={r.id}
-              style={hideLinks ? {} : { cursor: 'pointer' }}
-              onClick={() =>
-                hideLinks
-                  ? undefined
-                  : history.push(`/jobs/${r.jobId}/runs/${r.id}`)
-              }
+              style={{ cursor: 'pointer' }}
+              onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
             >
               <TableCell className={classes.idCell} scope="row">
                 <div className={classes.runDetails}>
-                  <Typography
-                    variant="h5"
-                    color={hideLinks ? 'secondary' : 'primary'}
-                    component="span"
-                  >
+                  <Typography variant="h5" color={'primary'} component="span">
                     {r.id}
                   </Typography>
                 </div>

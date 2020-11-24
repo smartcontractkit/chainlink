@@ -99,10 +99,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
 
                 {recentRuns && (
                   <>
-                    <JobRunsList
-                      runs={recentRuns}
-                      hideLinks={job?.type === 'Off-chain reporting'}
-                    />
+                    <JobRunsList runs={recentRuns} />
                     {recentRunsCount > showJobRunsCount && (
                       <div className={classes.runDetails}>
                         <Button
