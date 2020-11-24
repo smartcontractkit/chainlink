@@ -118,10 +118,10 @@ export const RecentRuns = withStyles(chartCardStyles)(
               </Card>
             </Grid>
             <Grid item xs={4}>
-              {job?.type === 'Off-chain reporting' && (
+              {job?.type === 'Off-chain reporting' && job.dotDagSource !== '' && (
                 <Grid item xs>
                   <Card className={classes.card}>
-                    <CardTitle divider>Task List</CardTitle>
+                    <CardTitle divider>Task list</CardTitle>
                     <TaskListDag dotSource={job.dotDagSource} />
                   </Card>
                 </Grid>
@@ -145,7 +145,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
                   </Grid>
                   <Grid item xs>
                     <Card>
-                      <CardTitle divider>Task List</CardTitle>
+                      <CardTitle divider>Task list</CardTitle>
                       <TaskList tasks={job.tasks} />
                     </Card>
                   </Grid>

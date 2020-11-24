@@ -49,7 +49,7 @@ describe('Operator', () => {
     operator = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator.setFulfillmentPermission(roles.oracleNode.address, true)
+    await operator.setAuthorizedSender(roles.oracleNode.address, true)
   })
 
   beforeEach(async () => {
@@ -63,11 +63,11 @@ describe('Operator', () => {
       'forward',
       'fulfillOracleRequest',
       'fulfillOracleRequest2',
-      'getAuthorizationStatus',
+      'isAuthorizedSender',
       'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
-      'setFulfillmentPermission',
+      'setAuthorizedSender',
       'withdraw',
       'withdrawable',
       // Ownable methods:
@@ -77,16 +77,16 @@ describe('Operator', () => {
     ])
   })
 
-  describe('#setFulfillmentPermission', () => {
+  describe('#setAuthorizedSender', () => {
     describe('when called by the owner', () => {
       beforeEach(async () => {
         await operator
           .connect(roles.defaultAccount)
-          .setFulfillmentPermission(roles.stranger.address, true)
+          .setAuthorizedSender(roles.stranger.address, true)
       })
 
       it('adds an authorized node', async () => {
-        const authorized = await operator.getAuthorizationStatus(
+        const authorized = await operator.isAuthorizedSender(
           roles.stranger.address,
         )
         assert.equal(true, authorized)
@@ -95,8 +95,8 @@ describe('Operator', () => {
       it('removes an authorized node', async () => {
         await operator
           .connect(roles.defaultAccount)
-          .setFulfillmentPermission(roles.stranger.address, false)
-        const authorized = await operator.getAuthorizationStatus(
+          .setAuthorizedSender(roles.stranger.address, false)
+        const authorized = await operator.isAuthorizedSender(
           roles.stranger.address,
         )
         assert.equal(false, authorized)
@@ -108,7 +108,7 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .setFulfillmentPermission(roles.stranger.address, true)
+            .setAuthorizedSender(roles.stranger.address, true)
         })
       })
     })
@@ -381,7 +381,7 @@ describe('Operator', () => {
         beforeEach(async () => {
           assert.equal(
             false,
-            await operator.getAuthorizationStatus(roles.stranger.address),
+            await operator.isAuthorizedSender(roles.stranger.address),
           )
         })
 
@@ -814,7 +814,7 @@ describe('Operator', () => {
           beforeEach(async () => {
             assert.equal(
               false,
-              await operator.getAuthorizationStatus(roles.stranger.address),
+              await operator.isAuthorizedSender(roles.stranger.address),
             )
           })
 
@@ -1304,7 +1304,7 @@ describe('Operator', () => {
             beforeEach(async () => {
               assert.equal(
                 false,
-                await operator.getAuthorizationStatus(roles.stranger.address),
+                await operator.isAuthorizedSender(roles.stranger.address),
               )
             })
 
@@ -1794,7 +1794,7 @@ describe('Operator', () => {
             beforeEach(async () => {
               assert.equal(
                 false,
-                await operator.getAuthorizationStatus(roles.stranger.address),
+                await operator.isAuthorizedSender(roles.stranger.address),
               )
             })
 
