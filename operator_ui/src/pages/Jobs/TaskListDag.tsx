@@ -16,6 +16,8 @@ type NodeElement = {
   y: number
 }
 
+console.log('theme', theme)
+
 function createDag({
   dotSource,
   ref,
@@ -29,6 +31,9 @@ function createDag({
   const stratify = parseDot(`digraph {${dotSource}}`)
   const width = ref.offsetWidth
   const height = stratify.length * 60
+
+  // Clean up
+  d3.select(ref).select('svg').remove()
 
   const svgSelection = d3
     .select(ref)
@@ -57,6 +62,7 @@ function createDag({
     .x((node) => node.x)
     .y((node) => node.y)
 
+  // Styling links
   groupSelection
     .append('g')
     .selectAll('path')
@@ -66,7 +72,7 @@ function createDag({
     .attr('d', ({ points }) => line(points))
     .attr('fill', 'none')
     .attr('stroke-width', 2)
-    .attr('stroke', '#3c40c6')
+    .attr('stroke', theme.palette.grey['300'])
 
   const nodes = groupSelection
     .append('g')
@@ -92,6 +98,7 @@ function createDag({
         .duration(50)
     })
 
+  // Styling dots
   nodes
     .append('circle')
     .attr('id', (node) => {
@@ -101,7 +108,7 @@ function createDag({
     .attr('fill', 'black')
     .attr('stroke', 'white')
     .attr('stroke-width', 6)
-    .attr('fill', '#3c40c6')
+    .attr('fill', theme.palette.primary.main)
 
   nodes
     .append('text')
@@ -119,7 +126,7 @@ interface Props {
   dotSource: string
 }
 
-const TaskList = ({ dotSource }: Props) => {
+export const TaskList = ({ dotSource }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
   const graph = React.useRef<HTMLInputElement>(null)
 
@@ -128,6 +135,18 @@ const TaskList = ({ dotSource }: Props) => {
       createDag({ dotSource, ref: graph.current, setTooltip })
     }
   }, [dotSource])
+
+  React.useEffect(() => {
+    function handleResize() {
+      if (graph.current) {
+        createDag({ dotSource, ref: graph.current, setTooltip })
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+
+    return () => window.removeEventListener('resize', handleResize)
+  }, [dotSource, graph])
 
   return (
     <div style={{ position: 'relative' }}>
@@ -163,7 +182,14 @@ const TaskList = ({ dotSource }: Props) => {
       )}
       <div
         id="graph"
-        style={{ padding: `${theme.spacing.unit * 3}px 0px` }}
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginLeft: theme.spacing.unit * 3,
+          marginRight: theme.spacing.unit * 3,
+          paddingTop: theme.spacing.unit * 3,
+          paddingBottom: theme.spacing.unit * 3,
+        }}
         ref={graph}
       />
     </div>

@@ -13,6 +13,7 @@ import { DirectRequestJobRun, OffChainReportingJobRun } from '../sharedTypes'
 import { Overview } from './Overview/Overview'
 import { Json } from './Json'
 import { getOcrJobStatus, isOcrJob } from '../utils'
+import { TaskList } from '../TaskListDag'
 
 function getErrorsList(
   jobRun: DirectRequestJobRun | OffChainReportingJobRun,
@@ -145,7 +146,19 @@ export const Show = ({ match }: Props) => {
               </Grid>
             </Grid>
             <Grid item xs={4}>
-              <StatusCard {...jobRun} title={jobRun.status} />
+              <Grid container spacing={40}>
+                <Grid item xs={12}>
+                  <StatusCard {...jobRun} title={jobRun.status} />
+                </Grid>
+                {jobRun.type === 'Off-chain reporting job run' && (
+                  <Grid item xs={12}>
+                    <Card style={{ overflow: 'visible' }}>
+                      <CardTitle divider>Task list</CardTitle>
+                      <TaskList dotSource={jobRun.pipelineSpec.DotDagSource} />
+                    </Card>
+                  </Grid>
+                )}
+              </Grid>
             </Grid>
           </Grid>
         )}
