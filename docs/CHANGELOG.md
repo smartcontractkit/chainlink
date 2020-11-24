@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`
 
+## [0.9.6] - 2020-11-23
+
 ### Changed
 
 Numerous key-related UX improvements:
@@ -32,6 +34,7 @@ Numerous key-related UX improvements:
 ### Fixed
 
 - Fixed an issue where the HTTP adapter would send an empty body on retries.
+- Changed the default `JOB_PIPELINE_REAPER_THRESHOLD` value from `7d` to `168h` (hours are the highest time unit allowed by `time.Duration`).
 
 ## [0.9.5] - 2020-11-12
 
