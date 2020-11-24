@@ -1,7 +1,8 @@
 import React from 'react'
 import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
-import Grid from '@material-ui/core/Grid'
+import { CardTitle } from '@chainlink/styleguide'
+import { Card, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
 import StatusCard from 'components/StatusCard/StatusCard'
 import { useErrorHandler } from 'hooks/useErrorHandler'
@@ -46,6 +47,10 @@ export const Show = ({ match }: Props) => {
     getJobRun()
   }, [getJobRun])
 
+  const erroredTasks = jobRun
+    ? jobRun.taskRuns.filter((tr) => tr.status === 'errored')
+    : []
+
   return (
     <>
       <RegionalNav {...match.params} jobRun={jobRun} />
@@ -55,13 +60,33 @@ export const Show = ({ match }: Props) => {
         {jobRun && (
           <Grid container spacing={40}>
             <Grid item xs={8}>
-              <Switch>
-                <Route
-                  path={`${match.path}/json`}
-                  render={() => <Json jobRun={jobRun} />}
-                />
-                <Route render={() => <Overview jobRun={jobRun} />} />
-              </Switch>
+              <Grid container spacing={40}>
+                {erroredTasks.length > 0 && (
+                  <Grid item xs={12}>
+                    <Card>
+                      <CardTitle divider>Errors</CardTitle>
+                      <ul>
+                        {erroredTasks.map((tr) => (
+                          <li key={tr.id}>
+                            <Typography variant="body1">
+                              {tr.result.error}
+                            </Typography>
+                          </li>
+                        ))}
+                      </ul>
+                    </Card>
+                  </Grid>
+                )}
+                <Grid item xs={12}>
+                  <Switch>
+                    <Route
+                      path={`${match.path}/json`}
+                      render={() => <Json jobRun={jobRun} />}
+                    />
+                    <Route render={() => <Overview jobRun={jobRun} />} />
+                  </Switch>
+                </Grid>
+              </Grid>
             </Grid>
             <Grid item xs={4}>
               <StatusCard {...jobRun} title={jobRun.status} />

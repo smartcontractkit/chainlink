@@ -27,6 +27,24 @@ describe('pages/JobRuns/Show/Overview', () => {
           status: 'completed',
           task: { type: 'noop', params: {} },
         },
+        {
+          id: 'taskRunB',
+          result: {
+            data: {},
+            error: `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
+          },
+          data: {},
+          error: `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
+          status: 'errored',
+          task: {
+            CreatedAt: '2020-11-23T11:49:27.945672Z',
+            ID: 10,
+            UpdatedAt: '2020-11-23T11:49:27.945672Z',
+            confirmations: 0,
+            params: { get: 'http://localhost:5973' },
+            type: 'httpgetwithunrestrictednetworkaccess',
+          },
+        },
       ],
       result: {
         data: {
@@ -48,5 +66,9 @@ describe('pages/JobRuns/Show/Overview', () => {
     expect(wrapper.text()).toContain('Web')
     expect(wrapper.text()).toContain('Noop')
     expect(wrapper.text()).toContain('Completed')
+    expect(wrapper.text()).toContain('Errors')
+    expect(wrapper.text()).toContain(
+      `Get "http://localhost:5973": dial tcp 127.0.0.1:5973: connect: connection refused`,
+    )
   })
 })

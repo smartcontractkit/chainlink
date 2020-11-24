@@ -36,10 +36,6 @@ const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
 const JobRunsShowOverview = universal(import('./pages/Jobs/Runs/Show'), uniOpts)
-const JobRunsShowErrorLog = universal(
-  import('./pages/Jobs/Runs/ErrorLog'),
-  uniOpts,
-)
 const TransactionsIndex = universal(
   import('./pages/Transactions/Index'),
   uniOpts,
@@ -95,11 +91,6 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute
                 path="/jobs/:jobSpecId/runs/:jobRunId"
                 component={JobRunsShowOverview}
-              />
-              <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/runs/:jobRunId/error_log"
-                component={JobRunsShowErrorLog}
               />
               <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
               <PrivateRoute exact path="/bridges" component={BridgesIndex} />

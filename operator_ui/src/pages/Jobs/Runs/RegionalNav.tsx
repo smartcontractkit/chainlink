@@ -131,14 +131,6 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
             <NavItem href={`/jobs/${jobSpecId}/runs/${jobRunId}/json`}>
               JSON
             </NavItem>
-            {jobRun && jobRun.status === 'errored' && (
-              <NavItem
-                href={`/jobs/${jobSpecId}/runs/${jobRunId}/error_log`}
-                error
-              >
-                Error Log
-              </NavItem>
-            )}
           </List>
         </Grid>
       </Grid>

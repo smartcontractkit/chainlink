@@ -49,7 +49,6 @@ const styles = (theme: any) =>
   })
 
 interface Props extends WithStyles<typeof styles> {
-  children?: React.ReactNode
   createdAt?: string
   finishedAt?: string | null
   payment?: string | null
@@ -75,7 +74,6 @@ const EarnedLink = ({
 const StatusCard: React.FC<Props> = ({
   title,
   classes,
-  children,
   payment,
   status = '',
   createdAt = '',
@@ -113,7 +111,6 @@ const StatusCard: React.FC<Props> = ({
           </Grid>
         </Grid>
       </div>
-      {children}
     </PaddedCard>
   )
 }

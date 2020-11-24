@@ -33,15 +33,6 @@ describe('components/StatusCard', () => {
     expect(component.text()).toContain('Pending Incoming Confirmations')
   })
 
-  it('can display children', () => {
-    const withChildren = mountWithTheme(
-      <StatusCard title={'pending_incoming_confirmations'}>
-        I am a child
-      </StatusCard>,
-    )
-    expect(withChildren.text()).toContain('I am a child')
-  })
-
   it('can display the elapsed time for finished jobruns', () => {
     const erroredStatus = mountWithTheme(
       <StatusCard title="errored" {...erroredRun} />,
