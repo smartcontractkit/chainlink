@@ -80,7 +80,7 @@ answer2 [type=bridge name=election_winner index=1];
 
 	simpleFetchDataSourceTemplate = `
 // data source 1
-ds1          [type=http method=GET url="%s"];
+ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true"];
 ds1_parse    [type=jsonparse path="USD" lax=%t];
 ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
