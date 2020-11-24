@@ -77,4 +77,29 @@ describe('pages/Jobs/RecentRuns', () => {
     expect(wrapper.text()).toContain(taskNames[1])
     expect(wrapper.text()).toContain(taskNames[2])
   })
+
+  it('works with no tasks (bootstrap node)', async () => {
+    global.fetch.getOnce(
+      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}/runs`),
+      jsonApiOcrJobRuns(),
+    )
+    global.fetch.getOnce(
+      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}`),
+      jsonApiOcrJobSpec({
+        id: OCR_JOB_SPEC_ID,
+        dotDagSource: '',
+      }),
+    )
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/:jobSpecId" component={JobsShow} />,
+      {
+        initialEntries: [`/jobs/${OCR_JOB_SPEC_ID}`],
+      },
+    )
+
+    await syncFetch(wrapper)
+    expect(wrapper.text()).toContain('Recent job runs')
+    expect(wrapper.text()).not.toContain('Task list')
+  })
 })
