@@ -2507,10 +2507,10 @@
     "@types/yargs" "^15.0.0"
     chalk "^3.0.0"
 
-"@krebernisak/ovm-compiler@^4.0.11":
-  version "4.0.11"
-  resolved "https://registry.npmjs.org/@krebernisak/ovm-compiler/-/ovm-compiler-4.0.11.tgz#1dfd82480ae1eca70b8b9dd1f9aab3852bb6626a"
-  integrity sha512-O2S5/Z8fiC38Y0fJ3v/tQOsxLooyOKZaiO1bvmA5UVkvwy37DMVawYICoXkSOVH3SRVwI5OrGHNR+8WevtZbrA==
+"@krebernisak/ovm-compiler@^4.0.12":
+  version "4.0.12"
+  resolved "https://registry.npmjs.org/@krebernisak/ovm-compiler/-/ovm-compiler-4.0.12.tgz#68b05a1b5d70f02473dd067eb86a7353a0fd09f7"
+  integrity sha512-ajxTbcwSkEtdyvH6TlaUGBcfTPev7/TmXmdsod25beL1aBSaL616V5Q8I3R3tqQaWMFebtNbhg9BXXrwOmlV0A==
   dependencies:
     "@0x/assert" "^3.0.7"
     "@0x/json-schemas" "^5.0.7"
@@ -2559,15 +2559,6 @@
     "@ledgerhq/logs" "^5.30.0"
     rxjs "^6.6.3"
 
-"@ledgerhq/devices@^5.29.0":
-  version "5.29.0"
-  resolved "https://registry.npmjs.org/@ledgerhq/devices/-/devices-5.29.0.tgz#c808e65c9d3b96c29903980790a3cf0fb43f79ac"
-  integrity sha512-Ln2f2n6A/JyFLQbKRMIGCKjgJFSAVaJbwO1W+LOSiQLNL1oLXypWRxrcbeyehQjxSMT2rTkeISOK9BaweWnJFg==
-  dependencies:
-    "@ledgerhq/errors" "^5.29.0"
-    "@ledgerhq/logs" "^5.29.0"
-    rxjs "^6.6.3"
-
 "@ledgerhq/errors@^4.78.0":
   version "4.78.0"
   resolved "https://registry.npmjs.org/@ledgerhq/errors/-/errors-4.78.0.tgz#23daf3af54d03b1bda3e616002b555da1bdb705a"
@@ -2577,11 +2568,6 @@
   version "5.30.0"
   resolved "https://registry.npmjs.org/@ledgerhq/errors/-/errors-5.30.0.tgz#f8baaf9d0a326abc567f66bbdb0b740674143182"
   integrity sha512-pSX50OEQqK56WiZG2lIxGijy5QUwiWNDFXzAoPCh2BOGGWhBq6LaYSKQyQaRIpUXzAubt0s1lUj3sHNYTOA9vg==
-
-"@ledgerhq/errors@^5.29.0":
-  version "5.29.0"
-  resolved "https://registry.npmjs.org/@ledgerhq/errors/-/errors-5.29.0.tgz#2e2c5b953e45d9b9f90563d67218549be84eaaed"
-  integrity sha512-gYit3aWS8BHtE7tt4gMy2FzOl+azKDR4C6CISmeAZrT2euDHB8YOKZcqsrYqeQRUxABXXT81ZIkYx/3hSYeHfQ==
 
 "@ledgerhq/hw-app-eth@5.27.2":
   version "5.27.2"
@@ -2706,11 +2692,6 @@
   version "5.30.0"
   resolved "https://registry.npmjs.org/@ledgerhq/logs/-/logs-5.30.0.tgz#76e8d7e5a06a73c9b99da51fa5befd5cfd5309d4"
   integrity sha512-wUhg2VTfUrWihjdGqKkH/s7TBzdIM1yyd2LiscYsfTX2I0xYDMnpE+NkMReeGU8PN3QhCPgnlg9/P9V6UWoJBA==
-
-"@ledgerhq/logs@^5.29.0":
-  version "5.29.0"
-  resolved "https://registry.npmjs.org/@ledgerhq/logs/-/logs-5.29.0.tgz#92e0ac8856ac59f9e7e2c286cb4531b724f837bd"
-  integrity sha512-bYWLCO/Wnwfd47kD5JRiCdBVMAAArFEbisqnZY3J5ZyxUE0va8Ta3z8RO6ClsBEbrtEut+7Xv3R0ejxmPXXYiQ==
 
 "@material-ui/core@^3.9.2":
   version "3.9.4"

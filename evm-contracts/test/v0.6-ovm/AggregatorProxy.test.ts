@@ -341,11 +341,10 @@ describe('AggregatorProxy', () => {
           matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
-          // OVM CHANGE: ?
+          // OVM CHANGE: slower OVM tests
           // assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
-          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 180)
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 2)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          // OVM CHANGE: ? (next line fails)
           matchers.bigNum(proxyId, round.answeredInRound)
         })
       })
@@ -375,7 +374,6 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(response2, round.answer)
         matchers.bigNum(42, round.startedAt)
         matchers.bigNum(77, round.updatedAt)
-        // OVM CHANGE: ? (next line fails)
         matchers.bigNum(proxyId, round.answeredInRound)
       })
     })
@@ -396,12 +394,11 @@ describe('AggregatorProxy', () => {
       matchers.bigNum(proxyId, round.roundId)
       matchers.bigNum(response, round.answer)
       const nowSeconds = new Date().valueOf() / 1000
-      // OVM CHANGE: ?
+      // OVM CHANGE: slower OVM tests
       // assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
-      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 180)
+      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120 * 2)
       assert.isBelow(round.startedAt.toNumber(), nowSeconds)
       matchers.bigNum(round.startedAt, round.updatedAt)
-      // OVM CHANGE: ? (next line fails)
       matchers.bigNum(proxyId, round.answeredInRound)
     })
   })
@@ -442,11 +439,10 @@ describe('AggregatorProxy', () => {
           matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response2, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
-          // OVM CHANGE: ?
+          // OVM CHANGE: slower OVM tests
           // assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120)
-          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 180)
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 2)
           matchers.bigNum(round.updatedAt, round.startedAt)
-          // OVM CHANGE: ? (next line fails)
           matchers.bigNum(proxyId, round.answeredInRound)
         })
 
@@ -488,7 +484,6 @@ describe('AggregatorProxy', () => {
         matchers.bigNum(response2, round.answer)
         matchers.bigNum(42, round.startedAt)
         matchers.bigNum(77, round.updatedAt)
-        // OVM CHANGE: ? (next line fails)
         matchers.bigNum(proxyId, round.answeredInRound)
       })
 
