@@ -1,7 +1,11 @@
 import { PaddedCard } from '@chainlink/styleguide'
-import { Grid } from '@material-ui/core'
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
-import Typography from '@material-ui/core/Typography'
+import {
+  createStyles,
+  withStyles,
+  WithStyles,
+  Grid,
+  Typography,
+} from '@material-ui/core'
 import { titleCase } from 'title-case'
 import { noCase } from 'change-case'
 import classNames from 'classnames'
