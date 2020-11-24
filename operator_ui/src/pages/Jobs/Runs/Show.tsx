@@ -26,7 +26,7 @@ export const Show = ({ match }: Props) => {
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobRun)
 
   React.useEffect(() => {
-    document.title = 'Show job run'
+    document.title = 'Job run details'
   }, [])
 
   const getJobRun = React.useCallback(async () => {
