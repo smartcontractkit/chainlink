@@ -46,8 +46,6 @@ export const Show = ({ match }: Props) => {
     getJobRun()
   }, [getJobRun])
 
-  console.log(`${match.path}/json`)
-
   return (
     <>
       <RegionalNav {...match.params} jobRun={jobRun} />
