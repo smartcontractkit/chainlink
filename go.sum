@@ -1087,8 +1087,6 @@ github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6Mwd
 github.com/sirupsen/logrus v1.6.0 h1:UBcNElsrwanuuMsnGSlYmtmgbb23qDR5dG+6X6Oo89I=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
-github.com/smartcontractkit/libocr v0.0.0-20201104141745-a805eb2bc4fc h1:8Og6pkrK+O/KUTfG8BCOnDKPMmowJLU/TWhzqYNT9e4=
-github.com/smartcontractkit/libocr v0.0.0-20201104141745-a805eb2bc4fc/go.mod h1:Yfu8T/45S0pf1qQ6JLHMNxXKBNqOfPZLtkA4Urk7njI=
 github.com/smartcontractkit/libocr v0.0.0-20201120141554-a98a18922cd3 h1:vGvNPgjSQXzcxa/6UIqw61F0VeQpLe1aTWG7jn9WaVE=
 github.com/smartcontractkit/libocr v0.0.0-20201120141554-a98a18922cd3/go.mod h1:RtJN4mF8ibkzwTkC8UzBKc3X4DIjk9ajn8WVPNJVQ4Q=
 github.com/smartcontractkit/libocr v0.0.0-20201123232443-3e79f1439e8c h1:oRBpTbjRvfrGf/vQ2TMgGtAITXMcSiPnaCjE2uPJ/40=

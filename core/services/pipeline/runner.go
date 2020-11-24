@@ -198,6 +198,11 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 			return Result{Error: err}
 		}
+		taskTimeout, isSet := task.TaskTimeout()
+		if isSet {
+			ctx, cancel = context.WithTimeout(ctx, taskTimeout)
+			defer cancel()
+		}
 
 		result := task.Run(ctx, taskRun, inputs)
 		if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
