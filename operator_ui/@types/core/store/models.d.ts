@@ -470,8 +470,8 @@ declare module 'core/store/models' {
     toml: string
   }
 
-  type OcrTaskOutput = ?string
-  type OcrTaskError = ?string
+  type OcrTaskOutput = string | null
+  export type OcrTaskError = string | null
 
   export interface OcrJobSpec {
     errors: JobSpecError[]
@@ -503,6 +503,11 @@ declare module 'core/store/models' {
     taskRuns: OcrTaskRun[]
     createdAt: time.Time
     finishedAt: nullable.Time
+    pipelineSpec: {
+      ID: number
+      CreatedAt: time.Time
+      DotDagSource: string
+    }
   }
 }
 

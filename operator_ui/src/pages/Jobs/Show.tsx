@@ -7,14 +7,13 @@ import {
   generateJSONDefinition,
   generateTOMLDefinition,
 } from './generateJobSpecDefinition'
-import { PaginatedApiResponse } from '@chainlink/json-api-client'
-import { OcrJobRun, RunStatus } from 'core/store/models'
 import { JobData } from './sharedTypes'
 import { JobsDefinition } from './Definition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
+import { getOcrJobStatus, isOcrJob } from './utils'
 
 type Props = RouteComponentProps<{
   jobSpecId: string
@@ -22,18 +21,6 @@ type Props = RouteComponentProps<{
 
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
-
-function getOcrJobStatus({
-  attributes: { finishedAt, errors },
-}: NonNullable<PaginatedApiResponse<OcrJobRun[]>>['data'][0]) {
-  if (finishedAt === null) {
-    return RunStatus.IN_PROGRESS
-  }
-  if (errors[0] !== null) {
-    return RunStatus.ERRORED
-  }
-  return RunStatus.COMPLETED
-}
 
 export const JobsShow: React.FC<Props> = ({ match }) => {
   const [state, setState] = React.useState<JobData>({
@@ -45,9 +32,6 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
 
   const { jobSpecId } = match.params
-  // `isNaN` actually accepts strings and we don't want to `parseInt` or `parseFloat`
-  //  as it doesn't have the behaviour we want.
-  const isOcrJob = !isNaN((jobSpecId as unknown) as number)
 
   const getJobSpecRuns = React.useCallback(
     ({ page = DEFAULT_PAGE, size = RECENT_RUNS_COUNT } = {}) => {
@@ -56,16 +40,16 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         page,
         size,
       }
-      if (isOcrJob) {
+      if (isOcrJob(jobSpecId)) {
         return v2.ocrRuns
           .getJobSpecRuns(requestParams)
           .then((jobSpecRunsResponse) => {
             setState((s) => ({
               ...s,
               recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
-                createdAt: jobRun.attributes.createdAt,
+                ...jobRun.attributes,
                 id: jobRun.id,
-                status: getOcrJobStatus(jobRun),
+                status: getOcrJobStatus(jobRun.attributes),
                 jobId: jobSpecId,
               })),
               recentRunsCount: jobSpecRunsResponse.meta.count,
@@ -79,9 +63,8 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
             setState((s) => ({
               ...s,
               recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
-                createdAt: jobRun.attributes.createdAt,
+                ...jobRun.attributes,
                 id: jobRun.id,
-                status: jobRun.attributes.status,
                 jobId: jobSpecId,
               })),
               recentRunsCount: jobSpecRunsResponse.meta.count,
@@ -94,7 +77,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
   )
 
   const getJobSpec = React.useCallback(async () => {
-    if (isOcrJob) {
+    if (isOcrJob(jobSpecId)) {
       return v2.ocrSpecs
         .getJobSpec(jobSpecId)
         .then((response) => {

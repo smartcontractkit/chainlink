@@ -43,10 +43,11 @@ export type DirectRequestJob = BaseJob & {
 }
 
 export type BaseJobRun = {
-  createdAt: string
+  createdAt: time.Time
+  finishedAt: time.Time | null
   id: string
-  status: RunStatus
   jobId: string
+  status: RunStatus
 }
 
 export type DirectRequestJobRun = BaseJobRun & {
@@ -54,8 +55,20 @@ export type DirectRequestJobRun = BaseJobRun & {
   overrides: RunResult
   result: RunResult
   taskRuns: TaskRun[]
-  finishedAt: time.Time | null
   payment: string | null
+  type: 'Direct request job run'
+}
+
+export type OcrTaskRun = OcrJobRun['taskRuns'][0] & { status: RunStatus }
+
+export type OffChainReportingJobRun = BaseJobRun & {
+  outputs: (string | null)[]
+  errors: (string | null)[]
+  pipelineSpec: {
+    DotDagSource: string
+  }
+  taskRuns: OcrTaskRun[]
+  type: 'Off-chain reporting job run'
 }
 
 export type JobData = {
