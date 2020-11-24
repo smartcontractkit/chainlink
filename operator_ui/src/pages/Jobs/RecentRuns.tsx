@@ -11,7 +11,7 @@ import {
 import Button from 'components/Button'
 import BaseLink from 'components/BaseLink'
 import Content from 'components/Content'
-import JobRunsList from 'components/List'
+import JobRunsList from './JobRunsList'
 import TaskListDag from 'components/Jobs/TaskListDag'
 import TaskList from 'components/Jobs/TaskList'
 import React from 'react'
