@@ -89,7 +89,7 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize           uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                     *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                           string          `json:"ethUrl"`
-	EthereumSecondaryURLs                 []url.URL       `json:"ethSecondaryURLs"`
+	EthereumSecondaryURLs                 []url.URL       `json:"ethSecondaryUrls"`
 	ExplorerURL                           string          `json:"explorerUrl"`
 	FeatureExternalInitiators             bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor                    bool            `json:"featureFluxMonitor"`
