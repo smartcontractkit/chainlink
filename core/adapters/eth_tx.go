@@ -1,10 +1,15 @@
 package adapters
 
 import (
+	"math/big"
+	"reflect"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/tidwall/gjson"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,9 +31,15 @@ type EthTx struct {
 	FromAddress      common.Address          `json:"fromAddress,omitempty"`
 	FromAddresses    []common.Address        `json:"fromAddresses,omitempty"`
 	FunctionSelector models.FunctionSelector `json:"functionSelector"`
-	DataPrefix       hexutil.Bytes           `json:"dataPrefix"`
-	DataFormat       string                  `json:"format"`
-	GasLimit         uint64                  `json:"gasLimit,omitempty"`
+	// DataPrefix is typically a standard first argument
+	// to chainlink callback calls - usually the requestID
+	DataPrefix hexutil.Bytes `json:"dataPrefix"`
+	DataFormat string        `json:"format"`
+	GasLimit   uint64        `json:"gasLimit,omitempty"`
+
+	// Optional list of desired encodings for ResultCollectKey arguments.
+	// i.e. ["uint246", "address", "bytes2"]
+	ABIEncoding []string `json:"abiEncoding"`
 
 	// MinRequiredOutgoingConfirmations only works with bulletprooftxmanager
 	MinRequiredOutgoingConfirmations uint64 `json:"minRequiredOutgoingConfirmations,omitempty"`
@@ -89,7 +100,7 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 }
 
 func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	txData, err := getTxData(e, input)
+	txData, err := getTxData2(e, input.Data())
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
 		return models.NewRunOutputError(err)
@@ -177,6 +188,72 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 
 }
 
+// I'm thinking we start with a base set of supported types and expand as needed.
+var solidityTypeToGoType = map[string]reflect.Type{
+	"int256":  reflect.TypeOf(big.Int{}),
+	"uint256": reflect.TypeOf(big.Int{}),
+	"bool":    reflect.TypeOf(false),
+	"bytes32": reflect.TypeOf([32]byte{}),
+}
+
+var (
+	ErrInvalidArgType = errors.New("invalid arg type")
+)
+
+func getTxData2(e *EthTx, inputData models.JSON) ([]byte, error) {
+	var arguments abi.Arguments
+	jsonValues := inputData.Get("__chainlink_result_collection__").Array()
+	if len(jsonValues) != len(e.ABIEncoding) {
+		return nil, errors.New("invalid length")
+	}
+	var values = make([]interface{}, len(jsonValues))
+	for i, argType := range e.ABIEncoding {
+		if _, supported := solidityTypeToGoType[argType]; !supported {
+			return nil, ErrInvalidArgType
+		}
+		t, err := abi.NewType(argType, "", nil)
+		if err != nil {
+			return nil, errors.Wrapf(ErrInvalidArgType, "err %v on arg type %s index %d", err, argType, i)
+		}
+		arguments = append(arguments, abi.Argument{
+			Type:    t,
+			Indexed: false,
+		})
+		switch jsonValues[i].Type {
+		case gjson.String:
+			// Only support hex strings [32]byte
+			// TODO support dynamic bytes types?
+			b, err := hexutil.Decode(jsonValues[i].String())
+			if err != nil || len(b) != 32 || argType != "bytes32" {
+				return nil, ErrInvalidArgType
+			}
+			var arg [32]byte
+			copy(arg[:], b)
+			values[i] = arg
+		case gjson.Number:
+			if argType != "int256" && argType != "uint256" {
+				return nil, ErrInvalidArgType
+			}
+			values[i] = big.NewInt(jsonValues[i].Int()) // JSON specs can't actually handle 256bit numbers only 64bit?
+		case gjson.False, gjson.True:
+			// TODO potentially use this cast strategy to support more types
+			if reflect.TypeOf(jsonValues[i].Value()).ConvertibleTo(solidityTypeToGoType[argType]) {
+				values[i] = reflect.ValueOf(jsonValues[i].Value()).Convert(solidityTypeToGoType[argType]).Interface()
+			} else {
+				return nil, errors.Errorf("invalid abi specification for %v->%v", jsonValues[i].Value(), argType)
+			}
+		case gjson.JSON:
+			// Complex types, array or object. Support as needed
+			return nil, errors.Errorf("invalid abi specification for %v->%v", jsonValues[i].Value(), argType)
+		}
+	}
+	packedArgs, err := arguments.PackValues(values)
+	if err != nil {
+		return nil, err
+	}
+	return utils.ConcatBytes(e.FunctionSelector.Bytes(), packedArgs), nil
+}
+
 // getTxData returns the data to save against the callback encoded according to
 // the dataFormat parameter in the job spec
 func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
@@ -189,9 +266,17 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	// If data format is "bytes" then we have dynamic types,
+	// which involve specifying the location of the data portion of the arg.
+
+	// callback(reqID bytes32, bytes arg)
 	if e.DataFormat == DataFormatBytes || len(e.DataPrefix) > 0 {
+		// If we do not have a data prefix (reqID), encoding is:
+		// [4byte fs][0x00..20][arg 1].
 		payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen)
 		if len(e.DataPrefix) > 0 {
+			// If we have a data prefix (reqID), encoding is:
+			// [4byte fs][0x00..40][reqID][arg1]
 			payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
 			return utils.ConcatBytes(payloadOffset, output), nil
 		}
