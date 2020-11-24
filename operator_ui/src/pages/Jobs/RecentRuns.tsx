@@ -19,6 +19,7 @@ import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequestJob, JobData } from './sharedTypes'
+import { parseDot } from './parseDot'
 
 const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
@@ -116,7 +117,9 @@ export const RecentRuns = withStyles(chartCardStyles)(
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
-                    <TaskListDag dotSource={job.dotDagSource} />
+                    <TaskListDag
+                      stratify={parseDot(`digraph {${job.dotDagSource}}`)}
+                    />
                   </Card>
                 </Grid>
               )}

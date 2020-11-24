@@ -3,7 +3,7 @@ import { theme } from 'theme'
 import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
-import { parseDot, Stratify } from './parseDot'
+import { Stratify } from './parseDot'
 
 type Node = {
   x: number
@@ -16,19 +16,16 @@ type NodeElement = {
   y: number
 }
 
-console.log('theme', theme)
-
 function createDag({
-  dotSource,
+  stratify,
   ref,
   setTooltip,
 }: {
-  dotSource: string
+  stratify: Stratify[]
   ref: HTMLInputElement
   setTooltip: Function
 }): void {
   const nodeRadius = 18
-  const stratify = parseDot(`digraph {${dotSource}}`)
   const width = ref.offsetWidth
   const height = stratify.length * 60
 
@@ -108,7 +105,27 @@ function createDag({
     .attr('fill', 'black')
     .attr('stroke', 'white')
     .attr('stroke-width', 6)
-    .attr('fill', theme.palette.primary.main)
+    .attr('fill', (node) => {
+      if (node.data.attributes) {
+        switch (node.data.attributes.status) {
+          case 'in_progress':
+            // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+            // @ts-ignore because material UI doesn't update theme types with options
+            return theme.palette.warning.main
+          case 'completed':
+            // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+            // @ts-ignore because material UI doesn't update theme types with options
+            return theme.palette.success.main
+          case 'errored':
+            return theme.palette.error.main
+          case 'aborted':
+            return theme.palette.grey['500']
+          default:
+            return theme.palette.primary.main
+        }
+      }
+      return theme.palette.primary.main
+    })
 
   nodes
     .append('text')
@@ -123,30 +140,30 @@ function createDag({
 }
 
 interface Props {
-  dotSource: string
+  stratify: Stratify[]
 }
 
-export const TaskList = ({ dotSource }: Props) => {
+export const TaskList = ({ stratify }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
   const graph = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
     if (graph.current) {
-      createDag({ dotSource, ref: graph.current, setTooltip })
+      createDag({ stratify, ref: graph.current, setTooltip })
     }
-  }, [dotSource])
+  }, [stratify])
 
   React.useEffect(() => {
     function handleResize() {
       if (graph.current) {
-        createDag({ dotSource, ref: graph.current, setTooltip })
+        createDag({ stratify, ref: graph.current, setTooltip })
       }
     }
 
     window.addEventListener('resize', handleResize)
 
     return () => window.removeEventListener('resize', handleResize)
-  }, [dotSource, graph])
+  }, [stratify, graph])
 
   return (
     <div style={{ position: 'relative' }}>

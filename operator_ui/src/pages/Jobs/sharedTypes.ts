@@ -59,7 +59,9 @@ export type DirectRequestJobRun = BaseJobRun & {
   type: 'Direct request job run'
 }
 
-export type OcrTaskRun = OcrJobRun['taskRuns'][0] & { status: RunStatus }
+export type OcrTaskRun = OcrJobRun['taskRuns'][0] & {
+  status: 'in_progress' | 'errored' | 'completed' | 'aborted'
+}
 
 export type OffChainReportingJobRun = BaseJobRun & {
   outputs: (string | null)[]
