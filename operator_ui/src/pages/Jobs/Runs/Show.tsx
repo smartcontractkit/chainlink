@@ -2,15 +2,15 @@ import React from 'react'
 import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { CardTitle } from '@chainlink/styleguide'
-import { Card, Divider, Grid, Typography } from '@material-ui/core'
+import { Card, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
-import StatusIcon from 'components/StatusIcon'
-import StatusCard from './StatusCard'
 import { useErrorHandler } from 'hooks/useErrorHandler'
+import StatusCard from './StatusCard'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import RegionalNav from './RegionalNav'
 import { DirectRequestJobRun, PipelineJobRun } from '../sharedTypes'
 import { Overview } from './Overview/Overview'
+import { PipelineJobRunOverview } from './Overview/PipelineJobRunOverview'
 import { Json } from './Json'
 import { isOcrJob } from '../utils'
 import { TaskList } from '../TaskListDag'
@@ -19,7 +19,6 @@ import {
   transformDirectRequestJobRun,
   transformPipelineJobRun,
 } from '../transformJobRuns'
-import { theme } from 'theme'
 
 function getErrorsList(
   jobRun: DirectRequestJobRun | PipelineJobRun | undefined,
@@ -49,7 +48,6 @@ export const Show = ({ match }: Props) => {
   >()
 
   const { jobSpecId, jobRunId } = match.params
-
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobRun)
 
@@ -79,13 +77,6 @@ export const Show = ({ match }: Props) => {
     getJobRun()
   }, [getJobRun])
 
-  const errorsList = getErrorsList(jobRun)
-
-  const stratify =
-    jobRun?.type === 'Off-chain reporting job run'
-      ? augmentOcrTasksList({ jobRun })
-      : []
-
   return (
     <>
       <RegionalNav {...match.params} jobRun={jobRun} />
@@ -96,12 +87,12 @@ export const Show = ({ match }: Props) => {
           <Grid container spacing={40}>
             <Grid item xs={8}>
               <Grid container spacing={40}>
-                {errorsList.length > 0 && (
+                {getErrorsList(jobRun).length > 0 && (
                   <Grid item xs={12}>
                     <Card>
                       <CardTitle divider>Errors</CardTitle>
                       <ul>
-                        {errorsList.map((error, index) => (
+                        {getErrorsList(jobRun).map((error, index) => (
                           <li key={error + index}>
                             <Typography variant="body1">{error}</Typography>
                           </li>
@@ -122,103 +113,7 @@ export const Show = ({ match }: Props) => {
                     {jobRun.type === 'Off-chain reporting job run' && (
                       <Route
                         render={() => (
-                          <Card>
-                            {stratify.map((node) => {
-                              const {
-                                error,
-                                status,
-                                type,
-                                output,
-                                ...customAttributes
-                              } = node.attributes
-                              return (
-                                <>
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      padding: theme.spacing.unit * 2,
-                                    }}
-                                  >
-                                    <span
-                                      style={{
-                                        paddingRight: theme.spacing.unit * 2,
-                                      }}
-                                    >
-                                      <StatusIcon
-                                        width={theme.spacing.unit * 5}
-                                        height={theme.spacing.unit * 5}
-                                      >
-                                        {status}
-                                      </StatusIcon>
-                                    </span>
-                                    <span>
-                                      <Typography
-                                        style={{
-                                          lineHeight: `${
-                                            theme.spacing.unit * 5
-                                          }px`,
-                                        }}
-                                        variant="headline"
-                                      >
-                                        {node.id}{' '}
-                                        <small
-                                          style={{
-                                            color: theme.palette.grey[500],
-                                          }}
-                                        >
-                                          {type}
-                                        </small>
-                                      </Typography>
-                                      {status === 'completed' && (
-                                        <Typography
-                                          style={{
-                                            marginBottom: theme.spacing.unit,
-                                            marginTop: theme.spacing.unit,
-                                          }}
-                                          variant="body1"
-                                        >
-                                          {output}
-                                        </Typography>
-                                      )}
-
-                                      {status === 'errored' && (
-                                        <Typography
-                                          style={{
-                                            marginBottom: theme.spacing.unit,
-                                          }}
-                                          variant="body1"
-                                        >
-                                          {error}
-                                        </Typography>
-                                      )}
-
-                                      {status !== 'not_run' &&
-                                        Object.entries(customAttributes).map(
-                                          ([key, value]) => (
-                                            <Typography
-                                              key={key}
-                                              variant="body1"
-                                            >
-                                              <span
-                                                style={{
-                                                  fontWeight:
-                                                    theme.typography
-                                                      .fontWeightLight,
-                                                }}
-                                              >
-                                                {key}
-                                              </span>
-                                              : {value || '-'}{' '}
-                                            </Typography>
-                                          ),
-                                        )}
-                                    </span>
-                                  </div>
-                                  <Divider />
-                                </>
-                              )
-                            })}
-                          </Card>
+                          <PipelineJobRunOverview jobRun={jobRun} />
                         )}
                       />
                     )}
@@ -235,7 +130,7 @@ export const Show = ({ match }: Props) => {
                   <Grid item xs={12}>
                     <Card style={{ overflow: 'visible' }}>
                       <CardTitle divider>Task list</CardTitle>
-                      <TaskList stratify={stratify} />
+                      <TaskList stratify={augmentOcrTasksList({ jobRun })} />
                     </Card>
                   </Grid>
                 )}
