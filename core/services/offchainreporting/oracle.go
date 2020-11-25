@@ -80,7 +80,7 @@ func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
 		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
 		Type:                        string(JobType),
 		SchemaVersion:               concreteSpec.SchemaVersion,
-		MaxTaskDuration: 			 concreteSpec.MaxTaskDuration,
+		MaxTaskDuration:             concreteSpec.MaxTaskDuration,
 	}
 }
 
