@@ -89,7 +89,7 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize           uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                     *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                           string          `json:"ethUrl"`
-	EthereumSecondaryURLs                 []url.URL       `json:"ethSecondaryURLs"`
+	EthereumSecondaryURLs                 []string        `json:"ethSecondaryUrls"`
 	ExplorerURL                           string          `json:"explorerUrl"`
 	FeatureExternalInitiators             bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor                    bool            `json:"featureFluxMonitor"`
@@ -174,7 +174,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                     config.EthMaxGasPriceWei(),
 			EthereumURL:                           config.EthereumURL(),
-			EthereumSecondaryURLs:                 config.EthereumSecondaryURLs(),
+			EthereumSecondaryURLs:                 mapToStringA(config.EthereumSecondaryURLs()),
 			ExplorerURL:                           explorerURL,
 			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:                    config.FeatureFluxMonitor(),
@@ -274,6 +274,13 @@ func (c ConfigPrinter) GetID() string {
 // deserializing from jsonapi documents.
 func (c *ConfigPrinter) SetID(value string) error {
 	return nil
+}
+
+func mapToStringA(in []url.URL) (out []string) {
+	for _, url := range in {
+		out = append(out, url.String())
+	}
+	return
 }
 
 // JobSpec holds the JobSpec definition together with
