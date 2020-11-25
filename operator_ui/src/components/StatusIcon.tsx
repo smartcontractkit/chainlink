@@ -15,7 +15,7 @@ const StatusIcon = ({ children, width, height }: Props) => {
     return <SuccessIcon width={width} height={height} />
   } else if (children === 'errored') {
     return <ErrorIcon width={width} height={height} />
-  } else if (children === 'aborted') {
+  } else if (children === 'not_run') {
     return <ListIcon width={width} height={height} />
   }
 

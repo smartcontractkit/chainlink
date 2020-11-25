@@ -33,13 +33,13 @@ function getTaskStatus({
       const parentTaskRun = taskRuns.find((tr) => tr.taskSpec.dotId === id)
 
       if (parentTaskRun?.error !== null && parentTaskRun?.error === taskError) {
-        taskError = 'aborted'
+        taskError = 'not_run'
       }
     })
   }
 
-  if (taskError === 'aborted') {
-    return 'aborted'
+  if (taskError === 'not_run') {
+    return 'not_run'
   }
 
   if (taskError !== null) {

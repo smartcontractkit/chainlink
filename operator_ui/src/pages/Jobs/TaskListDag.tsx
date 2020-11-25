@@ -5,6 +5,8 @@ import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
 import { Stratify } from './parseDot'
 
+import StatusIcon from 'components/StatusIcon'
+
 type Node = {
   x: number
   y: number
@@ -20,10 +22,12 @@ function createDag({
   stratify,
   ref,
   setTooltip,
+  setIcon,
 }: {
   stratify: Stratify[]
   ref: HTMLInputElement
   setTooltip: Function
+  setIcon: Function
 }): void {
   const nodeRadius = 18
   const width = ref.offsetWidth
@@ -77,14 +81,17 @@ function createDag({
     .data(dag.descendants())
     .enter()
     .append('g')
-    .attr('style', 'cursor: default')
+    .attr('style', (node) => {
+      setIcon((s: any) => ({ ...s, [node.id]: node }))
+      return 'cursor: default'
+    })
     .attr('id', (node) => node.id)
     .attr('transform', ({ x, y }: any) => `translate(${x}, ${y})`)
     .on('mouseover', (_, node) => {
       setTooltip(node)
       d3.select<d3.BaseType, NodeElement>(`#circle-${node.data.id}`)
         .transition()
-        .attr('r', nodeRadius + 3)
+        .attr('r', nodeRadius + 7)
         .duration(50)
     })
     .on('mouseout', (_, node) => {
@@ -118,13 +125,11 @@ function createDag({
             return theme.palette.success.main
           case 'errored':
             return theme.palette.error.main
-          case 'aborted':
-            return theme.palette.grey['500']
           default:
-            return theme.palette.primary.main
+            return theme.palette.grey['500']
         }
       }
-      return theme.palette.primary.main
+      return theme.palette.grey['500']
     })
 
   nodes
@@ -145,18 +150,19 @@ interface Props {
 
 export const TaskList = ({ stratify }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
+  const [icons, setIcon] = React.useState<{ [nodeId: string]: NodeElement }>({})
   const graph = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
     if (graph.current) {
-      createDag({ stratify, ref: graph.current, setTooltip })
+      createDag({ stratify, ref: graph.current, setTooltip, setIcon })
     }
   }, [stratify])
 
   React.useEffect(() => {
     function handleResize() {
       if (graph.current) {
-        createDag({ stratify, ref: graph.current, setTooltip })
+        createDag({ stratify, ref: graph.current, setTooltip, setIcon })
       }
     }
 
@@ -168,37 +174,62 @@ export const TaskList = ({ stratify }: Props) => {
   return (
     <div style={{ position: 'relative' }}>
       {tooltip && (
-        <div
+        <>
+          <div
+            style={{
+              position: 'absolute',
+              left: '-305px',
+              border: '1px solid rgba(0, 0, 0, 0.1)',
+              padding: theme.spacing.unit,
+              background: 'white',
+              borderRadius: 5,
+              width: '300px',
+              transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
+              zIndex: 1,
+            }}
+          >
+            <Typography variant="body1" color="textPrimary">
+              <b>{tooltip.data.id}</b>
+            </Typography>
+            {tooltip.data?.attributes &&
+              Object.entries(tooltip.data.attributes)
+                // We want to filter errors and outputs out as they can get quite long
+                .filter(([key]) => !['error', 'output'].includes(key))
+                .map(([key, value]) => (
+                  <div key={key}>
+                    <Typography
+                      variant="body1"
+                      color="textSecondary"
+                      component="div"
+                    >
+                      <b>{key}:</b> {value || '-'}
+                    </Typography>
+                  </div>
+                ))}
+          </div>
+        </>
+      )}
+      {Object.values(icons).map((icon) => (
+        <span
+          key={JSON.stringify(icon.data)}
           style={{
             position: 'absolute',
-            left: '-305px',
-            border: '1px solid rgba(0, 0, 0, 0.1)',
-            padding: theme.spacing.unit,
-            background: 'white',
-            borderRadius: 5,
-            width: '300px',
-            transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
+            height: theme.spacing.unit * 5,
+            width: theme.spacing.unit * 5,
+            transform: `translate(${icon.x + theme.spacing.unit * 5}px, ${
+              icon.y + theme.spacing.unit * 2.75
+            }px)`,
+            pointerEvents: 'none',
           }}
         >
-          <Typography variant="body1" color="textPrimary">
-            <b>{tooltip.data.id}</b>
-          </Typography>
-          {tooltip.data?.attributes &&
-            Object.entries(tooltip.data.attributes)
-              .filter(([key]) => key !== 'error') // We want to filter errors out as they can get quite long
-              .map(([key, value]) => (
-                <div key={key}>
-                  <Typography
-                    variant="body1"
-                    color="textSecondary"
-                    component="div"
-                  >
-                    <b>{key}:</b> {value || '-'}
-                  </Typography>
-                </div>
-              ))}
-        </div>
-      )}
+          <StatusIcon
+            height={theme.spacing.unit * 5}
+            width={theme.spacing.unit * 5}
+          >
+            {icon.data.attributes?.status || 'not_run'}
+          </StatusIcon>
+        </span>
+      ))}
       <div
         id="graph"
         style={{

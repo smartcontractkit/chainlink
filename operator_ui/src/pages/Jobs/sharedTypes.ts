@@ -64,7 +64,7 @@ export type PipelineTaskRunStatus =
   | 'in_progress'
   | 'errored'
   | 'completed'
-  | 'aborted'
+  | 'not_run'
 
 export type PipelineTaskRun = OcrJobRun['taskRuns'][0] & {
   status: PipelineTaskRunStatus

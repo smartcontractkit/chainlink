@@ -37,7 +37,7 @@ describe('transformPipelineJobRun', () => {
             'error making http request: Post "http://localhost:8001": dial tcp 127.0.0.1:8001: connect: connection refused',
           finishedAt: '2020-11-19T14:01:25.015681Z',
           output: null,
-          status: 'aborted',
+          status: 'not_run',
           taskSpec: {
             dotId: 'multiply',
           },
@@ -49,7 +49,7 @@ describe('transformPipelineJobRun', () => {
             'error making http request: Post "http://localhost:8001": dial tcp 127.0.0.1:8001: connect: connection refused',
           finishedAt: '2020-11-19T14:01:25.005568Z',
           output: null,
-          status: 'aborted',
+          status: 'not_run',
           taskSpec: {
             dotId: 'parse',
           },

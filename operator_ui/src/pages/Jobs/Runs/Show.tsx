@@ -190,7 +190,7 @@ export const Show = ({ match }: Props) => {
                                         </Typography>
                                       )}
 
-                                      {status !== 'aborted' &&
+                                      {status !== 'not_run' &&
                                         Object.entries(customAttributes).map(
                                           ([key, value]) => (
                                             <Typography

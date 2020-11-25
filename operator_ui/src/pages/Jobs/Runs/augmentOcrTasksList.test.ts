@@ -36,7 +36,7 @@ describe('augmentOcrTasksList', () => {
           },
           createdAt: '2020-11-24T11:38:36.100272Z',
           finishedAt: '2020-11-24T11:39:26.171678Z',
-          status: 'aborted',
+          status: 'not_run',
         },
         {
           type: 'multiply',
@@ -47,7 +47,7 @@ describe('augmentOcrTasksList', () => {
           },
           createdAt: '2020-11-24T11:38:36.100272Z',
           finishedAt: '2020-11-24T11:39:26.176633Z',
-          status: 'aborted',
+          status: 'not_run',
         },
         {
           type: 'jsonparse',
@@ -58,7 +58,7 @@ describe('augmentOcrTasksList', () => {
           },
           createdAt: '2020-11-24T11:38:36.100272Z',
           finishedAt: '2020-11-24T11:39:26.154488Z',
-          status: 'aborted',
+          status: 'not_run',
         },
         {
           type: 'jsonparse',
@@ -69,7 +69,7 @@ describe('augmentOcrTasksList', () => {
           },
           createdAt: '2020-11-24T11:38:36.100272Z',
           finishedAt: '2020-11-24T11:39:26.15558Z',
-          status: 'aborted',
+          status: 'not_run',
         },
         {
           type: 'http',
@@ -117,7 +117,7 @@ describe('augmentOcrTasksList', () => {
           error: 'error making http request: reason',
           output: null,
           path: 'last',
-          status: 'aborted',
+          status: 'not_run',
           type: 'jsonparse',
         },
         id: 'parseLast',
@@ -127,7 +127,7 @@ describe('augmentOcrTasksList', () => {
         attributes: {
           error: 'error making http request: reason',
           output: null,
-          status: 'aborted',
+          status: 'not_run',
           times: '100',
           type: 'multiply',
         },
@@ -151,7 +151,7 @@ describe('augmentOcrTasksList', () => {
           error: 'error making http request: reason',
           output: null,
           path: 'open',
-          status: 'aborted',
+          status: 'not_run',
           type: 'jsonparse',
         },
         id: 'parseOpen',
@@ -161,7 +161,7 @@ describe('augmentOcrTasksList', () => {
         attributes: {
           error: 'error making http request: reason',
           output: null,
-          status: 'aborted',
+          status: 'not_run',
           times: '100',
           type: 'multiply',
         },

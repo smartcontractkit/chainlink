@@ -35,7 +35,7 @@ export function augmentOcrTasksList({ jobRun }: { jobRun: PipelineJobRun }) {
       ...stratifyNodeCopy.attributes,
       error: taskRun?.error,
       output: taskRun?.output,
-      status: taskRun?.status || 'aborted',
+      status: taskRun?.status || 'not_run',
     }
 
     return stratifyNodeCopy
