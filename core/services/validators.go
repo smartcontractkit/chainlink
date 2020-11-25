@@ -529,6 +529,19 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec
 			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
 		}
 	}
+	if spec.MaxTaskDuration > spec.ObservationTimeout {
+		return errors.Errorf("max task duration must be < observation timeout")
+	}
+	tasks, err := spec.Pipeline.TasksInDependencyOrder()
+	if err != nil {
+		return errors.Wrap(err, "invalid observation source")
+	}
+	for _, task := range tasks {
+		timeout, set := task.TaskTimeout()
+		if set && timeout > time.Duration(spec.ObservationTimeout) {
+			return errors.Errorf("individual max task duration must be < observation timeout")
+		}
+	}
 	return nil
 }
 

@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1606320711"
+
 	"regexp"
 
 	"github.com/jinzhu/gorm"
@@ -439,6 +441,10 @@ func init() {
 		{
 			ID:      "migration1606303568",
 			Migrate: migration1606303568.Migrate,
+		},
+		{
+			ID:      "migration1606320711",
+			Migrate: migration1606320711.Migrate,
 		},
 	}
 }
