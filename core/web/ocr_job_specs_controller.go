@@ -76,7 +76,7 @@ func (ocrjsc *OCRJobSpecsController) Create(c *gin.Context) {
 		return
 	}
 
-	jobID, err := ocrjsc.App.AddJobV2(c.Request.Context(), jobSpec)
+	jobID, err := ocrjsc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
 	if err != nil {
 		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
