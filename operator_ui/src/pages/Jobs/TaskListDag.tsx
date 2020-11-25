@@ -3,9 +3,8 @@ import { theme } from 'theme'
 import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
-import { Stratify } from './parseDot'
-
 import StatusIcon from 'components/StatusIcon'
+import { Stratify } from './parseDot'
 
 type Node = {
   x: number
@@ -17,6 +16,8 @@ type NodeElement = {
   x: number
   y: number
 }
+
+type TaskNodes = { [nodeId: string]: NodeElement }
 
 function createDag({
   stratify,
@@ -81,11 +82,14 @@ function createDag({
     .data(dag.descendants())
     .enter()
     .append('g')
-    .attr('style', (node) => {
-      setIcon((s: any) => ({ ...s, [node.id]: node }))
-      return 'cursor: default'
+    .attr('style', 'cursor: default')
+    .attr('id', (node) => {
+      setIcon((s: TaskNodes) => ({
+        ...s,
+        [node.id]: node,
+      }))
+      return node.id
     })
-    .attr('id', (node) => node.id)
     .attr('transform', ({ x, y }: any) => `translate(${x}, ${y})`)
     .on('mouseover', (_, node) => {
       setTooltip(node)
@@ -113,23 +117,20 @@ function createDag({
     .attr('stroke', 'white')
     .attr('stroke-width', 6)
     .attr('fill', (node) => {
-      if (node.data.attributes) {
-        switch (node.data.attributes.status) {
-          case 'in_progress':
-            // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-            // @ts-ignore because material UI doesn't update theme types with options
-            return theme.palette.warning.main
-          case 'completed':
-            // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
-            // @ts-ignore because material UI doesn't update theme types with options
-            return theme.palette.success.main
-          case 'errored':
-            return theme.palette.error.main
-          default:
-            return theme.palette.grey['500']
-        }
+      switch (node.data.attributes?.status) {
+        case 'in_progress':
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+          // @ts-ignore because material UI doesn't update theme types with options
+          return theme.palette.warning.main
+        case 'completed':
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+          // @ts-ignore because material UI doesn't update theme types with options
+          return theme.palette.success.main
+        case 'errored':
+          return theme.palette.error.main
+        default:
+          return theme.palette.grey['500']
       }
-      return theme.palette.grey['500']
     })
 
   nodes
@@ -150,14 +151,8 @@ interface Props {
 
 export const TaskList = ({ stratify }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
-  const [icons, setIcon] = React.useState<{ [nodeId: string]: NodeElement }>({})
+  const [icons, setIcon] = React.useState<TaskNodes>({})
   const graph = React.useRef<HTMLInputElement>(null)
-
-  React.useEffect(() => {
-    if (graph.current) {
-      createDag({ stratify, ref: graph.current, setTooltip, setIcon })
-    }
-  }, [stratify])
 
   React.useEffect(() => {
     function handleResize() {
@@ -166,48 +161,46 @@ export const TaskList = ({ stratify }: Props) => {
       }
     }
 
+    handleResize()
     window.addEventListener('resize', handleResize)
-
     return () => window.removeEventListener('resize', handleResize)
-  }, [stratify, graph])
+  }, [graph, stratify])
 
   return (
     <div style={{ position: 'relative' }}>
       {tooltip && (
-        <>
-          <div
-            style={{
-              position: 'absolute',
-              left: '-305px',
-              border: '1px solid rgba(0, 0, 0, 0.1)',
-              padding: theme.spacing.unit,
-              background: 'white',
-              borderRadius: 5,
-              width: '300px',
-              transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
-              zIndex: 1,
-            }}
-          >
-            <Typography variant="body1" color="textPrimary">
-              <b>{tooltip.data.id}</b>
-            </Typography>
-            {tooltip.data?.attributes &&
-              Object.entries(tooltip.data.attributes)
-                // We want to filter errors and outputs out as they can get quite long
-                .filter(([key]) => !['error', 'output'].includes(key))
-                .map(([key, value]) => (
-                  <div key={key}>
-                    <Typography
-                      variant="body1"
-                      color="textSecondary"
-                      component="div"
-                    >
-                      <b>{key}:</b> {value || '-'}
-                    </Typography>
-                  </div>
-                ))}
-          </div>
-        </>
+        <div
+          style={{
+            position: 'absolute',
+            left: '-305px',
+            border: '1px solid rgba(0, 0, 0, 0.1)',
+            padding: theme.spacing.unit,
+            background: 'white',
+            borderRadius: 5,
+            width: '300px',
+            transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
+            zIndex: 1,
+          }}
+        >
+          <Typography variant="body1" color="textPrimary">
+            <b>{tooltip.data.id}</b>
+          </Typography>
+          {tooltip.data?.attributes &&
+            Object.entries(tooltip.data.attributes)
+              // We want to filter errors and outputs out as they can get quite long
+              .filter(([key]) => !['error', 'output'].includes(key))
+              .map(([key, value]) => (
+                <div key={key}>
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    component="div"
+                  >
+                    <b>{key}:</b> {value}
+                  </Typography>
+                </div>
+              ))}
+        </div>
       )}
       {Object.values(icons).map((icon) => (
         <span
