@@ -328,6 +328,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
 			SchemaVersion:               os.SchemaVersion,
@@ -337,6 +338,7 @@ func TestRunner(t *testing.T) {
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
 			Find(&jb).Error
 		require.NoError(t, err)
+		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewJobSpawnerDelegate(
@@ -546,5 +548,21 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, r[0].Value)
 		assert.NoError(t, r[0].Error)
+
+		// Job specified task timeout should fail.
+		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = &models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(time.Duration(1)),
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+		}
+		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
+		require.NoError(t, err)
+		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		require.NoError(t, err)
+		err = runner.AwaitRun(context.Background(), runID)
+		require.NoError(t, err)
+		r, err = runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+		assert.Error(t, r[0].Error)
 	})
 }

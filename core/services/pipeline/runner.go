@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -198,9 +200,23 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 			return Result{Error: err}
 		}
+		var job models.JobSpecV2
+		err = txdb.Find(&job, "id = ?", jobID).Error
+		if err != nil {
+			logger.Errorw("unexpected error could not find job by ID", append(loggerFields, "error", err)...)
+			return Result{Error: err}
+		}
+
+		// Order of precedence for task timeout:
+		// - Specific task timeout (task.TaskTimeout)
+		// - Job level task timeout (job.MaxTaskDuration)
+		// - Node level task timeout (JobPipelineMaxTaskDuration)
 		taskTimeout, isSet := task.TaskTimeout()
 		if isSet {
-			ctx, cancel = context.WithTimeout(ctx, taskTimeout)
+			ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+			defer cancel()
+		} else if job.MaxTaskDuration != models.Interval(time.Duration(0)) {
+			ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(job.MaxTaskDuration))
 			defer cancel()
 		}
 
