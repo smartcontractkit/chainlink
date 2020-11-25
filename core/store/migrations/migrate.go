@@ -4,6 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1606320711"
 
 	"regexp"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
