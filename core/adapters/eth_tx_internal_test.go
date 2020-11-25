@@ -16,7 +16,7 @@ var (
 	Int256  abi.Type
 	Bool    abi.Type
 	Bytes32 abi.Type
-	Bytes abi.Type
+	Bytes   abi.Type
 )
 
 func init() {
@@ -34,9 +34,9 @@ func TestGetTxData(t *testing.T) {
 	var tt = []struct {
 		name        string
 		abiEncoding []string
-		argTypes    abi.Arguments
+		argTypes    abi.Arguments // Helpers to assert the unpacking works.
 		args        []interface{}
-		err         error
+		errLike     string
 		assertion   func(t *testing.T, vals []interface{})
 	}{
 		{
@@ -89,7 +89,7 @@ func TestGetTxData(t *testing.T) {
 				require.Len(t, vals, 1)
 				b, _ := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001")
 				var expected [32]byte
-				copy(expected[:],b[:])
+				copy(expected[:], b[:])
 				assert.Equal(t, expected, vals[0])
 			},
 		},
@@ -117,23 +117,43 @@ func TestGetTxData(t *testing.T) {
 				assert.Equal(t, b2, vals[1])
 			},
 		},
+		{
+			name:        "type mismatch",
+			abiEncoding: []string{"uint256"},
+			args:        []interface{}{"0x0123"},
+			errLike:     "can't convert 0x0123 to uint256",
+		},
+		{
+			name:        "invalid bytes32",
+			abiEncoding: []string{"bytes32"},
+			args:        []interface{}{"0x0123"},
+			errLike:     "can't convert 0x0123 to bytes32", // Could consider relaxing this to just <= 32?
+		},
+		{
+			name:        "unsupported type",
+			abiEncoding: []string{"uint8"},
+			args:        []interface{}{18},
+			errLike:     "uint8 is unsupported", // Could consider relaxing this to just <= 32?
+		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			j := models.JSON{}
-			d, err := j.Add("__chainlink_result_collection__", tc.args)
+			d, err := j.Add(models.ResultCollectionKey, tc.args)
 			require.NoError(t, err)
 			b, err := getTxDataUsingABIEncoding(&EthTx{
-				ABIEncoding: tc.abiEncoding,
+				ABIEncoding:      tc.abiEncoding,
 				FunctionSelector: models.HexToFunctionSelector("0x70a08231"),
 			}, d)
-			if tc.err != nil {
+			if tc.errLike != "" {
 				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.errLike)
+				return
 			} else {
 				require.NoError(t, err)
 			}
 			// We should be able to decode and get back the same args we specified.
-			vals, err := tc.argTypes.UnpackValues(b[models.FunctionSelectorLength:])
+			vals, err := tc.argTypes.UnpackValues(b)
 			require.NoError(t, err)
 			tc.assertion(t, vals)
 		})

@@ -4,8 +4,6 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -27,45 +25,37 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	dataPrefix := hexutil.MustDecode("0x88888888")
 
-	t.Run("multiword", func(t *testing.T) {
+	t.Run("multiword using ABI encoding", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
 			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
-			//DataPrefix:       dataPrefix,
-			ABIEncoding: []string{"uint8", "bool", "string"},
-			//ABIEncoding:     []string{"uint8"},
+			ABIEncoding:      []string{"uint256", "bool", "bytes"},
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
-		d, err := input.Data().Add("__chainlink_result_collection__", []interface{}{12, false, "test"})
-		//d, err := input.Data().Add("__chainlink_result_collection__", []interface{}{12})
+		d, err := input.Data().Add(models.ResultCollectionKey, []interface{}{12, false, "0x1234"})
 		require.NoError(t, err)
 		runOutput := adapter.Perform(input.CloneWithData(d), store)
 		require.NoError(t, runOutput.Error())
-		//assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
-		//
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
 		etrt, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
 		require.NoError(t, err)
 
-		//assert.Equal(t, taskRunID.UUID(), etrt.TaskRunID)
+		assert.Equal(t, taskRunID.UUID(), etrt.TaskRunID)
 		require.NotNil(t, etrt.EthTx)
-		t.Log("data", hex.EncodeToString(etrt.EthTx.EncodedPayload[8:]))
-		t1, _ := abi.NewType("uint8", "", nil)
-		t2, _ := abi.NewType("bool", "", nil)
-		t3, _ := abi.NewType("string", "", nil)
-		var args = abi.Arguments{{Type: t1}, {Type: t2}, {Type: t3}}
-		//var args = abi.Arguments{{Type: t1}}
-		vals, err := args.UnpackValues(etrt.EthTx.EncodedPayload[8:])
-		require.NoError(t, err)
-		t.Log(vals)
-
-		//assert.Nil(t, etrt.EthTx.Nonce)
-		//assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
-		//assert.Equal(t, "70a08231888888880000000000000000000000000000000000000000000000000000009786856756", hex.EncodeToString(etrt.EthTx.EncodedPayload))
-		//assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
-		//assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+		assert.Nil(t, etrt.EthTx.Nonce)
+		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
+		assert.Equal(t, "70a08231"+ // function selector
+			"000000000000000000000000000000000000000000000000000000000000000c"+ // 12
+			"0000000000000000000000000000000000000000000000000000000000000000"+ // false
+			"0000000000000000000000000000000000000000000000000000000000000060"+ // location of array
+			"0000000000000000000000000000000000000000000000000000000000000002"+ // length
+			"1234000000000000000000000000000000000000000000000000000000000000", // contents
+			hex.EncodeToString(etrt.EthTx.EncodedPayload))
+		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
+		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
 	})
 
 	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {

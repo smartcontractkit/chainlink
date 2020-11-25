@@ -101,8 +101,8 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 
 func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
 	var (
-		txData []byte
-		err error
+		txData, encodedPayload []byte
+		err                    error
 	)
 	if e.ABIEncoding != nil {
 		txData, err = getTxDataUsingABIEncoding(e, input.Data())
@@ -122,7 +122,12 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
-	encodedPayload := utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
+	if e.ABIEncoding != nil {
+		// ABI encoding includes the data prefix if set.
+		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), txData)
+	} else {
+		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
+	}
 
 	var gasLimit uint64
 	if e.GasLimit == 0 {
@@ -196,51 +201,60 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 
 }
 
-// I'm thinking we start with a base set of supported types and expand as needed.
-var solidityTypeToGoType = map[string]reflect.Type{
-	"int256":  reflect.TypeOf(big.Int{}),
-	"uint256": reflect.TypeOf(big.Int{}),
-	"bool":    reflect.TypeOf(false),
-	"bytes32": reflect.TypeOf([32]byte{}),
-	"bytes": reflect.TypeOf([]byte{}),
-}
-
 var (
-	ErrInvalidArgType = errors.New("invalid arg type")
+	ErrInvalidABIEncoding = errors.New("invalid abi encoding")
+	// A base set of supported types, expand as needed.
+	// The corresponding go type is the type we need to pass into abi.Arguments.PackValues.
+	solidityTypeToGoType = map[string]reflect.Type{
+		"int256":  reflect.TypeOf(big.Int{}),
+		"uint256": reflect.TypeOf(big.Int{}),
+		"bool":    reflect.TypeOf(false),
+		"bytes32": reflect.TypeOf([32]byte{}),
+		"bytes":   reflect.TypeOf([]byte{}),
+	}
+	supportedSolidityTypes []string
 )
 
+func init() {
+	for k := range solidityTypeToGoType {
+		supportedSolidityTypes = append(supportedSolidityTypes, k)
+	}
+}
+
+// Note we need to include the data prefix handling here because
+// if dynamic types (such as bytes) are used, the offset will be affected.
 func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) {
 	var arguments abi.Arguments
-	jsonValues := inputData.Get("__chainlink_result_collection__").Array()
+	jsonValues := inputData.Get(models.ResultCollectionKey).Array()
 	if len(jsonValues) != len(e.ABIEncoding) {
-		return nil, errors.New("invalid length")
+		return nil, errors.Errorf("number of collectors %d != number of types in ABI encoding %d", len(jsonValues), len(e.ABIEncoding))
 	}
 	var values = make([]interface{}, len(jsonValues))
 	for i, argType := range e.ABIEncoding {
 		if _, supported := solidityTypeToGoType[argType]; !supported {
-			return nil, ErrInvalidArgType
+			return nil, errors.Wrapf(ErrInvalidABIEncoding, "%v is unsupported, supported types are %v", argType, supportedSolidityTypes)
 		}
 		t, err := abi.NewType(argType, "", nil)
 		if err != nil {
-			return nil, errors.Wrapf(ErrInvalidArgType, "err %v on arg type %s index %d", err, argType, i)
+			return nil, errors.Errorf("err %v on arg type %s index %d", err, argType, i)
 		}
 		arguments = append(arguments, abi.Argument{
-			Type:    t,
-			Indexed: false,
+			Type: t,
 		})
+
 		switch jsonValues[i].Type {
 		case gjson.String:
-			if argType != "bytes32" && argType != "bytes"{
-				return nil, ErrInvalidArgType
+			if argType != "bytes32" && argType != "bytes" {
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 			}
 			// Only supports hex strings.
 			b, err := hexutil.Decode(jsonValues[i].String())
 			if err != nil {
-				return nil, ErrInvalidArgType
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v, bytes should be 0x-prefixed hex strings", jsonValues[i].Value(), argType)
 			}
 			if argType == "bytes32" {
 				if len(b) != 32 {
-					return nil, ErrInvalidArgType
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 				}
 				var arg [32]byte
 				copy(arg[:], b)
@@ -250,7 +264,7 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 			}
 		case gjson.Number:
 			if argType != "int256" && argType != "uint256" {
-				return nil, ErrInvalidArgType
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 			}
 			values[i] = big.NewInt(jsonValues[i].Int()) // JSON specs can't actually handle 256bit numbers only 64bit?
 		case gjson.False, gjson.True:
@@ -258,18 +272,28 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 			if reflect.TypeOf(jsonValues[i].Value()).ConvertibleTo(solidityTypeToGoType[argType]) {
 				values[i] = reflect.ValueOf(jsonValues[i].Value()).Convert(solidityTypeToGoType[argType]).Interface()
 			} else {
-				return nil, errors.Errorf("invalid abi specification for %v->%v", jsonValues[i].Value(), argType)
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 			}
 		case gjson.JSON:
 			// Complex types, array or object. Support as needed
-			return nil, errors.Errorf("invalid abi specification for %v->%v", jsonValues[i].Value(), argType)
+			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 		}
+	}
+	if e.DataPrefix != nil {
+		b, err := hexutil.Decode(e.DataPrefix.String())
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid data prefix")
+		}
+		var a [32]byte
+		copy(a[:], b[:])
+		prefix := []interface{}{a}
+		values = append(prefix, values...)
 	}
 	packedArgs, err := arguments.PackValues(values)
 	if err != nil {
 		return nil, err
 	}
-	return utils.ConcatBytes(e.FunctionSelector.Bytes(), packedArgs), nil
+	return utils.ConcatBytes(packedArgs), nil
 }
 
 // getTxData returns the data to save against the callback encoded according to
