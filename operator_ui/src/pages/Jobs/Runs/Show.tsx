@@ -21,15 +21,17 @@ import {
 } from '../transformJobRuns'
 import { theme } from 'theme'
 
-function getErrorsList(jobRun: DirectRequestJobRun | PipelineJobRun): string[] {
-  if (jobRun.type === 'Direct request job run') {
+function getErrorsList(
+  jobRun: DirectRequestJobRun | PipelineJobRun | undefined,
+): string[] {
+  if (jobRun?.type === 'Direct request job run') {
     return jobRun.taskRuns
       .filter(({ status }) => status === 'errored')
       .map((tr) => tr.result.error)
       .filter((error): error is string => error !== null)
   }
 
-  if (jobRun.type === 'Off-chain reporting job run' && jobRun.errors) {
+  if (jobRun?.type === 'Off-chain reporting job run' && jobRun.errors) {
     return jobRun.errors.filter((error): error is string => error !== null)
   }
 
@@ -77,7 +79,7 @@ export const Show = ({ match }: Props) => {
     getJobRun()
   }, [getJobRun])
 
-  const errorsList = jobRun ? getErrorsList(jobRun) : []
+  const errorsList = getErrorsList(jobRun)
 
   const stratify =
     jobRun?.type === 'Off-chain reporting job run'

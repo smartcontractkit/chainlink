@@ -22,8 +22,8 @@ describe('transformPipelineJobRun', () => {
       outputs: [null],
       pipelineSpec: {
         CreatedAt: '2020-11-19T14:01:24.989522Z',
-        DotDagSource: `   fetch    [type=http method=POST url=\"http://localhost:8001\" requestData=\"{\\\"hi\\\": \\\"hello\\\"}\"];
-    parse    [type=jsonparse path=\"data,result\"];
+        DotDagSource: `   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];
+    parse    [type=jsonparse path="data,result"];
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 `,
