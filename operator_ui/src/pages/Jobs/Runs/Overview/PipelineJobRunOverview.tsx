@@ -11,7 +11,7 @@ export const PipelineJobRunOverview = ({
   jobRun: PipelineJobRun
 }) => (
   <Card>
-    {augmentOcrTasksList({ jobRun }).map((node) => {
+    {augmentOcrTasksList({ jobRun }).map((node, index) => {
       const {
         error,
         status,
@@ -21,6 +21,7 @@ export const PipelineJobRunOverview = ({
       } = node.attributes
       return (
         <>
+          {index > 0 && <Divider />}
           <div
             style={{
               display: 'flex',
@@ -55,7 +56,8 @@ export const PipelineJobRunOverview = ({
                   {type}
                 </small>
               </Typography>
-              {status === 'completed' && (
+
+              {['completed', 'errored'].includes(status) && (
                 <Typography
                   style={{
                     marginBottom: theme.spacing.unit,
@@ -63,18 +65,7 @@ export const PipelineJobRunOverview = ({
                   }}
                   variant="body1"
                 >
-                  {output}
-                </Typography>
-              )}
-
-              {status === 'errored' && (
-                <Typography
-                  style={{
-                    marginBottom: theme.spacing.unit,
-                  }}
-                  variant="body1"
-                >
-                  {error}
+                  {status === 'completed' ? output : error}
                 </Typography>
               )}
 
@@ -88,12 +79,11 @@ export const PipelineJobRunOverview = ({
                     >
                       {key}
                     </span>
-                    : {value || '-'}{' '}
+                    : {value}
                   </Typography>
                 ))}
             </span>
           </div>
-          <Divider />
         </>
       )
     })}
