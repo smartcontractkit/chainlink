@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/pelletier/go-toml"
 
@@ -308,22 +311,6 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		minimalNonBootstrapTemplate := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		p2pPeerID          = "%s"
-		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
-		isBootstrapPeer    = false 
-		transmitterAddress = "%s"
-		keyBundleID = "%s"
-		observationTimeout = "10s"
-		observationSource = """
-ds1          [type=http method=GET url="http://data.com"];
-ds1_parse    [type=jsonparse path="USD" lax=true];
-ds1 -> ds1_parse;
-"""
-`
 		var os = offchainreporting.OracleSpec{
 			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
 				P2PBootstrapPeers:                      pq.StringArray{},
@@ -336,13 +323,14 @@ ds1 -> ds1_parse;
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID)
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID, "http://blah.com", "")
 		_, err = services.ValidatedOracleSpecToml(s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 
 		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
 			SchemaVersion:               os.SchemaVersion,
@@ -352,6 +340,7 @@ ds1 -> ds1_parse;
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
 			Find(&jb).Error
 		require.NoError(t, err)
+		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewJobSpawnerDelegate(
@@ -370,14 +359,6 @@ ds1 -> ds1_parse;
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		minimalBootstrapTemplate := `
-		type               = "offchainreporting"
-		schemaVersion      = 1
-		contractAddress    = "%s"
-		p2pPeerID          = "%s"
-		p2pBootstrapPeers  = []
-		isBootstrapPeer    = true
-`
 		var os = offchainreporting.OracleSpec{
 			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
 				P2PBootstrapPeers:                      pq.StringArray{},
@@ -525,5 +506,74 @@ ds1 -> ds1_parse;
 
 		err = runner.AwaitRun(ctx, runID)
 		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v): record not found", runID))
+	})
+
+	t.Run("timeouts", func(t *testing.T) {
+		// There are 4 timeouts:
+		// - ObservationTimeout = how long the whole OCR time needs to run, or it fails (default 10 seconds)
+		// - config.JobPipelineMaxTaskDuration() = node level maximum time for a pipeline task (default 10 minutes)
+		// - config.DefaultHTTPTimeout() * config.DefaultMaxHTTPAttempts() = global, http specific timeouts (default 15s * 5 retries = 75s)
+		// - "d1 [.... timeout="2s"]" = per task level timeout (should override the global config)
+		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			time.Sleep(1 * time.Millisecond)
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"USD":10.1}`))
+		}))
+		defer serv.Close()
+
+		os := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		jb := &models.JobSpecV2{
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
+		}
+		err := jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
+		require.NoError(t, err)
+		runID, err := runner.CreateRun(context.Background(), jb.ID, nil)
+		require.NoError(t, err)
+		err = runner.AwaitRun(context.Background(), runID)
+		require.NoError(t, err)
+		r, err := runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+		assert.Error(t, r[0].Error)
+
+		// No task timeout should succeed.
+		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = &models.JobSpecV2{
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job 2", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
+		}
+		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
+		require.NoError(t, err)
+		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		require.NoError(t, err)
+		err = runner.AwaitRun(context.Background(), runID)
+		require.NoError(t, err)
+		r, err = runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+		assert.Equal(t, 10.1, r[0].Value)
+		assert.NoError(t, r[0].Error)
+
+		// Job specified task timeout should fail.
+		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jb = &models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(time.Duration(1)),
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job 3", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
+		}
+		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
+		require.NoError(t, err)
+		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		require.NoError(t, err)
+		err = runner.AwaitRun(context.Background(), runID)
+		require.NoError(t, err)
+		r, err = runner.ResultsForRun(context.Background(), runID)
+		require.NoError(t, err)
+		assert.Error(t, r[0].Error)
 	})
 }
