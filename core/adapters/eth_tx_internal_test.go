@@ -149,9 +149,8 @@ func TestGetTxData(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errLike)
 				return
-			} else {
-				require.NoError(t, err)
 			}
+			require.NoError(t, err)
 			// We should be able to decode and get back the same args we specified.
 			vals, err := tc.argTypes.UnpackValues(b)
 			require.NoError(t, err)

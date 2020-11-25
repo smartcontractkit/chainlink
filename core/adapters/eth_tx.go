@@ -38,7 +38,7 @@ type EthTx struct {
 	GasLimit   uint64        `json:"gasLimit,omitempty"`
 
 	// Optional list of desired encodings for ResultCollectKey arguments.
-	// i.e. ["uint246", "address", "bytes2"]
+	// i.e. ["uint256", "bytes32"]
 	ABIEncoding []string `json:"abiEncoding"`
 
 	// MinRequiredOutgoingConfirmations only works with bulletprooftxmanager
@@ -274,7 +274,7 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 			} else {
 				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 			}
-		case gjson.JSON:
+		default:
 			// Complex types, array or object. Support as needed
 			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 		}
