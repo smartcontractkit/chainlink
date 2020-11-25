@@ -14,6 +14,7 @@ type OracleSpec struct {
 	Type          string      `toml:"type"`
 	SchemaVersion uint32      `toml:"schemaVersion"`
 	Name          null.String `toml:"name"`
+	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
 	models.OffchainReportingOracleSpec
 
