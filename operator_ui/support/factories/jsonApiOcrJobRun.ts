@@ -7,7 +7,7 @@ function getRandomInt(max: number) {
 }
 
 export const jsonApiOcrJobRun = (
-  config: Partial<OcrJobRun & { id?: string }> = {},
+  config: Partial<OcrJobRun & { id?: string; dotDagSource?: string }> = {},
 ) => {
   const id = config.id || getRandomInt(1_000_000).toString()
 

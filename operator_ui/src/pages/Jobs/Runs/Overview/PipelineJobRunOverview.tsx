@@ -20,7 +20,7 @@ export const PipelineJobRunOverview = ({
         ...customAttributes
       } = node.attributes
       return (
-        <>
+        <React.Fragment key={node.id}>
           {index > 0 && <Divider />}
           <div
             style={{
@@ -45,7 +45,7 @@ export const PipelineJobRunOverview = ({
                 style={{
                   lineHeight: `${theme.spacing.unit * 5}px`,
                 }}
-                variant="headline"
+                variant="h5"
               >
                 {node.id}{' '}
                 <small
@@ -84,7 +84,7 @@ export const PipelineJobRunOverview = ({
                 ))}
             </span>
           </div>
-        </>
+        </React.Fragment>
       )
     })}
   </Card>
