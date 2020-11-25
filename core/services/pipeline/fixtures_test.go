@@ -98,7 +98,7 @@ ds1 -> ds1_parse -> ds1_multiply;
 		keyBundleID = "%s"
 		observationTimeout = "10s"
 		observationSource = """
-ds1          [type=http method=GET url="%s" %s];
+ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
 ds1 -> ds1_parse;
 """

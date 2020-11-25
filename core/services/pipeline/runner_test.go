@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/pelletier/go-toml"
 
 	"github.com/lib/pq"
@@ -522,6 +524,9 @@ func TestRunner(t *testing.T) {
 		os := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		jb := &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
 		}
 		err := jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
 		require.NoError(t, err)
@@ -537,6 +542,9 @@ func TestRunner(t *testing.T) {
 		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb = &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job 2", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
 		}
 		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
 		require.NoError(t, err)
@@ -554,6 +562,9 @@ func TestRunner(t *testing.T) {
 		jb = &models.JobSpecV2{
 			MaxTaskDuration:             models.Interval(time.Duration(1)),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Name:                        null.NewString("a job 3", true),
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               1,
 		}
 		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
 		require.NoError(t, err)
