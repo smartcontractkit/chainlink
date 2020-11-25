@@ -499,6 +499,7 @@ func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain mode
 		"headNum", headWithChain.Number,
 		"chainLength", headWithChain.ChainLength(),
 		"numCallbacks", len(ht.callbacks),
+		"headHash", headWithChain.Hash.Hex(),
 	)
 
 	ht.concurrentlyExecuteCallbacks(ctx, headWithChain)

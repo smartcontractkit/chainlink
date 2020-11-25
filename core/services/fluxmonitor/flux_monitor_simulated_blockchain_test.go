@@ -493,6 +493,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
 	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	config.Config.Set("ETH_GAS_BUMP_THRESHOLD", 1000000)
 	defer cfgCleanup()
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
 	defer cleanup()
