@@ -100,7 +100,15 @@ func (e *EthTx) pickFromAddress(input models.RunInput, store *strpkg.Store) (com
 }
 
 func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	txData, err := getTxData2(e, input.Data())
+	var (
+		txData []byte
+		err error
+	)
+	if e.ABIEncoding != nil {
+		txData, err = getTxDataUsingABIEncoding(e, input.Data())
+	} else {
+		txData, err = getTxData(e, input)
+	}
 	if err != nil {
 		err = errors.Wrap(err, "insertEthTx failed while constructing EthTx data")
 		return models.NewRunOutputError(err)
@@ -194,13 +202,14 @@ var solidityTypeToGoType = map[string]reflect.Type{
 	"uint256": reflect.TypeOf(big.Int{}),
 	"bool":    reflect.TypeOf(false),
 	"bytes32": reflect.TypeOf([32]byte{}),
+	"bytes": reflect.TypeOf([]byte{}),
 }
 
 var (
 	ErrInvalidArgType = errors.New("invalid arg type")
 )
 
-func getTxData2(e *EthTx, inputData models.JSON) ([]byte, error) {
+func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) {
 	var arguments abi.Arguments
 	jsonValues := inputData.Get("__chainlink_result_collection__").Array()
 	if len(jsonValues) != len(e.ABIEncoding) {
@@ -221,22 +230,31 @@ func getTxData2(e *EthTx, inputData models.JSON) ([]byte, error) {
 		})
 		switch jsonValues[i].Type {
 		case gjson.String:
-			// Only support hex strings [32]byte
-			// TODO support dynamic bytes types?
-			b, err := hexutil.Decode(jsonValues[i].String())
-			if err != nil || len(b) != 32 || argType != "bytes32" {
+			if argType != "bytes32" && argType != "bytes"{
 				return nil, ErrInvalidArgType
 			}
-			var arg [32]byte
-			copy(arg[:], b)
-			values[i] = arg
+			// Only supports hex strings.
+			b, err := hexutil.Decode(jsonValues[i].String())
+			if err != nil {
+				return nil, ErrInvalidArgType
+			}
+			if argType == "bytes32" {
+				if len(b) != 32 {
+					return nil, ErrInvalidArgType
+				}
+				var arg [32]byte
+				copy(arg[:], b)
+				values[i] = arg
+			} else if argType == "bytes" {
+				values[i] = b
+			}
 		case gjson.Number:
 			if argType != "int256" && argType != "uint256" {
 				return nil, ErrInvalidArgType
 			}
 			values[i] = big.NewInt(jsonValues[i].Int()) // JSON specs can't actually handle 256bit numbers only 64bit?
 		case gjson.False, gjson.True:
-			// TODO potentially use this cast strategy to support more types
+			// Note we can potentially use this cast strategy to support more types
 			if reflect.TypeOf(jsonValues[i].Value()).ConvertibleTo(solidityTypeToGoType[argType]) {
 				values[i] = reflect.ValueOf(jsonValues[i].Value()).Convert(solidityTypeToGoType[argType]).Interface()
 			} else {
@@ -268,8 +286,7 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 	}
 	// If data format is "bytes" then we have dynamic types,
 	// which involve specifying the location of the data portion of the arg.
-
-	// callback(reqID bytes32, bytes arg)
+	// i.e. callback(reqID bytes32, bytes arg)
 	if e.DataFormat == DataFormatBytes || len(e.DataPrefix) > 0 {
 		// If we do not have a data prefix (reqID), encoding is:
 		// [4byte fs][0x00..20][arg 1].
