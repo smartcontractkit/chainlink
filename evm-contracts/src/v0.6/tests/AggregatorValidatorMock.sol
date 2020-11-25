@@ -1,6 +1,6 @@
 pragma solidity 0.6.6;
 
-import '../interfaces/AggregatorValidatorInterface.sol';
+import "../interfaces/AggregatorValidatorInterface.sol";
 
 contract AggregatorValidatorMock is AggregatorValidatorInterface {
   uint256 public previousRoundId;
