@@ -151,8 +151,8 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:  "jobs",
-			Usage: "Commands for managing Jobs",
+			Name:  "job_specs",
+			Usage: "Commands for managing Job Specs (jobs V1)",
 			Subcommands: []cli.Command{
 				{
 					Name:   "archive",
@@ -180,24 +180,29 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Show a specific Job's details",
 					Action: client.ShowJobSpec,
 				},
+			},
+		},
+		{
+			Name:  "jobs",
+			Usage: "Commands for managing Jobs (V2)",
+			Subcommands: []cli.Command{
 				{
-					Name:   "createocr",
-					Usage:  "Create an off-chain reporting job",
-					Action: client.CreateOCRJobSpec,
+					Name:   "create",
+					Usage:  "Create a V2 job",
+					Action: client.CreateJobV2,
 				},
 				{
-					Name:   "deletev2",
-					Usage:  "Delete a v2 job",
+					Name:   "delete",
+					Usage:  "Delete a V2 job",
 					Action: client.DeleteJobV2,
 				},
 				{
 					Name:   "run",
-					Usage:  "Trigger an off-chain reporting job run",
-					Action: client.TriggerOCRJobRun,
+					Usage:  "Trigger a V2 job run",
+					Action: client.TriggerJobRunV2,
 				},
 			},
 		},
-
 		{
 			Name:  "keys",
 			Usage: "Commands for managing various types of keys used by the Chainlink node",

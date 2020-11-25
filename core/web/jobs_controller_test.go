@@ -21,7 +21,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
+func TestJobsController_Create_ValidationFailure(t *testing.T) {
 	var (
 		contractAddress    = cltest.NewEIP55Address()
 		monitoringEndpoint = "chain.link:101"
@@ -58,13 +58,13 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, client, cleanup := setupOCRJobSpecsControllerTests(t)
+			_, client, cleanup := setupJobsControllerTests(t)
 			defer cleanup()
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, tc.ta, tc.pid, monitoringEndpoint, tc.kb)
-			body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
+			body, _ := json.Marshal(models.CreateJobSpecRequest{
 				TOML: sp,
 			})
-			resp, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
+			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 			defer cleanup()
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			b, err := ioutil.ReadAll(resp.Body)
@@ -74,14 +74,14 @@ func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
 	}
 }
 
-func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
-	app, client, cleanup := setupOCRJobSpecsControllerTests(t)
+func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
+	app, client, cleanup := setupJobsControllerTests(t)
 	defer cleanup()
 
-	body, _ := json.Marshal(models.CreateOCRJobSpecRequest{
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec.toml")),
 	})
-	response, cleanup := client.Post("/v2/ocr/specs", bytes.NewReader(body))
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
@@ -110,11 +110,36 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
 }
 
-func TestOCRJobSpecsController_Index_HappyPath(t *testing.T) {
+func TestJobsController_Create_HappyPath_EthRequestEventSpec(t *testing.T) {
+	app, client, cleanup := setupJobsControllerTests(t)
+	defer cleanup()
+
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(cltest.MustReadFile(t, "testdata/eth-request-event-spec.toml")),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	job := models.JobSpecV2{}
+	require.NoError(t, app.Store.DB.Preload("EthRequestEventSpec").First(&job).Error)
+
+	jobSpec := models.JobSpecV2{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "example eth request event spec", job.Name.ValueOrZero())
+	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
+
+	// Sanity check to make sure it inserted correctly
+	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.EthRequestEventSpec.ContractAddress)
+}
+
+func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, cleanup, ocrJobSpecFromFile, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs")
+	response, cleanup := client.Get("/v2/jobs")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -127,11 +152,11 @@ func TestOCRJobSpecsController_Index_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJobSpecs[0])
 }
 
-func TestOCRJobSpecsController_Show_HappyPath(t *testing.T) {
+func TestJobsController_Show_HappyPath(t *testing.T) {
 	client, cleanup, ocrJobSpecFromFile, jobID := setupOCRJobSpecsWControllerTestsWithJob(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID))
+	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -142,20 +167,20 @@ func TestOCRJobSpecsController_Show_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJobSpec)
 }
 
-func TestOCRJobSpecsController_Show_InvalidID(t *testing.T) {
+func TestJobsController_Show_InvalidID(t *testing.T) {
 	client, cleanup, _, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/uuidLikeString")
+	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
-func TestOCRJobSpecsController_Show_NonExistentID(t *testing.T) {
+func TestJobsController_Show_NonExistentID(t *testing.T) {
 	client, cleanup, _, _ := setupOCRJobSpecsWControllerTestsWithJob(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/999999999")
+	response, cleanup := client.Get("/v2/jobs/999999999")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
@@ -182,7 +207,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
 }
 
-func setupOCRJobSpecsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
+func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())

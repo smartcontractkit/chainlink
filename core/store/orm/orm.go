@@ -862,8 +862,8 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	return jobs, count, err
 }
 
-// OffChainReportingJobs returns OCR job specs
-func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
+// OffChainReportingJobs returns job specs
+func (orm *ORM) JobsV2() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
 	err := orm.DB.
@@ -888,8 +888,8 @@ func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
 	return job, err
 }
 
-// OffChainReportingJobRuns returns OCR job runs
-func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
+// PipelineRunsByJobID returns pipeline runs for a job
+func (orm *ORM) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	var pipelineRuns []pipeline.Run

@@ -14,7 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 func TestNewInitiatorFromRequest(t *testing.T) {
@@ -245,7 +245,7 @@ func TestJobEnded(t *testing.T) {
 		current time.Time
 		want    bool
 	}{
-		{"no end at", null.Time{Valid: false}, endAt.Time, false},
+		{"no end at", null.TimeFromPtr(nil), endAt.Time, false},
 		{"before end at", endAt, endAt.Time.Add(-time.Nanosecond), false},
 		{"at end at", endAt, endAt.Time, false},
 		{"after end at", endAt, endAt.Time.Add(time.Nanosecond), true},
@@ -272,7 +272,7 @@ func TestJobSpec_Started(t *testing.T) {
 		current time.Time
 		want    bool
 	}{
-		{"no start at", null.Time{Valid: false}, startAt.Time, true},
+		{"no start at", null.TimeFromPtr(nil), startAt.Time, true},
 		{"before start at", startAt, startAt.Time.Add(-time.Nanosecond), false},
 		{"at start at", startAt, startAt.Time, true},
 		{"after start at", startAt, startAt.Time.Add(time.Nanosecond), true},
