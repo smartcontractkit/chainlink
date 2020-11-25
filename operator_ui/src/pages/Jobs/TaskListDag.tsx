@@ -176,7 +176,7 @@ export const TaskList = ({ stratify }: Props) => {
             padding: theme.spacing.unit,
             background: 'white',
             borderRadius: 5,
-            minWidth: '300px',
+            width: '300px',
             transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
           }}
         >
@@ -184,17 +184,19 @@ export const TaskList = ({ stratify }: Props) => {
             <b>{tooltip.data.id}</b>
           </Typography>
           {tooltip.data?.attributes &&
-            Object.entries(tooltip.data.attributes).map(([key, value]) => (
-              <div key={key}>
-                <Typography
-                  variant="body1"
-                  color="textSecondary"
-                  component="div"
-                >
-                  <b>{key}:</b> {value}
-                </Typography>
-              </div>
-            ))}
+            Object.entries(tooltip.data.attributes)
+              .filter(([key]) => key !== 'error') // We want to filter errors out as they can get quite long
+              .map(([key, value]) => (
+                <div key={key}>
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    component="div"
+                  >
+                    <b>{key}:</b> {value || '-'}
+                  </Typography>
+                </div>
+              ))}
         </div>
       )}
       <div

@@ -4,25 +4,22 @@ import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { CardTitle } from '@chainlink/styleguide'
 import { Card, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
-import { OcrJobRun } from 'core/store/models'
 import StatusCard from './StatusCard'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
 import RegionalNav from './RegionalNav'
-import {
-  DirectRequestJobRun,
-  OffChainReportingJobRun,
-  OcrTaskRun,
-} from '../sharedTypes'
+import { DirectRequestJobRun, PipelineJobRun } from '../sharedTypes'
 import { Overview } from './Overview/Overview'
 import { Json } from './Json'
-import { getOcrJobStatus, isOcrJob } from '../utils'
+import { isOcrJob } from '../utils'
 import { TaskList } from '../TaskListDag'
-import { parseDot, Stratify } from '../parseDot'
+import { augmentOcrTasksList } from './augmentOcrTasksList'
+import {
+  transformDirectRequestJobRun,
+  transformPipelineJobRun,
+} from '../transformJobRuns'
 
-function getErrorsList(
-  jobRun: DirectRequestJobRun | OffChainReportingJobRun,
-): string[] {
+function getErrorsList(jobRun: DirectRequestJobRun | PipelineJobRun): string[] {
   if (jobRun.type === 'Direct request job run') {
     return jobRun.taskRuns
       .filter(({ status }) => status === 'errored')
@@ -37,57 +34,6 @@ function getErrorsList(
   return []
 }
 
-function getTaskStatus({
-  taskRun: {
-    taskSpec: { dotId },
-    finishedAt,
-    error,
-  },
-  stratify,
-  taskRuns,
-}: {
-  taskRun: OcrJobRun['taskRuns'][0]
-  stratify: Stratify[]
-  taskRuns: OcrJobRun['taskRuns']
-}) {
-  if (finishedAt === null) {
-    return 'in_progress'
-  }
-  const currentNode = stratify.find((node) => node.id === dotId)
-
-  let taskError = error
-
-  if (currentNode) {
-    currentNode.parentIds.forEach((id) => {
-      const parentTaskRun = taskRuns.find((tr) => tr.taskSpec.dotId === id)
-
-      if (parentTaskRun?.error !== null && parentTaskRun?.error === taskError) {
-        taskError = 'aborted'
-      }
-    })
-  }
-
-  if (taskError === 'aborted') {
-    return 'aborted'
-  }
-
-  if (taskError !== null) {
-    return 'errored'
-  }
-  return 'completed'
-}
-
-const addTaskStatus = (stratify: Stratify[]) => (
-  taskRun: OcrJobRun['taskRuns'][0],
-  _index: number,
-  taskRuns: OcrJobRun['taskRuns'],
-): OcrTaskRun => {
-  return {
-    ...taskRun,
-    status: getTaskStatus({ taskRun, stratify, taskRuns }),
-  }
-}
-
 type Props = RouteComponentProps<{
   jobSpecId: string
   jobRunId: string
@@ -95,7 +41,7 @@ type Props = RouteComponentProps<{
 
 export const Show = ({ match }: Props) => {
   const [jobRun, setState] = React.useState<
-    DirectRequestJobRun | OffChainReportingJobRun
+    DirectRequestJobRun | PipelineJobRun
   >()
 
   const { jobSpecId, jobRunId } = match.params
@@ -111,33 +57,16 @@ export const Show = ({ match }: Props) => {
     if (isOcrJob(jobSpecId)) {
       v2.ocrRuns
         .getJobSpecRun({ jobSpecId, runId: jobRunId })
-        .then((jobSpecRunResponse) => {
-          const run = jobSpecRunResponse.data
-          const stratify = parseDot(
-            `digraph {${run.attributes.pipelineSpec.DotDagSource}}`,
-          )
-          setState({
-            ...run.attributes,
-            id: run.id,
-            jobId: jobSpecId,
-            status: getOcrJobStatus(run.attributes),
-            taskRuns: run.attributes.taskRuns.map(addTaskStatus(stratify)),
-            type: 'Off-chain reporting job run',
-          })
-        })
+        .then((jobSpecRunResponse) => jobSpecRunResponse.data)
+        .then(transformPipelineJobRun(jobSpecId))
+        .then(setState)
         .catch(setError)
     } else {
       return v2.runs
         .getJobSpecRun(jobRunId)
-        .then((jobSpecRunResponse) => {
-          const run = jobSpecRunResponse.data
-          setState({
-            ...run.attributes,
-            id: run.id,
-            jobId: jobSpecId,
-            type: 'Direct request job run',
-          })
-        })
+        .then((jobSpecRunResponse) => jobSpecRunResponse.data)
+        .then(transformDirectRequestJobRun(jobSpecId))
+        .then(setState)
         .catch(setError)
     }
   }, [jobRunId, jobSpecId, setError])
@@ -150,26 +79,7 @@ export const Show = ({ match }: Props) => {
 
   const stratify =
     jobRun?.type === 'Off-chain reporting job run'
-      ? parseDot(`digraph {${jobRun.pipelineSpec.DotDagSource}}`).map(
-          (stratifyNode) => {
-            const stratifyNodeCopy: Stratify = JSON.parse(
-              JSON.stringify(stratifyNode),
-            )
-
-            const status =
-              jobRun.taskRuns.find(
-                ({ taskSpec }) => taskSpec.dotId === stratifyNodeCopy.id,
-              )?.status || 'aborted'
-
-            if (stratifyNodeCopy.attributes) {
-              stratifyNodeCopy.attributes.status = status
-            } else {
-              stratifyNodeCopy.attributes = { status }
-            }
-
-            return stratifyNodeCopy
-          },
-        )
+      ? augmentOcrTasksList({ jobRun })
       : []
 
   return (
@@ -209,21 +119,14 @@ export const Show = ({ match }: Props) => {
                       <Route
                         render={() => (
                           <ul>
-                            {jobRun.taskRuns
-                              .sort(
-                                (a, b) =>
-                                  new Date(b.createdAt).getTime() -
-                                  new Date(a.createdAt).getTime(),
-                              )
-                              .map((taskRun) => (
-                                <li key={taskRun.taskSpec.dotId}>
-                                  <p>
-                                    Task: {taskRun.taskSpec.dotId} (
-                                    {taskRun.type})
-                                  </p>
-                                  <p>Status: {taskRun.status}</p>
-                                </li>
-                              ))}
+                            {stratify.map((node) => (
+                              <li key={node.id}>
+                                <p>
+                                  Task: {node.id} ({node.attributes?.type})
+                                </p>
+                                <p>Status: {node.attributes?.status}</p>
+                              </li>
+                            ))}
                           </ul>
                         )}
                       />

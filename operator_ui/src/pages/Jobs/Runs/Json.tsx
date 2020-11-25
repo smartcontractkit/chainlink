@@ -1,12 +1,12 @@
 import React from 'react'
 import { PaddedCard } from '@chainlink/styleguide'
 import PrettyJson from 'components/PrettyJson'
-import { DirectRequestJobRun, OffChainReportingJobRun } from '../sharedTypes'
+import { DirectRequestJobRun, PipelineJobRun } from '../sharedTypes'
 
 export const Json = ({
   jobRun,
 }: {
-  jobRun: DirectRequestJobRun | OffChainReportingJobRun
+  jobRun: DirectRequestJobRun | PipelineJobRun
 }) => {
   return (
     <PaddedCard>

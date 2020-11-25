@@ -1,5 +1,5 @@
 import TOML from '@iarna/toml'
-import { OcrTaskError, RunStatus } from 'core/store/models'
+import { PipelineTaskError, RunStatus } from 'core/store/models'
 
 export enum JobSpecFormats {
   JSON = 'json',
@@ -68,7 +68,7 @@ export function getOcrJobStatus({
   errors,
 }: {
   finishedAt: string | null
-  errors: OcrTaskError[]
+  errors: PipelineTaskError[]
 }) {
   if (finishedAt === null) {
     return RunStatus.IN_PROGRESS

@@ -13,7 +13,11 @@ import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
 import { Runs as JobRuns } from './Runs'
-import { getOcrJobStatus, isOcrJob } from './utils'
+import { isOcrJob } from './utils'
+import {
+  transformDirectRequestJobRun,
+  transformPipelineJobRun,
+} from './transformJobRuns'
 
 type Props = RouteComponentProps<{
   jobSpecId: string
@@ -46,12 +50,9 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           .then((jobSpecRunsResponse) => {
             setState((s) => ({
               ...s,
-              recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
-                ...jobRun.attributes,
-                id: jobRun.id,
-                status: getOcrJobStatus(jobRun.attributes),
-                jobId: jobSpecId,
-              })),
+              recentRuns: jobSpecRunsResponse.data.map(
+                transformPipelineJobRun(jobSpecId),
+              ),
               recentRunsCount: jobSpecRunsResponse.meta.count,
             }))
           })
@@ -62,18 +63,16 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           .then((jobSpecRunsResponse) => {
             setState((s) => ({
               ...s,
-              recentRuns: jobSpecRunsResponse.data.map((jobRun) => ({
-                ...jobRun.attributes,
-                id: jobRun.id,
-                jobId: jobSpecId,
-              })),
+              recentRuns: jobSpecRunsResponse.data.map(
+                transformDirectRequestJobRun(jobSpecId),
+              ),
               recentRunsCount: jobSpecRunsResponse.meta.count,
             }))
           })
           .catch(setError)
       }
     },
-    [isOcrJob, jobSpecId, setError],
+    [jobSpecId, setError],
   )
 
   const getJobSpec = React.useCallback(async () => {
@@ -114,7 +113,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         })
         .catch(setError)
     }
-  }, [isOcrJob, jobSpecId, setError])
+  }, [jobSpecId, setError])
 
   React.useEffect(() => {
     getJobSpec()

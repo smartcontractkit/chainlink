@@ -10,6 +10,7 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { RunStatus } from 'core/store/models'
 import titleize from 'utils/titleize'
+import { PipelineTaskRunStatus } from './sharedTypes'
 
 const styles = (theme: any) =>
   createStyles({
@@ -76,7 +77,7 @@ interface Props extends WithStyles<typeof styles> {
   runs: {
     createdAt: string
     id: string
-    status: RunStatus
+    status: RunStatus | PipelineTaskRunStatus
     jobId: string
   }[]
 }
