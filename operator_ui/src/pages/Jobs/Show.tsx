@@ -147,6 +147,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
       />
       <Switch>
         <Route
+          exact
           path={`${match.path}/definition`}
           render={() => (
             <JobsDefinition
@@ -160,6 +161,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           )}
         />
         <Route
+          exact
           path={`${match.path}/errors`}
           render={() => (
             <JobsErrors
@@ -175,6 +177,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           )}
         />
         <Route
+          exact
           path={`${match.path}/runs`}
           render={() => (
             <JobRuns

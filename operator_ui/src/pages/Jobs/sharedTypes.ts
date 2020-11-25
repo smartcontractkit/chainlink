@@ -6,9 +6,12 @@ import {
   JobSpecError,
   OcrJobRun,
   OcrJobSpec,
-  TaskSpec,
+  RunResult,
   RunStatus,
+  TaskRun,
+  TaskSpec,
 } from 'core/store/models'
+import * as time from 'time'
 
 export type JobRunsResponse =
   | PaginatedApiResponse<JobRun[]>
@@ -24,13 +27,6 @@ export type BaseJob = {
   name?: string
 }
 
-export type BaseJobRun = {
-  createdAt: string
-  id: string
-  status: RunStatus
-  jobId: string
-}
-
 export type OffChainReportingJob = BaseJob & {
   dotDagSource: string
   type: 'Off-chain reporting'
@@ -44,6 +40,22 @@ export type DirectRequestJob = BaseJob & {
   startAt: string | null
   tasks: TaskSpec[]
   type: 'Direct request'
+}
+
+export type BaseJobRun = {
+  createdAt: string
+  id: string
+  status: RunStatus
+  jobId: string
+}
+
+export type DirectRequestJobRun = BaseJobRun & {
+  initiator: Initiator
+  overrides: RunResult
+  result: RunResult
+  taskRuns: TaskRun[]
+  finishedAt: time.Time | null
+  payment: string | null
 }
 
 export type JobData = {
