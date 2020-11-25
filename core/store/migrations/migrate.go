@@ -3,12 +3,6 @@ package migrations
 import (
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605816413"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605630295"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605218542"
-
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration0"
@@ -92,6 +86,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1604707007"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605186531"
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605213161"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605218542"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605630295"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1605816413"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1606303568"
 
 	gormigrate "gopkg.in/gormigrate.v1"
 )
@@ -437,6 +435,10 @@ func init() {
 		{
 			ID:      "migration1605816413",
 			Migrate: migration1605816413.Migrate,
+		},
+		{
+			ID:      "migration1606303568",
+			Migrate: migration1606303568.Migrate,
 		},
 	}
 }

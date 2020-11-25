@@ -344,6 +344,8 @@ ds1 -> ds1_parse;
 
 		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
 		var jb models.JobSpecV2
@@ -394,6 +396,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
 		var jb models.JobSpecV2

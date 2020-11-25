@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
@@ -31,7 +32,7 @@ func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
 	defer cleanup()
@@ -152,7 +153,7 @@ func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL)), &ocrJobSpec)
 	require.NoError(t, err)
 
-	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec)
+	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)
 
 	firstRunID, err := app.RunJobV2(context.Background(), jobID, nil)

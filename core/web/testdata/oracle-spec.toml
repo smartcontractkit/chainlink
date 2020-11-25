@@ -1,5 +1,6 @@
 type               = "offchainreporting"
 schemaVersion      = 1
+name               = "web oracle spec"
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp"
 p2pBootstrapPeers  = [
