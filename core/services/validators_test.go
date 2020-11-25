@@ -691,6 +691,30 @@ ds1          [type=bridge name=voter_turnout];
 			},
 		},
 		{
+			name: "individual max task duration > observation timeout should error",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+observationSource = """
+ds1          [type=bridge name=voter_turnout timeout="30s"];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "individual max task duration must be < observation timeout")
+			},
+		},
+		{
 			name: "sane defaults",
 			toml: `
 type               = "offchainreporting"
