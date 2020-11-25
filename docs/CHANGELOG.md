@@ -22,17 +22,6 @@ ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
 ```
 
-## [0.9.6] - 2020-11-23
-
-- OCR pipeline specs can now be configured on a per-task basis to allow unrestricted network access for http tasks. Example like so:
-
-```
-ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-ds1_parse    [type=jsonparse path="USD" lax="true"];
-ds1_multiply [type=multiply times=100];
-ds1 -> ds1_parse -> ds1_multiply;
-```
-
 ### Changed
 
 Numerous key-related UX improvements:
