@@ -2,8 +2,9 @@ import React from 'react'
 import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
 import { CardTitle } from '@chainlink/styleguide'
-import { Card, Grid, Typography } from '@material-ui/core'
+import { Card, Divider, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
+import StatusIcon from 'components/StatusIcon'
 import StatusCard from './StatusCard'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
@@ -18,6 +19,7 @@ import {
   transformDirectRequestJobRun,
   transformPipelineJobRun,
 } from '../transformJobRuns'
+import { theme } from 'theme'
 
 function getErrorsList(jobRun: DirectRequestJobRun | PipelineJobRun): string[] {
   if (jobRun.type === 'Direct request job run') {
@@ -27,7 +29,7 @@ function getErrorsList(jobRun: DirectRequestJobRun | PipelineJobRun): string[] {
       .filter((error): error is string => error !== null)
   }
 
-  if (jobRun.type === 'Off-chain reporting job run') {
+  if (jobRun.type === 'Off-chain reporting job run' && jobRun.errors) {
     return jobRun.errors.filter((error): error is string => error !== null)
   }
 
@@ -118,16 +120,103 @@ export const Show = ({ match }: Props) => {
                     {jobRun.type === 'Off-chain reporting job run' && (
                       <Route
                         render={() => (
-                          <ul>
-                            {stratify.map((node) => (
-                              <li key={node.id}>
-                                <p>
-                                  Task: {node.id} ({node.attributes?.type})
-                                </p>
-                                <p>Status: {node.attributes?.status}</p>
-                              </li>
-                            ))}
-                          </ul>
+                          <Card>
+                            {stratify.map((node) => {
+                              const {
+                                error,
+                                status,
+                                type,
+                                output,
+                                ...customAttributes
+                              } = node.attributes
+                              return (
+                                <>
+                                  <div
+                                    style={{
+                                      display: 'flex',
+                                      padding: theme.spacing.unit * 2,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        paddingRight: theme.spacing.unit * 2,
+                                      }}
+                                    >
+                                      <StatusIcon
+                                        width={theme.spacing.unit * 5}
+                                        height={theme.spacing.unit * 5}
+                                      >
+                                        {status}
+                                      </StatusIcon>
+                                    </span>
+                                    <span>
+                                      <Typography
+                                        style={{
+                                          lineHeight: `${
+                                            theme.spacing.unit * 5
+                                          }px`,
+                                        }}
+                                        variant="headline"
+                                      >
+                                        {node.id}{' '}
+                                        <small
+                                          style={{
+                                            color: theme.palette.grey[500],
+                                          }}
+                                        >
+                                          {type}
+                                        </small>
+                                      </Typography>
+                                      {status === 'completed' && (
+                                        <Typography
+                                          style={{
+                                            marginBottom: theme.spacing.unit,
+                                            marginTop: theme.spacing.unit,
+                                          }}
+                                          variant="body1"
+                                        >
+                                          {output}
+                                        </Typography>
+                                      )}
+
+                                      {status === 'errored' && (
+                                        <Typography
+                                          style={{
+                                            marginBottom: theme.spacing.unit,
+                                          }}
+                                          variant="body1"
+                                        >
+                                          {error}
+                                        </Typography>
+                                      )}
+
+                                      {status !== 'aborted' &&
+                                        Object.entries(customAttributes).map(
+                                          ([key, value]) => (
+                                            <Typography
+                                              key={key}
+                                              variant="body1"
+                                            >
+                                              <span
+                                                style={{
+                                                  fontWeight:
+                                                    theme.typography
+                                                      .fontWeightLight,
+                                                }}
+                                              >
+                                                {key}
+                                              </span>
+                                              : {value || '-'}{' '}
+                                            </Typography>
+                                          ),
+                                        )}
+                                    </span>
+                                  </div>
+                                  <Divider />
+                                </>
+                              )
+                            })}
+                          </Card>
                         )}
                       />
                     )}

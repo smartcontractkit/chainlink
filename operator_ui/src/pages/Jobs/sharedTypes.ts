@@ -71,8 +71,8 @@ export type PipelineTaskRun = OcrJobRun['taskRuns'][0] & {
 }
 
 export type PipelineJobRun = BaseJobRun & {
-  outputs: (string | null)[]
-  errors: (string | null)[]
+  outputs: null | (string | null)[]
+  errors: null | (string | null)[]
   pipelineSpec: {
     DotDagSource: string
   }
