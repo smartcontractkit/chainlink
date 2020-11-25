@@ -1,3 +1,5 @@
+import React from 'react'
+import { useLocation } from 'react-router-dom'
 import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
 import Card from '@material-ui/core/Card'
 import Grid from '@material-ui/core/Grid'
@@ -11,10 +13,9 @@ import {
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
-import React from 'react'
 import { connect } from 'react-redux'
 import { createJobRun, fetchJob } from 'actionCreators'
-import Link from '../../../components/Link'
+import Link from 'components/Link'
 
 const navItemStyles = ({ palette, spacing }: Theme) =>
   createStyles({
@@ -55,8 +56,8 @@ interface NavItemProps extends WithStyles<typeof navItemStyles> {
 
 const NavItem = withStyles(navItemStyles)(
   ({ children, href, classes, error }: NavItemProps) => {
-    const pathname = document ? document.location.pathname : ''
-    const active = pathname === href
+    const location = useLocation()
+    const active = location.pathname === href
     const linkClasses = classNames(
       classes.link,
       error && classes.error,
@@ -101,7 +102,7 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
       <Grid container spacing={0}>
         <Grid item xs={12}>
           <Typography variant="subtitle2" color="secondary" gutterBottom>
-            Job Run Detail
+            Job run details
           </Typography>
           <Link href={`/jobs/${jobSpecId}`} variant="subtitle1" color="primary">
             {jobSpecId}
@@ -124,20 +125,12 @@ const RegionalNav = ({ classes, jobSpecId, jobRunId, jobRun }: Props) => {
         </Grid>
         <Grid item xs={12}>
           <List className={classes.horizontalNav}>
-            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/${jobRunId}`}>
               Overview
             </NavItem>
-            <NavItem href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/json`}>
+            <NavItem href={`/jobs/${jobSpecId}/runs/${jobRunId}/json`}>
               JSON
             </NavItem>
-            {jobRun && jobRun.status === 'errored' && (
-              <NavItem
-                href={`/jobs/${jobSpecId}/runs/id/${jobRunId}/error_log`}
-                error
-              >
-                Error Log
-              </NavItem>
-            )}
           </List>
         </Grid>
       </Grid>

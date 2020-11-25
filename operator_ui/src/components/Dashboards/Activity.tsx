@@ -17,7 +17,7 @@ import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import BaseLink from '../BaseLink'
 import Button from '../Button'
-import StatusIcon from '../JobRuns/StatusIcon'
+import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
 
@@ -140,7 +140,7 @@ const Activity = ({ classes, runs }: Props) => {
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                        <Link href={`/jobs/${r.jobId}/runs/${r.id}`}>
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"
