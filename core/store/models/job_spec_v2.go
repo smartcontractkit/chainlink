@@ -24,6 +24,7 @@ type (
 		Type                          string                       `json:"type"`
 		SchemaVersion                 uint32                       `json:"schemaVersion"`
 		Name                          null.String                  `json:"name"`
+		MaxTaskDuration               Interval                     `json:"maxTaskDuration"`
 	}
 
 	JobSpecErrorV2 struct {
