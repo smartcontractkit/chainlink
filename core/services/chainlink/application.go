@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 )
 
 // headTrackableCallback is a simple wrapper around an On Connect callback
@@ -50,7 +51,7 @@ type Application interface {
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Spec) (int32, error)
+	AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error)
 	ArchiveJob(*models.ID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -297,8 +298,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec) (int32, error) {
-	return app.jobSpawner.CreateJob(ctx, job)
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error) {
+	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {

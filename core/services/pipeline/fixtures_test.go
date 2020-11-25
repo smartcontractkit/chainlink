@@ -117,7 +117,11 @@ func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
+	dbSpec := models.JobSpecV2{
+		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
+		Type:                        string(offchainreporting.JobType),
+		SchemaVersion:               ocrspec.SchemaVersion,
+	}
 	return &ocrspec, &dbSpec
 }
 

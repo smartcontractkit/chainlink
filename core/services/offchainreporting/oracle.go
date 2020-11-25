@@ -76,7 +76,11 @@ func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
 	if !ok {
 		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
 	}
-	return models.JobSpecV2{OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec}
+	return models.JobSpecV2{
+		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
+		Type:                        string(JobType),
+		SchemaVersion:               concreteSpec.SchemaVersion,
+	}
 }
 
 func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {

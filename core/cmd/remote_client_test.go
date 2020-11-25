@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestClient_ListETHKeys(t *testing.T) {
@@ -1134,7 +1135,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})

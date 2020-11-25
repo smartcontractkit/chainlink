@@ -11,14 +11,14 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestOCRJobSpecsController_Create_ValidationFailure(t *testing.T) {
@@ -92,7 +92,7 @@ func TestOCRJobSpecsController_Create_HappyPath(t *testing.T) {
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
-	assert.Equal(t, job.OffchainreportingOracleSpec.ContractAddress, ocrJobSpec.OffchainreportingOracleSpec.ContractAddress)
+	assert.Equal(t, "web oracle spec", job.Name.ValueOrZero())
 	assert.Equal(t, job.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
 	assert.Equal(t, job.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
 	assert.Equal(t, job.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
@@ -203,6 +203,6 @@ func setupOCRJobSpecsWControllerTestsWithJob(t *testing.T) (cltest.HTTPClientCle
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 	return client, cleanup, ocrJobSpecFromFile, jobID
 }

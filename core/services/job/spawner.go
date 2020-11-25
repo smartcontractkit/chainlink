@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -29,7 +30,7 @@ type (
 	Spawner interface {
 		Start()
 		Stop()
-		CreateJob(ctx context.Context, spec Spec) (int32, error)
+		CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		RegisterDelegate(delegate Delegate)
 	}
@@ -271,7 +272,7 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec Spec) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 
@@ -285,6 +286,7 @@ func (js *spawner) CreateJob(ctx context.Context, spec Spec) (int32, error) {
 	defer cancel()
 
 	specDBRow := delegate.ToDBRow(spec)
+	specDBRow.Name = name
 	err := js.orm.CreateJob(ctx, &specDBRow, spec.TaskDAG())
 	if err != nil {
 		logger.Errorw("Error creating job", "type", spec.JobType(), "error", err)
