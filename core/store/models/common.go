@@ -138,6 +138,11 @@ func (s *RunStatus) Scan(value interface{}) error {
 	return nil
 }
 
+const (
+	ResultKey           = "result"
+	ResultCollectionKey = "__chainlink_result_collection__"
+)
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
