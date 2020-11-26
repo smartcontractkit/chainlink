@@ -3,7 +3,8 @@ import { theme } from 'theme'
 import Typography from '@material-ui/core/Typography'
 import * as d3dag from 'd3-dag'
 import * as d3 from 'd3'
-import { parseDot, Stratify } from './parseDot'
+import StatusIcon from 'components/StatusIcon'
+import { Stratify } from './parseDot'
 
 type Node = {
   x: number
@@ -16,19 +17,25 @@ type NodeElement = {
   y: number
 }
 
+type TaskNodes = { [nodeId: string]: NodeElement }
+
 function createDag({
-  dotSource,
+  stratify,
   ref,
   setTooltip,
+  setIcon,
 }: {
-  dotSource: string
+  stratify: Stratify[]
   ref: HTMLInputElement
   setTooltip: Function
+  setIcon: Function
 }): void {
   const nodeRadius = 18
-  const stratify = parseDot(`digraph {${dotSource}}`)
   const width = ref.offsetWidth
   const height = stratify.length * 60
+
+  // Clean up
+  d3.select(ref).select('svg').remove()
 
   const svgSelection = d3
     .select(ref)
@@ -57,6 +64,7 @@ function createDag({
     .x((node) => node.x)
     .y((node) => node.y)
 
+  // Styling links
   groupSelection
     .append('g')
     .selectAll('path')
@@ -66,7 +74,7 @@ function createDag({
     .attr('d', ({ points }) => line(points))
     .attr('fill', 'none')
     .attr('stroke-width', 2)
-    .attr('stroke', '#3c40c6')
+    .attr('stroke', theme.palette.grey['300'])
 
   const nodes = groupSelection
     .append('g')
@@ -75,13 +83,19 @@ function createDag({
     .enter()
     .append('g')
     .attr('style', 'cursor: default')
-    .attr('id', (node) => node.id)
+    .attr('id', (node) => {
+      setIcon((s: TaskNodes) => ({
+        ...s,
+        [node.id]: node,
+      }))
+      return node.id
+    })
     .attr('transform', ({ x, y }: any) => `translate(${x}, ${y})`)
     .on('mouseover', (_, node) => {
       setTooltip(node)
       d3.select<d3.BaseType, NodeElement>(`#circle-${node.data.id}`)
         .transition()
-        .attr('r', nodeRadius + 3)
+        .attr('r', nodeRadius + 7)
         .duration(50)
     })
     .on('mouseout', (_, node) => {
@@ -92,6 +106,7 @@ function createDag({
         .duration(50)
     })
 
+  // Styling dots
   nodes
     .append('circle')
     .attr('id', (node) => {
@@ -101,7 +116,22 @@ function createDag({
     .attr('fill', 'black')
     .attr('stroke', 'white')
     .attr('stroke-width', 6)
-    .attr('fill', '#3c40c6')
+    .attr('fill', (node) => {
+      switch (node.data.attributes?.status) {
+        case 'in_progress':
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+          // @ts-ignore because material UI doesn't update theme types with options
+          return theme.palette.warning.main
+        case 'completed':
+          // eslint-disable-next-line @typescript-eslint/ban-ts-ignore
+          // @ts-ignore because material UI doesn't update theme types with options
+          return theme.palette.success.main
+        case 'errored':
+          return theme.palette.error.main
+        default:
+          return theme.palette.grey['500']
+      }
+    })
 
   nodes
     .append('text')
@@ -116,18 +146,25 @@ function createDag({
 }
 
 interface Props {
-  dotSource: string
+  stratify: Stratify[]
 }
 
-const TaskList = ({ dotSource }: Props) => {
+export const TaskList = ({ stratify }: Props) => {
   const [tooltip, setTooltip] = React.useState<NodeElement>()
+  const [icons, setIcon] = React.useState<TaskNodes>({})
   const graph = React.useRef<HTMLInputElement>(null)
 
   React.useEffect(() => {
-    if (graph.current) {
-      createDag({ dotSource, ref: graph.current, setTooltip })
+    function handleResize() {
+      if (graph.current) {
+        createDag({ stratify, ref: graph.current, setTooltip, setIcon })
+      }
     }
-  }, [dotSource])
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [graph, stratify])
 
   return (
     <div style={{ position: 'relative' }}>
@@ -140,30 +177,62 @@ const TaskList = ({ dotSource }: Props) => {
             padding: theme.spacing.unit,
             background: 'white',
             borderRadius: 5,
-            minWidth: '300px',
+            width: '300px',
             transform: `translate(${tooltip.x}px, ${tooltip.y}px)`,
+            zIndex: 1,
           }}
         >
           <Typography variant="body1" color="textPrimary">
             <b>{tooltip.data.id}</b>
           </Typography>
           {tooltip.data?.attributes &&
-            Object.entries(tooltip.data.attributes).map(([key, value]) => (
-              <div key={key}>
-                <Typography
-                  variant="body1"
-                  color="textSecondary"
-                  component="div"
-                >
-                  <b>{key}:</b> {value}
-                </Typography>
-              </div>
-            ))}
+            Object.entries(tooltip.data.attributes)
+              // We want to filter errors and outputs out as they can get quite long
+              .filter(([key]) => !['error', 'output'].includes(key))
+              .map(([key, value]) => (
+                <div key={key}>
+                  <Typography
+                    variant="body1"
+                    color="textSecondary"
+                    component="div"
+                  >
+                    <b>{key}:</b> {value}
+                  </Typography>
+                </div>
+              ))}
         </div>
       )}
+      {Object.values(icons).map((icon) => (
+        <span
+          key={JSON.stringify(icon.data)}
+          style={{
+            position: 'absolute',
+            height: theme.spacing.unit * 5,
+            width: theme.spacing.unit * 5,
+            transform: `translate(${icon.x + theme.spacing.unit * 5}px, ${
+              icon.y + theme.spacing.unit * 2.75
+            }px)`,
+            pointerEvents: 'none',
+          }}
+        >
+          <StatusIcon
+            height={theme.spacing.unit * 5}
+            width={theme.spacing.unit * 5}
+          >
+            {icon.data.attributes?.status || 'not_run'}
+          </StatusIcon>
+        </span>
+      ))}
       <div
         id="graph"
-        style={{ padding: `${theme.spacing.unit * 3}px 0px` }}
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginLeft: theme.spacing.unit * 3,
+          marginRight: theme.spacing.unit * 3,
+          paddingTop: theme.spacing.unit * 3,
+          paddingBottom: theme.spacing.unit * 3,
+        }}
         ref={graph}
       />
     </div>

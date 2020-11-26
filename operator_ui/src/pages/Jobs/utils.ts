@@ -1,4 +1,5 @@
 import TOML from '@iarna/toml'
+import { PipelineTaskError, RunStatus } from 'core/store/models'
 
 export enum JobSpecFormats {
   JSON = 'json',
@@ -61,3 +62,24 @@ export function stringifyJobSpec({
 
   return ''
 }
+
+export function getOcrJobStatus({
+  finishedAt,
+  errors,
+}: {
+  finishedAt: string | null
+  errors: PipelineTaskError[]
+}) {
+  if (finishedAt === null) {
+    return RunStatus.IN_PROGRESS
+  }
+  if (errors[0] !== null) {
+    return RunStatus.ERRORED
+  }
+  return RunStatus.COMPLETED
+}
+
+// `isNaN` actually accepts strings and we don't want to `parseInt` or `parseFloat`
+//  as it doesn't have the behaviour we want.
+export const isOcrJob = (jobSpecId: string): boolean =>
+  !isNaN((jobSpecId as unknown) as number)
