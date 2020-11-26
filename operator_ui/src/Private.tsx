@@ -28,6 +28,16 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
+const JobRunsIndex: UniversalComponent<
+  Pick<
+    {
+      classes: any
+    },
+    never
+  > & {
+    pagePath: string
+  }
+> = universal(import('./pages/JobRuns/Index'), uniOpts)
 const JobsIndex = universal(import('./pages/JobsIndex/JobsIndex'), uniOpts)
 const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
@@ -93,7 +103,21 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                 component={JobRunsShowOverview}
               />
               <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
-              <PrivateRoute exact path="/bridges" component={BridgesIndex} />
+              <PrivateRoute
+                exact
+                path="/runs"
+                render={(props) => (
+                  <JobRunsIndex {...props} pagePath="/runs/page" />
+                )}
+              />
+              <PrivateRoute
+                exact
+                path="/runs/page/:jobRunsPage"
+                render={(props) => (
+                  <JobRunsIndex {...props} pagePath="/runs/page" />
+                )}
+              />
+              ;<PrivateRoute exact path="/bridges" component={BridgesIndex} />
               <PrivateRoute
                 exact
                 path="/bridges/page/:bridgePage"
