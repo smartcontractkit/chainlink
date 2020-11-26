@@ -10,6 +10,7 @@ import Typography from '@material-ui/core/Typography'
 import classNames from 'classnames'
 import { RunStatus } from 'core/store/models'
 import titleize from 'utils/titleize'
+import { PipelineTaskRunStatus } from './sharedTypes'
 
 const styles = (theme: any) =>
   createStyles({
@@ -76,13 +77,12 @@ interface Props extends WithStyles<typeof styles> {
   runs: {
     createdAt: string
     id: string
-    status: RunStatus
+    status: RunStatus | PipelineTaskRunStatus
     jobId: string
   }[]
-  hideLinks?: boolean
 }
 
-const List = ({ runs, hideLinks, classes }: Props) => {
+const List = ({ runs, classes }: Props) => {
   const history = useHistory()
 
   return (
@@ -106,20 +106,12 @@ const List = ({ runs, hideLinks, classes }: Props) => {
           runs.map((r) => (
             <TableRow
               key={r.id}
-              style={hideLinks ? {} : { cursor: 'pointer' }}
-              onClick={() =>
-                hideLinks
-                  ? undefined
-                  : history.push(`/jobs/${r.jobId}/runs/${r.id}`)
-              }
+              style={{ cursor: 'pointer' }}
+              onClick={() => history.push(`/jobs/${r.jobId}/runs/${r.id}`)}
             >
               <TableCell className={classes.idCell} scope="row">
                 <div className={classes.runDetails}>
-                  <Typography
-                    variant="h5"
-                    color={hideLinks ? 'secondary' : 'primary'}
-                    component="span"
-                  >
+                  <Typography variant="h5" color={'primary'} component="span">
                     {r.id}
                   </Typography>
                 </div>

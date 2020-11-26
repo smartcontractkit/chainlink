@@ -19,6 +19,7 @@ import { GWEI_PER_TOKEN } from 'utils/constants'
 import formatMinPayment from 'utils/formatWeiAsset'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequestJob, JobData } from './sharedTypes'
+import { parseDot } from './parseDot'
 
 const totalLinkEarned = (job: DirectRequestJob) => {
   const zero = '0.000000'
@@ -48,9 +49,6 @@ const chartCardStyles = ({ spacing, palette }: Theme) =>
       paddingTop: spacing.unit * 2,
       paddingBottom: spacing.unit * 2,
       paddingLeft: spacing.unit * 2,
-    },
-    card: {
-      overflow: 'visible',
     },
   })
 
@@ -92,17 +90,14 @@ export const RecentRuns = withStyles(chartCardStyles)(
         <ErrorComponent />
         <LoadingPlaceholder />
         {!error && job && (
-          <Grid container spacing={24}>
+          <Grid container spacing={40}>
             <Grid item xs={8}>
               <Card>
                 <CardTitle divider>Recent job runs</CardTitle>
 
                 {recentRuns && (
                   <>
-                    <JobRunsList
-                      runs={recentRuns}
-                      hideLinks={job?.type === 'Off-chain reporting'}
-                    />
+                    <JobRunsList runs={recentRuns} />
                     {recentRunsCount > showJobRunsCount && (
                       <div className={classes.runDetails}>
                         <Button
@@ -120,9 +115,11 @@ export const RecentRuns = withStyles(chartCardStyles)(
             <Grid item xs={4}>
               {job?.type === 'Off-chain reporting' && job.dotDagSource !== '' && (
                 <Grid item xs>
-                  <Card className={classes.card}>
+                  <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>
-                    <TaskListDag dotSource={job.dotDagSource} />
+                    <TaskListDag
+                      stratify={parseDot(`digraph {${job.dotDagSource}}`)}
+                    />
                   </Card>
                 </Grid>
               )}

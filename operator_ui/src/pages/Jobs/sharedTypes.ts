@@ -43,9 +43,9 @@ export type DirectRequestJob = BaseJob & {
 }
 
 export type BaseJobRun = {
-  createdAt: string
+  createdAt: time.Time
+  finishedAt: time.Time | null
   id: string
-  status: RunStatus
   jobId: string
 }
 
@@ -54,13 +54,36 @@ export type DirectRequestJobRun = BaseJobRun & {
   overrides: RunResult
   result: RunResult
   taskRuns: TaskRun[]
-  finishedAt: time.Time | null
   payment: string | null
+  status: RunStatus
+  type: 'Direct request job run'
+}
+
+export type PipelineJobRunStatus = 'in_progress' | 'errored' | 'completed'
+export type PipelineTaskRunStatus =
+  | 'in_progress'
+  | 'errored'
+  | 'completed'
+  | 'not_run'
+
+export type PipelineTaskRun = OcrJobRun['taskRuns'][0] & {
+  status: PipelineTaskRunStatus
+}
+
+export type PipelineJobRun = BaseJobRun & {
+  outputs: null | (string | null)[]
+  errors: null | (string | null)[]
+  pipelineSpec: {
+    DotDagSource: string
+  }
+  status: PipelineJobRunStatus
+  taskRuns: PipelineTaskRun[]
+  type: 'Off-chain reporting job run'
 }
 
 export type JobData = {
   job?: DirectRequestJob | OffChainReportingJob
   jobSpec?: JobSpecResponse['data']
-  recentRuns?: BaseJobRun[]
+  recentRuns?: PipelineJobRun[] | DirectRequestJobRun[]
   recentRunsCount: number
 }

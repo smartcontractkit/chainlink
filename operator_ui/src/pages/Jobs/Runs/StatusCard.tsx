@@ -109,7 +109,7 @@ const StatusCard: React.FC<Props> = ({
             }
           </Grid>
           <Grid item xs={3}>
-            {title === 'completed' && (
+            {title === 'completed' && payment && (
               <EarnedLink classes={classes} linkEarned={payment} />
             )}
           </Grid>
