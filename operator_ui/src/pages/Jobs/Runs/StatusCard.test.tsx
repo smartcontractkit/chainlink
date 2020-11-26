@@ -1,8 +1,8 @@
 import React from 'react'
-import StatusCard from 'components/JobRuns/StatusCard'
+import StatusCard from './StatusCard'
 import mountWithTheme from 'test-helpers/mountWithTheme'
 
-describe('components/JobRuns/StatusCard', () => {
+describe('components/StatusCard', () => {
   const start = '2020-01-03T22:45:00.166261Z'
   const end1m = '2020-01-03T22:46:00.166261Z'
   const pendingRun = {
@@ -17,7 +17,7 @@ describe('components/JobRuns/StatusCard', () => {
     status: 'completed',
     createdAt: start,
     finishedAt: end1m,
-    payment: 2000000000000000000,
+    payment: '2000000000000000000',
   }
   const erroredRun = {
     id: 'runA',
@@ -33,21 +33,12 @@ describe('components/JobRuns/StatusCard', () => {
     expect(component.text()).toContain('Pending Incoming Confirmations')
   })
 
-  it('can display children', () => {
-    const withChildren = mountWithTheme(
-      <StatusCard title={'pending_incoming_confirmations'}>
-        I am a child
-      </StatusCard>,
-    )
-    expect(withChildren.text()).toContain('I am a child')
-  })
-
   it('can display the elapsed time for finished jobruns', () => {
     const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" jobRun={erroredRun} />,
+      <StatusCard title="errored" {...erroredRun} />,
     )
     const completedStatus = mountWithTheme(
-      <StatusCard title="completed" jobRun={completedRun} />,
+      <StatusCard title="completed" {...completedRun} />,
     )
 
     expect(erroredStatus.text()).toContain('1m')
@@ -62,7 +53,7 @@ describe('components/JobRuns/StatusCard', () => {
       .mockImplementationOnce(() => new Date(now2m).valueOf())
 
     const pendingStatus = mountWithTheme(
-      <StatusCard title="pending" jobRun={pendingRun} />,
+      <StatusCard title="pending" {...pendingRun} />,
     )
 
     expect(pendingStatus.html()).toContain('2m')
@@ -70,17 +61,17 @@ describe('components/JobRuns/StatusCard', () => {
 
   it('can display link earned for completed jobs', () => {
     const completedStatus = mountWithTheme(
-      <StatusCard title="completed" jobRun={completedRun} />,
+      <StatusCard title="completed" {...completedRun} />,
     )
     expect(completedStatus.text()).toContain('+2 Link')
   })
 
   it('will not display link earned for errored or pending jobs', () => {
     const erroredStatus = mountWithTheme(
-      <StatusCard title="errored" jobRun={erroredRun} />,
+      <StatusCard title="errored" {...erroredRun} />,
     )
     const pendingStatus = mountWithTheme(
-      <StatusCard title="pending_incoming_confirmations" jobRun={pendingRun} />,
+      <StatusCard title="pending_incoming_confirmations" {...pendingRun} />,
     )
     expect(erroredStatus.text()).not.toContain('Link')
     expect(pendingStatus.text()).not.toContain('Link')

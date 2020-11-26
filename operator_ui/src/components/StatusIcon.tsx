@@ -1,7 +1,7 @@
 import React from 'react'
-import SuccessIcon from '../Icons/Success'
-import ErrorIcon from '../Icons/Error'
-import PendingIcon from '../Icons/Pending'
+import SuccessIcon from 'components/Icons/Success'
+import ErrorIcon from 'components/Icons/Error'
+import PendingIcon from 'components/Icons/Pending'
 
 interface Props {
   children: React.ReactNode

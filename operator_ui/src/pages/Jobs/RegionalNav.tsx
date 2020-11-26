@@ -115,7 +115,7 @@ const isWebInitiator = (
 const CreateRunSuccessNotification = ({ data }: any) => (
   <React.Fragment>
     Successfully created job run{' '}
-    <BaseLink href={`/jobs/${data.attributes.jobId}/runs/id/${data.id}`}>
+    <BaseLink href={`/jobs/${data.attributes.jobId}/runs/${data.id}`}>
       {data.id}
     </BaseLink>
   </React.Fragment>

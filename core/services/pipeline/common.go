@@ -30,6 +30,7 @@ type (
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
+		TaskTimeout() (time.Duration, bool)
 	}
 
 	Result struct {
@@ -60,14 +61,21 @@ var (
 
 type BaseTask struct {
 	outputTask Task
-	dotID      string `mapstructure:"-"`
-	Index      int32  `mapstructure:"index" json:"-" `
+	dotID      string        `mapstructure:"-"`
+	Index      int32         `mapstructure:"index" json:"-" `
+	Timeout    time.Duration `mapstructure:"timeout"`
 }
 
 func (t BaseTask) DotID() string                  { return t.dotID }
 func (t BaseTask) OutputIndex() int32             { return t.Index }
 func (t BaseTask) OutputTask() Task               { return t.outputTask }
 func (t *BaseTask) SetOutputTask(outputTask Task) { t.outputTask = outputTask }
+func (t BaseTask) TaskTimeout() (time.Duration, bool) {
+	if t.Timeout == time.Duration(0) {
+		return time.Duration(0), false
+	}
+	return t.Timeout, true
+}
 
 type JSONSerializable struct {
 	Val interface{}
@@ -150,6 +158,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		Result: task,
 		DecodeHook: mapstructure.ComposeDecodeHookFunc(
 			mapstructure.StringToSliceHookFunc(","),
+			mapstructure.StringToTimeDurationHookFunc(),
 			func(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
 				switch f {
 				case reflect.TypeOf(""):

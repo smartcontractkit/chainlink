@@ -10,6 +10,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
+	null "gopkg.in/guregu/null.v4"
 )
 
 type (
@@ -20,6 +21,10 @@ type (
 		PipelineSpecID                int32                        `json:"-"`
 		PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
 		JobSpecErrors                 []JobSpecErrorV2             `json:"errors" gorm:"foreignKey:JobID"`
+		Type                          string                       `json:"type"`
+		SchemaVersion                 uint32                       `json:"schemaVersion"`
+		Name                          null.String                  `json:"name"`
+		MaxTaskDuration               Interval                     `json:"maxTaskDuration"`
 	}
 
 	JobSpecErrorV2 struct {
