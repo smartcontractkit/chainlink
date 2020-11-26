@@ -11,7 +11,7 @@ import {
 import { v2 } from 'api'
 import Button from 'components/Button'
 import Content from 'components/Content'
-import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from '@chainlink/styleguide'
 import { JobData } from './sharedTypes'
 
 export const JobsErrors: React.FC<{
@@ -84,16 +84,12 @@ export const JobsErrors: React.FC<{
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">
-                        <TimeAgo tooltip>
-                          {localizedTimestamp(jobSpecError.createdAt)}
-                        </TimeAgo>
+                        <TimeAgo tooltip>{jobSpecError.createdAt}</TimeAgo>
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">
-                        <TimeAgo tooltip>
-                          {localizedTimestamp(jobSpecError.updatedAt)}
-                        </TimeAgo>
+                        <TimeAgo tooltip>{jobSpecError.updatedAt}</TimeAgo>
                       </Typography>
                     </TableCell>
                     <TableCell>
