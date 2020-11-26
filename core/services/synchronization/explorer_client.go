@@ -54,7 +54,7 @@ func (NoopExplorerClient) Send([]byte)                              {}
 func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
-	boot      *sync.Mutex
+	boot      *sync.RWMutex
 	conn      *websocket.Conn
 	cancel    context.CancelFunc
 	send      chan []byte
@@ -79,7 +79,7 @@ func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 		url:       url,
 		send:      make(chan []byte),
 		receive:   make(chan []byte),
-		boot:      &sync.Mutex{},
+		boot:      new(sync.RWMutex),
 		sleeper:   utils.NewBackoffSleeper(),
 		status:    ConnectionStatusDisconnected,
 		accessKey: accessKey,
@@ -125,6 +125,11 @@ func (ec *explorerClient) Start() error {
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
 func (ec *explorerClient) Send(data []byte) {
+	ec.boot.RLock()
+	defer ec.boot.RUnlock()
+	if !ec.started {
+		panic("send on unstarted explorer client")
+	}
 	ec.send <- data
 }
 

@@ -94,7 +94,7 @@ func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
 	}
 }
 
-func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
+func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
 	concreteSpec, is := spec.(*OracleSpec)
 	if !is {
 		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
@@ -132,6 +132,8 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 	if err != nil {
 		return nil, errors.Wrap(err, "could not make new pstorewrapper")
 	}
+
+	services = append(services, pstorewrapper)
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
@@ -188,13 +190,13 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 	if endpointURL != nil {
 		client := synchronization.NewExplorerClient(endpointURL, d.config.ExplorerAccessKey(), d.config.ExplorerSecret())
 		monitoringEndpoint = telemetry.NewAgent(client)
+		services = append(services, client)
 	} else {
 		monitoringEndpoint = ocrtypes.MonitoringEndpoint(nil)
 	}
 
-	var service job.Service
 	if concreteSpec.IsBootstrapPeer {
-		service, err = ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
+		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peer,
 			Bootstrappers:         concreteSpec.P2PBootstrapPeers,
 			ContractConfigTracker: ocrContract,
@@ -214,7 +216,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
 		}
-
+		services = append(services, bootstrapper)
 	} else {
 		if concreteSpec.EncryptedOCRKeyBundleID == nil {
 			return nil, errors.Errorf("OCR key must be specified")
@@ -230,7 +232,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), d.config.EthGasLimitDefault()))
 
-		service, err = ocr.NewOracle(ocr.OracleArgs{
+		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			LocalConfig: ocrtypes.LocalConfig{
 				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
 				ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
@@ -253,9 +255,10 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) ([]job.Service, error
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
+		services = append(services, oracle)
 	}
 
-	return []job.Service{pstorewrapper, service}, nil
+	return services, nil
 }
 
 // dataSource is an abstraction over the process of initiating a pipeline run
