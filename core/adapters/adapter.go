@@ -47,6 +47,8 @@ var (
 	TaskTypeCompare = models.MustNewTaskType("compare")
 	// TaskTypeQuotient is the identifier for the Quotient adapter.
 	TaskTypeQuotient = models.MustNewTaskType("quotient")
+	// TaskTypeResultCollect is the identifier for the ResultCollect adapter.
+	TaskTypeResultCollect = models.MustNewTaskType("resultcollect")
 )
 
 // BaseAdapter is the minimum interface required to create an adapter. Only core
