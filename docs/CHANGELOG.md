@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`
-- @DeividasK brought back the `/runs` page in operator UI. Multiple people have mentioned that they were using this page to do a quick skim through the runs, find erroring job runs and other information related to last runs. We should improve the jobs list to show some summary stats about the job runs instead of using the runs page, but this page has been removed prematurely as we haven't given an alternative way to perform those tasks.
+
+### Fixed
+
+- Bring `/runs` tab back to the operator UI
 
 ## [0.9.6] - 2020-11-23
 
