@@ -28,6 +28,7 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
+const JobRunsIndex = universal(import('./pages/JobRuns/Index'), uniOpts)
 const JobsIndex = universal(import('./pages/JobsIndex/JobsIndex'), uniOpts)
 const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
