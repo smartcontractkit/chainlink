@@ -85,18 +85,14 @@ export const JobsErrors: React.FC<{
                     <TableCell>
                       <Typography variant="body1">
                         <TimeAgo tooltip>
-                          {localizedTimestamp(
-                            jobSpecError.createdAt.toString(),
-                          )}
+                          {localizedTimestamp(jobSpecError.createdAt)}
                         </TimeAgo>
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">
                         <TimeAgo tooltip>
-                          {localizedTimestamp(
-                            jobSpecError.updatedAt.toString(),
-                          )}
+                          {localizedTimestamp(jobSpecError.updatedAt)}
                         </TimeAgo>
                       </Typography>
                     </TableCell>
