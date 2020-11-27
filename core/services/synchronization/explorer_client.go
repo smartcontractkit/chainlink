@@ -31,6 +31,8 @@ const (
 	ConnectionStatusConnected = ConnectionStatus("connected")
 	// ConnectionStatusError is used when there is an error
 	ConnectionStatusError = ConnectionStatus("error")
+	// SendBufferSize is the number of messages to keep in the buffer before dropping additional ones
+	SendBufferSize = 3
 )
 
 // ExplorerClient encapsulates all the functionality needed to
@@ -77,7 +79,7 @@ type explorerClient struct {
 func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 	return &explorerClient{
 		url:       url,
-		send:      make(chan []byte),
+		send:      make(chan []byte, SendBufferSize),
 		receive:   make(chan []byte),
 		boot:      new(sync.RWMutex),
 		sleeper:   utils.NewBackoffSleeper(),
@@ -130,7 +132,11 @@ func (ec *explorerClient) Send(data []byte) {
 	if !ec.started {
 		panic("send on unstarted explorer client")
 	}
-	ec.send <- data
+	select {
+	case ec.send <- data:
+	default:
+		logger.Warnw("explorer client buffer full, dropping message", "data", data)
+	}
 }
 
 // Receive blocks the caller while waiting for a response from the server,
