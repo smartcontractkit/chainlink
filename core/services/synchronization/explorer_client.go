@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -31,9 +32,10 @@ const (
 	ConnectionStatusConnected = ConnectionStatus("connected")
 	// ConnectionStatusError is used when there is an error
 	ConnectionStatusError = ConnectionStatus("error")
-	// SendBufferSize is the number of messages to keep in the buffer before dropping additional ones
-	SendBufferSize = 3
 )
+
+// SendBufferSize is the number of messages to keep in the buffer before dropping additional ones
+const SendBufferSize = 100
 
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
@@ -56,17 +58,18 @@ func (NoopExplorerClient) Send([]byte)                              {}
 func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
-	boot      *sync.RWMutex
-	conn      *websocket.Conn
-	cancel    context.CancelFunc
-	send      chan []byte
-	receive   chan []byte
-	sleeper   utils.Sleeper
-	started   bool
-	status    ConnectionStatus
-	url       *url.URL
-	accessKey string
-	secret    string
+	boot             *sync.RWMutex
+	conn             *websocket.Conn
+	cancel           context.CancelFunc
+	send             chan []byte
+	dropMessageCount uint32
+	receive          chan []byte
+	sleeper          utils.Sleeper
+	started          bool
+	status           ConnectionStatus
+	url              *url.URL
+	accessKey        string
+	secret           string
 
 	closeRequested chan struct{}
 	closed         chan struct{}
@@ -134,8 +137,28 @@ func (ec *explorerClient) Send(data []byte) {
 	}
 	select {
 	case ec.send <- data:
+		atomic.StoreUint32(&ec.dropMessageCount, 0)
 	default:
-		logger.Warnw("explorer client buffer full, dropping message", "data", data)
+		ec.logBufferFullWithExpBackoff(data)
+	}
+}
+
+// logBufferFullWithExpBackoff logs messages at
+// 1
+// 2
+// 4
+// 8
+// 16
+// 32
+// 64
+// 100
+// 200
+// 300
+// etc...
+func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
+	count := atomic.AddUint32(&ec.dropMessageCount, 1)
+	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
+		logger.Warnw("explorer client buffer full, dropping message", "data", data, "count", count)
 	}
 }
 
