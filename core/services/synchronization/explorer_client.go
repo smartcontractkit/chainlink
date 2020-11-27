@@ -158,7 +158,7 @@ func (ec *explorerClient) Send(data []byte) {
 func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
 	count := atomic.AddUint32(&ec.dropMessageCount, 1)
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
-		logger.Warnw("explorer client buffer full, dropping message", "data", data, "count", count)
+		logger.Warnw("explorer client buffer full, dropping message", "data", data, "droppedCount", count)
 	}
 }
 
