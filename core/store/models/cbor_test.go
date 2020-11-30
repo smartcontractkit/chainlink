@@ -45,6 +45,12 @@ func Test_ParseCBOR(t *testing.T) {
 			jsonMustUnmarshal(`{"key":"value"}`),
 			false,
 		},
+		{
+			"bignum",
+			`0xA16161C249010000000000000000`,
+			jsonMustUnmarshal(`{"a":18446744073709551616}`),
+			false,
+		},
 		{"empty object", `0xa0`, jsonMustUnmarshal(`{}`), false},
 		{"empty string", `0x`, JSON{}, false},
 		{"invalid CBOR", `0xff`, JSON{}, true},
