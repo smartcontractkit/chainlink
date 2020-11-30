@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -1005,4 +1007,78 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	gethClient.AssertExpectations(t)
 	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
+}
+
+func TestIntegration_MultiwordV1(t *testing.T) {
+	gethClient := new(mocks.GethClient)
+	rpcClient := new(mocks.RPCClient)
+	sub := new(mocks.Subscription)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
+	confirmed := int64(23456)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			tx, ok := args.Get(1).(*types.Transaction)
+			require.True(t, ok)
+			// Should expect the function arguments to be
+			// {reqID,bid,ask}={bytes32,bytes32,bytes32}
+			bytes32, _ := abi.NewType("bytes32", "", nil)
+			var a abi.Arguments = []abi.Argument{{Type: bytes32}, {Type: bytes32}, {Type: bytes32}}
+			args, err := a.UnpackValues(tx.Data()[4:])
+			require.NoError(t, err)
+			assert.Equal(t, cltest.MustHexDecode32ByteString("0000000000000000000000000000000000000000000000000000000000000002"), args[0])
+			assert.Equal(t, cltest.MustHexDecode32ByteString("3130302e31000000000000000000000000000000000000000000000000000000"), args[1])
+			assert.Equal(t, cltest.MustHexDecode32ByteString("3130302e31350000000000000000000000000000000000000000000000000000"), args[2])
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+		}).
+		Return(nil).Once()
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
+		Return(nil)
+
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).
+		Return(cltest.BlockWithTransactions(), nil)
+
+	err := app.StartAndConnect()
+	require.NoError(t, err)
+	priceResponse := `{"bid": 100.10, "ask": 100.15}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", priceResponse)
+	defer assertCalled()
+	spec := string(cltest.MustReadFile(t, "fixtures/web/multi_word_v1.json"))
+	spec = strings.Replace(spec, "https://bitstamp.net/api/ticker/", mockServer.URL, 2)
+	j := cltest.CreateSpecViaWeb(t, app, spec)
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingOutgoingConfirmations)
+	app.EthBroadcaster.Trigger()
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+
+	// Feed the subscriber a block head so the transaction completes.
+	newHeads := <-chchNewHeads
+	newHeads <- cltest.Head(safe)
+	// Job should complete successfully.
+	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr2, err := app.Store.ORM.FindJobRun(jr.ID)
+	assert.Equal(t, 9, len(jr2.TaskRuns))
+	// We expect 2 results collected, the bid and ask
+	assert.Equal(t, 2, len(jr2.TaskRuns[8].Result.Data.Get(models.ResultCollectionKey).Array()))
 }

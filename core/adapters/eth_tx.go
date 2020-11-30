@@ -289,6 +289,11 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 		copy(a[:], b[:])
 		prefix := []interface{}{a}
 		values = append(prefix, values...)
+		t, err := abi.NewType("bytes32", "", nil)
+		if err != nil {
+			return nil, errors.Errorf("err %v data prefix", err)
+		}
+		arguments = append([]abi.Argument{{Type: t}}, arguments...)
 	}
 	packedArgs, err := arguments.PackValues(values)
 	if err != nil {
