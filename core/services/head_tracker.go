@@ -185,10 +185,6 @@ func (ht *HeadTracker) Stop() error {
 		return nil
 	}
 
-	if ht.connected {
-		ht.connected = false
-		ht.disconnect()
-	}
 	logger.Info(fmt.Sprintf("Head tracker disconnecting from %v", ht.store.Config.EthereumURL()))
 	close(ht.done)
 	close(ht.subscriptionSucceeded)

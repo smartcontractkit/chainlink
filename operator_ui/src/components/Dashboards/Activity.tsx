@@ -11,6 +11,7 @@ import {
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
+import TableFooter from '@material-ui/core/TableFooter'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import { JobRun, JobRuns } from 'operator_ui'
@@ -103,7 +104,7 @@ interface Props extends WithStyles<typeof styles> {
   count?: number
 }
 
-const Activity = ({ classes, runs }: Props) => {
+const Activity = ({ classes, runs, count, pageSize }: Props) => {
   let activity
 
   if (!runs) {
@@ -157,6 +158,17 @@ const Activity = ({ classes, runs }: Props) => {
             </TableRow>
           ))}
         </TableBody>
+        {count && count > pageSize && (
+          <TableFooter>
+            <TableRow>
+              <TableCell scope="row" className={classes.footer}>
+                <Button href={'/runs'} component={BaseLink}>
+                  View More
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     )
   }

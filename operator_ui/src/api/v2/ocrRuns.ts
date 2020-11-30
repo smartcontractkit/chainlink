@@ -3,6 +3,7 @@ import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 
 export const ENDPOINT = '/v2/ocr/specs/:jobSpecId/runs'
+const SHOW_ENDPOINT = `${ENDPOINT}/:runId`
 
 export class OcrRuns {
   constructor(private api: jsonapi.Api) {}
@@ -18,5 +19,25 @@ export class OcrRuns {
     return this.index({ page, size }, { jobSpecId })
   }
 
+  @boundMethod
+  public getJobSpecRun({
+    jobSpecId,
+    runId,
+  }: {
+    jobSpecId: string
+    runId: string
+  }): Promise<jsonapi.ApiResponse<models.OcrJobRun>> {
+    return this.show({}, { jobSpecId, runId })
+  }
+
   private index = this.api.fetchResource<{}, models.OcrJobRun[]>(ENDPOINT)
+
+  private show = this.api.fetchResource<
+    {},
+    models.OcrJobRun,
+    {
+      jobSpecId: string
+      runId: string
+    }
+  >(SHOW_ENDPOINT)
 }
