@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -55,6 +56,8 @@ func autoAddMapDelimiters(b []byte) []byte {
 // CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
 // map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
 // Relevant when serializing between CBOR and JSON.
+//
+// It also handles the CBOR 'bignum' type as documented here: https://tools.ietf.org/html/rfc7049#section-2.4.2
 func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 	switch typed := in.(type) {
 	case map[string]interface{}:
@@ -90,6 +93,11 @@ func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
 			r[i] = coerced
 		}
 		return r, nil
+	case cbor.Tag:
+		if value, ok := typed.Content.([]byte); ok && typed.Number == 2 {
+			return big.NewInt(0).SetBytes(value), nil
+		}
+		return in, nil
 	default:
 		return in, nil
 	}
