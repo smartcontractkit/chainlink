@@ -2,9 +2,10 @@ pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
+import "./OperatorProxy.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
-import "../interfaces/OracleInterface.sol";
-import "../interfaces/OracleInterface2.sol";
+import "../interfaces/OperatorInterface.sol";
+import "../interfaces/OperatorInterface2.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -17,8 +18,8 @@ contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
   ChainlinkRequestInterface,
-  OracleInterface,
-  OracleInterface2,
+  OperatorInterface,
+  OperatorInterface2,
   WithdrawalInterface
 {
   using SafeMathChainlink for uint256;
@@ -70,6 +71,7 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    new OperatorProxy(link);
   }
 
   // EXTERNAL FUNCTIONS
@@ -246,7 +248,7 @@ contract Operator is
    */
   function withdraw(address recipient, uint256 amount)
     external
-    override(OracleInterface, WithdrawalInterface)
+    override(OperatorInterface, WithdrawalInterface)
     onlyOwner()
     hasAvailableFunds(amount)
   {
@@ -262,7 +264,7 @@ contract Operator is
   function withdrawable()
     external
     view
-    override(OracleInterface, WithdrawalInterface)
+    override(OperatorInterface, WithdrawalInterface)
     returns (uint256)
   {
     return s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
@@ -310,15 +312,6 @@ contract Operator is
     returns (address)
   {
     return address(linkToken);
-  }
-
-  function forward(address to, bytes calldata data)
-    public
-    onlyAuthorizedSender()
-  {
-    require(to != address(linkToken), "Cannot use #forward to send messages to Link token");
-    (bool status,) = to.call(data);
-    require(status, "Forwarded call failed.");
   }
 
   // INTERNAL FUNCTIONS

@@ -1,6 +1,6 @@
 pragma solidity ^0.7.0;
 
-interface OracleInterface {
+interface OperatorInterface {
   function fulfillOracleRequest(
     bytes32 requestId,
     uint256 payment,

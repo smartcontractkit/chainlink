@@ -60,7 +60,6 @@ describe('Operator', () => {
     matchers.publicAbi(operatorFactory, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
-      'forward',
       'fulfillOracleRequest',
       'fulfillOracleRequest2',
       'isAuthorizedSender',
@@ -2504,62 +2503,6 @@ describe('Operator', () => {
               .connect(roles.consumer)
               .cancelOracleRequest(...oracle.convertCancelParams(request)),
           )
-        })
-      })
-    })
-  })
-
-  describe('#forward', () => {
-    const bytes = utils.hexlify(utils.randomBytes(100))
-    const payload = getterSetterFactory.interface.functions.setBytes.encode([
-      bytes,
-    ])
-    let mock: contract.Instance<GetterSetterFactory>
-
-    beforeEach(async () => {
-      mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()
-    })
-
-    describe('when called by an unauthorized node', () => {
-      it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await operator.connect(roles.stranger).forward(mock.address, payload)
-        })
-      })
-    })
-
-    describe('when called by an authorized node', () => {
-      describe('when attempting to forward to the link token', () => {
-        it('reverts', async () => {
-          const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
-          await matchers.evmRevert(async () => {
-            await operator
-              .connect(roles.oracleNode)
-              .forward(link.address, sighash)
-          })
-        })
-      })
-
-      describe('when forwarding to any other address', () => {
-        it('forwards the data', async () => {
-          const tx = await operator
-            .connect(roles.oracleNode)
-            .forward(mock.address, payload)
-          await tx.wait()
-          assert.equal(await mock.getBytes(), bytes)
-        })
-
-        it('perceives the message is sent by the Operator', async () => {
-          const tx = await operator
-            .connect(roles.oracleNode)
-            .forward(mock.address, payload)
-          const receipt = await tx.wait()
-          const log: any = receipt.logs?.[0]
-          const logData = mock.interface.events.SetBytes.decode(
-            log.data,
-            log.topics,
-          )
-          assert.equal(utils.getAddress(logData.from), operator.address)
         })
       })
     })
