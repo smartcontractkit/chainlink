@@ -3,6 +3,8 @@ pragma solidity ^0.4.24;
 import "./Chainlink.sol";
 import "./interfaces/ENSInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
+import "./interfaces/ArbiterInterface.sol";
+import "./interfaces/ArbiterPointerInterface.sol";
 import "./interfaces/ChainlinkRequestInterface.sol";
 import "./interfaces/PointerInterface.sol";
 import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
@@ -22,10 +24,12 @@ contract ChainlinkClient {
   bytes32 constant private ENS_TOKEN_SUBNAME = keccak256("link");
   bytes32 constant private ENS_ORACLE_SUBNAME = keccak256("oracle");
   address constant private LINK_TOKEN_POINTER = 0xe32eFDED7A2d69fcC0666B5Bb5EC0534675E7442;
+  address constant private ARBITER_ADDR_POINTER = 0xc41fc9Cd6E9bD69a8B44b51DCdf0EC0aC2205E44;
 
   ENSInterface private ens;
   bytes32 private ensNode;
   LinkTokenInterface private link;
+  ArbiterInterface private arbiter;
   ChainlinkRequestInterface private oracle;
   uint256 private requests = 1;
   mapping(bytes32 => address) private pendingRequests;
@@ -33,6 +37,11 @@ contract ChainlinkClient {
   event ChainlinkRequested(bytes32 indexed id);
   event ChainlinkFulfilled(bytes32 indexed id);
   event ChainlinkCancelled(bytes32 indexed id);
+
+  function getOracleParam() public returns (address, string){
+    setArbiterAddress(ArbiterPointerInterface(ARBITER_ADDR_POINTER).getArbiterAddress());
+    return arbiter.getOndutyOracle();
+  }
 
   /**
    * @notice Creates a request that can hold additional parameters
@@ -58,8 +67,8 @@ contract ChainlinkClient {
    * @return The request ID
    */
   function sendChainlinkRequest(Chainlink.Request memory _req, uint256 _payment)
-    internal
-    returns (bytes32)
+  internal
+  returns (bytes32)
   {
     return sendChainlinkRequestTo(oracle, _req, _payment);
   }
@@ -71,12 +80,12 @@ contract ChainlinkClient {
    * Emits ChainlinkRequested event.
    * @param _oracle The address of the oracle for the request
    * @param _req The initialized Chainlink Request
-   * @param _payment The amount of LINK to send for the request
+   * @param _payment ThsendChainlinkRequestToe amount of LINK to send for the request
    * @return The request ID
    */
   function sendChainlinkRequestTo(address _oracle, Chainlink.Request memory _req, uint256 _payment)
-    internal
-    returns (bytes32 requestId)
+  internal
+  returns (bytes32 requestId)
   {
     requestId = keccak256(abi.encodePacked(this, requests));
     _req.nonce = requests;
@@ -104,7 +113,7 @@ contract ChainlinkClient {
     bytes4 _callbackFunc,
     uint256 _expiration
   )
-    internal
+  internal
   {
     ChainlinkRequestInterface requested = ChainlinkRequestInterface(pendingRequests[_requestId]);
     delete pendingRequests[_requestId];
@@ -129,6 +138,14 @@ contract ChainlinkClient {
   }
 
   /**
+   * @notice Sets the LINK token address
+   * @param _arbiter The address of the LINK token contract
+   */
+  function setArbiterAddress(address _arbiter) internal {
+    arbiter = ArbiterInterface(_arbiter);
+  }
+
+  /**
    * @notice Sets the Chainlink token address for the public
    * network as given by the Pointer contract
    */
@@ -141,9 +158,9 @@ contract ChainlinkClient {
    * @return The address of the LINK token
    */
   function chainlinkTokenAddress()
-    internal
-    view
-    returns (address)
+  internal
+  view
+  returns (address)
   {
     return address(link);
   }
@@ -153,9 +170,9 @@ contract ChainlinkClient {
    * @return The address of the oracle contract
    */
   function chainlinkOracleAddress()
-    internal
-    view
-    returns (address)
+  internal
+  view
+  returns (address)
   {
     return address(oracle);
   }
@@ -167,8 +184,8 @@ contract ChainlinkClient {
    * @param _requestId The request ID used for the response
    */
   function addChainlinkExternalRequest(address _oracle, bytes32 _requestId)
-    internal
-    notPendingRequest(_requestId)
+  internal
+  notPendingRequest(_requestId)
   {
     pendingRequests[_requestId] = _oracle;
   }
@@ -180,7 +197,7 @@ contract ChainlinkClient {
    * @param _node The ENS node hash
    */
   function useChainlinkWithENS(address _ens, bytes32 _node)
-    internal
+  internal
   {
     ens = ENSInterface(_ens);
     ensNode = _node;
@@ -195,7 +212,7 @@ contract ChainlinkClient {
    * @dev This may be called on its own as long as `useChainlinkWithENS` has been called previously
    */
   function updateChainlinkOracleWithENS()
-    internal
+  internal
   {
     bytes32 oracleSubnode = keccak256(abi.encodePacked(ensNode, ENS_ORACLE_SUBNAME));
     ENSResolver_Chainlink resolver = ENSResolver_Chainlink(ens.resolver(oracleSubnode));
@@ -210,9 +227,9 @@ contract ChainlinkClient {
    * @return The bytes payload for the `transferAndCall` method
    */
   function encodeRequest(Chainlink.Request memory _req)
-    private
-    view
-    returns (bytes memory)
+  private
+  view
+  returns (bytes memory)
   {
     return abi.encodeWithSelector(
       oracle.oracleRequest.selector,
@@ -232,8 +249,8 @@ contract ChainlinkClient {
    * @param _requestId The request ID for fulfillment
    */
   function validateChainlinkCallback(bytes32 _requestId)
-    internal
-    recordChainlinkFulfillment(_requestId)
+  internal
+  recordChainlinkFulfillment(_requestId)
     // solhint-disable-next-line no-empty-blocks
   {}
 
