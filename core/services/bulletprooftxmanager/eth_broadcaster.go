@@ -195,7 +195,6 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
-
 	for {
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
@@ -209,6 +208,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
+
 		if err := eb.saveInProgressTransaction(etx, &a); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}

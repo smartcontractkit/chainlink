@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +18,8 @@ var (
 	Int256  abi.Type
 	Bool    abi.Type
 	Bytes32 abi.Type
+	Bytes4  abi.Type
+	Address abi.Type
 	Bytes   abi.Type
 )
 
@@ -25,6 +29,8 @@ func init() {
 	Int256, _ = abi.NewType("int256", "", nil)
 	Bool, _ = abi.NewType("bool", "", nil)
 	Bytes32, _ = abi.NewType("bytes32", "", nil)
+	Bytes4, _ = abi.NewType("bytes4", "", nil)
+	Address, _ = abi.NewType("address", "", nil)
 
 	// Dynamic types
 	Bytes, _ = abi.NewType("bytes", "", nil)
@@ -94,6 +100,24 @@ func TestGetTxData(t *testing.T) {
 			},
 		},
 		{
+			name:        "address",
+			abiEncoding: []string{"address"},
+			argTypes:    abi.Arguments{{Type: Address}},
+			args:        []interface{}{"0x32Be343B94f860124dC4fEe278FDCBD38C102D88"},
+			assertion: func(t *testing.T, vals []interface{}) {
+				require.Len(t, vals, 1)
+				addr := common.HexToAddress("32Be343B94f860124dC4fEe278FDCBD38C102D88")
+				assert.Equal(t, addr, vals[0])
+			},
+		},
+		{
+			name:        "invalid address",
+			abiEncoding: []string{"address"},
+			argTypes:    abi.Arguments{{Type: Address}},
+			args:        []interface{}{"0x32Be343B94f860124dC4fEe278FDCBD38C102D"},
+			errLike:     "invalid address",
+		},
+		{
 			name:        "bytes",
 			abiEncoding: []string{"bytes"},
 			argTypes:    abi.Arguments{{Type: Bytes}},
@@ -102,6 +126,19 @@ func TestGetTxData(t *testing.T) {
 				require.Len(t, vals, 1)
 				b, _ := hex.DecodeString("00000000000000000000000000000000000000000000000000000000000000010101")
 				assert.Equal(t, b, vals[0])
+			},
+		},
+		{
+			name:        "bytes4",
+			abiEncoding: []string{"bytes4"},
+			argTypes:    abi.Arguments{{Type: Bytes4}},
+			args:        []interface{}{"0x01010101"},
+			assertion: func(t *testing.T, vals []interface{}) {
+				require.Len(t, vals, 1)
+				b, _ := hex.DecodeString("01010101")
+				var expected [4]byte
+				copy(expected[:], b[:])
+				assert.Equal(t, expected, vals[0])
 			},
 		},
 		{
@@ -141,10 +178,8 @@ func TestGetTxData(t *testing.T) {
 			j := models.JSON{}
 			d, err := j.Add(models.ResultCollectionKey, tc.args)
 			require.NoError(t, err)
-			b, err := getTxDataUsingABIEncoding(&EthTx{
-				ABIEncoding:      tc.abiEncoding,
-				FunctionSelector: models.HexToFunctionSelector("0x70a08231"),
-			}, d)
+			b, err := getTxDataUsingABIEncoding(tc.abiEncoding,
+				d.Get(models.ResultCollectionKey).Array())
 			if tc.errLike != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errLike)

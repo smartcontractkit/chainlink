@@ -105,7 +105,14 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		err                    error
 	)
 	if e.ABIEncoding != nil {
-		txData, err = getTxDataUsingABIEncoding(e, input.Data())
+		// The requestID is present as the first element of DataPrefix (from the oracle event log).
+		// We prepend it as a magic first argument of for the consumer contract.
+		data, errPrepend := input.Data().PrependAtArrayKey(models.ResultCollectionKey, e.DataPrefix[:32])
+		if errPrepend != nil {
+			return models.NewRunOutputError(err)
+		}
+		// Encode the calldata for the consumer contract.
+		txData, err = getTxDataUsingABIEncoding(e.ABIEncoding, data.Get(models.ResultCollectionKey).Array())
 	} else {
 		txData, err = getTxData(e, input)
 	}
@@ -124,8 +131,13 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 	}
 
 	if e.ABIEncoding != nil {
-		// ABI encoding includes the data prefix if set.
-		encodedPayload = append(e.FunctionSelector.Bytes(), txData...)
+		// Encode the calldata for the operator/oracle contract. Note that the last argument is nested calldata, calldata
+		// for the consumer contract.
+		// [hash(fulfillOracleRequest2...)[:4]]	[..............................dataPrefix...............................] [call data]
+		// [hash(fulfillOracleRequest2...)[:4]] [requestID] [payment] [callbackAddress] [callbackFunctionId] [expiration] [call data]
+		// 6 = requestID + payment + callbackAddress + callbackFunctionId + expiration + offset itself
+		payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen * 6)
+		encodedPayload = append(append(append(e.FunctionSelector.Bytes(), e.DataPrefix...), payloadOffset...), utils.EVMEncodeBytes(txData)...)
 	} else {
 		encodedPayload = append(append(e.FunctionSelector.Bytes(), e.DataPrefix...), txData...)
 	}
@@ -211,7 +223,27 @@ var (
 		"uint256": reflect.TypeOf(big.Int{}),
 		"bool":    reflect.TypeOf(false),
 		"bytes32": reflect.TypeOf([32]byte{}),
+		"bytes4":  reflect.TypeOf([4]byte{}),
 		"bytes":   reflect.TypeOf([]byte{}),
+		"address": reflect.TypeOf(common.Address{}),
+	}
+	jsonTypes = map[gjson.Type]map[string]struct{}{
+		gjson.String: {
+			"bytes32": {},
+			"bytes4":  {},
+			"bytes":   {},
+			"address": {},
+		},
+		gjson.True: {
+			"bool": {},
+		},
+		gjson.False: {
+			"bool": {},
+		},
+		gjson.Number: {
+			"uint256": {},
+			"int256":  {},
+		},
 	}
 	supportedSolidityTypes []string
 )
@@ -224,16 +256,18 @@ func init() {
 
 // Note we need to include the data prefix handling here because
 // if dynamic types (such as bytes) are used, the offset will be affected.
-func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) {
+func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result) ([]byte, error) {
 	var arguments abi.Arguments
-	jsonValues := inputData.Get(models.ResultCollectionKey).Array()
-	if len(jsonValues) != len(e.ABIEncoding) {
-		return nil, errors.Errorf("number of collectors %d != number of types in ABI encoding %d", len(jsonValues), len(e.ABIEncoding))
+	if len(jsonValues) != len(encodingSpec) {
+		return nil, errors.Errorf("number of collectors %d != number of types in ABI encoding %d", len(jsonValues), len(encodingSpec))
 	}
 	var values = make([]interface{}, len(jsonValues))
-	for i, argType := range e.ABIEncoding {
+	for i, argType := range encodingSpec {
 		if _, supported := solidityTypeToGoType[argType]; !supported {
 			return nil, errors.Wrapf(ErrInvalidABIEncoding, "%v is unsupported, supported types are %v", argType, supportedSolidityTypes)
+		}
+		if _, ok := jsonTypes[jsonValues[i].Type][argType]; !ok {
+			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 		}
 		t, err := abi.NewType(argType, "", nil)
 		if err != nil {
@@ -245,9 +279,6 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 
 		switch jsonValues[i].Type {
 		case gjson.String:
-			if argType != "bytes32" && argType != "bytes" {
-				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
-			}
 			// Only supports hex strings.
 			b, err := hexutil.Decode(jsonValues[i].String())
 			if err != nil {
@@ -260,13 +291,22 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 				var arg [32]byte
 				copy(arg[:], b)
 				values[i] = arg
+			} else if argType == "address" {
+				if !common.IsHexAddress(jsonValues[i].String()) || len(b) != 20 {
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "invalid address %v", jsonValues[i].String())
+				}
+				values[i] = common.HexToAddress(jsonValues[i].String())
+			} else if argType == "bytes4" {
+				if len(b) != 4 {
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+				}
+				var arg [4]byte
+				copy(arg[:], b)
+				values[i] = arg
 			} else if argType == "bytes" {
 				values[i] = b
 			}
 		case gjson.Number:
-			if argType != "int256" && argType != "uint256" {
-				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
-			}
 			values[i] = big.NewInt(jsonValues[i].Int()) // JSON specs can't actually handle 256bit numbers only 64bit?
 		case gjson.False, gjson.True:
 			// Note we can potentially use this cast strategy to support more types
@@ -279,16 +319,6 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 			// Complex types, array or object. Support as needed
 			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 		}
-	}
-	if e.DataPrefix != nil {
-		b, err := hexutil.Decode(e.DataPrefix.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid data prefix")
-		}
-		var a [32]byte
-		copy(a[:], b[:])
-		prefix := []interface{}{a}
-		values = append(prefix, values...)
 	}
 	packedArgs, err := arguments.PackValues(values)
 	if err != nil {

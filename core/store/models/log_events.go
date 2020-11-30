@@ -1,6 +1,8 @@
 package models
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -46,6 +48,7 @@ var (
 	// OracleFulfillmentFunctionID20190128withoutCast is the function selector for fulfilling Ethereum requests,
 	// as updated on 2019-01-28, removing the cast to uint256 for the requestId.
 	OracleFulfillmentFunctionID20190128withoutCast = utils.MustHash("fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)").Hex()[:10]
+	OracleFulfillmentFunctionID2020                = utils.MustHash("fulfillOracleRequest2(bytes32,uint256,address,bytes4,uint256,bytes)").Hex()[:10]
 )
 
 type logRequestParser interface {
@@ -423,10 +426,31 @@ func (parseRunLog20190207withoutIndexes) parseJSON(log Log) (JSON, error) {
 		return JSON{}, err
 	}
 
+	// The operator contract restricts us to 256 versions, so
+	// 8 bytes worth of data versions is plenty.
+	dataVersionBytes, err := UntrustedBytes(data).SafeByteSlice(expirationEnd+versionSize-8, expirationEnd+versionSize)
+	if err != nil {
+		return JSON{}, err
+	}
+	b := bytes.NewBuffer(dataVersionBytes)
+	var dataVersion uint64
+	err = binary.Read(b, binary.BigEndian, &dataVersion)
+	if err != nil {
+		return JSON{}, err
+	}
+	var fnSelector string
+	switch dataVersion {
+	case 1:
+		fnSelector = OracleFulfillmentFunctionID20190128withoutCast
+	case 2:
+		fnSelector = OracleFulfillmentFunctionID2020
+	default:
+		return JSON{}, errors.Errorf("unsupported data version %d", dataVersion)
+	}
 	return js.MultiAdd(KV{
 		"address":          log.Address.String(),
 		"dataPrefix":       bytesToHex(dataPrefixBytes),
-		"functionSelector": OracleFulfillmentFunctionID20190128withoutCast,
+		"functionSelector": fnSelector,
 	})
 }
 

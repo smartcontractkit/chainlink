@@ -114,7 +114,7 @@ func (ba *Bridge) responseToRunResult(body []byte, input models.RunInput) models
 		return models.NewRunOutputComplete(data)
 	}
 
-	return models.NewRunOutputCompleteWithResult(brr.Data.String())
+	return models.NewRunOutputCompleteWithResult(brr.Data.String(), input.ResultCollection())
 }
 
 func (ba *Bridge) postToExternalAdapter(

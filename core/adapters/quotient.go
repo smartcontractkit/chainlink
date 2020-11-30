@@ -58,5 +58,5 @@ func (q *Quotient) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 	if q.Dividend != nil {
 		i = new(big.Float).Quo(q.Dividend, i)
 	}
-	return models.NewRunOutputCompleteWithResult(i.String())
+	return models.NewRunOutputCompleteWithResult(i.String(), input.ResultCollection())
 }
