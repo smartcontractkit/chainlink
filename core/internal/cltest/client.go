@@ -249,37 +249,50 @@ func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.A
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
 
+type headSubscription struct {
+	close        chan struct{}
+	subscription ethereum.Subscription
+}
+
+var _ ethereum.Subscription = (*headSubscription)(nil)
+
+func (h *headSubscription) Unsubscribe() {
+	h.subscription.Unsubscribe()
+	h.close <- struct{}{}
+}
+
+func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
+
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
-func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel chan<- *models.Head) (ethereum.Subscription, error) {
+func (c *SimulatedBackendClient) SubscribeNewHead(
+	ctx context.Context,
+	channel chan<- *models.Head,
+) (ethereum.Subscription, error) {
+	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
-		for h := range ch {
-			if h == nil {
-				channel <- nil
-			} else {
-				func() {
-					head := &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
-					// Catch a potential panic and print a warning about it.
-					//
-					// Seems that chainlink can shut itself down before the simulated
-					// backend is done sealing blocks, leading to a panic when this
-					// handler tries to push information about a new head onto a closed
-					// channel.
-					defer func() {
-						if r := recover(); r != nil {
-							logger.Warn(
-								"warning: SubscribeNewHead attempted to put a head on a "+
-									"closed channel: %s", head)
-						}
-					}()
-					channel <- head
-				}()
+		for {
+			select {
+			case h := <-ch:
+				switch h {
+				case nil:
+					channel <- nil
+				default:
+					channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+				}
+			case <-subscription.close:
+				return
 			}
 		}
-		close(channel)
 	}()
-	return c.b.SubscribeNewHead(ctx, ch)
+	var err error
+	subscription.subscription, err = c.b.SubscribeNewHead(ctx, ch)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not subscribe to new heads on "+
+			"simulated backend")
+	}
+	return subscription, err
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
