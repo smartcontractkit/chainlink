@@ -3,15 +3,12 @@ package models_test
 import (
 	"encoding/json"
 	"net/url"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,42 +188,6 @@ func TestJSON_Delete(t *testing.T) {
 
 			assert.NoError(t, err)
 			assert.Equal(t, test.want, json.String())
-		})
-	}
-}
-
-func TestJSON_CBOR(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name string
-		in   models.JSON
-	}{
-		{"empty object", models.JSON{}},
-		{"array", cltest.JSONFromString(t, `[1,2,3,4]`)},
-		{
-			"hello world",
-			cltest.JSONFromString(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
-		},
-		{
-			"complex object",
-			cltest.JSONFromString(t, `{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			encoded, err := test.in.CBOR()
-			assert.NoError(t, err)
-
-			var decoded interface{}
-			err = cbor.Unmarshal(encoded, &decoded)
-
-			assert.NoError(t, err)
-
-			decoded, err = utils.CoerceInterfaceMapToStringMap(decoded)
-			assert.NoError(t, err)
-			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
 		})
 	}
 }

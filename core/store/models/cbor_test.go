@@ -3,10 +3,13 @@ package models
 import (
 	"encoding/json"
 	"log"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_ParseCBOR(t *testing.T) {
@@ -126,5 +129,107 @@ func jsonMustUnmarshal(in string) JSON {
 	if err != nil {
 		log.Panicf("Failed to unmarshal '%s'", in)
 	}
+	return j
+}
+
+func TestCoerceInterfaceMapToStringMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     interface{}
+		want      interface{}
+		wantError bool
+	}{
+		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}, false},
+		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
+		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
+		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
+		{
+			"nested string map map",
+			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+			false,
+		},
+		{
+			"nested map map",
+			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+			false,
+		},
+		{
+			"nested map array",
+			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
+			map[string]interface{}{"key": []interface{}{1, "value"}},
+			false,
+		},
+		{"empty array", []interface{}{}, []interface{}{}, false},
+		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}, false},
+		{
+			"error array",
+			[]interface{}{map[interface{}]interface{}{1: "value"}},
+			[]interface{}{},
+			true,
+		},
+		{
+			"nested array map",
+			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
+			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decoded, err := CoerceInterfaceMapToStringMap(test.input)
+			if test.wantError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.True(t, reflect.DeepEqual(test.want, decoded))
+			}
+		})
+	}
+}
+
+func TestJSON_CBOR(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   JSON
+	}{
+		{"empty object", JSON{}},
+		{"array", JSONFromString(t, `[1,2,3,4]`)},
+		{
+			"hello world",
+			JSONFromString(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+		},
+		{
+			"complex object",
+			JSONFromString(t, `{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := test.in.CBOR()
+			assert.NoError(t, err)
+
+			var decoded interface{}
+			err = cbor.Unmarshal(encoded, &decoded)
+
+			assert.NoError(t, err)
+
+			decoded, err = CoerceInterfaceMapToStringMap(decoded)
+			assert.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
+		})
+	}
+}
+
+func JSONFromString(t testing.TB, body string) JSON {
+	j, err := ParseJSON([]byte(body))
+	require.NoError(t, err)
 	return j
 }
