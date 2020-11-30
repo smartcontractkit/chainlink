@@ -268,9 +268,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel c
 					// channel.
 					defer func() {
 						if r := recover(); r != nil {
-							fmt.Println(
+							logger.Warn(
 								"warning: SubscribeNewHead attempted to put a head on a "+
-									"closed channel:", head)
+									"closed channel: %s", head)
 						}
 					}()
 					channel <- head
