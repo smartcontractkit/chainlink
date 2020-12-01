@@ -1087,8 +1087,6 @@ github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6Mwd
 github.com/sirupsen/logrus v1.6.0 h1:UBcNElsrwanuuMsnGSlYmtmgbb23qDR5dG+6X6Oo89I=
 github.com/sirupsen/logrus v1.6.0/go.mod h1:7uNnSEd1DgxDLC74fIahvMZmmYsHGZGEOFrfsX/uA88=
 github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.mod h1:j7qIYHGCN4QqMXdO8g8A9dmUT5vKFmkxPSbjAIfrfNU=
-github.com/smartcontractkit/libocr v0.0.0-20201123232443-3e79f1439e8c h1:oRBpTbjRvfrGf/vQ2TMgGtAITXMcSiPnaCjE2uPJ/40=
-github.com/smartcontractkit/libocr v0.0.0-20201123232443-3e79f1439e8c/go.mod h1:RtJN4mF8ibkzwTkC8UzBKc3X4DIjk9ajn8WVPNJVQ4Q=
 github.com/smartcontractkit/libocr v0.0.0-20201126121732-22a06cb4505e h1:8Di1eudhv8YzegmXtiV2bvIHgVOJku1bGDwr2039ME0=
 github.com/smartcontractkit/libocr v0.0.0-20201126121732-22a06cb4505e/go.mod h1:RtJN4mF8ibkzwTkC8UzBKc3X4DIjk9ajn8WVPNJVQ4Q=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d h1:zE9ykElWQ6/NYmHa3jpm/yHnI4xSofP+UP6SpjHcSeM=
