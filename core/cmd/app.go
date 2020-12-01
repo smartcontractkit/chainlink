@@ -199,7 +199,7 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "run",
 					Usage:  "Trigger a V2 job run",
-					Action: client.TriggerJobRunV2,
+					Action: client.TriggerPipelineRun,
 				},
 			},
 		},

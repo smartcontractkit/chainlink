@@ -1142,7 +1142,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.TriggerJobRunV2(c))
+	require.NoError(t, client.TriggerPipelineRun(c))
 }
 
 func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
@@ -1156,7 +1156,7 @@ func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerJobRunV2(c), "Must pass the job id to trigger a run")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "Must pass the job id to trigger a run")
 }
 
 func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
@@ -1171,5 +1171,5 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerJobRunV2(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
 }

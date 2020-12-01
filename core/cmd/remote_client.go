@@ -299,8 +299,8 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	return nil
 }
 
-// TriggerJobRunV2 triggers a V2 job run based on a job ID
-func (cli *Client) TriggerJobRunV2(c *clipkg.Context) error {
+// TriggerPipelineRun triggers a V2 job run based on a job ID
+func (cli *Client) TriggerPipelineRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
 	}
