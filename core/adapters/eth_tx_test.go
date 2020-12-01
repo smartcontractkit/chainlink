@@ -25,6 +25,39 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 	functionSelector := models.HexToFunctionSelector("0x70a08231") // balanceOf(address)
 	dataPrefix := hexutil.MustDecode("0x88888888")
 
+	t.Run("multiword using ABI encoding", func(t *testing.T) {
+		adapter := adapters.EthTx{
+			ToAddress:        toAddress,
+			GasLimit:         gasLimit,
+			FunctionSelector: functionSelector,
+			ABIEncoding:      []string{"uint256", "bool", "bytes"},
+		}
+		jobRunID := models.NewID()
+		taskRunID := cltest.MustInsertTaskRun(t, store)
+		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
+		d, err := input.Data().Add(models.ResultCollectionKey, []interface{}{12, false, "0x1234"})
+		require.NoError(t, err)
+		runOutput := adapter.Perform(input.CloneWithData(d), store)
+		require.NoError(t, runOutput.Error())
+		assert.Equal(t, models.RunStatusPendingOutgoingConfirmations, runOutput.Status())
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+		require.NoError(t, err)
+
+		assert.Equal(t, taskRunID.UUID(), etrt.TaskRunID)
+		require.NotNil(t, etrt.EthTx)
+		assert.Nil(t, etrt.EthTx.Nonce)
+		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
+		assert.Equal(t, "70a08231"+ // function selector
+			"000000000000000000000000000000000000000000000000000000000000000c"+ // 12
+			"0000000000000000000000000000000000000000000000000000000000000000"+ // false
+			"0000000000000000000000000000000000000000000000000000000000000060"+ // location of array
+			"0000000000000000000000000000000000000000000000000000000000000002"+ // length
+			"1234000000000000000000000000000000000000000000000000000000000000", // contents
+			hex.EncodeToString(etrt.EthTx.EncodedPayload))
+		assert.Equal(t, gasLimit, etrt.EthTx.GasLimit)
+		assert.Equal(t, models.EthTxUnstarted, etrt.EthTx.State)
+	})
+
 	t.Run("with valid data and empty DataFormat writes to database and returns run output pending outgoing confirmations", func(t *testing.T) {
 		adapter := adapters.EthTx{
 			ToAddress:        toAddress,
