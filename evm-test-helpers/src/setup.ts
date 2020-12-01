@@ -145,8 +145,8 @@ export async function users(
     Nelly: accounts[3],
     Nancy: accounts[4],
     Norbert: accounts[5],
-    Carol: accounts[4],
-    Eddy: accounts[5],
+    Carol: accounts[6],
+    Eddy: accounts[7],
   }
 
   const roles: Roles = {
