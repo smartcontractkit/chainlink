@@ -20,7 +20,7 @@ const linkTokenFactory = new contract.ovm.LinkTokenFactory()
 
 let roles: setup.Roles
 beforeAll(async () => {
-  roles = await setup.users(provider).then((x) => x.roles)
+  roles = await setup.users(provider).then(x => x.roles)
 })
 
 describe('PreCoordinator', () => {
@@ -119,8 +119,8 @@ describe('PreCoordinator', () => {
       ])
       assert.deepEqual(sa.jobIds, [job1, job2, job3, job4])
       assert.deepEqual(
-        sa.payments.map((p) => p.toHexString()),
-        [payment, payment, payment, payment].map((p) => p.toHexString()),
+        sa.payments.map(p => p.toHexString()),
+        [payment, payment, payment, payment].map(p => p.toHexString()),
       )
     })
 
@@ -376,7 +376,7 @@ describe('PreCoordinator', () => {
 
           expect(
             receipt.events?.[0].topics.find(
-              (t) => t === pc.interface.events.ChainlinkFulfilled.topic,
+              t => t === pc.interface.events.ChainlinkFulfilled.topic,
             ),
           ).toBeDefined()
         })

@@ -16,7 +16,7 @@ const flagsFactory = new FlagsFactory()
 const acFactory = new SimpleWriteAccessControllerFactory()
 
 beforeAll(async () => {
-  personas = await setup.users(provider).then((x) => x.personas)
+  personas = await setup.users(provider).then(x => x.personas)
 })
 
 describe('DeviationFlaggingValidator', () => {
@@ -203,7 +203,10 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the difference overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).sub(1)
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
       const currentValue = h.bigNum(-1)
 
       it('does not revert and returns false', async () => {
@@ -214,7 +217,10 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the rounding overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).div(10000)
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .div(10000)
       const currentValue = h.bigNum(1)
 
       it('does not revert and returns false', async () => {
@@ -225,7 +231,10 @@ describe('DeviationFlaggingValidator', () => {
     })
 
     describe('when the division overflows', () => {
-      const previousValue = h.bigNum(2).pow(255).sub(1)
+      const previousValue = h
+        .bigNum(2)
+        .pow(255)
+        .sub(1)
       const currentValue = h.bigNum(-1)
 
       it('does not revert and returns false', async () => {

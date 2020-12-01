@@ -5,7 +5,7 @@
   "useDockerisedSolc": false,
   "compilerSettings": {
     "optimizer": {
-      "runs": 1000000,
+      "runs": 1,
       "enabled": true
     },
     "versions": {

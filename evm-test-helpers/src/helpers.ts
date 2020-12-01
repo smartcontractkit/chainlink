@@ -338,5 +338,5 @@ export async function getLog(
  *
  */
 export function isOVM(): boolean {
-  return process.env.USE_OVM == 'true'
+  return process.env.USE_OVM === 'true'
 }

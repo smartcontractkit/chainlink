@@ -52,6 +52,12 @@ export function provider(): ethers.providers.JsonRpcProvider {
 
   const options = {
     gasLimit: isOVM() ? 2_000_000_000 : 8_000_000,
+    /**
+     * Notice: OVM contract size limit is 20-30% less than that of Ethereum EVM.
+     *
+     * Without this setting the following tests will fail with an "out of gas" error:
+     *  - test/v0.6-ovm/AccessControlledAggregator.test.ts
+     */
     allowUnlimitedContractSize: isOVM(),
   }
 

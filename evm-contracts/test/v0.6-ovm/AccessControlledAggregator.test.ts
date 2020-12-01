@@ -15,7 +15,7 @@ const provider = setup.provider()
 let personas: setup.Personas
 
 beforeAll(async () => {
-  await setup.users(provider).then((u) => (personas = u.personas))
+  await setup.users(provider).then(u => (personas = u.personas))
 })
 
 describe('AccessControlledAggregator', () => {

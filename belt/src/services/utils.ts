@@ -10,11 +10,11 @@ export function getContractDirs(conf: config.App) {
   const contractDirs = ls(conf.contractsDir)
 
   return contractDirs
-    .map((d) => ({
+    .map(d => ({
       dir: d,
       version: conf.compilerSettings.versions[d],
     }))
-    .filter((p) => !!p.version)
+    .filter(p => !!p.version)
 }
 
 /**
@@ -24,11 +24,11 @@ export function getArtifactDirs(conf: config.App) {
   const artifactDirs = ls(conf.artifactsDir)
 
   return artifactDirs
-    .map((d) => ({
+    .map(d => ({
       dir: d,
       version: conf.compilerSettings.versions[d],
     }))
-    .filter((p) => !!p.version)
+    .filter(p => !!p.version)
 }
 
 /**
