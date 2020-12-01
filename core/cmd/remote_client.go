@@ -816,7 +816,7 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 	}
 
 	filepath := c.String("output")
-	if len(newPassword) == 0 {
+	if len(filepath) == 0 {
 		return cli.errorOut(errors.New("Must specify --output/-o flag"))
 	}
 
