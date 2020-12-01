@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`
 
+### Fixed
+
+- Bring `/runs` tab back to the operator UI
+
 ## [0.9.6] - 2020-11-23
 
 - OCR pipeline specs can now be configured on a per-task basis to allow unrestricted network access for http tasks. Example like so:
