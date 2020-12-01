@@ -13,6 +13,23 @@ describe('components/Dashboards/Activity', () => {
     expect(component.text()).toContain('Run: runA')
   })
 
+  it('displays a "View More" link when there is more than 1 page of runs', () => {
+    const runs = [
+      partialAsFull<JobRun>({ id: 'runA', createdAt: CREATED_AT }),
+      partialAsFull<JobRun>({ id: 'runB', createdAt: CREATED_AT }),
+    ]
+
+    const componentWithMore = mountWithTheme(
+      <Activity runs={runs} pageSize={1} count={2} />,
+    )
+    expect(componentWithMore.text()).toContain('View More')
+
+    const componentWithoutMore = mountWithTheme(
+      <Activity runs={runs} pageSize={2} count={2} />,
+    )
+    expect(componentWithoutMore.text()).not.toContain('View More')
+  })
+
   it('can show a loading message', () => {
     const component = mountWithTheme(<Activity pageSize={1} />)
     expect(component.text()).toContain('Loading ...')
