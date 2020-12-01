@@ -31,7 +31,6 @@ export function jobSpecV2(
     updatedAt: config.updatedAt || new Date(1600775300410).toISOString(),
     createdAt: config.createdAt || new Date(1600775300410).toISOString(),
   })
-
   return {
     name: config.name || 'V2 job',
     offChainReportingOracleSpec,
