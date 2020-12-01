@@ -4,7 +4,10 @@ import { generateUuid } from '../test-helpers/generateUuid'
 
 export function jobSpecV2(
   config: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string } & {
+    OcrJobSpec['offChainReportingOracleSpec'] & {
+      name?: string
+      id?: string
+    } & {
       dotDagSource?: string
     }
   > = {},
@@ -30,6 +33,7 @@ export function jobSpecV2(
   })
 
   return {
+    name: config.name || 'V2 job',
     offChainReportingOracleSpec,
     errors: [],
     pipelineSpec: {
