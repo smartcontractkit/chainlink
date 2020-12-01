@@ -10,14 +10,14 @@ const log = makeDebug('ovm-ganache-subprovider')
  * It intercepts all JSON RPC requests and relays them to an in-process ganache instance.
  */
 export class OVMGanacheSubprovider extends Subprovider {
-  private readonly _ganacheProvider: GanacheProvider
+  private readonly ganacheProvider: GanacheProvider
   /**
    * Instantiates an OVMGanacheSubprovider
    * @param opts The desired opts with which to instantiate the Ganache provider
    */
   constructor(opts: any) {
     super()
-    this._ganacheProvider = ganache.provider(opts)
+    this.ganacheProvider = ganache.provider(opts)
   }
 
   /**
@@ -35,12 +35,13 @@ export class OVMGanacheSubprovider extends Subprovider {
     end: ErrorCallback,
   ): Promise<void> {
     log(`sending request payload to ovm ganache: ${JSON.stringify(payload)}`)
-    this._ganacheProvider.sendAsync(
+    this.ganacheProvider.sendAsync(
       payload,
       (err: Error | null, result: any) => {
-        const _result = JSON.stringify(result).slice(0, 1000)
-        const _err = JSON.stringify(err)
-        log(`payload sent: result ${_result} [possibly truncated], err ${_err}`)
+        const resultStr = JSON.stringify(result).slice(0, 1000)
+        const errStr = JSON.stringify(err)
+        const message = `payload sent: result ${resultStr} [possibly truncated], err ${errStr}`
+        log(message)
         end(err, result && result.result)
       },
     )
