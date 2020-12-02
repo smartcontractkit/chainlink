@@ -518,6 +518,19 @@ describe('AggregatorProxy', () => {
 
         assert.equal(aggregator2.address, await proxy.proposedAggregator())
       })
+
+      it('emits an AggregatorProposed event', async () => {
+        const tx = await proxy
+          .connect(personas.Carol)
+          .proposeAggregator(aggregator2.address)
+        const receipt = await tx.wait()
+        const eventLog = receipt?.events
+
+        assert.equal(eventLog?.length, 1)
+        assert.equal(eventLog?.[0].event, 'AggregatorProposed')
+        assert.equal(eventLog?.[0].args?.[0], aggregator.address)
+        assert.equal(eventLog?.[0].args?.[1], aggregator2.address)
+      })
     })
 
     describe('when called by a non-owner', () => {
@@ -590,6 +603,19 @@ describe('AggregatorProxy', () => {
           .confirmAggregator(aggregator2.address)
 
         assert.equal(aggregator2.address, await proxy.phaseAggregators(2))
+      })
+
+      it('emits an AggregatorConfirmed event', async () => {
+        const tx = await proxy
+          .connect(personas.Carol)
+          .confirmAggregator(aggregator2.address)
+        const receipt = await tx.wait()
+        const eventLog = receipt?.events
+
+        assert.equal(eventLog?.length, 1)
+        assert.equal(eventLog?.[0].event, 'AggregatorConfirmed')
+        assert.equal(eventLog?.[0].args?.[0], aggregator.address)
+        assert.equal(eventLog?.[0].args?.[1], aggregator2.address)
       })
     })
 
