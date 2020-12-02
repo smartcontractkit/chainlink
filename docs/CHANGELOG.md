@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`.
 - Adds "Account addresses" table to the `/keys` page.
 
+### Changed
+
+- Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
+
 ### Fixed
 
 - Brings `/runs` tab back to the operator UI.

@@ -236,39 +236,6 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, j.Name, "CustomJobName")
 	})
-
-	t.Run("it replaces a blank name with a generated one", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": ""})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		client = app.NewHTTPClient()
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-		var j models.JobSpec
-		err = cltest.ParseJSONAPIResponse(t, resp, &j)
-		require.NoError(t, err)
-
-		orm := app.GetStore().ORM
-		j, err = orm.FindJob(j.ID)
-		require.NoError(t, err)
-		assert.NotEmpty(t, j.Name)
-		assert.NotEqual(t, j.Name, "CustomJobName")
-	})
-
-	t.Run("it rejects an already taken name", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusConflict)
-	})
 }
 
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
