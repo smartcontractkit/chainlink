@@ -13,7 +13,6 @@ import (
 // representation of the job spec. It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type EthRequestEventSpec struct {
-	// TODO: Abstract these fields?
 	Type            string          `toml:"type"`
 	SchemaVersion   uint32          `toml:"schemaVersion"`
 	Name            null.String     `toml:"name"`
