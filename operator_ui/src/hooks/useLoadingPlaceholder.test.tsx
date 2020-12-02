@@ -7,7 +7,7 @@ describe('useLoadingPlaceholder', () => {
     const { LoadingPlaceholder } = useLoadingPlaceholder(true)
     const wrapper = shallow(<LoadingPlaceholder />)
 
-    expect(wrapper.text()).toContain('Loading...')
+    expect(wrapper.text()).toContain('<WithStyles(Typography) />')
   })
 
   it('defaults to false and renders an empty component', () => {
