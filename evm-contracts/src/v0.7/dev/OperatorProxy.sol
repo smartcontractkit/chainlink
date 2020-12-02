@@ -24,7 +24,7 @@ contract OperatorProxy is Owned {
    */
   function forward(address to, bytes calldata data) public
   {
-    require(OperatorInterface(owner).isAuthorizedSender(msg.sender), "Not an authorized node");
+    require(OperatorInterface(owner()).isAuthorizedSender(msg.sender), "Not an authorized node");
     require(to != link, "Cannot send to Link token");
     (bool status,) = to.call(data);
     require(status, "Forwarded call failed.");
