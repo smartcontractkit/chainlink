@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Bring `/runs` tab back to the operator UI
+- Sign out a user from operator UI on authentication error
 
 ## [0.9.6] - 2020-11-23
 
