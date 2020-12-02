@@ -191,7 +191,8 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			logger.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
 		}
 	}()
-
+	bal, err := eb.ethClient.BalanceAt(context.Background(), fromAddress, nil)
+	fmt.Println("bal", bal, err)
 	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}

@@ -1,12 +1,12 @@
 {
-  "initiators": [{"type": "web"}],
+  "initiators": [{"type": "runlog"}],
   "tasks": [
-    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://bitstamp.net/api/ticker/"}},
-    {"type": "jsonparse", "params": {"path": ["bid"]}},
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"}},
+    {"type": "jsonparse", "params": {"path": ["USD"]}},
     {"type": "ethbytes32"},
     {"type": "resultcollect"},
-    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://bitstamp.net/api/ticker/"}},
-    {"type": "jsonparse", "params": {"path": ["ask"]}},
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY"}},
+    {"type": "jsonparse", "params": {"path": ["JPY"]}},
     {"type": "ethbytes32"},
     {"type": "resultcollect"},
     {

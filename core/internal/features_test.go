@@ -2,8 +2,19 @@ package internal_test
 
 import (
 	"bytes"
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
+	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator"
+	"github.com/smartcontractkit/libocr/gethwrappers/linktoken"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -1081,4 +1092,110 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	assert.Equal(t, 9, len(jr2.TaskRuns))
 	// We expect 2 results collected, the bid and ask
 	assert.Equal(t, 2, len(jr2.TaskRuns[8].Result.Data.Get(models.ResultCollectionKey).Array()))
+}
+
+func TestIntegration_MultiwordV1_Sim(t *testing.T) {
+	//rpcClient := new(mocks.RPCClient)
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err, "failed to generate ethereum identity")
+	user := bind.NewKeyedTransactor(key)
+	sb := new(big.Int)
+	sb, _ = sb.SetString("100000000000000000000", 10)
+	genesisData := core.GenesisAlloc{
+		user.From:  {Balance: sb}, // 1 eth
+	}
+	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	linkTokenAddress, _, linkToken, err := linktoken.DeployLinkToken(user, b)
+	require.NoError(t, err)
+	b.Commit()
+
+	a, err := linkToken.BalanceOf(nil, user.From)
+	require.NoError(t, err)
+	t.Log(a)
+	b.Commit()
+	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b, linkTokenAddress)
+	require.NoError(t, err)
+	b.Commit()
+	config.Set("OPERATOR_CONTRACT_ADDRESS", operatorAddress.String())
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	app.Config.Set("OPERATOR_CONTRACT_ADDRESS", operatorAddress.String())
+
+	tx := types.NewTransaction(2, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	signedTx, err := user.Signer(types.HomesteadSigner{}, user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = app.StartAndConnect()
+	require.NoError(t, err)
+	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1.json"))
+	//spec = strings.Replace(spec, "0x794240253727e8d030B09223a9DD13D6dA323401", operatorAddress.String(), 1)
+	j := cltest.CreateSpecViaWeb(t, app, spec)
+	var specID [32]byte
+	by, err := hex.DecodeString(j.ID.String())
+	require.NoError(t, err)
+	copy(specID[:], by[:])
+	t.Log("spec ID", specID, "spec", spec)
+	consumerAddress, _, consumer, err := multiwordconsumer.DeployMultiwordConsumer(user, b, linkTokenAddress, operatorAddress, specID)
+	t.Log(operatorAddress.String(), consumerAddress.String())
+	require.NoError(t, err)
+	b.Commit()
+	user.GasPrice = big.NewInt(1)
+	user.GasLimit = 1000000
+	tx, err = consumer.RequestMultipleParameters(user, "", big.NewInt(10))
+	require.NoError(t, err)
+	b.Commit()
+	p, err := consumer.First(nil)
+	require.NoError(t, err)
+	t.Log(p)
+	logs1, err := operatorContract.OperatorFilterer.FilterOracleRequest(nil, [][32]byte{specID})
+	require.NoError(t, err)
+	t.Log("logs", logs1.Event)
+	for logs1.Next() {
+		t.Log("logs", logs1.Event)
+	}
+	logs, err := b.FilterLogs(context.Background(), ethereum.FilterQuery{
+		nil, nil, nil, []common.Address{operatorAddress}, nil,
+	})
+	require.NoError(t, err)
+	t.Log("logs", logs)
+	logs, err = b.FilterLogs(context.Background(), ethereum.FilterQuery{
+		nil, nil, nil, nil, nil,
+	})
+	require.NoError(t, err)
+	t.Log("logs", logs)
+
+	//jr := cltest.CreateJobRunViaWeb(t, app, j)
+	//_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingOutgoingConfirmations)
+
+	//app.EthBroadcaster.Trigger()
+	tick := time.NewTicker(1*time.Second)
+	defer tick.Stop()
+	go func() {
+		for {
+			select {
+			case <-tick.C:
+				b.Commit()
+			}
+		}
+	}()
+	t.Log("waiting for a run")
+	cltest.WaitForRuns(t, j, app.Store, 1)
+
+	//cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	// Job should complete successfully.
+	//_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusCompleted)
+	//jrr, err := app.Store.FindJobRun(jr.ID)
+	//t.Log(jrr.TaskRuns[len(jrr.TaskRuns)-1], err)
+	//tx2, _, err := b.TransactionByHash(context.Background(),common.HexToHash(jrr.Result.Data.Get("result").String()))
+	//require.NoError(t, err)
+	//t.Log(tx2.To())
+	p2, err := consumer.First(nil)
+	require.NoError(t, err)
+	t.Log(p2)
 }

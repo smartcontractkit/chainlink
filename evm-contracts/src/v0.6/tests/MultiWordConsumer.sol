@@ -42,10 +42,10 @@ contract MultiWordConsumer is ChainlinkClient{
 
   function requestMultipleParameters(string memory _currency, uint256 _payment) public {
     Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParameters.selector);
-    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
-    string[] memory path = new string[](1);
-    path[0] = _currency;
-    req.addStringArray("path", path);
+//    req.add("get", "https://min-api.cryptocompare.com/data/price?fsym=ETH&tsyms=USD,EUR,JPY");
+//    string[] memory path = new string[](1);
+//    path[0] = _currency;
+//    req.addStringArray("path", path);
     sendChainlinkRequest(req, _payment);
   }
 
