@@ -1,9 +1,9 @@
 pragma solidity 0.7.0;
 
-import "./Owned.sol";
+import "./ConfirmedOwner.sol";
 import "../interfaces/OperatorInterface.sol";
 
-contract OperatorProxy is Owned {
+contract OperatorProxy is ConfirmedOwner {
 
   address internal immutable link;
 
@@ -12,7 +12,7 @@ contract OperatorProxy is Owned {
    * @dev The msg.sender is set as the owner of this contract
    * @param linkAddress Address of deployed LINK token
    */
-  constructor(address linkAddress) Owned(msg.sender) {
+  constructor(address linkAddress) ConfirmedOwner(msg.sender) {
     link = linkAddress;
   }
 
