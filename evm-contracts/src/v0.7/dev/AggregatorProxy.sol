@@ -299,6 +299,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   function aggregator()
     external
     view
+    override
     returns (address)
   {
     return address(s_currentPhase.aggregator);
