@@ -1,10 +1,10 @@
 pragma solidity ^0.7.0;
 
 /**
- * @title The Owned contract
+ * @title The ConfirmedOwner contract
  * @notice A contract with helpers for basic contract ownership.
  */
-contract Owned {
+contract ConfirmedOwner {
 
   address private s_owner;
   address private s_pendingOwner;

@@ -1,6 +1,6 @@
 pragma solidity 0.7.0;
 
-import "./Owned.sol";
+import "./ConfirmedOwner.sol";
 import "../interfaces/AggregatorV2V3Interface.sol";
 
 /**
@@ -9,7 +9,7 @@ import "../interfaces/AggregatorV2V3Interface.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorV2V3Interface, Owned {
+contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
 
   struct Phase {
     uint16 id;
@@ -26,7 +26,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   event AggregatorProposed(address indexed current, address indexed proposed);
   event AggregatorConfirmed(address indexed previous, address indexed latest);
 
-  constructor(address aggregatorAddress) public Owned(msg.sender) {
+  constructor(address aggregatorAddress) public ConfirmedOwner(msg.sender) {
     setAggregator(aggregatorAddress);
   }
 
