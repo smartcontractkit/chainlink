@@ -312,12 +312,12 @@ contract Operator is
     return address(linkToken);
   }
 
-  function forward(address _to, bytes calldata _data)
+  function forward(address to, bytes calldata data)
     public
     onlyAuthorizedSender()
   {
-    require(_to != address(linkToken), "Cannot use #forward to send messages to Link token");
-    (bool status,) = _to.call(_data);
+    require(to != address(linkToken), "Cannot use #forward to send messages to Link token");
+    (bool status,) = to.call(data);
     require(status, "Forwarded call failed.");
   }
 

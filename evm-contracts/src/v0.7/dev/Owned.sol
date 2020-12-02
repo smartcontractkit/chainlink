@@ -6,8 +6,8 @@ pragma solidity ^0.7.0;
  */
 contract Owned {
 
-  address public owner;
-  address private pendingOwner;
+  address private s_owner;
+  address private s_pendingOwner;
 
   event OwnershipTransferRequested(
     address indexed from,
@@ -19,44 +19,51 @@ contract Owned {
   );
 
   constructor(address newOwner) {
-    owner = newOwner;
+    s_owner = newOwner;
   }
 
   /**
-   * @dev Allows an owner to begin transferring ownership to a new address,
+   * @notice Allows an owner to begin transferring ownership to a new address,
    * pending.
    */
-  function transferOwnership(address _to)
+  function transferOwnership(address to)
     external
     onlyOwner()
   {
-    require(_to != msg.sender, "Cannot transfer to self");
+    require(to != msg.sender, "Cannot transfer to self");
 
-    pendingOwner = _to;
+    s_pendingOwner = to;
 
-    emit OwnershipTransferRequested(owner, _to);
+    emit OwnershipTransferRequested(s_owner, to);
   }
 
   /**
-   * @dev Allows an ownership transfer to be completed by the recipient.
+   * @notice Allows an ownership transfer to be completed by the recipient.
    */
   function acceptOwnership()
     external
   {
-    require(msg.sender == pendingOwner, "Must be proposed owner");
+    require(msg.sender == s_pendingOwner, "Must be proposed owner");
 
-    address oldOwner = owner;
-    owner = msg.sender;
-    pendingOwner = address(0);
+    address oldOwner = s_owner;
+    s_owner = msg.sender;
+    s_pendingOwner = address(0);
 
     emit OwnershipTransferred(oldOwner, msg.sender);
   }
 
   /**
-   * @dev Reverts if called by anyone other than the contract owner.
+   * @notice Get the current owner
+   */
+  function owner() public view returns (address) {
+    return s_owner;
+  }
+
+  /**
+   * @notice Reverts if called by anyone other than the contract owner.
    */
   modifier onlyOwner() {
-    require(msg.sender == owner, "Only callable by owner");
+    require(msg.sender == s_owner, "Only callable by owner");
     _;
   }
 
