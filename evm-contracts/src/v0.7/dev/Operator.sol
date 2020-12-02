@@ -1,7 +1,7 @@
 pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
-import "./Owned.sol";
+import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 import "../interfaces/OracleInterface2.sol";
@@ -15,7 +15,7 @@ import "../vendor/SafeMathChainlink.sol";
  */
 contract Operator is
   LinkTokenReceiver,
-  Owned,
+  ConfirmedOwner,
   ChainlinkRequestInterface,
   OracleInterface,
   OracleInterface2,
@@ -67,7 +67,7 @@ contract Operator is
    * @param owner The address of the owner
    */
   constructor(address link, address owner)
-    Owned(owner)
+    ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
