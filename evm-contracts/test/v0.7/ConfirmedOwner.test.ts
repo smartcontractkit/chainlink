@@ -29,7 +29,9 @@ describe('ConfirmedOwner', () => {
   const confirmedOwnerEvents = confirmedOwnerTestHelperFactory.interface.events
 
   beforeEach(async () => {
-    confirmedOwner = await confirmedOwnerTestHelperFactory.connect(owner).deploy()
+    confirmedOwner = await confirmedOwnerTestHelperFactory
+      .connect(owner)
+      .deploy()
   })
 
   it('has a limited public interface', () => {
@@ -65,7 +67,9 @@ describe('ConfirmedOwner', () => {
 
     describe('when called by anyone but the owner', () => {
       it('reverts', () =>
-        matchers.evmRevert(confirmedOwner.connect(nonOwner).modifierOnlyOwner()))
+        matchers.evmRevert(
+          confirmedOwner.connect(nonOwner).modifierOnlyOwner(),
+        ))
     })
   })
 
@@ -111,7 +115,10 @@ describe('ConfirmedOwner', () => {
         const tx = await confirmedOwner.connect(newOwner).acceptOwnership()
         const receipt = await tx.wait()
 
-        const event = h.findEventIn(receipt, confirmedOwnerEvents.OwnershipTransferred)
+        const event = h.findEventIn(
+          receipt,
+          confirmedOwnerEvents.OwnershipTransferred,
+        )
         expect(h.eventArgs(event).to).toEqual(newOwner.address)
         expect(h.eventArgs(event).from).toEqual(owner.address)
       })
