@@ -3960,10 +3960,10 @@
   dependencies:
     "@types/react" "*"
 
-"@types/react-redux@^7.1.8":
-  version "7.1.8"
-  resolved "https://registry.npmjs.org/@types/react-redux/-/react-redux-7.1.8.tgz#3631feb559f7858d6ad9eea1d6ef41fa64fe7205"
-  integrity sha512-kpplH7Wg2SYU00sZVT98WBN0ou6QKrYcShRaW+5Vpe5l7bluKWJbWmAL+ieiso07OQzpcP5i1PeY3690640ZWg==
+"@types/react-redux@^7.1.11":
+  version "7.1.11"
+  resolved "https://registry.npmjs.org/@types/react-redux/-/react-redux-7.1.11.tgz#a18e8ab3651e8e8cc94798934927937c66021217"
+  integrity sha512-OjaFlmqy0CRbYKBoaWF84dub3impqnLJUrz4u8PRjDzaa4n1A2cVmjMV81shwXyAD5x767efhA8STFGJz/r1Zg==
   dependencies:
     "@types/hoist-non-react-statics" "^3.3.0"
     "@types/react" "*"
