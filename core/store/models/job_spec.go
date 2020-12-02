@@ -44,7 +44,7 @@ type TaskSpecRequest struct {
 // individual steps to be carried out), StartAt, EndAt, and CreatedAt fields.
 type JobSpec struct {
 	ID         *ID            `json:"id,omitempty" gorm:"primary_key;not null"`
-	Name       string         `json:"name" gorm:"index;not null"`
+	Name       string         `json:"name"`
 	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
 	Initiators []Initiator    `json:"initiators"`
 	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
@@ -77,7 +77,6 @@ func NewJob() JobSpec {
 	id := NewID()
 	return JobSpec{
 		ID:        id,
-		Name:      fmt.Sprintf("Job%s", id),
 		CreatedAt: time.Now(),
 	}
 }
