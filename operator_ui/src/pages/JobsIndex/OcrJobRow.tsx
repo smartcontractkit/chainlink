@@ -37,8 +37,8 @@ export const OcrJobRow = withStyles(styles)(({ job, classes }: Props) => {
     <TableRow style={{ transform: 'scale(1)' }} hover>
       <TableCell className={classes.cell} component="th" scope="row">
         <Link className={classes.link} href={`/jobs/${job.id}`}>
-          {job.attributes.offChainReportingOracleSpec.name || job.id}
-          {job.attributes.offChainReportingOracleSpec.name && (
+          {job.attributes.name || job.id}
+          {job.attributes.name && (
             <>
               <br />
               <Typography

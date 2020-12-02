@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -23,80 +24,80 @@ import (
 	"github.com/urfave/cli"
 )
 
-//func TestClient_RunNodeShowsEnv(t *testing.T) {
-//store, cleanup := cltest.NewStore(t)
-//defer cleanup()
-//_, err := store.KeyStore.NewAccount(cltest.Password)
-//require.NoError(t, err)
-//require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+func TestClient_RunNodeShowsEnv(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	_, err := store.KeyStore.NewAccount(cltest.Password)
+	require.NoError(t, err)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
-//store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
-//store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
-//store.Config.Set("CHAINLINK_PORT", 6688)
+	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
+	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
+	store.Config.Set("CHAINLINK_PORT", 6688)
 
-//ethClient := new(mocks.Client)
-//ethClient.On("Dial", mock.Anything).Return(nil)
-//ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
-//store.EthClient = ethClient
+	ethClient := new(mocks.Client)
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
+	store.EthClient = ethClient
 
-//app := new(mocks.Application)
-//app.On("GetStore").Return(store)
-//app.On("Start").Return(nil)
-//app.On("Stop").Return(nil)
+	app := new(mocks.Application)
+	app.On("GetStore").Return(store)
+	app.On("Start").Return(nil)
+	app.On("Stop").Return(nil)
 
-//auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
-//runner := cltest.BlockedRunner{Done: make(chan struct{})}
-//client := cmd.Client{
-//Config:                 store.Config,
-//AppFactory:             cltest.InstanceAppFactory{App: app},
-//KeyStoreAuthenticator:  auth,
-//FallbackAPIInitializer: &cltest.MockAPIInitializer{},
-//Runner:                 runner,
-//}
+	auth := cltest.CallbackAuthenticator{Callback: func(*strpkg.Store, string) (string, error) { return "", nil }}
+	runner := cltest.BlockedRunner{Done: make(chan struct{})}
+	client := cmd.Client{
+		Config:                 store.Config,
+		AppFactory:             cltest.InstanceAppFactory{App: app},
+		KeyStoreAuthenticator:  auth,
+		FallbackAPIInitializer: &cltest.MockAPIInitializer{},
+		Runner:                 runner,
+	}
 
-//set := flag.NewFlagSet("test", 0)
-//set.Bool("debug", true, "")
-//c := cli.NewContext(nil, set, nil)
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("debug", true, "")
+	c := cli.NewContext(nil, set, nil)
 
-//// Start RunNode in a goroutine, it will block until we resume the runner
-//go func() {
-//assert.NoError(t, client.RunNode(c))
-//}()
+	// Start RunNode in a goroutine, it will block until we resume the runner
+	go func() {
+		assert.NoError(t, client.RunNode(c))
+	}()
 
-//// Unlock the runner to the client can begin shutdown
-//select {
-//case runner.Done <- struct{}{}:
-//case <-time.After(30 * time.Second):
-//t.Fatal("Timed out waiting for runner")
-//}
+	// Unlock the runner to the client can begin shutdown
+	select {
+	case runner.Done <- struct{}{}:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Timed out waiting for runner")
+	}
 
-//logger.Sync()
-//logs, err := cltest.ReadLogs(store.Config)
-//require.NoError(t, err)
+	logger.Sync()
+	logs, err := cltest.ReadLogs(store.Config)
+	require.NoError(t, err)
 
-//assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688\\n")
-//assert.Contains(t, logs, "BRIDGE_RESPONSE_URL: http://localhost:6688\\n")
-//assert.Contains(t, logs, "BLOCK_BACKFILL_DEPTH: 10\\n")
-//assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
-//assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
-//assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
-//assert.Contains(t, logs, "ETH_GAS_BUMP_THRESHOLD: 3\\n")
-//assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
-//assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
-//assert.Contains(t, logs, "ETH_URL: ws://")
-//assert.Contains(t, logs, "FLAGS_CONTRACT_ADDRESS: 0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6\\n")
-//assert.Contains(t, logs, "JSON_CONSOLE: false")
-//assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
-//assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
-//assert.Contains(t, logs, "LOG_TO_DISK: true")
-//assert.Contains(t, logs, "MIN_INCOMING_CONFIRMATIONS: 1\\n")
-//assert.Contains(t, logs, "MIN_OUTGOING_CONFIRMATIONS: 6\\n")
-//assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0.000000000000000100\\n")
-//assert.Contains(t, logs, "OPERATOR_CONTRACT_ADDRESS: \\n")
-//assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
+	assert.Contains(t, logs, "ALLOW_ORIGINS: http://localhost:3000,http://localhost:6688\\n")
+	assert.Contains(t, logs, "BRIDGE_RESPONSE_URL: http://localhost:6688\\n")
+	assert.Contains(t, logs, "BLOCK_BACKFILL_DEPTH: 10\\n")
+	assert.Contains(t, logs, "CHAINLINK_PORT: 6688\\n")
+	assert.Contains(t, logs, "CLIENT_NODE_URL: http://")
+	assert.Contains(t, logs, "ETH_CHAIN_ID: 3\\n")
+	assert.Contains(t, logs, "ETH_GAS_BUMP_THRESHOLD: 3\\n")
+	assert.Contains(t, logs, "ETH_GAS_BUMP_WEI: 5000000000\\n")
+	assert.Contains(t, logs, "ETH_GAS_PRICE_DEFAULT: 20000000000\\n")
+	assert.Contains(t, logs, "ETH_URL: ws://")
+	assert.Contains(t, logs, "FLAGS_CONTRACT_ADDRESS: 0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6\\n")
+	assert.Contains(t, logs, "JSON_CONSOLE: false")
+	assert.Contains(t, logs, "LINK_CONTRACT_ADDRESS: 0x514910771AF9Ca656af840dff83E8264EcF986CA\\n")
+	assert.Contains(t, logs, "LOG_LEVEL: debug\\n")
+	assert.Contains(t, logs, "LOG_TO_DISK: true")
+	assert.Contains(t, logs, "MIN_INCOMING_CONFIRMATIONS: 1\\n")
+	assert.Contains(t, logs, "MIN_OUTGOING_CONFIRMATIONS: 6\\n")
+	assert.Contains(t, logs, "MINIMUM_CONTRACT_PAYMENT: 0.000000000000000100\\n")
+	assert.Contains(t, logs, "OPERATOR_CONTRACT_ADDRESS: \\n")
+	assert.Contains(t, logs, "ROOT: /tmp/chainlink_test/")
 
-//app.AssertExpectations(t)
-//}
+	app.AssertExpectations(t)
+}
 
 func TestClient_RunNodeWithPasswords(t *testing.T) {
 	t.Parallel()

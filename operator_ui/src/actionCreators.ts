@@ -36,7 +36,7 @@ const curryErrorHandler = (dispatch: Dispatch, type: string) => (
   error: Error,
 ) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut()
+    sendSignOut(dispatch)
   } else {
     dispatch(createErrorAction(error, type))
   }
@@ -108,14 +108,12 @@ export const receiveSignoutSuccess = () => ({
   authenticated: false,
 })
 
-function sendSignOut() {
-  return (dispatch: Dispatch) => {
-    dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
-    return api.sessions
-      .destroySession()
-      .then(() => dispatch(receiveSignoutSuccess()))
-      .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
-  }
+function sendSignOut(dispatch: Dispatch) {
+  dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
+  return api.sessions
+    .destroySession()
+    .then(() => dispatch(receiveSignoutSuccess()))
+    .catch(curryErrorHandler(dispatch, AuthActionType.RECEIVE_SIGNIN_ERROR))
 }
 
 const RECEIVE_CREATE_SUCCESS_ACTION = {
@@ -134,7 +132,7 @@ const receiveUpdateSuccess = (response: Response) => ({
 
 export const submitSignIn = (data: Parameter<Sessions['createSession']>) =>
   sendSignIn(data)
-export const submitSignOut = () => sendSignOut()
+export const submitSignOut = () => sendSignOut
 
 export const deleteJobSpec = (
   id: string,
@@ -244,7 +242,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut()
+    sendSignOut(dispatch)
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }

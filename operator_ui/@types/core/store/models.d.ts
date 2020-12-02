@@ -474,6 +474,7 @@ declare module 'core/store/models' {
   export type PipelineTaskError = string | null
 
   export interface OcrJobSpec {
+    name: string | null
     errors: JobSpecError[]
     offChainReportingOracleSpec: {
       contractAddress: common.Address
@@ -490,7 +491,6 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-      name?: string // Upcoming field
     }
     pipelineSpec: {
       dotDagSource: string
