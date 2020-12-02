@@ -11,9 +11,11 @@ contract VRFD20 is VRFConsumerBase, Owned {
 
     bytes32 private s_keyHash;
     uint256 private s_fee;
-    uint256[] private s_results;
 
-    event DiceRolled(bytes32 indexed requestId);
+    mapping(address => bytes32) private s_rollers;
+    mapping(bytes32 => uint256) private s_results;
+
+    event DiceRolled(address indexed roller, bytes32 indexed requestId);
     event DiceLanded(bytes32 indexed requestId, uint256 indexed result);
 
     /**
@@ -44,11 +46,14 @@ contract VRFD20 is VRFConsumerBase, Owned {
      * @dev You must review your implementation details with extreme care.
      *
      * @param userProvidedSeed uint256 unpredictable seed
+     * @param roller address of the roller
      */
-    function rollDice(uint256 userProvidedSeed) public onlyOwner returns (bytes32 requestId) {
+    function rollDice(uint256 userProvidedSeed, address roller) public onlyOwner returns (bytes32 requestId) {
         require(LINK.balanceOf(address(this)) >= s_fee, "Not enough LINK to pay fee");
+        require(s_rollers[roller] == bytes32(0), "Already rolled");
         requestId = requestRandomness(s_keyHash, s_fee, userProvidedSeed);
-        emit DiceRolled(requestId);
+        s_rollers[roller] = requestId;
+        emit DiceRolled(roller, requestId);
     }
 
     /**
@@ -97,26 +102,6 @@ contract VRFD20 is VRFConsumerBase, Owned {
     }
 
     /**
-     * @notice Convenience function to show the results of the latest roll
-     *
-     * @return result
-     */
-    function latestResult() public view returns (uint256 result) {
-        return getResult(s_results.length.sub(1));
-    }
-
-    /**
-     * @notice Show the results from a specific roll of the dice
-     * @param number uint256
-     *
-     * @return result
-     */
-    function getResult(uint256 number) public view returns (uint256 result) {
-        require(number < s_results.length, "Invalid result number");
-        result = s_results[number];
-    }
-
-    /**
      * @notice Callback function used by VRF Coordinator to return the random number
      * to this contract.
      * @dev This is where you do something with randomness!
@@ -127,7 +112,7 @@ contract VRFD20 is VRFConsumerBase, Owned {
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
         uint256 result = randomness.mod(20).add(1);
-        s_results.push(result);
+        s_results[requestId] = result;
         emit DiceLanded(requestId, result);
     }
 }
