@@ -1,4 +1,5 @@
 import React from 'react'
+import { Typography } from '@material-ui/core'
 
 export const useLoadingPlaceholder = (
   isLoading = false,
@@ -7,7 +8,7 @@ export const useLoadingPlaceholder = (
   LoadingPlaceholder: React.FC
 } => {
   const LoadingPlaceholder: React.FC = isLoading
-    ? () => <div>Loading...</div>
+    ? () => <Typography variant="body1">Loading...</Typography>
     : () => null
 
   return {
