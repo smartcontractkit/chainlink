@@ -24,7 +24,7 @@ export type BaseJob = {
   definition: string
   errors: JobSpecError[]
   id: string
-  name?: string
+  name: string | null
 }
 
 export type OffChainReportingJob = BaseJob & {
