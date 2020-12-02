@@ -23,6 +23,9 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
   uint256 constant private PHASE_SIZE = 16;
   uint256 constant private MAX_ID = 2**(PHASE_OFFSET+PHASE_SIZE) - 1;
 
+  event AggregatorProposed(address indexed current, address indexed proposed);
+  event AggregatorConfirmed(address indexed previous, address indexed latest);
+
   constructor(address aggregatorAddress) public Owned(msg.sender) {
     setAggregator(aggregatorAddress);
   }
@@ -380,6 +383,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     onlyOwner()
   {
     s_proposedAggregator = AggregatorV2V3Interface(aggregatorAddress);
+    emit AggregatorProposed(address(s_currentPhase.aggregator), aggregatorAddress);
   }
 
   /**
@@ -394,8 +398,10 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     onlyOwner()
   {
     require(aggregatorAddress == address(s_proposedAggregator), "Invalid proposed aggregator");
+    address previousAggregator = address(s_currentPhase.aggregator);
     delete s_proposedAggregator;
     setAggregator(aggregatorAddress);
+    emit AggregatorConfirmed(previousAggregator, aggregatorAddress);
   }
 
 
