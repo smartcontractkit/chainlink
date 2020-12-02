@@ -175,13 +175,13 @@ func TestNewJobFromRequest(t *testing.T) {
 	j2 := models.NewJobFromRequest(jsr)
 	require.NoError(t, store.CreateJob(&j2))
 
-	fetched1, err := store.FindJob(j1.ID)
+	fetched1, err := store.FindJobSpec(j1.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched1.Initiators, 1)
 	assert.Len(t, fetched1.Tasks, 1)
 	assert.Nil(t, fetched1.MinPayment)
 
-	fetched2, err := store.FindJob(j2.ID)
+	fetched2, err := store.FindJobSpec(j2.ID)
 	assert.NoError(t, err)
 	assert.Len(t, fetched2.Initiators, 1)
 	assert.Len(t, fetched2.Tasks, 1)
@@ -206,7 +206,7 @@ func TestJobSpec_Save(t *testing.T) {
 
 	initr := j1.Initiators[0]
 
-	j2, err := store.FindJob(j1.ID)
+	j2, err := store.FindJobSpec(j1.ID)
 	require.NoError(t, err)
 	require.Len(t, j2.Initiators, 1)
 	assert.Equal(t, initr.Schedule, j2.Initiators[0].Schedule)

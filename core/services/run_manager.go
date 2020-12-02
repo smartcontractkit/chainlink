@@ -158,7 +158,7 @@ func (rm *runManager) CreateErrored(
 	jobSpecID *models.ID,
 	initiator models.Initiator,
 	runErr error) (*models.JobRun, error) {
-	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}
@@ -190,7 +190,7 @@ func (rm *runManager) Create(
 		"creation_height", creationHeight.String(),
 	)
 
-	job, err := rm.orm.Unscoped().FindJob(jobSpecID)
+	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find job spec")
 	}

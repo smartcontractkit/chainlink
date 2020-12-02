@@ -29,13 +29,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Commands for creating/managing legacy jobs and OCR jobs have changed, to accomodate additional types of jobs using the new pipeline.
 
-#### Legacy (V1) jobs
+#### V1 jobs
+
 `jobs archive` => `job_specs archive`
 `jobs create` => `job_specs create`
 `jobs list` => `job_specs list`
 `jobs show` => `job_specs show`
 
-#### New (V2) jobs
+#### V2 jobs (currently only applies to OCR)
+
 `jobs createocr` => `jobs create`
 `jobs deletev2` => `jobs delete`
 `jobs run` => `jobs run`

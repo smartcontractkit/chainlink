@@ -184,7 +184,7 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 		run := makeJobRunWithInitiator(t, store, cltest.NewJob())
 		run.SetStatus(models.RunStatusPendingConnection)
 
-		job, err := store.FindJob(run.JobSpecID)
+		job, err := store.FindJobSpec(run.JobSpecID)
 		require.NoError(t, err)
 		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
 
@@ -277,7 +277,7 @@ func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {
 	require.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, store, *jr)
 
-	retrievedJob, err := store.FindJob(job.ID)
+	retrievedJob, err := store.FindJobSpec(job.ID)
 	require.NoError(t, err)
 	require.Len(t, job.Tasks, 1)
 	require.Len(t, retrievedJob.Tasks, 1)

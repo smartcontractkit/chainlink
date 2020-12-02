@@ -44,7 +44,7 @@ func TestORM_CreateJob(t *testing.T) {
 	j1 := cltest.NewJobWithSchedule("* * * * *")
 	store.CreateJob(&j1)
 
-	j2, err := store.FindJob(j1.ID)
+	j2, err := store.FindJobSpec(j1.ID)
 	require.NoError(t, err)
 	require.Len(t, j2.Initiators, 1)
 	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
@@ -90,7 +90,7 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&job))
 
 	orm := store.ORM
-	retrievedJob, err := orm.FindJob(job.ID)
+	retrievedJob, err := orm.FindJobSpec(job.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
 	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
@@ -149,11 +149,11 @@ func TestORM_ArchiveJob(t *testing.T) {
 
 	require.NoError(t, store.ArchiveJob(job.ID))
 
-	require.Error(t, utils.JustError(store.FindJob(job.ID)))
+	require.Error(t, utils.JustError(store.FindJobSpec(job.ID)))
 	require.Error(t, utils.JustError(store.FindJobRun(run.ID)))
 
 	orm := store.ORM.Unscoped()
-	require.NoError(t, utils.JustError(orm.FindJob(job.ID)))
+	require.NoError(t, utils.JustError(orm.FindJobSpec(job.ID)))
 	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
 }
 

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -30,7 +29,6 @@ func (jc *JobsController) Index(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	fmt.Println("Balls", jobs)
 
 	jsonAPIResponse(c, jobs, "jobs")
 }
@@ -46,9 +44,9 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jobSpec, err = jc.App.GetStore().ORM.FindOffChainReportingJob(jobSpec.ID)
+	jobSpec, err = jc.App.GetStore().ORM.FindJob(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
-		jsonAPIError(c, http.StatusNotFound, errors.New("OCR job spec not found"))
+		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
 	}
 
@@ -115,7 +113,7 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 
-	job, err := jc.App.GetStore().ORM.FindOffChainReportingJob(jobID)
+	job, err := jc.App.GetStore().ORM.FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -140,7 +138,7 @@ func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
 		return
 	}
 
-	job, err := jc.App.GetStore().ORM.FindOffChainReportingJob(jobID)
+	job, err := jc.App.GetStore().ORM.FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
