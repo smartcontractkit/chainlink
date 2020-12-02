@@ -1,9 +1,9 @@
 -- Password for all encrypted keys is 'password'
 -- Scrypt params are chosen to be completely insecure and very fast to decrypt
 -- Don't use any of these keys for anything outside of testing!
-INSERT INTO "public"."keys"("address","json","created_at","updated_at","next_nonce","id","last_used","is_funding")
+INSERT INTO "public"."keys"("address","json","created_at","updated_at","next_nonce","last_used","is_funding")
 VALUES
-(DECODE('27548a32b9ad5d64c5945eae9da5337bc3169d15','hex'),E'{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}',E'2020-10-29 10:29:34.553191+00',E'2020-10-29 10:29:34.553191+00',0,1,NULL,FALSE);
+(DECODE('27548a32b9ad5d64c5945eae9da5337bc3169d15','hex'),E'{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}',E'2020-10-29 10:29:34.553191+00',E'2020-10-29 10:29:34.553191+00',0,NULL,FALSE);
 
 INSERT INTO "public"."encrypted_ocr_key_bundles"("id","on_chain_signing_address","off_chain_public_key","encrypted_private_keys","created_at","updated_at","config_public_key")
 VALUES
