@@ -8,4 +8,5 @@ interface AggregatorProxyInterface is AggregatorV2V3Interface {
 	function proposedAggregator() external view returns (address);
 	function proposedGetRoundData(uint80 roundId) external view returns (uint80 id, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
 	function proposedLatestRoundData() external view returns (uint80 id, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);
+	function aggregator() external view returns (address);
 }
