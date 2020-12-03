@@ -290,6 +290,32 @@ func NewApp(client *Client) *cli.App {
 							Usage:  format(`List available P2P keys`),
 							Action: client.ListP2PKeys,
 						},
+						{
+							Name:  "import",
+							Usage: format(`Imports a P2P key from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "the password that the key in the JSON file was encrypted with",
+								},
+							},
+							Action: client.ImportP2PKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports a P2P key to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "the password with which to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "the path where the JSON file will be saved",
+								},
+							},
+							Action: client.ExportP2PKey,
+						},
 					},
 				},
 				cli.Command{
@@ -322,6 +348,32 @@ func NewApp(client *Client) *cli.App {
 							Name:   "list",
 							Usage:  format(`List available OCR key bundles`),
 							Action: client.ListOCRKeyBundles,
+						},
+						{
+							Name:  "import",
+							Usage: format(`Imports an OCR key bundle from a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "oldpassword, p",
+									Usage: "the password that the key in the JSON file was encrypted with",
+								},
+							},
+							Action: client.ImportOCRKey,
+						},
+						{
+							Name:  "export",
+							Usage: format(`Exports an OCR key bundle to a JSON file`),
+							Flags: []cli.Flag{
+								cli.StringFlag{
+									Name:  "newpassword, p",
+									Usage: "the password with which to encrypt the key in the JSON file",
+								},
+								cli.StringFlag{
+									Name:  "output, o",
+									Usage: "the path where the JSON file will be saved",
+								},
+							},
+							Action: client.ExportOCRKey,
 						},
 					},
 				},

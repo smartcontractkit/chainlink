@@ -1,6 +1,8 @@
 package offchainreporting
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
 
 	"github.com/jinzhu/gorm"
@@ -100,7 +102,12 @@ func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey
 
 func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 	err := ks.
-		Set("gorm:insert_option", "ON CONFLICT (pub_key) DO UPDATE SET encrypted_priv_key=EXCLUDED.encrypted_priv_key, updated_at=NOW()").
+		Set(
+			"gorm:insert_option",
+			"ON CONFLICT (pub_key) DO UPDATE SET "+
+				"updated_at=NOW(),"+
+				"deleted_at=null",
+		).
 		Create(k).
 		Error
 	if err != nil {
@@ -166,6 +173,23 @@ func (ks KeyStore) CreateEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKey
 	return errors.Wrapf(err, "while persisting the new encrypted OCR key bundle")
 }
 
+func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
+	fmt.Println("encryptedKey.ID", encryptedKey.ID)
+	err := ks.
+		Set(
+			"gorm:insert_option",
+			"ON CONFLICT (id) DO UPDATE SET "+
+				"updated_at=NOW(),"+
+				"deleted_at=null",
+		).
+		Create(encryptedKey).
+		Error
+	if err != nil {
+		return errors.Wrapf(err, "while upserting ocr key")
+	}
+	return nil
+}
+
 // FindEncryptedOCRKeyBundles finds all the encrypted OCR key records
 func (ks KeyStore) FindEncryptedOCRKeyBundles() (keys []ocrkey.EncryptedKeyBundle, err error) {
 	err = ks.Order("created_at asc, id asc").Find(&keys).Error
@@ -201,4 +225,102 @@ func (ks KeyStore) DeleteEncryptedOCRKeyBundle(key *ocrkey.EncryptedKeyBundle) e
 	}
 	delete(ks.ocrkeys, key.ID)
 	return nil
+}
+
+// ImportP2PKey imports a p2p key to the database
+func (ks KeyStore) ImportP2PKey(keyJSON []byte, oldPassword string) (*p2pkey.EncryptedP2PKey, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	var encryptedExport p2pkey.EncryptedP2PKeyExport
+	err := json.Unmarshal(keyJSON, &encryptedExport)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid p2p key json")
+	}
+	privateKey, err := encryptedExport.DecryptPrivateKey(oldPassword)
+	if err != nil {
+		return nil, err
+	}
+	encryptedKey, err := privateKey.ToEncryptedP2PKey(ks.password, utils.DefaultScryptParams)
+	if err != nil {
+		return nil, err
+	}
+	err = ks.UpsertEncryptedP2PKey(&encryptedKey)
+	if err != nil {
+		return nil, err
+	}
+	ks.p2pkeys[encryptedKey.PeerID] = *privateKey
+
+	return &encryptedKey, nil
+}
+
+// ExportP2PKey exports a p2p key from the database
+func (ks KeyStore) ExportP2PKey(ID int32, newPassword string) ([]byte, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	emptyExport := []byte{}
+	encryptedP2PKey, err := ks.FindEncryptedP2PKeyByID(ID)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to find p2p key with given ID")
+	}
+	decryptedP2PKey, err := encryptedP2PKey.Decrypt(ks.password)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to decrypt p2p key with given keystore password")
+	}
+	encryptedExport, err := decryptedP2PKey.ToEncryptedExport(newPassword, utils.DefaultScryptParams)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to encrypt p2p key for export with provided password")
+	}
+
+	return encryptedExport, nil
+}
+
+// ImportOCRKeyBundle imports an OCR key bundle to the database
+func (ks KeyStore) ImportOCRKeyBundle(keyJSON []byte, oldPassword string) (*ocrkey.EncryptedKeyBundle, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	var encryptedExport ocrkey.EncryptedOCRKeyExport
+	err := json.Unmarshal(keyJSON, &encryptedExport)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid OCR key json")
+	}
+	privateKey, err := encryptedExport.DecryptPrivateKey(oldPassword)
+	if err != nil {
+		return nil, err
+	}
+	encryptedKey, err := privateKey.Encrypt(ks.password, utils.DefaultScryptParams)
+	if err != nil {
+		return nil, err
+	}
+	err = ks.UpsertEncryptedOCRKeyBundle(encryptedKey)
+	if err != nil {
+		return nil, err
+	}
+	ks.ocrkeys[privateKey.ID] = *privateKey
+
+	return encryptedKey, nil
+}
+
+// ExportOCRKeyBundle exports an OCR key bundle from the database
+func (ks KeyStore) ExportOCRKeyBundle(id models.Sha256Hash, newPassword string) ([]byte, error) {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+
+	emptyExport := []byte{}
+	encryptedP2PKey, err := ks.FindEncryptedOCRKeyBundleByID(id)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to find OCR key with given ID")
+	}
+	decryptedP2PKey, err := encryptedP2PKey.Decrypt(ks.password)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to decrypt p2p key with given keystore password")
+	}
+	encryptedExport, err := decryptedP2PKey.ToEncryptedExport(newPassword, utils.DefaultScryptParams)
+	if err != nil {
+		return emptyExport, errors.Wrap(err, "unable to encrypt p2p key for export with provided password")
+	}
+
+	return encryptedExport, nil
 }

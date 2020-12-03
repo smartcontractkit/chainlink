@@ -263,11 +263,15 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/keys/ocr", ocrkc.Index)
 		authv2.POST("/keys/ocr", ocrkc.Create)
 		authv2.DELETE("/keys/ocr/:keyID", ocrkc.Delete)
+		authv2.POST("/keys/ocr/import", ocrkc.Import)
+		authv2.POST("/keys/ocr/export/:ID", ocrkc.Export)
 
 		p2pkc := P2PKeysController{app}
 		authv2.GET("/keys/p2p", p2pkc.Index)
 		authv2.POST("/keys/p2p", p2pkc.Create)
 		authv2.DELETE("/keys/p2p/:keyID", p2pkc.Delete)
+		authv2.POST("/keys/p2p/import", p2pkc.Import)
+		authv2.POST("/keys/p2p/export/:ID", p2pkc.Export)
 
 		ocr := authv2.Group("/ocr")
 		{

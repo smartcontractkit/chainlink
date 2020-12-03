@@ -786,7 +786,8 @@ func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/keys/eth/import?oldpassword="+normalizePassword(string(oldPassword)), bytes.NewReader(keyJSON))
+	normalizedPassword := normalizePassword(string(oldPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/eth/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -822,7 +823,8 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 
 	address := c.Args().Get(0)
 
-	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?newpassword="+normalizePassword(string(newPassword)), nil)
+	normalizedPassword := normalizePassword(string(newPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/eth/export/"+address+"?newpassword="+normalizedPassword, nil)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
 	}
@@ -914,6 +916,88 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+func (cli *Client) ImportP2PKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the ID of the key to be imported"))
+	}
+
+	oldPasswordFile := c.String("oldpassword")
+	if len(oldPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+	}
+	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.Args().Get(0)
+	keyJSON, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	normalizedPassword := normalizePassword(string(oldPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/p2p/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	fmt.Println("🔑 Imported P2P key")
+	var key p2pkey.EncryptedP2PKey
+	return cli.renderAPIResponse(resp, &key)
+}
+
+func (cli *Client) ExportP2PKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+	}
+
+	newPasswordFile := c.String("newpassword")
+	if len(newPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+	}
+	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.String("output")
+	if len(filepath) == 0 {
+		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+	}
+
+	ID := c.Args().Get(0)
+
+	normalizedPassword := normalizePassword(string(newPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/p2p/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	keyJSON, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+	}
+
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+	}
+
+	fmt.Println("🔑 Exported P2P key", ID, "to", filepath)
+	return nil
+}
+
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
 // protected by the password in the password file
 func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
@@ -985,6 +1069,88 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	}
 	var key ocrkey.EncryptedKeyBundle
 	return cli.renderAPIResponse(resp, &key)
+}
+
+func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the ID of the key to be imported"))
+	}
+
+	oldPasswordFile := c.String("oldpassword")
+	if len(oldPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --oldpassword/-p flag"))
+	}
+	oldPassword, err := ioutil.ReadFile(oldPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.Args().Get(0)
+	keyJSON, err := ioutil.ReadFile(filepath)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	normalizedPassword := normalizePassword(string(oldPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/ocr/import?oldpassword="+normalizedPassword, bytes.NewReader(keyJSON))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	fmt.Println("🔑 Imported OCR key bundle")
+	var key ocrkey.EncryptedKeyBundle
+	return cli.renderAPIResponse(resp, &key)
+}
+
+func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
+	}
+
+	newPasswordFile := c.String("newpassword")
+	if len(newPasswordFile) == 0 {
+		return cli.errorOut(errors.New("Must specify --newpassword/-p flag"))
+	}
+	newPassword, err := ioutil.ReadFile(newPasswordFile)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read password file"))
+	}
+
+	filepath := c.String("output")
+	if len(filepath) == 0 {
+		return cli.errorOut(errors.New("Must specify --output/-o flag"))
+	}
+
+	ID := c.Args().Get(0)
+
+	normalizedPassword := normalizePassword(string(newPassword))
+	resp, err := cli.HTTP.Post("/v2/keys/ocr/export/"+ID+"?newpassword="+normalizedPassword, nil)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not make HTTP request"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	keyJSON, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
+	}
+
+	err = utils.WriteFileWithMaxPerms(filepath, keyJSON, 0600)
+	if err != nil {
+		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
+	}
+
+	fmt.Println("🔑 Exported OCR key bundle", ID, "to", filepath)
+	return nil
 }
 
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {

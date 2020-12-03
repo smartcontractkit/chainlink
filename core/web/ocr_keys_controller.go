@@ -1,10 +1,13 @@
 package web
 
 import (
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -73,4 +76,47 @@ func (ocrkbc *OCRKeysController) Delete(c *gin.Context) {
 		return
 	}
 	jsonAPIResponse(c, ekb, "offChainReportingKeyBundle")
+}
+
+// Import imports an OCR key bundle
+// Example:
+// "Post <application>/keys/ocr/import"
+func (ocrkc *OCRKeysController) Import(c *gin.Context) {
+	defer logger.ErrorIfCalling(c.Request.Body.Close)
+
+	store := ocrkc.App.GetStore()
+	bytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		jsonAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	oldPassword := c.Query("oldpassword")
+	encryptedOCRKeyBundle, err := store.OCRKeyStore.ImportOCRKeyBundle(bytes, oldPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, encryptedOCRKeyBundle, "offChainReportingKeyBundle")
+}
+
+// Export exports an OCR key bundle
+// Example:
+// "Post <application>/keys/ocr/export"
+func (ocrkc *OCRKeysController) Export(c *gin.Context) {
+	defer logger.ErrorIfCalling(c.Request.Body.Close)
+
+	stringID := c.Param("ID")
+	id, err := models.Sha256HashFromHex(stringID)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("invalid key ID"))
+	}
+	newPassword := c.Query("newpassword")
+	bytes, err := ocrkc.App.GetStore().OCRKeyStore.ExportOCRKeyBundle(id, newPassword)
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	c.Data(http.StatusOK, MediaType, bytes)
 }
