@@ -36,6 +36,34 @@ ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
 ```
 
+- New prometheus metrics as follows:
+
+```
+Name: "pipeline_run_errors",
+Help: "Number of errors for each pipeline spec",
+
+Name: "pipeline_run_total_time_to_completion",
+Help: "How long each pipeline run took to finish (from the moment it was created)",
+
+Name: "pipeline_tasks_total_finished",
+Help: "The total number of pipline tasks which have finished",
+
+Name: "pipeline_task_execution_time",
+Help: "How long each pipeline task took to execute",
+
+Name: "pipeline_task_http_fetch_time",
+Help: "Time taken to fully execute the HTTP request",
+
+Name: "pipeline_task_http_response_body_size",
+Help: "Size (in bytes) of the HTTP response body",
+
+Name: "pipeline_runs_queued",
+Help: "The total number of pipline runs that are awaiting execution",
+
+Name: "pipeline_task_runs_queued",
+Help: "The total number of pipline task runs that are awaiting execution",
+```
+
 ### Changed
 
 Numerous key-related UX improvements:
