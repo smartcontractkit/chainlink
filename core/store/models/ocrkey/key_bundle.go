@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"crypto/sha256"
-	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -25,9 +24,6 @@ import (
 )
 
 type (
-	// ConfigPublicKey represents the public key for the config decryption keypair
-	ConfigPublicKey [curve25519.PointSize]byte
-
 	// KeyBundle represents the bundle of keys needed for OCR
 	KeyBundle struct {
 		ID                 models.Sha256Hash
@@ -56,52 +52,9 @@ type (
 )
 
 var (
-	ErrScalarTooBig = errors.Errorf("can't handle scalars greater than %d", curve25519.PointSize)
+	errScalarTooBig = errors.Errorf("can't handle scalars greater than %d", curve25519.PointSize)
+	curve           = secp256k1.S256()
 )
-
-func (cpk ConfigPublicKey) String() string {
-	return hex.EncodeToString(cpk[:])
-}
-
-func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hex.EncodeToString(cpk[:]))
-}
-
-func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
-	var result [curve25519.PointSize]byte
-	var hexString string
-	if err := json.Unmarshal(input, &hexString); err != nil {
-		return err
-	}
-
-	decodedString, err := hex.DecodeString(hexString)
-	if err != nil {
-		return err
-	}
-	copy(result[:], decodedString[:curve25519.PointSize])
-	*cpk = result
-	return nil
-}
-
-var curve = secp256k1.S256()
-
-// Scan reads the database value and returns an instance.
-func (cpk *ConfigPublicKey) Scan(value interface{}) error {
-	b, ok := value.([]byte)
-	if !ok {
-		return errors.Errorf("unable to convert %v of type %T to ConfigPublicKey", value, value)
-	}
-	if len(b) != curve25519.PointSize {
-		return errors.Errorf("unable to convert blob 0x%x of length %v to ConfigPublicKey", b, len(b))
-	}
-	copy(cpk[:], b)
-	return nil
-}
-
-// Value returns this instance serialized for database storage.
-func (cpk ConfigPublicKey) Value() (driver.Value, error) {
-	return cpk[:], nil
-}
 
 func (EncryptedKeyBundle) TableName() string {
 	return "encrypted_ocr_key_bundles"
@@ -257,7 +210,6 @@ func (ekb *EncryptedKeyBundle) Decrypt(auth string) (*KeyBundle, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not unmarshal OCR key bundle")
 	}
-	pk.ID = ekb.ID
 	return &pk, nil
 }
 
@@ -280,7 +232,7 @@ func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
 	}
 	ecdsaDSize := len(rawKeyData.EcdsaD.Bytes())
 	if ecdsaDSize > curve25519.PointSize {
-		return errors.Wrapf(ErrScalarTooBig, "got %d byte ecdsa scalar", ecdsaDSize)
+		return errors.Wrapf(errScalarTooBig, "got %d byte ecdsa scalar", ecdsaDSize)
 	}
 
 	publicKey := ecdsa.PublicKey{Curve: curve}
@@ -294,6 +246,7 @@ func (pk *KeyBundle) UnmarshalJSON(b []byte) (err error) {
 	pk.onChainSigning = &onChainSigning
 	pk.offChainSigning = &offChainSigning
 	pk.offChainEncryption = &rawKeyData.OffChainEncryption
+	pk.ID = sha256.Sum256(b)
 	return nil
 }
 

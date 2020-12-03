@@ -77,5 +77,5 @@ func TestOCRKeys_ScalarTooBig(t *testing.T) {
 
 	kb := KeyBundle{}
 	err = kb.UnmarshalJSON(jb)
-	assert.Equal(t, ErrScalarTooBig, errors.Cause(err))
+	assert.Equal(t, errScalarTooBig, errors.Cause(err))
 }
