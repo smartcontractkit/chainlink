@@ -63,12 +63,16 @@ RUN make chainlink-build
 # Final layer: ubuntu with chainlink binary
 FROM ubuntu:18.04
 
+ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y ca-certificates
-
-WORKDIR /root
-
 COPY --from=1 /go/bin/chainlink /usr/local/bin/
+
+RUN if [ ${CHAINLINK_USER} != root ]; then \
+  useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
+  fi
+USER ${CHAINLINK_USER}
+WORKDIR /home/${CHAINLINK_USER}
 
 EXPOSE 6688
 ENTRYPOINT ["chainlink"]

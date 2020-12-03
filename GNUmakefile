@@ -11,6 +11,7 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 DOCKERFILE := core/chainlink.Dockerfile
 DOCKER_TAG ?= latest
+CHAINLINK_USER ?= root
 
 TAGGED_REPO := $(REPO):$(DOCKER_TAG)
 ECR_REPO := "$(AWS_ECR_URL)/chainlink:$(DOCKER_TAG)"
@@ -93,12 +94,14 @@ docker: ## Build the docker image.
 		--build-arg BUILDER=$(BUILDER) \
 		--build-arg ENVIRONMENT=$(ENVIRONMENT) \
 		--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+		--build-arg CHAINLINK_USER=$(CHAINLINK_USER) \
 		-t $(TAGGED_REPO) \
 		.
 
 .PHONY: dockerpush
 dockerpush: ## Push the docker image to ecr
 	docker push $(ECR_REPO)
+	docker push $(ECR_REPO)-nonroot
 
 help:
 	@echo ""
