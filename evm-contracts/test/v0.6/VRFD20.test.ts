@@ -146,6 +146,40 @@ describe('VRFD20', () => {
     })
   })
 
+  describe('#hosue', () => {
+    describe('failure', () => {
+      it('reverts when dice not rolled', async () => {
+        await matchers.evmRevert(async () => {
+          await vrfD20.house(personas.Nancy.address), 'Dice not rolled'
+        })
+      })
+
+      it('reverts when dice roll is in progress', async () => {
+        await vrfD20.rollDice(seed, personas.Nancy.address)
+        await matchers.evmRevert(async () => {
+          await vrfD20.house(personas.Nancy.address), 'Roll in progress'
+        })
+      })
+    })
+
+    describe('success', () => {
+      it('returns the correct house', async () => {
+        const randomness = 98765
+        const expectedHouse = 'Martell'
+        const tx = await vrfD20.rollDice(seed, personas.Nancy.address)
+        const log = await helpers.getLog(tx, 3)
+        const eventRequestId = log?.topics?.[1]
+        await vrfCoordinator.callBackWithRandomness(
+          eventRequestId,
+          randomness,
+          vrfD20.address,
+        )
+        const response = await vrfD20.house(personas.Nancy.address)
+        assert.equal(response.toString(), expectedHouse)
+      })
+    })
+  })
+
   describe('#rollDice', () => {
     describe('success', () => {
       let tx: ContractTransaction
@@ -220,7 +254,6 @@ describe('VRFD20', () => {
 
       it('sets the correct dice roll result', async () => {
         const response = await vrfD20.house(personas.Nancy.address)
-        console.log(response)
         assert.equal(response.toString(), expectedHouse)
       })
 
