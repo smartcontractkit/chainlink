@@ -56,48 +56,28 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
 }
 
-// func TestETHKeysController_CreateSuccess(t *testing.T) {
-// 	t.Parallel()
-
-// 	config, _ := cltest.NewConfig(t)
-// 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-// 		cltest.EthMockRegisterChainID,
-// 		cltest.EthMockRegisterGetBalance,
-// 	)
-// 	defer cleanup()
-
-// 	ethMock := app.EthMock
-// 	client := app.NewHTTPClient()
-
-// 	assert.NoError(t, app.StartAndConnect())
-
-// 	body, err := json.Marshal(&request)
-// 	assert.NoError(t, err)
-
-// 	resp, cleanup := client.Post("/v2/keys/eth", nil)
-// 	defer cleanup()
-
-// 	cltest.AssertServerResponse(t, resp, 201)
-
-// 	ethMock.AllCalled()
-// }
-
-func TestETHKeysController_Create_JSONBindingError(t *testing.T) {
+func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.LenientEthMock,
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	assert.NoError(t, app.StartAndConnect())
+	ethMock := app.EthMock
+	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
+		ethMock.Register("eth_getBalance", "0x100")
+		ethMock.Register("eth_call", "0x100")
+	})
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, 422)
+	cltest.AssertServerResponse(t, resp, 201)
+	ethMock.AllCalled()
 }

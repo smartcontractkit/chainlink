@@ -888,7 +888,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
 	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
+	kst.On("NewAccount").Return(accounts.Account{}, nil)
 	assert.NoError(t, client.CreateETHKey(c))
 }
 
