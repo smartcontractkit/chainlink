@@ -11,11 +11,11 @@ contract VRFD20 is VRFConsumerBase, Owned {
 
     bytes32 private s_keyHash;
     uint256 private s_fee;
-
     mapping(address => bytes32) private s_rollers;
     mapping(bytes32 => uint256) private s_results;
+    mapping(uint256 => string) private s_houses;
 
-    event DiceRolled(address indexed roller, bytes32 indexed requestId);
+    event DiceRolled(bytes32 indexed requestId, address indexed roller);
     event DiceLanded(bytes32 indexed requestId, uint256 indexed result);
 
     /**
@@ -38,6 +38,26 @@ contract VRFD20 is VRFConsumerBase, Owned {
     {
         s_keyHash = keyHash;
         s_fee = fee;
+        s_houses[1] = "Targaryen";
+        s_houses[2] = "Lannister";
+        s_houses[3] = "Stark";
+        s_houses[4] = "Tyrell";
+        s_houses[5] = "Baratheon";
+        s_houses[6] = "Martell";
+        s_houses[7] = "Tully";
+        s_houses[8] = "Bolton";
+        s_houses[9] = "Greyjoy";
+        s_houses[10] = "Arryn";
+        s_houses[11] = "Frey";
+        s_houses[12] = "Mormont";
+        s_houses[13] = "Tarley";
+        s_houses[14] = "Dayne";
+        s_houses[15] = "Umber";
+        s_houses[16] = "Valeryon";
+        s_houses[17] = "Manderly";
+        s_houses[18] = "Clegane";
+        s_houses[19] = "Glover";
+        s_houses[20] = "Karstark";
     }
 
     /**
@@ -53,7 +73,18 @@ contract VRFD20 is VRFConsumerBase, Owned {
         require(s_rollers[roller] == bytes32(0), "Already rolled");
         requestId = requestRandomness(s_keyHash, s_fee, userProvidedSeed);
         s_rollers[roller] = requestId;
-        emit DiceRolled(roller, requestId);
+        emit DiceRolled(requestId, roller);
+    }
+
+    /**
+     * @notice Get the house assigned to the player once the address has rolled
+     * @param player address
+     * @return house as a string
+     */
+    function house(address player) public view returns (string memory) {
+        require(s_rollers[player] != bytes32(0), "Dice not rolled");
+        require(s_results[s_rollers[player]] != 0, "Roll in progress");
+        return s_houses[s_results[s_rollers[player]]];
     }
 
     /**
