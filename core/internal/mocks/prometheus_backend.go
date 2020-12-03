@@ -14,6 +14,16 @@ func (_m *PrometheusBackend) SetMaxUnconfirmedBlocks(_a0 int64) {
 	_m.Called(_a0)
 }
 
+// SetPipelineRunsQueued provides a mock function with given fields: n
+func (_m *PrometheusBackend) SetPipelineRunsQueued(n int) {
+	_m.Called(n)
+}
+
+// SetPipelineTaskRunsQueued provides a mock function with given fields: n
+func (_m *PrometheusBackend) SetPipelineTaskRunsQueued(n int) {
+	_m.Called(n)
+}
+
 // SetUnconfirmedTransactions provides a mock function with given fields: _a0
 func (_m *PrometheusBackend) SetUnconfirmedTransactions(_a0 int64) {
 	_m.Called(_a0)
