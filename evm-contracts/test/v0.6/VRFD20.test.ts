@@ -6,6 +6,7 @@ import { VRFCoordinatorMockFactory } from '../../ethers/v0.6/VRFCoordinatorMockF
 import { bigNumberify } from 'ethers/utils'
 
 let roles: setup.Roles
+let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const vrfCoordinatorMockFactory = new VRFCoordinatorMockFactory()
@@ -15,6 +16,7 @@ beforeAll(async () => {
   const users = await setup.users(provider)
 
   roles = users.roles
+  personas = users.personas
 })
 
 describe('VRFD20', () => {
@@ -56,13 +58,12 @@ describe('VRFD20', () => {
       'rawFulfillRandomness',
       // VRFD20
       'rollDice',
+      'house',
       'withdrawLINK',
       'keyHash',
       'fee',
       'setKeyHash',
       'setFee',
-      'latestResult',
-      'getResult',
     ])
   })
 
@@ -100,48 +101,6 @@ describe('VRFD20', () => {
         const actualAmount = await link.balanceOf(roles.defaultAccount.address)
         assert.equal(actualAmount.toString(), expectedAmount.toString())
       })
-    })
-  })
-
-  describe('#getResult', () => {
-    it('reverts when a number too high is used', async () => {
-      await matchers.evmRevert(async () => {
-        await vrfD20.getResult(99), 'Invalid result number'
-      })
-    })
-
-    it('gets a previous result', async () => {
-      const randomness = 6
-      const modResult = (randomness % 20) + 1
-      await vrfD20.rollDice(seed)
-      await vrfCoordinator.callBackWithRandomness(
-        requestId,
-        randomness,
-        vrfD20.address,
-      )
-      const response = await vrfD20.getResult(0)
-      assert.equal(response.toString(), modResult.toString())
-    })
-  })
-
-  describe('#latestResult', () => {
-    it('reverts when there are no results', async () => {
-      await matchers.evmRevert(async () => {
-        await vrfD20.latestResult(), 'Invalid result number'
-      })
-    })
-
-    it('gets the latest result', async () => {
-      const randomness = 6
-      const modResult = (randomness % 20) + 1
-      await vrfD20.rollDice(seed)
-      await vrfCoordinator.callBackWithRandomness(
-        requestId,
-        randomness,
-        vrfD20.address,
-      )
-      const response = await vrfD20.latestResult()
-      assert.equal(response.toString(), modResult.toString())
     })
   })
 
@@ -188,28 +147,10 @@ describe('VRFD20', () => {
   })
 
   describe('#rollDice', () => {
-    describe('failure', () => {
-      it('reverts when LINK balance is zero', async () => {
-        const vrfD202 = await vrfD20Factory
-          .connect(roles.defaultAccount)
-          .deploy(vrfCoordinator.address, link.address, keyHash, fee)
-        await matchers.evmRevert(async () => {
-          await vrfD202.rollDice(seed), 'Not enough LINK to pay fee'
-        })
-      })
-
-      it('reverts when called by a non-owner', async () => {
-        await matchers.evmRevert(async () => {
-          await vrfD20.connect(roles.stranger).rollDice(seed),
-            'Only callable by owner'
-        })
-      })
-    })
-
     describe('success', () => {
       let tx: ContractTransaction
       beforeEach(async () => {
-        tx = await vrfD20.rollDice(seed)
+        tx = await vrfD20.rollDice(seed, personas.Nancy.address)
       })
 
       it('emits a RandomnessRequest event from the VRFCoordinator', async () => {
@@ -220,14 +161,43 @@ describe('VRFD20', () => {
         assert.equal(topics?.[3], helpers.numToBytes32(seed))
       })
     })
+
+    describe('failure', () => {
+      it('reverts when LINK balance is zero', async () => {
+        const vrfD202 = await vrfD20Factory
+          .connect(roles.defaultAccount)
+          .deploy(vrfCoordinator.address, link.address, keyHash, fee)
+        await matchers.evmRevert(async () => {
+          await vrfD202.rollDice(seed, personas.Nancy.address),
+            'Not enough LINK to pay fee'
+        })
+      })
+
+      it('reverts when called by a non-owner', async () => {
+        await matchers.evmRevert(async () => {
+          await vrfD20
+            .connect(roles.stranger)
+            .rollDice(seed, personas.Nancy.address),
+            'Only callable by owner'
+        })
+      })
+
+      it('reverts when the roller rolls more than once', async () => {
+        await vrfD20.rollDice(seed, personas.Nancy.address)
+        await matchers.evmRevert(async () => {
+          await vrfD20.rollDice(seed, personas.Nancy.address), 'Already rolled'
+        })
+      })
+    })
   })
 
   describe('#fulfillRandomness', () => {
     const randomness = 98765
     const expectedModResult = (randomness % 20) + 1
+    const expectedHouse = 'Martell'
     let eventRequestId: string
     beforeEach(async () => {
-      const tx = await vrfD20.rollDice(seed)
+      const tx = await vrfD20.rollDice(seed, personas.Nancy.address)
       const log = await helpers.getLog(tx, 3)
       eventRequestId = log?.topics?.[1]
     })
@@ -249,28 +219,21 @@ describe('VRFD20', () => {
       })
 
       it('sets the correct dice roll result', async () => {
-        const response = await vrfD20.latestResult()
-        assert.equal(response.toString(), expectedModResult.toString())
+        const response = await vrfD20.house(personas.Nancy.address)
+        console.log(response)
+        assert.equal(response.toString(), expectedHouse)
       })
 
-      it('allows another roll', async () => {
+      it('allows someone else to roll', async () => {
         const secondRandomness = 55555
         const secondSeed = 54321
-        const secondExpectedModResult = (secondRandomness % 20) + 1
-        tx = await vrfD20.rollDice(secondSeed)
+        tx = await vrfD20.rollDice(secondSeed, personas.Ned.address)
         const log = await helpers.getLog(tx, 3)
         eventRequestId = log?.topics?.[1]
         tx = await vrfCoordinator.callBackWithRandomness(
           eventRequestId,
           secondRandomness,
           vrfD20.address,
-        )
-        const firstResult = await vrfD20.getResult(0)
-        const secondResult = await vrfD20.getResult(1)
-        assert.equal(firstResult.toString(), expectedModResult.toString())
-        assert.equal(
-          secondResult.toString(),
-          secondExpectedModResult.toString(),
         )
       })
     })
