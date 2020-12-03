@@ -31,6 +31,8 @@ type SimulatedBackendClient struct {
 	chainId int
 }
 
+var _ eth.Client = (*SimulatedBackendClient)(nil)
+
 func (c *SimulatedBackendClient) Dial(context.Context) error {
 	return nil
 }
@@ -39,8 +41,6 @@ func (c *SimulatedBackendClient) Dial(context.Context) error {
 func (c *SimulatedBackendClient) Close() {
 	c.b.Close()
 }
-
-var _ eth.Client = (*SimulatedBackendClient)(nil)
 
 // checkEthCallArgs extracts and verifies the arguments for an eth_call RPC
 func (c *SimulatedBackendClient) checkEthCallArgs(
@@ -249,21 +249,50 @@ func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.A
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
 
+type headSubscription struct {
+	close        chan struct{}
+	subscription ethereum.Subscription
+}
+
+var _ ethereum.Subscription = (*headSubscription)(nil)
+
+func (h *headSubscription) Unsubscribe() {
+	h.subscription.Unsubscribe()
+	h.close <- struct{}{}
+}
+
+func (h *headSubscription) Err() <-chan error { return h.subscription.Err() }
+
 // SubscribeToNewHeads registers a subscription for push notifications of new
 // blocks.
-func (c *SimulatedBackendClient) SubscribeNewHead(ctx context.Context, channel chan<- *models.Head) (ethereum.Subscription, error) {
+func (c *SimulatedBackendClient) SubscribeNewHead(
+	ctx context.Context,
+	channel chan<- *models.Head,
+) (ethereum.Subscription, error) {
+	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
-		for h := range ch {
-			if h == nil {
-				channel <- nil
-			} else {
-				channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+		for {
+			select {
+			case h := <-ch:
+				switch h {
+				case nil:
+					channel <- nil
+				default:
+					channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+				}
+			case <-subscription.close:
+				return
 			}
 		}
-		close(channel)
 	}()
-	return c.b.SubscribeNewHead(ctx, ch)
+	var err error
+	subscription.subscription, err = c.b.SubscribeNewHead(ctx, ch)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not subscribe to new heads on "+
+			"simulated backend")
+	}
+	return subscription, err
 }
 
 func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
@@ -282,7 +311,9 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 		return nil
 	}
 
-	return c.b.SendTransaction(ctx, tx)
+	err = c.b.SendTransaction(ctx, tx)
+	c.b.Commit()
+	return err
 }
 
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
