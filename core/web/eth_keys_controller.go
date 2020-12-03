@@ -50,12 +50,6 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 
-		key, err := store.ORM.KeyByAddress(key.Address.Address())
-		if err != nil {
-			err = errors.Errorf("error fetching ETH key from DB: %v", err)
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
 		pkeys = append(pkeys, presenters.ETHKey{
 			Address:     key.Address.Hex(),
 			EthBalance:  (*assets.Eth)(ethBalance),
@@ -81,7 +75,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if err := store.SyncDiskKeyStoreToDB(); err != nil {
+	if err = store.SyncDiskKeyStoreToDB(); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -120,7 +114,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 // "DELETE <application>/keys/eth/:keyID"
 // "DELETE <application>/keys/eth/:keyID?hard=true"
 func (ekc *ETHKeysController) Delete(c *gin.Context) {
-	var hardDelete bool
+	var hardDelete, exists bool
 	var err error
 	if c.Query("hard") != "" {
 		hardDelete, err = strconv.ParseBool(c.Query("hard"))
@@ -135,7 +129,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 	address := common.HexToAddress(c.Param("keyID"))
-	if exists, err := ekc.App.GetStore().KeyExists(address); err != nil {
+	if exists, err = ekc.App.GetStore().KeyExists(address); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	} else if !exists {

@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const correctPassphrase = "p@ssword"
-
 func TestCreateEthereumAccount(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)

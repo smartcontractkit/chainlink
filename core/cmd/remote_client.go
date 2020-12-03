@@ -755,7 +755,7 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Printf(confirmationMsg)
+		fmt.Println(confirmationMsg)
 	}
 	fmt.Println("🔑 Deleted ETH key")
 	var key presenters.ETHKey
@@ -1161,22 +1161,6 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("invalid JSON or file not found '%s'", s)
-	} else if err != nil {
-		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
-	}
-	return buf, nil
-}
-
-func getBufferFromTOML(s string) (*bytes.Buffer, error) {
-	var val interface{}
-	err := toml.Unmarshal([]byte(s), &val)
-	if err == nil {
-		return bytes.NewBufferString(s), nil
-	}
-
-	buf, err := fromFile(s)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("invalid TOML or file not found '%s'", s)
 	} else if err != nil {
 		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
 	}
