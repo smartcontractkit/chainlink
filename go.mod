@@ -66,10 +66,11 @@ require (
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/exp v0.0.0-20201008143054-e3b2a7f2fdc7 // indirect
 	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
 	golang.org/x/text v0.3.4
-	golang.org/x/tools v0.0.0-20201118215654-4d9c4f8a78b0 // indirect
-	gonum.org/v1/gonum v0.8.1
+	golang.org/x/tools v0.0.0-20201202200335-bef1c476418a // indirect
+	gonum.org/v1/gonum v0.8.2
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v3 v3.5.0
 	gopkg.in/guregu/null.v4 v4.0.0
