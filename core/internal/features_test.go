@@ -1116,7 +1116,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(a)
 	b.Commit()
-	operatorAddress, _, _, err := operator.DeployOperator(user, b, linkTokenAddress, user.From)
+	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b, linkTokenAddress, user.From)
 	require.NoError(t, err)
 	b.Commit()
 	config.Set("OPERATOR_CONTRACT_ADDRESS", operatorAddress.String())
@@ -1225,7 +1225,9 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("status", recp.Status)
+	if recp != nil {
+		fmt.Println("status", recp.Status)
+	}
 
 	// Job should complete successfully.
 	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
@@ -1243,4 +1245,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	for _, l := range logs {
 		t.Log("logs", string(l.Data))
 	}
+	var reqID [32]byte
+	f, err := operatorContract.FulfillOracleRequest2(user, reqID, big.NewInt(10), consumerAddress, [4]byte{0x00, 0x00, 0x01, 0x01}, big.NewInt(0), []byte{})
+	t.Log(f, err)
 }

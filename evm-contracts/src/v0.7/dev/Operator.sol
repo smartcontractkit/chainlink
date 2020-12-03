@@ -212,6 +212,7 @@ contract Operator is
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
 //    (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
 //    return success;
+    require(false, "canary");
     emit Test("fulfill oracle");
     return true;
   }
