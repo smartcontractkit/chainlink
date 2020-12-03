@@ -31,7 +31,7 @@
     "bignumber.js": "^9.0.0",
     "change-case": "^4.1.1",
     "classnames": "^2.2.6",
-    "cookie": "^0.4.0",
+    "cookie": "^0.4.1",
     "core-js": "^3.4.0",
     "d3": "^6.2.0",
     "d3-dag": "^0.4.7",
