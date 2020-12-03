@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -113,6 +114,7 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 	sendErr := eth.NewSendError(err)
 	if sendErr.IsTransactionAlreadyInMempool() {
 		logger.Debugw("transaction already in mempool", "txHash", signedTx.Hash(), "nodeErr", sendErr.Error())
+		fmt.Println("already in mem")
 		return nil
 	}
 	return eth.NewSendError(err)

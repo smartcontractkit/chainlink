@@ -1,0 +1,468 @@
+yarn run v1.22.4
+$ belt compile all
+ts-gen: Running TypeChain
+ts-gen: Running before hook for TypeChain
+ts-gen: Running TypeChain
+ts-gen: Running before hook for TypeChain
+ts-gen: Running TypeChain
+ts-gen: Running before hook for TypeChain
+ts-gen: Running TypeChain
+ts-gen: Running before hook for TypeChain
+ts-gen: abi/v0.4/**/*.json matched 43 files.
+ts-gen: Processing abi/v0.4/Aggregator.json
+ts-gen: abi/v0.5/**/*.json matched 39 files.
+ts-gen: Processing abi/v0.5/AggregatorInterface.json
+ts-gen: abi/v0.6/**/*.json matched 66 files.
+ts-gen: Processing abi/v0.6/AccessControlledAggregator.json
+ts-gen: abi/v0.7/**/*.json matched 19 files.
+ts-gen: Processing abi/v0.7/BufferChainlink.json
+ts-gen: Writing file: ethers/v0.4/Aggregator.d.ts
+ts-gen: Writing file: ethers/v0.4/AggregatorFactory.ts
+ts-gen: Processing abi/v0.4/AggregatorInterface.json
+ts-gen: Writing file: ethers/v0.5/AggregatorInterface.d.ts
+ts-gen: Processing abi/v0.5/AggregatorV2V3Interface.json
+ts-gen: Writing file: ethers/v0.6/AccessControlledAggregator.d.ts
+ts-gen: Writing file: ethers/v0.6/AccessControlledAggregatorFactory.ts
+ts-gen: Processing abi/v0.6/AccessControllerInterface.json
+ts-gen: Processing abi/v0.7/CBORChainlink.json
+ts-gen: Writing file: ethers/v0.4/AggregatorInterface.d.ts
+ts-gen: Processing abi/v0.4/AggregatorV3Interface.json
+ts-gen: Writing file: ethers/v0.5/AggregatorV2V3Interface.d.ts
+ts-gen: Processing abi/v0.5/AggregatorV3Interface.json
+ts-gen: Writing file: ethers/v0.6/AccessControllerInterface.d.ts
+ts-gen: Processing abi/v0.6/AccessControlTestHelper.json
+ts-gen: Processing abi/v0.7/Chainlink.json
+ts-gen: Writing file: ethers/v0.4/AggregatorV3Interface.d.ts
+ts-gen: Processing abi/v0.4/BasicConsumer.json
+ts-gen: Writing file: ethers/v0.5/AggregatorV3Interface.d.ts
+ts-gen: Processing abi/v0.5/BasicConsumer.json
+ts-gen: Writing file: ethers/v0.6/AccessControlTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/AccessControlTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/AggregatorFacade.json
+ts-gen: Processing abi/v0.7/ChainlinkClient.json
+ts-gen: Writing file: ethers/v0.4/BasicConsumer.d.ts
+ts-gen: Writing file: ethers/v0.4/BasicConsumerFactory.ts
+ts-gen: Processing abi/v0.4/BasicToken.json
+ts-gen: Writing file: ethers/v0.5/BasicConsumer.d.ts
+ts-gen: Writing file: ethers/v0.5/BasicConsumerFactory.ts
+ts-gen: Processing abi/v0.5/Buffer.json
+ts-gen: Writing file: ethers/v0.6/AggregatorFacade.d.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorFacadeFactory.ts
+ts-gen: Processing abi/v0.6/AggregatorInterface.json
+ts-gen: Writing file: ethers/v0.7/ChainlinkClient.d.ts
+ts-gen: Writing file: ethers/v0.7/ChainlinkClientFactory.ts
+ts-gen: Processing abi/v0.7/ChainlinkOperatorFactory.json
+ts-gen: Writing file: ethers/v0.4/BasicToken.d.ts
+ts-gen: Writing file: ethers/v0.4/BasicTokenFactory.ts
+ts-gen: Processing abi/v0.4/Buffer.json
+ts-gen: Processing abi/v0.5/CBOR.json
+ts-gen: Writing file: ethers/v0.6/AggregatorInterface.d.ts
+ts-gen: Processing abi/v0.6/AggregatorProxy.json
+ts-gen: Writing file: ethers/v0.7/ChainlinkOperatorFactory.d.ts
+ts-gen: Writing file: ethers/v0.7/ChainlinkOperatorFactoryFactory.ts
+ts-gen: Processing abi/v0.7/ChainlinkRequestInterface.json
+ts-gen: Processing abi/v0.4/CBOR.json
+ts-gen: Processing abi/v0.5/Chainlink.json
+ts-gen: Writing file: ethers/v0.6/AggregatorProxy.d.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorProxyFactory.ts
+ts-gen: Processing abi/v0.6/AggregatorV2V3Interface.json
+ts-gen: Writing file: ethers/v0.7/ChainlinkRequestInterface.d.ts
+ts-gen: Processing abi/v0.7/Consumer.json
+ts-gen: Processing abi/v0.4/Chainlink.json
+ts-gen: Processing abi/v0.5/ChainlinkClient.json
+ts-gen: Writing file: ethers/v0.6/AggregatorV2V3Interface.d.ts
+ts-gen: Processing abi/v0.6/AggregatorV3Interface.json
+ts-gen: Writing file: ethers/v0.7/Consumer.d.ts
+ts-gen: Writing file: ethers/v0.7/ConsumerFactory.ts
+ts-gen: Processing abi/v0.7/ENSInterface.json
+ts-gen: Processing abi/v0.4/ChainlinkClient.json
+ts-gen: Writing file: ethers/v0.5/ChainlinkClient.d.ts
+ts-gen: Writing file: ethers/v0.5/ChainlinkClientFactory.ts
+ts-gen: Processing abi/v0.5/ChainlinkRequestInterface.json
+ts-gen: Writing file: ethers/v0.6/AggregatorV3Interface.d.ts
+ts-gen: Processing abi/v0.6/AggregatorValidatorInterface.json
+ts-gen: Writing file: ethers/v0.7/ENSInterface.d.ts
+ts-gen: Processing abi/v0.7/ENSResolver.json
+ts-gen: Writing file: ethers/v0.4/ChainlinkClient.d.ts
+ts-gen: Writing file: ethers/v0.4/ChainlinkClientFactory.ts
+ts-gen: Processing abi/v0.4/Chainlinked.json
+ts-gen: Writing file: ethers/v0.5/ChainlinkRequestInterface.d.ts
+ts-gen: Processing abi/v0.5/ChainlinkTestHelper.json
+ts-gen: Writing file: ethers/v0.6/AggregatorValidatorInterface.d.ts
+ts-gen: Processing abi/v0.6/AggregatorValidatorMock.json
+ts-gen: Writing file: ethers/v0.7/ENSResolver.d.ts
+ts-gen: Processing abi/v0.7/LinkTokenInterface.json
+ts-gen: Writing file: ethers/v0.4/Chainlinked.d.ts
+ts-gen: Writing file: ethers/v0.4/ChainlinkedFactory.ts
+ts-gen: Processing abi/v0.4/ChainlinkRequestInterface.json
+ts-gen: Writing file: ethers/v0.5/ChainlinkTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.5/ChainlinkTestHelperFactory.ts
+ts-gen: Processing abi/v0.5/Consumer.json
+ts-gen: Writing file: ethers/v0.6/AggregatorValidatorMock.d.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorValidatorMockFactory.ts
+ts-gen: Processing abi/v0.6/BasicConsumer.json
+ts-gen: Writing file: ethers/v0.7/LinkTokenInterface.d.ts
+ts-gen: Processing abi/v0.7/LinkTokenReceiver.json
+ts-gen: Writing file: ethers/v0.4/ChainlinkRequestInterface.d.ts
+ts-gen: Processing abi/v0.4/ConcreteChainlink.json
+ts-gen: Writing file: ethers/v0.5/Consumer.d.ts
+ts-gen: Writing file: ethers/v0.5/ConsumerFactory.ts
+ts-gen: Processing abi/v0.5/Coordinator.json
+ts-gen: Writing file: ethers/v0.6/BasicConsumer.d.ts
+ts-gen: Writing file: ethers/v0.6/BasicConsumerFactory.ts
+ts-gen: Processing abi/v0.6/BlockhashStore.json
+ts-gen: Writing file: ethers/v0.7/LinkTokenReceiver.d.ts
+ts-gen: Processing abi/v0.7/Operator.json
+ts-gen: Writing file: ethers/v0.4/ConcreteChainlink.d.ts
+ts-gen: Writing file: ethers/v0.4/ConcreteChainlinkFactory.ts
+ts-gen: Processing abi/v0.4/ConcreteChainlinked.json
+ts-gen: Writing file: ethers/v0.5/Coordinator.d.ts
+ts-gen: Writing file: ethers/v0.5/CoordinatorFactory.ts
+ts-gen: Processing abi/v0.5/CoordinatorInterface.json
+ts-gen: Writing file: ethers/v0.6/BlockhashStore.d.ts
+ts-gen: Writing file: ethers/v0.6/BlockhashStoreFactory.ts
+ts-gen: Processing abi/v0.6/BlockHashStoreInterface.json
+ts-gen: Writing file: ethers/v0.7/Operator.d.ts
+ts-gen: Writing file: ethers/v0.7/OperatorFactory.ts
+ts-gen: Processing abi/v0.7/OracleInterface.json
+ts-gen: Writing file: ethers/v0.4/ConcreteChainlinked.d.ts
+ts-gen: Writing file: ethers/v0.4/ConcreteChainlinkedFactory.ts
+ts-gen: Processing abi/v0.4/Consumer.json
+ts-gen: Writing file: ethers/v0.5/CoordinatorInterface.d.ts
+ts-gen: Processing abi/v0.5/EmptyAggregator.json
+ts-gen: Writing file: ethers/v0.6/BlockHashStoreInterface.d.ts
+ts-gen: Processing abi/v0.6/BlockhashStoreTestHelper.json
+ts-gen: Writing file: ethers/v0.7/OracleInterface.d.ts
+ts-gen: Processing abi/v0.7/OracleInterface2.json
+ts-gen: Writing file: ethers/v0.4/Consumer.d.ts
+ts-gen: Writing file: ethers/v0.4/ConsumerFactory.ts
+ts-gen: Processing abi/v0.4/EmptyOracle.json
+ts-gen: Writing file: ethers/v0.5/EmptyAggregator.d.ts
+ts-gen: Writing file: ethers/v0.5/EmptyAggregatorFactory.ts
+ts-gen: Processing abi/v0.5/ENSInterface.json
+ts-gen: Writing file: ethers/v0.6/BlockhashStoreTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/BlockhashStoreTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/BufferChainlink.json
+ts-gen: Writing file: ethers/v0.7/OracleInterface2.d.ts
+ts-gen: Processing abi/v0.7/Owned.json
+ts-gen: Writing file: ethers/v0.4/EmptyOracle.d.ts
+ts-gen: Writing file: ethers/v0.4/EmptyOracleFactory.ts
+ts-gen: Processing abi/v0.4/ENS.json
+ts-gen: Writing file: ethers/v0.5/ENSInterface.d.ts
+ts-gen: Processing abi/v0.5/ENSResolver.json
+ts-gen: Processing abi/v0.6/CBORChainlink.json
+ts-gen: Writing file: ethers/v0.7/Owned.d.ts
+ts-gen: Writing file: ethers/v0.7/OwnedFactory.ts
+ts-gen: Processing abi/v0.7/OwnedTestHelper.json
+ts-gen: Writing file: ethers/v0.4/ENS.d.ts
+ts-gen: Processing abi/v0.4/ENSInterface.json
+ts-gen: Writing file: ethers/v0.5/ENSResolver.d.ts
+ts-gen: Processing abi/v0.5/FlagsInterface.json
+ts-gen: Processing abi/v0.6/Chainlink.json
+ts-gen: Writing file: ethers/v0.7/OwnedTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.7/OwnedTestHelperFactory.ts
+ts-gen: Processing abi/v0.7/PointerInterface.json
+ts-gen: Writing file: ethers/v0.4/ENSInterface.d.ts
+ts-gen: Processing abi/v0.4/ENSRegistry.json
+ts-gen: Writing file: ethers/v0.5/FlagsInterface.d.ts
+ts-gen: Processing abi/v0.5/GetterSetter.json
+ts-gen: Processing abi/v0.6/ChainlinkClient.json
+ts-gen: Writing file: ethers/v0.7/PointerInterface.d.ts
+ts-gen: Processing abi/v0.7/SafeMathChainlink.json
+ts-gen: Writing file: ethers/v0.4/ENSRegistry.d.ts
+ts-gen: Writing file: ethers/v0.4/ENSRegistryFactory.ts
+ts-gen: Processing abi/v0.4/ENSResolver.json
+ts-gen: Writing file: ethers/v0.5/GetterSetter.d.ts
+ts-gen: Writing file: ethers/v0.5/GetterSetterFactory.ts
+ts-gen: Processing abi/v0.5/LinkTokenInterface.json
+ts-gen: Writing file: ethers/v0.6/ChainlinkClient.d.ts
+ts-gen: Writing file: ethers/v0.6/ChainlinkClientFactory.ts
+ts-gen: Processing abi/v0.6/ChainlinkRequestInterface.json
+ts-gen: Processing abi/v0.7/WithdrawalInterface.json
+ts-gen: Writing file: ethers/v0.4/ENSResolver.d.ts
+ts-gen: Processing abi/v0.4/ERC20.json
+ts-gen: Writing file: ethers/v0.5/LinkTokenInterface.d.ts
+ts-gen: Processing abi/v0.5/LinkTokenReceiver.json
+ts-gen: Writing file: ethers/v0.6/ChainlinkRequestInterface.d.ts
+ts-gen: Processing abi/v0.6/CheckedMath.json
+ts-gen: Writing file: ethers/v0.7/WithdrawalInterface.d.ts
+ts-gen: Running after hook for TypeChain
+ts-gen: Writing file: ethers/v0.4/ERC20.d.ts
+ts-gen: Processing abi/v0.4/ERC20Basic.json
+ts-gen: Writing file: ethers/v0.5/LinkTokenReceiver.d.ts
+ts-gen: Processing abi/v0.5/MaliciousChainlink.json
+ts-gen: Processing abi/v0.6/CheckedMathTestHelper.json
+ts-gen: Writing file: ethers/v0.7/ChainlinkRequestInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/ENSInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/ENSResolverFactory.ts
+ts-gen: Writing file: ethers/v0.7/LinkTokenInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/LinkTokenReceiverFactory.ts
+ts-gen: Writing file: ethers/v0.7/OracleInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/OracleInterface2Factory.ts
+ts-gen: Writing file: ethers/v0.7/PointerInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/WithdrawalInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.7/index.d.ts
+ts-gen: 💎 All done! Generated files: 107
+ts-gen: Writing file: ethers/v0.4/ERC20Basic.d.ts
+ts-gen: Processing abi/v0.4/ERC677.json
+ts-gen: Processing abi/v0.5/MaliciousChainlinkClient.json
+ts-gen: Writing file: ethers/v0.6/CheckedMathTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/CheckedMathTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/ConcreteSignedSafeMath.json
+ts-gen: Writing file: ethers/v0.4/ERC677.d.ts
+ts-gen: Processing abi/v0.4/ERC677Receiver.json
+ts-gen: Writing file: ethers/v0.5/MaliciousChainlinkClient.d.ts
+ts-gen: Writing file: ethers/v0.5/MaliciousChainlinkClientFactory.ts
+ts-gen: Processing abi/v0.5/MaliciousConsumer.json
+ts-gen: Writing file: ethers/v0.6/ConcreteSignedSafeMath.d.ts
+ts-gen: Writing file: ethers/v0.6/ConcreteSignedSafeMathFactory.ts
+ts-gen: Processing abi/v0.6/Consumer.json
+ts-gen: Writing file: ethers/v0.4/ERC677Receiver.d.ts
+ts-gen: Processing abi/v0.4/ERC677Token.json
+ts-gen: Writing file: ethers/v0.5/MaliciousConsumer.d.ts
+ts-gen: Writing file: ethers/v0.5/MaliciousConsumerFactory.ts
+ts-gen: Processing abi/v0.5/MaliciousRequester.json
+ts-gen: Writing file: ethers/v0.6/Consumer.d.ts
+ts-gen: Writing file: ethers/v0.6/ConsumerFactory.ts
+ts-gen: Processing abi/v0.6/DeviationFlaggingValidator.json
+ts-gen: Writing file: ethers/v0.4/ERC677Token.d.ts
+ts-gen: Processing abi/v0.4/FlagsInterface.json
+ts-gen: Writing file: ethers/v0.5/MaliciousRequester.d.ts
+ts-gen: Writing file: ethers/v0.5/MaliciousRequesterFactory.ts
+ts-gen: Processing abi/v0.5/MeanAggregator.json
+ts-gen: Writing file: ethers/v0.6/DeviationFlaggingValidator.d.ts
+ts-gen: Writing file: ethers/v0.6/DeviationFlaggingValidatorFactory.ts
+ts-gen: Processing abi/v0.6/EACAggregatorProxy.json
+ts-gen: Writing file: ethers/v0.4/FlagsInterface.d.ts
+ts-gen: Processing abi/v0.4/GetterSetter.json
+ts-gen: Writing file: ethers/v0.5/MeanAggregator.d.ts
+ts-gen: Writing file: ethers/v0.5/MeanAggregatorFactory.ts
+ts-gen: Processing abi/v0.5/Median.json
+ts-gen: Writing file: ethers/v0.6/EACAggregatorProxy.d.ts
+ts-gen: Writing file: ethers/v0.6/EACAggregatorProxyFactory.ts
+ts-gen: Processing abi/v0.6/ENSInterface.json
+ts-gen: Writing file: ethers/v0.4/GetterSetter.d.ts
+ts-gen: Writing file: ethers/v0.4/GetterSetterFactory.ts
+ts-gen: Processing abi/v0.4/LinkToken.json
+ts-gen: Processing abi/v0.5/MedianTestHelper.json
+ts-gen: Writing file: ethers/v0.6/ENSInterface.d.ts
+ts-gen: Processing abi/v0.6/ENSResolver.json
+ts-gen: Writing file: ethers/v0.4/LinkToken.d.ts
+ts-gen: Writing file: ethers/v0.4/LinkTokenFactory.ts
+ts-gen: Processing abi/v0.4/LinkTokenInterface.json
+ts-gen: Writing file: ethers/v0.5/MedianTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.5/MedianTestHelperFactory.ts
+ts-gen: Processing abi/v0.5/Migrations.json
+ts-gen: Writing file: ethers/v0.6/ENSResolver.d.ts
+ts-gen: Processing abi/v0.6/Flags.json
+ts-gen: Writing file: ethers/v0.4/LinkTokenInterface.d.ts
+ts-gen: Processing abi/v0.4/MaliciousChainlink.json
+ts-gen: Writing file: ethers/v0.5/Migrations.d.ts
+ts-gen: Writing file: ethers/v0.5/MigrationsFactory.ts
+ts-gen: Processing abi/v0.5/Oracle.json
+ts-gen: Writing file: ethers/v0.6/Flags.d.ts
+ts-gen: Writing file: ethers/v0.6/FlagsFactory.ts
+ts-gen: Processing abi/v0.6/FlagsInterface.json
+ts-gen: Processing abi/v0.4/MaliciousChainlinked.json
+ts-gen: Writing file: ethers/v0.5/Oracle.d.ts
+ts-gen: Writing file: ethers/v0.5/OracleFactory.ts
+ts-gen: Processing abi/v0.5/OracleInterface.json
+ts-gen: Writing file: ethers/v0.6/FlagsInterface.d.ts
+ts-gen: Processing abi/v0.6/FlagsTestHelper.json
+ts-gen: Writing file: ethers/v0.4/MaliciousChainlinked.d.ts
+ts-gen: Writing file: ethers/v0.4/MaliciousChainlinkedFactory.ts
+ts-gen: Processing abi/v0.4/MaliciousConsumer.json
+ts-gen: Writing file: ethers/v0.5/OracleInterface.d.ts
+ts-gen: Processing abi/v0.5/OracleSignaturesDecoder.json
+ts-gen: Writing file: ethers/v0.6/FlagsTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/FlagsTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/FluxAggregator.json
+ts-gen: Writing file: ethers/v0.4/MaliciousConsumer.d.ts
+ts-gen: Writing file: ethers/v0.4/MaliciousConsumerFactory.ts
+ts-gen: Processing abi/v0.4/MaliciousRequester.json
+ts-gen: Processing abi/v0.5/Ownable.json
+ts-gen: Writing file: ethers/v0.6/FluxAggregator.d.ts
+ts-gen: Writing file: ethers/v0.6/FluxAggregatorFactory.ts
+ts-gen: Processing abi/v0.6/FluxAggregatorTestHelper.json
+ts-gen: Writing file: ethers/v0.4/MaliciousRequester.d.ts
+ts-gen: Writing file: ethers/v0.4/MaliciousRequesterFactory.ts
+ts-gen: Processing abi/v0.4/Migrations.json
+ts-gen: Writing file: ethers/v0.5/Ownable.d.ts
+ts-gen: Processing abi/v0.5/PointerInterface.json
+ts-gen: Writing file: ethers/v0.6/FluxAggregatorTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/FluxAggregatorTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/GasGuzzler.json
+ts-gen: Writing file: ethers/v0.4/Migrations.d.ts
+ts-gen: Writing file: ethers/v0.4/MigrationsFactory.ts
+ts-gen: Processing abi/v0.4/Oracle.json
+ts-gen: Writing file: ethers/v0.5/PointerInterface.d.ts
+ts-gen: Processing abi/v0.5/SafeMathChainlink.json
+ts-gen: Writing file: ethers/v0.6/GasGuzzler.d.ts
+ts-gen: Writing file: ethers/v0.6/GasGuzzlerFactory.ts
+ts-gen: Processing abi/v0.6/GasGuzzlingConsumer.json
+ts-gen: Writing file: ethers/v0.4/Oracle.d.ts
+ts-gen: Writing file: ethers/v0.4/OracleFactory.ts
+ts-gen: Processing abi/v0.4/OracleInterface.json
+ts-gen: Processing abi/v0.5/SchnorrSECP256K1.json
+ts-gen: Writing file: ethers/v0.6/GasGuzzlingConsumer.d.ts
+ts-gen: Writing file: ethers/v0.6/GasGuzzlingConsumerFactory.ts
+ts-gen: Processing abi/v0.6/LinkTokenInterface.json
+ts-gen: Writing file: ethers/v0.4/OracleInterface.d.ts
+ts-gen: Processing abi/v0.4/Ownable.json
+ts-gen: Writing file: ethers/v0.5/SchnorrSECP256K1.d.ts
+ts-gen: Writing file: ethers/v0.5/SchnorrSECP256K1Factory.ts
+ts-gen: Processing abi/v0.5/ServiceAgreementConsumer.json
+ts-gen: Writing file: ethers/v0.6/LinkTokenInterface.d.ts
+ts-gen: Processing abi/v0.6/LinkTokenReceiver.json
+ts-gen: Writing file: ethers/v0.4/Ownable.d.ts
+ts-gen: Writing file: ethers/v0.4/OwnableFactory.ts
+ts-gen: Processing abi/v0.4/Pointer.json
+ts-gen: Writing file: ethers/v0.5/ServiceAgreementConsumer.d.ts
+ts-gen: Writing file: ethers/v0.5/ServiceAgreementConsumerFactory.ts
+ts-gen: Processing abi/v0.5/ServiceAgreementDecoder.json
+ts-gen: Writing file: ethers/v0.6/LinkTokenReceiver.d.ts
+ts-gen: Processing abi/v0.6/MaliciousMultiWordConsumer.json
+ts-gen: Writing file: ethers/v0.4/Pointer.d.ts
+ts-gen: Writing file: ethers/v0.4/PointerFactory.ts
+ts-gen: Processing abi/v0.4/PointerInterface.json
+ts-gen: Processing abi/v0.5/SignedSafeMath.json
+ts-gen: Writing file: ethers/v0.6/MaliciousMultiWordConsumer.d.ts
+ts-gen: Writing file: ethers/v0.6/MaliciousMultiWordConsumerFactory.ts
+ts-gen: Processing abi/v0.6/Median.json
+ts-gen: Writing file: ethers/v0.4/PointerInterface.d.ts
+ts-gen: Processing abi/v0.4/PublicResolver.json
+ts-gen: Processing abi/v0.5/WithdrawalInterface.json
+ts-gen: Processing abi/v0.6/MedianTestHelper.json
+ts-gen: Writing file: ethers/v0.4/PublicResolver.d.ts
+ts-gen: Writing file: ethers/v0.4/PublicResolverFactory.ts
+ts-gen: Processing abi/v0.4/SafeMathChainlink.json
+ts-gen: Writing file: ethers/v0.5/WithdrawalInterface.d.ts
+ts-gen: Running after hook for TypeChain
+ts-gen: Writing file: ethers/v0.6/MedianTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/MedianTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/MockV2Aggregator.json
+ts-gen: Processing abi/v0.4/SignedSafeMath.json
+ts-gen: Writing file: ethers/v0.5/AggregatorInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/AggregatorV2V3InterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/AggregatorV3InterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/ChainlinkRequestInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/CoordinatorInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/ENSInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/ENSResolverFactory.ts
+ts-gen: Writing file: ethers/v0.5/FlagsInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/LinkTokenInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/LinkTokenReceiverFactory.ts
+ts-gen: Writing file: ethers/v0.5/OracleInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/OwnableFactory.ts
+ts-gen: Writing file: ethers/v0.5/PointerInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/WithdrawalInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.5/index.d.ts
+ts-gen: 💎 All done! Generated files: 203
+ts-gen: Writing file: ethers/v0.6/MockV2Aggregator.d.ts
+ts-gen: Writing file: ethers/v0.6/MockV2AggregatorFactory.ts
+ts-gen: Processing abi/v0.6/MockV3Aggregator.json
+ts-gen: Processing abi/v0.4/StandardToken.json
+ts-gen: Writing file: ethers/v0.6/MockV3Aggregator.d.ts
+ts-gen: Writing file: ethers/v0.6/MockV3AggregatorFactory.ts
+ts-gen: Processing abi/v0.6/MultiWordConsumer.json
+ts-gen: Writing file: ethers/v0.4/StandardToken.d.ts
+ts-gen: Writing file: ethers/v0.4/StandardTokenFactory.ts
+ts-gen: Processing abi/v0.4/UpdatableConsumer.json
+ts-gen: Writing file: ethers/v0.6/MultiWordConsumer.d.ts
+ts-gen: Writing file: ethers/v0.6/MultiWordConsumerFactory.ts
+ts-gen: Processing abi/v0.6/Oracle.json
+ts-gen: Writing file: ethers/v0.4/UpdatableConsumer.d.ts
+ts-gen: Writing file: ethers/v0.4/UpdatableConsumerFactory.ts
+ts-gen: Running after hook for TypeChain
+ts-gen: Writing file: ethers/v0.6/Oracle.d.ts
+ts-gen: Writing file: ethers/v0.6/OracleFactory.ts
+ts-gen: Processing abi/v0.6/OracleInterface.json
+ts-gen: Writing file: ethers/v0.4/AggregatorInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/AggregatorV3InterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/ChainlinkRequestInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/ENSFactory.ts
+ts-gen: Writing file: ethers/v0.4/ENSInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/ENSResolverFactory.ts
+ts-gen: Writing file: ethers/v0.4/ERC20Factory.ts
+ts-gen: Writing file: ethers/v0.4/ERC20BasicFactory.ts
+ts-gen: Writing file: ethers/v0.4/ERC677Factory.ts
+ts-gen: Writing file: ethers/v0.4/ERC677ReceiverFactory.ts
+ts-gen: Writing file: ethers/v0.4/ERC677TokenFactory.ts
+ts-gen: Writing file: ethers/v0.4/FlagsInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/LinkTokenInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/OracleInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/PointerInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.4/index.d.ts
+ts-gen: 💎 All done! Generated files: 231
+ts-gen: Writing file: ethers/v0.6/OracleInterface.d.ts
+ts-gen: Processing abi/v0.6/Ownable.json
+ts-gen: Writing file: ethers/v0.6/Ownable.d.ts
+ts-gen: Processing abi/v0.6/Owned.json
+ts-gen: Writing file: ethers/v0.6/Owned.d.ts
+ts-gen: Writing file: ethers/v0.6/OwnedFactory.ts
+ts-gen: Processing abi/v0.6/OwnedTestHelper.json
+ts-gen: Writing file: ethers/v0.6/OwnedTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/OwnedTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/PointerInterface.json
+ts-gen: Writing file: ethers/v0.6/PointerInterface.d.ts
+ts-gen: Processing abi/v0.6/PreCoordinator.json
+ts-gen: Writing file: ethers/v0.6/PreCoordinator.d.ts
+ts-gen: Writing file: ethers/v0.6/PreCoordinatorFactory.ts
+ts-gen: Processing abi/v0.6/Reverter.json
+ts-gen: Writing file: ethers/v0.6/Reverter.d.ts
+ts-gen: Writing file: ethers/v0.6/ReverterFactory.ts
+ts-gen: Processing abi/v0.6/SafeMath128.json
+ts-gen: Processing abi/v0.6/SafeMath32.json
+ts-gen: Processing abi/v0.6/SafeMath64.json
+ts-gen: Processing abi/v0.6/SafeMathChainlink.json
+ts-gen: Processing abi/v0.6/SignedSafeMath.json
+ts-gen: Processing abi/v0.6/SimpleReadAccessController.json
+ts-gen: Writing file: ethers/v0.6/SimpleReadAccessController.d.ts
+ts-gen: Writing file: ethers/v0.6/SimpleReadAccessControllerFactory.ts
+ts-gen: Processing abi/v0.6/SimpleWriteAccessController.json
+ts-gen: Writing file: ethers/v0.6/SimpleWriteAccessController.d.ts
+ts-gen: Writing file: ethers/v0.6/SimpleWriteAccessControllerFactory.ts
+ts-gen: Processing abi/v0.6/VRF.json
+ts-gen: Writing file: ethers/v0.6/VRF.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFFactory.ts
+ts-gen: Processing abi/v0.6/VRFConsumer.json
+ts-gen: Writing file: ethers/v0.6/VRFConsumer.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFConsumerFactory.ts
+ts-gen: Processing abi/v0.6/VRFConsumerBase.json
+ts-gen: Writing file: ethers/v0.6/VRFConsumerBase.d.ts
+ts-gen: Processing abi/v0.6/VRFCoordinator.json
+ts-gen: Writing file: ethers/v0.6/VRFCoordinator.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFCoordinatorFactory.ts
+ts-gen: Processing abi/v0.6/VRFRequestIDBase.json
+ts-gen: Processing abi/v0.6/VRFRequestIDBaseTestHelper.json
+ts-gen: Writing file: ethers/v0.6/VRFRequestIDBaseTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFRequestIDBaseTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/VRFTestHelper.json
+ts-gen: Writing file: ethers/v0.6/VRFTestHelper.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFTestHelperFactory.ts
+ts-gen: Processing abi/v0.6/VRFTestnetD20.json
+ts-gen: Writing file: ethers/v0.6/VRFTestnetD20.d.ts
+ts-gen: Writing file: ethers/v0.6/VRFTestnetD20Factory.ts
+ts-gen: Processing abi/v0.6/WithdrawalInterface.json
+ts-gen: Writing file: ethers/v0.6/WithdrawalInterface.d.ts
+ts-gen: Running after hook for TypeChain
+ts-gen: Writing file: ethers/v0.6/AccessControllerInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorV2V3InterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorV3InterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/AggregatorValidatorInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/BlockHashStoreInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/ChainlinkRequestInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/ENSInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/ENSResolverFactory.ts
+ts-gen: Writing file: ethers/v0.6/FlagsInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/LinkTokenInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/LinkTokenReceiverFactory.ts
+ts-gen: Writing file: ethers/v0.6/OracleInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/OwnableFactory.ts
+ts-gen: Writing file: ethers/v0.6/PointerInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/VRFConsumerBaseFactory.ts
+ts-gen: Writing file: ethers/v0.6/WithdrawalInterfaceFactory.ts
+ts-gen: Writing file: ethers/v0.6/index.d.ts
+ts-gen: 💎 All done! Generated files: 278
+Done in 6.75s.

@@ -1116,13 +1116,14 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	require.NoError(t, err)
 	t.Log(a)
 	b.Commit()
-	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b, linkTokenAddress)
+	operatorAddress, _, _, err := operator.DeployOperator(user, b, linkTokenAddress, user.From)
 	require.NoError(t, err)
 	b.Commit()
 	config.Set("OPERATOR_CONTRACT_ADDRESS", operatorAddress.String())
 	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("OPERATOR_CONTRACT_ADDRESS", operatorAddress.String())
+	t.Log("min pay", app.Config.MinimumContractPayment().String())
 
 	tx := types.NewTransaction(2, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
 	signedTx, err := user.Signer(types.HomesteadSigner{}, user.From, tx)
@@ -1145,57 +1146,101 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	t.Log(operatorAddress.String(), consumerAddress.String())
 	require.NoError(t, err)
 	b.Commit()
+	// The consumer contract needs to have ETH in it to be able to pay
+	// fo
+	_, err = linkToken.Transfer(user, consumerAddress, big.NewInt(1000))
+	require.NoError(t, err)
+
 	user.GasPrice = big.NewInt(1)
 	user.GasLimit = 1000000
-	tx, err = consumer.RequestMultipleParameters(user, "", big.NewInt(10))
+	tx, err = consumer.RequestMultipleParameters(user, "", big.NewInt(1000))
 	require.NoError(t, err)
 	b.Commit()
+	t.Log("request hash", tx.Hash().String())
 	p, err := consumer.First(nil)
 	require.NoError(t, err)
 	t.Log(p)
-	logs1, err := operatorContract.OperatorFilterer.FilterOracleRequest(nil, [][32]byte{specID})
-	require.NoError(t, err)
-	t.Log("logs", logs1.Event)
-	for logs1.Next() {
-		t.Log("logs", logs1.Event)
-	}
-	logs, err := b.FilterLogs(context.Background(), ethereum.FilterQuery{
-		nil, nil, nil, []common.Address{operatorAddress}, nil,
-	})
-	require.NoError(t, err)
-	t.Log("logs", logs)
-	logs, err = b.FilterLogs(context.Background(), ethereum.FilterQuery{
-		nil, nil, nil, nil, nil,
-	})
-	require.NoError(t, err)
-	t.Log("logs", logs)
+	//block, err := b.BlockByNumber(context.Background(), nil)
+	//for _, tr := range block.Transactions() {
+	//	t.Log(tr.Hash().String())
+	//	re, err := b.TransactionReceipt(context.Background(), tr.Hash())
+	//	require.NoError(t, err)
+	//	t.Logf("%+v", re)
+	//}
+	//
+	//
+	//logs2, err := consumer.FilterTest(nil)
+	//require.NoError(t, err)
+	//b.Commit()
+	//t.Log("logs", logs2.Event, logs2.Next())
+	//var reqID [32]byte
+	//reqID[0] = 0x01
+	//logs1, err := consumer.FilterChainlinkRequested(nil, [][32]byte{reqID})
+	//require.NoError(t, err)
+	//b.Commit()
+	//logs1, err := operatorContract.OperatorFilterer.FilterOracleRequest(nil, [][32]byte{specID})
+	//require.NoError(t, err)
+	//b.Commit()
+	//t.Log("logs", logs1.Event)
+	//t.Log(operatorContract)
+	//logs, err := b.FilterLogs(context.Background(), ethereum.FilterQuery{
+	//	nil, nil, nil, []common.Address{operatorAddress}, nil,
+	//})
+	//require.NoError(t, err)
+	//t.Log("logs", logs)
+	//logs, err := b.FilterLogs(context.Background(), ethereum.FilterQuery{
+	//	nil, nil, nil, nil, nil,
+	//})
+	//require.NoError(t, err)
+	//t.Log("logs", logs)
 
 	//jr := cltest.CreateJobRunViaWeb(t, app, j)
 	//_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingOutgoingConfirmations)
 
-	//app.EthBroadcaster.Trigger()
-	tick := time.NewTicker(1*time.Second)
+	app.EthBroadcaster.Trigger()
+	tick := time.NewTicker(100*time.Millisecond)
 	defer tick.Stop()
 	go func() {
 		for {
 			select {
 			case <-tick.C:
+				app.EthBroadcaster.Trigger()
 				b.Commit()
 			}
 		}
 	}()
 	t.Log("waiting for a run")
 	cltest.WaitForRuns(t, j, app.Store, 1)
+	app.EthBroadcaster.Trigger()
 
-	//cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	jr, err := app.Store.JobRunsFor(j.ID)
+	for _, task := range jr[0].TaskRuns {
+		t.Log(task)
+	}
+	t.Log(jr[0].RunRequest.TxHash.String())
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+	attempts, _, _ := app.Store.EthTxAttempts(0, 1)
+	b.Commit()
+	recp, err := b.TransactionReceipt(context.Background(), attempts[0].Hash)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("status", recp.Status)
+
 	// Job should complete successfully.
-	//_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusCompleted)
-	//jrr, err := app.Store.FindJobRun(jr.ID)
-	//t.Log(jrr.TaskRuns[len(jrr.TaskRuns)-1], err)
+	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
+	t.Log(jr[0].TaskRuns[len(jr[0].TaskRuns)-1], err)
 	//tx2, _, err := b.TransactionByHash(context.Background(),common.HexToHash(jrr.Result.Data.Get("result").String()))
 	//require.NoError(t, err)
 	//t.Log(tx2.To())
 	p2, err := consumer.First(nil)
 	require.NoError(t, err)
 	t.Log(p2)
+	logs, err := b.FilterLogs(context.Background(), ethereum.FilterQuery{
+		nil, nil, nil, nil, nil,
+	})
+	require.NoError(t, err)
+	for _, l := range logs {
+		t.Log("logs", string(l.Data))
+	}
 }

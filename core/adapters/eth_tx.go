@@ -1,6 +1,8 @@
 package adapters
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"reflect"
 
@@ -105,7 +107,27 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		err                    error
 	)
 	if e.ABIEncoding != nil {
-		txData, err = getTxDataUsingABIEncoding(e, input.Data())
+		// Prepend the request ID part of the data prefix
+		//    bytes32 requestId,
+		//    uint256 payment,
+		//    address callbackAddress,
+		//    bytes4 callbackFunctionId,
+		//    uint256 expiration,
+		//    bytes calldata data
+		// e.DataPrefix = [requestID][payment][callbackAddress][callbackFnID][expiration]
+		// Need to include the request ID in the calldata as the first arg also
+		curr := input.Data().Get(models.ResultCollectionKey).Array()
+		updated := make([]interface{}, 0)
+		fmt.Println("data prefix", e.DataPrefix)
+		updated = append(updated, e.DataPrefix[:32])
+		for _, c := range curr {
+			updated = append(updated, c.Value())
+		}
+		d, err := input.Data().Add(models.ResultCollectionKey, updated)
+		if err != nil {
+			return models.NewRunOutputError(err)
+		}
+		txData, err = getTxDataUsingABIEncoding(e, d)
 	} else {
 		txData, err = getTxData(e, input)
 	}
@@ -124,10 +146,40 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 	}
 
 	if e.ABIEncoding != nil {
-		// ABI encoding includes the data prefix if set.
-		encodedPayload = append(e.FunctionSelector.Bytes(), txData...)
+		// Need an offset to point to the dynamic type txData
+		// And all the other data prefix args go prior to it
+		//    bytes32 requestId,
+		//    uint256 payment,
+		//    address callbackAddress,
+		//    bytes4 callbackFunctionId,
+		//    uint256 expiration,
+		// 6726de3b616bd03bd35fb71f3964a5f8342e344f7675a94d8887d30485d2fcec
+		// 00000000000000000000000000000000000000000000000000000000000003e8
+		// 000000000000000000000000fdf603aefa6ba600f23a39e23a8326005d9ca242
+		// 5338907200000000000000000000000000000000000000000000000000000000
+		// 0000000000000000000000000000000000000000000000000000000000000168
+		// txdata
+		// 6726de3b616bd03bd35fb71f3964a5f8342e344f7675a94d8887d30485d2fcec
+		// 3631322e39320000000000000000000000000000000000000000000000000000
+		// 3530342e32390000000000000000000000000000000000000000000000000000
+		payloadOffset := utils.EVMWordUint64(utils.EVMWordByteLen * 5)
+		fmt.Println("function selector", len(e.FunctionSelector.Bytes()))
+		fmt.Println("offset", len(payloadOffset))
+		fmt.Println("prefix", len(e.DataPrefix))
+		fmt.Println("txdata", len(txData))
+		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, payloadOffset, utils.EVMEncodeBytes(txData))
+		fmt.Println(len(e.DataPrefix))
+		for i := 4; i < len(encodedPayload); i += 32 {
+			fmt.Println("WORD: ", hex.EncodeToString(encodedPayload[i:i+32]))
+		}
 	} else {
-		encodedPayload = append(append(e.FunctionSelector.Bytes(), e.DataPrefix...), txData...)
+		// e.DataPrefix is the
+		//  bytes32 requestId,
+		//	uint256 payment,
+		//	address callbackAddress,
+		//	bytes4 callbackFunctionId,
+		//	uint256 expiration,
+		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
 	}
 
 	var gasLimit uint64
@@ -280,21 +332,21 @@ func getTxDataUsingABIEncoding(e *EthTx, inputData models.JSON) ([]byte, error) 
 			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
 		}
 	}
-	if e.DataPrefix != nil {
-		b, err := hexutil.Decode(e.DataPrefix.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid data prefix")
-		}
-		var a [32]byte
-		copy(a[:], b[:])
-		prefix := []interface{}{a}
-		values = append(prefix, values...)
-		t, err := abi.NewType("bytes32", "", nil)
-		if err != nil {
-			return nil, errors.Errorf("err %v data prefix", err)
-		}
-		arguments = append([]abi.Argument{{Type: t}}, arguments...)
-	}
+	//if e.DataPrefix != nil {
+	//	b, err := hexutil.Decode(e.DataPrefix.String())
+	//	if err != nil {
+	//		return nil, errors.Wrapf(err, "invalid data prefix")
+	//	}
+	//	var a [32]byte
+	//	copy(a[:], b[:])
+	//	prefix := []interface{}{a}
+	//	values = append(prefix, values...)
+	//	t, err := abi.NewType("bytes32", "", nil)
+	//	if err != nil {
+	//		return nil, errors.Errorf("err %v data prefix", err)
+	//	}
+	//	arguments = append([]abi.Argument{{Type: t}}, arguments...)
+	//}
 	packedArgs, err := arguments.PackValues(values)
 	if err != nil {
 		return nil, err

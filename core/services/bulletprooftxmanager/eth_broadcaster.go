@@ -191,8 +191,6 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			logger.Debugw("EthBroadcaster: finished processUnstartedEthTxs", "address", fromAddress, "time", time.Since(mark), "n", n, "id", "eth_broadcaster")
 		}
 	}()
-	bal, err := eb.ethClient.BalanceAt(context.Background(), fromAddress, nil)
-	fmt.Println("bal", bal, err)
 	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
@@ -200,6 +198,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	for {
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
+			fmt.Println("err", err.Error())
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 		if etx == nil {
@@ -208,12 +207,14 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		n++
 		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
 		if err != nil {
+			fmt.Println("err", err.Error())
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
+		fmt.Println("save in progress", fromAddress.String())
 		if err := eb.saveInProgressTransaction(etx, &a); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
-
+		fmt.Println("handle in progress tx", *etx, a)
 		if err := eb.handleInProgressEthTx(*etx, a, time.Now()); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -262,6 +263,9 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
 	defer cancel()
 	sendError := sendTransaction(ctx, eb.ethClient, attempt)
+	fmt.Println("sending transaction", attempt.Hash.String())
+	fmt.Println("sending transaction, err", sendError)
+
 
 	if sendError.Fatal() {
 		etx.Error = sendError.StrPtr()

@@ -1,0 +1,712 @@
+{
+	"compiler": {
+		"version": "0.7.0+commit.9e61f92b"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "link",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "owner",
+						"type": "address"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "CancelOracleRequest",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "specId",
+						"type": "bytes32"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "requester",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "payment",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "address",
+						"name": "callbackAddr",
+						"type": "address"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes4",
+						"name": "callbackFunctionId",
+						"type": "bytes4"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "cancelExpiration",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "uint256",
+						"name": "dataVersion",
+						"type": "uint256"
+					},
+					{
+						"indexed": false,
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "OracleRequest",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					}
+				],
+				"name": "OracleResponse",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferRequested",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "from",
+						"type": "address"
+					},
+					{
+						"indexed": true,
+						"internalType": "address",
+						"name": "to",
+						"type": "address"
+					}
+				],
+				"name": "OwnershipTransferred",
+				"type": "event"
+			},
+			{
+				"inputs": [],
+				"name": "EXPIRY_TIME",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "acceptOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "payment",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "callbackFunc",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "uint256",
+						"name": "expiration",
+						"type": "uint256"
+					}
+				],
+				"name": "cancelOracleRequest",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_data",
+						"type": "bytes"
+					}
+				],
+				"name": "forward",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "payment",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "callbackAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "callbackFunctionId",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "uint256",
+						"name": "expiration",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "data",
+						"type": "bytes32"
+					}
+				],
+				"name": "fulfillOracleRequest",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "uint256",
+						"name": "payment",
+						"type": "uint256"
+					},
+					{
+						"internalType": "address",
+						"name": "callbackAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "callbackFunctionId",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "uint256",
+						"name": "expiration",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "fulfillOracleRequest2",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "getChainlinkToken",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "node",
+						"type": "address"
+					}
+				],
+				"name": "isAuthorizedSender",
+				"outputs": [
+					{
+						"internalType": "bool",
+						"name": "",
+						"type": "bool"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_sender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "_amount",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_data",
+						"type": "bytes"
+					}
+				],
+				"name": "onTokenTransfer",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "sender",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "payment",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes32",
+						"name": "specId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "address",
+						"name": "callbackAddress",
+						"type": "address"
+					},
+					{
+						"internalType": "bytes4",
+						"name": "callbackFunctionId",
+						"type": "bytes4"
+					},
+					{
+						"internalType": "uint256",
+						"name": "nonce",
+						"type": "uint256"
+					},
+					{
+						"internalType": "uint256",
+						"name": "dataVersion",
+						"type": "uint256"
+					},
+					{
+						"internalType": "bytes",
+						"name": "data",
+						"type": "bytes"
+					}
+				],
+				"name": "oracleRequest",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "owner",
+				"outputs": [
+					{
+						"internalType": "address",
+						"name": "",
+						"type": "address"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "node",
+						"type": "address"
+					},
+					{
+						"internalType": "bool",
+						"name": "allowed",
+						"type": "bool"
+					}
+				],
+				"name": "setAuthorizedSender",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_to",
+						"type": "address"
+					}
+				],
+				"name": "transferOwnership",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "recipient",
+						"type": "address"
+					},
+					{
+						"internalType": "uint256",
+						"name": "amount",
+						"type": "uint256"
+					}
+				],
+				"name": "withdraw",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "withdrawable",
+				"outputs": [
+					{
+						"internalType": "uint256",
+						"name": "",
+						"type": "uint256"
+					}
+				],
+				"stateMutability": "view",
+				"type": "function"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {
+				"acceptOwnership()": {
+					"details": "Allows an ownership transfer to be completed by the recipient."
+				},
+				"cancelOracleRequest(bytes32,uint256,bytes4,uint256)": {
+					"details": "Given params must hash to a commitment stored on the contract in order for the request to be valid Emits CancelOracleRequest event.",
+					"params": {
+						"callbackFunc": "The requester's specified callback address",
+						"expiration": "The time of the expiration for the request",
+						"payment": "The amount of payment given (specified in wei)",
+						"requestId": "The request ID"
+					}
+				},
+				"constructor": {
+					"details": "Sets the LinkToken address for the imported LinkTokenInterface",
+					"params": {
+						"link": "The address of the LINK token",
+						"owner": "The address of the owner"
+					}
+				},
+				"fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)": {
+					"details": "Given params must hash back to the commitment stored from `oracleRequest`. Will call the callback address' callback function without bubbling up error checking in a `require` so that the node can get paid.",
+					"params": {
+						"callbackAddress": "The callback address to call for fulfillment",
+						"callbackFunctionId": "The callback function ID to use for fulfillment",
+						"data": "The data to return to the consuming contract",
+						"expiration": "The expiration that the node should respond by before the requester can cancel",
+						"payment": "The payment amount that will be released for the oracle (specified in wei)",
+						"requestId": "The fulfillment request ID that must match the requester's"
+					},
+					"returns": {
+						"_0": "Status if the external call was successful"
+					}
+				},
+				"fulfillOracleRequest2(bytes32,uint256,address,bytes4,uint256,bytes)": {
+					"details": "Given params must hash back to the commitment stored from `oracleRequest`. Will call the callback address' callback function without bubbling up error checking in a `require` so that the node can get paid.",
+					"params": {
+						"callbackAddress": "The callback address to call for fulfillment",
+						"callbackFunctionId": "The callback function ID to use for fulfillment",
+						"data": "The data to return to the consuming contract",
+						"expiration": "The expiration that the node should respond by before the requester can cancel",
+						"payment": "The payment amount that will be released for the oracle (specified in wei)",
+						"requestId": "The fulfillment request ID that must match the requester's"
+					},
+					"returns": {
+						"_0": "Status if the external call was successful"
+					}
+				},
+				"getChainlinkToken()": {
+					"details": "This is the public implementation for chainlinkTokenAddress, which is an internal method of the ChainlinkClient contract"
+				},
+				"isAuthorizedSender(address)": {
+					"params": {
+						"node": "The address of the Chainlink node"
+					},
+					"returns": {
+						"_0": "The authorization status of the node"
+					}
+				},
+				"onTokenTransfer(address,uint256,bytes)": {
+					"details": "The data payload's first 2 words will be overwritten by the `_sender` and `_amount` values to ensure correctness. Calls oracleRequest.",
+					"params": {
+						"_amount": "Amount of LINK sent (specified in wei)",
+						"_data": "Payload of the transaction",
+						"_sender": "Address of the sender"
+					}
+				},
+				"oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)": {
+					"details": "Stores the hash of the params as the on-chain commitment for the request. Emits OracleRequest event for the Chainlink node to detect.",
+					"params": {
+						"callbackAddress": "The callback address for the response",
+						"callbackFunctionId": "The callback function ID for the response",
+						"data": "The CBOR payload of the request",
+						"dataVersion": "The specified data version",
+						"nonce": "The nonce sent by the requester",
+						"payment": "The amount of payment given (specified in wei)",
+						"sender": "The sender of the request",
+						"specId": "The Job Specification ID"
+					}
+				},
+				"setAuthorizedSender(address,bool)": {
+					"params": {
+						"allowed": "Bool value to determine if the node can fulfill requests",
+						"node": "The address of the Chainlink node"
+					}
+				},
+				"transferOwnership(address)": {
+					"details": "Allows an owner to begin transferring ownership to a new address, pending."
+				},
+				"withdraw(address,uint256)": {
+					"details": "The owner of the contract can be another wallet and does not have to be a Chainlink node",
+					"params": {
+						"amount": "The amount to send (specified in wei)",
+						"recipient": "The address to send the LINK token to"
+					}
+				},
+				"withdrawable()": {
+					"details": "We use `ONE_FOR_CONSISTENT_GAS_COST` in place of 0 in storage",
+					"returns": {
+						"_0": "The amount of withdrawable LINK on the contract"
+					}
+				}
+			},
+			"title": "The Chainlink Operator contract",
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {
+				"cancelOracleRequest(bytes32,uint256,bytes4,uint256)": {
+					"notice": "Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK sent for the request back to the requester's address."
+				},
+				"constructor": {
+					"notice": "Deploy with the address of the LINK token"
+				},
+				"fulfillOracleRequest(bytes32,uint256,address,bytes4,uint256,bytes32)": {
+					"notice": "Called by the Chainlink node to fulfill requests"
+				},
+				"fulfillOracleRequest2(bytes32,uint256,address,bytes4,uint256,bytes)": {
+					"notice": "Called by the Chainlink node to fulfill requests with multi-word support"
+				},
+				"getChainlinkToken()": {
+					"notice": "Returns the address of the LINK token"
+				},
+				"isAuthorizedSender(address)": {
+					"notice": "Use this to check if a node is authorized for fulfilling requests"
+				},
+				"onTokenTransfer(address,uint256,bytes)": {
+					"notice": "Called when LINK is sent to the contract via `transferAndCall`"
+				},
+				"oracleRequest(address,uint256,bytes32,address,bytes4,uint256,uint256,bytes)": {
+					"notice": "Creates the Chainlink request"
+				},
+				"setAuthorizedSender(address,bool)": {
+					"notice": "Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow."
+				},
+				"withdraw(address,uint256)": {
+					"notice": "Allows the node operator to withdraw earned LINK to a given address"
+				},
+				"withdrawable()": {
+					"notice": "Displays the amount of LINK that is available for the node operator to withdraw"
+				}
+			},
+			"notice": "Node operators can deploy this contract to fulfill requests sent to them",
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"localhost/v0.7/dev/Operator.sol": "Operator"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"localhost/v0.7/dev/LinkTokenReceiver.sol": {
+			"keccak256": "0x5c8714f2a301d96283a7d92e3cfe4d5714260defb577aceb66c6bafa9ffe52d8",
+			"urls": [
+				"bzz-raw://a34b6ae22b46f297c09523dd85a0bcbd209fdd7eb1440f7249116224d98e673a",
+				"dweb:/ipfs/Qmf9UmzsXosYqwaHWPhHufvCYctHuVLN2uwbz68fwabTfN"
+			]
+		},
+		"localhost/v0.7/dev/Operator.sol": {
+			"keccak256": "0x296feec55d5e1b75233320b415b6a6417a1bdf90f93299bffd1bdb5342bc9d2a",
+			"urls": [
+				"bzz-raw://14098becc4fabe7bbe1101c2c7504ed8568024bb86951c7af0434a4d30bd0f0a",
+				"dweb:/ipfs/QmT7MJtBCN81FZxwjy7qgoT72jgYyBusQTP6Lt7he34zG5"
+			]
+		},
+		"localhost/v0.7/dev/Owned.sol": {
+			"keccak256": "0x1af63c3c8a7a68213f487d920a5691a46c1e8dc9450f79bf289ce6e84fc4c153",
+			"urls": [
+				"bzz-raw://0f36d359be66e04289560b2133dfa672b55b7503ac1a6882dd2b1663fa27cd1c",
+				"dweb:/ipfs/QmaDWhkUgF46TK4pboHEiUU4XNL99Nq8ZGwtRiZGG96xxP"
+			]
+		},
+		"localhost/v0.7/interfaces/ChainlinkRequestInterface.sol": {
+			"keccak256": "0x129fc8d7da0b908d1997fc913eae30409b9dd32b7d2b8009257adb2fedc268ab",
+			"urls": [
+				"bzz-raw://cf18658b6aec33eebf3ef5785671d0883addf4f01b0fead108af3ece7b0f0a5f",
+				"dweb:/ipfs/QmRapsoLWjf5kRQ79ZDyF18wcVRYrJwKiwqPUCiyCGymGf"
+			]
+		},
+		"localhost/v0.7/interfaces/LinkTokenInterface.sol": {
+			"keccak256": "0x54a9439f3f39533dfcb90cd1c494f63e70b4a3e5dcb32389aa3365c1475800e9",
+			"urls": [
+				"bzz-raw://07603544ad7fe88253b5253dd92d981e9cde503abf99b0416f24b2abd36ed6ec",
+				"dweb:/ipfs/QmPgeSFmSALoQw9XBxK9Jm3CW5TQs59u5vNafyW1yX9r2A"
+			]
+		},
+		"localhost/v0.7/interfaces/OracleInterface.sol": {
+			"keccak256": "0x983efaba106b16c1bbe1e25e8e03ef5d49627e70730dbc81da662a5ea0501c22",
+			"urls": [
+				"bzz-raw://259cabdcc7e5cd35dd19fe31e7c83d986213559a9669864314cb93ae9e16b88c",
+				"dweb:/ipfs/QmPSjdNNLKo5fkL8mTXKEnChfTpzrgE9fEeoH47t2nZgsf"
+			]
+		},
+		"localhost/v0.7/interfaces/OracleInterface2.sol": {
+			"keccak256": "0xbe6fbfa07f35a3fe67591a8f384ddf10c83e9277f5d2e6f0f094dfe92587254e",
+			"urls": [
+				"bzz-raw://40dc815b6ccd5186738defc9510715cb361f4f142fb8d2ed52d0649756fbcf65",
+				"dweb:/ipfs/QmaoUZPhHCuKCyX7KXY5oLDv3ewx1Pcg2xFnHPJaiKdkYs"
+			]
+		},
+		"localhost/v0.7/interfaces/WithdrawalInterface.sol": {
+			"keccak256": "0x3db82a471a7330013f7322b26ac7e25712bf91044b18a1066a1661ac55b2fb50",
+			"urls": [
+				"bzz-raw://f9085507e9b88108a73edd7e0c6061392379b43520543dcd2016a8b67d2ec14f",
+				"dweb:/ipfs/QmZCxm2xQfuXcd4zJsNNddvpr7Hx15eieHsDin4RT7G7yg"
+			]
+		},
+		"localhost/v0.7/vendor/SafeMathChainlink.sol": {
+			"keccak256": "0xfd4a989c8540bbfedb2e375d7d24990f2d480f8ca64c058f4771ba2007aaef2b",
+			"urls": [
+				"bzz-raw://0992d39314ea2d5723f9b0e1dc8aa1e65198f11d313e86c0caba6ca7620b31b3",
+				"dweb:/ipfs/QmXyfnVsAs14x2jfL1ZrdZdMj7zCv5PCy3SiCKTXaH97LD"
+			]
+		}
+	},
+	"version": 1
+}

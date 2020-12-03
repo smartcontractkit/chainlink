@@ -166,7 +166,9 @@ contract Operator is
     (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
-
+  event Test (
+  string msg
+  );
   /**
    * @notice Called by the Chainlink node to fulfill requests with multi-word support
    * @dev Given params must hash back to the commitment stored from `oracleRequest`.
@@ -190,26 +192,28 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedSender()
-    isValidRequest(requestId)
-    isValidMultiWord(requestId, data)
+//    onlyAuthorizedSender()
+//    isValidRequest(requestId)
+//    isValidMultiWord(requestId, data)
     returns (bool)
   {
-    verifyOracleResponse(
-      requestId,
-      payment,
-      callbackAddress,
-      callbackFunctionId,
-      expiration,
-      2
-    );
-    emit OracleResponse(requestId);
-    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
+//    verifyOracleResponse(
+//      requestId,
+//      payment,
+//      callbackAddress,
+//      callbackFunctionId,
+//      expiration,
+//      2
+//    );
+//    emit OracleResponse(requestId);
+//    require(gasleft() >= MINIMUM_CONSUMER_GAS_LIMIT, "Must provide consumer enough gas");
     // All updates to the oracle's fulfillment should come before calling the
     // callback(addr+functionId) as it is untrusted.
     // See: https://solidity.readthedocs.io/en/develop/security-considerations.html#use-the-checks-effects-interactions-pattern
-    (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
-    return success;
+//    (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
+//    return success;
+    emit Test("fulfill oracle");
+    return true;
   }
 
   /**

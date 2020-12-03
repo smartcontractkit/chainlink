@@ -65,7 +65,6 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 		if taskRun.Status.Completed() {
 			continue
 		}
-
 		if !meetsMinRequiredIncomingConfirmations(&run, taskRun, run.ObservedHeight) {
 			logger.Debugw("Pausing run pending incoming confirmations",
 				run.ForLogger("required_height", taskRun.MinRequiredIncomingConfirmations)...,
@@ -86,6 +85,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 			// NOTE: adapters may define and return the new job run status in here
 			result := re.executeTask(&run, *taskRun)
+			fmt.Println("executing task", taskRun, "result", result)
 
 			taskRun.ApplyOutput(result)
 			run.ApplyOutput(result)
