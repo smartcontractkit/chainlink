@@ -25,9 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
 
-### Changed
+#### BREAKING CHANGES
 
-- Commands for creating/managing legacy jobs and OCR jobs have changed, to accomodate additional types of jobs using the new pipeline.
+- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accomodate additional types of jobs using the new pipeline.
 
 #### V1 jobs
 

@@ -77,7 +77,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	genericJS := GenericJobSpec{}
 	err := toml.Unmarshal([]byte(request.TOML), &genericJS)
 	if err != nil {
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
 	switch genericJS.Type {

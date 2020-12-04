@@ -51,7 +51,7 @@ export default class ChainlinkClient {
   }
 
   public getJobs(): JobSpec[] {
-    return this.execute('jobs list') as JobSpec[]
+    return this.execute('job_specs list') as JobSpec[]
   }
 
   public getJobRuns(): JobRun[] {
@@ -59,11 +59,11 @@ export default class ChainlinkClient {
   }
 
   public createJob(jobSpec: string): JobSpec {
-    return this.execute(`jobs create ${jobSpec}`) as JobSpec
+    return this.execute(`job_specs archive ${jobSpec}`) as JobSpec
   }
 
   public archiveJob(jobId: string): void {
-    this.execute(`jobs archive ${jobId}`)
+    this.execute(`job_specs archive ${jobId}`)
   }
 
   public getAdminInfo(): KeyInfo[] {
