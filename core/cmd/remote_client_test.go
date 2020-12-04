@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
 )
@@ -873,9 +874,22 @@ func TestClient_CreateETHKey(t *testing.T) {
 		cltest.EthMockRegisterChainID,
 		cltest.EthMockRegisterGetBalance,
 	)
-	kst := app.Store.KeyStore.(*mocks.KeyStoreInterface)
 	defer cleanup()
+	kst := app.Store.KeyStore.(*mocks.KeyStoreInterface)
 	require.NoError(t, app.Start())
+
+	// add key to db so that it can be retrieved in controller
+	keyAddress := cltest.DefaultKeyAddressEIP55
+	keyJson := models.JSON{
+		Result: gjson.ParseBytes([]byte(cltest.DefaultKeyJSON)),
+	}
+	key := models.Key{
+		Address: keyAddress,
+		JSON:    keyJson,
+	}
+	require.NoError(t, app.Store.CreateKeyIfNotExists(key))
+
+	app.EthMock.Register("eth_call", "0x0100")
 
 	client, _ := app.NewClientAndRenderer()
 
@@ -887,8 +901,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
-	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount").Return(accounts.Account{}, nil)
+	kst.On("NewAccount").Return(accounts.Account{Address: cltest.DefaultKeyAddress}, nil)
 	assert.NoError(t, client.CreateETHKey(c))
 }
 
