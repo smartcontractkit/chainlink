@@ -8,12 +8,14 @@ import "../Owned.sol";
  * of a 20 sided die
  */
 contract VRFD20 is VRFConsumerBase, Owned {
+    using SafeMathChainlink for uint256;
+
+    uint256 private constant ROLL_IN_PROGRESS = 42;
 
     bytes32 private s_keyHash;
     uint256 private s_fee;
-    mapping(address => bytes32) private s_rollers;
-    mapping(bytes32 => uint256) private s_results;
-    mapping(uint256 => string) private s_houses;
+    mapping(bytes32 => address) private s_rollers;
+    mapping(address => uint256) private s_results;
 
     event DiceRolled(bytes32 indexed requestId, address indexed roller);
     event DiceLanded(bytes32 indexed requestId, uint256 indexed result);
@@ -38,26 +40,7 @@ contract VRFD20 is VRFConsumerBase, Owned {
     {
         s_keyHash = keyHash;
         s_fee = fee;
-        s_houses[1] = "Targaryen";
-        s_houses[2] = "Lannister";
-        s_houses[3] = "Stark";
-        s_houses[4] = "Tyrell";
-        s_houses[5] = "Baratheon";
-        s_houses[6] = "Martell";
-        s_houses[7] = "Tully";
-        s_houses[8] = "Bolton";
-        s_houses[9] = "Greyjoy";
-        s_houses[10] = "Arryn";
-        s_houses[11] = "Frey";
-        s_houses[12] = "Mormont";
-        s_houses[13] = "Tarley";
-        s_houses[14] = "Dayne";
-        s_houses[15] = "Umber";
-        s_houses[16] = "Valeryon";
-        s_houses[17] = "Manderly";
-        s_houses[18] = "Clegane";
-        s_houses[19] = "Glover";
-        s_houses[20] = "Karstark";
+        
     }
 
     /**
@@ -70,10 +53,26 @@ contract VRFD20 is VRFConsumerBase, Owned {
      */
     function rollDice(uint256 userProvidedSeed, address roller) public onlyOwner returns (bytes32 requestId) {
         require(LINK.balanceOf(address(this)) >= s_fee, "Not enough LINK to pay fee");
-        require(s_rollers[roller] == bytes32(0), "Already rolled");
+        require(s_results[roller] == 0, "Already rolled");
         requestId = requestRandomness(s_keyHash, s_fee, userProvidedSeed);
-        s_rollers[roller] = requestId;
+        s_rollers[requestId] = roller;
+        s_results[roller] = ROLL_IN_PROGRESS;
         emit DiceRolled(requestId, roller);
+    }
+
+    /**
+     * @notice Callback function used by VRF Coordinator to return the random number
+     * to this contract.
+     * @dev This is where you do something with randomness!
+     * @dev The VRF Coordinator will only send this function verified responses.
+     *
+     * @param requestId bytes32
+     * @param randomness The random result returned by the oracle
+     */
+    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
+        uint256 result = randomness.mod(20).add(1);
+        s_results[s_rollers[requestId]] = result;
+        emit DiceLanded(requestId, result);
     }
 
     /**
@@ -82,9 +81,9 @@ contract VRFD20 is VRFConsumerBase, Owned {
      * @return house as a string
      */
     function house(address player) public view returns (string memory) {
-        require(s_rollers[player] != bytes32(0), "Dice not rolled");
-        require(s_results[s_rollers[player]] != 0, "Roll in progress");
-        return s_houses[s_results[s_rollers[player]]];
+        require(s_results[player] != 0, "Dice not rolled");
+        require(s_results[player] != ROLL_IN_PROGRESS, "Roll in progress");
+        return getHouseName(s_results[player]);
     }
 
     /**
@@ -133,17 +132,33 @@ contract VRFD20 is VRFConsumerBase, Owned {
     }
 
     /**
-     * @notice Callback function used by VRF Coordinator to return the random number
-     * to this contract.
-     * @dev This is where you do something with randomness!
-     * @dev The VRF Coordinator will only send this function verified responses.
-     *
-     * @param requestId bytes32
-     * @param randomness The random result returned by the oracle
+     * @notice Get the house namne from the id
+     * @param id uint256
+     * @return house name string
      */
-    function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        uint256 result = randomness.mod(20).add(1);
-        s_results[requestId] = result;
-        emit DiceLanded(requestId, result);
+    function getHouseName(uint256 id) private view returns (string memory) {
+        string[20] memory houseNames = [
+            "Targaryen",
+            "Lannister",
+            "Stark",
+            "Tyrell",
+            "Baratheon",
+            "Martell",
+            "Tully",
+            "Bolton",
+            "Greyjoy",
+            "Arryn",
+            "Frey",
+            "Mormont",
+            "Tarley",
+            "Dayne",
+            "Umber",
+            "Valeryon",
+            "Manderly",
+            "Clegane",
+            "Glover",
+            "Karstark"
+        ];
+        return houseNames[id.sub(1)];
     }
 }
