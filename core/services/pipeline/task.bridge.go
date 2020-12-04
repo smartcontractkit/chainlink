@@ -56,7 +56,10 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 		URL:         models.WebURL(url),
 		Method:      "POST",
 		RequestData: withIDAndMeta(t.RequestData, taskRun.PipelineRunID, meta),
-		config:      t.config,
+		// URL is "safe" because it comes from the node's own database
+		// Some node operators may run external adapters on their own hardware
+		AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
+		config:                         t.config,
 	}).Run(ctx, taskRun, inputs)
 	if result.Error != nil {
 		return result
