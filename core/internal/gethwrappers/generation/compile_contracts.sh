@@ -2,11 +2,11 @@
 
 echo "compiling contracts"
 
-CDIR=$(dirname "$0")
-COMPILE_COMMAND=$(<"$CDIR/compile_command.txt")
+CDIR="$(dirname "$0")"
+COMPILE_COMMAND="$(<"$CDIR/compile_command.txt")"
 
 # Only print compilation output on failure.
-OUT="$(bash -c $COMPILE_COMMAND 2>&1)"
+OUT="$(bash -c "${COMPILE_COMMAND}" 2>&1)"
 ERR="$?"
 
 # shellcheck disable=SC2181
