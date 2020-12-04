@@ -762,10 +762,6 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
-func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
-}
-
 func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to be imported"))
@@ -1151,6 +1147,10 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 
 	fmt.Println("🔑 Exported OCR key bundle", ID, "to", filepath)
 	return nil
+}
+
+func normalizePassword(password string) string {
+	return url.PathEscape(strings.TrimSpace(password))
 }
 
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {
