@@ -1,10 +1,11 @@
 package web
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 // UserController manages the current Session's User User.
@@ -102,6 +104,53 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	{
 		jsonAPIResponseWithStatus(ctx, nil, "auth_token", http.StatusNoContent)
 	}
+}
+
+// TODO - AccountBalances is a duplicate of EthKeysController#Index and should be removed
+// https://www.pivotaltracker.com/story/show/176005855
+
+// AccountBalances returns the account balances of ETH & LINK.
+// Example:
+//  "<application>/user/balances"
+func (c *UserController) AccountBalances(ctx *gin.Context) {
+	store := c.App.GetStore()
+	keys, err := store.AllKeys()
+	if err != nil {
+		err = errors.Errorf("error fetching ETH keys from database: %v", err)
+		jsonAPIError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	var pkeys []presenters.ETHKey
+	for _, key := range keys {
+		ethBalance, err := store.EthClient.BalanceAt(ctx.Request.Context(), key.Address.Address(), nil)
+		if err != nil {
+			err = errors.Errorf("error calling getEthBalance on Ethereum node: %v", err)
+			jsonAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
+		linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, key.Address.Address())
+		if err != nil {
+			err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
+			jsonAPIError(ctx, http.StatusInternalServerError, err)
+			return
+		}
+
+		pkeys = append(pkeys, presenters.ETHKey{
+			Address:     key.Address.Hex(),
+			EthBalance:  (*assets.Eth)(ethBalance),
+			LinkBalance: linkBalance,
+			NextNonce:   key.NextNonce,
+			LastUsed:    key.LastUsed,
+			IsFunding:   key.IsFunding,
+			CreatedAt:   key.CreatedAt,
+			UpdatedAt:   key.UpdatedAt,
+			DeletedAt:   key.DeletedAt,
+		})
+	}
+
+	jsonAPIResponse(ctx, pkeys, "balances")
 }
 
 func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {

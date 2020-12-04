@@ -208,6 +208,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	{
 		uc := UserController{app}
 		authv2.PATCH("/user/password", uc.UpdatePassword)
+		authv2.GET("/user/balances", uc.AccountBalances)
 		authv2.POST("/user/token", uc.NewAPIToken)
 		authv2.POST("/user/token/delete", uc.DeleteAPIToken)
 
