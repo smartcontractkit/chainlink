@@ -164,8 +164,8 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (models.BridgeType, error) {
 	return orm.FindBridge(nextTask.TaskSpec.Type)
 }
 
-// FindJob looks up a Job by its ID.
-func (orm *ORM) FindJob(id *models.ID) (models.JobSpec, error) {
+// FindJob looks up a JobSpec by its ID.
+func (orm *ORM) FindJobSpec(id *models.ID) (models.JobSpec, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpec
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
@@ -518,7 +518,7 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 // ArchiveJob soft deletes the job, job_runs and its initiator.
 func (orm *ORM) ArchiveJob(ID *models.ID) error {
 	orm.MustEnsureAdvisoryLock()
-	j, err := orm.FindJob(ID)
+	j, err := orm.FindJobSpec(ID)
 	if err != nil {
 		return err
 	}
@@ -862,34 +862,36 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	return jobs, count, err
 }
 
-// OffChainReportingJobs returns OCR job specs
-func (orm *ORM) OffChainReportingJobs() ([]models.JobSpecV2, error) {
+// OffChainReportingJobs returns job specs
+func (orm *ORM) JobsV2() ([]models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var jobs []models.JobSpecV2
 	err := orm.DB.
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("EthRequestEventSpec").
 		Preload("JobSpecErrors").
 		Find(&jobs).
 		Error
 	return jobs, err
 }
 
-// FindOffChainReportingJob returns OCR job spec by ID
-func (orm *ORM) FindOffChainReportingJob(id int32) (models.JobSpecV2, error) {
+// FindJob returns job by ID
+func (orm *ORM) FindJob(id int32) (models.JobSpecV2, error) {
 	orm.MustEnsureAdvisoryLock()
 	var job models.JobSpecV2
 	err := orm.DB.
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("EthRequestEventSpec").
 		Preload("JobSpecErrors").
 		First(&job, "jobs.id = ?", id).
 		Error
 	return job, err
 }
 
-// OffChainReportingJobRuns returns OCR job runs
-func (orm *ORM) OffChainReportingJobRuns(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
+// PipelineRunsByJobID returns pipeline runs for a job
+func (orm *ORM) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	orm.MustEnsureAdvisoryLock()
 
 	var pipelineRuns []pipeline.Run

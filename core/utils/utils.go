@@ -30,7 +30,7 @@ import (
 	"github.com/tevino/abool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 const (

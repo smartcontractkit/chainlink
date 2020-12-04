@@ -13,7 +13,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 // Encumbrance connects job specifications with on-chain encumbrances.

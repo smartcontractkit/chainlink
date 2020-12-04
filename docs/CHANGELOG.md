@@ -25,6 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
 
+#### BREAKING CHANGES
+
+- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accomodate additional types of jobs using the new pipeline.
+
+#### V1 jobs
+
+`jobs archive` => `job_specs archive`
+`jobs create` => `job_specs create`
+`jobs list` => `job_specs list`
+`jobs show` => `job_specs show`
+
+#### V2 jobs (currently only applies to OCR)
+
+`jobs createocr` => `jobs create`
+`jobs deletev2` => `jobs delete`
+`jobs run` => `jobs run`
+
 ## [0.9.6] - 2020-11-23
 
 - OCR pipeline specs can now be configured on a per-task basis to allow unrestricted network access for http tasks. Example like so:

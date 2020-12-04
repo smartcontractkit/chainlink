@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 // JobSpecRequest represents a schema for the incoming job spec request as used by the API.
