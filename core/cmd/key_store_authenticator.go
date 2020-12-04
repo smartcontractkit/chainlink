@@ -60,7 +60,7 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm Password: ")
 		clearLine()
-		if password == passwordConfirmation {
+		if password != passwordConfirmation {
 			fmt.Printf("Passwords don't match. Please try again... ")
 			continue
 		}

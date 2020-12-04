@@ -18,7 +18,6 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccounts").Return(false)
 	kst.On("NewAccount").Return(accounts.Account{}, nil)
-	kst.On("Unlock", cltest.Password).Return(nil)
 	store.KeyStore = kst
 	defer cleanup()
 
