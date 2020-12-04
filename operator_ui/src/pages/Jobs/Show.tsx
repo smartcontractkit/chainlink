@@ -85,10 +85,10 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
             ...s,
             jobSpec,
             job: {
+              ...jobSpec.attributes,
               ...jobSpec.attributes.offChainReportingOracleSpec,
               ...jobSpec.attributes.pipelineSpec,
               id: jobSpec.id,
-              errors: jobSpec.attributes.errors,
               definition: generateTOMLDefinition(jobSpec.attributes),
               type: 'Off-chain reporting',
             },

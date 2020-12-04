@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -22,12 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/tidwall/gjson"
-	"gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v4"
 )
 
 // ETHKey holds the hex representation of the address plus it's ETH & LINK balances
@@ -59,7 +58,6 @@ func (k *ETHKey) SetID(value string) error {
 // If you add an entry here, you should update NewConfigPrinter and
 // ConfigPrinter#String accordingly.
 type ConfigPrinter struct {
-	AccountAddress string `json:"accountAddress"`
 	EnvPrinter
 }
 
@@ -230,8 +228,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 // String returns the values as a newline delimited string
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
-
-	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
 
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
