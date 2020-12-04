@@ -404,7 +404,7 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
 	var defaults = map[string]interface{}{
-		"observationTimeout":                     models.Interval(10 * time.Second),
+		//"observationTimeout":                     models.Interval(10 * time.Second),
 		"blockchainTimeout":                      models.Interval(20 * time.Second),
 		"contractConfigTrackerSubscribeInterval": models.Interval(2 * time.Minute),
 		"contractConfigTrackerPollInterval":      models.Interval(1 * time.Minute),
@@ -459,8 +459,8 @@ var (
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"observationSource":  {},
-		"observationTimeout": {},
+		"observationSource": {},
+		//"observationTimeout": {},
 		"keyBundleID":        {},
 		"transmitterAddress": {},
 	}
@@ -476,7 +476,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 
 func validateTimingParameters(spec offchainreporting.OracleSpec) error {
 	// TODO: expose these various constants from libocr so they are defined in one place.
-	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
+	if !spec.ObservationTimeout.IsZero() && (time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second) {
 		return errors.Errorf("require 1ms <= observation timeout <= 20s")
 	}
 	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {

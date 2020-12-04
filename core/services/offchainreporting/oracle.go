@@ -229,6 +229,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
+		observationTimeout, err := d.ObservationTimeout(concreteSpec)
+		if err != nil {
+			return nil, err
+		}
+
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), d.config.EthGasLimitDefault()))
 
@@ -240,7 +245,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 				ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
 				ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
 				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
-				DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
+				DataSourceTimeout:                      time.Duration(observationTimeout),
 			},
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
@@ -259,6 +264,16 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	}
 
 	return services, nil
+}
+
+func (d jobSpawnerDelegate) ObservationTimeout(spec *OracleSpec) (models.Interval, error) {
+	if !spec.ObservationTimeout.IsZero() {
+		return spec.ObservationTimeout, nil
+	}
+	if d.config.OCRObservationTimeout() != time.Duration(0) {
+		return models.Interval(d.config.OCRObservationTimeout()), nil
+	}
+	return models.Interval(0), errors.Errorf("observation timeout not set")
 }
 
 // dataSource is an abstraction over the process of initiating a pipeline run

@@ -45,6 +45,7 @@ type Config struct {
 	runtimeStore    *ORM
 	Dialect         DialectName
 	AdvisoryLockID  int64
+	EnvVars         ConfigSchema
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -110,6 +111,10 @@ func (c *Config) Validate() error {
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
+	if c.OCRObservationTimeout() < 1*time.Millisecond || c.OCRObservationTimeout() > 20*time.Second {
+		return errors.Errorf("require 1ms <= observation timeout <= 20s")
+	}
+
 	return nil
 }
 
@@ -506,6 +511,10 @@ func (c Config) OCRBootstrapCheckInterval() time.Duration {
 
 func (c Config) OCRContractTransmitterTransmitTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRContractTransmitterTransmitTimeout"))
+}
+
+func (c Config) OCRObservationTimeout() time.Duration {
+	return c.viper.GetDuration(EnvVarName("OCRObservationTimeout"))
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {

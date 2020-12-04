@@ -27,7 +27,6 @@ require (
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
-	github.com/guregu/null v3.5.0+incompatible
 	github.com/ipfs/go-datastore v0.4.5 // indirect
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jinzhu/now v1.1.1 // indirect
@@ -40,7 +39,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.0
 	github.com/multiformats/go-multiaddr v0.3.1
-	github.com/naoina/toml v0.1.2-0.20170918210437-9fafd6967416
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.3
 	github.com/pelletier/go-toml v1.8.1
@@ -73,7 +71,6 @@ require (
 	golang.org/x/tools v0.0.0-20201202200335-bef1c476418a // indirect
 	gonum.org/v1/gonum v0.8.2
 	gopkg.in/gormigrate.v1 v1.6.0
-	gopkg.in/guregu/null.v3 v3.5.0
 	gopkg.in/guregu/null.v4 v4.0.0
 	honnef.co/go/tools v0.0.1-2020.1.6 // indirect
 )

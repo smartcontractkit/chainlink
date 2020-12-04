@@ -205,6 +205,7 @@ func (js *spawner) startUnclaimedServices() {
 			moreServices, err := delegate.ServicesForSpec(spec)
 			if err != nil {
 				logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
+				js.orm.RecordError(ctx, specDBRow.ID, err.Error())
 				continue
 			}
 			services = append(services, moreServices...)
