@@ -273,6 +273,7 @@ func (d jobSpawnerDelegate) ObservationTimeout(spec *OracleSpec) (models.Interva
 	if d.config.OCRObservationTimeout() != time.Duration(0) {
 		return models.Interval(d.config.OCRObservationTimeout()), nil
 	}
+	// Should never happen
 	return models.Interval(0), errors.Errorf("observation timeout not set")
 }
 
