@@ -53,11 +53,11 @@ describe('pages/Jobs/RecentRuns', () => {
     const taskNames = ['testFetch', 'testParse', 'testMultiply']
 
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}/runs`),
+      globPath(`/v2/jobs/${OCR_JOB_SPEC_ID}/runs`),
       jsonApiOcrJobRuns(runs, 10),
     )
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}`),
+      globPath(`/v2/jobs/${OCR_JOB_SPEC_ID}`),
       jsonApiOcrJobSpec({
         id: OCR_JOB_SPEC_ID,
         dotDagSource: `   ${taskNames[0]}    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    ${taskNames[1]}    [type=jsonparse path="data,result"];\n    ${taskNames[2]} [type=multiply times=100];\n    ${taskNames[0]} -\u003e ${taskNames[1]} -\u003e ${taskNames[2]};\n`,
@@ -80,11 +80,11 @@ describe('pages/Jobs/RecentRuns', () => {
 
   it('works with no tasks (bootstrap node)', async () => {
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}/runs`),
+      globPath(`/v2/jobs/${OCR_JOB_SPEC_ID}/runs`),
       jsonApiOcrJobRuns(),
     )
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${OCR_JOB_SPEC_ID}`),
+      globPath(`/v2/jobs/${OCR_JOB_SPEC_ID}`),
       jsonApiOcrJobSpec({
         id: OCR_JOB_SPEC_ID,
         dotDagSource: '',

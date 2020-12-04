@@ -18,7 +18,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
+func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
@@ -34,21 +34,21 @@ func TestOCRJobRunsController_Create_HappyPath(t *testing.T) {
 
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
-	response, cleanup := client.Post("/v2/ocr/specs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
+	response, cleanup := client.Post("/v2/jobs/"+fmt.Sprintf("%v", jobID)+"/runs", nil)
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	parsedResponse := models.OCRJobRun{}
+	parsedResponse := models.PipelineRun{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResponse.ID)
 }
 
-func TestOCRJobRunsController_Index_HappyPath(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
+func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
+	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs")
+	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -66,11 +66,11 @@ func TestOCRJobRunsController_Index_HappyPath(t *testing.T) {
 	require.Len(t, parsedResponse[1].PipelineTaskRuns, 4)
 }
 
-func TestOCRJobRunsController_Index_Pagination(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
+func TestPipelineRunsController_Index_Pagination(t *testing.T) {
+	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
+	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -89,11 +89,11 @@ func TestOCRJobRunsController_Index_Pagination(t *testing.T) {
 	require.Len(t, parsedResponse[0].PipelineTaskRuns, 4)
 }
 
-func TestOCRJobRunsController_Show_HappyPath(t *testing.T) {
-	client, jobID, runIDs, cleanup := setupOCRJobRunsControllerTests(t)
+func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+	client, jobID, runIDs, cleanup := setupPipelineRunsControllerTests(t)
 	defer cleanup()
 
-	response, cleanup := client.Get("/v2/ocr/specs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
+	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -110,19 +110,19 @@ func TestOCRJobRunsController_Show_HappyPath(t *testing.T) {
 	require.Len(t, parsedResponse.PipelineTaskRuns, 4)
 }
 
-func TestOCRJobRunsController_ShowRun_InvalidID(t *testing.T) {
+func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
-	response, cleanup := client.Get("/v2/ocr/specs/1/runs/invalid-run-ID")
+	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
-func setupOCRJobRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
+func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
 	t.Parallel()
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())

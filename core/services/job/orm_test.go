@@ -62,7 +62,7 @@ func TestORM(t *testing.T) {
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec, unclaimed[0])
 		require.Equal(t, int32(1), unclaimed[0].ID)
-		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpecID)
+		require.Equal(t, int32(1), *unclaimed[0].OffchainreportingOracleSpecID)
 		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
 		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
 
@@ -78,7 +78,7 @@ func TestORM(t *testing.T) {
 		require.Len(t, unclaimed, 1)
 		compareOCRJobSpecs(t, *dbSpec2, unclaimed[0])
 		require.Equal(t, int32(2), unclaimed[0].ID)
-		require.Equal(t, int32(2), unclaimed[0].OffchainreportingOracleSpecID)
+		require.Equal(t, int32(2), *unclaimed[0].OffchainreportingOracleSpecID)
 		require.Equal(t, int32(2), unclaimed[0].PipelineSpecID)
 		require.Equal(t, int32(2), unclaimed[0].OffchainreportingOracleSpec.ID)
 	})

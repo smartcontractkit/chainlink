@@ -568,3 +568,37 @@ func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
 	_, err := url.Parse(spec.MonitoringEndpoint)
 	return err
 }
+
+func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.Errorf("panicked with err %v", r)
+		}
+	}()
+
+	var eres models.EthRequestEventSpec
+	spec = EthRequestEventSpec{
+		Pipeline: *pipeline.NewTaskDAG(),
+	}
+	tree, err := toml.Load(tomlString)
+	if err != nil {
+		return spec, err
+	}
+	err = tree.Unmarshal(&eres)
+	if err != nil {
+		return spec, err
+	}
+	err = tree.Unmarshal(&spec)
+	if err != nil {
+		return spec, err
+	}
+	spec.EthRequestEventSpec = eres
+
+	if spec.Type != "ethrequestevent" {
+		return spec, errors.Errorf("unsupported type %s", spec.Type)
+	}
+	if spec.SchemaVersion != uint32(1) {
+		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
+	}
+	return spec, nil
+}
