@@ -59,7 +59,7 @@ export default class ChainlinkClient {
   }
 
   public createJob(jobSpec: string): JobSpec {
-    return this.execute(`job_specs archive ${jobSpec}`) as JobSpec
+    return this.execute(`job_specs create ${jobSpec}`) as JobSpec
   }
 
   public archiveJob(jobId: string): void {
