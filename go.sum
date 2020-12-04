@@ -216,6 +216,7 @@ github.com/erikstmartin/go-testdb v0.0.0-20160219214506-8d10e4a1bae5/go.mod h1:a
 github.com/ethereum/go-ethereum v1.9.18/go.mod h1:JSSTypSMTkGZtAdAChH2wP5dZEvPGh3nUTuDpH+hNrg=
 github.com/ethereum/go-ethereum v1.9.22 h1:/Fea9n2EWJuNJ9oahMq9luqjRBcbW7QWdThbcJl13ek=
 github.com/ethereum/go-ethereum v1.9.22/go.mod h1:FQjK3ZwD8C5DYn7ukTmFee36rq1dOMESiUfXr5RUc1w=
+github.com/ethereum/go-ethereum v1.9.24/go.mod h1:JIfVb6esrqALTExdz9hRYvrP0xBDf6wCncIu1hNwHpM=
 github.com/fatih/color v1.3.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/color v1.9.0 h1:8xPHl4/q1VyqGIPif1F+1V3Y3lSmrq01EabUW3CoW5s=

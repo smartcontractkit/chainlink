@@ -13,7 +13,7 @@ require (
 	github.com/boj/redistore v0.0.0-20180917114910-cd5dcc76aeff // indirect
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.9.22
+	github.com/ethereum/go-ethereum v1.9.24
 	github.com/fatih/color v1.10.0
 	github.com/fjl/memsize v0.0.0-20190710130421-bcb5799ab5e5 // indirect
 	github.com/fxamacker/cbor/v2 v2.2.0
