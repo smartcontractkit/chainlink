@@ -132,7 +132,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 			store.EthClient = ethClient
 
-			_, err = store.KeyStore.NewAccount() // matches correct_password.txt
+			_, err = store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			var unlocked bool
@@ -188,7 +188,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	store.EthClient = ethClient
 
-	_, err = store.KeyStore.NewAccount() // matches correct_password.txt
+	_, err = store.KeyStore.NewAccount()
 	require.NoError(t, err)
 
 	callback := func(store *strpkg.Store, phrase string) (string, error) {
