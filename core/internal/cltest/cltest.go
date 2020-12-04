@@ -59,7 +59,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -1128,7 +1128,7 @@ func ParseISO8601(t testing.TB, s string) time.Time {
 
 // NullableTime will return a valid nullable time given time.Time
 func NullableTime(t time.Time) null.Time {
-	return null.Time{Time: t, Valid: true}
+	return null.TimeFrom(t)
 }
 
 // ParseNullableTime given a time string parse it into a null.Time

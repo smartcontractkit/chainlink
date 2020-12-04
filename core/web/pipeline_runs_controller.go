@@ -10,15 +10,15 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-// OCRJobRunsController manages OCR job run requests.
-type OCRJobRunsController struct {
+// PipelineRunsController manages V2 job run requests.
+type PipelineRunsController struct {
 	App chainlink.Application
 }
 
-// Index returns all pipeline runs for an OCR job.
+// Index returns all pipeline runs for a job.
 // Example:
-// "GET <application>/ocr/specs/:ID/runs"
-func (ocrjrc *OCRJobRunsController) Index(c *gin.Context, size, page, offset int) {
+// "GET <application>/jobs/:ID/runs"
+func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
 	jobSpec := models.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
@@ -26,20 +26,20 @@ func (ocrjrc *OCRJobRunsController) Index(c *gin.Context, size, page, offset int
 		return
 	}
 
-	pipelineRuns, count, err := ocrjrc.App.GetStore().OffChainReportingJobRuns(jobSpec.ID, offset, size)
+	pipelineRuns, count, err := prc.App.GetStore().PipelineRunsByJobID(jobSpec.ID, offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	paginatedResponse(c, "offChainReportingJobRun", size, page, pipelineRuns, count, err)
+	paginatedResponse(c, "offChainReportingPipelineRun", size, page, pipelineRuns, count, err)
 }
 
 // Show returns a specified pipeline run.
 // Example:
-// "GET <application>/ocr/specs/:ID/runs/:runID"
-func (ocrjrc *OCRJobRunsController) Show(c *gin.Context) {
+// "GET <application>/jobs/:ID/runs/:runID"
+func (prc *PipelineRunsController) Show(c *gin.Context) {
 	pipelineRun := pipeline.Run{}
 	err := pipelineRun.SetID(c.Param("runID"))
 	if err != nil {
@@ -47,7 +47,7 @@ func (ocrjrc *OCRJobRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	err = preloadPipelineRunDependencies(ocrjrc.App.GetStore().DB).
+	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
 		Where("pipeline_runs.id = ?", pipelineRun.ID).
 		First(&pipelineRun).Error
 
@@ -56,13 +56,13 @@ func (ocrjrc *OCRJobRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, pipelineRun, "offChainReportingJobRun")
+	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
 }
 
-// Create triggers a pipeline run for an OCR job.
+// Create triggers a pipeline run for a job.
 // Example:
-// "POST <application>/ocr/specs/:ID/runs"
-func (ocrjrc *OCRJobRunsController) Create(c *gin.Context) {
+// "POST <application>/jobs/:ID/runs"
+func (prc *PipelineRunsController) Create(c *gin.Context) {
 	jobSpec := models.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
@@ -70,14 +70,14 @@ func (ocrjrc *OCRJobRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jobRunID, err := ocrjrc.App.RunJobV2(c, jobSpec.ID, nil)
+	jobRunID, err := prc.App.RunJobV2(c, jobSpec.ID, nil)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	jsonAPIResponse(c, models.OCRJobRun{ID: jobRunID}, "offChainReportingJobRun")
+	jsonAPIResponse(c, models.PipelineRun{ID: jobRunID}, "offChainReportingPipelineRun")
 }
 
 func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
