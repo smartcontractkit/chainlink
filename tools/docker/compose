@@ -150,7 +150,7 @@ test:ts)
   exit $exit_code
   ;;
 test:ts:down)
-  $test down -v --remove-orphans
+  $ts_test down -v --remove-orphans
   ;;
 test:ts:dev)
   $deps up --exit-code-from wait-db wait-db
