@@ -6,6 +6,7 @@ import "../Owned.sol";
 /**
  * @notice A Chainlink VRF consumer which uses randomness to mimic the rolling
  * of a 20 sided die
+ * @dev This is only an example implementation and not necessarily suitable for mainnet.
  */
 contract VRFD20 is VRFConsumerBase, Owned {
     using SafeMathChainlink for uint256;
@@ -45,7 +46,8 @@ contract VRFD20 is VRFConsumerBase, Owned {
 
     /**
      * @notice Requests randomness from a user-provided seed
-     * @dev This is only an example implementation and not necessarily suitable for mainnet.
+     * @dev Warning: if the VRF response is delayed, avoid calling requestRandomness repeatedly
+     * as that would give miners/VRF operators latitude about which VRF response arrives first.
      * @dev You must review your implementation details with extreme care.
      *
      * @param userProvidedSeed uint256 unpredictable seed
@@ -63,16 +65,20 @@ contract VRFD20 is VRFConsumerBase, Owned {
     /**
      * @notice Callback function used by VRF Coordinator to return the random number
      * to this contract.
-     * @dev This is where you do something with randomness!
-     * @dev The VRF Coordinator will only send this function verified responses.
+     * @dev Some action on the contract state should be taken here, like storing the result.
+     * @dev WARNING: take care to avoid having multiple VRF requests in flight if their order of arrival would result
+     * in contract states with different outcomes. Otherwise miners or the VRF operator would could take advantage
+     * by controlling the order.
+     * @dev The VRF Coordinator will only send this function verified responses, and the parent VRFConsumerBase
+     * contract ensures that this method only receives randomness from the designated VRFCoordinator.
      *
      * @param requestId bytes32
      * @param randomness The random result returned by the oracle
      */
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
-        uint256 result = randomness.mod(20).add(1);
-        s_results[s_rollers[requestId]] = result;
-        emit DiceLanded(requestId, result);
+        uint256 d20Value = randomness.mod(20).add(1);
+        s_results[s_rollers[requestId]] = d20Value;
+        emit DiceLanded(requestId, d20Value);
     }
 
     /**
@@ -88,6 +94,9 @@ contract VRFD20 is VRFConsumerBase, Owned {
 
     /**
      * @notice Withdraw LINK from this contract.
+     * @dev this is an example only, and in a real contract withdrawals should
+     * happen according to the established withdrawal pattern: 
+     * https://docs.soliditylang.org/en/v0.4.24/common-patterns.html#withdrawal-from-contracts
      * @param to the address to withdraw LINK to
      * @param value the amount of LINK to withdraw
      */
