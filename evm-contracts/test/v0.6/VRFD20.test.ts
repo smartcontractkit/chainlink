@@ -146,7 +146,7 @@ describe('VRFD20', () => {
     })
   })
 
-  describe('#hosue', () => {
+  describe('#house', () => {
     describe('failure', () => {
       it('reverts when dice not rolled', async () => {
         await matchers.evmRevert(async () => {
