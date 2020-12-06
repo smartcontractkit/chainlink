@@ -12,7 +12,6 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -312,19 +311,11 @@ func TestRunner(t *testing.T) {
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
 		var os = offchainreporting.OracleSpec{
-			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
-				P2PBootstrapPeers:                      pq.StringArray{},
-				ObservationTimeout:                     models.Interval(10 * time.Second),
-				BlockchainTimeout:                      models.Interval(20 * time.Second),
-				ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-				ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-				ContractConfigConfirmations:            uint16(3),
-			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID, "http://blah.com", "")
-		_, err = services.ValidatedOracleSpecToml(s)
+		_, err = services.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -360,18 +351,10 @@ func TestRunner(t *testing.T) {
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
 		var os = offchainreporting.OracleSpec{
-			OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
-				P2PBootstrapPeers:                      pq.StringArray{},
-				ObservationTimeout:                     models.Interval(10 * time.Second),
-				BlockchainTimeout:                      models.Interval(20 * time.Second),
-				ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-				ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-				ContractConfigConfirmations:            uint16(3),
-			},
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		_, err = services.ValidatedOracleSpecToml(s)
+		_, err = services.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)

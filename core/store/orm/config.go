@@ -15,6 +15,9 @@ import (
 	"strconv"
 	"time"
 
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -45,7 +48,6 @@ type Config struct {
 	runtimeStore    *ORM
 	Dialect         DialectName
 	AdvisoryLockID  int64
-	EnvVars         ConfigSchema
 }
 
 var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
@@ -111,10 +113,20 @@ func (c *Config) Validate() error {
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
-	if c.OCRObservationTimeout() < 1*time.Millisecond || c.OCRObservationTimeout() > 20*time.Second {
-		return errors.Errorf("require 1ms <= observation timeout <= 20s")
-	}
 
+	var override time.Duration
+	lc := ocrtypes.LocalConfig{
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(override),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(0),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(override),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(override),
+		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+	}
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -513,8 +525,34 @@ func (c Config) OCRContractTransmitterTransmitTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRContractTransmitterTransmitTimeout"))
 }
 
-func (c Config) OCRObservationTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRObservationTimeout"))
+func (c Config) getDurationWithOverride(override time.Duration, field string) time.Duration {
+	if override != time.Duration(0) {
+		return override
+	}
+	return c.viper.GetDuration(EnvVarName(field))
+}
+
+func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRBlockchainTimeout")
+}
+
+func (c Config) OCRContractSubscribeInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractSubscribeInterval")
+}
+
+func (c Config) OCRContractPollInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractPollInterval")
+}
+
+func (c Config) OCRContractConfirmations(override uint16) uint16 {
+	if override != uint16(0) {
+		return override
+	}
+	return uint16(c.viper.GetUint("OCRContractConfirmations"))
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {

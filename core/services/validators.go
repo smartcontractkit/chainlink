@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/tidwall/gjson"
 )
 
@@ -376,7 +378,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSpec, err error) {
+func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offchainreporting.OracleSpec, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("panicked with err %v", r)
@@ -403,22 +405,6 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
-	var defaults = map[string]interface{}{
-		//"observationTimeout":                     models.Interval(10 * time.Second),
-		"blockchainTimeout":                      models.Interval(20 * time.Second),
-		"contractConfigTrackerSubscribeInterval": models.Interval(2 * time.Minute),
-		"contractConfigTrackerPollInterval":      models.Interval(1 * time.Minute),
-	}
-	for k, v := range defaults {
-		cv := v
-		if !tree.Has(k) {
-			reflect.ValueOf(&spec.OffchainReportingOracleSpec).
-				Elem().
-				FieldByName(strings.Title(k)).
-				Set(reflect.ValueOf(cv))
-		}
-	}
-
 	if spec.Type != "offchainreporting" {
 		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
 	}
@@ -435,7 +421,7 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 	} else if err := validateNonBootstrapSpec(tree, spec); err != nil {
 		return spec, err
 	}
-	if err := validateTimingParameters(spec); err != nil {
+	if err := validateTimingParameters(config, spec); err != nil {
 		return spec, err
 	}
 	if err := validateMonitoringURL(spec); err != nil {
@@ -459,8 +445,7 @@ var (
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"observationSource": {},
-		//"observationTimeout": {},
+		"observationSource":  {},
 		"keyBundleID":        {},
 		"transmitterAddress": {},
 	}
@@ -474,24 +459,16 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(spec offchainreporting.OracleSpec) error {
-	// TODO: expose these various constants from libocr so they are defined in one place.
-	if !spec.ObservationTimeout.IsZero() && (time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second) {
-		return errors.Errorf("require 1ms <= observation timeout <= 20s")
-	}
-	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
-		return errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
-		return errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
-	}
-	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
-		return errors.Errorf("require 2 <= contract config confirmations <= 10 ")
-	}
-	return nil
+func validateTimingParameters(config *orm.Config, spec offchainreporting.OracleSpec) error {
+	return libocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
+		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
+		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
+		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
+		ContractConfigTrackerSubscribeInterval: config.OCRContractSubscribeInterval(time.Duration(spec.ContractConfigTrackerSubscribeInterval)),
+		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
+	})
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {

@@ -195,23 +195,28 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		monitoringEndpoint = ocrtypes.MonitoringEndpoint(nil)
 	}
 
+	lc := ocrtypes.LocalConfig{
+		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
+		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
+		ContractConfigTrackerPollInterval:      d.config.OCRContractPollInterval(time.Duration(concreteSpec.ContractConfigTrackerPollInterval)),
+		ContractConfigTrackerSubscribeInterval: d.config.OCRContractSubscribeInterval(time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval)),
+		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
+	}
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return nil, err
+	}
+
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peer,
 			Bootstrappers:         concreteSpec.P2PBootstrapPeers,
 			ContractConfigTracker: ocrContract,
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
-			LocalConfig: ocrtypes.LocalConfig{
-				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
-				ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
-				ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
-				ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
-				ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
-				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
-				DataSourceTimeout:                      time.Duration(concreteSpec.ObservationTimeout),
-			},
-			Logger:             ocrLogger,
-			MonitoringEndpoint: monitoringEndpoint,
+			LocalConfig:           lc,
+			Logger:                ocrLogger,
+			MonitoringEndpoint:    monitoringEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
@@ -229,26 +234,14 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		if err != nil {
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
-		observationTimeout, err := d.ObservationTimeout(concreteSpec)
-		if err != nil {
-			return nil, err
-		}
 
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), d.config.EthGasLimitDefault()))
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			LocalConfig: ocrtypes.LocalConfig{
-				BlockchainTimeout:                      time.Duration(concreteSpec.BlockchainTimeout),
-				ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
-				ContractConfigTrackerPollInterval:      time.Duration(concreteSpec.ContractConfigTrackerPollInterval),
-				ContractConfigTrackerSubscribeInterval: time.Duration(concreteSpec.ContractConfigTrackerSubscribeInterval),
-				ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
-				DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
-				DataSourceTimeout:                      time.Duration(observationTimeout),
-			},
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
 			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
@@ -264,17 +257,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	}
 
 	return services, nil
-}
-
-func (d jobSpawnerDelegate) ObservationTimeout(spec *OracleSpec) (models.Interval, error) {
-	if !spec.ObservationTimeout.IsZero() {
-		return spec.ObservationTimeout, nil
-	}
-	if d.config.OCRObservationTimeout() != time.Duration(0) {
-		return models.Interval(d.config.OCRObservationTimeout()), nil
-	}
-	// Should never happen
-	return models.Interval(0), errors.Errorf("observation timeout not set")
 }
 
 // dataSource is an abstraction over the process of initiating a pipeline run
