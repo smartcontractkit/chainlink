@@ -30,8 +30,8 @@ import "./VRFRequestIDBase.sol";
  * *****************************************************************************
  * @dev USAGE
  *
- * @dev Calling contracts must inherit from VRFConsumerInterface, and can
- * @dev initialize VRFConsumerInterface's attributes in their constructor as
+ * @dev Calling contracts must inherit from VRFConsumerBase, and can
+ * @dev initialize VRFConsumerBase's attributes in their constructor as
  * @dev shown:
  *
  * @dev   contract VRFConsumer {
@@ -57,7 +57,8 @@ import "./VRFRequestIDBase.sol";
  * @dev makeRequestId(keyHash, seed). If your contract could have concurrent
  * @dev requests open, you can use the requestId to track which seed is
  * @dev associated with which randomness. See VRFRequestIDBase.sol for more
- * @dev details.
+ * @dev details. (See "SECURITY CONSIDERATIONS" for principles to keep in mind,
+ * @dev if your contract could have multiple requests in flight simultaneously.)
  *
  * @dev Colliding `requestId`s are cryptographically impossible as long as seeds
  * @dev differ. (Which is critical to making unpredictable randomness! See the
@@ -66,19 +67,38 @@ import "./VRFRequestIDBase.sol";
  * *****************************************************************************
  * @dev SECURITY CONSIDERATIONS
  *
+ * @dev A method with the ability to call your fulfillRandomness method directly
+ * @dev could spoof a VRF response with any random value, so it's critical that
+ * @dev it cannot be directly called by anything other than this base contract
+ * @dev (specifically, by the VRFConsumerBase.rawFulfillRandomness method).
+ *
+ * @dev For your users to trust that your contract's random behavior is free
+ * @dev from malicious interference, it's best if you can write it so that all
+ * @dev behaviors implied by a VRF response are executed *during* your
+ * @dev fulfillRandomness method. If your contract must store the response (or
+ * @dev anything derived from it) and use it later, you must ensure that any
+ * @dev user-significant behavior which depends on that stored value cannot be
+ * @dev manipulated by a subsequent VRF request.
+ *
+ * @dev Similarly, both miners and the VRF oracle itself have some influence
+ * @dev over the order in which VRF responses appear on the blockchain, so if
+ * @dev your contract could have multiple VRF requests in flight simultaneously,
+ * @dev you must ensure that the order in which the VRF responses arrive cannot
+ * @dev be used to manipulate your contract's user-significant behavior.
+ *
  * @dev Since the ultimate input to the VRF is mixed with the block hash of the
  * @dev block in which the request is made, user-provided seeds have no impact
  * @dev on its economic security properties. They are only included for API
  * @dev compatability with previous versions of this contract.
  *
- * @dev Since the block hash of the block which contains the requestRandomness()
+ * @dev Since the block hash of the block which contains the requestRandomness
  * @dev call is mixed into the input to the VRF *last*, a sufficiently powerful
  * @dev miner could, in principle, fork the blockchain to evict the block
  * @dev containing the request, forcing the request to be included in a
  * @dev different block with a different hash, and therefore a different input
  * @dev to the VRF. However, such an attack would incur a substantial economic
  * @dev cost. This cost scales with the number of blocks the VRF oracle waits
- * @dev until it calls fulfillRandomness().
+ * @dev until it calls responds to a request.
  */
 abstract contract VRFConsumerBase is VRFRequestIDBase {
 
@@ -86,11 +106,13 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
 
   /**
    * @notice fulfillRandomness handles the VRF response. Your contract must
-   * @notice implement it.
+   * @notice implement it. See "SECURITY CONSIDERATIONS" above for important
+   * @notice principles to keep in mind when implementing your fulfillRandomness
+   * @notice method.
    *
-   * @dev The VRFCoordinator expects a calling contract to have a method with
-   * @dev this signature, and will trigger it once it has verified the proof
-   * @dev associated with the randomness (It is triggered via a call to
+   * @dev VRFConsumerBase expects its subcontracts to have a method with this
+   * @dev signature, and will call it once it has verified the proof
+   * @dev associated with the randomness. (It is triggered via a call to
    * @dev rawFulfillRandomness, below.)
    *
    * @param requestId The Id initially returned by requestRandomness
@@ -102,8 +124,6 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   /**
    * @notice requestRandomness initiates a request for VRF output given _seed
    *
-   * @dev See "SECURITY CONSIDERATIONS" above for more information on _seed.
-   *
    * @dev The fulfillRandomness method receives the output, once it's provided
    * @dev by the Oracle, and verified by the vrfCoordinator.
    *
@@ -111,13 +131,19 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @dev the _fee must exceed the fee specified during registration of the
    * @dev _keyHash.
    *
+   * @dev The _seed parameter is vestigial, and is kept only for API
+   * @dev compatibility with older versions. It can't *hurt* to mix in some of
+   * @dev your own randomness, here, but it's not necessary because the VRF
+   * @dev oracle will mix the hash of the block containing your request into the
+   * @dev VRF seed it ultimately uses.
+   *
    * @param _keyHash ID of public key against which randomness is generated
    * @param _fee The amount of LINK to send with the request
-   * @param _seed seed mixed into the input of the VRF
+   * @param _seed seed mixed into the input of the VRF.
    *
    * @return requestId unique ID for this request
    *
-   * @dev The returned requestId can be used to distinguish responses to *
+   * @dev The returned requestId can be used to distinguish responses to
    * @dev concurrent requests. It is passed as the first argument to
    * @dev fulfillRandomness.
    */
@@ -132,8 +158,9 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
-    // This provides protection against the user repeating their input
-    // seed, which would result in a predictable/duplicate output.
+    // This provides protection against the user repeating their input seed,
+    // which would result in a predictable/duplicate output, if multiple such
+    // requests appeared in the same block.
     nonces[_keyHash] = nonces[_keyHash].add(1);
     return makeRequestId(_keyHash, vRFSeed);
   }
@@ -145,6 +172,13 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   //
   // Must stay in sync with VRFCoordinator[_keyHash][this]
   mapping(bytes32 /* keyHash */ => uint256 /* nonce */) public nonces;
+
+  /**
+   * @param _vrfCoordinator address of VRFCoordinator contract
+   * @param _link address of LINK token contract
+   *
+   * @dev https://docs.chain.link/docs/link-token-contracts
+   */
   constructor(address _vrfCoordinator, address _link) public {
     vrfCoordinator = _vrfCoordinator;
     LINK = LinkTokenInterface(_link);
