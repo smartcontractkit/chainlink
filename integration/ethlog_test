@@ -6,7 +6,7 @@ title 'Ethlog test.'
 
 ethlog_test() {
     expected_echo_count=$(expr $(curl -sS $ECHO_SERVER_URL) + 1)
-    expected_job_count=$(expr $(chainlink -j jobs list | jq length) + 1)
+    expected_job_count=$(expr $(chainlink -j job_specs list | jq length) + 1)
     local log=$LOG_PATH/send_ethlog_transaction.log
 
     yarn workspace @chainlink/integration-scripts send-ethlog-transaction | tee $log
@@ -17,7 +17,7 @@ ethlog_test() {
     assert "Echo count" "curl -sS $ECHO_SERVER_URL" $expected_echo_count
 
     # Check job counts
-    assert "Jobs count" "chainlink -j jobs list | jq length" $expected_job_count
+    assert "Jobs count" "chainlink -j job_specs list | jq length" $expected_job_count
 
     # Check job runs
     assert "EthLog Runs count" "chainlink -j runs list --jobid $jid | jq length" 1

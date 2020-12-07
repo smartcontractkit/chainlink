@@ -9,12 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`
+- OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`.
+- Adds "Account addresses" table to the `/keys` page.
+
+### Changed
+
+- Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
 
 ### Fixed
 
-- Bring `/runs` tab back to the operator UI
-- Sign out a user from operator UI on authentication error
+- Brings `/runs` tab back to the operator UI.
+- Signs out a user from operator UI on authentication error.
+
+### Changes
+
+- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
+
+#### BREAKING CHANGES
+
+- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accomodate additional types of jobs using the new pipeline.
+
+#### V1 jobs
+
+`jobs archive` => `job_specs archive`
+`jobs create` => `job_specs create`
+`jobs list` => `job_specs list`
+`jobs show` => `job_specs show`
+
+#### V2 jobs (currently only applies to OCR)
+
+`jobs createocr` => `jobs create`
+`jobs deletev2` => `jobs delete`
+`jobs run` => `jobs run`
 
 ## [0.9.6] - 2020-11-23
 
@@ -25,6 +51,34 @@ ds1          [type=http method=GET url="http://example.com" allowunrestrictednet
 ds1_parse    [type=jsonparse path="USD" lax="true"];
 ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
+```
+
+- New prometheus metrics as follows:
+
+```
+Name: "pipeline_run_errors",
+Help: "Number of errors for each pipeline spec",
+
+Name: "pipeline_run_total_time_to_completion",
+Help: "How long each pipeline run took to finish (from the moment it was created)",
+
+Name: "pipeline_tasks_total_finished",
+Help: "The total number of pipline tasks which have finished",
+
+Name: "pipeline_task_execution_time",
+Help: "How long each pipeline task took to execute",
+
+Name: "pipeline_task_http_fetch_time",
+Help: "Time taken to fully execute the HTTP request",
+
+Name: "pipeline_task_http_response_body_size",
+Help: "Size (in bytes) of the HTTP response body",
+
+Name: "pipeline_runs_queued",
+Help: "The total number of pipline runs that are awaiting execution",
+
+Name: "pipeline_task_runs_queued",
+Help: "The total number of pipline task runs that are awaiting execution",
 ```
 
 ### Changed

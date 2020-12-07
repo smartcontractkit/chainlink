@@ -133,6 +133,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if config.Dev() || config.FeatureOffchainReporting() {
 		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
 	}
+	services.RegisterEthRequestEventDelegate(jobSpawner)
 
 	store.NotifyNewEthTx = ethBroadcaster
 

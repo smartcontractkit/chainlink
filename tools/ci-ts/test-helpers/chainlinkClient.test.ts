@@ -65,7 +65,7 @@ describe('ChainlinkClient', () => {
       expect(execa.sync).toHaveBeenCalledTimes(1)
       expect(execa.sync).toHaveBeenCalledWith(
         'chainlink',
-        ['-j', 'jobs', 'list'],
+        ['-j', 'job_specs', 'list'],
         ENV,
       )
     })
@@ -90,7 +90,7 @@ describe('ChainlinkClient', () => {
       expect(execa.sync).toHaveBeenCalledTimes(1)
       expect(execa.sync).toHaveBeenCalledWith(
         'chainlink',
-        ['-j', 'jobs', 'create', jobString],
+        ['-j', 'job_specs', 'create', jobString],
         ENV,
       )
     })
@@ -103,7 +103,7 @@ describe('ChainlinkClient', () => {
       expect(execa.sync).toHaveBeenCalledTimes(1)
       expect(execa.sync).toHaveBeenCalledWith(
         'chainlink',
-        ['-j', 'jobs', 'archive', jobID],
+        ['-j', 'job_specs', 'archive', jobID],
         ENV,
       )
     })

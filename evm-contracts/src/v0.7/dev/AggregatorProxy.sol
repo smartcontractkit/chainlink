@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.7.0;
 
 import "./ConfirmedOwner.sol";
-import "../interfaces/AggregatorV2V3Interface.sol";
+import "../interfaces/AggregatorProxyInterface.sol";
 
 /**
  * @title A trusted proxy for updating where current answers are read from
@@ -9,14 +10,14 @@ import "../interfaces/AggregatorV2V3Interface.sol";
  * CurrentAnwerInterface but delegates where it reads from to the owner, who is
  * trusted to update it.
  */
-contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
+contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
 
   struct Phase {
     uint16 id;
-    AggregatorV2V3Interface aggregator;
+    AggregatorProxyInterface aggregator;
   }
-  AggregatorV2V3Interface private s_proposedAggregator;
-  mapping(uint16 => AggregatorV2V3Interface) private s_phaseAggregators;
+  AggregatorProxyInterface private s_proposedAggregator;
+  mapping(uint16 => AggregatorProxyInterface) private s_phaseAggregators;
   Phase private s_currentPhase;
   
   uint256 constant private PHASE_OFFSET = 64;
@@ -85,7 +86,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
     if (roundId > MAX_ID) return 0;
 
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
-    AggregatorV2V3Interface aggregator = s_phaseAggregators[phaseId];
+    AggregatorProxyInterface aggregator = s_phaseAggregators[phaseId];
     if (address(aggregator) == address(0)) return 0;
 
     return aggregator.getAnswer(aggregatorRoundId);
@@ -110,7 +111,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
     if (roundId > MAX_ID) return 0;
 
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
-    AggregatorV2V3Interface aggregator = s_phaseAggregators[phaseId];
+    AggregatorProxyInterface aggregator = s_phaseAggregators[phaseId];
     if (address(aggregator) == address(0)) return 0;
 
     return aggregator.getTimestamp(aggregatorRoundId);
@@ -249,9 +250,10 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
    * was computed.
   */
   function proposedGetRoundData(uint80 roundId)
-    public
+    external
     view
     virtual
+    override
     hasProposal()
     returns (
       uint80 id,
@@ -276,9 +278,10 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
    * was computed.
   */
   function proposedLatestRoundData()
-    public
+    external
     view
     virtual
+    override
     hasProposal()
     returns (
       uint80 id,
@@ -297,6 +300,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
   function aggregator()
     external
     view
+    override
     returns (address)
   {
     return address(s_currentPhase.aggregator);
@@ -308,6 +312,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
   function phaseId()
     external
     view
+    override
     returns (uint16)
   {
     return s_currentPhase.id;
@@ -356,6 +361,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
   function proposedAggregator()
     external
     view
+    override
     returns (address)
   {
     return address(s_proposedAggregator);
@@ -369,6 +375,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
   function phaseAggregators(uint16 phaseId)
     external
     view
+    override
     returns (address)
   {
     return address(s_phaseAggregators[phaseId]);
@@ -382,7 +389,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
     external
     onlyOwner()
   {
-    s_proposedAggregator = AggregatorV2V3Interface(aggregatorAddress);
+    s_proposedAggregator = AggregatorProxyInterface(aggregatorAddress);
     emit AggregatorProposed(address(s_currentPhase.aggregator), aggregatorAddress);
   }
 
@@ -413,8 +420,8 @@ contract AggregatorProxy is AggregatorV2V3Interface, ConfirmedOwner {
     internal
   {
     uint16 id = s_currentPhase.id + 1;
-    s_currentPhase = Phase(id, AggregatorV2V3Interface(aggregatorAddress));
-    s_phaseAggregators[id] = AggregatorV2V3Interface(aggregatorAddress);
+    s_currentPhase = Phase(id, AggregatorProxyInterface(aggregatorAddress));
+    s_phaseAggregators[id] = AggregatorProxyInterface(aggregatorAddress);
   }
 
   function addPhase(

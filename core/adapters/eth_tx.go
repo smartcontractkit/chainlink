@@ -122,11 +122,12 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
+
 	if e.ABIEncoding != nil {
 		// ABI encoding includes the data prefix if set.
-		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), txData)
+		encodedPayload = append(e.FunctionSelector.Bytes(), txData...)
 	} else {
-		encodedPayload = utils.ConcatBytes(e.FunctionSelector.Bytes(), e.DataPrefix, txData)
+		encodedPayload = append(append(e.FunctionSelector.Bytes(), e.DataPrefix...), txData...)
 	}
 
 	var gasLimit uint64
@@ -319,9 +320,9 @@ func getTxData(e *EthTx, input models.RunInput) ([]byte, error) {
 			// If we have a data prefix (reqID), encoding is:
 			// [4byte fs][0x00..40][reqID][arg1]
 			payloadOffset = utils.EVMWordUint64(utils.EVMWordByteLen * 2)
-			return utils.ConcatBytes(payloadOffset, output), nil
+			return append(payloadOffset, output...), nil
 		}
-		return utils.ConcatBytes(payloadOffset, output), nil
+		return append(payloadOffset, output...), nil
 	}
-	return utils.ConcatBytes(output), nil
+	return output, nil
 }
