@@ -154,7 +154,7 @@ func bindVRFTestHelper(address common.Address, caller bind.ContractCaller, trans
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFTestHelper *VRFTestHelperRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFTestHelper *VRFTestHelperRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFTestHelper.Contract.VRFTestHelperCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_VRFTestHelper *VRFTestHelperRaw) Transact(opts *bind.TransactOpts, method
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFTestHelper *VRFTestHelperCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFTestHelper *VRFTestHelperCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFTestHelper.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_VRFTestHelper *VRFTestHelperTransactorRaw) Transact(opts *bind.TransactOp
 //
 // Solidity: function PROOF_LENGTH() view returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) PROOFLENGTH(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "PROOF_LENGTH")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "PROOF_LENGTH")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // PROOFLENGTH is a free data retrieval call binding the contract method 0xe911439c.
@@ -218,12 +223,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) PROOFLENGTH() (*big.Int, error
 //
 // Solidity: function affineECAdd_(uint256[2] p1, uint256[2] p2, uint256 invZ) pure returns(uint256[2])
 func (_VRFTestHelper *VRFTestHelperCaller) AffineECAdd(opts *bind.CallOpts, p1 [2]*big.Int, p2 [2]*big.Int, invZ *big.Int) ([2]*big.Int, error) {
-	var (
-		ret0 = new([2]*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "affineECAdd_", p1, p2, invZ)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "affineECAdd_", p1, p2, invZ)
+
+	if err != nil {
+		return *new([2]*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([2]*big.Int)).(*[2]*big.Int)
+
+	return out0, err
+
 }
 
 // AffineECAdd is a free data retrieval call binding the contract method 0x244f896d.
@@ -244,12 +254,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) AffineECAdd(p1 [2]*big.Int, p2
 //
 // Solidity: function bigModExp_(uint256 base, uint256 exponent) view returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) BigModExp(opts *bind.CallOpts, base *big.Int, exponent *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "bigModExp_", base, exponent)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "bigModExp_", base, exponent)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // BigModExp is a free data retrieval call binding the contract method 0x5de60042.
@@ -270,12 +285,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) BigModExp(base *big.Int, expon
 //
 // Solidity: function ecmulVerify_(uint256[2] x, uint256 scalar, uint256[2] q) pure returns(bool)
 func (_VRFTestHelper *VRFTestHelperCaller) EcmulVerify(opts *bind.CallOpts, x [2]*big.Int, scalar *big.Int, q [2]*big.Int) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "ecmulVerify_", x, scalar, q)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "ecmulVerify_", x, scalar, q)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // EcmulVerify is a free data retrieval call binding the contract method 0xaa7b2fbb.
@@ -296,12 +316,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) EcmulVerify(x [2]*big.Int, sca
 //
 // Solidity: function fieldHash_(bytes b) pure returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) FieldHash(opts *bind.CallOpts, b []byte) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "fieldHash_", b)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "fieldHash_", b)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // FieldHash is a free data retrieval call binding the contract method 0xb481e260.
@@ -322,12 +347,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) FieldHash(b []byte) (*big.Int,
 //
 // Solidity: function hashToCurve_(uint256[2] pk, uint256 x) view returns(uint256[2])
 func (_VRFTestHelper *VRFTestHelperCaller) HashToCurve(opts *bind.CallOpts, pk [2]*big.Int, x *big.Int) ([2]*big.Int, error) {
-	var (
-		ret0 = new([2]*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "hashToCurve_", pk, x)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "hashToCurve_", pk, x)
+
+	if err != nil {
+		return *new([2]*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([2]*big.Int)).(*[2]*big.Int)
+
+	return out0, err
+
 }
 
 // HashToCurve is a free data retrieval call binding the contract method 0x35452450.
@@ -348,12 +378,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) HashToCurve(pk [2]*big.Int, x 
 //
 // Solidity: function linearCombination_(uint256 c, uint256[2] p1, uint256[2] cp1Witness, uint256 s, uint256[2] p2, uint256[2] sp2Witness, uint256 zInv) pure returns(uint256[2])
 func (_VRFTestHelper *VRFTestHelperCaller) LinearCombination(opts *bind.CallOpts, c *big.Int, p1 [2]*big.Int, cp1Witness [2]*big.Int, s *big.Int, p2 [2]*big.Int, sp2Witness [2]*big.Int, zInv *big.Int) ([2]*big.Int, error) {
-	var (
-		ret0 = new([2]*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "linearCombination_", c, p1, cp1Witness, s, p2, sp2Witness, zInv)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "linearCombination_", c, p1, cp1Witness, s, p2, sp2Witness, zInv)
+
+	if err != nil {
+		return *new([2]*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([2]*big.Int)).(*[2]*big.Int)
+
+	return out0, err
+
 }
 
 // LinearCombination is a free data retrieval call binding the contract method 0xfe54f2a2.
@@ -374,18 +409,19 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) LinearCombination(c *big.Int, 
 //
 // Solidity: function projectiveECAdd_(uint256 px, uint256 py, uint256 qx, uint256 qy) pure returns(uint256, uint256, uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) ProjectiveECAdd(opts *bind.CallOpts, px *big.Int, py *big.Int, qx *big.Int, qy *big.Int) (*big.Int, *big.Int, *big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-		ret1 = new(*big.Int)
-		ret2 = new(*big.Int)
-	)
-	out := &[]interface{}{
-		ret0,
-		ret1,
-		ret2,
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "projectiveECAdd_", px, py, qx, qy)
+
+	if err != nil {
+		return *new(*big.Int), *new(*big.Int), *new(*big.Int), err
 	}
-	err := _VRFTestHelper.contract.Call(opts, out, "projectiveECAdd_", px, py, qx, qy)
-	return *ret0, *ret1, *ret2, err
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out1 := *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	out2 := *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+
+	return out0, out1, out2, err
+
 }
 
 // ProjectiveECAdd is a free data retrieval call binding the contract method 0x95e6ee92.
@@ -406,12 +442,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) ProjectiveECAdd(px *big.Int, p
 //
 // Solidity: function randomValueFromVRFProof_(bytes proof) view returns(uint256 output)
 func (_VRFTestHelper *VRFTestHelperCaller) RandomValueFromVRFProof(opts *bind.CallOpts, proof []byte) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "randomValueFromVRFProof_", proof)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "randomValueFromVRFProof_", proof)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // RandomValueFromVRFProof is a free data retrieval call binding the contract method 0xcefda0c5.
@@ -432,12 +473,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) RandomValueFromVRFProof(proof 
 //
 // Solidity: function scalarFromCurvePoints_(uint256[2] hash, uint256[2] pk, uint256[2] gamma, address uWitness, uint256[2] v) pure returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) ScalarFromCurvePoints(opts *bind.CallOpts, hash [2]*big.Int, pk [2]*big.Int, gamma [2]*big.Int, uWitness common.Address, v [2]*big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "scalarFromCurvePoints_", hash, pk, gamma, uWitness, v)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "scalarFromCurvePoints_", hash, pk, gamma, uWitness, v)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // ScalarFromCurvePoints is a free data retrieval call binding the contract method 0x7f8f50a8.
@@ -458,12 +504,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) ScalarFromCurvePoints(hash [2]
 //
 // Solidity: function squareRoot_(uint256 x) view returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) SquareRoot(opts *bind.CallOpts, x *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "squareRoot_", x)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "squareRoot_", x)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // SquareRoot is a free data retrieval call binding the contract method 0x8af046ea.
@@ -484,12 +535,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) SquareRoot(x *big.Int) (*big.I
 //
 // Solidity: function verifyLinearCombinationWithGenerator_(uint256 c, uint256[2] p, uint256 s, address lcWitness) pure returns(bool)
 func (_VRFTestHelper *VRFTestHelperCaller) VerifyLinearCombinationWithGenerator(opts *bind.CallOpts, c *big.Int, p [2]*big.Int, s *big.Int, lcWitness common.Address) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "verifyLinearCombinationWithGenerator_", c, p, s, lcWitness)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "verifyLinearCombinationWithGenerator_", c, p, s, lcWitness)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // VerifyLinearCombinationWithGenerator is a free data retrieval call binding the contract method 0x91d5f691.
@@ -510,10 +566,15 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) VerifyLinearCombinationWithGen
 //
 // Solidity: function verifyVRFProof_(uint256[2] pk, uint256[2] gamma, uint256 c, uint256 s, uint256 seed, address uWitness, uint256[2] cGammaWitness, uint256[2] sHashWitness, uint256 zInv) view returns()
 func (_VRFTestHelper *VRFTestHelperCaller) VerifyVRFProof(opts *bind.CallOpts, pk [2]*big.Int, gamma [2]*big.Int, c *big.Int, s *big.Int, seed *big.Int, uWitness common.Address, cGammaWitness [2]*big.Int, sHashWitness [2]*big.Int, zInv *big.Int) error {
-	var ()
-	out := &[]interface{}{}
-	err := _VRFTestHelper.contract.Call(opts, out, "verifyVRFProof_", pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv)
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "verifyVRFProof_", pk, gamma, c, s, seed, uWitness, cGammaWitness, sHashWitness, zInv)
+
+	if err != nil {
+		return err
+	}
+
 	return err
+
 }
 
 // VerifyVRFProof is a free data retrieval call binding the contract method 0xef3b10ec.
@@ -534,12 +595,17 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) VerifyVRFProof(pk [2]*big.Int,
 //
 // Solidity: function ySquared_(uint256 x) pure returns(uint256)
 func (_VRFTestHelper *VRFTestHelperCaller) YSquared(opts *bind.CallOpts, x *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestHelper.contract.Call(opts, out, "ySquared_", x)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestHelper.contract.Call(opts, &out, "ySquared_", x)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // YSquared is a free data retrieval call binding the contract method 0x9d6f0337.
