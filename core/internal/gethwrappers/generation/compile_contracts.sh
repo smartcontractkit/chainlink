@@ -3,7 +3,8 @@
 echo "compiling contracts"
 
 CDIR=$(dirname "$0")
-COMPILE_COMMAND=$(<"$CDIR/compile_command.txt")
+#COMPILE_COMMAND=$(<"$CDIR/compile_command.txt")
+COMPILE_COMMAND=$(yarn workspace @chainlink/contracts belt compile solc)
 
 # Only print compilation output on failure.
 OUT="$(bash -c $COMPILE_COMMAND 2>&1)"

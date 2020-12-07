@@ -43,7 +43,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 		return errors.Wrap(err, "unable to call client")
 	}
 
-	err = contract.ABI().Unpack(result, methodName, rawResult)
+	result, err = contract.ABI().Unpack(methodName, rawResult)
 	return errors.Wrap(err, "unable to unpack values")
 }
 

@@ -17,7 +17,8 @@ import (
 // https://github.com/ethereum/go-ethereum/blob/v1.9.11/accounts/abi/bind/base.go#L328
 func gethUnpackLog(codec *contractCodec, out interface{}, event string, log types.Log) error {
 	if len(log.Data) > 0 {
-		if err := codec.abi.Unpack(out, event, log.Data); err != nil {
+		var err error
+		if out, err = codec.abi.Unpack(event, log.Data); err != nil {
 			return err
 		}
 	}
