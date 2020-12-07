@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/multiformats/go-multiaddr"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -38,6 +40,11 @@ import (
 
 // this permission grants read / write accccess to file owners only
 const readWritePerms = os.FileMode(0600)
+
+var (
+	ErrUnset   = errors.New("env var unset")
+	ErrInvalid = errors.New("env var invalid")
+)
 
 // Config holds parameters used by the application which can be overridden by
 // setting environment variables.
@@ -129,7 +136,22 @@ func (c *Config) Validate() error {
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
 	}
-	// TODO: Sanity check peerID, bootstrapPeers, monitoring endpoint and transmitter address
+	if _, err := c.P2PPeerID(""); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRKeyBundleID(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRTransmitterAddress(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if peers, err := c.P2PBootstrapPeers(nil); err == nil {
+		for i := range peers {
+			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
+				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -599,11 +621,11 @@ func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP
 	if taStr != "" {
 		ta, err := models.NewEIP55Address(taStr)
 		if err != nil {
-			return "", errors.Wrap(err, "OCR_TRANSMITTER_ADDRESS is invalid EIP55")
+			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
 		}
 		return ta, nil
 	}
-	return "", errors.New("OCR_TRANSMITTER_ADDRESS is unset")
+	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
 }
 
 func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
@@ -614,11 +636,11 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 	if kbStr != "" {
 		kb, err := models.Sha256HashFromHex(kbStr)
 		if err != nil {
-			return models.Sha256Hash{}, errors.Wrap(err, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string")
+			return models.Sha256Hash{}, errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
 		}
 		return kb, nil
 	}
-	return models.Sha256Hash{}, errors.New("OCR_KEY_BUNDLE_ID is unset")
+	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
 }
 
 // OperatorContractAddress represents the address where the Operator.sol
@@ -716,11 +738,11 @@ func (c Config) P2PPeerID(override models.PeerID) (models.PeerID, error) {
 	if pidStr != "" {
 		pid, err := peer.Decode(pidStr)
 		if err != nil {
-			return "", errors.Wrap(err, "P2P_PEER_ID is invalid")
+			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
 		}
 		return models.PeerID(pid), nil
 	}
-	return "", errors.New("P2P_PEER_ID is unset")
+	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
 }
 
 func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
@@ -731,7 +753,7 @@ func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	if bps != nil {
 		return bps, nil
 	}
-	return nil, errors.New("P2P_BOOTSTRAP_PEERS is unset")
+	return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
 }
 
 // Port represents the port Chainlink should listen on for client requests.

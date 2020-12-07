@@ -563,9 +563,6 @@ answer1      [type=median index=0];
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)
-				//assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: keyBundleID")
-				//assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: transmitterAddress")
-				//assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationTimeout")
 				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationSource")
 			},
 		},

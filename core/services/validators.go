@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/tidwall/gjson"
 )
 
@@ -444,16 +444,12 @@ var (
 		"schemaVersion":   {},
 		"contractAddress": {},
 		"isBootstrapPeer": {},
-		//"p2pPeerID":         {},
-		//"p2pBootstrapPeers": {},
 	}
 	// Boostrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
 		"observationSource": {},
-		//"keyBundleID":        {},
-		//"transmitterAddress": {},
 	}
 )
 
@@ -466,7 +462,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(config *orm.Config, spec offchainreporting.OracleSpec) error {
-	return libocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
+	return ocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
 		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
