@@ -1143,7 +1143,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	require.NoError(t, err)
 	copy(specID[:], by[:])
 	t.Log("spec ID", specID, "spec", spec)
-	consumerAddress, _, consumer, err := multiwordconsumer.DeployMultiwordConsumer(user, b, linkTokenAddress, operatorAddress, specID)
+	consumerAddress, _, consumer, err := multiwordconsumer.DeployMultiWordConsumer(user, b, linkTokenAddress, operatorAddress, specID)
 	t.Log(operatorAddress.String(), consumerAddress.String())
 	require.NoError(t, err)
 	b.Commit()
