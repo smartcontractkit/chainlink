@@ -1105,7 +1105,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10)
 	genesisData := core.GenesisAlloc{
-		user.From:  {Balance: sb}, // 1 eth
+		user.From: {Balance: sb}, // 1 eth
 	}
 	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
@@ -1199,7 +1199,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	//_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingOutgoingConfirmations)
 
 	app.EthBroadcaster.Trigger()
-	tick := time.NewTicker(100*time.Millisecond)
+	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	go func() {
 		for {
