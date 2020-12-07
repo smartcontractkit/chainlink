@@ -1,14 +1,16 @@
 package web_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 )
 
@@ -62,44 +64,26 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	t.Parallel()
 
 	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
+	ethClient := new(mocks.Client)
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 	defer cleanup()
 
-	ethMock := app.EthMock
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethBalance := assets.NewEth(100)
+	ethClient.On("GetEthBalance", mock.Anything, mock.Anything, mock.Anything).Return(ethBalance, nil)
+	linkBalance := assets.NewLink(42)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
+
 	client := app.NewHTTPClient()
 
-	assert.NoError(t, app.StartAndConnect())
-
-	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, app.StartAndConnect())
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, 201)
 
-	ethMock.AllCalled()
-}
-
-func TestETHKeysController_Create_JSONBindingError(t *testing.T) {
-	t.Parallel()
-
-	config, _ := cltest.NewConfig(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-
-	client := app.NewHTTPClient()
-
-	assert.NoError(t, app.StartAndConnect())
-
-	resp, cleanup := client.Post("/v2/keys/eth", nil)
-	defer cleanup()
-
-	cltest.AssertServerResponse(t, resp, 422)
+	ethClient.AssertExpectations(t)
 }

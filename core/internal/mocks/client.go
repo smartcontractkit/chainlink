@@ -260,6 +260,29 @@ func (_m *Client) GetERC20Balance(address common.Address, contractAddress common
 	return r0, r1
 }
 
+// GetEthBalance provides a mock function with given fields: ctx, account, blockNumber
+func (_m *Client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	ret := _m.Called(ctx, account, blockNumber)
+
+	var r0 *assets.Eth
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) *assets.Eth); ok {
+		r0 = rf(ctx, account, blockNumber)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Eth)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, account, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetLINKBalance provides a mock function with given fields: linkAddress, address
 func (_m *Client) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
 	ret := _m.Called(linkAddress, address)

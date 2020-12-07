@@ -202,13 +202,13 @@ func (_m *KeyStoreInterface) SignTx(account accounts.Account, tx *types.Transact
 	return r0, r1
 }
 
-// Unlock provides a mock function with given fields: password
-func (_m *KeyStoreInterface) Unlock(password string) error {
-	ret := _m.Called(password)
+// Unlock provides a mock function with given fields: phrase
+func (_m *KeyStoreInterface) Unlock(phrase string) error {
+	ret := _m.Called(phrase)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(password)
+		r0 = rf(phrase)
 	} else {
 		r0 = ret.Error(0)
 	}

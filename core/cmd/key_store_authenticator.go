@@ -25,8 +25,8 @@ type TerminalKeyStoreAuthenticator struct {
 
 // Authenticate checks to see if there are accounts present in
 // the KeyStore, and if there are none, a new account will be created
-// by prompting for a password. If there are accounts present, the
-// account which is unlocked by the given password will be used.
+// by prompting for a password. If there are accounts present, all accounts
+// will be unlocked.
 func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, password string) (string, error) {
 	passwordProvided := len(password) != 0
 	interactive := auth.Prompter.IsTerminal()
@@ -64,7 +64,11 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 			fmt.Printf("Passwords don't match. Please try again... ")
 			continue
 		}
-		_, err := store.KeyStore.NewAccount()
+		err := store.KeyStore.Unlock(password)
+		if err != nil {
+			return password, errors.Wrap(err, "unexpectedly failed to unlock KeyStore")
+		}
+		_, err = store.KeyStore.NewAccount()
 		return password, errors.Wrapf(err, "while creating ethereum keys")
 	}
 }

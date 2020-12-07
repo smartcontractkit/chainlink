@@ -18,7 +18,9 @@ func TestCreateEthereumAccount(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	_, err := store.KeyStore.NewAccount(correctPassphrase)
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+
+	_, err := store.KeyStore.NewAccount()
 	assert.NoError(t, err)
 
 	files, _ := ioutil.ReadDir(store.Config.KeysDir())
@@ -36,40 +38,6 @@ func TestUnlockKey_SingleAddress(t *testing.T) {
 
 	assert.EqualError(t, store.KeyStore.Unlock("wrong phrase"), fmt.Sprintf("invalid password for account %s; could not decrypt key with given password", cltest.DefaultKey))
 	assert.NoError(t, store.KeyStore.Unlock(cltest.Password))
-}
-
-func TestUnlockKey_MultipleAddresses(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name                 string
-		tryPassphrase        string
-		secondAcctPassphrase string
-		wantErr              bool
-	}{
-		{"correct", cltest.Password, cltest.Password, false},
-		{"first wrong", "wrong", cltest.Password, true},
-		{"second wrong", cltest.Password, "wrong", true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			store, cleanup := cltest.NewStore(t)
-			// Verify the fixture account
-			require.True(t, store.KeyStore.HasAccounts())
-			require.Len(t, store.KeyStore.GetAccounts(), 1)
-			defer cleanup()
-
-			_, err := store.KeyStore.NewAccount(test.secondAcctPassphrase)
-			require.NoError(t, err)
-
-			if test.wantErr {
-				assert.Error(t, store.KeyStore.Unlock(test.tryPassphrase))
-			} else {
-				assert.NoError(t, store.KeyStore.Unlock(test.tryPassphrase))
-			}
-		})
-	}
 }
 
 func TestKeyStore_GetAccountByAddress(t *testing.T) {

@@ -168,6 +168,10 @@ func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, addr
 	panic("not implemented")
 }
 
+func (c *SimulatedBackendClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
+	panic("not implemented")
+}
+
 // SendRawTx sends a signed transaction to the transaction pool.
 func (c *SimulatedBackendClient) SendRawTx(txBytes []byte) (txHash common.Hash, err error) {
 	tx, err := utils.DecodeEthereumTx(hexutil.Encode(txBytes))

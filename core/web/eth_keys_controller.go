@@ -42,7 +42,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 
-		linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, key.Address.Address())
+		linkBalance, err := ekc.getLINKBalance(key.Address.Address())
 		if err != nil {
 			err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 			jsonAPIError(c, http.StatusInternalServerError, err)
@@ -89,18 +89,18 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	ethBalance, err := ekc.App.GetStore().EthClient.BalanceAt(c.Request.Context(), account.Address, nil)
+	ethBalance, err := ekc.App.GetStore().EthClient.GetEthBalance(c.Request.Context(), account.Address, nil)
 	if err != nil {
 		logger.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 	}
-	linkBalance, err := ekc.App.GetStore().TxManager.GetLINKBalance(account.Address)
+	linkBalance, err := ekc.getLINKBalance(account.Address)
 	if err != nil {
 		logger.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 	}
 
 	pek := presenters.ETHKey{
 		Address:     account.Address.Hex(),
-		EthBalance:  (*assets.Eth)(ethBalance),
+		EthBalance:  ethBalance,
 		LinkBalance: linkBalance,
 		NextNonce:   key.NextNonce,
 		LastUsed:    key.LastUsed,
@@ -160,7 +160,7 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	if err != nil {
 		logger.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 	}
-	linkBalance, err := ekc.App.GetStore().TxManager.GetLINKBalance(address)
+	linkBalance, err := ekc.getLINKBalance(address)
 	if err != nil {
 		logger.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 	}
@@ -210,7 +210,7 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	linkBalance, err := store.TxManager.GetLINKBalance(acct.Address)
+	linkBalance, err := ekc.getLINKBalance(acct.Address)
 	if err != nil {
 		err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -250,4 +250,9 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 		return
 	}
 	c.Data(http.StatusOK, MediaType, bytes)
+}
+
+func (ekc *ETHKeysController) getLINKBalance(walletAddress common.Address) (*assets.Link, error) {
+	linkAddress := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
+	return ekc.App.GetStore().EthClient.GetLINKBalance(linkAddress, walletAddress)
 }

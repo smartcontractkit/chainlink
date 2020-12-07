@@ -56,6 +56,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
@@ -384,8 +385,9 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		require.NoError(t, ta.Stop())
-		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
+		// Must not put "require" here because it suppresses panics
+		assert.NoError(t, ta.Stop())
+		assert.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
 }
 
@@ -463,7 +465,7 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	require.NoError(ta.t, ta.ChainlinkApplication.Stop())
+	require.NoError(ta.t, ta.ChainlinkApplication.StopIfStarted())
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -1464,4 +1466,24 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 		t.Fatal(err)
 	}
 	return configDigest
+}
+
+// MockApplicationEthCalls mocks all calls made by the chainlink application as
+// standard when starting and stopping
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
+	t.Helper()
+
+	// Start
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	sub := new(mocks.Subscription)
+	sub.On("Err").Return(nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+
+	// Stop
+	sub.On("Unsubscribe").Return(nil)
+
+	return func() {
+		ethClient.AssertExpectations(t)
+	}
 }
