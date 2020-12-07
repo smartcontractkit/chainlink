@@ -244,7 +244,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
-		ta, err := d.config.OCRTransmitterAddress(*concreteSpec.TransmitterAddress)
+		ta, err := d.config.OCRTransmitterAddress(concreteSpec.TransmitterAddress)
 		if err != nil {
 			return nil, err
 		}

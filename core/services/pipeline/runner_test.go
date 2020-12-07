@@ -304,6 +304,96 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
+	t.Run("missing required env vars", func(t *testing.T) {
+		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		var os = offchainreporting.OracleSpec{
+			Pipeline: *pipeline.NewTaskDAG(),
+		}
+		s := `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		isBootstrapPeer    = false 
+		observationSource = """
+ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
+ds1_parse    [type=jsonparse path="USD" lax=true];
+ds1 -> ds1_parse;
+"""
+`
+		_, err := services.ValidatedOracleSpecToml(config.Config, fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", ""))
+		require.NoError(t, err)
+		err = toml.Unmarshal([]byte(s), &os)
+		require.NoError(t, err)
+		js := models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               os.SchemaVersion,
+		}
+		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
+		require.NoError(t, err)
+		var jb models.JobSpecV2
+		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
+			Find(&jb).Error
+		require.NoError(t, err)
+		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		sd := offchainreporting.NewJobSpawnerDelegate(
+			db,
+			jobORM,
+			config.Config,
+			keyStore,
+			nil,
+			nil,
+			nil)
+		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
+		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
+		require.Error(t, err)
+	})
+
+	t.Run("use env for minimal bootstrap", func(t *testing.T) {
+		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
+		_, ek, err := keyStore.GenerateEncryptedP2PKey()
+		require.NoError(t, err)
+		var os = offchainreporting.OracleSpec{
+			Pipeline: *pipeline.NewTaskDAG(),
+		}
+		s := `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		isBootstrapPeer    = true 
+`
+		config.Set("P2P_PEER_ID", ek.PeerID)
+		s = fmt.Sprintf(s, cltest.NewEIP55Address())
+		_, err = services.ValidatedOracleSpecToml(config.Config, s)
+		require.NoError(t, err)
+		err = toml.Unmarshal([]byte(s), &os)
+		require.NoError(t, err)
+		js := models.JobSpecV2{
+			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
+			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
+			Type:                        string(offchainreporting.JobType),
+			SchemaVersion:               os.SchemaVersion,
+		}
+		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
+		require.NoError(t, err)
+		var jb models.JobSpecV2
+		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
+			Find(&jb).Error
+		require.NoError(t, err)
+		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		sd := offchainreporting.NewJobSpawnerDelegate(
+			db,
+			jobORM,
+			config.Config,
+			keyStore,
+			nil,
+			nil,
+			nil)
+		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
+		require.NoError(t, err)
+	})
+
 	t.Run("use env for minimal non-bootstrap", func(t *testing.T) {
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
@@ -326,7 +416,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		config.Set("P2P_PEER_ID", ek.PeerID.String())
+		config.Set("P2P_PEER_ID", ek.PeerID)
 		config.Set("P2P_BOOTSTRAP_PEERS", []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
 		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())

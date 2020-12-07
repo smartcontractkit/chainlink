@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/peer"
+
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -589,16 +591,17 @@ func (c Config) OCRMonitoringEndpoint(override string) string {
 	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
 }
 
-func (c Config) OCRTransmitterAddress(override models.EIP55Address) (models.EIP55Address, error) {
-	if override != "" {
-		return override, nil
+func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+	if override != nil {
+		return *override, nil
 	}
 	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
 	if taStr != "" {
-		if ta, err := models.NewEIP55Address(taStr); err != nil {
-			return ta, nil
+		ta, err := models.NewEIP55Address(taStr)
+		if err != nil {
+			return "", errors.Wrap(err, "OCR_TRANSMITTER_ADDRESS is invalid EIP55")
 		}
-		return "", errors.New("OCR_TRANSMITTER_ADDRESS is invalid EIP55")
+		return ta, nil
 	}
 	return "", errors.New("OCR_TRANSMITTER_ADDRESS is unset")
 }
@@ -609,10 +612,11 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 	}
 	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
 	if kbStr != "" {
-		if kb, err := models.Sha256HashFromHex(kbStr); err != nil {
-			return kb, nil
+		kb, err := models.Sha256HashFromHex(kbStr)
+		if err != nil {
+			return models.Sha256Hash{}, errors.Wrap(err, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string")
 		}
-		return models.Sha256Hash{}, errors.New("OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string")
+		return kb, nil
 	}
 	return models.Sha256Hash{}, errors.New("OCR_KEY_BUNDLE_ID is unset")
 }
@@ -708,8 +712,12 @@ func (c Config) P2PPeerID(override models.PeerID) (models.PeerID, error) {
 	if override != "" {
 		return override, nil
 	}
-	pid := c.viper.GetString(EnvVarName("P2PPeerID"))
-	if pid != "" {
+	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
+	if pidStr != "" {
+		pid, err := peer.Decode(pidStr)
+		if err != nil {
+			return "", errors.Wrap(err, "P2P_PEER_ID is invalid")
+		}
 		return models.PeerID(pid), nil
 	}
 	return "", errors.New("P2P_PEER_ID is unset")
