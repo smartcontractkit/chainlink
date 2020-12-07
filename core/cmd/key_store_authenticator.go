@@ -25,8 +25,8 @@ type TerminalKeyStoreAuthenticator struct {
 
 // Authenticate checks to see if there are accounts present in
 // the KeyStore, and if there are none, a new account will be created
-// by prompting for a password. If there are accounts present, the
-// account which is unlocked by the given password will be used.
+// by prompting for a password. If there are accounts present, all accounts
+// will be unlocked.
 func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, password string) (string, error) {
 	passwordProvided := len(password) != 0
 	interactive := auth.Prompter.IsTerminal()
@@ -60,12 +60,20 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")
 		clearLine()
-		if password == passwordConfirmation {
+		if password != passwordConfirmation {
 			fmt.Printf("Passwords don't match. Please try again... ")
 			continue
 		}
-		_, err := store.KeyStore.NewAccount()
-		return password, errors.Wrapf(err, "while creating ethereum keys")
+		err := store.KeyStore.Unlock(password)
+		if err != nil {
+			return password, errors.Wrap(err, "unexpectedly failed to unlock KeyStore")
+		}
+		_, err = store.KeyStore.NewAccount()
+		if err != nil {
+			return password, errors.Wrap(err, "failed to create new ETH key")
+		}
+		err = store.SyncDiskKeyStoreToDB()
+		return password, errors.Wrapf(err, "while syncing disk key store to DB")
 	}
 }
 
@@ -76,7 +84,11 @@ func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(store *store.Sto
 	}
 	fmt.Println("There are no accounts, creating a new account with the specified password")
 	_, err = store.KeyStore.NewAccount()
-	return password, errors.Wrapf(err, "while creating ethereum keys")
+	if err != nil {
+		return password, errors.Wrap(err, "failed to create new ETH key")
+	}
+	err = store.SyncDiskKeyStoreToDB()
+	return password, errors.Wrapf(err, "while syncing disk key store to DB")
 }
 
 func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *store.Store, password string) (string, error) {

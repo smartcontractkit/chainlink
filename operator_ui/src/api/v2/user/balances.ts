@@ -5,7 +5,7 @@ import * as presenters from 'core/store/presenters'
 /**
  * AccountBalances returns the account balances of ETH & LINK.
  *
- * @example "<application>/user/balances"
+ * @example "<application>/keys/eth"
  */
 export const ACCOUNT_BALANCES_ENDPOINT = '/v2/keys/eth'
 

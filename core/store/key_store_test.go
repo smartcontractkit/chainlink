@@ -11,14 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const correctPassphrase = "p@ssword"
-
 func TestCreateEthereumAccount(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	err := store.KeyStore.Unlock(correctPassphrase)
+	err := store.KeyStore.Unlock(cltest.Password)
 	assert.NoError(t, err)
 
 	_, err = store.KeyStore.NewAccount()

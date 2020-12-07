@@ -407,6 +407,8 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	err := app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
 
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]
