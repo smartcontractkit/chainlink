@@ -1,8 +1,8 @@
 GETH_VERSION: 1.9.22
 flags_wrapper: ../../../evm-contracts/abi/v0.6/Flags.json 279350a8fa9c3288650affd7b18c053832943a7082eaf7dcf906484d044e000b
 flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 21f633c47d1e49b9e49ed5789a7efaa5a9afdc500f3602277e2ade8a2f58a419
-multiwordconsumer: ../../../evm-contracts/abi/v0.7/MultiwordConsumer.json 7a2279440d3a049fd010da5304ca4498080b9e7e502cbe0cb27c8a35da780999
-operator: ../../../evm-contracts/abi/v0.7/Operator.json 65077fbc30628d5f6ff11eec2a297f672a4432b13cdd879966d903423d1617b5
+multiwordconsumer: ../../../evm-contracts/abi/v0.6/MultiWordConsumer.json f8d36ded623dc64beb31c635ca3a7f681ccd0fa0f7d11d0b2b759f4fa76eb11c
+operator: ../../../evm-contracts/abi/v0.7/Operator.json b8be155a9041b3b52f3dc277ca84c29fc915c0efb73adccd5206af8e5cc5cf0c
 operator_consumer: ../../../evm-contracts/abi/v0.7/Consumer.json 90d0d0d904411ddf2d6530eb5c3d57da2d6a5151e16a7a726ddd56d95fa0a844
 solidity_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 4cd458d90afeb98d83b11fb1a2e9bf9d3665fe2b95661d2244e94697a6b09d32
 solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json e2d9cd3645d39a3d30e25b868f8bd59d6ea36e4f7960422efd37c22b1316cb82
