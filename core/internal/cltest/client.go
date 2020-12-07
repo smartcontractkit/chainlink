@@ -108,6 +108,10 @@ func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethe
 	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
+func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	panic("not implemented")
+}
+
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()

@@ -309,12 +309,12 @@ func TestValidateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	err = store.KeyStore.Unlock("password")
+	defer cleanup()
+	err := store.KeyStore.Unlock("password")
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	assert.NoError(t, err)
 	_, err = store.KeyStore.NewAccount() // matches correct_password.txt
 	assert.NoError(t, err)
-	defer cleanup()
 
 	oracles := []string{fromAddress.Hex()}
 

@@ -2,6 +2,7 @@ package orm
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -1208,7 +1210,7 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = orm.Transaction(func(tx *gorm.DB) error {
+	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
 		q = q.Where("is_funding = FALSE")
 		if len(addresses) > 0 {

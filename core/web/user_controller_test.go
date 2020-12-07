@@ -6,12 +6,9 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -50,30 +47,6 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Len(t, errors.Errors, 0)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-}
-
-func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
-	app.Store.KeyStore = kst
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
-
-	resp, cleanup := client.Get("/v2/user/balances")
-	defer cleanup()
-
-	balances := []presenters.ETHKey{}
-	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, balances, 0)
-	kst.AssertExpectations(t)
 }
 
 func TestUserController_NewAPIToken(t *testing.T) {

@@ -608,12 +608,18 @@ func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...inter
 	t.Helper()
 
 	k := MustGenerateRandomKey(t, opts...)
+	err := store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
 	MustAddKeyToKeystore(t, &k, store)
 	return k, k.Address.Address()
 }
 
 func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
-	_, err := store.KeyStore.Import(key.JSON.Bytes(), Password, Password)
+	t.Helper()
+
+	err := store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
+	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
 	require.NoError(t, err)
 	require.NoError(t, store.DB.Create(key).Error)
 }

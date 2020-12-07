@@ -701,8 +701,10 @@ func (cli *Client) CreateETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	fmt.Printf("ETH key created.\n\n")
-	fmt.Println("🔑 New key")
+	_, err = os.Stderr.WriteString("ETH key created.\n\n🔑 New key\n")
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	var keys presenters.ETHKey
 	return cli.renderAPIResponse(resp, &keys)
 }
@@ -720,7 +722,10 @@ func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	fmt.Println("🔑 ETH keys")
+	_, err = os.Stderr.WriteString("🔑 ETH keys\n")
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	var keys []presenters.ETHKey
 	return cli.renderAPIResponse(resp, &keys)
 }
@@ -755,9 +760,12 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	}()
 
 	if resp.StatusCode == 200 {
-		fmt.Printf(confirmationMsg)
+		fmt.Print(confirmationMsg)
 	}
-	fmt.Println("🔑 Deleted ETH key")
+	_, err = os.Stderr.WriteString("🔑 Deleted ETH key\n")
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	var key presenters.ETHKey
 	return cli.renderAPIResponse(resp, &key)
 }
@@ -796,7 +804,10 @@ func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	fmt.Println("🔑 Imported ETH key")
+	_, err = os.Stderr.WriteString("🔑 Imported ETH key\n")
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	var key presenters.ETHKey
 	return cli.renderAPIResponse(resp, &key)
 }
@@ -842,7 +853,10 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	fmt.Println("🔑 Exported ETH key", address, "to", filepath)
+	_, err = os.Stderr.WriteString("🔑 Exported ETH key " + address + " to " + filepath + "\n")
+	if err != nil {
+		return cli.errorOut(err)
+	}
 	return nil
 }
 
@@ -995,22 +1009,6 @@ func getBufferFromJSON(s string) (*bytes.Buffer, error) {
 	buf, err := fromFile(s)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("invalid JSON or file not found '%s'", s)
-	} else if err != nil {
-		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
-	}
-	return buf, nil
-}
-
-func getBufferFromTOML(s string) (*bytes.Buffer, error) {
-	var val interface{}
-	err := toml.Unmarshal([]byte(s), &val)
-	if err == nil {
-		return bytes.NewBufferString(s), nil
-	}
-
-	buf, err := fromFile(s)
-	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("invalid TOML or file not found '%s'", s)
 	} else if err != nil {
 		return nil, fmt.Errorf("error reading from file '%s': %v", s, err)
 	}

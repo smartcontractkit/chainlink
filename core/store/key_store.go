@@ -4,22 +4,23 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/utils"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // EthereumMessageHashPrefix is a Geth-originating message prefix that seeks to
 // prevent arbitrary message data to be representable as a valid Ethereum transaction
 // For more information, see: https://github.com/ethereum/go-ethereum/issues/3731
 const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
+
+var ErrKeyStoreLocked = errors.New("keystore is locked (HINT: did you forget to call keystore.Unlock?)")
 
 //go:generate mockery --name KeyStoreInterface --output ../internal/mocks/ --case=underscore
 type KeyStoreInterface interface {
@@ -81,7 +82,15 @@ func (ks *KeyStore) Unlock(password string) error {
 
 // NewAccount adds an account to the keystore
 func (ks *KeyStore) NewAccount() (accounts.Account, error) {
-	return ks.KeyStore.NewAccount(ks.password)
+	if ks.password == "" {
+		return accounts.Account{}, ErrKeyStoreLocked
+	}
+	acct, err := ks.KeyStore.NewAccount(ks.password)
+	if err != nil {
+		return accounts.Account{}, err
+	}
+	err = ks.KeyStore.Unlock(acct, ks.password)
+	return acct, err
 }
 
 // SignTx uses the unlocked account to sign the given transaction.
@@ -114,6 +123,9 @@ func (ks *KeyStore) GetAccountByAddress(address common.Address) (accounts.Accoun
 }
 
 func (ks *KeyStore) Import(keyJSON []byte, oldPassword string) (accounts.Account, error) {
+	if ks.password == "" {
+		return accounts.Account{}, ErrKeyStoreLocked
+	}
 	acct, err := ks.KeyStore.Import(keyJSON, oldPassword, ks.password)
 	if err != nil {
 		return accounts.Account{}, errors.Wrap(err, "could not import ETH key")
@@ -123,6 +135,9 @@ func (ks *KeyStore) Import(keyJSON []byte, oldPassword string) (accounts.Account
 }
 
 func (ks *KeyStore) Export(address common.Address, newPassword string) ([]byte, error) {
+	if ks.password == "" {
+		return nil, ErrKeyStoreLocked
+	}
 	acct, err := ks.GetAccountByAddress(address)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not export ETH key")
@@ -131,6 +146,9 @@ func (ks *KeyStore) Export(address common.Address, newPassword string) ([]byte, 
 }
 
 func (ks *KeyStore) Delete(address common.Address) error {
+	if ks.password == "" {
+		return ErrKeyStoreLocked
+	}
 	acct, err := ks.GetAccountByAddress(address)
 	if err != nil {
 		return errors.Wrap(err, "could not delete ETH key")
