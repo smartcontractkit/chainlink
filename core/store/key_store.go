@@ -23,12 +23,12 @@ const EthereumMessageHashPrefix = "\x19Ethereum Signed Message:\n32"
 
 //go:generate mockery --name KeyStoreInterface --output ../internal/mocks/ --case=underscore
 type KeyStoreInterface interface {
+	Unlock(password string) error
 	Accounts() []accounts.Account
 	Wallets() []accounts.Wallet
 	HasAccounts() bool
 	HasAccountWithAddress(common.Address) bool
 	NewAccount() (accounts.Account, error)
-	SignHash(hash common.Hash) (models.Signature, error)
 	Import(keyJSON []byte, oldPassword string) (accounts.Account, error)
 	Export(address common.Address, newPassword string) ([]byte, error)
 	Delete(address common.Address) error

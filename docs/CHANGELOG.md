@@ -11,10 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`.
 - Adds "Account addresses" table to the `/keys` page.
+- New CLI commands for key management:
+    - `chainlink keys eth import`
+    - `chainlink keys eth export`
+    - `chainlink keys eth delete`
+- All keys other than VRF keys now share the same password.  If you have OCR, P2P, and ETH keys encrypted with different passwords, re-insert them into your DB encrypted with the same password prior to upgrading.
 
 ### Changed
 
 - Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
+- Key-related API endpoints have changed.  All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
+- All key deletion commands now perform a soft-delete (i.e. archive) by default.  A special CLI flag or query string parameter must be provided to hard-delete a key.
 
 ### Fixed
 

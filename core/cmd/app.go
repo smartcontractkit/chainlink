@@ -44,7 +44,7 @@ func NewApp(client *Client) *cli.App {
 			Subcommands: []cli.Command{
 				{
 					Name:   "chpass",
-					Usage:  "Change your account password remotely",
+					Usage:  "Change your API password remotely",
 					Action: client.ChangePassword,
 				},
 				{

@@ -16,8 +16,6 @@ import (
 )
 
 // KeysController manages account keys
-
-// KeysController manages account keys
 type ETHKeysController struct {
 	App chainlink.Application
 }
@@ -42,6 +40,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 
+		linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
 		linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, key.Address.Address())
 		if err != nil {
 			err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
@@ -49,22 +48,22 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 
-		key, err := store.ORM.KeyByAddress(key.Address.Address())
+		k, err := store.ORM.KeyByAddress(key.Address.Address())
 		if err != nil {
 			err = errors.Errorf("error fetching ETH key from DB: %v", err)
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
 		pkeys = append(pkeys, presenters.ETHKey{
-			Address:     key.Address.Hex(),
+			Address:     k.Address.Hex(),
 			EthBalance:  (*assets.Eth)(ethBalance),
 			LinkBalance: linkBalance,
-			NextNonce:   key.NextNonce,
-			LastUsed:    key.LastUsed,
-			IsFunding:   key.IsFunding,
-			CreatedAt:   key.CreatedAt,
-			UpdatedAt:   key.UpdatedAt,
-			DeletedAt:   key.DeletedAt,
+			NextNonce:   k.NextNonce,
+			LastUsed:    k.LastUsed,
+			IsFunding:   k.IsFunding,
+			CreatedAt:   k.CreatedAt,
+			UpdatedAt:   k.UpdatedAt,
+			DeletedAt:   k.DeletedAt,
 		})
 	}
 	jsonAPIResponse(c, pkeys, "keys")
@@ -79,7 +78,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	if err := ekc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
+	if err = ekc.App.GetStore().SyncDiskKeyStoreToDB(); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -93,7 +92,8 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	if err != nil {
 		logger.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 	}
-	linkBalance, err := ekc.App.GetStore().TxManager.GetLINKBalance(account.Address)
+	linkAddress := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
+	linkBalance, err := ekc.App.GetStore().EthClient.GetLINKBalance(linkAddress, account.Address)
 	if err != nil {
 		logger.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 	}
@@ -132,8 +132,8 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 		return
 	}
 	address := common.HexToAddress(c.Param("keyID"))
-	if exists, err := ekc.App.GetStore().KeyExists(address); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if exists, err2 := ekc.App.GetStore().KeyExists(address); err2 != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err2)
 		return
 	} else if !exists {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Key does not exist"))
@@ -160,7 +160,8 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 	if err != nil {
 		logger.Errorf("error calling getEthBalance on Ethereum node: %v", err)
 	}
-	linkBalance, err := ekc.App.GetStore().TxManager.GetLINKBalance(address)
+	linkAddress := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
+	linkBalance, err := ekc.App.GetStore().EthClient.GetLINKBalance(linkAddress, address)
 	if err != nil {
 		logger.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 	}
@@ -210,7 +211,8 @@ func (ekc *ETHKeysController) Import(c *gin.Context) {
 		return
 	}
 
-	linkBalance, err := store.TxManager.GetLINKBalance(acct.Address)
+	linkAddress := common.HexToAddress(ekc.App.GetStore().Config.LinkContractAddress())
+	linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, acct.Address)
 	if err != nil {
 		err = errors.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
 		jsonAPIError(c, http.StatusInternalServerError, err)

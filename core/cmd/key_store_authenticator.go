@@ -47,7 +47,7 @@ func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, passw
 
 func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.Store) (string, error) {
 	for {
-		password := auth.Prompter.PasswordPrompt("Enter Password:")
+		password := auth.Prompter.PasswordPrompt("Enter key store password:")
 		if store.KeyStore.Unlock(password) == nil {
 			return password, nil
 		}
@@ -56,9 +56,9 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.St
 
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) (string, error) {
 	for {
-		password := auth.Prompter.PasswordPrompt("New Password: ")
+		password := auth.Prompter.PasswordPrompt("New key store password: ")
 		clearLine()
-		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm Password: ")
+		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")
 		clearLine()
 		if password == passwordConfirmation {
 			fmt.Printf("Passwords don't match. Please try again... ")
