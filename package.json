@@ -19,6 +19,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx evm-contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
