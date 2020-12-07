@@ -2,7 +2,7 @@
   "contractsDir": "src",
   "artifactsDir": "abi",
   "contractAbstractionDir": ".",
-  "useDockerisedSolc": false,
+  "useDockerisedSolc": true,
   "compilerSettings": {
     "optimizer": {
       "runs": 1000000,

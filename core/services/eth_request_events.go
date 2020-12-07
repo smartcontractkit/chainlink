@@ -12,6 +12,18 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+var (
+	DirectRequestLogTopic = getDirectRequestLogTopic()
+)
+
+func getDirectRequestLogTopic() gethCommon.Hash {
+	abi, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
+	if err != nil {
+		panic("could not parse OffchainAggregator ABI: " + err.Error())
+	}
+	return abi.Events["ConfigSet"].ID
+}
+
 // EthRequestEvent is a wrapper for `models.EthRequestEvent`, the DB
 // representation of the job spec. It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
@@ -144,7 +156,50 @@ func (directRequestListener) OnDisconnect() {}
 
 // OnConnect complies with eth.LogListener
 func (d directRequestListener) HandleLog(lb eth.LogBroadcast, err error) {
-	// TODO
+	if err != nil {
+		sub.logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
+		return
+	}
+
+	was, err := lb.WasAlreadyConsumed()
+	if err != nil {
+		sub.logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
+		return
+	} else if was {
+		return
+	}
+
+	topics := lb.RawLog().Topics
+	if len(topics) == 0 {
+		return
+	}
+	switch topics[0] {
+	case OCRContractConfigSet:
+		raw := lb.RawLog()
+		if raw.Address != sub.contractAddress {
+			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
+			return
+		}
+		configSet, err2 := sub.oc.contractFilterer.ParseConfigSet(raw)
+		if err2 != nil {
+			sub.logger.Errorw("could not parse config set", "err", err2)
+			return
+		}
+		configSet.Raw = lb.RawLog()
+		cc := confighelper.ContractConfigFromConfigSetEvent(*configSet)
+
+		sub.queueMu.Lock()
+		defer sub.queueMu.Unlock()
+		sub.queue = append(sub.queue, cc)
+		sub.processLogsWorker.WakeUp()
+	default:
+	}
+
+	err = lb.MarkConsumed()
+	if err != nil {
+		sub.logger.Errorw("OCRContract: could not mark log consumed", "error", err)
+		return
+	}
 	return
 }
 
