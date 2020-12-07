@@ -393,6 +393,8 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offcha
 	if err != nil {
 		return spec, err
 	}
+	// Note this validates all the fields which implement an UnmarshalText
+	// i.e. TransmitterAddress, PeerID...
 	err = tree.Unmarshal(&oros)
 	if err != nil {
 		return spec, err
@@ -414,10 +416,9 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offcha
 	if !tree.Has("isBootstrapPeer") {
 		return spec, errors.New("isBootstrapPeer is not defined")
 	}
-	bootstrapPeers, err := config.P2PBootstrapPeers(spec.P2PBootstrapPeers)
-	for i := range bootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(bootstrapPeers[i]); err != nil {
-			return spec, errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return spec, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
 		}
 	}
 	if spec.IsBootstrapPeer {

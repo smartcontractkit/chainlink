@@ -152,6 +152,11 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
+	if me := c.OCRMonitoringEndpoint(""); me != "" {
+		if _, err := url.Parse(me); err != nil {
+			return errors.Wrapf(err, "invalid monitoring url: %s", me)
+		}
+	}
 	return nil
 }
 
