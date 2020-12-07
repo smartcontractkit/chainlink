@@ -495,10 +495,6 @@ func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec offchain
 	if spec.Pipeline.DOTSource == "" {
 		return errors.New("no pipeline specified")
 	}
-	bootstrapPeers, err := config.P2PBootstrapPeers(spec.P2PBootstrapPeers)
-	if len(bootstrapPeers) < 1 {
-		return errors.New("must specify at least one bootstrap peer")
-	}
 	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout))
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")

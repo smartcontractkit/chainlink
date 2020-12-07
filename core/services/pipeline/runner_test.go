@@ -320,7 +320,8 @@ ds1_parse    [type=jsonparse path="USD" lax=true];
 ds1 -> ds1_parse;
 """
 `
-		_, err := services.ValidatedOracleSpecToml(config.Config, fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", ""))
+		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
+		_, err := services.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)

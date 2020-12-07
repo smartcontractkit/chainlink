@@ -231,6 +231,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		}
 		services = append(services, bootstrapper)
 	} else {
+		if len(bootstrapPeers) < 1 {
+			return nil, errors.New("need at least one bootstrap peer")
+		}
 		kb, err := d.config.OCRKeyBundleID(concreteSpec.EncryptedOCRKeyBundleID)
 		if err != nil {
 			return nil, err

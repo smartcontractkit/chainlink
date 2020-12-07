@@ -577,7 +577,7 @@ func (c Config) OCRContractConfirmations(override uint16) uint16 {
 	if override != uint16(0) {
 		return override
 	}
-	return uint16(c.viper.GetUint("OCRContractConfirmations"))
+	return c.getWithFallback("OCRContractConfirmations", parseUint16).(uint16)
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {
