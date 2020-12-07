@@ -57,7 +57,7 @@ type (
 	OffchainReportingOracleSpec struct {
 		IDEmbed
 		ContractAddress                        EIP55Address   `json:"contractAddress" toml:"contractAddress"`
-		P2PPeerID                              PeerID         `json:"p2pPeerID" toml:"p2pPeerID"         gorm:"column:p2p_peer_id"`
+		P2PPeerID                              PeerID         `json:"p2pPeerID" toml:"p2pPeerID" gorm:"column:p2p_peer_id;default:null"`
 		P2PBootstrapPeers                      pq.StringArray `json:"p2pBootstrapPeers" toml:"p2pBootstrapPeers" gorm:"column:p2p_bootstrap_peers;type:text[]"`
 		IsBootstrapPeer                        bool           `json:"isBootstrapPeer" toml:"isBootstrapPeer"`
 		EncryptedOCRKeyBundleID                *Sha256Hash    `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`

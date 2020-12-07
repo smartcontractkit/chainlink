@@ -123,9 +123,17 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		return nil, errors.Wrap(err, "error calling NewOCRContract")
 	}
 
-	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(concreteSpec.P2PPeerID))
+	peerID, err := d.config.P2PPeerID(concreteSpec.P2PPeerID)
+	if err != nil {
+		return nil, err
+	}
+	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(peerID))
 	if !exists {
-		return nil, errors.Errorf("P2P key '%v' does not exist", concreteSpec.P2PPeerID)
+		return nil, errors.Errorf("P2P key '%v' does not exist", peerID)
+	}
+	bootstrapPeers, err := d.config.P2PBootstrapPeers(concreteSpec.P2PBootstrapPeers)
+	if err != nil {
+		return nil, err
 	}
 
 	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
@@ -177,10 +185,10 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	}
 
 	var endpointURL *url.URL
-	if concreteSpec.MonitoringEndpoint != "" {
-		endpointURL, err = url.Parse(concreteSpec.MonitoringEndpoint)
+	if me := d.config.OCRMonitoringEndpoint(concreteSpec.MonitoringEndpoint); me != "" {
+		endpointURL, err = url.Parse(me)
 		if err != nil {
-			return nil, errors.Wrapf(err, "invalid monitoring url: %s", concreteSpec.MonitoringEndpoint)
+			return nil, errors.Wrapf(err, "invalid monitoring url: %s", me)
 		}
 	} else {
 		endpointURL = d.config.ExplorerURL()
@@ -211,7 +219,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peer,
-			Bootstrappers:         concreteSpec.P2PBootstrapPeers,
+			Bootstrappers:         bootstrapPeers,
 			ContractConfigTracker: ocrContract,
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
 			LocalConfig:           lc,
@@ -223,10 +231,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		}
 		services = append(services, bootstrapper)
 	} else {
-		if concreteSpec.EncryptedOCRKeyBundleID == nil {
-			return nil, errors.Errorf("OCR key must be specified")
+		kb, err := d.config.OCRKeyBundleID(concreteSpec.EncryptedOCRKeyBundleID)
+		if err != nil {
+			return nil, err
 		}
-		ocrkey, exists := d.keyStore.DecryptedOCRKey(*concreteSpec.EncryptedOCRKeyBundleID)
+		ocrkey, exists := d.keyStore.DecryptedOCRKey(kb)
 		if !exists {
 			return nil, errors.Errorf("OCR key '%v' does not exist", concreteSpec.EncryptedOCRKeyBundleID)
 		}
@@ -235,8 +244,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 			return nil, errors.Wrap(err, "could not get contract ABI JSON")
 		}
 
+		ta, err := d.config.OCRTransmitterAddress(*concreteSpec.TransmitterAddress)
+		if err != nil {
+			return nil, err
+		}
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
-			NewTransmitter(d.db.DB(), concreteSpec.TransmitterAddress.Address(), d.config.EthGasLimitDefault()))
+			NewTransmitter(d.db.DB(), ta.Address(), d.config.EthGasLimitDefault()))
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
@@ -248,7 +261,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 			BinaryNetworkEndpointFactory: peer,
 			MonitoringEndpoint:           monitoringEndpoint,
 			Logger:                       ocrLogger,
-			Bootstrappers:                concreteSpec.P2PBootstrapPeers,
+			Bootstrappers:                bootstrapPeers,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")

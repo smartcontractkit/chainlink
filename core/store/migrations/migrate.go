@@ -464,7 +464,7 @@ func init() {
 			Migrate: migration1606749860.Migrate,
 		},
 		{
-			ID:      "migration1607113528",
+			ID:      "1607113528",
 			Migrate: migration1607113528.Migrate,
 		},
 	}

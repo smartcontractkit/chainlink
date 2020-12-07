@@ -414,11 +414,17 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offcha
 	if !tree.Has("isBootstrapPeer") {
 		return spec, errors.New("isBootstrapPeer is not defined")
 	}
+	bootstrapPeers, err := config.P2PBootstrapPeers(spec.P2PBootstrapPeers)
+	for i := range bootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(bootstrapPeers[i]); err != nil {
+			return spec, errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+		}
+	}
 	if spec.IsBootstrapPeer {
 		if err := validateBootstrapSpec(tree, spec); err != nil {
 			return spec, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, spec); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, config, spec); err != nil {
 		return spec, err
 	}
 	if err := validateTimingParameters(config, spec); err != nil {
@@ -434,20 +440,20 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offcha
 var (
 	// Common to both bootstrap and non-boostrap
 	params = map[string]struct{}{
-		"type":              {},
-		"schemaVersion":     {},
-		"contractAddress":   {},
-		"isBootstrapPeer":   {},
-		"p2pPeerID":         {},
-		"p2pBootstrapPeers": {},
+		"type":            {},
+		"schemaVersion":   {},
+		"contractAddress": {},
+		"isBootstrapPeer": {},
+		//"p2pPeerID":         {},
+		//"p2pBootstrapPeers": {},
 	}
 	// Boostrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"observationSource":  {},
-		"keyBundleID":        {},
-		"transmitterAddress": {},
+		"observationSource": {},
+		//"keyBundleID":        {},
+		//"transmitterAddress": {},
 	}
 )
 
@@ -479,15 +485,10 @@ func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) e
 	if err := validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
 		return err
 	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
 	return nil
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec offchainreporting.OracleSpec) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -498,15 +499,12 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec
 	if spec.Pipeline.DOTSource == "" {
 		return errors.New("no pipeline specified")
 	}
-	if len(spec.P2PBootstrapPeers) < 1 {
+	bootstrapPeers, err := config.P2PBootstrapPeers(spec.P2PBootstrapPeers)
+	if len(bootstrapPeers) < 1 {
 		return errors.New("must specify at least one bootstrap peer")
 	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
-	if spec.MaxTaskDuration > spec.ObservationTimeout {
+	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout))
+	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}
 	tasks, err := spec.Pipeline.TasksInDependencyOrder()
@@ -515,7 +513,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec
 	}
 	for _, task := range tasks {
 		timeout, set := task.TaskTimeout()
-		if set && timeout > time.Duration(spec.ObservationTimeout) {
+		if set && timeout > observationTimeout {
 			return errors.Errorf("individual max task duration must be < observation timeout")
 		}
 	}

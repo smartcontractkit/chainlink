@@ -127,6 +127,7 @@ func (c *Config) Validate() error {
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
 	}
+	// TODO: Sanity check peerID, bootstrapPeers, monitoring endpoint and transmitter address
 	return nil
 }
 
@@ -581,6 +582,41 @@ func (c Config) OCRTraceLogging() bool {
 	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
 }
 
+func (c Config) OCRMonitoringEndpoint(override string) string {
+	if override != "" {
+		return override
+	}
+	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
+}
+
+func (c Config) OCRTransmitterAddress(override models.EIP55Address) (models.EIP55Address, error) {
+	if override != "" {
+		return override, nil
+	}
+	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
+	if taStr != "" {
+		if ta, err := models.NewEIP55Address(taStr); err != nil {
+			return ta, nil
+		}
+		return "", errors.New("OCR_TRANSMITTER_ADDRESS is invalid EIP55")
+	}
+	return "", errors.New("OCR_TRANSMITTER_ADDRESS is unset")
+}
+
+func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
+	if override != nil {
+		return *override, nil
+	}
+	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
+	if kbStr != "" {
+		if kb, err := models.Sha256HashFromHex(kbStr); err != nil {
+			return kb, nil
+		}
+		return models.Sha256Hash{}, errors.New("OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string")
+	}
+	return models.Sha256Hash{}, errors.New("OCR_KEY_BUNDLE_ID is unset")
+}
+
 // OperatorContractAddress represents the address where the Operator.sol
 // contract is deployed, this is used for filtering RunLog requests
 func (c Config) OperatorContractAddress() common.Address {
@@ -666,6 +702,28 @@ func (c Config) P2PAnnouncePort() uint16 {
 
 func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
+}
+
+func (c Config) P2PPeerID(override models.PeerID) (models.PeerID, error) {
+	if override != "" {
+		return override, nil
+	}
+	pid := c.viper.GetString(EnvVarName("P2PPeerID"))
+	if pid != "" {
+		return models.PeerID(pid), nil
+	}
+	return "", errors.New("P2P_PEER_ID is unset")
+}
+
+func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
+	if override != nil {
+		return override, nil
+	}
+	bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
+	if bps != nil {
+		return bps, nil
+	}
+	return nil, errors.New("P2P_BOOTSTRAP_PEERS is unset")
 }
 
 // Port represents the port Chainlink should listen on for client requests.
