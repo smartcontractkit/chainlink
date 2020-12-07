@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -73,9 +72,6 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	assert.NoError(t, app.StartAndConnect())
-
-	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/keys/eth", nil)
 	defer cleanup()
