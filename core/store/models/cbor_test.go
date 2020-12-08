@@ -185,17 +185,9 @@ func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
 	tests := []struct {
 		name  string
 		input interface{}
-		want  interface{}
 	}{
-		{
-			"error map",
-			map[interface{}]interface{}{1: "value"},
-			map[int]interface{}{}},
-		{
-			"error array",
-			[]interface{}{map[interface{}]interface{}{1: "value"}},
-			[]interface{}{},
-		},
+		{"error map", map[interface{}]interface{}{1: "value"}},
+		{"error array", []interface{}{map[interface{}]interface{}{1: "value"}}},
 	}
 
 	for _, test := range tests {
