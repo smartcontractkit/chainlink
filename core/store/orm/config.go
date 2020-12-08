@@ -617,6 +617,16 @@ func (c Config) P2PAnnouncePort() uint16 {
 	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
 }
 
+// P2PDHTAnnouncementCounterUserPrefix can be used to restore the node's
+// ability to announce its IP/port on the P2P network after a database
+// rollback. Make sure to only increase this value, and *never* decrease it.
+// Don't use this variable unless you really know what you're doing, since you
+// could semi-permanently exclude your node from the P2P network by
+// misconfiguring it.
+func (c Config) P2PDHTAnnouncementCounterUserPrefix() uint32 {
+	return c.viper.GetUint32(EnvVarName("P2PDHTAnnouncementCounterUserPrefix"))
+}
+
 func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
 }
