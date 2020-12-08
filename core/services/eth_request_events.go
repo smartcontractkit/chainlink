@@ -1,14 +1,21 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"reflect"
+	"strings"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"gopkg.in/guregu/null.v4"
 )
 
@@ -66,6 +73,7 @@ func (spec EthRequestEventSpec) TaskDAG() pipeline.TaskDAG {
 
 type ethRequestEventSpecDelegate struct {
 	logBroadcaster eth.LogBroadcaster
+	pipelineRunner pipeline.Runner
 }
 
 func (d *ethRequestEventSpecDelegate) JobType() job.Type {
@@ -105,6 +113,7 @@ func (d *ethRequestEventSpecDelegate) ServicesForSpec(spec job.Spec) (services [
 	logListener := directRequestListener{
 		d.logBroadcaster,
 		concreteSpec.ContractAddress.Address(),
+		d.pipelineRunner,
 		spec.JobID(),
 	}
 	services = append(services, logListener)
@@ -112,14 +121,17 @@ func (d *ethRequestEventSpecDelegate) ServicesForSpec(spec job.Spec) (services [
 	return
 }
 
-func RegisterEthRequestEventDelegate(jobSpawner job.Spawner) {
+func RegisterEthRequestEventDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner) {
 	jobSpawner.RegisterDelegate(
-		NewEthRequestEventDelegate(jobSpawner),
+		NewEthRequestEventDelegate(jobSpawner, logBroadcaster, pipelineRunner),
 	)
 }
 
-func NewEthRequestEventDelegate(jobSpawner job.Spawner) *ethRequestEventSpecDelegate {
-	return &ethRequestEventSpecDelegate{}
+func NewEthRequestEventDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner) *ethRequestEventSpecDelegate {
+	return &ethRequestEventSpecDelegate{
+		logBroadcaster,
+		pipelineRunner,
+	}
 }
 
 var (
@@ -130,6 +142,7 @@ var (
 type directRequestListener struct {
 	logBroadcaster  eth.LogBroadcaster
 	contractAddress gethCommon.Address
+	pipelineRunner  pipeline.Runner
 	jobID           int32
 }
 
@@ -157,50 +170,67 @@ func (directRequestListener) OnDisconnect() {}
 // OnConnect complies with eth.LogListener
 func (d directRequestListener) HandleLog(lb eth.LogBroadcast, err error) {
 	if err != nil {
-		sub.logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
+		logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
 		return
 	}
 
 	was, err := lb.WasAlreadyConsumed()
 	if err != nil {
-		sub.logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
+		logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
 		return
 	} else if was {
 		return
 	}
 
-	topics := lb.RawLog().Topics
-	if len(topics) == 0 {
+	log := lb.DecodedLog()
+	if log == nil || reflect.ValueOf(log).IsNil() {
+		logger.Error("HandleLog: ignoring nil value")
 		return
 	}
-	switch topics[0] {
-	case OCRContractConfigSet:
-		raw := lb.RawLog()
-		if raw.Address != sub.contractAddress {
-			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
-			return
-		}
-		configSet, err2 := sub.oc.contractFilterer.ParseConfigSet(raw)
-		if err2 != nil {
-			sub.logger.Errorw("could not parse config set", "err", err2)
-			return
-		}
-		configSet.Raw = lb.RawLog()
-		cc := confighelper.ContractConfigFromConfigSetEvent(*configSet)
 
-		sub.queueMu.Lock()
-		defer sub.queueMu.Unlock()
-		sub.queue = append(sub.queue, cc)
-		sub.processLogsWorker.WakeUp()
+	switch log := log.(type) {
+	case *contracts.LogOracleRequest:
+		d.handleOracleRequest(log.ToOracleRequest())
+		return
+	case *contracts.LogCancelOracleRequest:
+		d.handleCancelOracleRequest(log)
+		return
+
 	default:
+		logger.Warnf("unexpected log type %T", log)
+		return
 	}
 
 	err = lb.MarkConsumed()
 	if err != nil {
-		sub.logger.Errorw("OCRContract: could not mark log consumed", "error", err)
-		return
+		logger.Errorw("OCRContract: could not mark log consumed", "error", err)
 	}
 	return
+}
+
+// TODO: This _really_ need to be async otherwise it will block log broadcaster
+func (d *directRequestListener) handleOracleRequest(req contracts.OracleRequest) {
+	ctx := context.TODO()
+	runID, err := d.pipelineRunner.CreateRun(ctx, d.jobID, nil)
+	if err != nil {
+		logger.Errorw("EthRequestEvent failed to create run", "err", err)
+		return
+	}
+
+	err = d.pipelineRunner.AwaitRun(ctx, runID)
+	if err != nil {
+		logger.Errorw("EthRequestEvent failed awaiting run", "err", err)
+		return
+	}
+
+	results, err := d.pipelineRunner.ResultsForRun(ctx, runID)
+	if err != nil {
+		logger.Errorw("EthRequestEvent failed to get results for run", "err", err)
+		return
+	} else if len(results) != 1 {
+		logger.Errorw("EthRequestEvent should have a single output", "err", err, "jobID", d.JobID, "runID", runID, "results", results)
+		return
+	}
 }
 
 // JobID complies with eth.LogListener
