@@ -139,58 +139,69 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name      string
-		input     interface{}
-		want      interface{}
-		wantError bool
+		name  string
+		input interface{}
+		want  interface{}
 	}{
-		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}, false},
-		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
-		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
-		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
+		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}},
+		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}},
+		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}},
 		{
 			"nested string map map",
 			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
 			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
 		},
 		{
 			"nested map map",
 			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
 			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
 		},
 		{
 			"nested map array",
 			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
 			map[string]interface{}{"key": []interface{}{1, "value"}},
-			false,
 		},
-		{"empty array", []interface{}{}, []interface{}{}, false},
-		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}, false},
-		{
-			"error array",
-			[]interface{}{map[interface{}]interface{}{1: "value"}},
-			[]interface{}{},
-			true,
-		},
+		{"empty array", []interface{}{}, []interface{}{}},
+		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}},
 		{
 			"nested array map",
 			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
 			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
-			false,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			decoded, err := CoerceInterfaceMapToStringMap(test.input)
-			if test.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.True(t, reflect.DeepEqual(test.want, decoded))
-			}
+			require.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(test.want, decoded))
+		})
+	}
+}
+
+func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input interface{}
+		want  interface{}
+	}{
+		{
+			"error map",
+			map[interface{}]interface{}{1: "value"},
+			map[int]interface{}{}},
+		{
+			"error array",
+			[]interface{}{map[interface{}]interface{}{1: "value"}},
+			[]interface{}{},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := CoerceInterfaceMapToStringMap(test.input)
+			assert.Error(t, err)
 		})
 	}
 }
@@ -205,7 +216,7 @@ func TestJSON_CBOR(t *testing.T) {
 		{"empty object", JSON{}},
 		{"array", jsonMustUnmarshal(t, `[1,2,3,4]`)},
 		{
-			"hello world",
+			"basic object",
 			jsonMustUnmarshal(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
 		},
 		{
