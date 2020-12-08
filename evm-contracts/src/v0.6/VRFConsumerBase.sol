@@ -171,7 +171,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
   // Nonces for each VRF key from which randomness has been requested.
   //
   // Must stay in sync with VRFCoordinator[_keyHash][this]
-  mapping(bytes32 /* keyHash */ => uint256 /* nonce */) public nonces;
+  mapping(bytes32 /* keyHash */ => uint256 /* nonce */) private nonces;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract

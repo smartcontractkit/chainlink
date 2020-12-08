@@ -54,7 +54,6 @@ describe('VRFD20', () => {
       'owner',
       'transferOwnership',
       //VRFConsumerBase
-      'nonces',
       'rawFulfillRandomness',
       // VRFD20
       'rollDice',
