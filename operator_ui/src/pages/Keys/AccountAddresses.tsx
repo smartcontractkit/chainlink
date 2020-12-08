@@ -72,7 +72,7 @@ export const AccountAddresses = withStyles(styles)(
                   </TableCell>
                   <TableCell>
                     <Typography variant="body1" color="textSecondary">
-                      Funding
+                      Type
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -118,7 +118,9 @@ export const AccountAddresses = withStyles(styles)(
                     </TableCell>
                     <TableCell>
                       <Typography variant="body1">
-                        {balance.attributes.isFunding ? 'Yes' : 'No'}
+                        {balance.attributes.isFunding
+                          ? 'Emergency funding'
+                          : 'Regular'}
                       </Typography>
                     </TableCell>
                     <TableCell>

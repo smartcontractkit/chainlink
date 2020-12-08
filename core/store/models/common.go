@@ -613,8 +613,8 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
-// CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateOCRJobSpecRequest struct {
+// CreateJobSpecRequest represents a request to create and start a job spec.
+type CreateJobSpecRequest struct {
 	TOML string `json:"toml"`
 }
 

@@ -2,7 +2,7 @@ import * as jsonapi from '@chainlink/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 
-export const ENDPOINT = '/v2/ocr/specs/:jobSpecId/runs'
+export const ENDPOINT = '/v2/jobs/:jobSpecId/runs'
 const SHOW_ENDPOINT = `${ENDPOINT}/:runId`
 
 export class OcrRuns {

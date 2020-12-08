@@ -268,19 +268,16 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/p2p_keys", p2pkc.Create)
 		authv2.DELETE("/p2p_keys/:keyID", p2pkc.Delete)
 
-		ocr := authv2.Group("/ocr")
-		{
-			ocrjsc := OCRJobSpecsController{app}
-			ocr.GET("/specs", ocrjsc.Index)
-			ocr.GET("/specs/:ID", ocrjsc.Show)
-			ocr.POST("/specs", ocrjsc.Create)
-			ocr.DELETE("/specs/:ID", ocrjsc.Delete)
+		jc := JobsController{app}
+		authv2.GET("/jobs", jc.Index)
+		authv2.GET("/jobs/:ID", jc.Show)
+		authv2.POST("/jobs", jc.Create)
+		authv2.DELETE("/jobs/:ID", jc.Delete)
 
-			ocrjrc := OCRJobRunsController{app}
-			ocr.GET("/specs/:ID/runs", paginatedRequest(ocrjrc.Index))
-			ocr.GET("/specs/:ID/runs/:runID", ocrjrc.Show)
-			ocr.POST("/specs/:ID/runs", ocrjrc.Create)
-		}
+		prc := PipelineRunsController{app}
+		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
+		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
+		authv2.POST("/jobs/:ID/runs", prc.Create)
 	}
 
 	ping := PingController{app}
