@@ -802,20 +802,10 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		}
 	}
 
-	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, logRoundID)
+	roundStats, jobRunStatus, err := p.statsAndStatusForRound(logRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
+		logger.Errorw(fmt.Sprintf("error determining round stats / run status for round: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
-	}
-
-	// JobRun will not exist if this is the first time responding to this round
-	var jobRun models.JobRun
-	if roundStats.JobRunID != nil {
-		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("error finding JobRun associated with FMRoundStat: %v", err), p.loggerFieldsForNewRound(log)...)
-			return
-		}
 	}
 
 	if roundStats.NumSubmissions > 0 {
@@ -824,7 +814,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		//     - The chain experienced a shallow reorg that unstarted the current round.
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
-		if !jobRun.Status.Finished() {
+		if !jobRunStatus.Finished() {
 			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 			return
 		}
@@ -956,15 +946,15 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	p.resetTickers(roundState)
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
-	// If we've just submitted to this round (as the result of a NewRound log, for example) don't submit again
-	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundState.ReportableRoundID)
+	roundStats, jobRunStatus, err := p.statsAndStatusForRound(roundState.ReportableRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), loggerFields...)
-		p.store.UpsertErrorFor(p.JobID(), "Error fetching Flux Monitor round stats from DB")
+		logger.Errorw(fmt.Sprintf("error determining round stats / run status for round: %v", err), loggerFields...)
 		return
 	}
 
-	if roundStats.NumSubmissions > 0 {
+	// If we've already successfully submitted to this round (ie through a NewRound log)
+	// and the associated JobRun hasn't errored, skip polling
+	if roundStats.NumSubmissions > 0 && !jobRunStatus.Errored() {
 		logger.Infow("skipping poll: round already answered, tx unconfirmed", loggerFields...)
 		return
 	}
@@ -1303,4 +1293,24 @@ func MakeIdleTimer(log contracts.LogNewRound, idleThreshold models.Duration, clo
 
 func defaultIdleTimer(idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
 	return clock.After(idleThreshold.Duration())
+}
+
+func (p *PollingDeviationChecker) statsAndStatusForRound(roundID uint32) (
+	models.FluxMonitorRoundStats,
+	models.RunStatus,
+	error,
+) {
+	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundID)
+	if err != nil {
+		return models.FluxMonitorRoundStats{}, "", err
+	}
+	// JobRun will not exist if this is the first time responding to this round
+	var jobRun models.JobRun
+	if roundStats.JobRunID != nil {
+		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
+		if err != nil {
+			return models.FluxMonitorRoundStats{}, "", err
+		}
+	}
+	return roundStats, jobRun.Status, nil
 }
