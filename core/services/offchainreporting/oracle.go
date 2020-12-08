@@ -179,6 +179,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
 			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
 		},
+		DHTAnnouncementCounterUserPrefix: d.config.P2PDHTAnnouncementCounterUserPrefix(),
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewPeer")
