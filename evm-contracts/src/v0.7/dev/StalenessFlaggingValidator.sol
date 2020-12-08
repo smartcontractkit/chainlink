@@ -74,6 +74,14 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     }
   }
 
+  function threshold() public view returns (uint256) {
+    return s_threshold;
+  }
+
+  function flags() public view returns (address) {
+    return address(s_flags);
+  }
+
   function isStale(address aggregator, uint256 currentTimestamp) 
     private 
     returns (bool stale)
