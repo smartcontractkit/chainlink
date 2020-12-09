@@ -216,8 +216,8 @@ describe('StalenessFlaggingValidator', () => {
     let agg2: contract.Instance<MockV3AggregatorFactory>
     let aggregators: Array<string>
     let thresholds: Array<number>
-    let decimals = 8
-    let initialAnswer = 10000000000
+    const decimals = 8
+    const initialAnswer = 10000000000
     beforeEach(async () => {
       agg1 = await aggregatorFactory
         .connect(personas.Carol)
@@ -238,7 +238,9 @@ describe('StalenessFlaggingValidator', () => {
 
     describe('when threshold is not set in the validator', () => {
       it('returns false', async () => {
-        let agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer)
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer)
         assert.equal(await validator.check([agg3.address]), false)
       })
     })
@@ -246,9 +248,14 @@ describe('StalenessFlaggingValidator', () => {
     describe('when one of the aggregators is stale', () => {
       it('returns true', async () => {
         const currentTimestamp = await agg1.latestTimestamp()
-        const staleTimestamp = currentTimestamp.sub(h.bigNum(flaggingThreshold1+1))
+        const staleTimestamp = currentTimestamp.sub(
+          h.bigNum(flaggingThreshold1 + 1),
+        )
         await agg1.updateRoundData(
-          99, initialAnswer, staleTimestamp, staleTimestamp
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
         )
         assert.equal(await validator.check(aggregators), true)
       })
@@ -256,9 +263,91 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#update', () => {
-    // both not stale (no flag)
-    // one without config (no flag)
-    // 1/2 stale (1 flag)
-    // 2/2 stale (2 flags)
+    let agg1: contract.Instance<MockV3AggregatorFactory>
+    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let aggregators: Array<string>
+    let thresholds: Array<number>
+    const decimals = 8
+    const initialAnswer = 10000000000
+    beforeEach(async () => {
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
+      aggregators = [agg1.address, agg2.address]
+      thresholds = [flaggingThreshold1, flaggingThreshold2]
+      await validator.setThresholds(aggregators, thresholds)
+    })
+
+    describe('when neither are stale', () => {
+      it('does not raise a flag', async () => {
+        const tx = await validator.update(aggregators)
+        const logs = await h.getLogs(tx)
+        assert.equal(logs.length, 0)
+      })
+    })
+
+    describe('when threshold is not set in the validator', () => {
+      it('does not raise a flag', async () => {
+        const agg3 = await aggregatorFactory
+          .connect(personas.Carol)
+          .deploy(decimals, initialAnswer)
+        const tx = await validator.update([agg3.address])
+        const logs = await h.getLogs(tx)
+        assert.equal(logs.length, 0)
+      })
+    })
+
+    describe('when one is stale', () => {
+      it('raises a flag for that aggregator', async () => {
+        const currentTimestamp = await agg1.latestTimestamp()
+        const staleTimestamp = currentTimestamp.sub(
+          h.bigNum(flaggingThreshold1 + 1),
+        )
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        )
+
+        const tx = await validator.update(aggregators)
+        const logs = await h.getLogs(tx)
+        assert.equal(logs.length, 1)
+        assert.equal(h.evmWordToAddress(logs[0].topics[1]), agg1.address)
+      })
+    })
+
+    describe('when both are stale', () => {
+      it('raises 2 flags, one for each aggregator', async () => {
+        let currentTimestamp = await agg1.latestTimestamp()
+        let staleTimestamp = currentTimestamp.sub(
+          h.bigNum(flaggingThreshold1 + 1),
+        )
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        )
+
+        currentTimestamp = await agg2.latestTimestamp()
+        staleTimestamp = currentTimestamp.sub(h.bigNum(flaggingThreshold2 + 1))
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        )
+
+        const tx = await validator.update(aggregators)
+        const logs = await h.getLogs(tx)
+        assert.equal(logs.length, 2)
+        assert.equal(h.evmWordToAddress(logs[0].topics[1]), agg1.address)
+        assert.equal(h.evmWordToAddress(logs[1].topics[1]), agg2.address)
+      })
+    })
   })
 })
