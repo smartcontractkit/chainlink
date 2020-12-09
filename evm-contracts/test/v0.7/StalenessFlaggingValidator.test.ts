@@ -10,7 +10,6 @@ import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
 import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
 
-
 let personas: setup.Personas
 const provider = setup.provider()
 const validatorFactory = new StalenessFlaggingValidatorFactory()
@@ -36,7 +35,7 @@ describe('StalenessFlaggingValidator', () => {
     validator = await validatorFactory
       .connect(personas.Carol)
       .deploy(flags.address)
-    
+
     await ac.connect(personas.Carol).addAccess(validator.address)
   })
 
@@ -113,19 +112,22 @@ describe('StalenessFlaggingValidator', () => {
       })
     })
   })
-  
-  describe('#setThresholds', () => {
 
+  describe('#setThresholds', () => {
     let agg1: contract.Instance<MockV3AggregatorFactory>
     let agg2: contract.Instance<MockV3AggregatorFactory>
-    let aggregators : Array<string>
-    let thresholds : Array<number>
+    let aggregators: Array<string>
+    let thresholds: Array<number>
 
     beforeEach(async () => {
       const decimals = 8
       const initialAnswer = 10000000000
-      agg1 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer)
-      agg2 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer)
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
     })
 
     describe('failure', () => {
@@ -133,25 +135,28 @@ describe('StalenessFlaggingValidator', () => {
         aggregators = [agg1.address, agg2.address]
         thresholds = [flaggingThreshold1]
       })
-  
+
       it('reverts when called by a non-owner', async () => {
         await matchers.evmRevert(
-          validator.connect(personas.Neil).setThresholds(aggregators, thresholds),
-          "Only callable by owner"
+          validator
+            .connect(personas.Neil)
+            .setThresholds(aggregators, thresholds),
+          'Only callable by owner',
         )
-      })      
-  
+      })
+
       it('reverts when passed uneven arrays', async () => {
         await matchers.evmRevert(
-          validator.connect(personas.Carol).setThresholds(aggregators, thresholds),
-          "Different sized arrays"
+          validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds),
+          'Different sized arrays',
         )
       })
     })
-    
-    describe('success', () => {
 
-      let tx : any
+    describe('success', () => {
+      let tx: any
 
       beforeEach(() => {
         aggregators = [agg1.address, agg2.address]
@@ -160,7 +165,9 @@ describe('StalenessFlaggingValidator', () => {
 
       describe('when called with 2 new thresholds', () => {
         beforeEach(async () => {
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, thresholds)
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds)
         })
 
         it('sets the thresholds', async () => {
@@ -176,18 +183,23 @@ describe('StalenessFlaggingValidator', () => {
           assert.equal(firstEvent.topics[3], h.numToBytes32(flaggingThreshold1))
           const secondEvent = await h.getLog(tx, 1)
           assert.equal(h.evmWordToAddress(secondEvent.topics[1]), agg2.address)
-          assert.equal(secondEvent.topics[3], h.numToBytes32(flaggingThreshold2))
+          assert.equal(
+            secondEvent.topics[3],
+            h.numToBytes32(flaggingThreshold2),
+          )
         })
       })
 
       describe('when called with 2, but 1 has not changed', () => {
         it('emits only 1 event', async () => {
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, thresholds)
-          
-          let newThreshold = flaggingThreshold2+1
-          tx = await validator.connect(personas.Carol).setThresholds(aggregators, 
-            [flaggingThreshold1, newThreshold]
-          )
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, thresholds)
+
+          const newThreshold = flaggingThreshold2 + 1
+          tx = await validator
+            .connect(personas.Carol)
+            .setThresholds(aggregators, [flaggingThreshold1, newThreshold])
           const logs = await h.getLogs(tx)
           assert.equal(logs.length, 1)
           const log = logs[0]
