@@ -256,6 +256,16 @@ func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
 	return j.MultiAdd(KV{insertKey: insertValue})
 }
 
+func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
+	curr := j.Get(insertKey).Array()
+	updated := make([]interface{}, 0)
+	updated = append(updated, insertValue)
+	for _, c := range curr {
+		updated = append(updated, c.Value())
+	}
+	return j.Add(insertKey, updated)
+}
+
 // KV represents a key/value pair to be added to a JSON object
 type KV map[string]interface{}
 
