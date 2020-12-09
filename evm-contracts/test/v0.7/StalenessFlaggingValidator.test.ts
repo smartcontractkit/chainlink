@@ -210,4 +210,55 @@ describe('StalenessFlaggingValidator', () => {
       })
     })
   })
+
+  describe('#check', () => {
+    let agg1: contract.Instance<MockV3AggregatorFactory>
+    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let aggregators: Array<string>
+    let thresholds: Array<number>
+    let decimals = 8
+    let initialAnswer = 10000000000
+    beforeEach(async () => {
+      agg1 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
+      agg2 = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, initialAnswer)
+      aggregators = [agg1.address, agg2.address]
+      thresholds = [flaggingThreshold1, flaggingThreshold2]
+      await validator.setThresholds(aggregators, thresholds)
+    })
+
+    describe('when neither are stale', () => {
+      it('returns false', async () => {
+        assert.equal(await validator.check(aggregators), false)
+      })
+    })
+
+    describe('when threshold is not set in the validator', () => {
+      it('returns false', async () => {
+        let agg3 = await aggregatorFactory.connect(personas.Carol).deploy(decimals, initialAnswer)
+        assert.equal(await validator.check([agg3.address]), false)
+      })
+    })
+
+    describe('when one of the aggregators is stale', () => {
+      it('returns true', async () => {
+        const currentTimestamp = await agg1.latestTimestamp()
+        const staleTimestamp = currentTimestamp.sub(h.bigNum(flaggingThreshold1+1))
+        await agg1.updateRoundData(
+          99, initialAnswer, staleTimestamp, staleTimestamp
+        )
+        assert.equal(await validator.check(aggregators), true)
+      })
+    })
+  })
+
+  describe('#update', () => {
+    // both not stale (no flag)
+    // one without config (no flag)
+    // 1/2 stale (1 flag)
+    // 2/2 stale (2 flags)
+  })
 })

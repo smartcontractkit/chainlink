@@ -79,7 +79,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @param aggregators address[] memory
    * @return bool
    */
-  function check(address[] memory aggregators) public returns (bool) {
+  function check(address[] memory aggregators) public view returns (bool) {
     uint256 currentTimestamp = block.timestamp;
 
     for (uint256 i = 0; i < aggregators.length; i++) {
@@ -133,7 +133,8 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @return stale bool
    */
   function isStale(address aggregator, uint256 currentTimestamp) 
-    private 
+    private
+    view
     returns (bool stale)
   {
     if (s_thresholds[aggregator] == 0) {
