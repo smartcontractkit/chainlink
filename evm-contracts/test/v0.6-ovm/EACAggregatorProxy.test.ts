@@ -93,30 +93,30 @@ describe('EACAggregatorProxy', () => {
     ])
   })
 
-  // OVM CHANGE: tx.origin not supported, needs explicit access
-  describe.skip('callers can call view functions without explicit access', () => {
+  // OVM CHANGE: tx.origin not supported, allow reads from address(0) instead
+  describe('address(0) caller can call view functions without explicit access', () => {
     it('#latestAnswer', async () => {
-      await proxy.connect(personas.Carol).latestAnswer()
+      await proxy.connect(emptyAddress).latestAnswer()
     })
 
     it('#latestTimestamp', async () => {
-      await proxy.connect(personas.Carol).latestTimestamp()
+      await proxy.connect(emptyAddress).latestTimestamp()
     })
 
     it('#getAnswer', async () => {
-      await proxy.connect(personas.Carol).getAnswer(phaseBase.add(1))
+      await proxy.connect(emptyAddress).getAnswer(phaseBase.add(1))
     })
 
     it('#getTimestamp', async () => {
-      await proxy.connect(personas.Carol).getTimestamp(phaseBase.add(1))
+      await proxy.connect(emptyAddress).getTimestamp(phaseBase.add(1))
     })
 
     it('#latestRound', async () => {
-      await proxy.connect(personas.Carol).latestRound()
+      await proxy.connect(emptyAddress).latestRound()
     })
 
     it('#getRoundData', async () => {
-      await proxy.connect(personas.Carol).getRoundData(phaseBase.add(1))
+      await proxy.connect(emptyAddress).getRoundData(phaseBase.add(1))
     })
 
     it('#proposedGetRoundData', async () => {
@@ -125,7 +125,7 @@ describe('EACAggregatorProxy', () => {
         .deploy(decimals, answer2)
       await proxy.proposeAggregator(aggregator2.address)
       const latestRound = await aggregator2.latestRound()
-      await proxy.connect(personas.Carol).proposedGetRoundData(latestRound)
+      await proxy.connect(emptyAddress).proposedGetRoundData(latestRound)
     })
 
     it('#proposedLatestRoundData', async () => {
@@ -133,7 +133,7 @@ describe('EACAggregatorProxy', () => {
         .connect(defaultAccount)
         .deploy(decimals, answer2)
       await proxy.proposeAggregator(aggregator2.address)
-      await proxy.connect(personas.Carol).proposedLatestRoundData()
+      await proxy.connect(emptyAddress).proposedLatestRoundData()
     })
   })
 

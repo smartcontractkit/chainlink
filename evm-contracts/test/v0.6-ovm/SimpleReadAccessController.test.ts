@@ -5,6 +5,7 @@ import { AccessControlTestHelper__factory } from '../../ethers/v0.6-ovm/factorie
 import { ethers } from 'ethers'
 
 const controllerFactory = new AccessControlTestHelper__factory()
+const emptyAddress = '0x0000000000000000000000000000000000000000'
 const provider = setup.provider()
 let personas: setup.Personas
 let tx: ethers.ContractTransaction
@@ -42,9 +43,20 @@ describe('SimpleReadAccessController', () => {
   })
 
   describe('#hasAccess', () => {
-    // OVM CHANGE: tx.origin not supported, needs explicit access
-    it.skip('allows unauthorized calls originating from the same account', async () => {
+    // OVM CHANGE: tx.origin not supported, allow reads from address(0) instead
+    it('allows unauthorized calls originating from the 0x0 account', async () => {
       assert.isTrue(
+        await controller.connect(personas.Eddy).hasAccess(emptyAddress, '0x00'),
+      )
+      assert.isTrue(
+        await controller
+          .connect(personas.Carol)
+          .hasAccess(emptyAddress, '0x00'),
+      )
+    })
+
+    it('blocks unauthorized calls originating from the same account', async () => {
+      assert.isFalse(
         await controller
           .connect(personas.Eddy)
           .hasAccess(personas.Eddy.address, '0x00'),

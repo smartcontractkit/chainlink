@@ -174,11 +174,17 @@ describe('AccessControlledAggregator', () => {
     })
 
     describe('when read by a regular account', () => {
-      // OVM CHANGE: tx.origin not supported, needs explicit access
-      describe.skip('without explicit access', () => {
+      describe('without explicit access', () => {
+        it('has NO access', async () => {
+          const access = await aggregator
+            .connect(personas.Carol)
+            .hasAccess(personas.Eddy.address, '0x')
+          assert.isFalse(access)
+        })
+
         it('succeeds', async () => {
-          const round = await aggregator.latestRound()
-          await aggregator.connect(personas.Eddy).getAnswer(round)
+          const round = await aggregator.connect(emptyAddress).latestRound()
+          await aggregator.connect(emptyAddress).getAnswer(round)
         })
       })
 
@@ -230,12 +236,12 @@ describe('AccessControlledAggregator', () => {
     })
 
     describe('when read by a regular account', () => {
-      // OVM CHANGE: tx.origin not supported, needs explicit access
-      describe.skip('without explicit access', () => {
+      // OVM CHANGE: tx.origin not supported, use EOA 0x0 instead
+      describe('without explicit access', () => {
         it('succeeds', async () => {
-          const round = await aggregator.latestRound()
+          const round = await aggregator.connect(emptyAddress).latestRound()
           const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
+            .connect(emptyAddress)
             .getTimestamp(round)
           assert.isAbove(currentTimestamp.toNumber(), 0)
         })
@@ -292,10 +298,10 @@ describe('AccessControlledAggregator', () => {
     })
 
     describe('when read by a regular account', () => {
-      // OVM CHANGE: tx.origin not supported, needs explicit access
-      describe.skip('without explicit access', () => {
+      // OVM CHANGE: tx.origin not supported, use EOA 0x0 instead
+      describe('without explicit access', () => {
         it('succeeds', async () => {
-          await aggregator.connect(personas.Eddy).latestAnswer()
+          await aggregator.connect(emptyAddress).latestAnswer()
         })
       })
 
@@ -344,11 +350,11 @@ describe('AccessControlledAggregator', () => {
     })
 
     describe('when read by a regular account', () => {
-      // OVM CHANGE: tx.origin not supported, needs explicit access
-      describe.skip('without explicit access', () => {
+      // OVM CHANGE: tx.origin not supported, use EOA 0x0 instead
+      describe('without explicit access', () => {
         it('succeeds', async () => {
           const currentTimestamp = await aggregator
-            .connect(personas.Eddy)
+            .connect(emptyAddress)
             .latestTimestamp()
           assert.isAbove(currentTimestamp.toNumber(), 0)
         })
@@ -402,10 +408,10 @@ describe('AccessControlledAggregator', () => {
     })
 
     describe('when read by a regular account', () => {
-      // OVM CHANGE: tx.origin not supported, needs explicit access
-      describe.skip('without explicit access', () => {
+      // OVM CHANGE: tx.origin not supported, use EOA 0x0 instead
+      describe('without explicit access', () => {
         it('succeeds', async () => {
-          await aggregator.connect(personas.Eddy).latestAnswer()
+          await aggregator.connect(emptyAddress).latestAnswer()
         })
       })
 

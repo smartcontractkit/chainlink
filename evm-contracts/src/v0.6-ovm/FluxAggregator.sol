@@ -673,8 +673,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
       uint128 _paymentAmount
     )
   {
-    // OVM CHANGE: tx.origin not supported
-    // require(msg.sender == tx.origin, "off-chain reading only");
+    // OVM CHANGE: tx.origin not supported, allow reads from address(0) instead
+    require(msg.sender == address(0), "off-chain reading only");
 
     if (_queriedRoundId > 0) {
       Round storage round = rounds[_queriedRoundId];
