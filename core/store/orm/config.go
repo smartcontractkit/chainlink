@@ -15,6 +15,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/multiformats/go-multiaddr"
+
+	"github.com/libp2p/go-libp2p-core/peer"
+
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -33,6 +40,11 @@ import (
 
 // this permission grants read / write accccess to file owners only
 const readWritePerms = os.FileMode(0600)
+
+var (
+	ErrUnset   = errors.New("env var unset")
+	ErrInvalid = errors.New("env var invalid")
+)
 
 // Config holds parameters used by the application which can be overridden by
 // setting environment variables.
@@ -109,6 +121,41 @@ func (c *Config) Validate() error {
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+	}
+
+	var override time.Duration
+	lc := ocrtypes.LocalConfig{
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(override),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(0),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(override),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(override),
+		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+	}
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return err
+	}
+	if _, err := c.P2PPeerID(""); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRKeyBundleID(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRTransmitterAddress(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if peers, err := c.P2PBootstrapPeers(nil); err == nil {
+		for i := range peers {
+			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
+				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+			}
+		}
+	}
+	if me := c.OCRMonitoringEndpoint(""); me != "" {
+		if _, err := url.Parse(me); err != nil {
+			return errors.Wrapf(err, "invalid monitoring url: %s", me)
+		}
 	}
 	return nil
 }
@@ -508,6 +555,36 @@ func (c Config) OCRContractTransmitterTransmitTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRContractTransmitterTransmitTimeout"))
 }
 
+func (c Config) getDurationWithOverride(override time.Duration, field string) time.Duration {
+	if override != time.Duration(0) {
+		return override
+	}
+	return c.viper.GetDuration(EnvVarName(field))
+}
+
+func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRBlockchainTimeout")
+}
+
+func (c Config) OCRContractSubscribeInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractSubscribeInterval")
+}
+
+func (c Config) OCRContractPollInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractPollInterval")
+}
+
+func (c Config) OCRContractConfirmations(override uint16) uint16 {
+	if override != uint16(0) {
+		return override
+	}
+	return c.getWithFallback("OCRContractConfirmations", parseUint16).(uint16)
+}
+
 func (c Config) OCRDatabaseTimeout() time.Duration {
 	return c.viper.GetDuration(EnvVarName("OCRDatabaseTimeout"))
 }
@@ -532,6 +609,43 @@ func (c Config) OCROutgoingMessageBufferSize() int {
 // option to turn them off is given because they can be very verbose
 func (c Config) OCRTraceLogging() bool {
 	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
+}
+
+func (c Config) OCRMonitoringEndpoint(override string) string {
+	if override != "" {
+		return override
+	}
+	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
+}
+
+func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+	if override != nil {
+		return *override, nil
+	}
+	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
+	if taStr != "" {
+		ta, err := models.NewEIP55Address(taStr)
+		if err != nil {
+			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
+		}
+		return ta, nil
+	}
+	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
+}
+
+func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
+	if override != nil {
+		return *override, nil
+	}
+	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
+	if kbStr != "" {
+		kb, err := models.Sha256HashFromHex(kbStr)
+		if err != nil {
+			return models.Sha256Hash{}, errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+		}
+		return kb, nil
+	}
+	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
 }
 
 // OperatorContractAddress represents the address where the Operator.sol
@@ -629,6 +743,32 @@ func (c Config) P2PDHTAnnouncementCounterUserPrefix() uint32 {
 
 func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
+}
+
+func (c Config) P2PPeerID(override models.PeerID) (models.PeerID, error) {
+	if override != "" {
+		return override, nil
+	}
+	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
+	if pidStr != "" {
+		pid, err := peer.Decode(pidStr)
+		if err != nil {
+			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
+		}
+		return models.PeerID(pid), nil
+	}
+	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
+}
+
+func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
+	if override != nil {
+		return override, nil
+	}
+	bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
+	if bps != nil {
+		return bps, nil
+	}
+	return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
 }
 
 // Port represents the port Chainlink should listen on for client requests.

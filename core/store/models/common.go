@@ -604,6 +604,10 @@ func (i Interval) Value() (driver.Value, error) {
 	return time.Duration(i).Nanoseconds(), nil
 }
 
+func (i Interval) IsZero() bool {
+	return time.Duration(i) == time.Duration(0)
+}
+
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	DestinationAddress common.Address `json:"address"`

@@ -92,7 +92,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 }
 
 func (jc *JobsController) createOCR(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedOracleSpecToml(toml)
+	jobSpec, err := services.ValidatedOracleSpecToml(jc.App.GetStore().Config, toml)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
