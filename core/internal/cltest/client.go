@@ -160,8 +160,11 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 		return nil, errors.Wrapf(err, "while calling ERC20 balanceOf method on %s "+
 			"for balance of %s", contractAddress, address)
 	}
-	balance = new(big.Int)
-	return balance, balanceOfABI.Unpack(balance, "balanceOf", b)
+	err = balanceOfABI.UnpackIntoInterface(balance, "balanceOf", b)
+	if err != nil {
+		return nil, errors.New("unable to unpack balance")
+	}
+	return balance, nil
 }
 
 func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
@@ -333,7 +336,7 @@ func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account comm
 }
 
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	panic("unimplemented")
+	return c.b.EstimateGas(ctx, call)
 }
 
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {

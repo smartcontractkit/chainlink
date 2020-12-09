@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"reflect"
 	"regexp"
 	"strings"
 	"time"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/multiformats/go-multiaddr"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/tidwall/gjson"
 )
 
@@ -376,7 +378,7 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSpec, err error) {
+func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offchainreporting.OracleSpec, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("panicked with err %v", r)
@@ -391,6 +393,8 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 	if err != nil {
 		return spec, err
 	}
+	// Note this validates all the fields which implement an UnmarshalText
+	// i.e. TransmitterAddress, PeerID...
 	err = tree.Unmarshal(&oros)
 	if err != nil {
 		return spec, err
@@ -403,22 +407,6 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
-	var defaults = map[string]interface{}{
-		"observationTimeout":                     models.Interval(10 * time.Second),
-		"blockchainTimeout":                      models.Interval(20 * time.Second),
-		"contractConfigTrackerSubscribeInterval": models.Interval(2 * time.Minute),
-		"contractConfigTrackerPollInterval":      models.Interval(1 * time.Minute),
-	}
-	for k, v := range defaults {
-		cv := v
-		if !tree.Has(k) {
-			reflect.ValueOf(&spec.OffchainReportingOracleSpec).
-				Elem().
-				FieldByName(strings.Title(k)).
-				Set(reflect.ValueOf(cv))
-		}
-	}
-
 	if spec.Type != "offchainreporting" {
 		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
 	}
@@ -428,14 +416,19 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 	if !tree.Has("isBootstrapPeer") {
 		return spec, errors.New("isBootstrapPeer is not defined")
 	}
+	for i := range spec.P2PBootstrapPeers {
+		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
+			return spec, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
+		}
+	}
 	if spec.IsBootstrapPeer {
 		if err := validateBootstrapSpec(tree, spec); err != nil {
 			return spec, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, spec); err != nil {
+	} else if err := validateNonBootstrapSpec(tree, config, spec); err != nil {
 		return spec, err
 	}
-	if err := validateTimingParameters(spec); err != nil {
+	if err := validateTimingParameters(config, spec); err != nil {
 		return spec, err
 	}
 	if err := validateMonitoringURL(spec); err != nil {
@@ -448,21 +441,16 @@ func ValidatedOracleSpecToml(tomlString string) (spec offchainreporting.OracleSp
 var (
 	// Common to both bootstrap and non-boostrap
 	params = map[string]struct{}{
-		"type":              {},
-		"schemaVersion":     {},
-		"contractAddress":   {},
-		"isBootstrapPeer":   {},
-		"p2pPeerID":         {},
-		"p2pBootstrapPeers": {},
+		"type":            {},
+		"schemaVersion":   {},
+		"contractAddress": {},
+		"isBootstrapPeer": {},
 	}
 	// Boostrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
-		"observationSource":  {},
-		"observationTimeout": {},
-		"keyBundleID":        {},
-		"transmitterAddress": {},
+		"observationSource": {},
 	}
 )
 
@@ -474,24 +462,16 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(spec offchainreporting.OracleSpec) error {
-	// TODO: expose these various constants from libocr so they are defined in one place.
-	if time.Duration(spec.ObservationTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return errors.Errorf("require 1ms <= observation timeout <= 20s")
-	}
-	if time.Duration(spec.BlockchainTimeout) < 1*time.Millisecond || time.Duration(spec.ObservationTimeout) > 20*time.Second {
-		return errors.Errorf("require 1ms <= blockchain timeout <= 20s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerPollInterval) < 15*time.Second || time.Duration(spec.ContractConfigTrackerPollInterval) > 120*time.Second {
-		return errors.Errorf("require 15s <= contract config tracker poll interval <= 120s ")
-	}
-	if time.Duration(spec.ContractConfigTrackerSubscribeInterval) < 2*time.Minute || time.Duration(spec.ContractConfigTrackerSubscribeInterval) > 5*time.Minute {
-		return errors.Errorf("require 2m <= contract config subscribe interval <= 5m ")
-	}
-	if spec.ContractConfigConfirmations < 2 || spec.ContractConfigConfirmations > 10 {
-		return errors.Errorf("require 2 <= contract config confirmations <= 10 ")
-	}
-	return nil
+func validateTimingParameters(config *orm.Config, spec offchainreporting.OracleSpec) error {
+	return ocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
+		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
+		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
+		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
+		ContractConfigTrackerSubscribeInterval: config.OCRContractSubscribeInterval(time.Duration(spec.ContractConfigTrackerSubscribeInterval)),
+		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
+	})
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
@@ -502,15 +482,10 @@ func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) e
 	if err := validateExplicitlySetKeys(tree, expected, notExpected, "bootstrap"); err != nil {
 		return err
 	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
 	return nil
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec offchainreporting.OracleSpec) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -521,15 +496,8 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec
 	if spec.Pipeline.DOTSource == "" {
 		return errors.New("no pipeline specified")
 	}
-	if len(spec.P2PBootstrapPeers) < 1 {
-		return errors.New("must specify at least one bootstrap peer")
-	}
-	for i := range spec.P2PBootstrapPeers {
-		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
-		}
-	}
-	if spec.MaxTaskDuration > spec.ObservationTimeout {
+	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout))
+	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}
 	tasks, err := spec.Pipeline.TasksInDependencyOrder()
@@ -538,7 +506,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec
 	}
 	for _, task := range tasks {
 		timeout, set := task.TaskTimeout()
-		if set && timeout > time.Duration(spec.ObservationTimeout) {
+		if set && timeout > observationTimeout {
 			return errors.Errorf("individual max task duration must be < observation timeout")
 		}
 	}

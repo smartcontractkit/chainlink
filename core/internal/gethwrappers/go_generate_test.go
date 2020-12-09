@@ -134,7 +134,7 @@ and commit the changes`, apath, recompileCommand))
 
 	// Check that each of the contract source codes hasn't changed
 	soliditySourceRoot := filepath.Dir(filepath.Dir(filepath.Dir(apath)))
-	contractPath := filepath.Join(soliditySourceRoot, "src", "v0.6")
+	contractPath := filepath.Join(soliditySourceRoot, "src", filepath.Base(filepath.Dir(versionInfo.CompilerArtifactPath)))
 	for sourcePath, sourceCode := range contract.Sources { // compare to current source
 		sourcePath = filepath.Join(contractPath, sourcePath)
 		actualSource, err := ioutil.ReadFile(sourcePath)

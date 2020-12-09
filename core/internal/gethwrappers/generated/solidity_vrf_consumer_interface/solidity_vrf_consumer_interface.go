@@ -154,7 +154,7 @@ func bindVRFConsumer(address common.Address, caller bind.ContractCaller, transac
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFConsumer *VRFConsumerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFConsumer *VRFConsumerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFConsumer.Contract.VRFConsumerCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_VRFConsumer *VRFConsumerRaw) Transact(opts *bind.TransactOpts, method str
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFConsumer *VRFConsumerCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFConsumer *VRFConsumerCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFConsumer.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_VRFConsumer *VRFConsumerTransactorRaw) Transact(opts *bind.TransactOpts, 
 //
 // Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFConsumer.contract.Call(opts, out, "randomnessOutput")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFConsumer.contract.Call(opts, &out, "randomnessOutput")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
@@ -218,12 +223,17 @@ func (_VRFConsumer *VRFConsumerCallerSession) RandomnessOutput() (*big.Int, erro
 //
 // Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte, error) {
-	var (
-		ret0 = new([32]byte)
-	)
-	out := ret0
-	err := _VRFConsumer.contract.Call(opts, out, "requestId")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFConsumer.contract.Call(opts, &out, "requestId")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
 }
 
 // RequestId is a free data retrieval call binding the contract method 0x006d6cae.

@@ -22,11 +22,21 @@ func NewRunOutputError(err error) RunOutput {
 }
 
 // NewRunOutputCompleteWithResult returns a new RunOutput that is complete and
-// contains a result
-func NewRunOutputCompleteWithResult(resultVal interface{}) RunOutput {
+// contains a result and preserves the resultCollection.
+func NewRunOutputCompleteWithResult(resultVal interface{}, resultCollection gjson.Result) RunOutput {
 	data, err := JSON{}.Add(ResultKey, resultVal)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
+	}
+	if resultCollection.String() != "" {
+		collectionCopy := make([]interface{}, 0)
+		for _, k := range resultCollection.Array() {
+			collectionCopy = append(collectionCopy, k.Value())
+		}
+		data, err = data.Add(ResultCollectionKey, collectionCopy)
+		if err != nil {
+			return NewRunOutputError(err)
+		}
 	}
 	return NewRunOutputComplete(data)
 }

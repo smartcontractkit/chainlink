@@ -32,7 +32,7 @@ func (*EthBytes32) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 		hex = hex[:utils.EVMWordHexLen]
 	}
 
-	return models.NewRunOutputCompleteWithResult(utils.AddHexPrefix(hex))
+	return models.NewRunOutputCompleteWithResult(utils.AddHexPrefix(hex), input.ResultCollection())
 }
 
 // EthInt256 holds no fields
@@ -55,7 +55,7 @@ func (*EthInt256) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 		return models.NewRunOutputError(err)
 	}
 
-	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value))
+	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value), input.ResultCollection())
 }
 
 // EthUint256 holds no fields.
@@ -78,5 +78,5 @@ func (*EthUint256) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 		return models.NewRunOutputError(err)
 	}
 
-	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value))
+	return models.NewRunOutputCompleteWithResult(hexutil.Encode(value), input.ResultCollection())
 }

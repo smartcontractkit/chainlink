@@ -1,9 +1,10 @@
 pragma solidity 0.4.24;
 
 import "../Chainlinked.sol";
-
+import "../vendor/SafeMathChainlink.sol";
 
 contract ConcreteChainlinked is Chainlinked {
+  using SafeMathChainlink for uint256;
 
   constructor(address _link, address _oracle) public {
     setLinkToken(_link);

@@ -30,7 +30,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			ToAddress:        toAddress,
 			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
-			ABIEncoding:      []string{"uint256", "bool", "bytes"},
+			DataPrefix:       hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			ABIEncoding:      []string{"bytes32", "uint256", "bool", "bytes"},
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
@@ -48,9 +49,13 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Nil(t, etrt.EthTx.Nonce)
 		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
 		assert.Equal(t, "70a08231"+ // function selector
+			"0000000000000000000000000000000000000000000000000000000000000001"+ // requestID == 1
+			"00000000000000000000000000000000000000000000000000000000000000c0"+ // normal offset for other args
+			"00000000000000000000000000000000000000000000000000000000000000c0"+ // length of nested txdata
+			"0000000000000000000000000000000000000000000000000000000000000001"+ // requestID == 1
 			"000000000000000000000000000000000000000000000000000000000000000c"+ // 12
 			"0000000000000000000000000000000000000000000000000000000000000000"+ // false
-			"0000000000000000000000000000000000000000000000000000000000000060"+ // location of array
+			"0000000000000000000000000000000000000000000000000000000000000080"+ // location of array = 32 * 4
 			"0000000000000000000000000000000000000000000000000000000000000002"+ // length
 			"1234000000000000000000000000000000000000000000000000000000000000", // contents
 			hex.EncodeToString(etrt.EthTx.EncodedPayload))

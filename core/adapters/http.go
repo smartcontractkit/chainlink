@@ -167,7 +167,7 @@ func sendRequest(input models.RunInput, request *http.Request, config utils.HTTP
 		return models.NewRunOutputError(errors.New(responseBody))
 	}
 
-	return models.NewRunOutputCompleteWithResult(responseBody)
+	return models.NewRunOutputCompleteWithResult(responseBody, input.ResultCollection())
 }
 
 // QueryParameters are the keys and values to append to the URL

@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
 
@@ -127,7 +129,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
-	_, err := services.ValidatedOracleSpecToml(s)
+	_, err := services.ValidatedOracleSpecToml(orm.NewConfig(), s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
