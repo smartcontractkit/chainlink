@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -40,7 +41,7 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	store := app.GetStore()
 
 	// create key on disk
-	pwd := "p@ssword"
+	pwd := cltest.Password
 	acc, err := store.KeyStore.NewAccount(pwd)
 	require.NoError(t, err)
 
@@ -75,7 +76,13 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	for i, key := range keys {
 		content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[i]))
 		require.NoError(t, err)
-		require.JSONEq(t, key.JSON.String(), content)
+
+		filekey, err := keystore.DecryptKey([]byte(content), cltest.Password)
+		require.NoError(t, err)
+		dbkey, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+		require.NoError(t, err)
+
+		require.Equal(t, dbkey, filekey)
 	}
 }
 
@@ -83,9 +90,8 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	app.AddUnlockedKey() // second account
 	defer cleanup()
-	require.NoError(t, app.Start())
+	cltest.MustAddRandomKeyToKeystore(t, app.Store) // second account
 
 	store := app.GetStore()
 
@@ -124,7 +130,13 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		payloadAddress := gjson.Parse(content).Get("address").String()
-		require.JSONEq(t, content, payloads[payloadAddress])
+
+		filekey, err := keystore.DecryptKey([]byte(content), cltest.Password)
+		require.NoError(t, err)
+		dbkey, err := keystore.DecryptKey([]byte(payloads[payloadAddress]), cltest.Password)
+		require.NoError(t, err)
+
+		require.Equal(t, dbkey, filekey)
 	}
 }
 

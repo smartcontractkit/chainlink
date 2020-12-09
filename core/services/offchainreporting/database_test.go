@@ -22,7 +22,8 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 	sqldb := store.DB.DB()
 	configDigest := cltest.MakeConfigDigest(t)
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
+	key := cltest.MustInsertRandomKey(t, store.DB)
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)
 
 	t.Run("reads and writes state", func(t *testing.T) {
 		db := offchainreporting.NewDB(sqldb, spec.ID)
@@ -109,7 +110,9 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
+	key := cltest.MustInsertRandomKey(t, store.DB)
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)
+	transmitterAddress := key.Address.Address()
 
 	t.Run("reads and writes config", func(t *testing.T) {
 		db := offchainreporting.NewDB(sqldb, spec.ID)
@@ -128,8 +131,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 
 		newConfig := ocrtypes.ContractConfig{
 			ConfigDigest:         cltest.MakeConfigDigest(t),
-			Signers:              []common.Address{utils.ZeroAddress, cltest.DefaultKeyAddress, cltest.NewAddress()},
-			Transmitters:         []common.Address{utils.ZeroAddress, cltest.DefaultKeyAddress, cltest.NewAddress()},
+			Signers:              []common.Address{utils.ZeroAddress, transmitterAddress, cltest.NewAddress()},
+			Transmitters:         []common.Address{utils.ZeroAddress, transmitterAddress, cltest.NewAddress()},
 			Threshold:            uint8(36),
 			EncodedConfigVersion: uint64(987655),
 			Encoded:              []byte{2, 3, 4, 5, 6},
@@ -164,8 +167,10 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	defer cleanup()
 
 	sqldb := store.DB.DB()
-	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store)
-	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, store)
+	key := cltest.MustInsertRandomKey(t, store.DB)
+
+	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)
+	spec2 := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)
 	db := offchainreporting.NewDB(sqldb, spec.ID)
 	db2 := offchainreporting.NewDB(sqldb, spec2.ID)
 	configDigest := cltest.MakeConfigDigest(t)

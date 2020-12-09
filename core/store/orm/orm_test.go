@@ -939,17 +939,8 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 	defer cleanup()
 	orm := store.ORM
 
-	testJSON := cltest.JSONFromString(t, "{}")
-
-	earlierAddress := cltest.DefaultKeyAddressEIP55
-	earlier := models.Key{Address: earlierAddress, JSON: testJSON}
-
-	require.NoError(t, orm.CreateKeyIfNotExists(earlier))
-	time.Sleep(10 * time.Millisecond)
-
-	laterAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
-	require.NoError(t, err)
-	later := models.Key{Address: laterAddress, JSON: testJSON}
+	earlier := cltest.MustInsertRandomKey(t, store.DB)
+	later := cltest.MustInsertRandomKey(t, store.DB)
 
 	require.NoError(t, orm.CreateKeyIfNotExists(later))
 
@@ -958,28 +949,16 @@ func TestORM_KeysOrdersByCreatedAtAsc(t *testing.T) {
 
 	require.Len(t, keys, 2)
 
-	assert.Equal(t, keys[0].Address, earlierAddress)
-	assert.Equal(t, keys[1].Address, laterAddress)
+	assert.Equal(t, keys[0].Address, earlier.Address)
+	assert.Equal(t, keys[1].Address, later.Address)
 }
 
 func TestORM_SendKeys(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := store.ORM
 
-	testJSON := cltest.JSONFromString(t, "{}")
-
-	sendingAddress := cltest.DefaultKeyAddressEIP55
-	sending := models.Key{Address: sendingAddress, JSON: testJSON}
-
-	require.NoError(t, orm.CreateKeyIfNotExists(sending))
-	time.Sleep(10 * time.Millisecond)
-
-	fundingAddress, err := models.NewEIP55Address("0xBB68588621f7E847070F4cC9B9e70069BA55FC5A")
-	require.NoError(t, err)
-	funding := models.Key{Address: fundingAddress, JSON: testJSON, IsFunding: true}
-
-	require.NoError(t, orm.CreateKeyIfNotExists(funding))
+	cltest.MustInsertRandomKey(t, store.DB, false)
+	cltest.MustInsertRandomKey(t, store.DB, true)
 
 	keys, err := store.AllKeys()
 	require.NoError(t, err)
@@ -993,14 +972,10 @@ func TestORM_SendKeys(t *testing.T) {
 func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	orm := store.ORM
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 
-	keysDir := store.Config.KeysDir()
-	// Clear out the fixture
-	require.NoError(t, os.RemoveAll(keysDir))
-	require.NoError(t, store.DeleteKey(cltest.DefaultKeyAddress[:]))
-	// Fixture key is deleted
+	orm := store.ORM
+
 	dbkeys, err := store.SendKeys()
 	require.NoError(t, err)
 	require.Len(t, dbkeys, 0)
@@ -1008,6 +983,8 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 	seed, err := models.NewKeyFromFile(fmt.Sprintf("../../internal/fixtures/keys/%s", cltest.DefaultKeyFixtureFileName))
 	require.NoError(t, err)
 	require.NoError(t, orm.CreateKeyIfNotExists(seed))
+
+	keysDir := store.Config.KeysDir()
 
 	require.True(t, isDirEmpty(t, keysDir))
 	err = orm.ClobberDiskKeyStoreWithDBKeys(keysDir)
@@ -1057,7 +1034,7 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 		jobRun.RunRequest = *runRequest
 		require.NoError(t, storeInstance.CreateJobRun(&jobRun))
 
-		key := cltest.MustInsertRandomKey(t, storeInstance)
+		key := cltest.MustInsertRandomKey(t, storeInstance.DB)
 		ethTx := cltest.NewEthTx(t, storeInstance, key.Address.Address())
 		ethTx.State = models.EthTxState(status)
 		if status == "in_progress" {
@@ -1101,7 +1078,8 @@ func TestORM_EthTransactionsWithAttempts(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	from := cltest.DefaultKeyAddress
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)        // tx1
 	tx2 := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from) // tx2
 
@@ -1375,11 +1353,9 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	store.ORM = orm
 	defer cleanup()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 
 	sharedTaskRunID := cltest.MustInsertTaskRun(t, store)
-	keys, err := orm.SendKeys()
-	require.NoError(t, err)
-	fromAddress := keys[0].Address.Address()
 
 	t.Run("creates eth_task_run_transaction and eth_tx", func(t *testing.T) {
 		toAddress := cltest.NewAddress()
@@ -1685,19 +1661,15 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	fundingKey := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`), IsFunding: true}
-	k0Address := cltest.DefaultKey
-	k1 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 1}`)}
-	k2 := models.Key{Address: models.EIP55Address(cltest.NewAddress().Hex()), JSON: cltest.JSONFromString(t, `{"key": 2}`)}
-
-	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
-	require.NoError(t, store.CreateKeyIfNotExists(k1))
-	require.NoError(t, store.CreateKeyIfNotExists(k2))
+	cltest.MustAddRandomKeyToKeystore(t, store, 0, true)
+	_, k0Address := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	k1, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	k2, _ := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 	t.Run("with no address filter, rotates between all addresses", func(t *testing.T) {
 		address, err := store.GetRoundRobinAddress()
 		require.NoError(t, err)
-		assert.Equal(t, k0Address, address.Hex())
+		assert.Equal(t, k0Address.Hex(), address.Hex())
 
 		address, err = store.GetRoundRobinAddress()
 		require.NoError(t, err)
@@ -1709,7 +1681,7 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 
 		address, err = store.GetRoundRobinAddress()
 		require.NoError(t, err)
-		assert.Equal(t, k0Address, address.Hex())
+		assert.Equal(t, k0Address.Hex(), address.Hex())
 	})
 
 	t.Run("with address filter, rotates between given addresses", func(t *testing.T) {

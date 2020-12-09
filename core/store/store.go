@@ -47,28 +47,35 @@ type Store struct {
 	closeOnce      *sync.Once
 }
 
+type KeyStoreGenerator func(*orm.Config) *KeyStore
+
+func StandardKeyStoreGen(config *orm.Config) *KeyStore {
+	scryptParams := utils.GetScryptParams(config)
+	return NewKeyStore(config.KeysDir(), scryptParams)
+}
+
+func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
+	return NewInsecureKeyStore(config.KeysDir())
+}
+
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore {
-		scryptParams := utils.GetScryptParams(config)
-		return NewKeyStore(config.KeysDir(), scryptParams)
-	}
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStore, shutdownSignal)
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) *Store {
+	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
+// See: https://www.pivotaltracker.com/story/show/175493792
 func newStoreWithKeyStore(
 	config *orm.Config,
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
-	keyStoreGenerator func() *KeyStore,
+	keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -82,7 +89,7 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	keyStore := keyStoreGenerator()
+	keyStore := keyStoreGenerator(config)
 	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{

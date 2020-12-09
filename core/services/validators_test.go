@@ -312,10 +312,11 @@ func TestValidateServiceAgreement(t *testing.T) {
 	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt
 	assert.NoError(t, err)
 	err = store.KeyStore.Unlock("password")
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	assert.NoError(t, err)
 	defer cleanup()
 
-	oracles := []string{cltest.DefaultKeyAddress.Hex()}
+	oracles := []string{fromAddress.Hex()}
 
 	basic := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
