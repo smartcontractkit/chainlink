@@ -29,9 +29,7 @@ contract SimpleReadAccessController is SimpleWriteAccessController {
     override
     returns (bool)
   {
-    // OVM CHANGE: tx.origin not supported
-    // return super.hasAccess(_user, _calldata) || _user == tx.origin;
-    return super.hasAccess(_user, _calldata);
+    return super.hasAccess(_user, _calldata) || _user == address(0);
   }
 
 }

@@ -58,7 +58,7 @@ export function provider(): ethers.providers.JsonRpcProvider {
      * Without this setting the following tests will fail with an "out of gas" error:
      *  - test/v0.6-ovm/AccessControlledAggregator.test.ts
      */
-    allowUnlimitedContractSize: isOVM(),
+    //allowUnlimitedContractSize: isOVM(),
   }
 
   const ganacheProvider = isOVM()
