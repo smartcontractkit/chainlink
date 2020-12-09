@@ -160,8 +160,11 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 		return nil, errors.Wrapf(err, "while calling ERC20 balanceOf method on %s "+
 			"for balance of %s", contractAddress, address)
 	}
-	balance = new(big.Int)
-	return balance, balanceOfABI.Unpack(balance, "balanceOf", b)
+	err = balanceOfABI.UnpackIntoInterface(balance, "balanceOf", b)
+	if err != nil {
+		return nil, errors.New("unable to unpack balance")
+	}
+	return balance, nil
 }
 
 func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
