@@ -76,14 +76,22 @@ type ConfigSchema struct {
 	MinRequiredOutgoingConfirmations          uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration                  uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
+	OCRObservationTimeout                     time.Duration   `env:"OCR_OBSERVATION_TIMEOUT" default:"10s"`
+	OCRBlockchainTimeout                      time.Duration   `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	OCRContractSubscribeInterval              time.Duration   `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
+	OCRContractPollInterval                   time.Duration   `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
+	OCRContractConfirmations                  uint            `env:"OCR_CONTRACT_CONFIRMATIONS" default:"3"`
 	OCRBootstrapCheckInterval                 time.Duration   `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`
 	OCRContractTransmitterTransmitTimeout     time.Duration   `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
+	OCRTransmitterAddress                     string          `env:"OCR_TRANSMITTER_ADDRESS"`
+	OCRKeyBundleID                            string          `env:"OCR_KEY_BUNDLE_ID"`
 	OCRDatabaseTimeout                        time.Duration   `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
 	OCRIncomingMessageBufferSize              int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCROutgoingMessageBufferSize              int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout                       time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 	OCRDHTLookupInterval                      int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
 	OCRTraceLogging                           bool            `env:"OCR_TRACE_LOGGING" default:"false"`
+	OCRMonitoringEndpoint                     string          `env:"OCR_MONITORING_ENDPOINT"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
@@ -91,6 +99,8 @@ type ConfigSchema struct {
 	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
 	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
 	P2PPeerstoreWriteInterval                 time.Duration   `env:"P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
+	P2PPeerID                                 models.PeerID   `env:"P2P_PEER_ID"`
+	P2PBootstrapPeers                         []string        `env:"P2P_BOOTSTRAP_PEERS"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                           int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`
