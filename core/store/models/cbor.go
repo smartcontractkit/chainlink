@@ -3,8 +3,8 @@ package models
 import (
 	"bytes"
 	"encoding/json"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
+	"fmt"
+	"math/big"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -22,7 +22,7 @@ func ParseCBOR(b []byte) (JSON, error) {
 		return JSON{}, err
 	}
 
-	coerced, err := utils.CoerceInterfaceMapToStringMap(m)
+	coerced, err := CoerceInterfaceMapToStringMap(m)
 	if err != nil {
 		return JSON{}, err
 	}
@@ -51,4 +51,58 @@ func autoAddMapDelimiters(b []byte) []byte {
 	}
 
 	return b
+}
+
+// CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
+// map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
+// Relevant when serializing between CBOR and JSON.
+//
+// It also handles the CBOR 'bignum' type as documented here: https://tools.ietf.org/html/rfc7049#section-2.4.2
+func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
+	switch typed := in.(type) {
+	case map[string]interface{}:
+		for k, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			typed[k] = coerced
+		}
+		return typed, nil
+	case map[interface{}]interface{}:
+		m := map[string]interface{}{}
+		for k, v := range typed {
+			coercedKey, ok := k.(string)
+			if !ok {
+				return nil, fmt.Errorf("unable to coerce key %T %v to a string", k, k)
+			}
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			m[coercedKey] = coerced
+		}
+		return m, nil
+	case []interface{}:
+		r := make([]interface{}, len(typed))
+		for i, v := range typed {
+			coerced, err := CoerceInterfaceMapToStringMap(v)
+			if err != nil {
+				return nil, err
+			}
+			r[i] = coerced
+		}
+		return r, nil
+	case cbor.Tag:
+		if value, ok := typed.Content.([]byte); ok {
+			if typed.Number == 2 {
+				return big.NewInt(0).SetBytes(value), nil
+			} else if typed.Number == 3 {
+				return big.NewInt(0).Sub(big.NewInt(-1), big.NewInt(0).SetBytes(value)), nil
+			}
+		}
+		return in, nil
+	default:
+		return in, nil
+	}
 }

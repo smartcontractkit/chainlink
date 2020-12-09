@@ -2,11 +2,13 @@ package models
 
 import (
 	"encoding/json"
-	"log"
+	"reflect"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_ParseCBOR(t *testing.T) {
@@ -21,28 +23,34 @@ func Test_ParseCBOR(t *testing.T) {
 		{
 			"hello world",
 			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff`,
-			jsonMustUnmarshal(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			jsonMustUnmarshal(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
 			false,
 		},
 		{
 			"trailing empty bytes",
 			`0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`,
-			jsonMustUnmarshal(`{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+			jsonMustUnmarshal(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
 			false,
 		},
 		{
 			"nested maps",
 			`0xbf657461736b739f6868747470706f7374ff66706172616d73bf636d73676f68656c6c6f5f636861696e6c696e6b6375726c75687474703a2f2f6c6f63616c686f73743a36363930ffff`,
-			jsonMustUnmarshal(`{"params":{"msg":"hello_chainlink","url":"http://localhost:6690"},"tasks":["httppost"]}`),
+			jsonMustUnmarshal(t, `{"params":{"msg":"hello_chainlink","url":"http://localhost:6690"},"tasks":["httppost"]}`),
 			false,
 		},
 		{
 			"missing initial start map marker",
 			`0x636B65796576616C7565ff`,
-			jsonMustUnmarshal(`{"key":"value"}`),
+			jsonMustUnmarshal(t, `{"key":"value"}`),
 			false,
 		},
-		{"empty object", `0xa0`, jsonMustUnmarshal(`{}`), false},
+		{
+			"bignums",
+			`0xbf676269676e756d739fc249010000000000000000c258204000000000000000000000000000000000000000000000000000000000000000c348ffffffffffffffffc358203fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff`,
+			jsonMustUnmarshal(t, `{"bignums":[18446744073709551616,28948022309329048855892746252171976963317496166410141009864396001978282409984,-18446744073709551616,-28948022309329048855892746252171976963317496166410141009864396001978282409984]}`),
+			false,
+		},
+		{"empty object", `0xa0`, jsonMustUnmarshal(t, `{}`), false},
 		{"empty string", `0x`, JSON{}, false},
 		{"invalid CBOR", `0xff`, JSON{}, true},
 	}
@@ -120,11 +128,108 @@ func Test_autoAddMapDelimiters(t *testing.T) {
 	}
 }
 
-func jsonMustUnmarshal(in string) JSON {
+func jsonMustUnmarshal(t *testing.T, in string) JSON {
 	var j JSON
 	err := json.Unmarshal([]byte(in), &j)
-	if err != nil {
-		log.Panicf("Failed to unmarshal '%s'", in)
-	}
+	require.NoError(t, err)
 	return j
+}
+
+func TestCoerceInterfaceMapToStringMap(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input interface{}
+		want  interface{}
+	}{
+		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}},
+		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}},
+		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}},
+		{
+			"nested string map map",
+			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+		},
+		{
+			"nested map map",
+			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
+			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
+		},
+		{
+			"nested map array",
+			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
+			map[string]interface{}{"key": []interface{}{1, "value"}},
+		},
+		{"empty array", []interface{}{}, []interface{}{}},
+		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}},
+		{
+			"nested array map",
+			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
+			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			decoded, err := CoerceInterfaceMapToStringMap(test.input)
+			require.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(test.want, decoded))
+		})
+	}
+}
+
+func TestCoerceInterfaceMapToStringMap_BadInputs(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input interface{}
+	}{
+		{"error map", map[interface{}]interface{}{1: "value"}},
+		{"error array", []interface{}{map[interface{}]interface{}{1: "value"}}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := CoerceInterfaceMapToStringMap(test.input)
+			assert.Error(t, err)
+		})
+	}
+}
+
+func TestJSON_CBOR(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   JSON
+	}{
+		{"empty object", JSON{}},
+		{"array", jsonMustUnmarshal(t, `[1,2,3,4]`)},
+		{
+			"basic object",
+			jsonMustUnmarshal(t, `{"path":["recent","usd"],"url":"https://etherprice.com/api"}`),
+		},
+		{
+			"complex object",
+			jsonMustUnmarshal(t, `{"a":{"1":[{"b":"free"},{"c":"more"},{"d":["less", {"nesting":{"4":"life"}}]}]}}`),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			encoded, err := test.in.CBOR()
+			assert.NoError(t, err)
+
+			var decoded interface{}
+			err = cbor.Unmarshal(encoded, &decoded)
+
+			assert.NoError(t, err)
+
+			decoded, err = CoerceInterfaceMapToStringMap(decoded)
+			assert.NoError(t, err)
+			assert.True(t, reflect.DeepEqual(test.in.Result.Value(), decoded))
+		})
+	}
 }
