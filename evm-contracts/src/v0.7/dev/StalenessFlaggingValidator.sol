@@ -17,6 +17,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     address indexed current
   );
   event FlaggingThresholdUpdated(
+    address indexed aggregator,
     uint256 indexed previous,
     uint256 indexed current
   );
@@ -61,7 +62,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
       uint newThreshold = flaggingThresholds[i];
       if (previousThreshold != newThreshold) {
         s_thresholds[aggregator] = newThreshold;
-        emit FlaggingThresholdUpdated(previousThreshold, newThreshold);
+        emit FlaggingThresholdUpdated(aggregator, previousThreshold, newThreshold);
       }
     }
   }
