@@ -16,7 +16,7 @@ import { ENSResolver as ENSResolver_Chainlink } from "./vendor/ENSResolver.sol";
 contract ChainlinkClient {
   using Chainlink for Chainlink.Request;
 
-  uint256 constant internal LINK = 10**18;
+  uint256 constant internal DECIMALS = 10**18;
   uint256 constant private AMOUNT_OVERRIDE = 0;
   address constant private SENDER_OVERRIDE = address(0);
   uint256 constant private ARGS_VERSION = 1;
