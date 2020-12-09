@@ -30,7 +30,7 @@ func NewConnectedContract(
 	return &connectedContract{codec, address, ethClient, logBroadcaster}
 }
 
-func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) error {
+func (contract *connectedContract) Call(result interface{}, methodName string, args ...interface{}) (err error) {
 	data, err := contract.EncodeMessageCall(methodName, args...)
 	if err != nil {
 		return errors.Wrap(err, "unable to encode message call")
@@ -42,8 +42,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	if err != nil {
 		return errors.Wrap(err, "unable to call client")
 	}
-
-	err = contract.ABI().Unpack(result, methodName, rawResult)
+	err = contract.ABI().UnpackIntoInterface(result, methodName, rawResult)
 	return errors.Wrap(err, "unable to unpack values")
 }
 
