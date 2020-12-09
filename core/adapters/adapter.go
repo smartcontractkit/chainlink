@@ -147,6 +147,8 @@ func FindNativeAdapterFor(task models.TaskSpec) BaseAdapter {
 		return &Compare{}
 	case TaskTypeQuotient:
 		return &Quotient{}
+	case TaskTypeResultCollect:
+		return &ResultCollect{}
 	default:
 		return nil
 	}

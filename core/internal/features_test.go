@@ -2,6 +2,8 @@ package internal_test
 
 import (
 	"bytes"
+	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,8 +12,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/core"
+	"github.com/ethereum/go-ethereum/crypto"
+	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -1005,4 +1017,208 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	gethClient.AssertExpectations(t)
 	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
+}
+
+func TestIntegration_MultiwordV1(t *testing.T) {
+	gethClient := new(mocks.GethClient)
+	rpcClient := new(mocks.RPCClient)
+	sub := new(mocks.Subscription)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	app.Config.Set(orm.EnvVarName("DefaultHTTPAllowUnrestrictedNetworkAccess"), true)
+	confirmed := int64(23456)
+	safe := confirmed + int64(config.MinRequiredOutgoingConfirmations())
+	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
+
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil).Maybe()
+	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	chchNewHeads := make(chan chan<- *models.Head, 1)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
+		Return(sub, nil)
+	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			tx, ok := args.Get(1).(*types.Transaction)
+			require.True(t, ok)
+			assert.Equal(t, cltest.MustHexDecodeString(
+				"0000000000000000000000000000000000000000000000000000000000000001"+ // reqID
+					"00000000000000000000000000000000000000000000000000000000000000c0"+ // fixed offset
+					"0000000000000000000000000000000000000000000000000000000000000060"+ // length 3 * 32
+					"0000000000000000000000000000000000000000000000000000000000000001"+ // reqID
+					"3130302e31000000000000000000000000000000000000000000000000000000"+ // bid
+					"3130302e31350000000000000000000000000000000000000000000000000000"), // ask
+				tx.Data()[4:])
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+		}).
+		Return(nil).Once()
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(inLongestChain)
+		}).
+		Return(nil)
+
+	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).
+		Return(cltest.BlockWithTransactions(), nil)
+
+	err := app.StartAndConnect()
+	require.NoError(t, err)
+	priceResponse := `{"bid": 100.10, "ask": 100.15}`
+	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", priceResponse)
+	defer assertCalled()
+	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_web.json"))
+	spec = strings.Replace(spec, "https://bitstamp.net/api/ticker/", mockServer.URL, 2)
+	j := cltest.CreateSpecViaWeb(t, app, spec)
+	jr := cltest.CreateJobRunViaWeb(t, app, j)
+	_ = cltest.WaitForJobRunStatus(t, app.Store, jr, models.RunStatusPendingOutgoingConfirmations)
+	app.EthBroadcaster.Trigger()
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+
+	// Feed the subscriber a block head so the transaction completes.
+	newHeads := <-chchNewHeads
+	newHeads <- cltest.Head(safe)
+	// Job should complete successfully.
+	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr2, err := app.Store.ORM.FindJobRun(jr.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 9, len(jr2.TaskRuns))
+	// We expect 2 results collected, the bid and ask
+	assert.Equal(t, 2, len(jr2.TaskRuns[8].Result.Data.Get(models.ResultCollectionKey).Array()))
+}
+
+func assertPrices(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
+	var tmp [32]byte
+	copy(tmp[:], usd)
+	haveUsd, err := consumer.Usd(nil)
+	require.NoError(t, err)
+	assert.Equal(t, tmp[:], haveUsd[:])
+	copy(tmp[:], eur)
+	haveEur, err := consumer.Eur(nil)
+	require.NoError(t, err)
+	assert.Equal(t, tmp[:], haveEur[:])
+	copy(tmp[:], jpy)
+	haveJpy, err := consumer.Jpy(nil)
+	require.NoError(t, err)
+	assert.Equal(t, tmp[:], haveJpy[:])
+}
+
+func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err, "failed to generate ethereum identity")
+	user := bind.NewKeyedTransactor(key)
+	sb := new(big.Int)
+	sb, _ = sb.SetString("100000000000000000000", 10)
+	genesisData := core.GenesisAlloc{
+		user.From: {Balance: sb}, // 1 eth
+	}
+	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
+	require.NoError(t, err)
+	b.Commit()
+
+	operatorAddress, _, operatorContract, err := operator_wrapper.DeployOperator(user, b, linkTokenAddress, user.From)
+	require.NoError(t, err)
+	b.Commit()
+
+	var empty [32]byte
+	consumerAddress, _, consumerContract, err := multiwordconsumer_wrapper.DeployMultiWordConsumer(user, b, linkTokenAddress, operatorAddress, empty)
+	require.NoError(t, err)
+	b.Commit()
+
+	// The consumer contract needs to have link in it to be able to pay
+	// for the data request.
+	_, err = linkContract.Transfer(user, consumerAddress, big.NewInt(1000))
+	require.NoError(t, err)
+	return user, consumerAddress, linkContract, consumerContract, operatorContract, b
+}
+
+func TestIntegration_MultiwordV1_Sim(t *testing.T) {
+	// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
+	// in a single callback.
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	user, _, _, consumerContract, operatorContract, b := setupMultiWordContracts(t)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	defer cleanup()
+	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+
+	_, err := operatorContract.SetAuthorizedSender(user, app.Store.KeyStore.Accounts()[0].Address, true)
+	require.NoError(t, err)
+	b.Commit()
+
+	// Fund node account with ETH.
+	n, err := b.NonceAt(context.Background(), user.From, nil)
+	require.NoError(t, err)
+	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	signedTx, err := user.Signer(types.HomesteadSigner{}, user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = app.StartAndConnect()
+	require.NoError(t, err)
+
+	var call int64
+	response := func() string {
+		defer func() { atomic.AddInt64(&call, 1) }()
+		switch call {
+		case 0:
+			return `{"USD": 614.64}`
+		case 1:
+			return `{"EUR": 507.07}`
+		case 2:
+			return `{"JPY":63818.86}`
+		}
+		require.Fail(t, "only 3 calls expected")
+		return ""
+	}
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, response)
+	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_runlog.json"))
+	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
+	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
+	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
+	j := cltest.CreateSpecViaWeb(t, app, spec)
+
+	var specID [32]byte
+	by, err := hex.DecodeString(j.ID.String())
+	require.NoError(t, err)
+	copy(specID[:], by[:])
+	_, err = consumerContract.SetSpecID(user, specID)
+	require.NoError(t, err)
+
+	user.GasPrice = big.NewInt(1)
+	user.GasLimit = 1000000
+	_, err = consumerContract.RequestMultipleParameters(user, "", big.NewInt(1000))
+	require.NoError(t, err)
+	b.Commit()
+
+	var empty [32]byte
+	assertPrices(t, empty[:], empty[:], empty[:], consumerContract)
+
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			app.EthBroadcaster.Trigger()
+			b.Commit()
+		}
+	}()
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	jr, err := app.Store.JobRunsFor(j.ID)
+	require.NoError(t, err)
+	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
+
+	// Job should complete successfully.
+	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
+	assertPrices(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
 }
