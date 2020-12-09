@@ -154,7 +154,7 @@ func bindFlags(address common.Address, caller bind.ContractCaller, transactor bi
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_Flags *FlagsRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_Flags *FlagsRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _Flags.Contract.FlagsCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_Flags *FlagsRaw) Transact(opts *bind.TransactOpts, method string, params 
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_Flags *FlagsCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_Flags *FlagsCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _Flags.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_Flags *FlagsTransactorRaw) Transact(opts *bind.TransactOpts, method strin
 //
 // Solidity: function checkEnabled() view returns(bool)
 func (_Flags *FlagsCaller) CheckEnabled(opts *bind.CallOpts) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "checkEnabled")
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "checkEnabled")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // CheckEnabled is a free data retrieval call binding the contract method 0xdc7f0124.
@@ -218,12 +223,17 @@ func (_Flags *FlagsCallerSession) CheckEnabled() (bool, error) {
 //
 // Solidity: function getFlag(address subject) view returns(bool)
 func (_Flags *FlagsCaller) GetFlag(opts *bind.CallOpts, subject common.Address) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "getFlag", subject)
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "getFlag", subject)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // GetFlag is a free data retrieval call binding the contract method 0x357e47fe.
@@ -244,12 +254,17 @@ func (_Flags *FlagsCallerSession) GetFlag(subject common.Address) (bool, error) 
 //
 // Solidity: function getFlags(address[] subjects) view returns(bool[])
 func (_Flags *FlagsCaller) GetFlags(opts *bind.CallOpts, subjects []common.Address) ([]bool, error) {
-	var (
-		ret0 = new([]bool)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "getFlags", subjects)
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "getFlags", subjects)
+
+	if err != nil {
+		return *new([]bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]bool)).(*[]bool)
+
+	return out0, err
+
 }
 
 // GetFlags is a free data retrieval call binding the contract method 0x7d723cac.
@@ -270,12 +285,17 @@ func (_Flags *FlagsCallerSession) GetFlags(subjects []common.Address) ([]bool, e
 //
 // Solidity: function hasAccess(address _user, bytes _calldata) view returns(bool)
 func (_Flags *FlagsCaller) HasAccess(opts *bind.CallOpts, _user common.Address, _calldata []byte) (bool, error) {
-	var (
-		ret0 = new(bool)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "hasAccess", _user, _calldata)
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "hasAccess", _user, _calldata)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
 }
 
 // HasAccess is a free data retrieval call binding the contract method 0x6b14daf8.
@@ -296,12 +316,17 @@ func (_Flags *FlagsCallerSession) HasAccess(_user common.Address, _calldata []by
 //
 // Solidity: function owner() view returns(address)
 func (_Flags *FlagsCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
-	var (
-		ret0 = new(common.Address)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "owner")
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
 }
 
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
@@ -322,12 +347,17 @@ func (_Flags *FlagsCallerSession) Owner() (common.Address, error) {
 //
 // Solidity: function raisingAccessController() view returns(address)
 func (_Flags *FlagsCaller) RaisingAccessController(opts *bind.CallOpts) (common.Address, error) {
-	var (
-		ret0 = new(common.Address)
-	)
-	out := ret0
-	err := _Flags.contract.Call(opts, out, "raisingAccessController")
-	return *ret0, err
+	var out []interface{}
+	err := _Flags.contract.Call(opts, &out, "raisingAccessController")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
 }
 
 // RaisingAccessController is a free data retrieval call binding the contract method 0x2e1d859c.

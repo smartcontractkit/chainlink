@@ -154,7 +154,7 @@ func bindVRFRequestIDBaseTestHelper(address common.Address, caller bind.Contract
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFRequestIDBaseTestHelper.Contract.VRFRequestIDBaseTestHelperCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperRaw) Transact(opts 
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFRequestIDBaseTestHelper.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperTransactorRaw) Tran
 //
 // Solidity: function makeRequestId_(bytes32 _keyHash, uint256 _vRFInputSeed) pure returns(bytes32)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeRequestId(opts *bind.CallOpts, _keyHash [32]byte, _vRFInputSeed *big.Int) ([32]byte, error) {
-	var (
-		ret0 = new([32]byte)
-	)
-	out := ret0
-	err := _VRFRequestIDBaseTestHelper.contract.Call(opts, out, "makeRequestId_", _keyHash, _vRFInputSeed)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFRequestIDBaseTestHelper.contract.Call(opts, &out, "makeRequestId_", _keyHash, _vRFInputSeed)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
 }
 
 // MakeRequestId is a free data retrieval call binding the contract method 0xbda087ae.
@@ -218,12 +223,17 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerSession) Make
 //
 // Solidity: function makeVRFInputSeed_(bytes32 _keyHash, uint256 _userSeed, address _requester, uint256 _nonce) pure returns(uint256)
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCaller) MakeVRFInputSeed(opts *bind.CallOpts, _keyHash [32]byte, _userSeed *big.Int, _requester common.Address, _nonce *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFRequestIDBaseTestHelper.contract.Call(opts, out, "makeVRFInputSeed_", _keyHash, _userSeed, _requester, _nonce)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFRequestIDBaseTestHelper.contract.Call(opts, &out, "makeVRFInputSeed_", _keyHash, _userSeed, _requester, _nonce)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // MakeVRFInputSeed is a free data retrieval call binding the contract method 0x37ab429a.

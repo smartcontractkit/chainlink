@@ -1,8 +1,11 @@
 pragma solidity 0.5.0;
 
 import "../ChainlinkClient.sol";
+import "../vendor/SafeMathChainlink.sol";
 
 contract MaliciousConsumer is ChainlinkClient {
+   using SafeMathChainlink for uint256;
+
   uint256 constant private ORACLE_PAYMENT = 1 * LINK;
   uint256 private expiration;
 

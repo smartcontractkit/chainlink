@@ -31,5 +31,5 @@ func (m *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 	if m.Times != nil {
 		dec = dec.Mul(*m.Times)
 	}
-	return models.NewRunOutputCompleteWithResult(dec.String())
+	return models.NewRunOutputCompleteWithResult(dec.String(), input.ResultCollection())
 }
