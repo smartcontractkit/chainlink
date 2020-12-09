@@ -41,6 +41,7 @@ func NewOCRContractConfigTracker(
 	jobID int32,
 	logger logger.Logger,
 ) (o *OCRContractConfigTracker, err error) {
+	logBroadcaster.AddDependents(1)
 	return &OCRContractConfigTracker{
 		ethClient,
 		contractFilterer,
@@ -70,6 +71,7 @@ func (oc *OCRContractConfigTracker) SubscribeToNewConfigs(context.Context) (ocrt
 		return nil, errors.New("Failed to register with logBroadcaster")
 	}
 	sub.start()
+	oc.logBroadcaster.DependentReady()
 
 	return sub, nil
 }
