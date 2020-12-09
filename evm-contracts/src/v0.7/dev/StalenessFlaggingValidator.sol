@@ -10,7 +10,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
-  mapping(address => uint256) s_thresholds;
+  mapping(address => uint256) private s_thresholds;
 
   event FlagsAddressUpdated(
     address indexed previous,
