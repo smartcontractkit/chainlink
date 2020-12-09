@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/json"
 	"flag"
@@ -12,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -24,9 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -489,31 +494,9 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	return *taskRunID
 }
 
-// MustInsertKey inserts a key
-// WARNING: Be extremely cautious using this, inserting keys with the same
-// address in multiple parallel tests can and will lead to deadlocks.
-// Only use this if you know what you are doing.
-func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
-	a, err := models.NewEIP55Address(address.Hex())
-	require.NoError(t, err)
-	key := models.Key{
-		Address: a,
-		JSON:    JSONFromString(t, "{}"),
-	}
-	require.NoError(t, store.DB.Save(&key).Error)
-	return key
-}
-
-func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {
-	var address common.Address
-	if len(fromAddress) > 0 {
-		address = fromAddress[0]
-	} else {
-		address = DefaultKeyAddress
-	}
-
+func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
 	return models.EthTx{
-		FromAddress:    address,
+		FromAddress:    fromAddress,
 		ToAddress:      NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
@@ -521,9 +504,9 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) 
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress...)
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	n := nonce
@@ -544,9 +527,9 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress ...common.Address) models.EthTx {
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress...)
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
@@ -560,8 +543,8 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
-	etx := NewEthTx(t, store)
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
@@ -577,18 +560,6 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
-}
-
-func MustGetFixtureKey(t *testing.T, store *strpkg.Store) models.Key {
-	key, err := store.KeyByAddress(common.HexToAddress(DefaultKey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return key
-}
-
-func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
-	return MustGetFixtureKey(t, store).Address.Address()
 }
 
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
@@ -623,8 +594,8 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 	return r
 }
 
-func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
-	etx := NewEthTx(t, store)
+func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
 	errStr := "something exploded"
 	etx.Error = &errStr
 	etx.State = models.EthTxFatalError
@@ -633,13 +604,74 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 	return etx
 }
 
-func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
-	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
-	require.NoError(t, store.CreateKeyIfNotExists(k))
-	return k
+func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...interface{}) (models.Key, common.Address) {
+	t.Helper()
+
+	k := MustGenerateRandomKey(t, opts...)
+	MustAddKeyToKeystore(t, &k, store)
+	return k, k.Address.Address()
 }
 
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
+func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
+	_, err := store.KeyStore.Import(key.JSON.Bytes(), Password, Password)
+	require.NoError(t, err)
+	require.NoError(t, store.DB.Create(key).Error)
+}
+
+// MustInsertRandomKey inserts a randomly generated (not cryptographically
+// secure) key for testing
+// If using this with the keystore, it should be called before the keystore loads keys from the database
+func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.Key {
+	t.Helper()
+
+	key := MustGenerateRandomKey(t, opts...)
+
+	require.NoError(t, db.Create(&key).Error)
+	return key
+}
+
+func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
+	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	require.NoError(t, err)
+	id := pbormanuuid.NewRandom()
+	k := &keystore.Key{
+		Id:         id,
+		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
+		PrivateKey: privateKeyECDSA,
+	}
+	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
+	require.NoError(t, err)
+	keyjson, err := models.ParseJSON(keyjsonbytes)
+	require.NoError(t, err)
+	eip, err := models.EIP55AddressFromAddress(k.Address)
+	require.NoError(t, err)
+
+	var nextNonce *int64
+	var funding bool
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case int:
+			i := int64(v)
+			nextNonce = &i
+		case int64:
+			nextNonce = &v
+		case bool:
+			funding = v
+		default:
+			t.Fatalf("unrecognised option type: %T", v)
+		}
+	}
+
+	key := models.Key{
+		Address:   eip,
+		JSON:      keyjson,
+		NextNonce: nextNonce,
+		IsFunding: funding,
+	}
+	return key
+}
+
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) models.OffchainReportingOracleSpec {
 	t.Helper()
 
 	spec := models.OffchainReportingOracleSpec{
@@ -648,7 +680,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, de
 		P2PBootstrapPeers:                      []string{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
-		TransmitterAddress:                     &DefaultKeyAddressEIP55,
+		TransmitterAddress:                     &transmitterAddress,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
 		ContractConfigTrackerSubscribeInterval: 0,

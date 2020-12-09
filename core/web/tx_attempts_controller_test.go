@@ -26,7 +26,9 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 
-	from := cltest.DefaultKeyAddress
+	key := cltest.MustInsertRandomKey(t, store.DB, 0)
+	from := key.Address.Address()
+
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 2, from)
 	cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 3, from)

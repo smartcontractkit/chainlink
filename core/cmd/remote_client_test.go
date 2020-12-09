@@ -3,11 +3,8 @@ package cmd_test
 import (
 	"context"
 	"flag"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -25,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gopkg.in/guregu/null.v4"
@@ -33,23 +32,24 @@ import (
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
+	ethClient := new(mocks.Client)
+
+	app, cleanup := cltest.NewApplicationWithKey(t, ethClient)
 	defer cleanup()
-	app.EthMock.Register("eth_call", "0x0100")
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
 
 	require.NoError(t, app.Start())
 
 	client, r := app.NewClientAndRenderer()
 
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.NewLink(42), nil)
+
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	from := cltest.DefaultKeyAddress
 	balances := *r.Renders[0].(*[]presenters.ETHKey)
-	assert.Equal(t, from.Hex(), balances[0].Address)
+	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
 }
 
 func TestClient_IndexJobSpecs(t *testing.T) {
@@ -199,56 +199,6 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 }
 
 var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
-
-func TestClient_CreateServiceAgreement(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client, _ := app.NewClientAndRenderer()
-
-	sa := cltest.MustHelloWorldAgreement(t)
-	endAtISO8601 := EndAt.Format(time.RFC3339)
-	sa = strings.Replace(sa, "2019-10-19T22:17:19Z", endAtISO8601, 1)
-	tmpFile, err := ioutil.TempFile("", "sa.*.json")
-	require.NoError(t, err, "while opening temp file for modified service agreement")
-	defer os.Remove(tmpFile.Name())
-	tmpFile.WriteString(sa)
-
-	tests := []struct {
-		name        string
-		input       string
-		jobsCreated bool
-		errored     bool
-	}{
-		{"invalid json", "{bad son}", false, true},
-		{"bad file path", "bad/filepath/", false, true},
-		{"valid service agreement", string(sa), true, false},
-		{"service agreement specified as path", tmpFile.Name(), true, false},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-
-			set := flag.NewFlagSet("create", 0)
-			assert.NoError(t, set.Parse([]string{test.input}))
-			c := cli.NewContext(nil, set, nil)
-
-			err := client.CreateServiceAgreement(c)
-
-			cltest.AssertError(t, test.errored, err)
-			jobs := cltest.AllJobs(t, app.Store)
-			if test.jobsCreated {
-				assert.True(t, len(jobs) > 0)
-			} else {
-				assert.Equal(t, 0, len(jobs))
-			}
-		})
-	}
-}
 
 func TestClient_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
@@ -714,9 +664,9 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	set := flag.NewFlagSet("sendether", 0)
 	amount := "100.5"
-	from := cltest.GetDefaultFromAddress(t, s)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, s, 0)
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
-	set.Parse([]string{amount, from.Hex(), to})
+	set.Parse([]string{amount, fromAddress.Hex(), to})
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
@@ -726,7 +676,7 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	etx := models.EthTx{}
 	require.NoError(t, s.DB.First(&etx).Error)
 	require.Equal(t, "100.500000000000000000", etx.Value.String())
-	require.Equal(t, from, etx.FromAddress)
+	require.Equal(t, fromAddress, etx.FromAddress)
 	require.Equal(t, to, etx.ToAddress.Hex())
 }
 
@@ -779,7 +729,8 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.DefaultKeyAddress
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -815,7 +766,8 @@ func TestClient_ShowTransaction(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.DefaultKeyAddress
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 	attempt := tx.EthTxAttempts[0]
 
@@ -838,7 +790,8 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	store := app.GetStore()
-	from := cltest.DefaultKeyAddress
+	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
+
 	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
 
 	client, r := app.NewClientAndRenderer()
@@ -1134,6 +1087,9 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
+
+	key := cltest.MustInsertRandomKey(t, app.Store.DB)
+	ocrJobSpecFromFile.TransmitterAddress = &key.Address
 
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 

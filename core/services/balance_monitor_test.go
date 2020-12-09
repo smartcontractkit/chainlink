@@ -32,10 +32,8 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 			eth.NewClientWith(nil, gethClient),
 		)
 
-		k0 := cltest.MustDefaultKey(t, store)
-		k0Addr := k0.Address.Address()
-		k1 := cltest.MustInsertRandomKey(t, store)
-		k1Addr := k1.Address.Address()
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
 		defer bm.Stop()
@@ -72,8 +70,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 			eth.NewClientWith(nil, gethClient),
 		)
 
-		k0 := cltest.MustDefaultKey(t, store)
-		k0Addr := k0.Address.Address()
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
 		defer bm.Stop()
@@ -100,8 +97,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 			eth.NewClientWith(nil, gethClient),
 		)
 
-		k0 := cltest.MustDefaultKey(t, store)
-		k0Addr := k0.Address.Address()
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
 		defer bm.Stop()
@@ -131,10 +127,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 			eth.NewClientWith(nil, gethClient),
 		)
 
-		k0 := cltest.MustDefaultKey(t, store)
-		k0Addr := k0.Address.Address()
-		k1 := cltest.MustInsertRandomKey(t, store)
-		k1Addr := k1.Address.Address()
+		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
 		defer bm.Stop()
@@ -183,6 +177,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
+	cltest.MustAddRandomKeyToKeystore(t, store)
 
 	gethClient := new(mocks.GethClient)
 	cltest.MockEthOnStore(t, store,

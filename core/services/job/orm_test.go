@@ -32,7 +32,9 @@ func TestORM(t *testing.T) {
 	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
-	ocrSpec, dbSpec := makeOCRJobSpec(t, db)
+	key := cltest.MustInsertRandomKey(t, db)
+	address := key.Address.Address()
+	ocrSpec, dbSpec := makeOCRJobSpec(t, address)
 
 	t.Run("it creates job specs", func(t *testing.T) {
 		err := orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
@@ -66,7 +68,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
 		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
 
-		ocrSpec2, dbSpec2 := makeOCRJobSpec(t, db)
+		ocrSpec2, dbSpec2 := makeOCRJobSpec(t, address)
 		err = orm.CreateJob(context.Background(), dbSpec2, ocrSpec2.TaskDAG())
 		require.NoError(t, err)
 
@@ -133,7 +135,7 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
-		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, db)
+		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, address)
 		err := orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
 		require.NoError(t, err)
 		var jobSpec models.JobSpecV2
@@ -178,6 +180,9 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	defer cleanup()
 	db := store.DB
 
+	key := cltest.MustInsertRandomKey(t, db)
+	address := key.Address.Address()
+
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
@@ -186,7 +191,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 
 	claimedJobs := make([]models.JobSpecV2, 3)
 	for i := range claimedJobs {
-		ocrSpec, dbSpec := makeOCRJobSpec(t, db)
+		ocrSpec, dbSpec := makeOCRJobSpec(t, address)
 		require.NoError(t, orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG()))
 		claimedJobs[i] = *dbSpec
 	}
@@ -212,6 +217,9 @@ func TestORM_UnclaimJob(t *testing.T) {
 	defer cleanup()
 	db := store.DB
 
+	key := cltest.MustInsertRandomKey(t, db)
+	address := key.Address.Address()
+
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
@@ -223,7 +231,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 	claimedJobs := make([]models.JobSpecV2, 3)
 	for i := range claimedJobs {
-		_, dbSpec := makeOCRJobSpec(t, db)
+		_, dbSpec := makeOCRJobSpec(t, address)
 		dbSpec.ID = int32(i)
 		claimedJobs[i] = *dbSpec
 	}

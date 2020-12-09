@@ -85,9 +85,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
 
+	key := cltest.MustInsertRandomKey(t, db)
+	address := key.Address.Address()
+
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		innerJobSpecA, _ := makeOCRJobSpec(t, db)
-		innerJobSpecB, _ := makeOCRJobSpec(t, db)
+		innerJobSpecA, _ := makeOCRJobSpec(t, address)
+		innerJobSpecB, _ := makeOCRJobSpec(t, address)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 		jobSpecB := &spec{innerJobSpecB, jobTypeB}
 
@@ -149,7 +152,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("starts job services from the DB when .Start() is called", func(t *testing.T) {
-		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		innerJobSpecA, _ := makeOCRJobSpec(t, address)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 
 		eventually := cltest.NewAwaiter()
@@ -180,7 +183,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("stops job services when .Stop() is called", func(t *testing.T) {
-		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		innerJobSpecA, _ := makeOCRJobSpec(t, address)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 
 		eventually := cltest.NewAwaiter()
@@ -216,7 +219,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	clearDB(t, db)
 
 	t.Run("closes job services on 'delete_from_jobs' postgres event", func(t *testing.T) {
-		innerJobSpecA, _ := makeOCRJobSpec(t, db)
+		innerJobSpecA, _ := makeOCRJobSpec(t, address)
 		jobSpecA := &spec{innerJobSpecA, jobTypeA}
 
 		eventuallyStart := cltest.NewAwaiter()

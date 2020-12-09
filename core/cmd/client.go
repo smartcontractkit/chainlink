@@ -81,7 +81,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

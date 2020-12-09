@@ -68,6 +68,8 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	cltest.MustAddRandomKeyToKeystore(t, store)
+
 	// prompt loop tries all in array
 	prompt := &cltest.MockCountingPrompter{
 		T:              t,
@@ -85,6 +87,8 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
+	cltest.MustAddRandomKeyToKeystore(t, store)
 
 	tests := []struct {
 		password  string
