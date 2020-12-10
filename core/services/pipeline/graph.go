@@ -65,6 +65,11 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			return nil, err
 		}
 
+		err = task.ApplyDefaults(node.attrs, g, *node)
+		if err != nil {
+			return nil, err
+		}
+
 		var outputTasks []Task
 		for _, output := range node.outputs() {
 			outputTasks = append(outputTasks, tasksByID[output.ID()])
@@ -123,6 +128,15 @@ func (n *taskDAGNode) SetAttribute(attr encoding.Attribute) error {
 	}
 	n.attrs[attr.Key] = attr.Value
 	return nil
+}
+
+func (n *taskDAGNode) inputs() []*taskDAGNode {
+	var nodes []*taskDAGNode
+	ns := n.g.To(n.ID())
+	for ns.Next() {
+		nodes = append(nodes, ns.Node().(*taskDAGNode))
+	}
+	return nodes
 }
 
 func (n *taskDAGNode) outputs() []*taskDAGNode {

@@ -27,6 +27,10 @@ func (t *ResultTask) Type() TaskType {
 	return TaskTypeResult
 }
 
+func (t *ResultTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	return nil
+}
+
 func (t *ResultTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) Result {
 	values := make([]interface{}, len(inputs))
 	errors := make(FinalErrors, len(inputs))

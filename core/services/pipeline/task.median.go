@@ -12,13 +12,24 @@ import (
 )
 
 type MedianTask struct {
-	BaseTask `mapstructure:",squash"`
+	BaseTask      `mapstructure:",squash"`
+	AllowedFaults uint64 `json:"allowedFaults"`
 }
 
 var _ Task = (*MedianTask)(nil)
 
 func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
+}
+
+func (t *MedianTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	if _, exists := inputValues["allowedFaults"]; !exists {
+		if len(self.inputs()) == 0 {
+			return errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")
+		}
+		t.AllowedFaults = uint64(len(self.inputs()) - 1)
+	}
+	return nil
 }
 
 func (t *MedianTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
@@ -44,9 +55,8 @@ func (t *MedianTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (r
 		answers = append(answers, answer)
 	}
 
-	errorRate := float64(len(fetchErrors)) / float64(len(answers)+len(fetchErrors))
-	if errorRate >= 0.5 {
-		return Result{Error: errors.Wrap(ErrBadInput, "majority of fetchers in median failed: "+multierr.Combine(fetchErrors...).Error())}
+	if uint64(len(fetchErrors)) > t.AllowedFaults {
+		return Result{Error: errors.Wrapf(ErrBadInput, "Too many inputs to median task failed (%v of %v): %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
 	}
 
 	sort.Slice(answers, func(i, j int) bool {
