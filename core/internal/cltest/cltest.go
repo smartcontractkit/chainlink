@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -56,7 +58,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
@@ -390,7 +391,6 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.wsServer = tc.wsServer
 	return ta, func() {
 		assert.NoError(t, ta.StopIfStarted())
-		assert.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
 	}
 }
 
@@ -412,6 +412,26 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	app.EthMock.Responses = app.EthMock.Responses[:0]
 	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
 	return app, func() { appCleanup(); client.Close() }
+}
+
+func NewEthMocks(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r := new(mocks.RPCClient)
+	g := new(mocks.GethClient)
+	s := new(mocks.Subscription)
+	return r, g, s, func() {
+		r.AssertExpectations(t)
+		g.AssertExpectations(t)
+		s.AssertExpectations(t)
+	}
+}
+
+func NewEthMocksWithStartupAssertions(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r, g, s, assertMocksCalled := NewEthMocks(t)
+	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
+	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return r, g, s, assertMocksCalled
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -1469,4 +1489,14 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	return func() {
 		ethClient.AssertExpectations(t)
 	}
+}
+
+func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- models.Log {
+	logsCh := make(chan chan<- models.Log, 1)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).
+		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
+			logsCh <- args.Get(2).(chan<- types.Log)
+		})
+	return logsCh
 }
