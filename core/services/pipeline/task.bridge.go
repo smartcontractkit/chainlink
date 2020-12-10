@@ -28,6 +28,10 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
+func (t *BridgeTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	return nil
+}
+
 func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}

@@ -87,6 +87,10 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
+func (t *HTTPTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	return nil
+}
+
 func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}

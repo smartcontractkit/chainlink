@@ -20,6 +20,10 @@ func (t *MultiplyTask) Type() TaskType {
 	return TaskTypeMultiply
 }
 
+func (t *MultiplyTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	return nil
+}
+
 func (t *MultiplyTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (result Result) {
 	if len(inputs) != 1 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "MultiplyTask requires a single input")}
