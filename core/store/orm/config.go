@@ -963,8 +963,22 @@ var (
 
 func init() {
 	for _, bitSize := range []int{8, 16, 32, 64} {
-		uintParsers[bitSize] = func(s string) (interface{}, error) {
-			return strconv.ParseUint(s, 10, bitSize)
+		b := bitSize
+		uintParsers[b] = func(s string) (interface{}, error) {
+			v, err := strconv.ParseUint(s, 10, bitSize)
+			switch b {
+			case 8:
+				return uint8(v), err
+			case 16:
+				return uint16(v), err
+			case 32:
+				return uint32(v), err
+			case 64:
+				return uint64(v), err
+			default:
+				panic(nil)
+			}
+			return v, err
 		}
 	}
 }
