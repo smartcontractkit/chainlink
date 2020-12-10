@@ -235,7 +235,7 @@ var (
 			"bytes":   {},
 			"address": {},
 			"uint256": {},
-			"int256": {},
+			"int256":  {},
 		},
 		gjson.True: {
 			"bool": {},
