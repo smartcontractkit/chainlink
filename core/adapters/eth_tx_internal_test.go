@@ -66,6 +66,17 @@ func TestGetTxData(t *testing.T) {
 			},
 		},
 		{
+			name:        "ints as strings",
+			abiEncoding: []string{"int256", "uint256"},
+			argTypes:    abi.Arguments{{Type: Int256}, {Type: Uint256}},
+			args:        []interface{}{"-1234", "1234"},
+			assertion: func(t *testing.T, vals []interface{}) {
+				require.Len(t, vals, 2)
+				assert.Equal(t, big.NewInt(-1234), vals[0])
+				assert.Equal(t, big.NewInt(1234), vals[1])
+			},
+		},
+		{
 			name:        "multiple int256",
 			abiEncoding: []string{"int256", "int256"},
 			argTypes:    abi.Arguments{{Type: Int256}, {Type: Int256}},

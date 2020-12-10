@@ -3,6 +3,7 @@ package adapters
 import (
 	"math/big"
 	"reflect"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -233,6 +234,8 @@ var (
 			"bytes4":  {},
 			"bytes":   {},
 			"address": {},
+			"uint256": {},
+			"int256": {},
 		},
 		gjson.True: {
 			"bool": {},
@@ -279,6 +282,14 @@ func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result)
 
 		switch jsonValues[i].Type {
 		case gjson.String:
+			if argType == "uint256" || argType == "int256" {
+				v, err := strconv.ParseInt(jsonValues[i].String(), 10, 64)
+				if err != nil {
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+				}
+				values[i] = big.NewInt(v)
+				continue
+			}
 			// Only supports hex strings.
 			b, err := hexutil.Decode(jsonValues[i].String())
 			if err != nil {
