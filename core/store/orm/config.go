@@ -209,7 +209,7 @@ func (c Config) BalanceMonitorEnabled() bool {
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
-	return c.getWithFallback("BlockBackfillDepth", uintParsers[64]).(uint64)
+	return c.getWithFallback("BlockBackfillDepth", parseUint64).(uint64)
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -259,7 +259,7 @@ func (c Config) MigrateDatabase() bool {
 
 // DefaultMaxHTTPAttempts defines the limit for HTTP requests.
 func (c Config) DefaultMaxHTTPAttempts() uint {
-	return uint(c.getWithFallback("DefaultMaxHTTPAttempts", uintParsers[64]).(uint64))
+	return uint(c.getWithFallback("DefaultMaxHTTPAttempts", parseUint64).(uint64))
 }
 
 // DefaultHTTPLimit defines the size limit for HTTP requests and responses
@@ -323,24 +323,24 @@ func (c Config) MinimumServiceDuration() models.Duration {
 // announce a new head, then route a request to a different node which does not
 // have this head yet.
 func (c Config) EthBalanceMonitorBlockDelay() uint16 {
-	return c.getWithFallback("EthBalanceMonitorBlockDelay", uintParsers[16]).(uint16)
+	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
 func (c Config) EthGasBumpThreshold() uint64 {
-	return c.getWithFallback("EthGasBumpThreshold", uintParsers[64]).(uint64)
+	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
 }
 
 // EthGasBumpTxDepth is the number of transactions to gas bump starting from oldest.
 // Set to 0 for no limit (i.e. bump all)
 func (c Config) EthGasBumpTxDepth() uint16 {
-	return c.getWithFallback("EthGasBumpTxDepth", uintParsers[16]).(uint16)
+	return c.getWithFallback("EthGasBumpTxDepth", parseUint16).(uint16)
 }
 
 // EthGasBumpPercent is the minimum percentage by which gas is bumped on each transaction attempt
 // Change with care since values below geth's default will fail with "underpriced replacement transaction"
 func (c Config) EthGasBumpPercent() uint16 {
-	return c.getWithFallback("EthGasBumpPercent", uintParsers[16]).(uint16)
+	return c.getWithFallback("EthGasBumpPercent", parseUint16).(uint16)
 }
 
 // EthGasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt
@@ -356,7 +356,7 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
-	return c.getWithFallback("EthGasLimitDefault", uintParsers[64]).(uint64)
+	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
@@ -387,14 +387,14 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 func (c Config) EthFinalityDepth() uint {
-	return uint(c.getWithFallback("EthFinalityDepth", uintParsers[64]).(uint64))
+	return uint(c.getWithFallback("EthFinalityDepth", parseUint64).(uint64))
 }
 
 // EthHeadTrackerHistoryDepth is the number of heads to keep in the `heads` database table.
 // This number should be at least as large as `EthFinalityDepth`.
 // There may be a small performance penalty to setting this to something very large (10,000+)
 func (c Config) EthHeadTrackerHistoryDepth() uint {
-	return uint(c.getWithFallback("EthHeadTrackerHistoryDepth", uintParsers[64]).(uint64))
+	return uint(c.getWithFallback("EthHeadTrackerHistoryDepth", parseUint64).(uint64))
 }
 
 // EthHeadTrackerMaxBufferSize is the maximum number of heads that may be
@@ -402,7 +402,7 @@ func (c Config) EthHeadTrackerHistoryDepth() uint {
 // dropped. You may think of it as something like the maximum permittable "lag"
 // for the head tracker before we start dropping heads to keep up.
 func (c Config) EthHeadTrackerMaxBufferSize() uint {
-	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", uintParsers[64]).(uint64))
+	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
@@ -458,20 +458,20 @@ func (c Config) FlagsContractAddress() string {
 // available from the connected node via RPC. In this case you will get false
 // "zero" blocks that are missing transactions.
 func (c Config) GasUpdaterBlockDelay() uint16 {
-	return c.getWithFallback("GasUpdaterBlockDelay", uintParsers[16]).(uint16)
+	return c.getWithFallback("GasUpdaterBlockDelay", parseUint16).(uint16)
 }
 
 // GasUpdaterBlockHistorySize is the number of past blocks to keep in memory to
 // use as a basis for calculating a percentile gas price
 func (c Config) GasUpdaterBlockHistorySize() uint16 {
-	return c.getWithFallback("GasUpdaterBlockHistorySize", uintParsers[16]).(uint16)
+	return c.getWithFallback("GasUpdaterBlockHistorySize", parseUint16).(uint16)
 }
 
 // GasUpdaterTransactionPercentile is the percentile gas price to choose. E.g.
 // if the past transaction history contains four transactions with gas prices:
 // [100, 200, 300, 400], picking 25 for this number will give a value of 200
 func (c Config) GasUpdaterTransactionPercentile() uint16 {
-	return c.getWithFallback("GasUpdaterTransactionPercentile", uintParsers[16]).(uint16)
+	return c.getWithFallback("GasUpdaterTransactionPercentile", parseUint16).(uint16)
 }
 
 // GasUpdaterEnabled turns on the automatic gas updater if set to true
@@ -497,7 +497,7 @@ func (c Config) JobPipelineMaxTaskDuration() time.Duration {
 // JobPipelineParallelism controls how many workers the pipeline.Runner
 // uses in parallel
 func (c Config) JobPipelineParallelism() uint8 {
-	return c.getWithFallback("JobPipelineParallelism", uintParsers[8]).(uint8)
+	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
 }
 
 func (c Config) JobPipelineReaperInterval() time.Duration {
@@ -578,7 +578,7 @@ func (c Config) OCRContractConfirmations(override uint16) uint16 {
 	if override != uint16(0) {
 		return override
 	}
-	return c.getWithFallback("OCRContractConfirmations", uintParsers[16]).(uint16)
+	return c.getWithFallback("OCRContractConfirmations", parseUint16).(uint16)
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {
@@ -586,11 +586,11 @@ func (c Config) OCRDatabaseTimeout() time.Duration {
 }
 
 func (c Config) OCRDHTLookupInterval() int {
-	return int(c.getWithFallback("OCRDHTLookupInterval", uintParsers[16]).(uint16))
+	return int(c.getWithFallback("OCRDHTLookupInterval", parseUint16).(uint16))
 }
 
 func (c Config) OCRIncomingMessageBufferSize() int {
-	return int(c.getWithFallback("OCRIncomingMessageBufferSize", uintParsers[16]).(uint16))
+	return int(c.getWithFallback("OCRIncomingMessageBufferSize", parseUint16).(uint16))
 }
 
 func (c Config) OCRNewStreamTimeout() time.Duration {
@@ -598,7 +598,7 @@ func (c Config) OCRNewStreamTimeout() time.Duration {
 }
 
 func (c Config) OCROutgoingMessageBufferSize() int {
-	return int(c.getWithFallback("OCRIncomingMessageBufferSize", uintParsers[16]).(uint16))
+	return int(c.getWithFallback("OCRIncomingMessageBufferSize", parseUint16).(uint16))
 }
 
 // OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The
@@ -681,14 +681,14 @@ func (c Config) LogSQLMigrations() bool {
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint32 {
-	return c.getWithFallback("MinIncomingConfirmations", uintParsers[32]).(uint32)
+	return c.getWithFallback("MinIncomingConfirmations", parseUint32).(uint32)
 }
 
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
-	return c.getWithFallback("MinRequiredOutgoingConfirmations", uintParsers[64]).(uint64)
+	return c.getWithFallback("MinRequiredOutgoingConfirmations", parseUint64).(uint64)
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
@@ -699,7 +699,7 @@ func (c Config) MinimumContractPayment() *assets.Link {
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
-	return c.getWithFallback("MinimumRequestExpiration", uintParsers[64]).(uint64)
+	return c.getWithFallback("MinimumRequestExpiration", parseUint64).(uint64)
 }
 
 // P2PListenIP is the ip that libp2p willl bind to and listen on
@@ -769,7 +769,7 @@ func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 
 // Port represents the port Chainlink should listen on for client requests.
 func (c Config) Port() uint16 {
-	return c.getWithFallback("Port", uintParsers[16]).(uint16)
+	return c.getWithFallback("Port", parseUint16).(uint16)
 }
 
 // ReaperExpiration represents
@@ -817,14 +817,14 @@ func (c Config) TLSKeyPath() string {
 
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c Config) TLSPort() uint16 {
-	return c.getWithFallback("TLSPort", uintParsers[16]).(uint16)
+	return c.getWithFallback("TLSPort", parseUint16).(uint16)
 }
 
 // TxAttemptLimit is the maximum number of transaction attempts (gas bumps)
 // that will occur before giving a transaction up as errored
 // NOTE: That initial transactions are retried forever until they succeed
 func (c Config) TxAttemptLimit() uint16 {
-	return c.getWithFallback("TxAttemptLimit", uintParsers[16]).(uint16)
+	return c.getWithFallback("TxAttemptLimit", parseUint16).(uint16)
 }
 
 // TLSRedirect forces TLS redirect for unencrypted connections
@@ -957,30 +957,24 @@ func parseLogLevel(str string) (interface{}, error) {
 	return lvl, err
 }
 
-var (
-	uintParsers = map[int]func(s string) (interface{}, error){}
-)
+func parseUint8(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 8)
+	return uint8(v), err
+}
 
-func init() {
-	for _, bitSize := range []int{8, 16, 32, 64} {
-		b := bitSize
-		uintParsers[b] = func(s string) (interface{}, error) {
-			v, err := strconv.ParseUint(s, 10, bitSize)
-			switch b {
-			case 8:
-				return uint8(v), err
-			case 16:
-				return uint16(v), err
-			case 32:
-				return uint32(v), err
-			case 64:
-				return uint64(v), err
-			default:
-				panic(nil)
-			}
-			return v, err
-		}
-	}
+func parseUint16(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 16)
+	return uint16(v), err
+}
+
+func parseUint32(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 32)
+	return uint32(v), err
+}
+
+func parseUint64(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
 }
 
 func parseURL(s string) (interface{}, error) {
