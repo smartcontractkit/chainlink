@@ -409,7 +409,7 @@ ds1 -> ds1_parse;
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = false 
-		observationTimeout = "10s"
+		observationTimeout = "15s"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -438,6 +438,10 @@ ds1 -> ds1_parse;
 		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
+		// Assert the override
+		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
+		// Assert that this is unset
+		assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, models.Interval(0))
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
