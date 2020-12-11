@@ -241,8 +241,7 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
-	d := c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration)
-	return models.MustMakeDuration(d)
+	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -269,8 +268,7 @@ func (c Config) DefaultHTTPLimit() int64 {
 
 // DefaultHTTPTimeout defines the default timeout for http requests
 func (c Config) DefaultHTTPTimeout() models.Duration {
-	d := c.getWithFallback("DefaultHTTPTimeout", parseDuration).(time.Duration)
-	return models.MustMakeDuration(d)
+	return models.MustMakeDuration(c.getWithFallback("DefaultHTTPTimeout", parseDuration).(time.Duration))
 }
 
 // DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
@@ -307,15 +305,13 @@ func (c Config) FeatureOffchainReporting() bool {
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() models.Duration {
-	d := c.getWithFallback("MaximumServiceDuration", parseDuration).(time.Duration)
-	return models.MustMakeDuration(d)
+	return models.MustMakeDuration(c.getWithFallback("MaximumServiceDuration", parseDuration).(time.Duration))
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
 func (c Config) MinimumServiceDuration() models.Duration {
-	d := c.getWithFallback("MinimumServiceDuration", parseDuration).(time.Duration)
-	return models.MustMakeDuration(d)
+	return models.MustMakeDuration(c.getWithFallback("MinimumServiceDuration", parseDuration).(time.Duration))
 }
 
 // EthBalanceMonitorBlockDelay is the number of blocks that the balance monitor
