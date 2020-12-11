@@ -24,7 +24,7 @@ func (t *JSONParseTask) Type() TaskType {
 	return TaskTypeJSONParse
 }
 
-func (t *JSONParseTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *JSONParseTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
 	return nil
 }
 

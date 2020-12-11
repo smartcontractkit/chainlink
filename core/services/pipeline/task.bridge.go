@@ -28,7 +28,7 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
 	return nil
 }
 

@@ -53,7 +53,7 @@ func TestMedian(t *testing.T) {
 			"exactly threshold of errors",
 			[]pipeline.Result{{Error: errors.New("")}, {Error: errors.New("")}, {Value: mustDecimal(t, "3")}, {Value: mustDecimal(t, "4")}},
 			2,
-			pipeline.Result{Error: pipeline.ErrBadInput},
+			pipeline.Result{Value: mustDecimal(t, "3.5")},
 		},
 		{
 			"more errors than threshold",
