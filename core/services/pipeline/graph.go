@@ -65,7 +65,7 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			return nil, err
 		}
 
-		err = task.ApplyDefaults(node.attrs, g, *node)
+		err = task.SetDefaults(node.attrs, g, *node)
 		if err != nil {
 			return nil, err
 		}

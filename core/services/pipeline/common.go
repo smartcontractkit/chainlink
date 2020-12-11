@@ -31,7 +31,7 @@ type (
 		SetOutputTask(task Task)
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error
+		SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error
 	}
 
 	Result struct {

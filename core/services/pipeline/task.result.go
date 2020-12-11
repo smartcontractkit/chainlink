@@ -27,7 +27,7 @@ func (t *ResultTask) Type() TaskType {
 	return TaskTypeResult
 }
 
-func (t *ResultTask) ApplyDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *ResultTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
 	return nil
 }
 
