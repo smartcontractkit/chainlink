@@ -313,7 +313,6 @@ func TestEthBroadcaster_AssignsNonceOnFirstRun(t *testing.T) {
 }
 
 func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
-	var err error
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := assets.NewEthValue(142)
 	gasLimit := uint64(242)
@@ -353,7 +352,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		}
 
 		require.NoError(t, store.DB.Create(&firstInProgress).Error)
-		err = store.DB.Create(&secondInProgress).Error
+		err := store.DB.Create(&secondInProgress).Error
 		require.Error(t, err)
 		assert.EqualError(t, err, "pq: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\"")
 	})
@@ -542,7 +541,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		})).Return(failedToReachNodeError).Once()
 
 		// Do the thing
-		err = eb.ProcessUnstartedEthTxs(key)
+		err := eb.ProcessUnstartedEthTxs(key)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), failedToReachNodeError.Error())
 
