@@ -5,11 +5,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestMeasureRandomnessRequestGasCost(t *testing.T) {
-	coordinator := newVRFCoordinatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash_, _, fee := registerProvingKey(t, coordinator)
 
 	estimate := estimateGas(t, coordinator.backend, common.Address{},

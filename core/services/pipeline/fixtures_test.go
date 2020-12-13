@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -136,26 +137,26 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 	return &os
 }
 
-func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress gethCommon.Address) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
-	return makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, "https://example.com/foo/bar")
+	return makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar")
 }
 
-func makeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress gethCommon.Address, httpURL string) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
-	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, cltest.DefaultKey, ds)
+	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
 }
 
-func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, httpURL string, lax bool) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress gethCommon.Address, httpURL string, lax bool) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
-	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, cltest.DefaultKey, ds)
+	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
 	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
 }
 

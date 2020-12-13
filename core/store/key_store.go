@@ -1,10 +1,10 @@
 package store
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 

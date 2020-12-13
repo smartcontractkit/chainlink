@@ -87,7 +87,8 @@ func TestUserController_AccountBalances_Success(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	app.AddUnlockedKey()
+	cltest.MustAddRandomKeyToKeystore(t, app.GetStore(), 0)
+
 	client := app.NewHTTPClient()
 
 	ethMock := app.EthMock
