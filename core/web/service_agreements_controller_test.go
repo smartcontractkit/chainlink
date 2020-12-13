@@ -3,7 +3,6 @@ package web_test
 import (
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -11,9 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-var endAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
-var endAtISO8601 = endAt.Format(time.RFC3339)
 
 func TestServiceAgreementsController_Show(t *testing.T) {
 	t.Parallel()
