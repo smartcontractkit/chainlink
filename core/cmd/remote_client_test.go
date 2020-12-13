@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
@@ -197,8 +196,6 @@ func TestClient_ShowJobSpec_NotFound(t *testing.T) {
 	assert.Error(t, client.ShowJobSpec(c))
 	assert.Empty(t, r.Renders)
 }
-
-var EndAt = time.Now().AddDate(0, 10, 0).Round(time.Second).UTC()
 
 func TestClient_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
