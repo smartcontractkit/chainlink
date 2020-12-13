@@ -86,15 +86,18 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
+
+	started     bool
+	startStopMu sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
+	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
 	config.SetRuntimeStore(store.ORM)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
@@ -187,6 +190,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 // listens for interrupt signals from the operating system so that the
 // application can be properly closed before the application exits.
 func (app *ChainlinkApplication) Start() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	if app.started {
+		panic("application is already started")
+	}
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -232,12 +240,31 @@ func (app *ChainlinkApplication) Start() error {
 	app.jobSpawner.Start()
 	app.pipelineRunner.Start()
 
+	app.started = true
+	return nil
+}
+
+func (app *ChainlinkApplication) StopIfStarted() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	if app.started {
+		return app.stop()
+	}
 	return nil
 }
 
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
 func (app *ChainlinkApplication) Stop() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	return app.stop()
+}
+
+func (app *ChainlinkApplication) stop() error {
+	if !app.started {
+		panic("application is already stopped")
+	}
 	var merr error
 	app.shutdownOnce.Do(func() {
 		defer func() {
@@ -283,6 +310,8 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.Store.Close())
 
 		logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return merr
 }

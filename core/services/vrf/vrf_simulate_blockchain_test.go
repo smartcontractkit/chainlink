@@ -38,8 +38,10 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
-	cu := newVRFCoordinatorUniverse(t)
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend)
+	key := cltest.MustGenerateRandomKey(t)
+
+	cu := newVRFCoordinatorUniverse(t, key)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
 	defer cleanup()
 
 	app.Start()

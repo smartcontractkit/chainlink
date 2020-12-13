@@ -11,13 +11,11 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -39,7 +37,6 @@ type answerSet struct{ latestAnswer, polledAnswer int64 }
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
 	submitSelector = submitHash[:4]
-	oracles        = []common.Address{cltest.DefaultKeyAddress, cltest.NewAddress()}
 	now            = func() uint64 { return uint64(time.Now().UTC().Unix()) }
 
 	makeRoundDataForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundData {
@@ -51,15 +48,6 @@ var (
 		return contracts.FluxAggregatorRoundData{}, errors.New("unstarted")
 	}
 )
-
-func ensureAccount(t *testing.T, store *store.Store) common.Address {
-	t.Helper()
-	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
-	_, err := auth.Authenticate(store, cltest.Password)
-	assert.NoError(t, err)
-	assert.True(t, store.KeyStore.HasAccounts())
-	return cltest.DefaultKeyAddress
-}
 
 func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
@@ -187,7 +175,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
 
 	const reportableRoundID = 2
 	thresholds := struct{ abs, rel float64 }{0.1, 200}
@@ -284,6 +272,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			if test.connected {
 				checker.OnConnect()
 			}
+			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 			fluxAggregator.On("GetOracles").Return(oracles, nil)
 			checker.SetOracleAddress()
 
@@ -301,7 +290,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	rm := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
@@ -348,7 +338,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	const (
 		fetchedValue = 100
@@ -478,7 +469,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			nodeAddr := ensureAccount(t, store)
+			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 			fetcher := new(mocks.Fetcher)
 			runManager := new(mocks.RunManager)
@@ -573,7 +565,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
 	fluxAggregator := new(mocks.FluxAggregator)
@@ -636,7 +630,9 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
 	logBroadcaster := new(mocks.LogBroadcaster)
@@ -713,7 +709,9 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
 	logBroadcaster := new(mocks.LogBroadcaster)
@@ -797,7 +795,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	nodeAddr := ensureAccount(t, store)
+	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 	fetcher := new(mocks.Fetcher)
 	runManager := new(mocks.RunManager)
@@ -969,7 +968,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			nodeAddr := ensureAccount(t, store)
+			_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+			oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 			previousSubmissionReorged := test.duplicateLog &&
 				(test.runStatus == models.RunStatusCompleted || test.runStatus == models.RunStatusErrored)
@@ -1490,7 +1490,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		nodeAddr := ensureAccount(t, store)
+		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		initr := job.Initiators[0]
@@ -1576,7 +1577,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		nodeAddr := ensureAccount(t, store)
+		_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, store)
+		oracles := []common.Address{nodeAddr, cltest.NewAddress()}
 
 		job := cltest.NewJobWithFluxMonitorInitiator()
 		initr := job.Initiators[0]
