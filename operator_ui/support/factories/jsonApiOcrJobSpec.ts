@@ -8,7 +8,9 @@ function getRandomInt(max: number) {
 
 export const jsonApiOcrJobSpec = (
   config: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string }
+    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string } & {
+      dotDagSource?: string
+    }
   > = {},
 ) => {
   const id = config.id || getRandomInt(1_000_000).toString()

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +34,6 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 	assert.NoError(t, r.Render(&jobs))
 
 	output := buffer.String()
-	assert.Regexp(t, regexp.MustCompile("Job[a-f0-9]{32}"), output)
 	assert.Contains(t, output, "noop")
 }
 

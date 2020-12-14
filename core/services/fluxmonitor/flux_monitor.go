@@ -562,9 +562,7 @@ func (p *PollingDeviationChecker) consume() {
 
 	p.readyForLogs()
 	p.setIsHibernatingStatus()
-	p.resetTickers(contracts.FluxAggregatorRoundState{
-		StartedAt: uint64(time.Now().Unix()),
-	})
+	p.setInitialTickers()
 	p.performInitialPoll()
 
 	for {
@@ -637,12 +635,16 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
-	if !p.initr.PollTimer.Disabled && !p.isHibernating {
+	if p.shouldPerformInitialPoll() {
 		p.pollIfEligible(DeviationThresholds{
 			Rel: float64(p.initr.Threshold),
 			Abs: float64(p.initr.AbsoluteThreshold),
 		})
 	}
+}
+
+func (p *PollingDeviationChecker) shouldPerformInitialPoll() bool {
+	return !(p.initr.PollTimer.Disabled && p.initr.IdleTimer.Disabled || p.isHibernating)
 }
 
 // hibernate restarts the PollingDeviationChecker in hibernation mode
@@ -656,9 +658,7 @@ func (p *PollingDeviationChecker) hibernate() {
 func (p *PollingDeviationChecker) reactivate() {
 	logger.Infof("exiting hibernation mode, reactivating contract: %s", p.initr.Address.Hex())
 	p.isHibernating = false
-	p.resetTickers(contracts.FluxAggregatorRoundState{
-		StartedAt: uint64(time.Now().Unix()),
-	})
+	p.setInitialTickers()
 	p.pollIfEligible(DeviationThresholds{Rel: 0, Abs: 0})
 }
 
@@ -725,10 +725,12 @@ func (p *PollingDeviationChecker) processLogs() {
 func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log contracts.LogAnswerUpdated) {
 	logger.Debugw("AnswerUpdated log", p.loggerFieldsForAnswerUpdated(log)...)
 
-	_, err := p.roundState(0)
+	roundState, err := p.roundState(0)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("could not fetch oracleRoundState: %v", err), p.loggerFieldsForAnswerUpdated(log)...)
+		return
 	}
+	p.resetTickers(roundState)
 }
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
@@ -800,20 +802,10 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		}
 	}
 
-	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, logRoundID)
+	roundStats, jobRunStatus, err := p.statsAndStatusForRound(logRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), p.loggerFieldsForNewRound(log)...)
+		logger.Errorw(fmt.Sprintf("error determining round stats / run status for round: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
-	}
-
-	// JobRun will not exist if this is the first time responding to this round
-	var jobRun models.JobRun
-	if roundStats.JobRunID != nil {
-		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
-		if err != nil {
-			logger.Errorw(fmt.Sprintf("error finding JobRun associated with FMRoundStat: %v", err), p.loggerFieldsForNewRound(log)...)
-			return
-		}
 	}
 
 	if roundStats.NumSubmissions > 0 {
@@ -822,7 +814,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		//     - The chain experienced a shallow reorg that unstarted the current round.
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
-		if !jobRun.Status.Finished() {
+		if !jobRunStatus.Finished() {
 			logger.Debugw("Ignoring new round request: started round simultaneously with another node", p.loggerFieldsForNewRound(log)...)
 			return
 		}
@@ -840,6 +832,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log contracts.LogNewRound
 		logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
 	}
+	p.resetTickers(roundState)
 	err = p.checkEligibilityAndAggregatorFunding(roundState)
 	if err != nil {
 		logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), p.loggerFieldsForNewRound(log)...)
@@ -950,17 +943,18 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		p.store.UpsertErrorFor(p.JobID(), "Unable to call roundState method on provided contract. Check contract address.")
 		return
 	}
+	p.resetTickers(roundState)
 	loggerFields = append(loggerFields, "reportableRound", roundState.ReportableRoundID)
 
-	// If we've just submitted to this round (as the result of a NewRound log, for example) don't submit again
-	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundState.ReportableRoundID)
+	roundStats, jobRunStatus, err := p.statsAndStatusForRound(roundState.ReportableRoundID)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("error fetching Flux Monitor round stats from DB: %v", err), loggerFields...)
-		p.store.UpsertErrorFor(p.JobID(), "Error fetching Flux Monitor round stats from DB")
+		logger.Errorw(fmt.Sprintf("error determining round stats / run status for round: %v", err), loggerFields...)
 		return
 	}
 
-	if roundStats.NumSubmissions > 0 {
+	// If we've already successfully submitted to this round (ie through a NewRound log)
+	// and the associated JobRun hasn't errored, skip polling
+	if roundStats.NumSubmissions > 0 && !jobRunStatus.Errored() {
 		logger.Infow("skipping poll: round already answered, tx unconfirmed", loggerFields...)
 		return
 	}
@@ -1026,11 +1020,36 @@ func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggr
 	if err != nil {
 		return contracts.FluxAggregatorRoundState{}, err
 	}
-
-	// Update our tickers to reflect the current on-chain round
-	p.resetTickers(roundState)
-
 	return roundState, nil
+}
+
+// initialRoundState fetches the round information that the fluxmonitor should use when starting
+// new jobs. Choosing the correct round on startup is key to setting timers correctly.
+func (p *PollingDeviationChecker) initialRoundState() contracts.FluxAggregatorRoundState {
+	defaultRoundState := contracts.FluxAggregatorRoundState{
+		StartedAt: uint64(time.Now().Unix()),
+	}
+	latestRoundData, err := p.fluxAggregator.LatestRoundData()
+	if err != nil {
+		logger.Warnf(
+			"unable to retrieve latestRoundData for FluxAggregator contract %s - defaulting "+
+				"to current time for tickers: %v",
+			p.initr.Address.Hex(),
+			err,
+		)
+		return defaultRoundState
+	}
+	latestRoundState, err := p.fluxAggregator.RoundState(p.oracleAddress, latestRoundData.RoundID)
+	if err != nil {
+		logger.Warnf(
+			"unable to call roundState for latest round, contract: %s, round: %d, err: %v",
+			p.initr.Address.Hex(),
+			latestRoundData.RoundID,
+			err,
+		)
+		return defaultRoundState
+	}
+	return latestRoundState
 }
 
 func (p *PollingDeviationChecker) resetTickers(roundState contracts.FluxAggregatorRoundState) {
@@ -1038,6 +1057,10 @@ func (p *PollingDeviationChecker) resetTickers(roundState contracts.FluxAggregat
 	p.resetHibernationTimer()
 	p.resetIdleTimer(roundState.StartedAt)
 	p.resetRoundTimer(roundState.TimesOutAt())
+}
+
+func (p *PollingDeviationChecker) setInitialTickers() {
+	p.resetTickers(p.initialRoundState())
 }
 
 func (p *PollingDeviationChecker) resetPollTicker() {
@@ -1270,4 +1293,24 @@ func MakeIdleTimer(log contracts.LogNewRound, idleThreshold models.Duration, clo
 
 func defaultIdleTimer(idleThreshold models.Duration, clock utils.AfterNower) <-chan time.Time {
 	return clock.After(idleThreshold.Duration())
+}
+
+func (p *PollingDeviationChecker) statsAndStatusForRound(roundID uint32) (
+	models.FluxMonitorRoundStats,
+	models.RunStatus,
+	error,
+) {
+	roundStats, err := p.store.FindOrCreateFluxMonitorRoundStats(p.initr.Address, roundID)
+	if err != nil {
+		return models.FluxMonitorRoundStats{}, "", err
+	}
+	// JobRun will not exist if this is the first time responding to this round
+	var jobRun models.JobRun
+	if roundStats.JobRunID != nil {
+		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
+		if err != nil {
+			return models.FluxMonitorRoundStats{}, "", err
+		}
+	}
+	return roundStats, jobRun.Status, nil
 }

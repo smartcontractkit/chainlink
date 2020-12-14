@@ -26,7 +26,7 @@ func NewRunInput(jobRunID *ID, taskRunID ID, data JSON, status RunStatus) *RunIn
 
 // NewRunInputWithResult creates a new RunInput with a value in the "result" field
 func NewRunInputWithResult(jobRunID *ID, taskRunID ID, value interface{}, status RunStatus) *RunInput {
-	data, err := JSON{}.Add("result", value)
+	data, err := JSON{}.Add(ResultKey, value)
 	if err != nil {
 		panic(fmt.Sprintf("invariant violated, add should not fail on empty JSON %v", err))
 	}
@@ -38,9 +38,13 @@ func NewRunInputWithResult(jobRunID *ID, taskRunID ID, value interface{}, status
 	}
 }
 
+func (ri RunInput) ResultCollection() gjson.Result {
+	return ri.data.Get(ResultCollectionKey)
+}
+
 // Result returns the result as a gjson object
 func (ri RunInput) Result() gjson.Result {
-	return ri.data.Get("result")
+	return ri.data.Get(ResultKey)
 }
 
 // ResultString returns the string result of the Data JSON field.

@@ -33,10 +33,12 @@ tag_and_push() {
   (
     set -x
     docker tag smartcontract/chainlink:circleci smartcontract/chainlink:${DOCKER_TAG}
+    docker tag smartcontract/chainlink:circleci-nonroot "smartcontract/chainlink:${DOCKER_TAG}-nonroot"
   )
   (
     set -x
     docker tag smartcontract/chainlink:circleci "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}"
+    docker tag smartcontract/chainlink:circleci-nonroot "${AWS_ECR_URL}/chainlink:${DOCKER_TAG}-nonroot"
   )
   make dockerpush
 }

@@ -61,7 +61,7 @@ func (jrc *JobRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	j, err := jrc.App.GetStore().FindJob(id)
+	j, err := jrc.App.GetStore().FindJobSpec(id)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job not found"))
 		return

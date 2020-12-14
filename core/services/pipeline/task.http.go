@@ -6,19 +6,57 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
+type (
+	MaybeBool string
+)
+
+const (
+	MaybeBoolTrue  = MaybeBool("true")
+	MaybeBoolFalse = MaybeBool("false")
+	MaybeBoolNull  = MaybeBool("")
+)
+
+func MaybeBoolFromString(s string) (MaybeBool, error) {
+	switch s {
+	case "true":
+		return MaybeBoolTrue, nil
+	case "false":
+		return MaybeBoolFalse, nil
+	case "":
+		return MaybeBoolNull, nil
+	default:
+		return "", errors.Errorf("unknown value for bool: %s", s)
+	}
+}
+
+func (m MaybeBool) Bool() (b bool, isSet bool) {
+	switch m {
+	case MaybeBoolTrue:
+		return true, true
+	case MaybeBoolFalse:
+		return false, true
+	default:
+		return false, false
+	}
+}
+
 type HTTPTask struct {
-	BaseTask    `mapstructure:",squash"`
-	Method      string
-	URL         models.WebURL
-	RequestData HttpRequestData `json:"requestData"`
+	BaseTask                       `mapstructure:",squash"`
+	Method                         string
+	URL                            models.WebURL
+	RequestData                    HttpRequestData `json:"requestData"`
+	AllowUnrestrictedNetworkAccess MaybeBool
 
 	config Config
 }
@@ -29,6 +67,21 @@ type PossibleErrorResponses struct {
 }
 
 var _ Task = (*HTTPTask)(nil)
+
+var (
+	promHTTPFetchTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_http_fetch_time",
+		Help: "Time taken to fully execute the HTTP request",
+	},
+		[]string{"pipeline_task_spec_id"},
+	)
+	promHTTPResponseBodySize = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_http_response_body_size",
+		Help: "Size (in bytes) of the HTTP response body",
+	},
+		[]string{"pipeline_task_spec_id"},
+	)
+)
 
 func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
@@ -58,7 +111,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		Timeout:                        t.config.DefaultHTTPTimeout().Duration(),
 		MaxAttempts:                    t.config.DefaultMaxHTTPAttempts(),
 		SizeLimit:                      t.config.DefaultHTTPLimit(),
-		AllowUnrestrictedNetworkAccess: t.config.DefaultHTTPAllowUnrestrictedNetworkAccess(),
+		AllowUnrestrictedNetworkAccess: t.allowUnrestrictedNetworkAccess(),
 	}
 
 	httpRequest := utils.HTTPRequest{
@@ -66,10 +119,14 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		Config:  config,
 	}
 
+	start := time.Now()
 	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
 	if err != nil {
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
+	elapsed := time.Since(start)
+	promHTTPFetchTime.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
@@ -81,6 +138,14 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		"url", t.URL.String(),
 	)
 	return Result{Value: responseBytes}
+}
+
+func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
+	b, isSet := t.AllowUnrestrictedNetworkAccess.Bool()
+	if isSet {
+		return b
+	}
+	return t.config.DefaultHTTPAllowUnrestrictedNetworkAccess()
 }
 
 func bestEffortExtractError(responseBytes []byte) string {

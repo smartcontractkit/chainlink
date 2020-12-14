@@ -81,6 +81,7 @@ jobs:
   integration:
     name: Integration tests running ./compose ${{ matrix.test }} against ${{ matrix.node }}
     runs-on: [self-hosted, sdlc-ghr-prod]
+    timeout-minutes: 17
     strategy:
       matrix:
         test: ['test', 'test:ts']

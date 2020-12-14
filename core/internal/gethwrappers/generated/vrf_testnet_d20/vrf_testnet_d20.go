@@ -154,7 +154,7 @@ func bindVRFTestnetD20(address common.Address, caller bind.ContractCaller, trans
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFTestnetD20 *VRFTestnetD20Raw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFTestnetD20 *VRFTestnetD20Raw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFTestnetD20.Contract.VRFTestnetD20Caller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_VRFTestnetD20 *VRFTestnetD20Raw) Transact(opts *bind.TransactOpts, method
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFTestnetD20 *VRFTestnetD20CallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFTestnetD20 *VRFTestnetD20CallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFTestnetD20.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_VRFTestnetD20 *VRFTestnetD20TransactorRaw) Transact(opts *bind.TransactOp
 //
 // Solidity: function d20Results(uint256 ) view returns(uint256)
 func (_VRFTestnetD20 *VRFTestnetD20Caller) D20Results(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestnetD20.contract.Call(opts, out, "d20Results", arg0)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestnetD20.contract.Call(opts, &out, "d20Results", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // D20Results is a free data retrieval call binding the contract method 0x4ab5fc50.
@@ -218,12 +223,17 @@ func (_VRFTestnetD20 *VRFTestnetD20CallerSession) D20Results(arg0 *big.Int) (*bi
 //
 // Solidity: function latestRoll() view returns(uint256 d20result)
 func (_VRFTestnetD20 *VRFTestnetD20Caller) LatestRoll(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestnetD20.contract.Call(opts, out, "latestRoll")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestnetD20.contract.Call(opts, &out, "latestRoll")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // LatestRoll is a free data retrieval call binding the contract method 0xae383a4d.
@@ -244,12 +254,17 @@ func (_VRFTestnetD20 *VRFTestnetD20CallerSession) LatestRoll() (*big.Int, error)
 //
 // Solidity: function nonces(bytes32 ) view returns(uint256)
 func (_VRFTestnetD20 *VRFTestnetD20Caller) Nonces(opts *bind.CallOpts, arg0 [32]byte) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFTestnetD20.contract.Call(opts, out, "nonces", arg0)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFTestnetD20.contract.Call(opts, &out, "nonces", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // Nonces is a free data retrieval call binding the contract method 0x9e317f12.

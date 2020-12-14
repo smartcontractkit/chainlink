@@ -1,22 +1,20 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
-import { Title } from 'components/Title'
 import Content from 'components/Content'
 import { OcrKeys } from './OcrKeys'
 import { P2PKeys } from './P2PKeys'
+import { AccountAddresses } from './AccountAddresses'
 
 export const KeysIndex = () => {
   React.useEffect(() => {
-    document.title = 'Keys'
+    document.title = 'Keys and account addresses'
   }, [])
   return (
     <Content>
       <Grid container>
-        <Grid item xs={12}>
-          <Title>Keys</Title>
-        </Grid>
         <OcrKeys />
         <P2PKeys />
+        <AccountAddresses />
       </Grid>
     </Content>
   )

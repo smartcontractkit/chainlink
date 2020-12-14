@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -15,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 // Renderer implements the Render method.
@@ -103,12 +102,6 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 
 func (rt RendererTable) renderConfiguration(cp presenters.ConfigPrinter) error {
 	table := rt.newTable([]string{"Key", "Value"})
-
-	table.Append([]string{
-		"ACCOUNT_ADDRESS",
-		cp.AccountAddress,
-	})
-
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
 	cpT := reflect.TypeOf(cp.EnvPrinter)
 	cpV := reflect.ValueOf(cp.EnvPrinter)

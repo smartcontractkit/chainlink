@@ -1,6 +1,5 @@
 // sample of keys to test for
 const CONFIG_KEYS = [
-  'ACCOUNT_ADDRESS',
   'CHAINLINK_TLS_REDIRECT',
   'CHAINLINK_TLS_PORT',
   'ETH_CHAIN_ID',

@@ -11,13 +11,14 @@ import {
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
 import TableCell from '@material-ui/core/TableCell'
+import TableFooter from '@material-ui/core/TableFooter'
 import TableRow from '@material-ui/core/TableRow'
 import Typography from '@material-ui/core/Typography'
 import { JobRun, JobRuns } from 'operator_ui'
 import React from 'react'
 import BaseLink from '../BaseLink'
 import Button from '../Button'
-import StatusIcon from '../JobRuns/StatusIcon'
+import StatusIcon from 'components/StatusIcon'
 import Link from '../Link'
 import NoContentLogo from '../Logos/NoContent'
 
@@ -103,7 +104,7 @@ interface Props extends WithStyles<typeof styles> {
   count?: number
 }
 
-const Activity = ({ classes, runs }: Props) => {
+const Activity = ({ classes, runs, count, pageSize }: Props) => {
   let activity
 
   if (!runs) {
@@ -140,7 +141,7 @@ const Activity = ({ classes, runs }: Props) => {
                         </Link>
                       </Grid>
                       <Grid item xs={12}>
-                        <Link href={`/jobs/${r.jobId}/runs/id/${r.id}`}>
+                        <Link href={`/jobs/${r.jobId}/runs/${r.id}`}>
                           <Typography
                             variant="subtitle1"
                             color="textSecondary"
@@ -157,6 +158,17 @@ const Activity = ({ classes, runs }: Props) => {
             </TableRow>
           ))}
         </TableBody>
+        {count && count > pageSize && (
+          <TableFooter>
+            <TableRow>
+              <TableCell scope="row" className={classes.footer}>
+                <Button href={'/runs'} component={BaseLink}>
+                  View More
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableFooter>
+        )}
       </Table>
     )
   }

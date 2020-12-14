@@ -34,10 +34,22 @@ import (
 
 const oracleCount uint8 = 17
 
+type answerSet struct{ latestAnswer, polledAnswer int64 }
+
 var (
 	submitHash     = utils.MustHash("submit(uint256,int256)")
 	submitSelector = submitHash[:4]
 	oracles        = []common.Address{cltest.DefaultKeyAddress, cltest.NewAddress()}
+	now            = func() uint64 { return uint64(time.Now().UTC().Unix()) }
+
+	makeRoundDataForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundData {
+		return contracts.FluxAggregatorRoundData{
+			RoundID: roundID,
+		}
+	}
+	freshContractRoundDataResponse = func() (contracts.FluxAggregatorRoundData, error) {
+		return contracts.FluxAggregatorRoundData{}, errors.New("unstarted")
+	}
 )
 
 func ensureAccount(t *testing.T, store *store.Store) common.Address {
@@ -117,89 +129,59 @@ func TestConcreteFluxMonitor_AddJobRemoveJob(t *testing.T) {
 
 func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 	t.Parallel()
+
 	tests := []struct {
 		name              string
 		eligible          bool
 		connected         bool
 		funded            bool
-		threshold         float64
-		absoluteThreshold float64
-		latestAnswer      int64
-		polledAnswer      int64
+		answersDeviate    bool
+		hasPreviousRun    bool
+		previousRunStatus models.RunStatus
 		expectedToPoll    bool
 		expectedToSubmit  bool
 	}{
-		{name: "eligible, connected, funded, threshold > 0, answers deviate",
-			eligible: true, connected: true, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: true, expectedToSubmit: true},
-		{name: "eligible, connected, funded, threshold > 0, answers do not deviate",
-			eligible: true, connected: true, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: true, expectedToSubmit: false},
-
-		{name: "eligible, disconnected, funded, threshold > 0, answers deviate",
-			eligible: true, connected: false, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "eligible, disconnected, funded, threshold > 0, answers do not deviate",
-			eligible: true, connected: false, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "ineligible, connected, funded, threshold > 0, answers deviate",
-			eligible: false, connected: true, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "ineligible, connected, funded, threshold > 0, answers do not deviate",
-			eligible: false, connected: true, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "ineligible, disconnected, funded, threshold > 0, answers deviate",
-			eligible: false, connected: false, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "ineligible, disconnected, funded, threshold > 0, answers do not deviate",
-			eligible: false, connected: false, funded: true, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "eligible, connected, underfunded, threshold > 0, answers deviate",
-			eligible: true, connected: true, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "eligible, connected, underfunded, threshold > 0, answers do not deviate",
-			eligible: true, connected: true, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "eligible, disconnected, underfunded, threshold > 0, answers deviate",
-			eligible: true, connected: false, funded: false, threshold: 0.1,
-			absoluteThreshold: 1, latestAnswer: 200, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "eligible, disconnected, underfunded, threshold > 0, answers do not deviate",
-			eligible: true, connected: false, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "ineligible, connected, underfunded, threshold > 0, answers deviate",
-			eligible: false, connected: true, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "ineligible, connected, underfunded, threshold > 0, answers do not deviate",
-			eligible: false, connected: true, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-
-		{name: "ineligible, disconnected, underfunded, threshold > 0, answers deviate",
-			eligible: false, connected: false, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 1, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
-		{name: "ineligible, disconnected, underfunded, threshold > 0, answers do not deviate",
-			eligible: false, connected: false, funded: false, threshold: 0.1,
-			absoluteThreshold: 200, latestAnswer: 100, polledAnswer: 100,
-			expectedToPoll: false, expectedToSubmit: false},
+		{
+			name:     "elligible",
+			eligible: true, connected: true, funded: true, answersDeviate: true,
+			expectedToPoll: true, expectedToSubmit: true,
+		}, {
+			name:     "ineligible",
+			eligible: false, connected: true, funded: true, answersDeviate: true,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "disconnected",
+			eligible: true, connected: false, funded: true, answersDeviate: true,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "under funded",
+			eligible: true, connected: true, funded: false, answersDeviate: true,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "answer undeviated",
+			eligible: true, connected: true, funded: true, answersDeviate: false,
+			expectedToPoll: true, expectedToSubmit: false,
+		}, {
+			name:     "previous job run completed",
+			eligible: true, connected: true, funded: true, answersDeviate: true,
+			hasPreviousRun: true, previousRunStatus: models.RunStatusCompleted,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "previous job run in progress",
+			eligible: true, connected: true, funded: true, answersDeviate: true,
+			hasPreviousRun: true, previousRunStatus: models.RunStatusInProgress,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "previous job run cancelled",
+			eligible: true, connected: true, funded: true, answersDeviate: true,
+			hasPreviousRun: true, previousRunStatus: models.RunStatusCancelled,
+			expectedToPoll: false, expectedToSubmit: false,
+		}, {
+			name:     "previous job run errored",
+			eligible: true, connected: true, funded: true, answersDeviate: true,
+			hasPreviousRun: true, previousRunStatus: models.RunStatusErrored,
+			expectedToPoll: true, expectedToSubmit: true,
+		},
 	}
 
 	store, cleanup := cltest.NewStore(t)
@@ -207,97 +189,110 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 
 	nodeAddr := ensureAccount(t, store)
 
+	const reportableRoundID = 2
+	thresholds := struct{ abs, rel float64 }{0.1, 200}
+	deviatedAnswers := answerSet{1, 100}
+	undeviatedAnswers := answerSet{100, 101}
+
 	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
 
-		// Run one test for relative thresholds, one for absolute thresholds
-		for _, thresholds := range []struct{ abs, rel float64 }{{0.1, 200}, {1, 10}} {
-			test := test // Copy test so that for loop can overwrite test during asynchronous operation (t.Parallel())
-			test.threshold = thresholds.rel
-			test.absoluteThreshold = thresholds.abs
-			t.Run(test.name, func(t *testing.T) {
-				rm := new(mocks.RunManager)
-				fetcher := new(mocks.Fetcher)
-				fluxAggregator := new(mocks.FluxAggregator)
-				logBroadcaster := new(mocks.LogBroadcaster)
+			answers := undeviatedAnswers
+			if test.answersDeviate {
+				answers = deviatedAnswers
+			}
 
-				job := cltest.NewJobWithFluxMonitorInitiator()
-				initr := job.Initiators[0]
-				initr.ID = 1
-				require.NoError(t, store.CreateJob(&job))
+			rm := new(mocks.RunManager)
+			fetcher := new(mocks.Fetcher)
+			fluxAggregator := new(mocks.FluxAggregator)
+			logBroadcaster := new(mocks.LogBroadcaster)
 
-				const reportableRoundID = 2
-				latestAnswerNoPrecision := test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
+			job := cltest.NewJobWithFluxMonitorInitiator()
+			initr := job.Initiators[0]
+			initr.ID = 1
+			require.NoError(t, store.CreateJob(&job))
 
-				var availableFunds *big.Int
-				var paymentAmount *big.Int
-				minPayment := store.Config.MinimumContractPayment().ToInt()
-				if test.funded {
-					availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
-					paymentAmount = minPayment
-				} else {
-					availableFunds = big.NewInt(1)
-					paymentAmount = minPayment
-				}
+			if test.hasPreviousRun {
+				run := cltest.NewJobRun(job)
+				run.Status = test.previousRunStatus
+				require.NoError(t, store.CreateJobRun(&run))
+				_, err := store.FindOrCreateFluxMonitorRoundStats(initr.Address, reportableRoundID)
+				require.NoError(t, err)
+				store.UpdateFluxMonitorRoundStats(initr.Address, reportableRoundID, run.ID)
+			}
 
-				roundState := contracts.FluxAggregatorRoundState{
-					ReportableRoundID: reportableRoundID,
-					EligibleToSubmit:  test.eligible,
-					LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
-					AvailableFunds:    availableFunds,
-					PaymentAmount:     paymentAmount,
-					OracleCount:       oracleCount,
-				}
-				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
+			latestAnswerNoPrecision := answers.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))
 
-				if test.expectedToPoll {
-					fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil)
-				}
+			var availableFunds *big.Int
+			var paymentAmount *big.Int
+			minPayment := store.Config.MinimumContractPayment().ToInt()
+			if test.funded {
+				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
+				paymentAmount = minPayment
+			} else {
+				availableFunds = big.NewInt(1)
+				paymentAmount = minPayment
+			}
 
-				if test.expectedToSubmit {
-					run := cltest.NewJobRun(job)
-					require.NoError(t, store.CreateJobRun(&run))
+			roundState := contracts.FluxAggregatorRoundState{
+				ReportableRoundID: reportableRoundID,
+				EligibleToSubmit:  test.eligible,
+				LatestAnswer:      big.NewInt(latestAnswerNoPrecision),
+				AvailableFunds:    availableFunds,
+				PaymentAmount:     paymentAmount,
+				OracleCount:       oracleCount,
+			}
+			fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
 
-					data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
+			if test.expectedToPoll {
+				fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(answers.polledAnswer), nil)
+			}
+
+			if test.expectedToSubmit {
+				run := cltest.NewJobRun(job)
+				require.NoError(t, store.CreateJobRun(&run))
+
+				data, err := models.ParseJSON([]byte(fmt.Sprintf(`{
 					"result": "%d",
 					"address": "%s",
 					"functionSelector": "0x%x",
 					"dataPrefix": "0x000000000000000000000000000000000000000000000000000000000000000%d"
-				}`, test.polledAnswer, initr.InitiatorParams.Address.Hex(), submitSelector, reportableRoundID)))
-					require.NoError(t, err)
-
-					rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
-						return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
-					})).Return(&run, nil)
-
-					fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
-				}
-
-				checker, err := fluxmonitor.NewPollingDeviationChecker(
-					store,
-					fluxAggregator,
-					logBroadcaster,
-					initr,
-					nil,
-					rm,
-					fetcher,
-					nil,
-					func() {},
-				)
+				}`, answers.polledAnswer, initr.InitiatorParams.Address.Hex(), submitSelector, reportableRoundID)))
 				require.NoError(t, err)
 
-				if test.connected {
-					checker.OnConnect()
-				}
-				fluxAggregator.On("GetOracles").Return(oracles, nil)
-				checker.SetOracleAddress()
+				rm.On("Create", job.ID, &initr, mock.Anything, mock.MatchedBy(func(runRequest *models.RunRequest) bool {
+					return reflect.DeepEqual(runRequest.RequestParams.Result.Value(), data.Result.Value())
+				})).Return(&run, nil)
 
-				checker.ExportedPollIfEligible(test.threshold, test.absoluteThreshold)
+				fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
+			}
 
-				fluxAggregator.AssertExpectations(t)
-				fetcher.AssertExpectations(t)
-				rm.AssertExpectations(t)
-			})
-		}
+			checker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				logBroadcaster,
+				initr,
+				nil,
+				rm,
+				fetcher,
+				nil,
+				func() {},
+			)
+			require.NoError(t, err)
+
+			if test.connected {
+				checker.OnConnect()
+			}
+			fluxAggregator.On("GetOracles").Return(oracles, nil)
+			checker.SetOracleAddress()
+
+			checker.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
+
+			fluxAggregator.AssertExpectations(t)
+			fetcher.AssertExpectations(t)
+			rm.AssertExpectations(t)
+		})
 	}
 }
 
@@ -400,6 +395,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fluxAggregator := new(mocks.FluxAggregator)
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
 	fluxAggregator.On("GetMethodID", "submit").Return(submitSelector, nil)
+	fluxAggregator.On("LatestRoundData").Return(freshContractRoundDataResponse()).Once()
 	fluxAggregator.On("RoundState", nodeAddr, uint32(1)).
 		Return(makeRoundStateForRoundID(1), nil).
 		Run(func(mock.Arguments) {
@@ -505,12 +501,14 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			idleDurationOccured := make(chan struct{}, 3)
 
-			now := func() uint64 { return uint64(time.Now().UTC().Unix()) }
-
+			fluxAggregator.On("LatestRoundData").Return(freshContractRoundDataResponse()).Once()
 			if test.expectedToSubmit {
-				// idleDuration 1
+				// performInitialPoll()
 				roundState1 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
-				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState1, nil).Once().Run(func(args mock.Arguments) {
+				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState1, nil).Once()
+				// idleDuration 1
+				roundState2 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+				fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
 			}
@@ -592,6 +590,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+	fluxAggregator.On("LatestRoundData").Return(makeRoundDataForRoundID(1), nil).Once()
+	roundState0 := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false, LatestAnswer: answerBigInt, StartedAt: now()}
+	fluxAggregator.On("RoundState", nodeAddr, uint32(1)).Return(roundState0, nil).Once() // initialRoundState()
 	fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
 		ReportableRoundID: 1,
 		EligibleToSubmit:  false,
@@ -631,6 +632,167 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	fluxAggregator.AssertExpectations(t)
 }
 
+func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
+	fetcher := new(mocks.Fetcher)
+	runManager := new(mocks.RunManager)
+	logBroadcaster := new(mocks.LogBroadcaster)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.PollTimer.Disabled = true
+	initr.IdleTimer.Disabled = true
+
+	tests := []struct {
+		name             string
+		timeout          uint64
+		expectedToSubmit bool
+	}{
+		{"active round exists - round will time out", 2, true},
+		{"active round exists - round will not time out", 100, false},
+		{"no active round", 0, false},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			fluxAggregator := new(mocks.FluxAggregator)
+
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("GetOracles").Return(oracles, nil)
+
+			fluxAggregator.On("LatestRoundData").Return(makeRoundDataForRoundID(1), nil).Once()
+			fluxAggregator.On("RoundState", nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: 1,
+				EligibleToSubmit:  false,
+				StartedAt:         now(),
+				Timeout:           test.timeout,
+			}, nil).Once()
+
+			// 2nd roundstate call means round timer triggered
+			chRoundState := make(chan struct{})
+			fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: 1,
+				EligibleToSubmit:  false,
+			}, nil).
+				Run(func(mock.Arguments) { close(chRoundState) }).
+				Maybe()
+
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				logBroadcaster,
+				initr,
+				nil,
+				runManager,
+				fetcher,
+				nil,
+				func() {},
+			)
+			require.NoError(t, err)
+
+			deviationChecker.Start()
+			deviationChecker.OnConnect()
+
+			if test.expectedToSubmit {
+				gomega.NewGomegaWithT(t).Eventually(chRoundState).Should(gomega.BeClosed())
+			} else {
+				gomega.NewGomegaWithT(t).Consistently(chRoundState).ShouldNot(gomega.BeClosed())
+			}
+
+			deviationChecker.Stop()
+			fluxAggregator.AssertExpectations(t)
+		})
+	}
+}
+
+func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	nodeAddr := ensureAccount(t, store)
+	fetcher := new(mocks.Fetcher)
+	runManager := new(mocks.RunManager)
+	logBroadcaster := new(mocks.LogBroadcaster)
+
+	job := cltest.NewJobWithFluxMonitorInitiator()
+	initr := job.Initiators[0]
+	initr.PollTimer.Disabled = true
+	initr.IdleTimer.Disabled = false
+
+	almostExpired := time.Now().
+		Add(initr.IdleTimer.Duration.Duration() * -1).
+		Add(2 * time.Second).
+		Unix()
+
+	tests := []struct {
+		name             string
+		startedAt        uint64
+		expectedToSubmit bool
+	}{
+		{"active round exists - idleTimer about to expired", uint64(almostExpired), true},
+		{"active round exists - idleTimer will not expire", 100, false},
+		{"no active round", 0, false},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			fluxAggregator := new(mocks.FluxAggregator)
+
+			fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+			fluxAggregator.On("GetOracles").Return(oracles, nil)
+
+			fluxAggregator.On("LatestRoundData").Return(makeRoundDataForRoundID(1), nil).Once()
+			// first roundstate in setInitialTickers()
+			fluxAggregator.On("RoundState", nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+				ReportableRoundID: 1,
+				EligibleToSubmit:  false,
+				StartedAt:         test.startedAt,
+				Timeout:           10000, // round won't time out
+			}, nil).Once()
+
+			// 2nd roundstate in performInitialPoll()
+			roundState := contracts.FluxAggregatorRoundState{ReportableRoundID: 1, EligibleToSubmit: false}
+			fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).Once()
+
+			// 3rd roundState call means idleTimer triggered
+			chRoundState := make(chan struct{})
+			fluxAggregator.On("RoundState", nodeAddr, uint32(0)).Return(roundState, nil).
+				Run(func(mock.Arguments) { close(chRoundState) }).
+				Maybe()
+
+			deviationChecker, err := fluxmonitor.NewPollingDeviationChecker(
+				store,
+				fluxAggregator,
+				logBroadcaster,
+				initr,
+				nil,
+				runManager,
+				fetcher,
+				nil,
+				func() {},
+			)
+			require.NoError(t, err)
+
+			deviationChecker.Start()
+			deviationChecker.OnConnect()
+
+			if test.expectedToSubmit {
+				gomega.NewGomegaWithT(t).Eventually(chRoundState).Should(gomega.BeClosed())
+			} else {
+				gomega.NewGomegaWithT(t).Consistently(chRoundState).ShouldNot(gomega.BeClosed())
+			}
+
+			deviationChecker.Stop()
+			fluxAggregator.AssertExpectations(t)
+		})
+	}
+}
+
 func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -655,6 +817,15 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	chRoundState2 := make(chan struct{})
 
 	fluxAggregator.On("SubscribeToLogs", mock.Anything).Return(true, eth.UnsubscribeFunc(func() {}), nil)
+
+	fluxAggregator.On("LatestRoundData").Return(makeRoundDataForRoundID(1), nil).Once()
+	fluxAggregator.On("RoundState", nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+		ReportableRoundID: 1,
+		EligibleToSubmit:  false,
+		LatestAnswer:      answerBigInt,
+		StartedAt:         now(),
+		Timeout:           uint64(1000000),
+	}, nil).Once()
 
 	startedAt := uint64(time.Now().Unix())
 	timeout := uint64(3)

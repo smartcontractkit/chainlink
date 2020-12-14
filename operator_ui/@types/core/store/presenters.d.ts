@@ -14,6 +14,8 @@ declare module 'core/store/presenters' {
     address: string
     ethBalance: Pointer<assets.Eth>
     linkBalance: Pointer<assets.Link>
+    createdAt: string
+    isFunding: boolean
   }
 
   /**

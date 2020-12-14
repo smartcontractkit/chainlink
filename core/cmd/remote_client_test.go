@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestClient_ListETHKeys(t *testing.T) {
@@ -71,7 +72,7 @@ func TestClient_IndexJobSpecs(t *testing.T) {
 
 	require.Nil(t, client.IndexJobSpecs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[0].(*[]models.JobSpec)
-	assert.Equal(t, 2, len(jobs))
+	require.Equal(t, 2, len(jobs))
 	assert.Equal(t, j1.ID, jobs[0].ID)
 }
 
@@ -1134,14 +1135,14 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
 
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile)
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{strconv.FormatInt(int64(jobID), 10)})
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	require.NoError(t, client.TriggerOCRJobRun(c))
+	require.NoError(t, client.TriggerPipelineRun(c))
 }
 
 func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
@@ -1155,7 +1156,7 @@ func TestClient_RunOCRJob_MissingJobID(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerOCRJobRun(c), "Must pass the job id to trigger a run")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "Must pass the job id to trigger a run")
 }
 
 func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
@@ -1170,5 +1171,5 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerOCRJobRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
 }

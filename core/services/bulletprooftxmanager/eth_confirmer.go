@@ -473,7 +473,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// This should really not ever happen in normal operation since we
 		// already bumped above the required minimum in ethBroadcaster.
 		//
-		// It could conceivably happen if the remote eth node changed it's configuration.
+		// It could conceivably happen if the remote eth node changed its configuration.
 		bumpedGasPrice, err := BumpGas(ec.config, attempt.GasPrice.ToInt())
 		if err != nil {
 			return errors.Wrap(err, "could not bump gas for terminally underpriced transaction")

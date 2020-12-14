@@ -20,12 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 )
 
 // headTrackableCallback is a simple wrapper around an On Connect callback
@@ -51,7 +51,7 @@ type Application interface {
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Spec) (int32, error)
+	AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error)
 	ArchiveJob(*models.ID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -85,7 +85,6 @@ type ChainlinkApplication struct {
 	shutdownOnce             sync.Once
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
-	monitoringEndpoint       telemetry.MonitoringEndpoint
 	explorerClient           synchronization.ExplorerClient
 }
 
@@ -100,12 +99,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
-	telemetryAgent := telemetry.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if config.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
-		statsPusher = synchronization.NewStatsPusher(store.ORM, explorerClient)
-		telemetryAgent = telemetry.NewAgent(explorerClient)
+		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 	}
 
 	runExecutor := services.NewRunExecutor(store, statsPusher)
@@ -136,6 +133,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	if config.Dev() || config.FeatureOffchainReporting() {
 		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
 	}
+	services.RegisterEthRequestEventDelegate(jobSpawner)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -160,7 +158,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
-		monitoringEndpoint:       telemetryAgent,
 		explorerClient:           explorerClient,
 	}
 
@@ -254,21 +251,38 @@ func (app *ChainlinkApplication) Stop() error {
 		}()
 		logger.Info("Gracefully exiting...")
 
+		logger.Debug("Stopping LogBroadcaster...")
 		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
+		logger.Debug("Stopping EventBroadcaster...")
 		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
+		logger.Debug("Stopping Scheduler...")
 		app.Scheduler.Stop()
+		logger.Debug("Stopping HeadTracker...")
 		merr = multierr.Append(merr, app.HeadTracker.Stop())
+		logger.Debug("Stopping balanceMonitor...")
 		merr = multierr.Append(merr, app.balanceMonitor.Stop())
+		logger.Debug("Stopping JobSubscriber...")
 		merr = multierr.Append(merr, app.JobSubscriber.Stop())
+		logger.Debug("Stopping FluxMonitor...")
 		app.FluxMonitor.Stop()
+		logger.Debug("Stopping EthBroadcaster...")
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
+		logger.Debug("Stopping RunQueue...")
 		app.RunQueue.Stop()
+		logger.Debug("Stopping StatsPusher...")
 		merr = multierr.Append(merr, app.StatsPusher.Close())
+		logger.Debug("Stopping explorerClient...")
 		merr = multierr.Append(merr, app.explorerClient.Close())
+		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
+		logger.Debug("Stopping pipelineRunner...")
 		app.pipelineRunner.Stop()
+		logger.Debug("Stopping jobSpawner...")
 		app.jobSpawner.Stop()
+		logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
+
+		logger.Info("Exited all services")
 	})
 	return merr
 }
@@ -302,8 +316,8 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec) (int32, error) {
-	return app.jobSpawner.CreateJob(ctx, job)
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error) {
+	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {

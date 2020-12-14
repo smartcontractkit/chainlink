@@ -2,11 +2,18 @@ import { partialAsFull } from '@chainlink/ts-helpers'
 import { OcrJobRun } from 'core/store/models'
 
 export function jobRunV2(
-  config: Partial<OcrJobRun & { id?: string }> = {},
+  config: Partial<OcrJobRun & { id?: string; dotDagSource?: string }> = {},
 ): OcrJobRun {
   return partialAsFull<OcrJobRun>({
     outputs: config.outputs || [null],
     errors: config.errors || [],
+    pipelineSpec: {
+      ID: 1,
+      DotDagSource:
+        config?.dotDagSource ||
+        '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
+      CreatedAt: '2020-11-19T14:01:24.989522Z',
+    },
     taskRuns: config.taskRuns || [
       {
         createdAt: '2020-11-19T14:01:24.989522Z',

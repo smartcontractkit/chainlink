@@ -5,7 +5,7 @@ import (
 	"os"
 	"regexp"
 
-	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/urfave/cli"
 )
 
@@ -24,7 +24,7 @@ func removeHidden(cmds ...cli.Command) []cli.Command {
 func NewApp(client *Client) *cli.App {
 	app := cli.NewApp()
 	app.Usage = "CLI for Chainlink"
-	app.Version = fmt.Sprintf("%v@%v", store.Version, store.Sha)
+	app.Version = fmt.Sprintf("%v@%v", static.Version, static.Sha)
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "json, j",
@@ -79,7 +79,6 @@ func NewApp(client *Client) *cli.App {
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
-			Hidden:  !client.Config.Dev(),
 			Subcommands: []cli.Command{
 				{
 					Name:   "list",
@@ -152,8 +151,8 @@ func NewApp(client *Client) *cli.App {
 		},
 
 		{
-			Name:  "jobs",
-			Usage: "Commands for managing Jobs",
+			Name:  "job_specs",
+			Usage: "Commands for managing Job Specs (jobs V1)",
 			Subcommands: []cli.Command{
 				{
 					Name:   "archive",
@@ -181,37 +180,40 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Show a specific Job's details",
 					Action: client.ShowJobSpec,
 				},
+			},
+		},
+		{
+			Name:  "jobs",
+			Usage: "Commands for managing Jobs (V2)",
+			Subcommands: []cli.Command{
 				{
-					Name:   "createocr",
-					Usage:  "Create an off-chain reporting job",
-					Action: client.CreateOCRJobSpec,
+					Name:   "create",
+					Usage:  "Create a V2 job",
+					Action: client.CreateJobV2,
 				},
 				{
-					Name:   "deletev2",
-					Usage:  "Delete a v2 job",
+					Name:   "delete",
+					Usage:  "Delete a V2 job",
 					Action: client.DeleteJobV2,
 				},
 				{
 					Name:   "run",
-					Usage:  "Trigger an off-chain reporting job run",
-					Action: client.TriggerOCRJobRun,
+					Usage:  "Trigger a V2 job run",
+					Action: client.TriggerPipelineRun,
 				},
 			},
 		},
-
 		{
 			Name:  "keys",
 			Usage: "Commands for managing various types of keys used by the Chainlink node",
 			Subcommands: []cli.Command{
 				cli.Command{
-					Name:   "eth",
-					Usage:  "Local commands for administering the node's Ethereum keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "eth",
+					Usage: "Local commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
 						{
 							Name:   "create",
 							Usage:  "Create an key in the node's keystore alongside the existing key; to create an original key, just run the node",
-							Hidden: !client.Config.Dev(),
 							Action: client.CreateExtraKey,
 						},
 						{
@@ -222,9 +224,8 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				cli.Command{
-					Name:   "p2p",
-					Usage:  "Remote commands for administering the node's p2p keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "p2p",
+					Usage: "Remote commands for administering the node's p2p keys",
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
@@ -256,9 +257,8 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				cli.Command{
-					Name:   "ocr",
-					Usage:  "Remote commands for administering the node's off chain reporting keys",
-					Hidden: !client.Config.Dev(),
+					Name:  "ocr",
+					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
 						{
 							Name: "create",
@@ -294,7 +294,6 @@ func NewApp(client *Client) *cli.App {
 					Usage: format(`Local commands for administering the database of VRF proof
            keys. These commands will not affect the extant in-memory keys of
            any live node.`),
-					Hidden: !client.Config.Dev(),
 					Subcommands: cli.Commands{
 						{
 							Name: "create",

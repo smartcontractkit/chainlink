@@ -28,6 +28,16 @@ const DashboardsIndex: UniversalComponent<
       recentlyCreatedPageSize: number
     }
 > = universal(import('./pages/Dashboards/Index'), uniOpts)
+const JobRunsIndex: UniversalComponent<
+  Pick<
+    {
+      classes: any
+    },
+    never
+  > & {
+    pagePath: string
+  }
+> = universal(import('./pages/JobRuns/Index'), uniOpts)
 const JobsIndex = universal(import('./pages/JobsIndex/JobsIndex'), uniOpts)
 const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
 const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
@@ -35,15 +45,7 @@ const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
 const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
 const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
 const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
-const JobRunsShowOverview = universal(
-  import('./pages/JobRuns/Show/Overview'),
-  uniOpts,
-)
-const JobRunsShowJson = universal(import('./pages/JobRuns/Show/Json'), uniOpts)
-const JobRunsShowErrorLog = universal(
-  import('./pages/JobRuns/Show/ErrorLog'),
-  uniOpts,
-)
+const JobRunsShowOverview = universal(import('./pages/Jobs/Runs/Show'), uniOpts)
 const TransactionsIndex = universal(
   import('./pages/Transactions/Index'),
   uniOpts,
@@ -97,22 +99,25 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/jobs" component={JobsIndex} />
               <PrivateRoute exact path="/jobs/new" component={JobsNew} />
               <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId"
+                path="/jobs/:jobSpecId/runs/:jobRunId"
                 component={JobRunsShowOverview}
               />
-              <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId/json"
-                component={JobRunsShowJson}
-              />
-              <PrivateRoute
-                exact
-                path="/jobs/:jobSpecId/runs/id/:jobRunId/error_log"
-                component={JobRunsShowErrorLog}
-              />
               <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
-              <PrivateRoute exact path="/bridges" component={BridgesIndex} />
+              <PrivateRoute
+                exact
+                path="/runs"
+                render={(props) => (
+                  <JobRunsIndex {...props} pagePath="/runs/page" />
+                )}
+              />
+              <PrivateRoute
+                exact
+                path="/runs/page/:jobRunsPage"
+                render={(props) => (
+                  <JobRunsIndex {...props} pagePath="/runs/page" />
+                )}
+              />
+              ;<PrivateRoute exact path="/bridges" component={BridgesIndex} />
               <PrivateRoute
                 exact
                 path="/bridges/page/:bridgePage"

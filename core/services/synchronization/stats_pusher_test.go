@@ -24,7 +24,7 @@ func TestStatsPusher(t *testing.T) {
 	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -52,7 +52,7 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient, clock)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient, clock)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -81,7 +81,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	pusher.Start()
 	defer pusher.Close()
 
@@ -107,7 +107,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	err := explorerClient.Start()
 	require.NoError(t, err)
 
-	pusher := synchronization.NewStatsPusher(store.ORM, explorerClient, clock)
+	pusher := synchronization.NewStatsPusher(store.DB, explorerClient, clock)
 	pusher.Start()
 	defer pusher.Close()
 

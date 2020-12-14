@@ -176,6 +176,7 @@ describe('generateJSONDefinition', () => {
 describe('generateTOMLDefinition', () => {
   it('generates valid definition', () => {
     const jobSpecAttributesInput = {
+      name: 'Job spec v2',
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -486,9 +488,10 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 
 func TestValidateOracleSpec(t *testing.T) {
 	var tt = []struct {
-		name      string
-		toml      string
-		assertion func(t *testing.T, os offchainreporting.OracleSpec, err error)
+		name       string
+		toml       string
+		setGlobals func(t *testing.T, c *orm.Config)
+		assertion  func(t *testing.T, os offchainreporting.OracleSpec, err error)
 	}{
 		{
 			name: "decodes valid oracle spec toml",
@@ -560,9 +563,6 @@ answer1      [type=median index=0];
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: keyBundleID")
-				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: transmitterAddress")
-				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationTimeout")
 				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationSource")
 			},
 		},
@@ -651,7 +651,7 @@ blah
 			},
 		},
 		{
-			name: "sane defaults",
+			name: "broken monitoring endpoint",
 			toml: `
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -659,15 +659,73 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
+monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
-				require.NoError(t, err)
-				assert.Equal(t, os.ContractConfigConfirmations, uint16(3))
-				assert.Equal(t, os.ObservationTimeout, models.Interval(10*time.Second))
-				assert.Equal(t, os.BlockchainTimeout, models.Interval(20*time.Second))
-				assert.Equal(t, os.ContractConfigTrackerSubscribeInterval, models.Interval(2*time.Minute))
-				assert.Equal(t, os.ContractConfigTrackerPollInterval, models.Interval(1*time.Minute))
-				assert.Len(t, os.P2PBootstrapPeers, 0)
+				require.EqualError(t, err, "(8, 23): invalid escape sequence: \\2")
+			},
+		},
+		{
+			name: "max task duration > observation timeout should error",
+			toml: `
+type               = "offchainreporting"
+maxTaskDuration    = "30s"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "max task duration must be < observation timeout")
+			},
+		},
+		{
+			name: "invalid peer ID",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID = "blah"
+isBootstrapPeer    = true 
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "failed to parse peer ID")
+			},
+		},
+		{
+			name: "individual max task duration > observation timeout should error",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationTimeout = "10s"
+observationSource = """
+ds1          [type=bridge name=voter_turnout timeout="30s"];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "individual max task duration must be < observation timeout")
 			},
 		},
 		{
@@ -677,11 +735,44 @@ isBootstrapPeer    = true
 				require.Error(t, err)
 			},
 		},
+		{
+			name: "invalid global default",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
+p2pBootstrapPeers  = [
+"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer    = false
+keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
+monitoringEndpoint = "chain.link:4321"
+transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.Error(t, err)
+			},
+			setGlobals: func(t *testing.T, c *orm.Config) {
+				c.Set("OCR_OBSERVATION_TIMEOUT", "20m")
+			},
+		},
 	}
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := services.ValidatedOracleSpecToml(tc.toml)
+			c := orm.NewConfig()
+			if tc.setGlobals != nil {
+				tc.setGlobals(t, c)
+			}
+			s, err := services.ValidatedOracleSpecToml(c, tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

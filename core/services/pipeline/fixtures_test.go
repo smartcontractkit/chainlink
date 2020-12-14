@@ -6,6 +6,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"testing"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
+	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/services"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
@@ -19,7 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-const dotStr = `
+const (
+	dotStr = `
     // data source 1
     ds1          [type=bridge name=voter_turnout];
     ds1_parse    [type=jsonparse path="one,two"];
@@ -36,8 +43,6 @@ const dotStr = `
     answer1 [type=median                      index=0];
     answer2 [type=bridge name=election_winner index=1];
 `
-
-const (
 	ocrJobSpecTemplate = `
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -59,7 +64,6 @@ observationSource = """
 	%s
 """
 `
-
 	voterTurnoutDataSourceTemplate = `
 // data source 1
 ds1          [type=bridge name=voter_turnout];
@@ -80,12 +84,57 @@ answer2 [type=bridge name=election_winner index=1];
 
 	simpleFetchDataSourceTemplate = `
 // data source 1
-ds1          [type=http method=GET url="%s"];
+ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true"];
 ds1_parse    [type=jsonparse path="USD" lax=%t];
 ds1_multiply [type=multiply times=100];
 ds1 -> ds1_parse -> ds1_multiply;
 `
+	minimalNonBootstrapTemplate = `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		p2pPeerID          = "%s"
+		p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
+		isBootstrapPeer    = false 
+		transmitterAddress = "%s"
+		keyBundleID = "%s"
+		observationTimeout = "10s"
+		observationSource = """
+ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
+ds1_parse    [type=jsonparse path="USD" lax=true];
+ds1 -> ds1_parse;
+"""
+`
+	minimalBootstrapTemplate = `
+		type               = "offchainreporting"
+		schemaVersion      = 1
+		contractAddress    = "%s"
+		p2pPeerID          = "%s"
+		p2pBootstrapPeers  = []
+		isBootstrapPeer    = true
+`
 )
+
+func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *offchainreporting.OracleSpec {
+	t.Helper()
+	var os = offchainreporting.OracleSpec{
+		OffchainReportingOracleSpec: models.OffchainReportingOracleSpec{
+			P2PBootstrapPeers:                      pq.StringArray{},
+			ObservationTimeout:                     models.Interval(10 * time.Second),
+			BlockchainTimeout:                      models.Interval(20 * time.Second),
+			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+			ContractConfigConfirmations:            uint16(3),
+		},
+		Pipeline: *pipeline.NewTaskDAG(),
+	}
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
+	_, err := services.ValidatedOracleSpecToml(orm.NewConfig(), s)
+	require.NoError(t, err)
+	err = toml.Unmarshal([]byte(s), &os)
+	require.NoError(t, err)
+	return &os
+}
 
 func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
@@ -117,7 +166,11 @@ func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
+	dbSpec := models.JobSpecV2{
+		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
+		Type:                        string(offchainreporting.JobType),
+		SchemaVersion:               ocrspec.SchemaVersion,
+	}
 	return &ocrspec, &dbSpec
 }
 

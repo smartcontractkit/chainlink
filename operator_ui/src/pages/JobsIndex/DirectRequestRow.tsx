@@ -1,7 +1,7 @@
 import React from 'react'
 import { TableCell, TableRow, Typography } from '@material-ui/core'
 import { TimeAgo } from '@chainlink/styleguide'
-import { useHistory } from 'react-router-dom'
+import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
 import {
@@ -17,6 +17,16 @@ const styles = (theme: Theme) =>
       paddingTop: theme.spacing.unit * 2,
       paddingBottom: theme.spacing.unit * 2,
     },
+    link: {
+      '&::before': {
+        content: "''",
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+      },
+    },
   })
 
 interface Props extends WithStyles<typeof styles> {
@@ -25,28 +35,24 @@ interface Props extends WithStyles<typeof styles> {
 
 export const DirectRequestRow = withStyles(styles)(
   ({ job, classes }: Props) => {
-    const history = useHistory()
-
     return (
-      <TableRow
-        style={{ cursor: 'pointer' }}
-        hover
-        onClick={() => history.push(`/jobs/${job.id}`)}
-      >
+      <TableRow style={{ transform: 'scale(1)' }} hover>
         <TableCell className={classes.cell} component="th" scope="row">
-          {job.attributes.name || job.id}
-          {job.attributes.name && (
-            <>
-              <br />
-              <Typography
-                variant="subtitle2"
-                color="textSecondary"
-                component="span"
-              >
-                {job.id}
-              </Typography>
-            </>
-          )}
+          <Link className={classes.link} href={`/jobs/${job.id}`}>
+            {job.attributes.name || job.id}
+            {job.attributes.name && (
+              <>
+                <br />
+                <Typography
+                  variant="subtitle2"
+                  color="textSecondary"
+                  component="span"
+                >
+                  {job.id}
+                </Typography>
+              </>
+            )}
+          </Link>
         </TableCell>
         <TableCell>
           <Typography variant="body1">

@@ -196,7 +196,7 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 
 	// Check ORM
 	orm := app.GetStore().ORM
-	j, err = orm.FindJob(j.ID)
+	j, err = orm.FindJobSpec(j.ID)
 	require.NoError(t, err)
 	require.Len(t, j.Initiators, 1)
 	assert.Equal(t, models.InitiatorWeb, j.Initiators[0].Type)
@@ -232,42 +232,9 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 		require.NoError(t, err)
 
 		orm := app.GetStore().ORM
-		j, err = orm.FindJob(j.ID)
+		j, err = orm.FindJobSpec(j.ID)
 		require.NoError(t, err)
 		assert.Equal(t, j.Name, "CustomJobName")
-	})
-
-	t.Run("it replaces a blank name with a generated one", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": ""})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		client = app.NewHTTPClient()
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-		var j models.JobSpec
-		err = cltest.ParseJSONAPIResponse(t, resp, &j)
-		require.NoError(t, err)
-
-		orm := app.GetStore().ORM
-		j, err = orm.FindJob(j.ID)
-		require.NoError(t, err)
-		assert.NotEmpty(t, j.Name)
-		assert.NotEqual(t, j.Name, "CustomJobName")
-	})
-
-	t.Run("it rejects an already taken name", func(t *testing.T) {
-		jsr, err = jsr.MultiAdd(map[string]interface{}{"name": "CustomJobName"})
-		require.NoError(t, err)
-		requestBody, err = json.Marshal(jsr)
-		require.NoError(t, err)
-
-		resp, cleanup := client.Post("/v2/specs", bytes.NewReader(requestBody))
-		defer cleanup()
-		cltest.AssertServerResponse(t, resp, http.StatusConflict)
 	})
 }
 
@@ -681,7 +648,7 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
 
@@ -698,7 +665,7 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 
 	job = cltest.NewJobWithLogInitiator()
@@ -709,7 +676,7 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 	resp, cleanup = client.Delete("/v2/specs/" + job.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }
 
@@ -728,12 +695,12 @@ func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	resp, cleanup := client.Delete("/v2/specs/" + job1.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job1.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job1.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 
 	resp, cleanup = client.Delete("/v2/specs/" + job2.ID.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
-	assert.Error(t, utils.JustError(app.Store.FindJob(job2.ID)))
+	assert.Error(t, utils.JustError(app.Store.FindJobSpec(job2.ID)))
 	assert.Equal(t, 0, len(app.ChainlinkApplication.JobSubscriber.Jobs()))
 }

@@ -8,10 +8,9 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 // ConfigSchema records the schema of configuration at the type level
@@ -61,7 +60,7 @@ type ConfigSchema struct {
 	JobPipelineMaxTaskDuration                time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"10m"`
 	JobPipelineParallelism                    uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
-	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"7d"`
+	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"168h"`
 	JSONConsole                               bool            `env:"JSON_CONSOLE" default:"false"`
 	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
@@ -77,20 +76,31 @@ type ConfigSchema struct {
 	MinRequiredOutgoingConfirmations          uint64          `env:"MIN_OUTGOING_CONFIRMATIONS" default:"12"`
 	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration                  uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
+	OCRObservationTimeout                     time.Duration   `env:"OCR_OBSERVATION_TIMEOUT" default:"10s"`
+	OCRBlockchainTimeout                      time.Duration   `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
+	OCRContractSubscribeInterval              time.Duration   `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
+	OCRContractPollInterval                   time.Duration   `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`
+	OCRContractConfirmations                  uint            `env:"OCR_CONTRACT_CONFIRMATIONS" default:"3"`
 	OCRBootstrapCheckInterval                 time.Duration   `env:"OCR_BOOTSTRAP_CHECK_INTERVAL" default:"20s"`
 	OCRContractTransmitterTransmitTimeout     time.Duration   `env:"OCR_CONTRACT_TRANSMITTER_TRANSMIT_TIMEOUT" default:"10s"`
+	OCRTransmitterAddress                     string          `env:"OCR_TRANSMITTER_ADDRESS"`
+	OCRKeyBundleID                            string          `env:"OCR_KEY_BUNDLE_ID"`
 	OCRDatabaseTimeout                        time.Duration   `env:"OCR_DATABASE_TIMEOUT" default:"10s"`
 	OCRIncomingMessageBufferSize              int             `env:"OCR_INCOMING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCROutgoingMessageBufferSize              int             `env:"OCR_OUTGOING_MESSAGE_BUFFER_SIZE" default:"10"`
 	OCRNewStreamTimeout                       time.Duration   `env:"OCR_NEW_STREAM_TIMEOUT" default:"10s"`
 	OCRDHTLookupInterval                      int             `env:"OCR_DHT_LOOKUP_INTERVAL" default:"10"`
 	OCRTraceLogging                           bool            `env:"OCR_TRACE_LOGGING" default:"false"`
+	OCRMonitoringEndpoint                     string          `env:"OCR_MONITORING_ENDPOINT"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
+	P2PDHTAnnouncementCounterUserPrefix       uint32          `env:"P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`
 	P2PListenIP                               net.IP          `env:"P2P_LISTEN_IP" default:"0.0.0.0"`
 	P2PListenPort                             uint16          `env:"P2P_LISTEN_PORT"`
 	P2PPeerstoreWriteInterval                 time.Duration   `env:"P2P_PEERSTORE_WRITE_INTERVAL" default:"5m"`
+	P2PPeerID                                 models.PeerID   `env:"P2P_PEER_ID"`
+	P2PBootstrapPeers                         []string        `env:"P2P_BOOTSTRAP_PEERS"`
 	Port                                      uint16          `env:"CHAINLINK_PORT" default:"6688"`
 	ReaperExpiration                          models.Duration `env:"REAPER_EXPIRATION" default:"240h"`
 	ReplayFromBlock                           int64           `env:"REPLAY_FROM_BLOCK" default:"-1"`

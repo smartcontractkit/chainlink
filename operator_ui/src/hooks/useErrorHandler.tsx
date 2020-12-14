@@ -28,7 +28,12 @@ export const useErrorHandler = (): {
   }, [dispatch, error, history])
 
   const ErrorComponent: React.FC = error
-    ? () => <div>Error: {JSON.stringify(error)}</div>
+    ? () => (
+        <div>
+          Error:{' '}
+          {error instanceof Error ? error.message : JSON.stringify(error)}
+        </div>
+      )
     : () => null
 
   return { error, ErrorComponent, setError }

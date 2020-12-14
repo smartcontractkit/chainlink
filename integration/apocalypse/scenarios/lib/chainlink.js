@@ -10,7 +10,7 @@ module.exports = {
 }
 
 async function chainlinkLogin(nodeURL, tmpdir) {
-  let resp = await run(
+  const resp = await run(
     `chainlink -j admin login -f ${__dirname}/../../chainlink/apicredentials`,
     { CLIENT_NODE_URL: nodeURL, ROOT: tmpdir },
   )
@@ -18,11 +18,14 @@ async function chainlinkLogin(nodeURL, tmpdir) {
 }
 
 async function addJobSpec(nodeURL, jobSpec, tmpdir) {
-  let jobSpecJSON = JSON.stringify(jobSpec)
-  let resp = await run(['chainlink', '-j', 'jobs', 'create', jobSpecJSON], {
-    CLIENT_NODE_URL: nodeURL,
-    ROOT: tmpdir,
-  })
+  const jobSpecJSON = JSON.stringify(jobSpec)
+  const resp = await run(
+    ['chainlink', '-j', 'job_specs', 'create', jobSpecJSON],
+    {
+      CLIENT_NODE_URL: nodeURL,
+      ROOT: tmpdir,
+    },
+  )
   try {
     console.log('RESP ~>', resp)
     return JSON.parse(resp)
@@ -47,7 +50,7 @@ async function setPriceFeedValue(externalAdapterURL, value) {
 
 async function successfulJobRuns(nodeURL, jobSpecID, num, tmpdir) {
   while (true) {
-    let runs = JSON.parse(
+    const runs = JSON.parse(
       await run(`chainlink -j runs list`, {
         CLIENT_NODE_URL: nodeURL,
         ROOT: tmpdir,
@@ -123,7 +126,7 @@ const tasks = [
 
 function makeJobSpecFluxMonitor(aggregatorContractAddress, feedAddr) {
   return {
-    initiators: initiators,
-    tasks: tasks,
+    initiators,
+    tasks,
   }
 }

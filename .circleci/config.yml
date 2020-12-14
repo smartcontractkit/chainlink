@@ -12,6 +12,9 @@ jobs:
           name: Docker build
           command: DOCKER_TAG=circleci make docker
       - run:
+          name: Docker build non-root
+          command: DOCKER_TAG=circleci-nonroot CHAINLINK_USER=chainlink make docker
+      - run:
           name: Docker push, if applicable
           command: |
             tools/ci/push_chainlink "${CIRCLE_BRANCH}" "${CIRCLE_TAG}" "${CIRCLE_SHA1}"

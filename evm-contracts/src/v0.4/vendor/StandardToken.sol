@@ -1,8 +1,8 @@
 pragma solidity ^0.4.11;
 
 
-import { BasicToken as linkBasicToken } from './BasicToken.sol';
-import { ERC20 as linkERC20 } from '../interfaces/ERC20.sol';
+import { BasicToken as linkBasicToken } from "./BasicToken.sol";
+import { ERC20 as linkERC20 } from "../interfaces/ERC20.sol";
 
 
 /**
