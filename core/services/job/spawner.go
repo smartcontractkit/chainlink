@@ -28,8 +28,8 @@ type (
 	// "direct request" model allows for multiple initiators, which imply multiple
 	// services.
 	Spawner interface {
-		Start()
-		Stop()
+		Start() error
+		Close() error
 		CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		RegisterDelegate(delegate Delegate)
@@ -78,22 +78,23 @@ func NewSpawner(orm ORM, config Config) *spawner {
 	return s
 }
 
-func (js *spawner) Start() {
+func (js *spawner) Start() error {
 	if !js.OkayToStart() {
-		logger.Error("Job spawner has already been started")
-		return
+		return errors.New("Job spawner has already been started")
 	}
 	go js.runLoop()
+	return nil
 }
 
-func (js *spawner) Stop() {
+func (js *spawner) Close() error {
 	if !js.OkayToStop() {
-		logger.Error("Job spawner has already been stopped")
-		return
+		return errors.New("Job spawner has already been stopped")
 	}
 
 	close(js.chStop)
 	<-js.chDone
+
+	return nil
 }
 
 func (js *spawner) destroy() {
