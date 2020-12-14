@@ -10,6 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -124,8 +128,16 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_EthRequestEventSpec(t *testing.T) {
-	app, client, cleanup := setupJobsControllerTests(t)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	require.NoError(t, app.Start())
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+
+	client := app.NewHTTPClient()
 
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(cltest.MustReadFile(t, "testdata/eth-request-event-spec.toml")),
@@ -243,7 +255,11 @@ func runEthRequestEventJobSpecAssertions(t *testing.T, ereJobSpecFromFile servic
 
 func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -252,7 +268,11 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32, services.EthRequestEventSpec, int32) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()

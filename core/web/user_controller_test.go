@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -17,7 +19,11 @@ import (
 func TestUserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -52,7 +58,11 @@ func TestUserController_UpdatePassword(t *testing.T) {
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -75,7 +85,11 @@ func TestUserController_NewAPIToken(t *testing.T) {
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -92,7 +106,11 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -110,7 +128,11 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

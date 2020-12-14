@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -20,9 +22,10 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 
@@ -67,9 +70,10 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -83,13 +87,10 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t, eth.NewClientWith(rpcClient, gethClient))
 	defer cleanup()
-
-	ethMock := app.EthMock
-	ethMock.Context("app.Start()", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_chainId", app.Store.Config.ChainID())
-	})
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -122,9 +123,10 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 

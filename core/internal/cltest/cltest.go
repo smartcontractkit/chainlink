@@ -254,7 +254,6 @@ type TestApplication struct {
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
 	Started          bool
-	EthMock          *EthMock
 	Backend          *backends.SimulatedBackend
 	Key              models.Key
 	allowUnstarted   bool
@@ -373,7 +372,6 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
 
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
@@ -410,24 +408,28 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	err := app.Store.KeyStore.Unlock(Password)
 	require.NoError(t, err)
 
-	// Clean out the mock registrations, since we don't need those...
-	app.EthMock.Responses = app.EthMock.Responses[:0]
-	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
 	return app, func() { appCleanup(); client.Close() }
 }
 
-func NewEthMocks(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+func NewEthMocks(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
 	r := new(mocks.RPCClient)
 	g := new(mocks.GethClient)
 	s := new(mocks.Subscription)
-	return r, g, s, func() {
-		r.AssertExpectations(t)
-		g.AssertExpectations(t)
-		s.AssertExpectations(t)
+	var assertMocksCalled func()
+	switch tt := t.(type) {
+	case *testing.T:
+		assertMocksCalled = func() {
+			r.AssertExpectations(tt)
+			g.AssertExpectations(tt)
+			s.AssertExpectations(tt)
+		}
+	case *testing.B:
+		assertMocksCalled = func() {}
 	}
+	return r, g, s, assertMocksCalled
 }
 
-func NewEthMocksWithStartupAssertions(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
 	r, g, s, assertMocksCalled := NewEthMocks(t)
 	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
 	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)

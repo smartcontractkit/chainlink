@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -40,7 +42,11 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 func TestRendererTable_RenderConfiguration(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

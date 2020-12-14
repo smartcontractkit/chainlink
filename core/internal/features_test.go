@@ -50,9 +50,10 @@ var oneETH = assets.Eth(*big.NewInt(1000000000000000000))
 func TestIntegration_Scheduler(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 	app.Start()
@@ -292,7 +293,6 @@ func TestIntegration_StartAt(t *testing.T) {
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
-		cltest.EthMockRegisterGetBalance,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -317,12 +317,12 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
-	newHeads := make(chan<- *models.Head, 10)
+	newHeadsCh := make(chan chan<- *models.Head, 10)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) {
-			newHeads = args.Get(1).(chan<- *models.Head)
+			newHeadsCh <- args.Get(1).(chan<- *models.Head)
 		}).
 		Return(sub, nil)
 	require.NoError(t, app.Start())
@@ -345,6 +345,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil).Maybe()
+	newHeads := <-newHeadsCh
 	newHeads <- cltest.Head(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
@@ -901,9 +902,9 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
-	newHeads := make(chan<- *models.Head, 1)
+	newHeadsCh := make(chan chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
-		Run(func(args mock.Arguments) { newHeads = args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { newHeadsCh <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 
 	err := app.StartAndConnect()
@@ -998,6 +999,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
+	newHeads := <-newHeadsCh
 	newHeads <- cltest.Head(safe)
 	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
@@ -1028,9 +1030,9 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	heads := make(chan<- *models.Head, 1)
+	headsCh := make(chan chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
-		Run(func(args mock.Arguments) { heads = args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) { headsCh <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -1072,6 +1074,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	// Feed the subscriber a block head so the transaction completes.
+	heads := <-headsCh
 	heads <- cltest.Head(safe)
 	// Job should complete successfully.
 	_ = cltest.WaitForJobRunToComplete(t, app.Store, jr)

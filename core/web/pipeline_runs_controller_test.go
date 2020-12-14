@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -20,7 +22,11 @@ import (
 
 func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
@@ -115,7 +121,11 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -127,7 +137,11 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64, func()) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
