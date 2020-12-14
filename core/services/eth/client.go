@@ -35,6 +35,7 @@ type Client interface {
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
+	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
 	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
@@ -187,6 +188,14 @@ func (client *client) GetLINKBalance(linkAddress common.Address, address common.
 		return assets.NewLink(0), err
 	}
 	return (*assets.Link)(balance), nil
+}
+
+func (client *client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	balance, err := client.BalanceAt(ctx, account, blockNumber)
+	if err != nil {
+		return assets.NewEth(0), err
+	}
+	return (*assets.Eth)(balance), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.

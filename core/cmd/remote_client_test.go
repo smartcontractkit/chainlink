@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
@@ -815,16 +814,19 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
-func TestClient_CreateExtraKey(t *testing.T) {
+func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	kst := app.Store.KeyStore.(*mocks.KeyStoreInterface)
+	ethClient := new(mocks.Client)
+
+	app, cleanup := cltest.NewApplicationWithKey(t, ethClient)
 	defer cleanup()
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.NewLink(42), nil)
+
 	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
@@ -837,9 +839,7 @@ func TestClient_CreateExtraKey(t *testing.T) {
 
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
 
-	kst.On("Unlock", cltest.Password).Return(nil)
-	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
-	assert.NoError(t, client.CreateExtraKey(c))
+	assert.NoError(t, client.CreateETHKey(c))
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
