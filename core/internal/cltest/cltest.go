@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum/accounts"
@@ -58,7 +59,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -1005,29 +1006,6 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-// WaitForRuns waits for the wanted number of completed runs then returns a slice of the JobRuns
-func WaitForCompletedRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var jrs []models.JobRun
-	var err error
-	if want == 0 {
-		g.Consistently(func() []models.JobRun {
-			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
-			assert.NoError(t, err)
-			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	} else {
-		g.Eventually(func() []models.JobRun {
-			err = store.DB.Where("status = 'completed'").Find(&jrs).Error
-			assert.NoError(t, err)
-			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	}
-	return jrs
-}
-
 // AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
 func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1057,20 +1035,6 @@ func WaitForRunsAtLeast(t testing.TB, j models.JobSpec, store *strpkg.Store, wan
 			return len(jrs)
 		}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeNumerically(">=", want))
 	}
-}
-
-func WaitForEthTxCount(t testing.TB, store *strpkg.Store, want int) []models.EthTx {
-	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-
-	var txes []models.EthTx
-	var err error
-	g.Eventually(func() []models.EthTx {
-		err = store.DB.Order("nonce desc").Find(&txes).Error
-		assert.NoError(t, err)
-		return txes
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txes
 }
 
 func WaitForEthTxAttemptsForEthTx(t testing.TB, store *strpkg.Store, ethTx models.EthTx) []models.EthTxAttempt {
@@ -1164,7 +1128,7 @@ func ParseISO8601(t testing.TB, s string) time.Time {
 
 // NullableTime will return a valid nullable time given time.Time
 func NullableTime(t time.Time) null.Time {
-	return null.Time{Time: t, Valid: true}
+	return null.TimeFrom(t)
 }
 
 // ParseNullableTime given a time string parse it into a null.Time
@@ -1480,4 +1444,24 @@ func RandomizeNonce(t *testing.T, s *strpkg.Store) {
 	n := rand.Intn(32767) + 100
 	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
 	require.NoError(t, err)
+}
+
+func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
+	t.Helper()
+	b := make([]byte, 16)
+	/* #nosec G404 */
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return MustBytesToConfigDigest(t, b)
+}
+
+func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
+	t.Helper()
+	configDigest, err := ocrtypes.BytesToConfigDigest(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return configDigest
 }

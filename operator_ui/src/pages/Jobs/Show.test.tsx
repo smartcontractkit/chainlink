@@ -52,7 +52,7 @@ describe('pages/Jobs/Show', () => {
   })
 
   describe('RegionalNav', () => {
-    it('clicking on "Run" button triggers a new job and updates the recent jobs list', async () => {
+    it('clicking on "Run" button triggers a new job and updates the recent job_specs list', async () => {
       const runs = [{ id: 'runA', jobId: JOB_SPEC_ID }]
 
       global.fetch.getOnce(

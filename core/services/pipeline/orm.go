@@ -8,6 +8,8 @@ import (
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -39,6 +41,27 @@ type (
 )
 
 var _ ORM = (*orm)(nil)
+
+var (
+	promPipelineRunErrors = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pipeline_run_errors",
+		Help: "Number of errors for each pipeline spec",
+	},
+		[]string{"pipeline_spec_id"},
+	)
+	promPipelineRunTotalTimeToCompletion = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_run_total_time_to_completion",
+		Help: "How long each pipeline run took to finish (from the moment it was created)",
+	},
+		[]string{"pipeline_spec_id"},
+	)
+	promPipelineTasksTotalFinished = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pipeline_tasks_total_finished",
+		Help: "The total number of pipeline tasks which have finished",
+	},
+		[]string{"pipeline_spec_id", "task_type", "status"},
+	)
+)
 
 func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcaster) *orm {
 	return &orm{db, config, eventBroadcaster}
@@ -268,6 +291,15 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 			return errors.Wrap(err, "could not mark pipeline_task_run as finished")
 		}
 
+		pipelineSpecIDStr := string(ptRun.PipelineTaskSpec.PipelineSpecID)
+		var status string
+		if result.Error != nil {
+			status = "error"
+		} else {
+			status = "completed"
+		}
+		promPipelineTasksTotalFinished.WithLabelValues(pipelineSpecIDStr, string(ptRun.PipelineTaskSpec.Type), status).Inc()
+
 		if ptRun.PipelineTaskSpec.IsFinalPipelineOutput() {
 			err = tx.Exec(`UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ? WHERE id = ?`, time.Now(), out, errString, ptRun.PipelineRunID).Error
 			if err != nil {
@@ -278,6 +310,13 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 			if err != nil {
 				return errors.Wrap(err, "could not notify pipeline_run_completed")
 			}
+
+			elapsed := time.Since(ptRun.CreatedAt)
+			promPipelineRunTotalTimeToCompletion.WithLabelValues(pipelineSpecIDStr).Set(float64(elapsed))
+			if finalErrors, is := result.Error.(FinalErrors); (is && finalErrors.HasErrors()) || result.Error != nil {
+				promPipelineRunErrors.WithLabelValues(pipelineSpecIDStr).Inc()
+			}
+
 			logger.Infow("Pipeline run completed", "runID", ptRun.PipelineRunID)
 		}
 		return nil

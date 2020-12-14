@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 // BridgeRunResult handles the parsing of RunResults from external adapters.

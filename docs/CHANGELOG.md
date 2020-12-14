@@ -7,7 +7,81 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.7] - 2020-12-14
+
+### Added
+
+- OCR bootstrap node now sends telemetry to the endpoint specified in the OCR job spec under `MonitoringEndpoint`.
+- Adds "Account addresses" table to the `/keys` page.
+
+### Changed
+
+- Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
+
+### Fixed
+
+- Brings `/runs` tab back to the operator UI.
+- Signs out a user from operator UI on authentication error.
+
+### Changes
+
+- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
+
+#### BREAKING CHANGES
+
+- Commands for creating/managing legacy jobs and OCR jobs have changed, to reduce confusion and accomodate additional types of jobs using the new pipeline.
+
+#### V1 jobs
+
+`jobs archive` => `job_specs archive`
+`jobs create` => `job_specs create`
+`jobs list` => `job_specs list`
+`jobs show` => `job_specs show`
+
+#### V2 jobs (currently only applies to OCR)
+
+`jobs createocr` => `jobs create`
+`jobs deletev2` => `jobs delete`
+`jobs run` => `jobs run`
+
 ## [0.9.6] - 2020-11-23
+
+- OCR pipeline specs can now be configured on a per-task basis to allow unrestricted network access for http tasks. Example like so:
+
+```
+ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+ds1_parse    [type=jsonparse path="USD" lax="true"];
+ds1_multiply [type=multiply times=100];
+ds1 -> ds1_parse -> ds1_multiply;
+```
+
+- New prometheus metrics as follows:
+
+```
+Name: "pipeline_run_errors",
+Help: "Number of errors for each pipeline spec",
+
+Name: "pipeline_run_total_time_to_completion",
+Help: "How long each pipeline run took to finish (from the moment it was created)",
+
+Name: "pipeline_tasks_total_finished",
+Help: "The total number of pipline tasks which have finished",
+
+Name: "pipeline_task_execution_time",
+Help: "How long each pipeline task took to execute",
+
+Name: "pipeline_task_http_fetch_time",
+Help: "Time taken to fully execute the HTTP request",
+
+Name: "pipeline_task_http_response_body_size",
+Help: "Size (in bytes) of the HTTP response body",
+
+Name: "pipeline_runs_queued",
+Help: "The total number of pipline runs that are awaiting execution",
+
+Name: "pipeline_task_runs_queued",
+Help: "The total number of pipline task runs that are awaiting execution",
+```
 
 ### Changed
 
@@ -23,6 +97,9 @@ Numerous key-related UX improvements:
 - Output from ETH/OCR/P2P/VRF key CLI commands now renders consistently.
 - Deleting an OCR/P2P/VRF key now requires confirmation from the user. To skip confirmation (e.g. in shell scripts), pass `--yes` or `-y`.
 - The `--ocrpassword` flag has been removed. OCR/P2P keys now share the same password at the ETH key (i.e., the password specified with the `--password` flag).
+
+Misc:
+
 - Two new env variables are added `P2P_ANNOUNCE_IP` and `P2P_ANNOUNCE_PORT` which allow node operators to override locally detected values for the chainlink node's externally reachable IP/port.
 - `OCR_LISTEN_IP` and `OCR_LISTEN_PORT` have been renamed to `P2P_LISTEN_IP` and `P2P_LISTEN_PORT` for consistency.
 - Support for adding a job with the same name as one that was deleted.
@@ -30,6 +107,7 @@ Numerous key-related UX improvements:
 ### Fixed
 
 - Fixed an issue where the HTTP adapter would send an empty body on retries.
+- Changed the default `JOB_PIPELINE_REAPER_THRESHOLD` value from `7d` to `168h` (hours are the highest time unit allowed by `time.Duration`).
 
 ## [0.9.5] - 2020-11-12
 

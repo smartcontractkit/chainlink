@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -48,7 +49,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	logger.Infow("Starting Chainlink Node " + strpkg.Version + " at commit " + strpkg.Sha)
+	logger.Infow("Starting Chainlink Node " + static.Version + " at commit " + static.Sha)
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()

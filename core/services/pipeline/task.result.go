@@ -41,6 +41,15 @@ func (t *ResultTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) Re
 
 type FinalErrors []null.String
 
+func (fe FinalErrors) HasErrors() bool {
+	for _, err := range fe {
+		if !err.IsZero() {
+			return true
+		}
+	}
+	return false
+}
+
 func (fe FinalErrors) Error() string {
 	bs, err := json.Marshal(fe)
 	if err != nil {

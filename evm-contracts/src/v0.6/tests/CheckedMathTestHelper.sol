@@ -1,6 +1,7 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.6.0;
 
-import '../CheckedMath.sol';
+import "../CheckedMath.sol";
 
 contract CheckedMathTestHelper {
   using CheckedMath for int256;

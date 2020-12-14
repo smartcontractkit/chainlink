@@ -19,11 +19,11 @@ describe('pages/Jobs/Runs', () => {
     }
 
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${JOB_SPEC_ID}/runs?page=1&size=10`),
+      globPath(`/v2/jobs/${JOB_SPEC_ID}/runs?page=1&size=10`),
       jsonApiOcrJobRuns(runs.slice(0, 10), RUNS_COUNT),
     )
     global.fetch.getOnce(
-      globPath(`/v2/ocr/specs/${JOB_SPEC_ID}`),
+      globPath(`/v2/jobs/${JOB_SPEC_ID}`),
       jsonApiOcrJobSpec({
         id: JOB_SPEC_ID,
       }),

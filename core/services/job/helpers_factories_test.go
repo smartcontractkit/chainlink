@@ -60,7 +60,11 @@ func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
+	dbSpec := models.JobSpecV2{
+		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
+		Type:                        string(offchainreporting.JobType),
+		SchemaVersion:               ocrspec.SchemaVersion,
+	}
 	return &ocrspec, &dbSpec
 }
 

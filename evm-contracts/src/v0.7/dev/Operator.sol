@@ -1,7 +1,8 @@
+// SPDX-License-Identifier: MIT
 pragma solidity 0.7.0;
 
 import "./LinkTokenReceiver.sol";
-import "./Owned.sol";
+import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
 import "../interfaces/OracleInterface2.sol";
@@ -15,7 +16,7 @@ import "../vendor/SafeMathChainlink.sol";
  */
 contract Operator is
   LinkTokenReceiver,
-  Owned,
+  ConfirmedOwner,
   ChainlinkRequestInterface,
   OracleInterface,
   OracleInterface2,
@@ -37,7 +38,7 @@ contract Operator is
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
-  mapping(address => bool) private s_authorizedNodes;
+  mapping(address => bool) private s_authorizedSenders;
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -64,9 +65,10 @@ contract Operator is
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
    * @param link The address of the LINK token
+   * @param owner The address of the owner
    */
-  constructor(address link)
-    Owned()
+  constructor(address link, address owner)
+    ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
@@ -144,7 +146,7 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
     isValidRequest(requestId)
     returns (bool)
   {
@@ -188,7 +190,7 @@ contract Operator is
   )
     external
     override
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
     isValidRequest(requestId)
     isValidMultiWord(requestId, data)
     returns (bool)
@@ -215,13 +217,13 @@ contract Operator is
    * @param node The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function getAuthorizationStatus(address node)
+  function isAuthorizedSender(address node)
     external
     view
     override
     returns (bool)
   {
-    return s_authorizedNodes[node];
+    return s_authorizedSenders[node];
   }
 
   /**
@@ -229,12 +231,12 @@ contract Operator is
    * @param node The address of the Chainlink node
    * @param allowed Bool value to determine if the node can fulfill requests
    */
-  function setFulfillmentPermission(address node, bool allowed)
+  function setAuthorizedSender(address node, bool allowed)
     external
     override
     onlyOwner()
   {
-    s_authorizedNodes[node] = allowed;
+    s_authorizedSenders[node] = allowed;
   }
 
   /**
@@ -311,12 +313,12 @@ contract Operator is
     return address(linkToken);
   }
 
-  function forward(address _to, bytes calldata _data)
+  function forward(address to, bytes calldata data)
     public
-    onlyAuthorizedNode()
+    onlyAuthorizedSender()
   {
-    require(_to != address(linkToken), "Cannot use #forward to send messages to Link token");
-    (bool status,) = _to.call(_data);
+    require(to != address(linkToken), "Cannot use #forward to send messages to Link token");
+    (bool status,) = to.call(data);
     require(status, "Forwarded call failed.");
   }
 
@@ -447,8 +449,8 @@ contract Operator is
   /**
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
-  modifier onlyAuthorizedNode() {
-    require(s_authorizedNodes[msg.sender], "Not an authorized node to fulfill requests");
+  modifier onlyAuthorizedSender() {
+    require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
     _;
   }
 

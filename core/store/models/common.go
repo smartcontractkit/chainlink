@@ -138,6 +138,11 @@ func (s *RunStatus) Scan(value interface{}) error {
 	return nil
 }
 
+const (
+	ResultKey           = "result"
+	ResultCollectionKey = "__chainlink_result_collection__"
+)
+
 // JSON stores the json types string, number, bool, and null.
 // Arrays and Objects are returned as their raw json types.
 type JSON struct {
@@ -249,6 +254,16 @@ func mapToJSON(m map[string]interface{}) (JSON, error) {
 // Add returns a new instance of JSON with the new value added.
 func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
 	return j.MultiAdd(KV{insertKey: insertValue})
+}
+
+func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
+	curr := j.Get(insertKey).Array()
+	updated := make([]interface{}, 0)
+	updated = append(updated, insertValue)
+	for _, c := range curr {
+		updated = append(updated, c.Value())
+	}
+	return j.Add(insertKey, updated)
 }
 
 // KV represents a key/value pair to be added to a JSON object
@@ -589,6 +604,10 @@ func (i Interval) Value() (driver.Value, error) {
 	return time.Duration(i).Nanoseconds(), nil
 }
 
+func (i Interval) IsZero() bool {
+	return time.Duration(i) == time.Duration(0)
+}
+
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	DestinationAddress common.Address `json:"address"`
@@ -608,8 +627,8 @@ type CreateKeyRequest struct {
 	CurrentPassword string `json:"current_password"`
 }
 
-// CreateOCRJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateOCRJobSpecRequest struct {
+// CreateJobSpecRequest represents a request to create and start a job spec.
+type CreateJobSpecRequest struct {
 	TOML string `json:"toml"`
 }
 

@@ -19,6 +19,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx evm-contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
@@ -37,7 +38,7 @@
     "eslint-plugin-react": "^7.19.0",
     "eslint-plugin-react-hooks": "^4.0.0",
     "patch-package": "^6.2.1",
-    "postinstall-postinstall": "^2.0.0",
+    "postinstall-postinstall": "^2.1.0",
     "prettier": "^2.1.2",
     "typescript": "^3.7.4",
     "wsrun": "^5.2.0"

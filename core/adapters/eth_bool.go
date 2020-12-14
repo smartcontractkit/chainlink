@@ -25,10 +25,10 @@ func (e *EthBool) TaskType() models.TaskType {
 // "0x0000000000000000000000000000000000000000000000000000000000000000"
 func (*EthBool) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	if boolean(input.Result().Type) {
-		return models.NewRunOutputCompleteWithResult(evmTrue)
+		return models.NewRunOutputCompleteWithResult(evmTrue, input.ResultCollection())
 	}
 
-	return models.NewRunOutputCompleteWithResult(evmFalse)
+	return models.NewRunOutputCompleteWithResult(evmFalse, input.ResultCollection())
 }
 
 func boolean(t gjson.Type) bool {

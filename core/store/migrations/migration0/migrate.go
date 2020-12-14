@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v4"
 )
 
 // Migrate runs the initial migration

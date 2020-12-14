@@ -16,7 +16,7 @@ func (noa *NoOp) TaskType() models.TaskType {
 // Perform returns the input
 func (noa *NoOp) Perform(input models.RunInput, _ *store.Store) models.RunOutput {
 	val := input.Result().Value()
-	return models.NewRunOutputCompleteWithResult(val)
+	return models.NewRunOutputCompleteWithResult(val, input.ResultCollection())
 }
 
 // NoOpPendOutgoing adapter type holds no fields

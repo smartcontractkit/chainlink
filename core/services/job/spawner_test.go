@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 )
 
 type delegate struct {
@@ -104,7 +105,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
+		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA, null.String{})
 		require.NoError(t, err)
 		delegateA.jobID = jobSpecIDA
 		close(delegateA.chContinueCreatingServices)
@@ -121,7 +122,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateB)
 
-		jobSpecIDB, err := spawner.CreateJob(context.Background(), jobSpecB)
+		jobSpecIDB, err := spawner.CreateJob(context.Background(), jobSpecB, null.String{})
 		require.NoError(t, err)
 		delegateB.jobID = jobSpecIDB
 		close(delegateB.chContinueCreatingServices)
@@ -164,7 +165,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
+		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA, null.String{})
 		require.NoError(t, err)
 		delegateA.jobID = jobSpecIDA
 
@@ -195,7 +196,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
+		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA, null.String{})
 		require.NoError(t, err)
 		delegateA.jobID = jobSpecIDA
 
@@ -231,7 +232,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil, nil)}
 		spawner.RegisterDelegate(delegateA)
 
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA)
+		jobSpecIDA, err := spawner.CreateJob(context.Background(), jobSpecA, null.String{})
 		require.NoError(t, err)
 		delegateA.jobID = jobSpecIDA
 

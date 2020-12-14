@@ -168,11 +168,13 @@ declare module 'core/store/models' {
    */
   export interface TaskRun {
     id: string
-    result: RunResult
+    result:
+      | { data: { result: string }; error: null }
+      | { data: {}; error: string }
     status: RunStatus
     task: TaskSpec
-    minimumConfirmations: clnull.Uint32
-    confirmations: clnull.Uint32
+    minimumConfirmations?: number | null
+    confirmations?: number | null
   }
 
   /**
@@ -468,10 +470,11 @@ declare module 'core/store/models' {
     toml: string
   }
 
-  type OcrTaskOutput = ?string
-  type OcrTaskError = ?string
+  export type PipelineTaskOutput = string | null
+  export type PipelineTaskError = string | null
 
   export interface OcrJobSpec {
+    name: string | null
     errors: JobSpecError[]
     offChainReportingOracleSpec: {
       contractAddress: common.Address
@@ -488,7 +491,6 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-      name?: string // Upcoming field
     }
     pipelineSpec: {
       dotDagSource: string
@@ -496,19 +498,24 @@ declare module 'core/store/models' {
   }
 
   export interface OcrJobRun {
-    outputs: OcrTaskOutput[]
-    errors: OcrTaskError[]
-    taskRuns: OcrTaskRun[]
+    outputs: PipelineTaskOutput[]
+    errors: PipelineTaskError[]
+    taskRuns: PipelineTaskRun[]
     createdAt: time.Time
     finishedAt: nullable.Time
+    pipelineSpec: {
+      ID: number
+      CreatedAt: time.Time
+      DotDagSource: string
+    }
   }
 }
 
-export interface OcrTaskRun {
+export interface PipelineTaskRun {
   createdAt: time.Time
-  error: OcrTaskError
+  error: PipelineTaskError
   finishedAt: nullable.Time
-  output: OcrTaskOutput
+  output: PipelineTaskOutput
   taskSpec: {
     dotId: string
   }

@@ -6,7 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/jinzhu/gorm"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -34,6 +38,15 @@ type (
 		chStop chan struct{}
 		chDone chan struct{}
 	}
+)
+
+var (
+	promPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_task_execution_time",
+		Help: "How long each pipeline task took to execute",
+	},
+		[]string{"pipeline_spec_id", "task_type"},
+	)
 )
 
 func NewRunner(orm ORM, config Config) *runner {
@@ -180,6 +193,8 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			"taskRunID", taskRun.ID,
 		}
 
+		start := time.Now()
+
 		logger.Infow("Running pipeline task", loggerFields...)
 
 		inputs := make([]Result, len(predecessors))
@@ -198,6 +213,25 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 			return Result{Error: err}
 		}
+		var job models.JobSpecV2
+		err = txdb.Find(&job, "id = ?", jobID).Error
+		if err != nil {
+			logger.Errorw("unexpected error could not find job by ID", append(loggerFields, "error", err)...)
+			return Result{Error: err}
+		}
+
+		// Order of precedence for task timeout:
+		// - Specific task timeout (task.TaskTimeout)
+		// - Job level task timeout (job.MaxTaskDuration)
+		// - Node level task timeout (JobPipelineMaxTaskDuration)
+		taskTimeout, isSet := task.TaskTimeout()
+		if isSet {
+			ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+			defer cancel()
+		} else if job.MaxTaskDuration != models.Interval(time.Duration(0)) {
+			ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(job.MaxTaskDuration))
+			defer cancel()
+		}
 
 		result := task.Run(ctx, taskRun, inputs)
 		if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
@@ -211,6 +245,9 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			}
 			logger.Infow("Pipeline task completed", f...)
 		}
+
+		elapsed := time.Since(start)
+		promPipelineTaskExecutionTime.WithLabelValues(string(taskRun.PipelineTaskSpec.PipelineSpecID), string(taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
 
 		return result
 	})

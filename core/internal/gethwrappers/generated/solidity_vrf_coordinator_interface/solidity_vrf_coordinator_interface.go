@@ -154,7 +154,7 @@ func bindVRFCoordinator(address common.Address, caller bind.ContractCaller, tran
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFCoordinator *VRFCoordinatorRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFCoordinator *VRFCoordinatorRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFCoordinator.Contract.VRFCoordinatorCaller.contract.Call(opts, result, method, params...)
 }
 
@@ -173,7 +173,7 @@ func (_VRFCoordinator *VRFCoordinatorRaw) Transact(opts *bind.TransactOpts, meth
 // sets the output to result. The result type might be a single field for simple
 // returns, a slice of interfaces for anonymous returns and a struct for named
 // returns.
-func (_VRFCoordinator *VRFCoordinatorCallerRaw) Call(opts *bind.CallOpts, result interface{}, method string, params ...interface{}) error {
+func (_VRFCoordinator *VRFCoordinatorCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFCoordinator.Contract.contract.Call(opts, result, method, params...)
 }
 
@@ -192,12 +192,17 @@ func (_VRFCoordinator *VRFCoordinatorTransactorRaw) Transact(opts *bind.Transact
 //
 // Solidity: function PRESEED_OFFSET() view returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCaller) PRESEEDOFFSET(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFCoordinator.contract.Call(opts, out, "PRESEED_OFFSET")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "PRESEED_OFFSET")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // PRESEEDOFFSET is a free data retrieval call binding the contract method 0xb415f4f5.
@@ -218,12 +223,17 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) PRESEEDOFFSET() (*big.Int, e
 //
 // Solidity: function PROOF_LENGTH() view returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCaller) PROOFLENGTH(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFCoordinator.contract.Call(opts, out, "PROOF_LENGTH")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "PROOF_LENGTH")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // PROOFLENGTH is a free data retrieval call binding the contract method 0xe911439c.
@@ -244,12 +254,17 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) PROOFLENGTH() (*big.Int, err
 //
 // Solidity: function PUBLIC_KEY_OFFSET() view returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCaller) PUBLICKEYOFFSET(opts *bind.CallOpts) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFCoordinator.contract.Call(opts, out, "PUBLIC_KEY_OFFSET")
-	return *ret0, err
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "PUBLIC_KEY_OFFSET")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // PUBLICKEYOFFSET is a free data retrieval call binding the contract method 0x8aa7927b.
@@ -274,14 +289,21 @@ func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0
 	RandomnessFee    *big.Int
 	SeedAndBlockNum  [32]byte
 }, error) {
-	ret := new(struct {
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "callbacks", arg0)
+
+	outstruct := new(struct {
 		CallbackContract common.Address
 		RandomnessFee    *big.Int
 		SeedAndBlockNum  [32]byte
 	})
-	out := ret
-	err := _VRFCoordinator.contract.Call(opts, out, "callbacks", arg0)
-	return *ret, err
+
+	outstruct.CallbackContract = out[0].(common.Address)
+	outstruct.RandomnessFee = out[1].(*big.Int)
+	outstruct.SeedAndBlockNum = out[2].([32]byte)
+
+	return *outstruct, err
+
 }
 
 // Callbacks is a free data retrieval call binding the contract method 0x21f36509.
@@ -310,12 +332,17 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) Callbacks(arg0 [32]byte) (st
 //
 // Solidity: function hashOfKey(uint256[2] _publicKey) pure returns(bytes32)
 func (_VRFCoordinator *VRFCoordinatorCaller) HashOfKey(opts *bind.CallOpts, _publicKey [2]*big.Int) ([32]byte, error) {
-	var (
-		ret0 = new([32]byte)
-	)
-	out := ret0
-	err := _VRFCoordinator.contract.Call(opts, out, "hashOfKey", _publicKey)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "hashOfKey", _publicKey)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
 }
 
 // HashOfKey is a free data retrieval call binding the contract method 0xcaf70c4a.
@@ -340,14 +367,21 @@ func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOp
 	Fee       *big.Int
 	JobID     [32]byte
 }, error) {
-	ret := new(struct {
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "serviceAgreements", arg0)
+
+	outstruct := new(struct {
 		VRFOracle common.Address
 		Fee       *big.Int
 		JobID     [32]byte
 	})
-	out := ret
-	err := _VRFCoordinator.contract.Call(opts, out, "serviceAgreements", arg0)
-	return *ret, err
+
+	outstruct.VRFOracle = out[0].(common.Address)
+	outstruct.Fee = out[1].(*big.Int)
+	outstruct.JobID = out[2].([32]byte)
+
+	return *outstruct, err
+
 }
 
 // ServiceAgreements is a free data retrieval call binding the contract method 0x75d35070.
@@ -376,12 +410,17 @@ func (_VRFCoordinator *VRFCoordinatorCallerSession) ServiceAgreements(arg0 [32]b
 //
 // Solidity: function withdrawableTokens(address ) view returns(uint256)
 func (_VRFCoordinator *VRFCoordinatorCaller) WithdrawableTokens(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
-	var (
-		ret0 = new(*big.Int)
-	)
-	out := ret0
-	err := _VRFCoordinator.contract.Call(opts, out, "withdrawableTokens", arg0)
-	return *ret0, err
+	var out []interface{}
+	err := _VRFCoordinator.contract.Call(opts, &out, "withdrawableTokens", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
 }
 
 // WithdrawableTokens is a free data retrieval call binding the contract method 0x006f6ad0.

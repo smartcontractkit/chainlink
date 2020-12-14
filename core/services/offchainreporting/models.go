@@ -4,14 +4,17 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gopkg.in/guregu/null.v4"
 )
 
 // OracleSpec is a wrapper for `models.OffchainReportingOracleSpec`, the DB
 // representation of the OCR job spec.  It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type OracleSpec struct {
-	Type          string `toml:"type"`
-	SchemaVersion uint32 `toml:"schemaVersion"`
+	Type            string          `toml:"type"`
+	SchemaVersion   uint32          `toml:"schemaVersion"`
+	Name            null.String     `toml:"name"`
+	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
 	models.OffchainReportingOracleSpec
 

@@ -25,7 +25,7 @@ login() {
 create_job() {
   login
   ETH_LOG_JOB=`cat fixtures/eth_log_job.json`
-  docker exec -it forks_chainlink chainlink jobs create "$ETH_LOG_JOB"
+  docker exec -it forks_chainlink chainlink job_specs create "$ETH_LOG_JOB"
 }
 
 create_contract() {

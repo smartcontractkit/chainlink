@@ -14,6 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -22,12 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/tidwall/gjson"
-	"gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v4"
 )
 
 // ETHKey holds the hex representation of the address plus it's ETH & LINK balances
@@ -59,7 +58,6 @@ func (k *ETHKey) SetID(value string) error {
 // If you add an entry here, you should update NewConfigPrinter and
 // ConfigPrinter#String accordingly.
 type ConfigPrinter struct {
-	AccountAddress string `json:"accountAddress"`
 	EnvPrinter
 }
 
@@ -89,7 +87,7 @@ type EnvPrinter struct {
 	EthHeadTrackerMaxBufferSize           uint            `json:"ethHeadTrackerMaxBufferSize"`
 	EthMaxGasPriceWei                     *big.Int        `json:"ethMaxGasPriceWei"`
 	EthereumURL                           string          `json:"ethUrl"`
-	EthereumSecondaryURLs                 []url.URL       `json:"ethSecondaryURLs"`
+	EthereumSecondaryURLs                 []string        `json:"ethSecondaryUrls"`
 	ExplorerURL                           string          `json:"explorerUrl"`
 	FeatureExternalInitiators             bool            `json:"featureExternalInitiators"`
 	FeatureFluxMonitor                    bool            `json:"featureFluxMonitor"`
@@ -174,7 +172,7 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			EthHeadTrackerMaxBufferSize:           config.EthHeadTrackerMaxBufferSize(),
 			EthMaxGasPriceWei:                     config.EthMaxGasPriceWei(),
 			EthereumURL:                           config.EthereumURL(),
-			EthereumSecondaryURLs:                 config.EthereumSecondaryURLs(),
+			EthereumSecondaryURLs:                 mapToStringA(config.EthereumSecondaryURLs()),
 			ExplorerURL:                           explorerURL,
 			FeatureExternalInitiators:             config.FeatureExternalInitiators(),
 			FeatureFluxMonitor:                    config.FeatureFluxMonitor(),
@@ -231,8 +229,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 func (c ConfigPrinter) String() string {
 	var buffer bytes.Buffer
 
-	buffer.WriteString(fmt.Sprintf("ACCOUNT_ADDRESS: %v\n", c.AccountAddress))
-
 	schemaT := reflect.TypeOf(orm.ConfigSchema{})
 	cwlT := reflect.TypeOf(c.EnvPrinter)
 	cwlV := reflect.ValueOf(c.EnvPrinter)
@@ -274,6 +270,13 @@ func (c ConfigPrinter) GetID() string {
 // deserializing from jsonapi documents.
 func (c *ConfigPrinter) SetID(value string) error {
 	return nil
+}
+
+func mapToStringA(in []url.URL) (out []string) {
+	for _, url := range in {
+		out = append(out, url.String())
+	}
+	return
 }
 
 // JobSpec holds the JobSpec definition together with

@@ -131,7 +131,7 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 // job with a specific answer and round, for testing nodes with malicious
 // behavior
 func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error {
-	jobSpec, err := fm.store.ORM.FindJob(jobSpecId)
+	jobSpec, err := fm.store.ORM.FindJobSpec(jobSpecId)
 	require.NoError(t, err, "could not find job spec with that ID")
 
 	checker, err := fm.checkerFactory.New(jobSpec.Initiators[0], nil, fm.runManager, fm.store.ORM, models.MustMakeDuration(100*time.Second))

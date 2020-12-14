@@ -2,7 +2,7 @@ import React from 'react'
 import { useHistory, useLocation } from 'react-router-dom'
 import { Card, TablePagination } from '@material-ui/core'
 import Content from 'components/Content'
-import JobRunsList from 'components/JobRuns/List'
+import JobRunsList from './JobRunsList'
 import TableButtons from 'components/TableButtons'
 import { JobData } from './sharedTypes'
 
@@ -53,12 +53,7 @@ export const Runs = ({
       <ErrorComponent />
       <LoadingPlaceholder />
       <Card>
-        {!error && recentRuns && (
-          <JobRunsList
-            runs={recentRuns}
-            hideLinks={job?.type === 'Off-chain reporting'}
-          />
-        )}
+        {!error && recentRuns && <JobRunsList runs={recentRuns} />}
         <TablePagination
           component="div"
           count={recentRunsCount}

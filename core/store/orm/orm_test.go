@@ -24,7 +24,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v3"
+	"gopkg.in/guregu/null.v4"
 )
 
 func TestORM_AllNotFound(t *testing.T) {
@@ -44,7 +44,7 @@ func TestORM_CreateJob(t *testing.T) {
 	j1 := cltest.NewJobWithSchedule("* * * * *")
 	store.CreateJob(&j1)
 
-	j2, err := store.FindJob(j1.ID)
+	j2, err := store.FindJobSpec(j1.ID)
 	require.NoError(t, err)
 	require.Len(t, j2.Initiators, 1)
 	j1.Initiators[0].CreatedAt = j2.Initiators[0].CreatedAt
@@ -90,7 +90,7 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 	assert.NoError(t, store.CreateJob(&job))
 
 	orm := store.ORM
-	retrievedJob, err := orm.FindJob(job.ID)
+	retrievedJob, err := orm.FindJobSpec(job.ID)
 	assert.NoError(t, err)
 	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
 	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
@@ -149,11 +149,11 @@ func TestORM_ArchiveJob(t *testing.T) {
 
 	require.NoError(t, store.ArchiveJob(job.ID))
 
-	require.Error(t, utils.JustError(store.FindJob(job.ID)))
+	require.Error(t, utils.JustError(store.FindJobSpec(job.ID)))
 	require.Error(t, utils.JustError(store.FindJobRun(run.ID)))
 
 	orm := store.ORM.Unscoped()
-	require.NoError(t, utils.JustError(orm.FindJob(job.ID)))
+	require.NoError(t, utils.JustError(orm.FindJobSpec(job.ID)))
 	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
 }
 
@@ -833,8 +833,7 @@ func TestORM_AllSyncEvents(t *testing.T) {
 	require.NoError(t, err)
 	defer explorerClient.Close()
 
-	orm := store.ORM
-	statsPusher := synchronization.NewStatsPusher(orm, explorerClient)
+	statsPusher := synchronization.NewStatsPusher(store.DB, explorerClient)
 	require.NoError(t, statsPusher.Start())
 	defer statsPusher.Close()
 
@@ -845,16 +844,16 @@ func TestORM_AllSyncEvents(t *testing.T) {
 
 	oldIncompleteRun := cltest.NewJobRun(job)
 	oldIncompleteRun.SetStatus(models.RunStatusInProgress)
-	err = orm.CreateJobRun(&oldIncompleteRun)
+	err = store.CreateJobRun(&oldIncompleteRun)
 	require.NoError(t, err)
 
 	newCompletedRun := cltest.NewJobRun(job)
 	newCompletedRun.SetStatus(models.RunStatusCompleted)
-	err = orm.CreateJobRun(&newCompletedRun)
+	err = store.CreateJobRun(&newCompletedRun)
 	require.NoError(t, err)
 
 	events := []models.SyncEvent{}
-	err = orm.AllSyncEvents(func(event models.SyncEvent) error {
+	err = statsPusher.AllSyncEvents(func(event models.SyncEvent) error {
 		events = append(events, event)
 		return nil
 	})

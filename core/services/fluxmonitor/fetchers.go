@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/guregu/null"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
+	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Fetcher --output ../../internal/mocks/ --case=underscore

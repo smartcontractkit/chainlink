@@ -30,7 +30,7 @@ import (
 	"github.com/tevino/abool"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/sha3"
-	null "gopkg.in/guregu/null.v3"
+	null "gopkg.in/guregu/null.v4"
 )
 
 const (
@@ -288,49 +288,6 @@ func MinUint(first uint, vals ...uint) uint {
 		}
 	}
 	return min
-}
-
-// CoerceInterfaceMapToStringMap converts map[interface{}]interface{} (interface maps) to
-// map[string]interface{} (string maps) and []interface{} with interface maps to string maps.
-// Relevant when serializing between CBOR and JSON.
-func CoerceInterfaceMapToStringMap(in interface{}) (interface{}, error) {
-	switch typed := in.(type) {
-	case map[string]interface{}:
-		for k, v := range typed {
-			coerced, err := CoerceInterfaceMapToStringMap(v)
-			if err != nil {
-				return nil, err
-			}
-			typed[k] = coerced
-		}
-		return typed, nil
-	case map[interface{}]interface{}:
-		m := map[string]interface{}{}
-		for k, v := range typed {
-			coercedKey, ok := k.(string)
-			if !ok {
-				return nil, fmt.Errorf("unable to coerce key %T %v to a string", k, k)
-			}
-			coerced, err := CoerceInterfaceMapToStringMap(v)
-			if err != nil {
-				return nil, err
-			}
-			m[coercedKey] = coerced
-		}
-		return m, nil
-	case []interface{}:
-		r := make([]interface{}, len(typed))
-		for i, v := range typed {
-			coerced, err := CoerceInterfaceMapToStringMap(v)
-			if err != nil {
-				return nil, err
-			}
-			r[i] = coerced
-		}
-		return r, nil
-	default:
-		return in, nil
-	}
 }
 
 // UnmarshalToMap takes an input json string and returns a map[string]interface i.e. a raw object

@@ -215,9 +215,25 @@ func (cli *Client) CreateJobSpec(c *clipkg.Context) (err error) {
 	return err
 }
 
-// CreateOCRJobSpec creates an OCR job spec
+// ArchiveJobSpec soft deletes a job and its associated runs.
+func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must pass the job id to be archived"))
+	}
+	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	_, err = cli.parseResponse(resp)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	return nil
+}
+
+// CreateV2JobSpec creates a V2 job
 // Valid input is a TOML string or a path to TOML file
-func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
+func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in TOML or filepath"))
 	}
@@ -227,14 +243,14 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	request, err := json.Marshal(models.CreateOCRJobSpecRequest{
+	request, err := json.Marshal(models.CreateJobSpecRequest{
 		TOML: tomlString,
 	})
 	if err != nil {
 		return cli.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/ocr/specs", bytes.NewReader(request))
+	resp, err := cli.HTTP.Post("/v2/jobs", bytes.NewReader(request))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -268,27 +284,11 @@ func (cli *Client) CreateOCRJobSpec(c *clipkg.Context) (err error) {
 	return nil
 }
 
-// ArchiveJobSpec soft deletes a job and its associated runs.
-func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be archived"))
-	}
-	resp, err := cli.HTTP.Delete("/v2/specs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	return nil
-}
-
 func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be archived"))
 	}
-	resp, err := cli.HTTP.Delete("/v2/ocr/specs/" + c.Args().First())
+	resp, err := cli.HTTP.Delete("/v2/jobs/" + c.Args().First())
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -299,12 +299,12 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	return nil
 }
 
-// TriggerOCRJobRun triggers an off-chain reporting job run based on a job ID
-func (cli *Client) TriggerOCRJobRun(c *clipkg.Context) error {
+// TriggerPipelineRun triggers a V2 job run based on a job ID
+func (cli *Client) TriggerPipelineRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to trigger a run"))
 	}
-	resp, err := cli.HTTP.Post("/v2/ocr/specs/"+c.Args().First()+"/runs", nil)
+	resp, err := cli.HTTP.Post("/v2/jobs/"+c.Args().First()+"/runs", nil)
 	if err != nil {
 		return cli.errorOut(err)
 	}

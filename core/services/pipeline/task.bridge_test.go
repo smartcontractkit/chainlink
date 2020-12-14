@@ -260,17 +260,22 @@ func TestBridgeTask_AddsID(t *testing.T) {
 	feedWebURL := (*models.WebURL)(feedURL)
 
 	task := pipeline.BridgeTask{
+		Name:        "test",
 		RequestData: pipeline.HttpRequestData(ethUSDPairing),
 	}
+	// Bridge task should be true by default.
+	store.Config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
 	_, bridge := cltest.NewBridgeType(t)
 	bridge.URL = *feedWebURL
+	bridge.Name = "test"
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	task.Run(context.Background(), pipeline.TaskRun{
+	r := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
 			Meta: pipeline.JSONSerializable{emptyMeta},
 		},
 	}, nil)
+	require.NoError(t, r.Error)
 }

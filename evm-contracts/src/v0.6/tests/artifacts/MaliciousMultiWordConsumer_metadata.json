@@ -1,0 +1,307 @@
+{
+	"compiler": {
+		"version": "0.6.12+commit.27d51765"
+	},
+	"language": "Solidity",
+	"output": {
+		"abi": [
+			{
+				"inputs": [
+					{
+						"internalType": "address",
+						"name": "_link",
+						"type": "address"
+					},
+					{
+						"internalType": "address",
+						"name": "_oracle",
+						"type": "address"
+					}
+				],
+				"stateMutability": "payable",
+				"type": "constructor"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "id",
+						"type": "bytes32"
+					}
+				],
+				"name": "ChainlinkCancelled",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "id",
+						"type": "bytes32"
+					}
+				],
+				"name": "ChainlinkFulfilled",
+				"type": "event"
+			},
+			{
+				"anonymous": false,
+				"inputs": [
+					{
+						"indexed": true,
+						"internalType": "bytes32",
+						"name": "id",
+						"type": "bytes32"
+					}
+				],
+				"name": "ChainlinkRequested",
+				"type": "event"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "assertFail",
+				"outputs": [],
+				"stateMutability": "pure",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "cancelRequestOnFulfill",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "doesNothing",
+				"outputs": [],
+				"stateMutability": "pure",
+				"type": "function"
+			},
+			{
+				"inputs": [],
+				"name": "remove",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_id",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "_callbackFunc",
+						"type": "bytes"
+					}
+				],
+				"name": "requestData",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "stealEthCall",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "stealEthSend",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"inputs": [
+					{
+						"internalType": "bytes32",
+						"name": "_requestId",
+						"type": "bytes32"
+					},
+					{
+						"internalType": "bytes",
+						"name": "",
+						"type": "bytes"
+					}
+				],
+				"name": "stealEthTransfer",
+				"outputs": [],
+				"stateMutability": "nonpayable",
+				"type": "function"
+			},
+			{
+				"stateMutability": "payable",
+				"type": "receive"
+			}
+		],
+		"devdoc": {
+			"kind": "dev",
+			"methods": {},
+			"version": 1
+		},
+		"userdoc": {
+			"kind": "user",
+			"methods": {},
+			"version": 1
+		}
+	},
+	"settings": {
+		"compilationTarget": {
+			"localhost/v0.6/tests/MaliciousMultiWordConsumer.sol": "MaliciousMultiWordConsumer"
+		},
+		"evmVersion": "istanbul",
+		"libraries": {},
+		"metadata": {
+			"bytecodeHash": "ipfs"
+		},
+		"optimizer": {
+			"enabled": false,
+			"runs": 200
+		},
+		"remappings": []
+	},
+	"sources": {
+		"localhost/v0.6/Chainlink.sol": {
+			"keccak256": "0x7048bfd6e6fe4e60ea4af01ed44fc0494cec75df75c6b542a6f08ed34c66d39e",
+			"urls": [
+				"bzz-raw://37efc6a4665b537657283652d75919ec8dd3d48d85150b5285041bc9614fec11",
+				"dweb:/ipfs/QmWKgeJEj222kNefTkauHwM5x58KTxSGgcbLseH9Fq8jed"
+			]
+		},
+		"localhost/v0.6/ChainlinkClient.sol": {
+			"keccak256": "0xd06166f7798c4c8cbd0e2dc642450c9bca39157c688ae95dbe079f666cc44dfa",
+			"urls": [
+				"bzz-raw://672af493da8e01492532d7ca8660362d015f317114e405aa55c85cff24aee31c",
+				"dweb:/ipfs/QmNZdB2jVwwswrLFr83toTtHM5MPSugKeUdxrxfCJ4mP4K"
+			]
+		},
+		"localhost/v0.6/interfaces/ChainlinkRequestInterface.sol": {
+			"keccak256": "0xb6e293a74be1e484aecad7acb4339ef2a115bf6d502a0f9f1741d53aa2dd06ca",
+			"urls": [
+				"bzz-raw://20b8a561ce38a9b9ff9147fb0511cff512c5411e556d2c1438b13eb682042228",
+				"dweb:/ipfs/QmT6z7c2jBH5wwfYn4uHVFmwDKwUgnbJLu3n8oDmEnfeQr"
+			]
+		},
+		"localhost/v0.6/interfaces/ENSInterface.sol": {
+			"keccak256": "0xf4998e886147b298eda28b4eacbdc90c58ba63ba475469651f2072e188dd5a64",
+			"urls": [
+				"bzz-raw://c1e2334294a816b7eda9de280e39b9463ebde2db8b242410eb991b2f623b47d4",
+				"dweb:/ipfs/QmNY5bajahfFRmhBgcMVQ7712zHKxc6HkuN7LaiKtpjb7t"
+			]
+		},
+		"localhost/v0.6/interfaces/LinkTokenInterface.sol": {
+			"keccak256": "0xdbf46b45a4c9f38ba71a0391aed0e7b108854b619f292d907ae537228868bda6",
+			"urls": [
+				"bzz-raw://3ae40466809630c4731e2e3a697d6885727c577aaf260766c8a2f534ad3f6ee8",
+				"dweb:/ipfs/QmTzpN5yP4Y5jvQ1ohfXFrce3sjzUiSChYJgZj9VvhVohG"
+			]
+		},
+		"localhost/v0.6/interfaces/PointerInterface.sol": {
+			"keccak256": "0x6458d82762d4f13c020a13efdbd9bf14500e147df707184a693aea91449c2f4f",
+			"urls": [
+				"bzz-raw://735950f3a544fc6ef2db92405597169bfb5fdb9df83623c0d99fd3d85de8690d",
+				"dweb:/ipfs/QmZHxb5Qr7Kw9DHAg4VwEADue9ffNyyhbiyEZ15A5mANUN"
+			]
+		},
+		"localhost/v0.6/tests/MaliciousMultiWordConsumer.sol": {
+			"keccak256": "0xa083bb8da8cf961e72222dc957c4ed326cf93cf789ad08cac890518cd2d3f177",
+			"urls": [
+				"bzz-raw://7b2dbb7ee4479167a10cac7d572ab204584c4d30879fbef961aeb4e3fed41941",
+				"dweb:/ipfs/QmdUvtnoCR751h44jjNjkUiPq4mJ1mSzeuCqX5dijHqKaU"
+			]
+		},
+		"localhost/v0.6/vendor/BufferChainlink.sol": {
+			"keccak256": "0xe4aa364f56414c4326ffe12c1121d591be6ad168afb42b24a823f6d76299dd63",
+			"urls": [
+				"bzz-raw://e3e91a0eddb6fc6c53acdfbd59771deff1678330128d3c98014c668763efb45e",
+				"dweb:/ipfs/Qmbt5VNT2W2oCN44536JGNuHqAJdmYGqzEFcHvy8W1tAsY"
+			]
+		},
+		"localhost/v0.6/vendor/CBORChainlink.sol": {
+			"keccak256": "0xbb4d8257c1af348cac9828ee531428b148bb726517357fe6a80279ac45b658b5",
+			"urls": [
+				"bzz-raw://8c8c5da0358946437fac595591367066b8d6e5f58414c027a79a093e1f3241c1",
+				"dweb:/ipfs/QmNQ5TPzaPEbj5kaX17YLuZEmhv8NGfoCrUVK3s6gQuHdA"
+			]
+		},
+		"localhost/v0.6/vendor/ENSResolver.sol": {
+			"keccak256": "0xdddea29d7407c1dbd1e130d885fc1a0934e98f0a7cc9f4d5bfd002bb2cfbcf82",
+			"urls": [
+				"bzz-raw://c4c764d69c47754d7b219fab558bf4be2a6444470ede7aa0ab1e446aea01dbda",
+				"dweb:/ipfs/QmWp2CNUw9xt8ir2P3LhGHuydUsAXnyZ382U2BUjhoYPvy"
+			]
+		},
+		"localhost/v0.6/vendor/SafeMathChainlink.sol": {
+			"keccak256": "0x5e6948bb332468d8ef0704b4259babc8aef7ce5969d5997c16db8ad806222a0a",
+			"urls": [
+				"bzz-raw://8e2bbda1e1168401d0105cc86bf5302000e8555ebb9b235cd68c148916a452e5",
+				"dweb:/ipfs/QmbTjbpJr8VfdWfgBknbQov1MGkXXPMysb7eD8bobGAcBV"
+			]
+		}
+	},
+	"version": 1
+}
