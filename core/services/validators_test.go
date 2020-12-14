@@ -309,12 +309,12 @@ func TestValidateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt
-	assert.NoError(t, err)
-	err = store.KeyStore.Unlock("password")
+	defer cleanup()
+	err := store.KeyStore.Unlock("password")
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	assert.NoError(t, err)
-	defer cleanup()
+	_, err = store.KeyStore.NewAccount() // matches correct_password.txt
+	assert.NoError(t, err)
 
 	oracles := []string{fromAddress.Hex()}
 
@@ -698,7 +698,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID = "blah"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `,
 			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
 				require.Error(t, err)

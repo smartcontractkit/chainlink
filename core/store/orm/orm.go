@@ -2,6 +2,7 @@ package orm
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"database/sql"
 	"encoding"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -1129,7 +1131,7 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 }
 
 // AllKeys returns all of the keys recorded in the database including the funding key.
-// This method is deprecated! You should use SendKeys() to retrieve all but the funding keys.
+// You should use SendKeys() to retrieve all but the funding keys.
 func (orm *ORM) AllKeys() ([]models.Key, error) {
 	var keys []models.Key
 	return keys, orm.DB.Order("created_at ASC, address ASC").Find(&keys).Error
@@ -1150,7 +1152,7 @@ func (orm *ORM) KeyByAddress(address common.Address) (models.Key, error) {
 }
 
 // KeyExists returns true if a key exists in the database for this address
-func (orm *ORM) KeyExists(address []byte) (bool, error) {
+func (orm *ORM) KeyExists(address common.Address) (bool, error) {
 	var key models.Key
 	err := orm.DB.Where("address = ?", address).First(&key).Error
 	if gorm.IsRecordNotFoundError(err) {
@@ -1159,13 +1161,8 @@ func (orm *ORM) KeyExists(address []byte) (bool, error) {
 	return true, err
 }
 
-// ArchiveKey soft-deletes a key whose address matches the supplied bytes.
-func (orm *ORM) ArchiveKey(address []byte) error {
-	return orm.DB.Where("address = ?", address).Delete(models.Key{}).Error
-}
-
 // DeleteKey deletes a key whose address matches the supplied bytes.
-func (orm *ORM) DeleteKey(address []byte) error {
+func (orm *ORM) DeleteKey(address common.Address) error {
 	return orm.DB.Unscoped().Where("address = ?", address).Delete(models.Key{}).Error
 }
 
@@ -1173,7 +1170,7 @@ func (orm *ORM) DeleteKey(address []byte) error {
 // If a key with this address exists, it does nothing
 func (orm *ORM) CreateKeyIfNotExists(k models.Key) error {
 	orm.MustEnsureAdvisoryLock()
-	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO NOTHING").Create(&k).Error
+	err := orm.DB.Set("gorm:insert_option", "ON CONFLICT (address) DO UPDATE SET deleted_at = NULL").Create(&k).Error
 	if err == nil || err.Error() == "sql: no rows in result set" {
 		return nil
 	}
@@ -1213,7 +1210,7 @@ func (orm *ORM) FindEncryptedSecretVRFKeys(where ...vrfkey.EncryptedVRFKey) (
 // NOTE: We can add more advanced logic here later such as sorting by priority
 // etc
 func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address common.Address, err error) {
-	err = orm.Transaction(func(tx *gorm.DB) error {
+	err = postgres.GormTransaction(context.Background(), orm.DB, func(tx *gorm.DB) error {
 		q := tx.Set("gorm:query_option", "FOR UPDATE").Order("last_used ASC NULLS FIRST, id ASC")
 		q = q.Where("is_funding = FALSE")
 		if len(addresses) > 0 {

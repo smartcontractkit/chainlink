@@ -35,13 +35,27 @@ func (_m *KeyStoreInterface) Accounts() []accounts.Account {
 	return r0
 }
 
-// Export provides a mock function with given fields: a, passphrase, newPassphrase
-func (_m *KeyStoreInterface) Export(a accounts.Account, passphrase string, newPassphrase string) ([]byte, error) {
-	ret := _m.Called(a, passphrase, newPassphrase)
+// Delete provides a mock function with given fields: address
+func (_m *KeyStoreInterface) Delete(address common.Address) error {
+	ret := _m.Called(address)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(common.Address) error); ok {
+		r0 = rf(address)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Export provides a mock function with given fields: address, newPassword
+func (_m *KeyStoreInterface) Export(address common.Address, newPassword string) ([]byte, error) {
+	ret := _m.Called(address, newPassword)
 
 	var r0 []byte
-	if rf, ok := ret.Get(0).(func(accounts.Account, string, string) []byte); ok {
-		r0 = rf(a, passphrase, newPassphrase)
+	if rf, ok := ret.Get(0).(func(common.Address, string) []byte); ok {
+		r0 = rf(address, newPassword)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
@@ -49,8 +63,8 @@ func (_m *KeyStoreInterface) Export(a accounts.Account, passphrase string, newPa
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(accounts.Account, string, string) error); ok {
-		r1 = rf(a, passphrase, newPassphrase)
+	if rf, ok := ret.Get(1).(func(common.Address, string) error); ok {
+		r1 = rf(address, newPassword)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -123,20 +137,20 @@ func (_m *KeyStoreInterface) HasAccounts() bool {
 	return r0
 }
 
-// Import provides a mock function with given fields: keyJSON, passphrase, newPassphrase
-func (_m *KeyStoreInterface) Import(keyJSON []byte, passphrase string, newPassphrase string) (accounts.Account, error) {
-	ret := _m.Called(keyJSON, passphrase, newPassphrase)
+// Import provides a mock function with given fields: keyJSON, oldPassword
+func (_m *KeyStoreInterface) Import(keyJSON []byte, oldPassword string) (accounts.Account, error) {
+	ret := _m.Called(keyJSON, oldPassword)
 
 	var r0 accounts.Account
-	if rf, ok := ret.Get(0).(func([]byte, string, string) accounts.Account); ok {
-		r0 = rf(keyJSON, passphrase, newPassphrase)
+	if rf, ok := ret.Get(0).(func([]byte, string) accounts.Account); ok {
+		r0 = rf(keyJSON, oldPassword)
 	} else {
 		r0 = ret.Get(0).(accounts.Account)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func([]byte, string, string) error); ok {
-		r1 = rf(keyJSON, passphrase, newPassphrase)
+	if rf, ok := ret.Get(1).(func([]byte, string) error); ok {
+		r1 = rf(keyJSON, oldPassword)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -144,20 +158,20 @@ func (_m *KeyStoreInterface) Import(keyJSON []byte, passphrase string, newPassph
 	return r0, r1
 }
 
-// NewAccount provides a mock function with given fields: passphrase
-func (_m *KeyStoreInterface) NewAccount(passphrase string) (accounts.Account, error) {
-	ret := _m.Called(passphrase)
+// NewAccount provides a mock function with given fields:
+func (_m *KeyStoreInterface) NewAccount() (accounts.Account, error) {
+	ret := _m.Called()
 
 	var r0 accounts.Account
-	if rf, ok := ret.Get(0).(func(string) accounts.Account); ok {
-		r0 = rf(passphrase)
+	if rf, ok := ret.Get(0).(func() accounts.Account); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(accounts.Account)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(passphrase)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -188,13 +202,13 @@ func (_m *KeyStoreInterface) SignTx(account accounts.Account, tx *types.Transact
 	return r0, r1
 }
 
-// Unlock provides a mock function with given fields: phrase
-func (_m *KeyStoreInterface) Unlock(phrase string) error {
-	ret := _m.Called(phrase)
+// Unlock provides a mock function with given fields: password
+func (_m *KeyStoreInterface) Unlock(password string) error {
+	ret := _m.Called(password)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(phrase)
+		r0 = rf(password)
 	} else {
 		r0 = ret.Error(0)
 	}
