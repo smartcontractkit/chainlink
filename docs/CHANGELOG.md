@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
+- Fixed reading of function selector values in DB.
 
 ### Changes
 
