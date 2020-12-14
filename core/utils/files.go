@@ -44,13 +44,13 @@ func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 		return err
 	} else if os.IsNotExist(err) {
 		// Dir doesn't exist, create it with desired perms
-		return os.MkdirAll(path, perms|os.ModeDir)
+		return os.MkdirAll(path, perms)
 	} else if !stat.IsDir() {
 		// Path exists, but it's a file, so don't clobber
 		return errors.Errorf("%v already exists and is not a directory", path)
 	} else if stat.Mode() != perms {
 		// Dir exists, but wrong perms, so chmod
-		return os.Chmod(path, (stat.Mode()&perms)|os.ModeDir)
+		return os.Chmod(path, (stat.Mode() & perms))
 	}
 	return nil
 }
@@ -76,24 +76,23 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not open source file")
 	}
 	defer logger.ErrorIfCalling(src.Close)
 
 	dst, err := os.OpenFile(dstPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not open destination file")
 	}
 	defer logger.ErrorIfCalling(dst.Close)
 
 	err = EnsureFileMaxPerms(dst, perms)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "could not set file permissions")
 	}
 
 	_, err = io.Copy(dst, src)
-
-	return err
+	return errors.Wrap(err, "could not copy file contents")
 }
 
 // Ensures that the given file has permissions that are no more

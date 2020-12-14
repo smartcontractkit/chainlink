@@ -16,7 +16,7 @@ type P2PKeysController struct {
 
 // Index lists P2P keys
 // Example:
-// "GET <application>/p2p_keys"
+// "GET <application>/keys/p2p"
 func (p2pkc *P2PKeysController) Index(c *gin.Context) {
 	keys, err := p2pkc.App.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
 	if err != nil {
@@ -28,7 +28,7 @@ func (p2pkc *P2PKeysController) Index(c *gin.Context) {
 
 // Create and return a P2P key
 // Example:
-// "POST <application>/p2p_keys"
+// "POST <application>/keys/p2p"
 func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 	_, encryptedP2PKey, err := p2pkc.App.GetStore().OCRKeyStore.GenerateEncryptedP2PKey()
 	if err != nil {
@@ -40,8 +40,8 @@ func (p2pkc *P2PKeysController) Create(c *gin.Context) {
 
 // Delete a P2P key
 // Example:
-// "DELETE <application>/p2p_keys/:keyID"
-// "DELETE <application>/p2p_keys/:keyID?hard=true"
+// "DELETE <application>/keys/p2p/:keyID"
+// "DELETE <application>/keys/p2p/:keyID?hard=true"
 func (p2pkc *P2PKeysController) Delete(c *gin.Context) {
 	var hardDelete bool
 	var err error

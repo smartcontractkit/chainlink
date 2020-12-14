@@ -195,6 +195,7 @@ func (app *ChainlinkApplication) Start() error {
 	if app.started {
 		panic("application is already started")
 	}
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {

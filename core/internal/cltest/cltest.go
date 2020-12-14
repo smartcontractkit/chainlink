@@ -407,6 +407,8 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	err := app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
 
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]
@@ -487,7 +489,7 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
+	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
 	require.NoError(ta.t, err)
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
