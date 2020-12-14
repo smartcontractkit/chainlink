@@ -11,9 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/stretchr/testify/assert"
+
 	// "github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/mock"
 
@@ -27,10 +26,9 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		gethClient := new(mocks.GethClient)
-		cltest.MockEthOnStore(t, store,
-			eth.NewClientWith(nil, gethClient),
-		)
+		ethClient := new(mocks.Client)
+		defer ethClient.AssertExpectations(t)
+		store.EthClient = ethClient
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
@@ -43,8 +41,8 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		assert.Nil(t, bm.GetEthBalance(k0Addr))
 		assert.Nil(t, bm.GetEthBalance(k1Addr))
 
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
-		gethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		head := cltest.Head(0)
 
@@ -57,18 +55,15 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal))
-
-		gethClient.AssertExpectations(t)
 	})
 
 	t.Run("handles nil head", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		gethClient := new(mocks.GethClient)
-		cltest.MockEthOnStore(t, store,
-			eth.NewClientWith(nil, gethClient),
-		)
+		ethClient := new(mocks.Client)
+		defer ethClient.AssertExpectations(t)
+		store.EthClient = ethClient
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
@@ -76,7 +71,7 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		defer bm.Stop()
 		k0bal := big.NewInt(42)
 
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
 
 		// Do the thing
 		bm.Connect(nil)
@@ -84,25 +79,22 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.Equal(k0bal))
-
-		gethClient.AssertExpectations(t)
 	})
 
 	t.Run("recovers on error", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		gethClient := new(mocks.GethClient)
-		cltest.MockEthOnStore(t, store,
-			eth.NewClientWith(nil, gethClient),
-		)
+		ethClient := new(mocks.Client)
+		defer ethClient.AssertExpectations(t)
+		store.EthClient = ethClient
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 		bm := services.NewBalanceMonitor(store)
 		defer bm.Stop()
 
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).
 			Once().
 			Return(nil, errors.New("a little easter egg for the 4chan link marines error"))
 
@@ -112,8 +104,6 @@ func TestBalanceMonitor_Connect(t *testing.T) {
 		gomega.NewGomegaWithT(t).Consistently(func() *big.Int {
 			return bm.GetEthBalance(k0Addr).ToInt()
 		}).Should(gomega.BeNil())
-
-		gethClient.AssertExpectations(t)
 	})
 }
 
@@ -122,10 +112,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 
-		gethClient := new(mocks.GethClient)
-		cltest.MockEthOnStore(t, store,
-			eth.NewClientWith(nil, gethClient),
-		)
+		ethClient := new(mocks.Client)
+		defer ethClient.AssertExpectations(t)
+		store.EthClient = ethClient
 
 		_, k0Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 		_, k1Addr := cltest.MustAddRandomKeyToKeystore(t, store, 0)
@@ -139,8 +128,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		head := cltest.Head(0)
 
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
-		gethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal, nil)
+		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal, nil)
 
 		// Do the thing
 		bm.OnNewLongestChain(context.TODO(), *head)
@@ -158,8 +147,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		head = cltest.Head(1)
 
-		gethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
-		gethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
+		ethClient.On("BalanceAt", mock.Anything, k0Addr, nilBigInt).Once().Return(k0bal2, nil)
+		ethClient.On("BalanceAt", mock.Anything, k1Addr, nilBigInt).Once().Return(k1bal2, nil)
 
 		bm.OnNewLongestChain(context.TODO(), *head)
 
@@ -169,8 +158,6 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		gomega.NewGomegaWithT(t).Eventually(func() *big.Int {
 			return bm.GetEthBalance(k1Addr).ToInt()
 		}).Should(gomega.Equal(k1bal2))
-
-		gethClient.AssertExpectations(t)
 	})
 }
 
@@ -180,10 +167,9 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	cltest.MustAddRandomKeyToKeystore(t, store)
 
-	gethClient := new(mocks.GethClient)
-	cltest.MockEthOnStore(t, store,
-		eth.NewClientWith(nil, gethClient),
-	)
+	ethClient := new(mocks.Client)
+	ethClient.AssertExpectations(t)
+	store.EthClient = ethClient
 
 	bm := services.NewBalanceMonitor(store)
 
@@ -191,7 +177,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Only expect this twice, even though 10 heads will come in
 	mockUnblocker := make(chan time.Time)
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		WaitUntil(mockUnblocker).
 		Once().
 		Return(big.NewInt(42), nil)
@@ -199,7 +185,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	// before we call `OnNewLongestChain` 10 times, in which case it's only
 	// executed once
 	var callCount int32
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(mock.Arguments) { atomic.AddInt32(&callCount, 1) }).
 		Maybe().
 		Return(big.NewInt(42), nil)
@@ -218,5 +204,4 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 
 	// Make sure the BalanceAt mock wasn't called more than once
 	assert.LessOrEqual(t, atomic.LoadInt32(&callCount), int32(1))
-	gethClient.AssertExpectations(t)
 }

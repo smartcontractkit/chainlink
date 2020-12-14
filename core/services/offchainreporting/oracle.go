@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/jinzhu/gorm"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -23,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
