@@ -136,7 +136,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		return nil, err
 	}
 
-	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
+	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), peerID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not make new pstorewrapper")
 	}
