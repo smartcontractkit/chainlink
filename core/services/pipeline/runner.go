@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,8 +22,8 @@ type (
 	// TaskRun to be eligible to be run, its parent/input tasks must already
 	// all be complete.
 	Runner interface {
-		Start()
-		Stop()
+		Start() error
+		Close() error
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
@@ -65,22 +66,23 @@ func NewRunner(orm ORM, config Config) *runner {
 	return r
 }
 
-func (r *runner) Start() {
+func (r *runner) Start() error {
 	if !r.OkayToStart() {
-		logger.Error("Pipeline runner has already been started")
-		return
+		return errors.New("Pipeline runner has already been started")
 	}
 	go r.runLoop()
+	return nil
 }
 
-func (r *runner) Stop() {
+func (r *runner) Close() error {
 	if !r.OkayToStop() {
-		logger.Error("Pipeline runner has already been stopped")
-		return
+		return errors.New("Pipeline runner has already been stopped")
 	}
 
 	close(r.chStop)
 	<-r.chDone
+
+	return nil
 }
 
 func (r *runner) destroy() {

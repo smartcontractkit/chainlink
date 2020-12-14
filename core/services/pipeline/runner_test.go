@@ -42,7 +42,7 @@ func TestRunner(t *testing.T) {
 	defer jobORM.Close()
 
 	runner.Start()
-	defer runner.Stop()
+	defer runner.Close()
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
@@ -348,6 +348,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
+			nil,
 			nil)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -386,6 +387,9 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -393,7 +397,9 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw,
+		)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -444,6 +450,8 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -451,7 +459,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -486,6 +495,8 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -493,7 +504,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -522,6 +534,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -529,7 +543,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -553,6 +568,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -560,7 +577,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		services, err := sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 

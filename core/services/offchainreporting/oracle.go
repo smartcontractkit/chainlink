@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/jinzhu/gorm"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -23,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
@@ -39,9 +37,10 @@ func RegisterJobType(
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
+	peerWrapper *SingletonPeerWrapper,
 ) {
 	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster),
+		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper),
 	)
 }
 
@@ -53,6 +52,7 @@ type jobSpawnerDelegate struct {
 	pipelineRunner pipeline.Runner
 	ethClient      eth.Client
 	logBroadcaster eth.LogBroadcaster
+	peerWrapper    *SingletonPeerWrapper
 }
 
 func NewJobSpawnerDelegate(
@@ -63,8 +63,9 @@ func NewJobSpawnerDelegate(
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
 	logBroadcaster eth.LogBroadcaster,
+	peerWrapper *SingletonPeerWrapper,
 ) *jobSpawnerDelegate {
-	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster}
+	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
@@ -127,21 +128,18 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	if err != nil {
 		return nil, err
 	}
-	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(peerID))
-	if !exists {
-		return nil, errors.Errorf("P2P key '%v' does not exist", peerID)
+	peerWrapper := d.peerWrapper
+	if peerWrapper == nil {
+		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
+	} else if !peerWrapper.IsStarted() {
+		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+	} else if peerWrapper.PeerID != peerID {
+		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), peerID.String())
 	}
 	bootstrapPeers, err := d.config.P2PBootstrapPeers(concreteSpec.P2PBootstrapPeers)
 	if err != nil {
 		return nil, err
 	}
-
-	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), peerID)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not make new pstorewrapper")
-	}
-
-	services = append(services, pstorewrapper)
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
@@ -149,41 +147,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
 		d.jobORM.RecordError(context.Background(), spec.JobID(), msg)
 	})
-
-	listenPort := d.config.P2PListenPort()
-	if listenPort == 0 {
-		return nil, errors.New("failed to instantiate oracle or bootstrapper service, P2P_LISTEN_PORT is required and must be set to a non-zero value")
-	}
-
-	// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
-	// Fallback to P2PListenPort if it wasn't made explicit
-	var announcePort uint16
-	if d.config.P2PAnnounceIP() != nil && d.config.P2PAnnouncePort() != 0 {
-		announcePort = d.config.P2PAnnouncePort()
-	} else if d.config.P2PAnnounceIP() != nil {
-		announcePort = listenPort
-	}
-
-	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
-		PrivKey:      p2pkey.PrivKey,
-		ListenIP:     d.config.P2PListenIP(),
-		ListenPort:   listenPort,
-		AnnounceIP:   d.config.P2PAnnounceIP(),
-		AnnouncePort: announcePort,
-		Logger:       ocrLogger,
-		Peerstore:    pstorewrapper.Peerstore,
-		EndpointConfig: ocrnetworking.EndpointConfig{
-			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
-			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
-			NewStreamTimeout:          d.config.OCRNewStreamTimeout(),
-			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
-			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
-		},
-		DHTAnnouncementCounterUserPrefix: d.config.P2PDHTAnnouncementCounterUserPrefix(),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewPeer")
-	}
 
 	var endpointURL *url.URL
 	if me := d.config.OCRMonitoringEndpoint(concreteSpec.MonitoringEndpoint); me != "" {
@@ -219,7 +182,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
-			BootstrapperFactory:   peer,
+			BootstrapperFactory:   peerWrapper.Peer,
 			Bootstrappers:         bootstrapPeers,
 			ContractConfigTracker: ocrContract,
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
@@ -262,7 +225,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
-			BinaryNetworkEndpointFactory: peer,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			MonitoringEndpoint:           monitoringEndpoint,
 			Logger:                       ocrLogger,
 			Bootstrappers:                bootstrapPeers,
