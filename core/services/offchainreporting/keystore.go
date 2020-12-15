@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/jinzhu/gorm"
-	"github.com/libp2p/go-libp2p-core/peer"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -67,11 +67,22 @@ func (ks *KeyStore) Unlock(password string) error {
 	return errs
 }
 
-func (ks KeyStore) DecryptedP2PKey(peerID peer.ID) (p2pkey.Key, bool) {
+func (ks KeyStore) DecryptedP2PKey(peerID p2ppeer.ID) (p2pkey.Key, bool) {
 	ks.mu.RLock()
 	defer ks.mu.RUnlock()
 	k, exists := ks.p2pkeys[models.PeerID(peerID)]
 	return k, exists
+}
+
+func (ks KeyStore) DecryptedP2PKeys() (keys []p2pkey.Key) {
+	ks.mu.RLock()
+	defer ks.mu.RUnlock()
+
+	for _, key := range ks.p2pkeys {
+		keys = append(keys, key)
+	}
+
+	return keys
 }
 
 func (ks KeyStore) DecryptedOCRKey(hash models.Sha256Hash) (ocrkey.KeyBundle, bool) {
