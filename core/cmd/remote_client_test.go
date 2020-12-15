@@ -3,8 +3,12 @@ package cmd_test
 import (
 	"context"
 	"flag"
+	"io/ioutil"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
@@ -824,8 +829,8 @@ func TestClient_CreateETHKey(t *testing.T) {
 	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
 	defer verify()
 
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(assets.NewLink(42), nil)
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	require.NoError(t, app.Start())
 
@@ -837,9 +842,98 @@ func TestClient_CreateETHKey(t *testing.T) {
 	err := client.RemoteLogin(c)
 	assert.NoError(t, err)
 
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
+	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
 
 	assert.NoError(t, client.CreateETHKey(c))
+}
+
+func TestClient_ImportExportETHKey(t *testing.T) {
+	t.Parallel()
+
+	ethClient := new(mocks.Client)
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config, ethClient)
+	defer cleanup()
+	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
+	defer verify()
+
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
+
+	client, r := app.NewClientAndRenderer()
+
+	require.NoError(t, app.Start())
+
+	set := flag.NewFlagSet("test", 0)
+	set.String("file", "internal/fixtures/apicredentials", "")
+	c := cli.NewContext(nil, set, nil)
+	err := client.RemoteLogin(c)
+	assert.NoError(t, err)
+
+	err = app.Store.KeyStore.Unlock(cltest.Password)
+	assert.NoError(t, err)
+
+	err = client.ListETHKeys(c)
+	assert.NoError(t, err)
+	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 0)
+
+	r.Renders = nil
+
+	set = flag.NewFlagSet("test", 0)
+	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
+	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	c = cli.NewContext(nil, set, nil)
+	err = client.ImportETHKey(c)
+	assert.NoError(t, err)
+
+	r.Renders = nil
+
+	set = flag.NewFlagSet("test", 0)
+	c = cli.NewContext(nil, set, nil)
+	err = client.ListETHKeys(c)
+	assert.NoError(t, err)
+	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 1)
+
+	ethkeys := *r.Renders[0].(*[]presenters.ETHKey)
+	addr := common.HexToAddress("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")
+	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
+
+	testdir := filepath.Join(os.TempDir(), t.Name())
+	err = os.MkdirAll(testdir, 0700|os.ModeDir)
+	assert.NoError(t, err)
+	defer os.RemoveAll(testdir)
+
+	keyfilepath := filepath.Join(testdir, "key")
+	set = flag.NewFlagSet("test", 0)
+	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
+	set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
+	set.String("output", keyfilepath, "")
+	set.Parse([]string{addr.Hex()})
+	c = cli.NewContext(nil, set, nil)
+	err = client.ExportETHKey(c)
+	assert.NoError(t, err)
+
+	// Now, make sure that the keyfile can be imported with the `newpassword` and yields the correct address
+	keyJSON, err := ioutil.ReadFile(keyfilepath)
+	assert.NoError(t, err)
+	oldpassword, err := ioutil.ReadFile("../internal/fixtures/correct_password.txt")
+	assert.NoError(t, err)
+	newpassword, err := ioutil.ReadFile("../internal/fixtures/incorrect_password.txt")
+	assert.NoError(t, err)
+
+	keystoreDir := filepath.Join(os.TempDir(), t.Name(), "keystore")
+	err = os.MkdirAll(keystoreDir, 0700|os.ModeDir)
+	assert.NoError(t, err)
+
+	scryptParams := utils.GetScryptParams(app.Store.Config)
+	keystore := store.NewKeyStore(keystoreDir, scryptParams)
+	err = keystore.Unlock(string(oldpassword))
+	assert.NoError(t, err)
+	acct, err := keystore.Import(keyJSON, strings.TrimSpace(string(newpassword)))
+	assert.NoError(t, err)
+	assert.Equal(t, addr.Hex(), acct.Address.Hex())
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
