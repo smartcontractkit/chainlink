@@ -10,7 +10,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
-  mapping(address => uint256) private s_thresholds;
+  mapping(address => uint256) private s_thresholdSeconds;
 
   event FlagsAddressUpdated(
     address indexed previous,
@@ -112,7 +112,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @param aggregator address
    * @return uint256
    */
-  function threshold(address aggregator) public view returns (uint256) {
+  function threshold(address aggregator) external view returns (uint256) {
     return s_thresholds[aggregator];
   }
 
@@ -120,7 +120,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @notice Get the flags address
    * @return address
    */
-  function flags() public view returns (address) {
+  function flags() external view returns (address) {
     return address(s_flags);
   }
 
