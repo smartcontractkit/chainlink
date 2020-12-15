@@ -77,26 +77,9 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @dev If any of the aggregators are stale, this function will return true,
    * otherwise false
    * @param aggregators address[] memory
-   * @return bool
+   * @return address[] memory stale aggregators
    */
-  function check(address[] memory aggregators) public view returns (bool) {
-    uint256 currentTimestamp = block.timestamp;
-
-    for (uint256 i = 0; i < aggregators.length; i++) {
-      if (isStale(aggregators[i], currentTimestamp)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
-   * @notice Check for staleness in an array of aggregators, raise a flag
-   * on the flags contract for each aggregator that is stale
-   * @dev This contract must have write permissions on the flags contract
-   * @param aggregators address[] calldata
-   */
-  function update(address[] calldata aggregators) external returns (address[] memory){
+  function check(address[] memory aggregators) public view returns (address[] memory) {
     uint256 currentTimestamp = block.timestamp;
 
     uint256 aggregatorsLength = aggregators.length;
@@ -110,15 +93,25 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
       }
     }
 
-    if (staleCount > 0) {
-      uint256 difference = aggregatorsLength.sub(staleCount);
-      if (difference > 0) {
-        assembly {
-          mstore(staleAggregators, sub(mload(staleAggregators), difference))
-        }
+    uint256 difference = aggregatorsLength.sub(staleCount);
+    if (difference > 0) {
+      assembly {
+        mstore(staleAggregators, sub(mload(staleAggregators), difference))
       }
-      s_flags.raiseFlags(staleAggregators);
     }
+    return staleAggregators;
+  }
+
+  /**
+   * @notice Check for staleness in an array of aggregators, raise a flag
+   * on the flags contract for each aggregator that is stale
+   * @dev This contract must have write permissions on the flags contract
+   * @param aggregators address[] calldata
+   * @return address[] memory stale aggregators
+   */
+  function update(address[] calldata aggregators) external returns (address[] memory){
+    address[] memory staleAggregators = check(aggregators);
+    s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
   }
 

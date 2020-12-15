@@ -231,22 +231,24 @@ describe('StalenessFlaggingValidator', () => {
     })
 
     describe('when neither are stale', () => {
-      it('returns false', async () => {
-        assert.equal(await validator.check(aggregators), false)
+      it('returns an empty array', async () => {
+        const response = await validator.check(aggregators)
+        assert.equal(response.length, 0)
       })
     })
 
     describe('when threshold is not set in the validator', () => {
-      it('returns false', async () => {
+      it('returns an empty array', async () => {
         const agg3 = await aggregatorFactory
           .connect(personas.Carol)
           .deploy(decimals, initialAnswer)
-        assert.equal(await validator.check([agg3.address]), false)
+        const response = await validator.check([agg3.address])
+        assert.equal(response.length, 0)
       })
     })
 
     describe('when one of the aggregators is stale', () => {
-      it('returns true', async () => {
+      it('returns an array with one stale aggregator', async () => {
         const currentTimestamp = await agg1.latestTimestamp()
         const staleTimestamp = currentTimestamp.sub(
           h.bigNum(flaggingThreshold1 + 1),
@@ -257,7 +259,40 @@ describe('StalenessFlaggingValidator', () => {
           staleTimestamp,
           staleTimestamp,
         )
-        assert.equal(await validator.check(aggregators), true)
+        const response = await validator.check(aggregators)
+
+        assert.equal(response.length, 1)
+        assert.equal(response[0], agg1.address)
+      })
+    })
+
+    describe('When both aggregators are stale', () => {
+      it('returns an array with both aggregators', async () => {
+        let currentTimestamp = await agg1.latestTimestamp()
+        let staleTimestamp = currentTimestamp.sub(
+          h.bigNum(flaggingThreshold1 + 1),
+        )
+        await agg1.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        )
+
+        currentTimestamp = await agg2.latestTimestamp()
+        staleTimestamp = currentTimestamp.sub(h.bigNum(flaggingThreshold2 + 1))
+        await agg2.updateRoundData(
+          99,
+          initialAnswer,
+          staleTimestamp,
+          staleTimestamp,
+        )
+
+        const response = await validator.check(aggregators)
+
+        assert.equal(response.length, 2)
+        assert.equal(response[0], agg1.address)
+        assert.equal(response[1], agg2.address)
       })
     })
   })
