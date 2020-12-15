@@ -90,7 +90,6 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, balances, 0)
-	// kst.AssertExpectations(t)
 }
 
 func TestETHKeysController_CreateSuccess(t *testing.T) {

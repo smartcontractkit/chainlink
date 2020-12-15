@@ -238,7 +238,7 @@ func TestStore_ArchiveKey(t *testing.T) {
 	require.Len(t, keys, 0)
 }
 
-func TestKeyStore_Import(t *testing.T) {
+func TestStore_ImportKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -263,7 +263,7 @@ func TestKeyStore_Import(t *testing.T) {
 	require.Contains(t, addrs, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"))
 }
 
-func TestKeyStore_Export(t *testing.T) {
+func TestStore_ExportKey(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
