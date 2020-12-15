@@ -3,8 +3,10 @@ package chainlink
 import (
 	"context"
 	stderr "errors"
+	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 	"sync"
 	"syscall"
 
@@ -29,9 +31,16 @@ import (
 )
 
 // headTrackableCallback is a simple wrapper around an On Connect callback
-type headTrackableCallback struct {
-	onConnect func()
-}
+type (
+	headTrackableCallback struct {
+		onConnect func()
+	}
+
+	StartCloser interface {
+		Start() error
+		Close() error
+	}
+)
 
 func (c *headTrackableCallback) Connect(*models.Head) error {
 	c.onConnect()
@@ -86,6 +95,7 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
+	subservices              []StartCloser
 
 	started     bool
 	startStopMu sync.Mutex
@@ -133,10 +143,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	if config.Dev() || config.FeatureOffchainReporting() {
-		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
-	}
 	services.RegisterEthRequestEventDelegate(jobSpawner)
+	var subservices []StartCloser
+	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 {
+		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, store.Config, store.DB)
+		subservices = append(subservices, concretePW)
+		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+	}
+	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -162,6 +176,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		// NOTE: Can keep things clean by putting more things in subservices
+		// instead of manually start/closing
+		subservices: subservices,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -238,8 +255,11 @@ func (app *ChainlinkApplication) Start() error {
 		}
 	}
 
-	app.jobSpawner.Start()
-	app.pipelineRunner.Start()
+	for _, subservice := range app.subservices {
+		if err := subservice.Start(); err != nil {
+			return err
+		}
+	}
 
 	app.started = true
 	return nil
@@ -279,6 +299,13 @@ func (app *ChainlinkApplication) stop() error {
 		}()
 		logger.Info("Gracefully exiting...")
 
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
+			merr = multierr.Append(merr, service.Close())
+		}
+
 		logger.Debug("Stopping LogBroadcaster...")
 		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
 		logger.Debug("Stopping EventBroadcaster...")
@@ -303,10 +330,6 @@ func (app *ChainlinkApplication) stop() error {
 		merr = multierr.Append(merr, app.explorerClient.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		logger.Debug("Stopping pipelineRunner...")
-		app.pipelineRunner.Stop()
-		logger.Debug("Stopping jobSpawner...")
-		app.jobSpawner.Stop()
 		logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
 
