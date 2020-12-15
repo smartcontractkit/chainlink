@@ -127,7 +127,8 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	answer1 := &pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask("answer1", nil, 0),
+		BaseTask:      pipeline.NewBaseTask("answer1", nil, 0),
+		AllowedFaults: 1,
 	}
 	answer2 := &pipeline.BridgeTask{
 		Name:     "election_winner",

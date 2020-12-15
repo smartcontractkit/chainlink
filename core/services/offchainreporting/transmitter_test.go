@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -18,8 +17,10 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 
 	db := store.DB.DB()
 
+	key := cltest.MustInsertRandomKey(t, store.DB, 0)
+
 	gasLimit := uint64(1000)
-	fromAddress := gethCommon.HexToAddress(cltest.DefaultKey)
+	fromAddress := key.Address.Address()
 	toAddress := cltest.NewAddress()
 	payload := []byte{1, 2, 3}
 

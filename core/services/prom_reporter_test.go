@@ -33,13 +33,14 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	t.Run("with unconfirmed eth_txes", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
+		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 
 		backend := new(mocks.PrometheusBackend)
 		reporter := services.NewPromReporter(store.DB.DB(), backend)
 
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1)
-		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress)
 		require.NoError(t, store.DB.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = ?`, etx.ID).Error)
 
 		backend.On("SetUnconfirmedTransactions", int64(3)).Return()

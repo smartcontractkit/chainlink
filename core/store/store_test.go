@@ -1,15 +1,19 @@
 package store_test
 
 import (
+	"encoding/json"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -38,10 +42,13 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.GetStore()
+	pwd := cltest.Password
+	require.NoError(t, store.KeyStore.Unlock(pwd))
 
 	// create key on disk
-	pwd := "p@ssword"
-	acc, err := store.KeyStore.NewAccount(pwd)
+	err := store.KeyStore.Unlock(pwd)
+	require.NoError(t, err)
+	acc, err := store.KeyStore.NewAccount()
 	require.NoError(t, err)
 
 	// assert creation on disk is successful
@@ -75,7 +82,13 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	for i, key := range keys {
 		content, err := utils.FileContents(filepath.Join(app.Config.KeysDir(), files[i]))
 		require.NoError(t, err)
-		require.JSONEq(t, key.JSON.String(), content)
+
+		filekey, err := keystore.DecryptKey([]byte(content), cltest.Password)
+		require.NoError(t, err)
+		dbkey, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+		require.NoError(t, err)
+
+		require.Equal(t, dbkey, filekey)
 	}
 }
 
@@ -83,9 +96,8 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	t.Parallel()
 
 	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
-	app.AddUnlockedKey() // second account
 	defer cleanup()
-	require.NoError(t, app.Start())
+	cltest.MustAddRandomKeyToKeystore(t, app.Store) // second account
 
 	store := app.GetStore()
 
@@ -124,7 +136,13 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 		require.NoError(t, err)
 
 		payloadAddress := gjson.Parse(content).Get("address").String()
-		require.JSONEq(t, content, payloads[payloadAddress])
+
+		filekey, err := keystore.DecryptKey([]byte(content), cltest.Password)
+		require.NoError(t, err)
+		dbkey, err := keystore.DecryptKey([]byte(payloads[payloadAddress]), cltest.Password)
+		require.NoError(t, err)
+
+		require.Equal(t, dbkey, filekey)
 	}
 }
 
@@ -157,4 +175,122 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	require.Equal(t, acc.Address.Hex(), keys[0].Address.String())
+}
+
+func TestStore_DeleteKey(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+	require.NoError(t, app.StartAndConnect())
+	store := app.GetStore()
+
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	err = store.DeleteKey(keys[0].Address.Address())
+	require.NoError(t, err)
+
+	keys, err = store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
+}
+
+func TestStore_ArchiveKey(t *testing.T) {
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		cltest.EthMockRegisterGetBalance,
+	)
+	defer cleanup()
+	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
+		meth.Register("eth_chainId", app.Store.Config.ChainID())
+	})
+	require.NoError(t, app.StartAndConnect())
+	store := app.GetStore()
+
+	var addrs []struct {
+		Address   common.Address
+		DeletedAt time.Time
+	}
+	err := store.DB.Raw(`SELECT address, deleted_at FROM keys`).Scan(&addrs).Error
+	require.NoError(t, err)
+
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	err = store.ArchiveKey(keys[0].Address.Address())
+	require.NoError(t, err)
+
+	err = store.DB.Raw(`SELECT address, deleted_at FROM keys`).Scan(&addrs).Error
+	require.NoError(t, err)
+	require.Len(t, addrs, 1)
+
+	keys, err = store.SendKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
+
+	keys, err = store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
+}
+
+func TestStore_ImportKey(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	err := store.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
+
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
+
+	err = store.ImportKey([]byte(`{"address":"3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}`), cltest.Password)
+	require.NoError(t, err)
+
+	keys, err = store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	var addrs []common.Address
+	for _, key := range keys {
+		addrs = append(addrs, key.Address.Address())
+	}
+	require.Contains(t, addrs, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"))
+}
+
+func TestStore_ExportKey(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	err := store.KeyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
+
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 0)
+
+	keyJSON := []byte(`{"address":"3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}`)
+
+	err = store.ImportKey(keyJSON, cltest.Password)
+	require.NoError(t, err)
+
+	keys, err = store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	bytes, err := store.KeyStore.Export(common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), cltest.Password)
+	require.NoError(t, err)
+
+	var addr struct {
+		Address string `json:"address"`
+	}
+	err = json.Unmarshal(bytes, &addr)
+	require.NoError(t, err)
+
+	require.Equal(t, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), common.HexToAddress("0x"+addr.Address))
 }
