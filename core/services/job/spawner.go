@@ -88,7 +88,7 @@ func (js *spawner) Start() error {
 
 func (js *spawner) Close() error {
 	if !js.OkayToStop() {
-		return errors.New("Job spawner has already been stopped")
+		return errors.New("Job spawner has already been closed")
 	}
 
 	close(js.chStop)
