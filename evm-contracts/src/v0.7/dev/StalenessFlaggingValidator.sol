@@ -96,15 +96,30 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @dev This contract must have write permissions on the flags contract
    * @param aggregators address[] calldata
    */
-  function update(address[] calldata aggregators) external {
+  function update(address[] calldata aggregators) external returns (address[] memory){
     uint256 currentTimestamp = block.timestamp;
 
-    for (uint256 i = 0; i < aggregators.length; i++) {
+    uint256 aggregatorsLength = aggregators.length;
+    address[] memory staleAggregators = new address[](aggregatorsLength);
+    uint256 staleCount = 0;
+    for (uint256 i = 0; i < aggregatorsLength; i++) {
       address aggregator = aggregators[i];
       if (isStale(aggregator, currentTimestamp)) {
-        s_flags.raiseFlag(aggregator);
+        staleAggregators[staleCount] = aggregator;
+        staleCount++;
       }
     }
+
+    if (staleCount > 0) {
+      uint256 difference = aggregatorsLength.sub(staleCount);
+      if (difference > 0) {
+        assembly {
+          mstore(staleAggregators, sub(mload(staleAggregators), difference))
+        }
+      }
+      s_flags.raiseFlags(staleAggregators);
+    }
+    return staleAggregators;
   }
 
   /**
