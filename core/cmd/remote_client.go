@@ -710,7 +710,7 @@ func (cli *Client) CreateETHKey(c *clipkg.Context) (err error) {
 }
 
 // ListETHKeys renders a table containing the active account address
-// with it's ETH & LINK balance
+// with its ETH & LINK balance
 func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/keys/eth")
 	if err != nil {
