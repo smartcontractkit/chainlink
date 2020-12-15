@@ -21,6 +21,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -75,8 +77,6 @@ const (
 	Password = "password"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKey is the address of the fixture key
-	DefaultKey = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-27548a32b9aD5D64c5945EaE9Da5337bc3169D15.json"
 	// AllowUnstarted enable an application that can be used in tests without being started
@@ -87,16 +87,13 @@ const (
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
-	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
+	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}`
 )
 
 var (
-	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressEIP55 models.EIP55Address
-	DefaultP2PPeerID       p2ppeer.ID
-	NonExistentP2PPeerID   p2ppeer.ID
+	DefaultP2PPeerID     p2ppeer.ID
+	NonExistentP2PPeerID p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 )
@@ -147,11 +144,6 @@ func init() {
 		panic(err)
 	}
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
-	if err != nil {
-		panic(err)
-	}
-
-	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
 	if err != nil {
 		panic(err)
 	}
@@ -220,6 +212,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
+	rawConfig.Set("P2P_LISTEN_PORT", "12345")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -264,6 +257,7 @@ type TestApplication struct {
 	Started          bool
 	EthMock          *EthMock
 	Backend          *backends.SimulatedBackend
+	Key              models.Key
 	allowUnstarted   bool
 }
 
@@ -344,6 +338,16 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case models.Key:
+			MustAddKeyToKeystore(t, &v, app.Store)
+			app.Key = v
+		}
+	}
+	if app.Key.Address.Address() == utils.ZeroAddress {
+		app.Key, _ = MustAddRandomKeyToKeystore(t, app.Store, 0)
+	}
 	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
@@ -365,13 +369,16 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
+
+	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
 	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
+
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
+
 	app.Store.Config = tc.Config
 
 	for _, flag := range flagsAndDeps {
@@ -384,8 +391,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		require.NoError(t, ta.Stop())
-		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
+		assert.NoError(t, ta.StopIfStarted())
 	}
 }
 
@@ -402,11 +408,33 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	err := app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
 
 	// Clean out the mock registrations, since we don't need those...
 	app.EthMock.Responses = app.EthMock.Responses[:0]
 	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
 	return app, func() { appCleanup(); client.Close() }
+}
+
+func NewEthMocks(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r := new(mocks.RPCClient)
+	g := new(mocks.GethClient)
+	s := new(mocks.Subscription)
+	return r, g, s, func() {
+		r.AssertExpectations(t)
+		g.AssertExpectations(t)
+		s.AssertExpectations(t)
+	}
+}
+
+func NewEthMocksWithStartupAssertions(t *testing.T) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r, g, s, assertMocksCalled := NewEthMocks(t)
+	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
+	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return r, g, s, assertMocksCalled
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -463,7 +491,7 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	require.NoError(ta.t, ta.ChainlinkApplication.Stop())
+	require.NoError(ta.t, ta.ChainlinkApplication.StopIfStarted())
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -482,15 +510,8 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
+	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
 	require.NoError(ta.t, err)
-	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
-}
-
-func (ta *TestApplication) AddUnlockedKey() {
-	acct, err := ta.Store.KeyStore.NewAccount(Password)
-	require.NoError(ta.t, err)
-	fmt.Println("Account", acct.Address.Hex())
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
@@ -1433,19 +1454,6 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
-	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
-	require.NoError(t, err)
-	return k
-}
-
-func RandomizeNonce(t *testing.T, s *strpkg.Store) {
-	t.Helper()
-	n := rand.Intn(32767) + 100
-	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
-	require.NoError(t, err)
-}
-
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
@@ -1464,4 +1472,34 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 		t.Fatal(err)
 	}
 	return configDigest
+}
+
+// MockApplicationEthCalls mocks all calls made by the chainlink application as
+// standard when starting and stopping
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
+	t.Helper()
+
+	// Start
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	sub := new(mocks.Subscription)
+	sub.On("Err").Return(nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+
+	// Stop
+	sub.On("Unsubscribe").Return(nil)
+
+	return func() {
+		ethClient.AssertExpectations(t)
+	}
+}
+
+func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- models.Log {
+	logsCh := make(chan chan<- models.Log, 1)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).
+		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
+			logsCh <- args.Get(2).(chan<- types.Log)
+		})
+	return logsCh
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -62,12 +63,15 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
 // testing the solidity VRF contracts involved in randomness request workflow
-func newVRFCoordinatorUniverse(t *testing.T) coordinatorUniverse {
+func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse {
+	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	require.NoError(t, err)
+	oracleTransactor := bind.NewKeyedTransactor(k.PrivateKey)
 	var (
 		sergey  = newIdentity(t)
 		neil    = newIdentity(t)
 		carol   = newIdentity(t)
-		nallory = cltest.OracleTransactor
+		nallory = oracleTransactor
 	)
 	genesisData := core.GenesisAlloc{
 		sergey.From:  {Balance: oneEth},
@@ -119,7 +123,8 @@ func newVRFCoordinatorUniverse(t *testing.T) coordinatorUniverse {
 
 func TestRequestIDMatches(t *testing.T) {
 	keyHash := common.HexToHash("0x01")
-	baseContract := newVRFCoordinatorUniverse(t).requestIDBase
+	key := cltest.MustGenerateRandomKey(t)
+	baseContract := newVRFCoordinatorUniverse(t, key).requestIDBase
 	solidityRequestID, err := baseContract.MakeRequestId(nil, keyHash, seed)
 	require.NoError(t, err, "failed to calculate VRF requestID on simulated ethereum blockchain")
 	goRequestLog := &models.RandomnessRequestLog{KeyHash: keyHash, Seed: seed}
@@ -149,7 +154,8 @@ func registerProvingKey(t *testing.T, coordinator coordinatorUniverse) (
 }
 
 func TestRegisterProvingKey(t *testing.T) {
-	coord := newVRFCoordinatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+	coord := newVRFCoordinatorUniverse(t, key)
 	keyHash, jobID, fee := registerProvingKey(t, coord)
 	log, err := coord.rootContract.FilterNewServiceAgreement(nil)
 	require.NoError(t, err, "failed to subscribe to NewServiceAgreement logs on simulated ethereum blockchain")
@@ -192,7 +198,8 @@ func requestRandomness(t *testing.T, coordinator coordinatorUniverse,
 }
 
 func TestRandomnessRequestLog(t *testing.T) {
-	coord := newVRFCoordinatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+	coord := newVRFCoordinatorUniverse(t, key)
 	keyHash_, jobID_, fee := registerProvingKey(t, coord)
 	keyHash := common.BytesToHash(keyHash_[:])
 	jobID := common.BytesToHash(jobID_[:])
@@ -249,7 +256,8 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse,
 }
 
 func TestFulfillRandomness(t *testing.T) {
-	coordinator := newVRFCoordinatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	randomnessRequestLog := requestRandomness(t, coordinator, keyHash, fee, seed)
 	proof := fulfillRandomnessRequest(t, coordinator, *randomnessRequestLog)
@@ -273,7 +281,8 @@ func TestFulfillRandomness(t *testing.T) {
 }
 
 func TestWithdraw(t *testing.T) {
-	coordinator := newVRFCoordinatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+	coordinator := newVRFCoordinatorUniverse(t, key)
 	keyHash, _, fee := registerProvingKey(t, coordinator)
 	log := requestRandomness(t, coordinator, keyHash, fee, rawSeed)
 	fulfillRandomnessRequest(t, coordinator, *log)

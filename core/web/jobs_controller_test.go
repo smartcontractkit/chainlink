@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml"
@@ -32,36 +33,45 @@ func TestJobsController_Create_ValidationFailure(t *testing.T) {
 		name        string
 		pid         models.PeerID
 		kb          models.Sha256Hash
-		ta          models.EIP55Address
+		taExists    bool
 		expectedErr error
 	}{
 		{
 			name:        "invalid keybundle",
 			pid:         models.PeerID(cltest.DefaultP2PPeerID),
 			kb:          models.Sha256Hash(cltest.Random32Byte()),
-			ta:          cltest.DefaultKeyAddressEIP55,
+			taExists:    true,
 			expectedErr: job.ErrNoSuchKeyBundle,
 		},
 		{
 			name:        "invalid peerID",
 			pid:         models.PeerID(cltest.NonExistentP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.DefaultKeyAddressEIP55,
+			taExists:    true,
 			expectedErr: job.ErrNoSuchPeerID,
 		},
 		{
 			name:        "invalid transmitter address",
 			pid:         models.PeerID(cltest.DefaultP2PPeerID),
 			kb:          cltest.DefaultOCRKeyBundleIDSha256,
-			ta:          cltest.NewEIP55Address(),
+			taExists:    false,
 			expectedErr: job.ErrNoSuchTransmitterAddress,
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			_, client, cleanup := setupJobsControllerTests(t)
+			ta, client, cleanup := setupJobsControllerTests(t)
 			defer cleanup()
-			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, tc.ta, tc.pid, monitoringEndpoint, tc.kb)
+
+			var address models.EIP55Address
+			if tc.taExists {
+				key := cltest.MustInsertRandomKey(t, ta.Store.DB)
+				address = key.Address
+			} else {
+				address = cltest.NewEIP55Address()
+			}
+
+			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, monitoringEndpoint, tc.kb)
 			body, _ := json.Marshal(models.CreateJobSpecRequest{
 				TOML: sp,
 			})
@@ -79,8 +89,10 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	app, client, cleanup := setupJobsControllerTests(t)
 	defer cleanup()
 
+	toml := string(cltest.MustReadFile(t, "testdata/oracle-spec.toml"))
+	toml = strings.Replace(toml, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", app.Key.Address.Hex(), 1)
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
-		TOML: string(cltest.MustReadFile(t, "testdata/oracle-spec.toml")),
+		TOML: toml,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
@@ -231,7 +243,7 @@ func runEthRequestEventJobSpecAssertions(t *testing.T, ereJobSpecFromFile servic
 
 func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -240,7 +252,7 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32, services.EthRequestEventSpec, int32) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -250,6 +262,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
+	ocrJobSpecFromFile.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
 	var ereJobSpecFromFile services.EthRequestEventSpec
