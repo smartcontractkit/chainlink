@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -66,12 +67,16 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 // setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
-func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
+func setupFluxAggregatorUniverse(t *testing.T, key models.Key) fluxAggregatorUniverse {
+	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	require.NoError(t, err)
+	oracleTransactor := bind.NewKeyedTransactor(k.PrivateKey)
+
 	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
 	f.ned = newIdentity(t)
-	f.nallory = cltest.OracleTransactor
+	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: oneEth},
 		f.neil.From:    {Balance: oneEth},
@@ -80,7 +85,7 @@ func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
 	}
 	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
 	f.backend = backends.NewSimulatedBackend(genesisData, gasLimit)
-	var err error
+
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
@@ -293,9 +298,10 @@ type maliciousFluxMonitor interface {
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
+	key := cltest.MustGenerateRandomKey(t)
 
 	// - deploy a brand new FM contract
-	fa := setupFluxAggregatorUniverse(t)
+	fa := setupFluxAggregatorUniverse(t, key)
 
 	// - add oracles
 	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
@@ -309,8 +315,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	defer cfgCleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
 	defer cleanup()
+
 	require.NoError(t, app.StartAndConnect())
 	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+
@@ -461,7 +468,18 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	fa := setupFluxAggregatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+
+	fa := setupFluxAggregatorUniverse(t, key)
+
+	// Set up chainlink app
+	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
+	defer cleanup()
 
 	// - add oracles
 	oracleList := []common.Address{fa.nallory.From}
@@ -470,14 +488,6 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	fa.backend.Commit()
 	checkOraclesAdded(t, fa, oracleList)
 
-	// Set up chainlink app
-	config, cfgCleanup := cltest.NewConfig(t)
-	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
-	defer cfgCleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
-	defer cleanup()
 	require.NoError(t, app.StartAndConnect(), "failed to start chainlink")
 
 	// // create mock server

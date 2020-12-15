@@ -29,6 +29,9 @@ func TestORM(t *testing.T) {
 	defer cleanupDB()
 	db := oldORM.DB
 
+	key := cltest.MustInsertRandomKey(t, db)
+	transmitterAddress := key.Address.Address()
+
 	var specID int32
 
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
@@ -137,7 +140,7 @@ func TestORM(t *testing.T) {
 		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
 
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
+		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 		// Need a job in order to create a run
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
@@ -249,7 +252,7 @@ func TestORM(t *testing.T) {
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
-				ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db)
+				ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 				// Need a job in order to create a run
 				err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
