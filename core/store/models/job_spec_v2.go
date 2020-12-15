@@ -63,11 +63,11 @@ type (
 		EncryptedOCRKeyBundleID                *Sha256Hash    `json:"keyBundleID" toml:"keyBundleID"                 gorm:"type:bytea"`
 		MonitoringEndpoint                     string         `json:"monitoringEndpoint" toml:"monitoringEndpoint"`
 		TransmitterAddress                     *EIP55Address  `json:"transmitterAddress" toml:"transmitterAddress"`
-		ObservationTimeout                     Interval       `json:"observationTimeout" toml:"observationTimeout" gorm:"type:bigint"`
-		BlockchainTimeout                      Interval       `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint"`
-		ContractConfigTrackerSubscribeInterval Interval       `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval"`
-		ContractConfigTrackerPollInterval      Interval       `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint"`
-		ContractConfigConfirmations            uint16         `json:"contractConfigConfirmations" toml:"contractConfigConfirmations" default:"3"`
+		ObservationTimeout                     Interval       `json:"observationTimeout" toml:"observationTimeout" gorm:"type:bigint;default:null"`
+		BlockchainTimeout                      Interval       `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
+		ContractConfigTrackerSubscribeInterval Interval       `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
+		ContractConfigTrackerPollInterval      Interval       `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
+		ContractConfigConfirmations            uint16         `json:"contractConfigConfirmations" toml:"contractConfigConfirmations" gorm:"default:null"`
 		CreatedAt                              time.Time      `json:"createdAt" toml:"-"`
 		UpdatedAt                              time.Time      `json:"updatedAt" toml:"-"`
 	}
