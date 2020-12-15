@@ -43,6 +43,10 @@ contract ChainlinkClient {
     return arbiter.getOndutyOracle();
   }
 
+  function getScore(uint256 data) public returns (uint256) {
+    return arbiter.score(data);
+  }
+
   /**
    * @notice Creates a request that can hold additional parameters
    * @param _specId The Job Specification ID that the request will be created for

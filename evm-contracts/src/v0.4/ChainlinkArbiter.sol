@@ -62,6 +62,7 @@ library SafeMath {
 
 interface ArbiterInterface {
     function getOndutyOracle() external returns(address, string);
+    function score(uint data) external returns (uint);
 }
 
 // Arbiter contract is used to get the current chainlink oracle id
@@ -97,6 +98,11 @@ contract Arbiter is ArbiterInterface{
         currentOracle = oracle;
         currentJobId = jobId;
         return (oracle,jobId);
+    }
+
+    function score(uint data) external returns (uint){
+        //TODO to be implemented
+        return data;
     }
 
     function registerArbiter(string publicKey, address oracle, string jobId, string signature) public {
@@ -146,7 +152,6 @@ contract Arbiter is ArbiterInterface{
         string memory i = strConcat(strConcat(pubkey, data), sig);
         bytes memory input = hexStr2bytes(i);
         uint256[1] memory p;
-        // bytes memory input = hexStr2bytes("03585451831671d32c12da70f009adb6e423dfbfdd012368d9038c8b896918a62a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010203ee0978fa8d6918e856f50a77a1b6c75814c2ca0eeb51f778ef96669f9e9c24bf4c315d718d6d54415e04e53744760d32e5e031c90ead2dc99024d6a7c6499af5");
 
         assembly {
             if iszero(staticcall(gas, 21, input, 193, p, 0xc0)) {
@@ -169,10 +174,6 @@ contract Arbiter is ArbiterInterface{
     }
 
     function hexStr2bytes(string data) internal returns (bytes){
-
-        // uint _ascii_0 = 48;
-        // uint _ascii_A = 65;
-        // uint _ascii_a = 97;
 
         bytes memory a = bytes(data);
         uint[] memory b = new uint[](a.length);
