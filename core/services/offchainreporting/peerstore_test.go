@@ -7,6 +7,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -18,33 +19,33 @@ func Test_Peerstore_Start(t *testing.T) {
 	defer cleanup()
 
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
-	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_job_id_fkey DEFERRED`).Error)
-	err := store.DB.Exec(`INSERT INTO p2p_peers (id, addr, created_at, updated_at, job_id) VALUES
+	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
+	err := store.DB.Exec(`INSERT INTO p2p_peers (id, addr, created_at, updated_at, peer_id) VALUES
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.1/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		1
+		$1
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		1
+		$1
 	),
 	(
 		'12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		'/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph',
 		NOW(),
 		NOW(),
-		2
+		$2
 	)
-	`).Error
+	`, cltest.DefaultP2PPeerID.Pretty(), cltest.NonExistentP2PPeerID.Pretty()).Error
 	require.NoError(t, err)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, 1)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))
 	require.NoError(t, err)
 
 	err = wrapper.Start()
@@ -65,9 +66,9 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	defer cleanup()
 
 	// Deferring the constraint avoids having to insert an entire set of jobs/specs
-	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_job_id_fkey DEFERRED`).Error)
+	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS p2p_peers_peer_id_fkey DEFERRED`).Error)
 
-	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, 1)
+	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))
 	require.NoError(t, err)
 
 	maddr, err := ma.NewMultiaddr("/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph")
@@ -87,5 +88,5 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	peer := peers[0]
 	require.Equal(t, "12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.ID)
 	require.Equal(t, "/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.Addr)
-	require.Equal(t, int32(1), peer.JobID)
+	require.Equal(t, cltest.DefaultP2PPeerID.Pretty(), peer.PeerID)
 }
