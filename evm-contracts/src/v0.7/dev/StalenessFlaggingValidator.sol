@@ -64,7 +64,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
       uint256 previousThreshold = s_thresholdSeconds[aggregator];
-      uint newThreshold = flaggingThresholds[i];
+      uint256 newThreshold = flaggingThresholds[i];
       if (previousThreshold != newThreshold) {
         s_thresholdSeconds[aggregator] = newThreshold;
         emit FlaggingThresholdUpdated(aggregator, previousThreshold, newThreshold);
@@ -82,10 +82,9 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
   function check(address[] memory aggregators) public view returns (address[] memory) {
     uint256 currentTimestamp = block.timestamp;
 
-    uint256 aggregatorsLength = aggregators.length;
-    address[] memory staleAggregators = new address[](aggregatorsLength);
+    address[] memory staleAggregators = new address[](aggregators.length);
     uint256 staleCount = 0;
-    for (uint256 i = 0; i < aggregatorsLength; i++) {
+    for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
       if (isStale(aggregator, currentTimestamp)) {
         staleAggregators[staleCount] = aggregator;
@@ -93,10 +92,9 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
       }
     }
 
-    uint256 difference = aggregatorsLength.sub(staleCount);
-    if (difference > 0) {
+    if (aggregators.length != staleCount) {
       assembly {
-        mstore(staleAggregators, sub(mload(staleAggregators), difference))
+        mstore(staleAggregators, staleCount)
       }
     }
     return staleAggregators;
@@ -151,7 +149,8 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     (,,,uint updatedAt,) = AggregatorV3Interface(aggregator).latestRoundData();
     uint256 diff = currentTimestamp.sub(updatedAt);
     if (diff > s_thresholdSeconds[aggregator]) {
-      stale = true;
+      return true;
     }
+    return false;
   }
 }
