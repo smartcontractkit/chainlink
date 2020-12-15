@@ -26,7 +26,7 @@ func TestConfigController_Show(t *testing.T) {
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	require.NoError(t, app.StartAndConnect())
+	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/config")
@@ -35,7 +35,6 @@ func TestConfigController_Show(t *testing.T) {
 
 	cp := presenters.ConfigPrinter{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &cp))
-	t.Log(cp)
 
 	assert.Equal(t, orm.LogLevel{Level: 0}, cp.LogLevel)
 	assert.Contains(t, cp.RootDir, "/tmp/chainlink_test/")

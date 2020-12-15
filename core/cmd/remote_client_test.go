@@ -740,7 +740,6 @@ func TestClient_SendEther_From_BPTXM(t *testing.T) {
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	defer cleanup()
 	app, cleanup := setupWithdrawalsApplication(t, config)
 	defer cleanup()
 	s := app.GetStore()
@@ -1039,7 +1038,6 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
 	defer cleanup()
 	app, cleanup := setupWithdrawalsApplication(t, config)
 	defer cleanup()
