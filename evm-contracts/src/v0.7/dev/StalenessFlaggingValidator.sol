@@ -63,10 +63,10 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     require(aggregators.length == flaggingThresholds.length, "Different sized arrays");
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
-      uint256 previousThreshold = s_thresholds[aggregator];
+      uint256 previousThreshold = s_thresholdSeconds[aggregator];
       uint newThreshold = flaggingThresholds[i];
       if (previousThreshold != newThreshold) {
-        s_thresholds[aggregator] = newThreshold;
+        s_thresholdSeconds[aggregator] = newThreshold;
         emit FlaggingThresholdUpdated(aggregator, previousThreshold, newThreshold);
       }
     }
@@ -113,7 +113,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @return uint256
    */
   function threshold(address aggregator) external view returns (uint256) {
-    return s_thresholds[aggregator];
+    return s_thresholdSeconds[aggregator];
   }
 
   /**
@@ -137,12 +137,12 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
     view
     returns (bool stale)
   {
-    if (s_thresholds[aggregator] == 0) {
+    if (s_thresholdSeconds[aggregator] == 0) {
       return false;
     }
     (,,,uint updatedAt,) = AggregatorV3Interface(aggregator).latestRoundData();
     uint256 diff = currentTimestamp.sub(updatedAt);
-    if (diff > s_thresholds[aggregator]) {
+    if (diff > s_thresholdSeconds[aggregator]) {
       stale = true;
     }
   }
