@@ -64,50 +64,51 @@ func (p *SingletonPeerWrapper) Start() (err error) {
 
 	if len(p2pkeys) == 0 {
 		return nil
-	} else if len(p2pkeys) > 1 {
+	}
+	if len(p2pkeys) > 1 {
 		return errors.New("more than one p2p key is not currently supported")
-	} else {
-		key := p2pkeys[0]
-		p.PeerID, err = key.GetPeerID()
-		if err != nil {
-			return errors.Wrap(err, "could not get peer ID")
-		}
-		p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)
-		if err != nil {
-			return errors.Wrap(err, "could not make new pstorewrapper")
-		}
+	}
 
-		// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
-		// Fallback to P2PListenPort if it wasn't made explicit
-		var announcePort uint16
-		if p.config.P2PAnnounceIP() != nil && p.config.P2PAnnouncePort() != 0 {
-			announcePort = p.config.P2PAnnouncePort()
-		} else if p.config.P2PAnnounceIP() != nil {
-			announcePort = listenPort
-		}
+	key := p2pkeys[0]
+	p.PeerID, err = key.GetPeerID()
+	if err != nil {
+		return errors.Wrap(err, "could not get peer ID")
+	}
+	p.pstoreWrapper, err = NewPeerstoreWrapper(p.db, p.config.P2PPeerstoreWriteInterval(), p.PeerID)
+	if err != nil {
+		return errors.Wrap(err, "could not make new pstorewrapper")
+	}
 
-		peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
+	// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
+	// Fallback to P2PListenPort if it wasn't made explicit
+	var announcePort uint16
+	if p.config.P2PAnnounceIP() != nil && p.config.P2PAnnouncePort() != 0 {
+		announcePort = p.config.P2PAnnouncePort()
+	} else if p.config.P2PAnnounceIP() != nil {
+		announcePort = listenPort
+	}
 
-		p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
-			PrivKey:      key.PrivKey,
-			ListenIP:     p.config.P2PListenIP(),
-			ListenPort:   listenPort,
-			AnnounceIP:   p.config.P2PAnnounceIP(),
-			AnnouncePort: announcePort,
-			Logger:       peerLogger,
-			Peerstore:    p.pstoreWrapper.Peerstore,
-			EndpointConfig: ocrnetworking.EndpointConfig{
-				IncomingMessageBufferSize: p.config.OCRIncomingMessageBufferSize(),
-				OutgoingMessageBufferSize: p.config.OCROutgoingMessageBufferSize(),
-				NewStreamTimeout:          p.config.OCRNewStreamTimeout(),
-				DHTLookupInterval:         p.config.OCRDHTLookupInterval(),
-				BootstrapCheckInterval:    p.config.OCRBootstrapCheckInterval(),
-			},
-			DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
-		})
-		if err != nil {
-			return errors.Wrap(err, "error calling NewPeer")
-		}
+	peerLogger := NewLogger(logger.Default, p.config.OCRTraceLogging(), func(string) {})
+
+	p.Peer, err = ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
+		PrivKey:      key.PrivKey,
+		ListenIP:     p.config.P2PListenIP(),
+		ListenPort:   listenPort,
+		AnnounceIP:   p.config.P2PAnnounceIP(),
+		AnnouncePort: announcePort,
+		Logger:       peerLogger,
+		Peerstore:    p.pstoreWrapper.Peerstore,
+		EndpointConfig: ocrnetworking.EndpointConfig{
+			IncomingMessageBufferSize: p.config.OCRIncomingMessageBufferSize(),
+			OutgoingMessageBufferSize: p.config.OCROutgoingMessageBufferSize(),
+			NewStreamTimeout:          p.config.OCRNewStreamTimeout(),
+			DHTLookupInterval:         p.config.OCRDHTLookupInterval(),
+			BootstrapCheckInterval:    p.config.OCRBootstrapCheckInterval(),
+		},
+		DHTAnnouncementCounterUserPrefix: p.config.P2PDHTAnnouncementCounterUserPrefix(),
+	})
+	if err != nil {
+		return errors.Wrap(err, "error calling NewPeer")
 	}
 	return p.pstoreWrapper.Start()
 }
