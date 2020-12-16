@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -52,13 +53,13 @@ func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
 	pk, err := NewKeyBundle()
 	require.NoError(t, err)
-	pkEncrypted, err := pk.encrypt("password", utils.FastScryptParams)
+	pkEncrypted, err := pk.encrypt(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 	// check that properties on encrypted key match those on OCRkey
 	require.Equal(t, pk.ID, pkEncrypted.ID)
 	require.Equal(t, pk.onChainSigning.Address(), pkEncrypted.OnChainSigningAddress)
 	require.Equal(t, pk.offChainSigning.PublicKey(), pkEncrypted.OffChainPublicKey)
-	pkDecrypted, err := pkEncrypted.Decrypt("password")
+	pkDecrypted, err := pkEncrypted.Decrypt(cltest.Password)
 	require.NoError(t, err)
 	assertKeyBundlesEqual(t, pk, pkDecrypted)
 }

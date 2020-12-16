@@ -804,7 +804,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		ChangePasswordRequest: models.ChangePasswordRequest{
 			OldPassword: cltest.Password,
-			NewPassword: "password",
+			NewPassword: "_p4SsW0rD1!@#",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
@@ -948,7 +948,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	mustLogIn(t, client)
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
+	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
 
 	assert.NoError(t, client.CreateETHKey(nilContext))
 }
@@ -989,7 +989,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 
 	set = flag.NewFlagSet("test", 0)
 	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
-	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	set.Parse([]string{"../internal/fixtures/keys/testkey-0x69Ca211a68100E18B40683E96b55cD217AC95006.json"})
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	assert.NoError(t, err)
@@ -1003,7 +1003,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 1)
 
 	ethkeys := *r.Renders[0].(*[]presenters.ETHKey)
-	addr := common.HexToAddress("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")
+	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
 	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
 
 	testdir := filepath.Join(os.TempDir(), t.Name())

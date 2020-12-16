@@ -299,7 +299,7 @@ func TestStore_ExportKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 0)
 
-	keyJSON := []byte(`{"address":"3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}`)
+	keyJSON := cltest.MustReadFile(t, "../internal/fixtures/keys/testkey-aBB7f27f927A70Fc6736da409b9376349A126b3E.json")
 
 	err = store.ImportKey(keyJSON, cltest.Password)
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestStore_ExportKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 
-	bytes, err := store.KeyStore.Export(common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), cltest.Password)
+	bytes, err := store.KeyStore.Export(common.HexToAddress("0xaBB7f27f927A70Fc6736da409b9376349A126b3E"), cltest.Password)
 	require.NoError(t, err)
 
 	var addr struct {
@@ -317,5 +317,5 @@ func TestStore_ExportKey(t *testing.T) {
 	err = json.Unmarshal(bytes, &addr)
 	require.NoError(t, err)
 
-	require.Equal(t, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), common.HexToAddress("0x"+addr.Address))
+	require.Equal(t, common.HexToAddress("0xaBB7f27f927A70Fc6736da409b9376349A126b3E"), common.HexToAddress("0x"+addr.Address))
 }

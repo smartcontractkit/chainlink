@@ -129,9 +129,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		isTerminal     bool
 		isError        bool
 	}{
-		{"correct", []string{"good@email.com", "password"}, true, false},
-		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}, true, false},
-		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}, true, false},
+		{"correct", []string{"good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"incorrect pwd then correct", []string{"good@email.com", "p4SsW0rD1!@#_____", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"incorrect email then correct", []string{"", "p4SsW0rD1!@#_", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
 		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {

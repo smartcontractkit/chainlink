@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
@@ -1182,7 +1181,8 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 }
 
 func normalizePassword(password string) string {
-	return url.PathEscape(strings.TrimSpace(password))
+	return password
+	// return url.PathEscape(strings.TrimSpace(password))
 }
 
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {
