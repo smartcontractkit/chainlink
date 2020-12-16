@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Key-related API endpoints have changed. All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
 - All key deletion commands now perform a soft-delete (i.e. archive) by default. A special CLI flag or query string parameter must be provided to hard-delete a key.
 
+## [0.9.8] - 2020-12-17
+
+### Fixed
+
+- An issue where the node would emit warnings on startup for fluxmonitor contracts
+
 ## [0.9.7] - 2020-12-14
 
 ### Added
