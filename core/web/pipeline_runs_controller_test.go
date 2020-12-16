@@ -23,6 +23,7 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
 	defer cleanup()
 	require.NoError(t, app.Start())
+	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
 	client := app.NewHTTPClient()
 
@@ -31,6 +32,8 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
+
+	ocrJobSpecFromFile.TransmitterAddress = &key.Address
 
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
@@ -129,6 +132,8 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	client := app.NewHTTPClient()
 	mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"USD": 1}`)
 
+	key := cltest.MustInsertRandomKey(t, app.Store.DB)
+
 	var ocrJobSpec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(fmt.Sprintf(`
 	type               = "offchainreporting"
@@ -150,7 +155,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, cltest.DefaultKey, mockHTTP.URL)), &ocrJobSpec)
+	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex(), mockHTTP.URL)), &ocrJobSpec)
 	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})

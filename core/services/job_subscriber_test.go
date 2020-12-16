@@ -6,6 +6,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -81,7 +83,12 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	cltest.MockEthOnStore(t, store, cltest.LenientEthMock)
+
+	_, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	defer assertMocksCalled()
+	store.EthClient = eth.NewClientWith(nil, gethClient)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
@@ -139,22 +146,20 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	runManager := new(mocks.RunManager)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 
-	eth := cltest.MockEthOnStore(t, store)
-	eth.Register("eth_getLogs", []models.Log{})
-	eth.Register("eth_getLogs", []models.Log{})
+	gethClient := new(mocks.GethClient)
+	defer gethClient.AssertExpectations(t)
+	store.EthClient = eth.NewClientWith(nil, gethClient)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 	jobSpec1 := cltest.NewJobWithLogInitiator()
 	jobSpec2 := cltest.NewJobWithLogInitiator()
 	require.Nil(t, store.CreateJob(&jobSpec1))
 	require.Nil(t, store.CreateJob(&jobSpec2))
-	eth.RegisterSubscription("logs")
-	eth.RegisterSubscription("logs")
 
 	require.Nil(t, jobSubscriber.Connect(cltest.Head(491)))
 
 	jobSubscriber.Stop()
-
-	eth.EventuallyAllCalled(t)
 
 	assert.Len(t, jobSubscriber.Jobs(), 2)
 

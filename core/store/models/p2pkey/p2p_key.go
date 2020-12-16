@@ -2,6 +2,7 @@ package p2pkey
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -31,7 +32,7 @@ func (pkb PublicKeyBytes) String() string {
 }
 
 func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hexutil.Encode(pkb))
+	return json.Marshal(hex.EncodeToString(pkb))
 }
 
 func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
@@ -40,7 +41,7 @@ func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	result, err := hexutil.Decode(hexString)
+	result, err := hex.DecodeString(hexString)
 	if err != nil {
 		return err
 	}

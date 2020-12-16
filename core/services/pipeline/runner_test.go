@@ -42,7 +42,10 @@ func TestRunner(t *testing.T) {
 	defer jobORM.Close()
 
 	runner.Start()
-	defer runner.Stop()
+	defer runner.Close()
+
+	key := cltest.MustInsertRandomKey(t, db, 0)
+	transmitterAddress := key.Address.Address()
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -66,7 +69,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, httpURL)
+		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -135,7 +138,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -196,7 +199,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -255,7 +258,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, true)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, true)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -345,6 +348,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
+			nil,
 			nil)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -383,6 +387,9 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -390,7 +397,9 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw,
+		)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -409,7 +418,7 @@ ds1 -> ds1_parse;
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = false 
-		observationTimeout = "10s"
+		observationTimeout = "15s"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -421,7 +430,7 @@ ds1 -> ds1_parse;
 		config.Set("P2P_BOOTSTRAP_PEERS", []string{"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
 		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())
-		config.Set("OCR_TRANSMITTER_ADDRESS", cltest.DefaultKey)
+		config.Set("OCR_TRANSMITTER_ADDRESS", transmitterAddress)
 		_, err = services.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -438,9 +447,15 @@ ds1 -> ds1_parse;
 		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
+		// Assert the override
+		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
+		// Assert that this is unset
+		assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, models.Interval(0))
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -448,7 +463,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -463,7 +479,7 @@ ds1 -> ds1_parse;
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 
-		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, cltest.DefaultKey, kb.ID, "http://blah.com", "")
+		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
 		_, err = services.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
@@ -483,6 +499,8 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -490,7 +508,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -519,6 +538,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -526,7 +547,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -538,7 +560,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, cltest.DefaultKey, fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
+		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
 		ocrspec, dbSpec := makeOCRJobSpecWithHTTPURL(t, db, spec)
 
 		// Create an OCR job
@@ -550,6 +572,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -557,7 +581,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		services, err := sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 
@@ -604,7 +629,7 @@ ds1 -> ds1_parse;
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, httpURL, false)
+		ocrSpec, dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, false)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -644,7 +669,7 @@ ds1 -> ds1_parse;
 		// There are 4 timeouts:
 		// - ObservationTimeout = how long the whole OCR time needs to run, or it fails (default 10 seconds)
 		// - config.JobPipelineMaxTaskDuration() = node level maximum time for a pipeline task (default 10 minutes)
-		// - config.DefaultHTTPTimeout() * config.DefaultMaxHTTPAttempts() = global, http specific timeouts (default 15s * 5 retries = 75s)
+		// - config.transmitterAddress, http specific timeouts (default 15s * 5 retries = 75s)
 		// - "d1 [.... timeout="2s"]" = per task level timeout (should override the global config)
 		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(1 * time.Millisecond)
@@ -653,7 +678,7 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		os := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		os := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
 		jb := &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job", true),
@@ -671,7 +696,7 @@ ds1 -> ds1_parse;
 		assert.Error(t, r[0].Error)
 
 		// No task timeout should succeed.
-		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb = &models.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job 2", true),
@@ -690,7 +715,7 @@ ds1 -> ds1_parse;
 		assert.NoError(t, r[0].Error)
 
 		// Job specified task timeout should fail.
-		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, cltest.DefaultKey, cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
 		jb = &models.JobSpecV2{
 			MaxTaskDuration:             models.Interval(time.Duration(1)),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jinzhu/gorm"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 
@@ -49,12 +49,12 @@ observationSource = """
 """
 `
 
-func makeOCRJobSpec(t *testing.T, db *gorm.DB) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
 	t.Helper()
 
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, cltest.DefaultKey)
+	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
 
 	var ocrspec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)

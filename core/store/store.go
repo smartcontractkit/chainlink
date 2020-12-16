@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -47,28 +49,35 @@ type Store struct {
 	closeOnce      *sync.Once
 }
 
+type KeyStoreGenerator func(*orm.Config) *KeyStore
+
+func StandardKeyStoreGen(config *orm.Config) *KeyStore {
+	scryptParams := utils.GetScryptParams(config)
+	return NewKeyStore(config.KeysDir(), scryptParams)
+}
+
+func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
+	return NewInsecureKeyStore(config.KeysDir())
+}
+
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore {
-		scryptParams := utils.GetScryptParams(config)
-		return NewKeyStore(config.KeysDir(), scryptParams)
-	}
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStore, shutdownSignal)
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) *Store {
+	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
-	keyStore := func() *KeyStore { return NewInsecureKeyStore(config.KeysDir()) }
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, keyStore, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
+// See: https://www.pivotaltracker.com/story/show/175493792
 func newStoreWithKeyStore(
 	config *orm.Config,
 	ethClient eth.Client,
 	advisoryLocker postgres.AdvisoryLocker,
-	keyStoreGenerator func() *KeyStore,
+	keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
 ) *Store {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
@@ -82,7 +91,7 @@ func newStoreWithKeyStore(
 		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
 	}
 
-	keyStore := keyStoreGenerator()
+	keyStore := keyStoreGenerator(config)
 	scryptParams := utils.GetScryptParams(config)
 
 	store := &Store{
@@ -151,6 +160,55 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 		}
 	}
 	return merr
+}
+
+// DeleteKey hard-deletes a key whose address matches the supplied address.
+func (s *Store) DeleteKey(address common.Address) error {
+	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+		err := tx.Where("address = ?", address).Delete(models.Key{}).Error
+		if err != nil {
+			return errors.Wrap(err, "while deleting ETH key from DB")
+		}
+		return s.KeyStore.Delete(address)
+	})
+}
+
+// ArchiveKey soft-deletes a key whose address matches the supplied address.
+func (s *Store) ArchiveKey(address common.Address) error {
+	err := s.ORM.DB.Where("address = ?", address).Delete(models.Key{}).Error
+	if err != nil {
+		return err
+	}
+
+	acct, err := s.KeyStore.GetAccountByAddress(address)
+	if err != nil {
+		return err
+	}
+
+	archivedKeysDir := filepath.Join(s.Config.RootDir(), "archivedkeys")
+	err = utils.EnsureDirAndMaxPerms(archivedKeysDir, os.FileMode(0700))
+	if err != nil {
+		return errors.Wrap(err, "could not create "+archivedKeysDir)
+	}
+
+	basename := filepath.Base(acct.URL.Path)
+	dst := filepath.Join(archivedKeysDir, basename)
+	err = utils.CopyFileWithMaxPerms(acct.URL.Path, dst, os.FileMode(0700))
+	if err != nil {
+		return errors.Wrap(err, "could not copy "+acct.URL.Path+" to "+dst)
+	}
+
+	return s.KeyStore.Delete(address)
+}
+
+func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
+	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
+		_, err := s.KeyStore.Import(keyJSON, oldPassword)
+		if err != nil {
+			return err
+		}
+		return s.SyncDiskKeyStoreToDB()
+	})
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
