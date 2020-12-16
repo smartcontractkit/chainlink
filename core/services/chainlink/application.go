@@ -145,10 +145,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	services.RegisterDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, store.DB)
 	var subservices []StartCloser
-	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, store.Config, store.DB)
+	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 && config.P2PPeerIDIsSet() {
+		logger.Debug("Off-chain reporting enabled")
+		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
 		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+	} else {
+		logger.Debug("Off-chain reporting disabled")
 	}
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 

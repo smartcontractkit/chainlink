@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Key-related API endpoints have changed. All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
 - All key deletion commands now perform a soft-delete (i.e. archive) by default. A special CLI flag or query string parameter must be provided to hard-delete a key.
+- Node now supports multiple OCR jobs sharing the same peer ID. You must specify `P2P_PEER_ID` to indicate which key to use (even if there is only one key). The process of setting up a node with a key now looks like this:
+    1. Start the node
+    2. Create the P2P key, note the peer ID
+    3. Add `P2P_PEER_ID=XXX` to your .env
+    4. Restart the nodes to run your first job
 
 ## [0.9.8] - 2020-12-17
 
