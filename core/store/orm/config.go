@@ -136,7 +136,7 @@ func (c *Config) Validate() error {
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
 	}
-	if _, err := c.P2PPeerID(""); errors.Cause(err) == ErrInvalid {
+	if _, err := c.P2PPeerID(nil); errors.Cause(err) == ErrInvalid {
 		return err
 	}
 	if _, err := c.OCRKeyBundleID(nil); errors.Cause(err) == ErrInvalid {
@@ -737,9 +737,9 @@ func (c Config) P2PPeerstoreWriteInterval() time.Duration {
 	return c.getWithFallback("P2PPeerstoreWriteInterval", parseDuration).(time.Duration)
 }
 
-func (c Config) P2PPeerID(override models.PeerID) (models.PeerID, error) {
-	if override != "" {
-		return override, nil
+func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
+	if override != nil {
+		return *override, nil
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
