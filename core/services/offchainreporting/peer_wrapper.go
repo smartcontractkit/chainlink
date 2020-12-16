@@ -3,10 +3,11 @@ package offchainreporting
 import (
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"

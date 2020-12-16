@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/jinzhu/gorm"
@@ -15,10 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -72,12 +72,12 @@ func (d jobSpawnerDelegate) JobType() job.Type {
 	return JobType
 }
 
-func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
+func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
 	concreteSpec, ok := spec.(OracleSpec)
 	if !ok {
 		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
 	}
-	return models.JobSpecV2{
+	return job.JobSpecV2{
 		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
 		Type:                        string(JobType),
 		SchemaVersion:               concreteSpec.SchemaVersion,
@@ -85,7 +85,7 @@ func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
 	}
 }
 
-func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
+func (d jobSpawnerDelegate) FromDBRow(spec job.JobSpecV2) job.Spec {
 	if spec.OffchainreportingOracleSpec == nil {
 		return nil
 	}

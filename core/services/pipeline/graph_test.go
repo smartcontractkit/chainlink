@@ -1,4 +1,4 @@
-package pipeline_test
+package pipeline
 
 import (
 	"net/url"
@@ -9,7 +9,6 @@ import (
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -97,8 +96,8 @@ func TestGraph_Decode(t *testing.T) {
 		},
 	}
 
-	g := pipeline.NewTaskDAG()
-	err := g.UnmarshalText([]byte(dotStr))
+	g := NewTaskDAG()
+	err := g.UnmarshalText([]byte(DotStr))
 	require.NoError(t, err)
 
 	nodes := make(map[string]int64)
@@ -119,46 +118,46 @@ func TestGraph_Decode(t *testing.T) {
 }
 
 func TestGraph_TasksInDependencyOrder(t *testing.T) {
-	g := pipeline.NewTaskDAG()
-	err := g.UnmarshalText([]byte(dotStr))
+	g := NewTaskDAG()
+	err := g.UnmarshalText([]byte(DotStr))
 	require.NoError(t, err)
 
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
-	answer1 := &pipeline.MedianTask{
-		BaseTask:      pipeline.NewBaseTask("answer1", nil, 0),
+	answer1 := &MedianTask{
+		BaseTask:      NewBaseTask("answer1", nil, 0),
 		AllowedFaults: 1,
 	}
-	answer2 := &pipeline.BridgeTask{
+	answer2 := &BridgeTask{
 		Name:     "election_winner",
-		BaseTask: pipeline.NewBaseTask("answer2", nil, 1),
+		BaseTask: NewBaseTask("answer2", nil, 1),
 	}
-	ds1_multiply := &pipeline.MultiplyTask{
+	ds1_multiply := &MultiplyTask{
 		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0),
+		BaseTask: NewBaseTask("ds1_multiply", answer1, 0),
 	}
-	ds1_parse := &pipeline.JSONParseTask{
+	ds1_parse := &JSONParseTask{
 		Path:     []string{"one", "two"},
-		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0),
+		BaseTask: NewBaseTask("ds1_parse", ds1_multiply, 0),
 	}
-	ds1 := &pipeline.BridgeTask{
+	ds1 := &BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0),
+		BaseTask: NewBaseTask("ds1", ds1_parse, 0),
 	}
-	ds2_multiply := &pipeline.MultiplyTask{
+	ds2_multiply := &MultiplyTask{
 		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0),
+		BaseTask: NewBaseTask("ds2_multiply", answer1, 0),
 	}
-	ds2_parse := &pipeline.JSONParseTask{
+	ds2_parse := &JSONParseTask{
 		Path:     []string{"three", "four"},
-		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0),
+		BaseTask: NewBaseTask("ds2_parse", ds2_multiply, 0),
 	}
-	ds2 := &pipeline.HTTPTask{
+	ds2 := &HTTPTask{
 		URL:         models.WebURL(*u),
 		Method:      "GET",
-		RequestData: pipeline.HttpRequestData{"hi": "hello"},
-		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0),
+		RequestData: HttpRequestData{"hi": "hello"},
+		BaseTask:    NewBaseTask("ds2", ds2_parse, 0),
 	}
 
 	tasks, err := g.TasksInDependencyOrder()
@@ -171,7 +170,7 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 		}
 	}
 
-	expected := []pipeline.Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
+	expected := []Task{ds1, ds1_parse, ds1_multiply, ds2, ds2_parse, ds2_multiply, answer1, answer2}
 	require.Len(t, tasks, len(expected))
 
 	for _, task := range expected {
@@ -180,12 +179,12 @@ func TestGraph_TasksInDependencyOrder(t *testing.T) {
 }
 
 func TestGraph_HasCycles(t *testing.T) {
-	g := pipeline.NewTaskDAG()
-	err := g.UnmarshalText([]byte(dotStr))
+	g := NewTaskDAG()
+	err := g.UnmarshalText([]byte(DotStr))
 	require.NoError(t, err)
 	require.False(t, g.HasCycles())
 
-	g = pipeline.NewTaskDAG()
+	g = NewTaskDAG()
 	err = dot.Unmarshal([]byte(`
         digraph {
             a [type=bridge];

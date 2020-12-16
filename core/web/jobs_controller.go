@@ -24,7 +24,7 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.GetStore().ORM.JobsV2()
+	jobs, err := jc.App.GetJobORM().JobsV2()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -37,14 +37,14 @@ func (jc *JobsController) Index(c *gin.Context) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	jobSpec, err = jc.App.GetStore().ORM.FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.GetJobORM().FindJob(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -83,7 +83,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	switch genericJS.Type {
 	case string(offchainreporting.JobType):
 		jc.createOCR(c, request.TOML)
-	case string(models.EthRequestEventJobType):
+	case string(job.EthRequestEventJobType):
 		jc.createEthRequestEvent(c, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
@@ -113,7 +113,7 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 
-	job, err := jc.App.GetStore().ORM.FindJob(jobID)
+	job, err := jc.App.GetJobORM().FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -138,7 +138,7 @@ func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
 		return
 	}
 
-	job, err := jc.App.GetStore().ORM.FindJob(jobID)
+	job, err := jc.App.GetJobORM().FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -151,7 +151,7 @@ func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

@@ -18,7 +18,7 @@ type EthRequestEventSpec struct {
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
-	models.EthRequestEventSpec
+	job.EthRequestEventSpec
 
 	// The `jobID` field exists to cache the ID from the jobs table that joins
 	// to the eth_request_events table.
@@ -42,7 +42,7 @@ func (spec EthRequestEventSpec) JobID() int32 {
 }
 
 func (spec EthRequestEventSpec) JobType() job.Type {
-	return models.EthRequestEventJobType
+	return job.EthRequestEventJobType
 }
 
 func (spec EthRequestEventSpec) TaskDAG() pipeline.TaskDAG {
@@ -52,23 +52,23 @@ func (spec EthRequestEventSpec) TaskDAG() pipeline.TaskDAG {
 type ethRequestEventSpecDelegate struct{}
 
 func (d *ethRequestEventSpecDelegate) JobType() job.Type {
-	return models.EthRequestEventJobType
+	return job.EthRequestEventJobType
 }
 
-func (d *ethRequestEventSpecDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
+func (d *ethRequestEventSpecDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
 	concreteSpec, ok := spec.(EthRequestEventSpec)
 	if !ok {
 		panic(fmt.Sprintf("expected a services.EthRequestEventSpec, got %T", spec))
 	}
-	return models.JobSpecV2{
+	return job.JobSpecV2{
 		EthRequestEventSpec: &concreteSpec.EthRequestEventSpec,
-		Type:                string(models.EthRequestEventJobType),
+		Type:                string(job.EthRequestEventJobType),
 		SchemaVersion:       concreteSpec.SchemaVersion,
 		MaxTaskDuration:     concreteSpec.MaxTaskDuration,
 	}
 }
 
-func (d *ethRequestEventSpecDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
+func (d *ethRequestEventSpecDelegate) FromDBRow(spec job.JobSpecV2) job.Spec {
 	if spec.EthRequestEventSpec == nil {
 		return nil
 	}

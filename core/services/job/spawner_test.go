@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
 )
 
@@ -40,7 +39,7 @@ func (d delegate) ServicesForSpec(js job.Spec) ([]job.Service, error) {
 	return d.services, nil
 }
 
-func (d delegate) FromDBRow(dbRow models.JobSpecV2) job.Spec {
+func (d delegate) FromDBRow(dbRow job.JobSpecV2) job.Spec {
 	if d.chContinueCreatingServices != nil {
 		<-d.chContinueCreatingServices
 	}
@@ -53,7 +52,7 @@ func (d delegate) FromDBRow(dbRow models.JobSpecV2) job.Spec {
 	return &spec{inner, d.jobType}
 }
 
-func (d delegate) ToDBRow(js job.Spec) models.JobSpecV2 {
+func (d delegate) ToDBRow(js job.Spec) job.JobSpecV2 {
 	// Unwrap
 	inner := js.(*spec).Spec.(*offchainreporting.OracleSpec)
 	return d.Delegate.ToDBRow(*inner)
