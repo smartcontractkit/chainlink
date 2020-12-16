@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New CLI commands for key management:
+  - `chainlink keys eth import`
+  - `chainlink keys eth export`
+  - `chainlink keys eth delete`
+- All keys other than VRF keys now share the same password. If you have OCR, P2P, and ETH keys encrypted with different passwords, re-insert them into your DB encrypted with the same password prior to upgrading.
+
+### Changed
+
+- Key-related API endpoints have changed. All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
+- All key deletion commands now perform a soft-delete (i.e. archive) by default. A special CLI flag or query string parameter must be provided to hard-delete a key.
+
 ## [0.9.8] - 2020-12-17
 
 ### Fixed
@@ -23,15 +36,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
+- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
 
 ### Fixed
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
-
-### Changes
-
-- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
+- Fixed reading of function selector values in DB.
+- Support for bignums encoded in CBOR
 
 #### BREAKING CHANGES
 

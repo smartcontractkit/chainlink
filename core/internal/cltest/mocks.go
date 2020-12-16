@@ -81,8 +81,6 @@ func MockEthOnStore(t testing.TB, s *store.Store, flagsAndDependencies ...interf
 			switch dep := flag.(type) {
 			case eth.Client:
 				ethClient = dep
-			default:
-				t.Fatalf("unknown dependency: (%T) %+v", flag, flag)
 			}
 		}
 	}

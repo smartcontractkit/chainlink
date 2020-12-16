@@ -3,8 +3,10 @@ package chainlink
 import (
 	"context"
 	stderr "errors"
+	"fmt"
 	"os"
 	"os/signal"
+	"reflect"
 	"sync"
 	"syscall"
 
@@ -29,9 +31,16 @@ import (
 )
 
 // headTrackableCallback is a simple wrapper around an On Connect callback
-type headTrackableCallback struct {
-	onConnect func()
-}
+type (
+	headTrackableCallback struct {
+		onConnect func()
+	}
+
+	StartCloser interface {
+		Start() error
+		Close() error
+	}
+)
 
 func (c *headTrackableCallback) Connect(*models.Head) error {
 	c.onConnect()
@@ -86,15 +95,19 @@ type ChainlinkApplication struct {
 	shutdownSignal           gracefulpanic.Signal
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
+	subservices              []StartCloser
+
+	started     bool
+	startStopMu sync.Mutex
 }
 
 // NewApplication initializes a new store if one is not already
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal)
+	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
 	config.SetRuntimeStore(store.ORM)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
@@ -130,10 +143,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	if config.Dev() || config.FeatureOffchainReporting() {
-		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster)
-	}
 	services.RegisterEthRequestEventDelegate(jobSpawner)
+	var subservices []StartCloser
+	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 {
+		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, store.Config, store.DB)
+		subservices = append(subservices, concretePW)
+		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+	}
+	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -159,6 +176,9 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		// NOTE: Can keep things clean by putting more things in subservices
+		// instead of manually start/closing
+		subservices: subservices,
 	}
 
 	headTrackables := []strpkg.HeadTrackable{gasUpdater}
@@ -187,6 +207,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 // listens for interrupt signals from the operating system so that the
 // application can be properly closed before the application exits.
 func (app *ChainlinkApplication) Start() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	if app.started {
+		panic("application is already started")
+	}
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -229,15 +255,37 @@ func (app *ChainlinkApplication) Start() error {
 		}
 	}
 
-	app.jobSpawner.Start()
-	app.pipelineRunner.Start()
+	for _, subservice := range app.subservices {
+		if err := subservice.Start(); err != nil {
+			return err
+		}
+	}
 
+	app.started = true
+	return nil
+}
+
+func (app *ChainlinkApplication) StopIfStarted() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	if app.started {
+		return app.stop()
+	}
 	return nil
 }
 
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
 func (app *ChainlinkApplication) Stop() error {
+	app.startStopMu.Lock()
+	defer app.startStopMu.Unlock()
+	return app.stop()
+}
+
+func (app *ChainlinkApplication) stop() error {
+	if !app.started {
+		panic("application is already stopped")
+	}
 	var merr error
 	app.shutdownOnce.Do(func() {
 		defer func() {
@@ -250,6 +298,13 @@ func (app *ChainlinkApplication) Stop() error {
 			}
 		}()
 		logger.Info("Gracefully exiting...")
+
+		// Stop services in the reverse order from which they were started
+		for i := len(app.subservices) - 1; i >= 0; i-- {
+			service := app.subservices[i]
+			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
+			merr = multierr.Append(merr, service.Close())
+		}
 
 		logger.Debug("Stopping LogBroadcaster...")
 		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
@@ -275,14 +330,12 @@ func (app *ChainlinkApplication) Stop() error {
 		merr = multierr.Append(merr, app.explorerClient.Close())
 		logger.Debug("Stopping SessionReaper...")
 		merr = multierr.Append(merr, app.SessionReaper.Stop())
-		logger.Debug("Stopping pipelineRunner...")
-		app.pipelineRunner.Stop()
-		logger.Debug("Stopping jobSpawner...")
-		app.jobSpawner.Stop()
 		logger.Debug("Closing Store...")
 		merr = multierr.Append(merr, app.Store.Close())
 
 		logger.Info("Exited all services")
+
+		app.started = false
 	})
 	return merr
 }

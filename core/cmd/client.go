@@ -81,7 +81,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -529,7 +529,7 @@ func confirmAction(c *clipkg.Context) bool {
 	prompt := NewTerminalPrompter()
 	var answer string
 	for {
-		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no) ")
 		if answer == "yes" {
 			return true
 		} else if answer == "no" {
