@@ -44,7 +44,7 @@ var (
 
 	makeRoundDataForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundData {
 		return contracts.FluxAggregatorRoundData{
-			RoundID: roundID,
+			RoundID: big.NewInt(int64(roundID)),
 		}
 	}
 	freshContractRoundDataResponse = func() (contracts.FluxAggregatorRoundData, error) {
