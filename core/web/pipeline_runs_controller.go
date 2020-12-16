@@ -3,11 +3,12 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 // PipelineRunsController manages V2 job run requests.
@@ -19,7 +20,7 @@ type PipelineRunsController struct {
 // Example:
 // "GET <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -63,7 +64,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.JobSpecV2{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -77,7 +78,7 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, models.PipelineRun{ID: jobRunID}, "offChainReportingPipelineRun")
+	jsonAPIResponse(c, job.PipelineRun{ID: jobRunID}, "offChainReportingPipelineRun")
 }
 
 func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {

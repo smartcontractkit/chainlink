@@ -1,4 +1,4 @@
-package pipeline_test
+package job_test
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	"gopkg.in/guregu/null.v4"
 
@@ -22,7 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
@@ -69,7 +70,7 @@ func TestRunner(t *testing.T) {
 		}
 
 		// Need a job in order to create a run
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL)
+		ocrSpec, dbSpec := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL)
 		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
@@ -328,7 +329,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		js := models.JobSpecV2{
+		js := job.JobSpecV2{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
@@ -336,7 +337,7 @@ ds1 -> ds1_parse;
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -374,7 +375,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		js := models.JobSpecV2{
+		js := job.JobSpecV2{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
@@ -382,7 +383,7 @@ ds1 -> ds1_parse;
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -435,7 +436,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		js := models.JobSpecV2{
+		js := job.JobSpecV2{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
@@ -443,7 +444,7 @@ ds1 -> ds1_parse;
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "id = ?", js.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -485,14 +486,14 @@ ds1 -> ds1_parse;
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
 
-		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+		err = jobORM.CreateJob(context.Background(), &job.JobSpecV2{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
 			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -526,13 +527,13 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
-		err = jobORM.CreateJob(context.Background(), &models.JobSpecV2{
+		err = jobORM.CreateJob(context.Background(), &job.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Type:                        string(offchainreporting.JobType),
 			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -566,7 +567,7 @@ ds1 -> ds1_parse;
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, ocrspec.TaskDAG())
 		require.NoError(t, err)
-		var jb models.JobSpecV2
+		var jb job.JobSpecV2
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
 			Find(&jb).Error
 		require.NoError(t, err)
@@ -596,13 +597,13 @@ ds1 -> ds1_parse;
 			require.NoError(t, err)
 		}
 
-		var se []models.JobSpecErrorV2
+		var se []job.JobSpecErrorV2
 		err = db.Find(&se).Error
 		require.NoError(t, err)
 		require.Len(t, se, 1)
 		assert.Equal(t, uint(1), se[0].Occurrences)
 
-		// Ensure we can delete an errored job.
+		// Ensure we can delete an errored
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
 		require.NoError(t, err)
 		err = jobORM.DeleteJob(context.Background(), jb.ID)
@@ -678,7 +679,7 @@ ds1 -> ds1_parse;
 		defer serv.Close()
 
 		os := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
-		jb := &models.JobSpecV2{
+		jb := &job.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job", true),
 			Type:                        string(offchainreporting.JobType),
@@ -696,7 +697,7 @@ ds1 -> ds1_parse;
 
 		// No task timeout should succeed.
 		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb = &models.JobSpecV2{
+		jb = &job.JobSpecV2{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job 2", true),
 			Type:                        string(offchainreporting.JobType),
@@ -715,7 +716,7 @@ ds1 -> ds1_parse;
 
 		// Job specified task timeout should fail.
 		os = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb = &models.JobSpecV2{
+		jb = &job.JobSpecV2{
 			MaxTaskDuration:             models.Interval(time.Duration(1)),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job 3", true),

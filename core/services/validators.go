@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -386,7 +388,7 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offcha
 		}
 	}()
 
-	var oros models.OffchainReportingOracleSpec
+	var oros job.OffchainReportingOracleSpec
 	spec = offchainreporting.OracleSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -545,7 +547,7 @@ func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, 
 		}
 	}()
 
-	var eres models.EthRequestEventSpec
+	var eres job.EthRequestEventSpec
 	spec = EthRequestEventSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}

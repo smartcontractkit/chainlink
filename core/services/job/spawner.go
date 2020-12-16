@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -52,8 +51,8 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
-		ToDBRow(spec Spec) models.JobSpecV2
-		FromDBRow(spec models.JobSpecV2) Spec
+		ToDBRow(spec Spec) JobSpecV2
+		FromDBRow(spec JobSpecV2) Spec
 		ServicesForSpec(spec Spec) ([]Service, error)
 	}
 )

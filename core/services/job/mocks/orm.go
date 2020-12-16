@@ -5,9 +5,9 @@ package mocks
 import (
 	context "context"
 
-	mock "github.com/stretchr/testify/mock"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	models "github.com/smartcontractkit/chainlink/core/store/models"
+	mock "github.com/stretchr/testify/mock"
 
 	pipeline "github.com/smartcontractkit/chainlink/core/services/pipeline"
 
@@ -43,15 +43,15 @@ func (_m *ORM) CheckForDeletedJobs(ctx context.Context) ([]int32, error) {
 }
 
 // ClaimUnclaimedJobs provides a mock function with given fields: ctx
-func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
+func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]job.JobSpecV2, error) {
 	ret := _m.Called(ctx)
 
-	var r0 []models.JobSpecV2
-	if rf, ok := ret.Get(0).(func(context.Context) []models.JobSpecV2); ok {
+	var r0 []job.JobSpecV2
+	if rf, ok := ret.Get(0).(func(context.Context) []job.JobSpecV2); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]models.JobSpecV2)
+			r0 = ret.Get(0).([]job.JobSpecV2)
 		}
 	}
 
@@ -80,11 +80,11 @@ func (_m *ORM) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: ctx, jobSpec, taskDAG
-func (_m *ORM) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
+func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.JobSpecV2, taskDAG pipeline.TaskDAG) error {
 	ret := _m.Called(ctx, jobSpec, taskDAG)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *models.JobSpecV2, pipeline.TaskDAG) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *job.JobSpecV2, pipeline.TaskDAG) error); ok {
 		r0 = rf(ctx, jobSpec, taskDAG)
 	} else {
 		r0 = ret.Error(0)

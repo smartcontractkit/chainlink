@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -33,8 +32,10 @@ var (
 type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
 	ListenForDeletedJobs() (postgres.Subscription, error)
-	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
-	CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
+	ClaimUnclaimedJobs(ctx context.Context) ([]JobSpecV2, error)
+	CreateJob(ctx context.Context, jobSpec *JobSpecV2, taskDAG pipeline.TaskDAG) error
+	JobsV2() ([]JobSpecV2, error)
+	FindJob(id int32) (JobSpecV2, error)
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
 	UnclaimJob(ctx context.Context, id int32) error
@@ -49,7 +50,7 @@ type orm struct {
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
 	eventBroadcaster    postgres.EventBroadcaster
-	claimedJobs         map[int32]models.JobSpecV2
+	claimedJobs         map[int32]JobSpecV2
 	claimedJobsMu       *sync.RWMutex
 }
 
@@ -63,7 +64,7 @@ func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcast
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
 		pipelineORM:         pipelineORM,
 		eventBroadcaster:    eventBroadcaster,
-		claimedJobs:         make(map[int32]models.JobSpecV2),
+		claimedJobs:         make(map[int32]JobSpecV2),
 		claimedJobsMu:       new(sync.RWMutex),
 	}
 }
@@ -81,7 +82,7 @@ func (o *orm) ListenForDeletedJobs() (postgres.Subscription, error) {
 }
 
 // ClaimUnclaimedJobs locks all currently unlocked jobs and returns all jobs locked by this process
-func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
+func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]JobSpecV2, error) {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
@@ -110,7 +111,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 		args = []interface{}{o.advisoryLockClassID}
 	}
 
-	var newlyClaimedJobs []models.JobSpecV2
+	var newlyClaimedJobs []JobSpecV2
 	err := o.db.
 		Joins(join, args...).
 		Preload("OffchainreportingOracleSpec").
@@ -134,7 +135,7 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
-func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
+func (o *orm) CreateJob(ctx context.Context, jobSpec *JobSpecV2, taskDAG pipeline.TaskDAG) error {
 	if taskDAG.HasCycles() {
 		return errors.New("task DAG has cycles, which are not permitted")
 	}
@@ -143,7 +144,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG)
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG, jobSpec.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
@@ -239,7 +240,7 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 }
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
-	pse := models.JobSpecErrorV2{JobID: jobID, Description: description, Occurrences: 1}
+	pse := JobSpecErrorV2{JobID: jobID, Description: description, Occurrences: 1}
 	err := o.db.
 		Set(
 			"gorm:insert_option",
@@ -253,4 +254,30 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 		return
 	}
 	logger.ErrorIf(err, fmt.Sprintf("error creating JobSpecErrorV2 %v", description))
+}
+
+// OffChainReportingJobs returns job specs
+func (o *orm) JobsV2() ([]JobSpecV2, error) {
+	var jobs []JobSpecV2
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("EthRequestEventSpec").
+		Preload("JobSpecErrors").
+		Find(&jobs).
+		Error
+	return jobs, err
+}
+
+// FindJob returns job by ID
+func (o *orm) FindJob(id int32) (JobSpecV2, error) {
+	var job JobSpecV2
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("EthRequestEventSpec").
+		Preload("JobSpecErrors").
+		First(&job, "jobs.id = ?", id).
+		Error
+	return job, err
 }

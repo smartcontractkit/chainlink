@@ -556,6 +556,7 @@ github.com/karrick/godirwalk v1.10.12/go.mod h1:RoGL9dQei4vP9ilrpETWE8CLOZ1kiN0L
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0 h1:reN85Pxc5larApoH1keMBiu2GWtPqXQ1nc9gx+jOU+E=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
+github.com/kisielk/errcheck v1.4.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kkdai/bstream v0.0.0-20161212061736-f391b8402d23/go.mod h1:J+Gs4SYgM6CZQHDETBtE9HaSEkGmuNXF86RwHhHUvq4=
 github.com/klauspost/cpuid v1.2.1/go.mod h1:Pj4uuM528wm8OyEC2QMXAi2YiTZ96dNQPGgoMS4s3ek=
@@ -1093,8 +1094,6 @@ github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.m
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5 h1:nIjd4ebsU5dphoziTp/F79RNv8x3wOZmrn6A/5oYHI0=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
-github.com/smartcontractkit/libocr v0.0.0-20201209002813-4110928c10ff h1:Oae3c2S40byotDVqIBZ5RRuoSLeC4IMpUf8b8DiicMo=
-github.com/smartcontractkit/libocr v0.0.0-20201209002813-4110928c10ff/go.mod h1:HTs6XN84o17vgbw3F8XEl3pal91qxpSzlJYjsoqMpzw=
 github.com/smartcontractkit/libocr v0.0.0-20201217004406-38540d6302ee h1:m+3g52OQeqJjDAlrexme2us2RWCfKB9XpHmKcbDkws4=
 github.com/smartcontractkit/libocr v0.0.0-20201217004406-38540d6302ee/go.mod h1:GIwvGiV2QUQHg8UHCzyEj0KSVbuS4cYq/WzQqPa4fnE=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d h1:zE9ykElWQ6/NYmHa3jpm/yHnI4xSofP+UP6SpjHcSeM=
@@ -1502,13 +1501,11 @@ golang.org/x/tools v0.0.0-20200130002326-2f3ba24bd6e7/go.mod h1:TB2adYChydJhpapK
 golang.org/x/tools v0.0.0-20200207183749-b753a1ba74fa/go.mod h1:TB2adYChydJhpapKDTa4BR/hXlZSLoq2Wpct/0txZ28=
 golang.org/x/tools v0.0.0-20200410194907-79a7a3126eef/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20200414032229-332987a829c3/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
+golang.org/x/tools v0.0.0-20200619180055-7c47624df98f/go.mod h1:EkVYQZoAsY45+roYkvgYkIh4xh/qjgUK9TdY2XT94GE=
 golang.org/x/tools v0.0.0-20201124202034-299f270db459/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/tools v0.0.0-20201202200335-bef1c476418a h1:TYqOq/v+Ri5aADpldxXOj6PmvcPMOJbLjdALzZDQT2M=
 golang.org/x/tools v0.0.0-20201202200335-bef1c476418a/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
-golang.org/x/tools v0.0.0-20201203230154-39497347062d h1:ChJAHTAuCcMx4RHS9P/KnYnJ1UEgJDZNRtvF0TJ0wbg=
-golang.org/x/tools v0.0.0-20201203230154-39497347062d/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
-golang.org/x/tools v0.0.0-20201211025543-abf6a1d87e11 h1:9j/upNXDRpADUw2RpUfJ7E7GHtfhDih62kX6JM8vs2c=
-golang.org/x/tools v0.0.0-20201211025543-abf6a1d87e11/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58 h1:1Bs6RVeBFtLZ8Yi1Hk07DiOqzvwLD/4hln4iahvFlag=
 golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=

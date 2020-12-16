@@ -864,35 +864,8 @@ func (orm *ORM) JobsSorted(sort SortType, offset int, limit int) ([]models.JobSp
 	return jobs, count, err
 }
 
-// OffChainReportingJobs returns job specs
-func (orm *ORM) JobsV2() ([]models.JobSpecV2, error) {
-	orm.MustEnsureAdvisoryLock()
-	var jobs []models.JobSpecV2
-	err := orm.DB.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("EthRequestEventSpec").
-		Preload("JobSpecErrors").
-		Find(&jobs).
-		Error
-	return jobs, err
-}
-
-// FindJob returns job by ID
-func (orm *ORM) FindJob(id int32) (models.JobSpecV2, error) {
-	orm.MustEnsureAdvisoryLock()
-	var job models.JobSpecV2
-	err := orm.DB.
-		Preload("PipelineSpec").
-		Preload("OffchainreportingOracleSpec").
-		Preload("EthRequestEventSpec").
-		Preload("JobSpecErrors").
-		First(&job, "jobs.id = ?", id).
-		Error
-	return job, err
-}
-
 // PipelineRunsByJobID returns pipeline runs for a job
+// TODO: should live under the jobORM also?
 func (orm *ORM) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	orm.MustEnsureAdvisoryLock()
 

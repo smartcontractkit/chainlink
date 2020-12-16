@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
@@ -71,7 +73,7 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), monitoringEndpoint, keyBundleID)
 }
 
-func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Address) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
+func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Address) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
 	t.Helper()
 
 	peerID := DefaultP2PPeerID
@@ -82,7 +84,7 @@ func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Ad
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
+	dbSpec := job.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
 	return &ocrspec, &dbSpec
 }
 
@@ -90,7 +92,7 @@ func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Ad
 // to do equality comparisons of these structs manually.
 //
 // https://github.com/stretchr/testify/issues/984
-func CompareOCRJobSpecs(t *testing.T, expected, actual models.JobSpecV2) {
+func CompareOCRJobSpecs(t *testing.T, expected, actual job.JobSpecV2) {
 	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
