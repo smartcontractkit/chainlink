@@ -316,7 +316,7 @@ func TestRunner(t *testing.T) {
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = false 
+		isBootstrapPeer    = false
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -366,7 +366,7 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = true 
+		isBootstrapPeer    = true
 `
 		config.Set("P2P_PEER_ID", ek.PeerID)
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
@@ -417,7 +417,7 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = false 
+		isBootstrapPeer    = false
 		observationTimeout = "15s"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
@@ -599,9 +599,8 @@ ds1 -> ds1_parse;
 		var se []models.JobSpecErrorV2
 		err = db.Find(&se).Error
 		require.NoError(t, err)
-		require.Len(t, se, 2)
+		require.Len(t, se, 1)
 		assert.Equal(t, uint(1), se[0].Occurrences)
-		assert.Equal(t, uint(1), se[1].Occurrences)
 
 		// Ensure we can delete an errored job.
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
