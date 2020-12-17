@@ -6,20 +6,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()

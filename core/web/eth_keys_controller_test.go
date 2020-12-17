@@ -1,41 +1,42 @@
 package web_test
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.Client)
-
-	app, cleanup := cltest.NewApplicationWithKey(t, ethClient)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
-
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
-
 	_, err := app.Store.KeyStore.NewAccount()
 	require.NoError(t, err)
 	require.NoError(t, app.Store.SyncDiskKeyStoreToDB())
 
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
-	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLink(1), nil).Once()
+	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Run(func(args mock.Arguments) {
+		*args.Get(0).(*string) = "256"
+	}).Return(nil).Once()
+	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Run(func(args mock.Arguments) {
+		*args.Get(0).(*string) = "1"
+	}).Return(nil).Once()
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
 
 	require.NoError(t, app.Start())
 
@@ -60,20 +61,15 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	assert.Equal(t, expectedAccounts[1].Address.Hex(), second.Address)
 	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
 	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
-	fmt.Println("3333")
 }
 
 func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
 
-	ethClient := new(mocks.Client)
-
-	app, cleanup := cltest.NewApplication(t, ethClient)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t, eth.NewClientWith(rpcClient, gethClient))
 	defer cleanup()
-
-	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
-	defer verify()
-
 	require.NoError(t, app.Start())
 
 	err := app.Store.ORM.DB.Delete(models.Key{}).Error
