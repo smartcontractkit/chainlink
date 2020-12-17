@@ -24,7 +24,6 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
-	github.com/kisielk/errcheck v1.4.0 // indirect
 	github.com/lib/pq v1.8.0
 	github.com/libp2p/go-libp2p-core v0.6.1
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
