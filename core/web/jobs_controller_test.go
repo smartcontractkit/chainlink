@@ -128,7 +128,7 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	defer cleanup()
 
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
-		TOML: string(cltest.MustReadFile(t, "testdata/eth-request-event-spec.toml")),
+		TOML: string(cltest.MustReadFile(t, "testdata/direct-request-spec.toml")),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
