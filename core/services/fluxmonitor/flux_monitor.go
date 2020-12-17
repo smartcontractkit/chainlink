@@ -1039,7 +1039,8 @@ func (p *PollingDeviationChecker) initialRoundState() contracts.FluxAggregatorRo
 		)
 		return defaultRoundState
 	}
-	latestRoundState, err := p.fluxAggregator.RoundState(p.oracleAddress, latestRoundData.RoundID)
+	roundID := uint32(latestRoundData.RoundID.Uint64())
+	latestRoundState, err := p.fluxAggregator.RoundState(p.oracleAddress, roundID)
 	if err != nil {
 		logger.Warnf(
 			"unable to call roundState for latest round, contract: %s, round: %d, err: %v",

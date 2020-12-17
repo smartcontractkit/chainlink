@@ -87,11 +87,11 @@ type FluxAggregatorRoundState struct {
 }
 
 type FluxAggregatorRoundData struct {
-	RoundID         uint32   `abi:"roundId" json:"reportableRoundID"`
+	RoundID         *big.Int `abi:"roundId" json:"reportableRoundID"`
 	Answer          *big.Int `abi:"answer" json:"latestAnswer,omitempty"`
-	StartedAt       uint64   `abi:"startedAt" json:"startedAt"`
-	UpdatedAt       uint64   `abi:"updatedAt" json:"updatedAt"`
-	AnsweredInRound uint32   `abi:"answeredInRound" json:"availableFunds,omitempty"`
+	StartedAt       *big.Int `abi:"startedAt" json:"startedAt"`
+	UpdatedAt       *big.Int `abi:"updatedAt" json:"updatedAt"`
+	AnsweredInRound *big.Int `abi:"answeredInRound" json:"availableFunds,omitempty"`
 }
 
 func (rs FluxAggregatorRoundState) TimesOutAt() uint64 {
