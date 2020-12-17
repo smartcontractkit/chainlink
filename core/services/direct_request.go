@@ -20,18 +20,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-var (
-	DirectRequestLogTopic = getDirectRequestLogTopic()
-)
-
-func getDirectRequestLogTopic() gethCommon.Hash {
-	abi, err := abi.JSON(strings.NewReader(offchainaggregator.OffchainAggregatorABI))
-	if err != nil {
-		panic("could not parse OffchainAggregator ABI: " + err.Error())
-	}
-	return abi.Events["ConfigSet"].ID
-}
-
 // DirectRequest is a wrapper for `models.DirectRequest`, the DB
 // representation of the job spec. It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
