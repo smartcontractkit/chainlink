@@ -1210,3 +1210,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
 	assertPrices(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
 }
+
+func TestIntegration_DirectRequest(t *testing.T) {
+	t.Fatal("TODO: Write some tests")
+}

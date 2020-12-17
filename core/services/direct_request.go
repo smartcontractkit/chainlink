@@ -94,6 +94,7 @@ func (d *DirectRequestSpecDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
 }
 
 // ServicesForSpec TODO
+// TODO: This needs heavy test coverage
 func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
 	concreteSpec, is := spec.(*DirectRequestSpec)
 	if !is {
