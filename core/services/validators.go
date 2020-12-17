@@ -538,15 +538,15 @@ func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
 	return err
 }
 
-func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, err error) {
+func ValidatedDirectRequestSpec(tomlString string) (spec DirectRequestSpec, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("panicked with err %v", r)
 		}
 	}()
 
-	var eres models.EthRequestEventSpec
-	spec = EthRequestEventSpec{
+	var eres models.DirectRequestSpec
+	spec = DirectRequestSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	tree, err := toml.Load(tomlString)
@@ -561,9 +561,9 @@ func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, 
 	if err != nil {
 		return spec, err
 	}
-	spec.EthRequestEventSpec = eres
+	spec.DirectRequestSpec = eres
 
-	if spec.Type != "ethrequestevent" {
+	if spec.Type != "DirectRequest" {
 		return spec, errors.Errorf("unsupported type %s", spec.Type)
 	}
 	if spec.SchemaVersion != uint32(1) {

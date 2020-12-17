@@ -83,8 +83,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 	switch genericJS.Type {
 	case string(offchainreporting.JobType):
 		jc.createOCR(c, request.TOML)
-	case string(models.EthRequestEventJobType):
-		jc.createEthRequestEvent(c, request.TOML)
+	case string(models.DirectRequestJobType):
+		jc.createDirectRequest(c, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
@@ -122,8 +122,8 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 	jsonAPIResponse(c, job, "offChainReportingJobSpec")
 }
 
-func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedEthRequestEventSpec(toml)
+func (jc *JobsController) createDirectRequest(c *gin.Context, toml string) {
+	jobSpec, err := services.ValidatedDirectRequestSpec(toml)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -144,7 +144,7 @@ func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
 		return
 	}
 
-	jsonAPIResponse(c, job, "ethRequestEventSpec")
+	jsonAPIResponse(c, job, "DirectRequestSpec")
 }
 
 // Delete soft deletes an OCR job spec.

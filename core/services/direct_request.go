@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -31,19 +32,19 @@ func getDirectRequestLogTopic() gethCommon.Hash {
 	return abi.Events["ConfigSet"].ID
 }
 
-// EthRequestEvent is a wrapper for `models.EthRequestEvent`, the DB
+// DirectRequest is a wrapper for `models.DirectRequest`, the DB
 // representation of the job spec. It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
-type EthRequestEventSpec struct {
+type DirectRequestSpec struct {
 	Type            string          `toml:"type"`
 	SchemaVersion   uint32          `toml:"schemaVersion"`
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
-	models.EthRequestEventSpec
+	models.DirectRequestSpec
 
 	// The `jobID` field exists to cache the ID from the jobs table that joins
-	// to the eth_request_events table.
+	// to the direct_requests table.
 	jobID int32
 
 	// The `Pipeline` field is only used during unmarshaling.  A pipeline.TaskDAG
@@ -56,64 +57,66 @@ type EthRequestEventSpec struct {
 	Pipeline pipeline.TaskDAG `toml:"observationSource"`
 }
 
-// EthRequestEventSpec conforms to the job.Spec interface
-var _ job.Spec = EthRequestEventSpec{}
+// DirectRequestSpec conforms to the job.Spec interface
+var _ job.Spec = DirectRequestSpec{}
 
-func (spec EthRequestEventSpec) JobID() int32 {
+func (spec DirectRequestSpec) JobID() int32 {
 	return spec.jobID
 }
 
-func (spec EthRequestEventSpec) JobType() job.Type {
-	return models.EthRequestEventJobType
+func (spec DirectRequestSpec) JobType() job.Type {
+	return models.DirectRequestJobType
 }
 
-func (spec EthRequestEventSpec) TaskDAG() pipeline.TaskDAG {
+func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
 	return spec.Pipeline
 }
 
-type ethRequestEventSpecDelegate struct {
+type DirectRequestSpecDelegate struct {
 	logBroadcaster eth.LogBroadcaster
 	pipelineRunner pipeline.Runner
+	db             *gorm.DB
 }
 
-func (d *ethRequestEventSpecDelegate) JobType() job.Type {
-	return models.EthRequestEventJobType
+func (d *DirectRequestSpecDelegate) JobType() job.Type {
+	return models.DirectRequestJobType
 }
 
-func (d *ethRequestEventSpecDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
-	concreteSpec, ok := spec.(EthRequestEventSpec)
+func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
+	concreteSpec, ok := spec.(DirectRequestSpec)
 	if !ok {
-		panic(fmt.Sprintf("expected a services.EthRequestEventSpec, got %T", spec))
+		panic(fmt.Sprintf("expected a services.DirectRequestSpec, got %T", spec))
 	}
 	return models.JobSpecV2{
-		EthRequestEventSpec: &concreteSpec.EthRequestEventSpec,
-		Type:                string(models.EthRequestEventJobType),
-		SchemaVersion:       concreteSpec.SchemaVersion,
-		MaxTaskDuration:     concreteSpec.MaxTaskDuration,
+		DirectRequestSpec: &concreteSpec.DirectRequestSpec,
+		Type:              string(models.DirectRequestJobType),
+		SchemaVersion:     concreteSpec.SchemaVersion,
+		MaxTaskDuration:   concreteSpec.MaxTaskDuration,
 	}
 }
 
-func (d *ethRequestEventSpecDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
-	if spec.EthRequestEventSpec == nil {
+func (d *DirectRequestSpecDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
+	if spec.DirectRequestSpec == nil {
 		return nil
 	}
-	return &EthRequestEventSpec{
-		EthRequestEventSpec: *spec.EthRequestEventSpec,
-		jobID:               spec.ID,
+	return &DirectRequestSpec{
+		DirectRequestSpec: *spec.DirectRequestSpec,
+		jobID:             spec.ID,
 	}
 }
 
 // ServicesForSpec TODO
-func (d *ethRequestEventSpecDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
-	concreteSpec, is := spec.(*EthRequestEventSpec)
+func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
+	concreteSpec, is := spec.(*DirectRequestSpec)
 	if !is {
-		return nil, errors.Errorf("services.ethRequestEventSpecDelegate expects a *services.EthRequestEventSpec, got %T", spec)
+		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *services.DirectRequestSpec, got %T", spec)
 	}
 
 	logListener := directRequestListener{
 		d.logBroadcaster,
 		concreteSpec.ContractAddress.Address(),
 		d.pipelineRunner,
+		d.db,
 		spec.JobID(),
 	}
 	services = append(services, logListener)
@@ -121,16 +124,17 @@ func (d *ethRequestEventSpecDelegate) ServicesForSpec(spec job.Spec) (services [
 	return
 }
 
-func RegisterEthRequestEventDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner) {
+func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
 	jobSpawner.RegisterDelegate(
-		NewEthRequestEventDelegate(jobSpawner, logBroadcaster, pipelineRunner),
+		NewDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, db),
 	)
 }
 
-func NewEthRequestEventDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner) *ethRequestEventSpecDelegate {
-	return &ethRequestEventSpecDelegate{
+func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
+	return &DirectRequestSpecDelegate{
 		logBroadcaster,
 		pipelineRunner,
+		db,
 	}
 }
 
@@ -143,6 +147,7 @@ type directRequestListener struct {
 	logBroadcaster  eth.LogBroadcaster
 	contractAddress gethCommon.Address
 	pipelineRunner  pipeline.Runner
+	db              *gorm.DB
 	jobID           int32
 }
 
@@ -191,46 +196,46 @@ func (d directRequestListener) HandleLog(lb eth.LogBroadcast, err error) {
 	switch log := log.(type) {
 	case *contracts.LogOracleRequest:
 		d.handleOracleRequest(log.ToOracleRequest())
-		return
+		err = lb.MarkConsumed()
+		if err != nil {
+			logger.Errorf("Error marking log as consumed: %v", err)
+		}
 	case *contracts.LogCancelOracleRequest:
-		d.handleCancelOracleRequest(log)
-		return
+		d.handleCancelOracleRequest(log.RequestId)
+		// TODO: Transactional/atomic log consumption would be nice
+		err = lb.MarkConsumed()
+		if err != nil {
+			logger.Errorf("Error marking log as consumed: %v", err)
+		}
 
 	default:
 		logger.Warnf("unexpected log type %T", log)
-		return
 	}
-
-	err = lb.MarkConsumed()
-	if err != nil {
-		logger.Errorw("OCRContract: could not mark log consumed", "error", err)
-	}
-	return
 }
 
-// TODO: This _really_ need to be async otherwise it will block log broadcaster
 func (d *directRequestListener) handleOracleRequest(req contracts.OracleRequest) {
+	meta := make(map[string]interface{})
+	meta["oracleRequest"] = req.ToMap()
 	ctx := context.TODO()
-	runID, err := d.pipelineRunner.CreateRun(ctx, d.jobID, nil)
+	_, err := d.pipelineRunner.CreateRun(ctx, d.jobID, meta)
 	if err != nil {
-		logger.Errorw("EthRequestEvent failed to create run", "err", err)
-		return
+		logger.Errorw("DirectRequest failed to create run", "err", err)
 	}
+}
 
-	err = d.pipelineRunner.AwaitRun(ctx, runID)
-	if err != nil {
-		logger.Errorw("EthRequestEvent failed awaiting run", "err", err)
-		return
-	}
-
-	results, err := d.pipelineRunner.ResultsForRun(ctx, runID)
-	if err != nil {
-		logger.Errorw("EthRequestEvent failed to get results for run", "err", err)
-		return
-	} else if len(results) != 1 {
-		logger.Errorw("EthRequestEvent should have a single output", "err", err, "jobID", d.JobID, "runID", runID, "results", results)
-		return
-	}
+// Cancels runs that haven't been started yet, with the given request ID
+// TODO: Boy does this ever need testing
+func (d *directRequestListener) handleCancelOracleRequest(requestID [32]byte) {
+	d.db.Exec(`
+	DELETE FROM pipeline_runs 
+	WHERE id IN (
+		SELECT id FROM pipeline_runs FOR UPDATE OF pipeline_task_runs SKIP LOCKED
+		INNER JOIN pipeline_task_runs WHERE pipeline_task_runs.pipeline_run_id = pipeline_runs.id
+		WHERE pipeline_spec_id = ?
+		AND pipeline_runs.meta->'oracleRequest'->'requestId' = ?
+		HAVING bool_and(pipeline_task_runs.finished_at IS NULL)
+	)
+	`)
 }
 
 // JobID complies with eth.LogListener

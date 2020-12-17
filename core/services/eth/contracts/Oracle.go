@@ -105,3 +105,17 @@ func (re LogOracleRequest) ToOracleRequest() OracleRequest {
 
 	return req
 }
+
+func (o OracleRequest) ToMap() map[string]interface{} {
+	m := make(map[string]interface{})
+	m["specId"] = o.SpecID
+	m["requester"] = o.Requester
+	m["requestId"] = o.RequestID
+	m["payment"] = o.Payment
+	m["callbackAddr"] = o.CallbackAddr
+	m["callbackFunctionId"] = o.CallbackFunctionID
+	m["cancelExpiration"] = o.CancelExpiration
+	m["dataVersion"] = o.DataVersion
+	m["data"] = o.Data
+	return m
+}
