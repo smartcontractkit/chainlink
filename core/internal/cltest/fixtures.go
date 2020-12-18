@@ -23,6 +23,10 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
 }
 
+func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) models.JobSpecV2 {
+	return CreateJobViaWeb(t, app, string(MustReadFile(t, path)))
+}
+
 // JSONFromFixture create models.JSON from file path
 func JSONFromFixture(t *testing.T, path string) models.JSON {
 	return JSONFromBytes(t, MustReadFile(t, path))
