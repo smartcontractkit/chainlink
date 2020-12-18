@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
 	"github.com/stretchr/testify/require"
@@ -14,8 +16,13 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	config, _ := cltest.NewConfig(t)
 	config.Set("ALLOW_ORIGINS", "http://localhost:3000,http://localhost:6689")
-	app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-	defer appCleanup()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+		config,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -58,8 +65,13 @@ func TestCors_OverrideOrigins(t *testing.T) {
 			config, _ := cltest.NewConfig(t)
 			config.Set("ALLOW_ORIGINS", test.allow)
 
-			app, appCleanup := cltest.NewApplicationWithConfigAndKey(t, config, cltest.LenientEthMock)
-			defer appCleanup()
+			rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			defer assertMocksCalled()
+			app, cleanup := cltest.NewApplicationWithConfigAndKey(t,
+				config,
+				eth.NewClientWith(rpcClient, gethClient),
+			)
+			defer cleanup()
 			require.NoError(t, app.Start())
 
 			client := app.NewHTTPClient()

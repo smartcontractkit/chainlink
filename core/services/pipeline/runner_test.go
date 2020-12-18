@@ -42,7 +42,7 @@ func TestRunner(t *testing.T) {
 	defer jobORM.Close()
 
 	runner.Start()
-	defer runner.Stop()
+	defer runner.Close()
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
@@ -316,7 +316,7 @@ func TestRunner(t *testing.T) {
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = false 
+		isBootstrapPeer    = false
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -348,6 +348,7 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
+			nil,
 			nil)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
@@ -365,7 +366,7 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = true 
+		isBootstrapPeer    = true
 `
 		config.Set("P2P_PEER_ID", ek.PeerID)
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
@@ -386,6 +387,9 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -393,7 +397,9 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw,
+		)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -411,7 +417,7 @@ ds1 -> ds1_parse;
 		type               = "offchainreporting"
 		schemaVersion      = 1
 		contractAddress    = "%s"
-		isBootstrapPeer    = false 
+		isBootstrapPeer    = false
 		observationTimeout = "15s"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
@@ -448,6 +454,8 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -455,7 +463,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -490,6 +499,8 @@ ds1 -> ds1_parse;
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -497,7 +508,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -526,6 +538,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -533,7 +547,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		_, err = sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 	})
@@ -557,6 +572,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
+		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
 			db,
 			jobORM,
@@ -564,7 +581,8 @@ ds1 -> ds1_parse;
 			keyStore,
 			nil,
 			nil,
-			nil)
+			nil,
+			pw)
 		services, err := sd.ServicesForSpec(sd.FromDBRow(jb))
 		require.NoError(t, err)
 
@@ -581,9 +599,8 @@ ds1 -> ds1_parse;
 		var se []models.JobSpecErrorV2
 		err = db.Find(&se).Error
 		require.NoError(t, err)
-		require.Len(t, se, 2)
+		require.Len(t, se, 1)
 		assert.Equal(t, uint(1), se[0].Occurrences)
-		assert.Equal(t, uint(1), se[1].Occurrences)
 
 		// Ensure we can delete an errored job.
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())

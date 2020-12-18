@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -46,12 +48,18 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 }
 
 func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, *models.ID, func()) {
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	app.Store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
 	require.NoError(t, app.Start())
 	jr := app.MustCreateJobRun(txHash, blockHash)
 
-	return app.Store, jr.ID, cleanup
+	return app.Store, jr.ID, func() {
+		assertMocksCalled()
+		cleanup()
+	}
 }
 
 func TestBridge_IncludesMetaIfJobRunIsInDB(t *testing.T) {

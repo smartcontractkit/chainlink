@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/manyminds/api2go/jsonapi"
+
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -494,6 +496,32 @@ func TestValidateOracleSpec(t *testing.T) {
 		setGlobals func(t *testing.T, c *orm.Config)
 		assertion  func(t *testing.T, os offchainreporting.OracleSpec, err error)
 	}{
+		{
+			name: "minimal non-bootstrap oracle spec",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer    = false
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+				require.NoError(t, err)
+				// Should be able to jsonapi marshal/unmarshal the minimum spec.
+				// This ensures the UnmarshalJSON's defined on the fields handle a min spec correctly.
+				b, err := jsonapi.Marshal(os.OffchainReportingOracleSpec)
+				require.NoError(t, err)
+				var r models.OffchainReportingOracleSpec
+				err = jsonapi.Unmarshal(b, &r)
+				require.NoError(t, err)
+			},
+		},
 		{
 			name: "decodes valid oracle spec toml",
 			toml: `
