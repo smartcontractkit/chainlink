@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -114,7 +116,11 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offchainreporting.KeyStore, func()) {
 	t.Helper()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 

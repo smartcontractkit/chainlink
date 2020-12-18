@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -38,7 +40,11 @@ func TestStore_Close(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -95,7 +101,11 @@ func TestStore_SyncDiskKeyStoreToDB_HappyPath(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	cltest.MustAddRandomKeyToKeystore(t, app.Store) // second account
 
@@ -149,13 +159,12 @@ func TestStore_SyncDiskKeyStoreToDB_MultipleKeys(t *testing.T) {
 func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", app.Store.Config.ChainID())
-	})
 	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()
 
@@ -178,13 +187,12 @@ func TestStore_SyncDiskKeyStoreToDB_DBKeyAlreadyExists(t *testing.T) {
 }
 
 func TestStore_DeleteKey(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", app.Store.Config.ChainID())
-	})
 	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()
 
@@ -201,13 +209,12 @@ func TestStore_DeleteKey(t *testing.T) {
 }
 
 func TestStore_ArchiveKey(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	app.EthMock.Context("app.Start()", func(meth *cltest.EthMock) {
-		meth.Register("eth_chainId", app.Store.Config.ChainID())
-	})
 	require.NoError(t, app.StartAndConnect())
 	store := app.GetStore()
 
