@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed reading of function selector values in DB.
 - Support for bignums encoded in CBOR
+- Silence spurious `Job spawner ORM attempted to claim locally-claimed job` warnings
 
 ### Changed
 

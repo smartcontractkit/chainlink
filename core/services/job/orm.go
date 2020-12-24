@@ -96,7 +96,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 		join = `
             INNER JOIN (
                 SELECT not_claimed_by_us.id, pg_try_advisory_lock(?::integer, not_claimed_by_us.id) AS locked
-                FROM (SELECT id FROM jobs WHERE id != ANY(?) OFFSET 0) not_claimed_by_us
+                FROM (SELECT id FROM jobs WHERE NOT (id = ANY(?)) OFFSET 0) not_claimed_by_us
             ) claimed_jobs ON jobs.id = claimed_jobs.id AND claimed_jobs.locked
         `
 		args = []interface{}{o.advisoryLockClassID, pq.Array(claimedJobIDs)}
