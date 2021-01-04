@@ -143,7 +143,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	services.RegisterEthRequestEventDelegate(jobSpawner)
+	services.RegisterDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, store.DB)
 	var subservices []StartCloser
 	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 {
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, store.Config, store.DB)

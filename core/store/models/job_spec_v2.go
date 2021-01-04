@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -22,8 +23,8 @@ type (
 		IDEmbed
 		OffchainreportingOracleSpecID *int32                       `json:"-"`
 		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
-		EthRequestEventSpecID         *int32                       `json:"-"`
-		EthRequestEventSpec           *EthRequestEventSpec         `json:"ethRequestEventSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+		DirectRequestSpecID           *int32                       `json:"-"`
+		DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
 		PipelineSpecID                int32                        `json:"-"`
 		PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
 		JobSpecErrors                 []JobSpecErrorV2             `json:"errors" gorm:"foreignKey:JobID"`
@@ -72,18 +73,20 @@ type (
 		UpdatedAt                              time.Time      `json:"updatedAt" toml:"-"`
 	}
 
-	EthRequestEventSpec struct {
+	DirectRequestSpec struct {
 		IDEmbed
 		ContractAddress EIP55Address `json:"contractAddress" toml:"contractAddress"`
-		CreatedAt       time.Time    `json:"createdAt" toml:"-"`
-		UpdatedAt       time.Time    `json:"updatedAt" toml:"-"`
+		// OnChainJobSpecID is the sha256 of the TOML that created this job spec
+		OnChainJobSpecID gethCommon.Hash
+		CreatedAt        time.Time `json:"createdAt" toml:"-"`
+		UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
 	}
 
 	PeerID peer.ID
 )
 
 const (
-	EthRequestEventJobType = "ethrequestevent"
+	DirectRequestJobType = "directrequest"
 )
 
 func (id IDEmbed) GetID() string {
@@ -184,4 +187,4 @@ func (s *OffchainReportingOracleSpec) BeforeSave() error {
 func (JobSpecV2) TableName() string                   { return "jobs" }
 func (JobSpecErrorV2) TableName() string              { return "job_spec_errors_v2" }
 func (OffchainReportingOracleSpec) TableName() string { return "offchainreporting_oracle_specs" }
-func (EthRequestEventSpec) TableName() string         { return "eth_request_event_specs" }
+func (DirectRequestSpec) TableName() string           { return "direct_request_specs" }
