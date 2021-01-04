@@ -210,14 +210,19 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 func setupConfig(config *orm.Config, store *strpkg.Store) {
 	config.SetRuntimeStore(store.ORM)
+
 	if !config.P2PPeerIDIsSet() {
 		var keys []p2pkey.EncryptedP2PKey
-		err := store.DB.Find(&keys).Error
+		err := store.DB.Order("created_at asc, id asc").Find(&keys).Error
 		if err != nil {
 			logger.Warnw("Failed to load keys", "err", err)
 		} else {
-			if len(keys) == 1 {
-				config.Set("P2P_PEER_ID", keys[0].PeerID)
+			if len(keys) > 0 {
+				peerID := keys[0].PeerID
+				config.Set("P2P_PEER_ID", peerID)
+				if len(keys) > 1 {
+					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
+				}
 			}
 		}
 	}
