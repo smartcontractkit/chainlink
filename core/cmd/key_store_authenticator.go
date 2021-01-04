@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -141,9 +142,13 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store,
 	}
 	if len(p2pkeys) == 0 {
 		fmt.Println("There are no P2P keys; creating a new key encrypted with given password")
-		_, _, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
+		var k p2pkey.EncryptedP2PKey
+		_, k, err = store.OCRKeyStore.GenerateEncryptedP2PKey()
 		if err != nil {
 			return errors.Wrapf(err, "while creating a new encrypted P2P key")
+		}
+		if !store.Config.P2PPeerIDIsSet() {
+			store.Config.Set("P2P_PEER_ID", k.PeerID)
 		}
 	}
 

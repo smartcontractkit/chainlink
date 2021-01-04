@@ -498,7 +498,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
+		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
@@ -537,7 +538,8 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
+		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
@@ -571,7 +573,8 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 
-		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
+		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
+		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
 		sd := offchainreporting.NewJobSpawnerDelegate(
