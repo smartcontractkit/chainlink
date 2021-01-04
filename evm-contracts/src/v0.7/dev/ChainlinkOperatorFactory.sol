@@ -16,7 +16,7 @@ contract ChainlinkOperatorFactory {
     /**
      * @param linkAddress address
      */
-    constructor(address linkAddress) public {
+    constructor(address linkAddress) {
         link = linkAddress;
     }
 

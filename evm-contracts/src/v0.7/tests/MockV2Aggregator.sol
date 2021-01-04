@@ -22,7 +22,7 @@ contract MockV2Aggregator is AggregatorInterface {
 
   constructor(
     int256 _initialAnswer
-  ) public {
+  ) {
     updateAnswer(_initialAnswer);
   }
 

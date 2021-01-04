@@ -14,7 +14,7 @@ contract Consumer is ChainlinkClient {
     bytes32 indexed price
   );
 
-  constructor(address _link, address _oracle, bytes32 _specId) public {
+  constructor(address _link, address _oracle, bytes32 _specId) {
     setChainlinkToken(_link);
     setChainlinkOracle(_oracle);
     specId = _specId;

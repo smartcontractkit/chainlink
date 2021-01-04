@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.0;
+pragma solidity ^0.7.0;
 
 import "./ConfirmedOwner.sol";
 import "../interfaces/AggregatorProxyInterface.sol";
@@ -27,7 +27,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   event AggregatorProposed(address indexed current, address indexed proposed);
   event AggregatorConfirmed(address indexed previous, address indexed latest);
 
-  constructor(address aggregatorAddress) public ConfirmedOwner(msg.sender) {
+  constructor(address aggregatorAddress) ConfirmedOwner(msg.sender) {
     setAggregator(aggregatorAddress);
   }
 
@@ -179,14 +179,14 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(roundId);
 
     (
-      uint80 id,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
+      id,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
     ) = s_phaseAggregators[phaseId].getRoundData(aggregatorRoundId);
 
-    return addPhaseIds(id, answer, startedAt, updatedAt, ansIn, phaseId);
+    return addPhaseIds(id, answer, startedAt, updatedAt, answeredInRound, phaseId);
   }
 
   /**
@@ -227,14 +227,14 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     Phase memory current = s_currentPhase; // cache storage reads
 
     (
-      uint80 id,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
+      id,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
     ) = current.aggregator.latestRoundData();
 
-    return addPhaseIds(id, answer, startedAt, updatedAt, ansIn, current.id);
+    return addPhaseIds(id, answer, startedAt, updatedAt, answeredInRound, current.id);
   }
 
   /**
@@ -429,7 +429,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     uint64 originalId
   )
     internal
-    view
+    pure
     returns (uint80)
   {
     return uint80(uint256(phase) << PHASE_OFFSET | originalId);
@@ -439,7 +439,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     uint256 roundId
   )
     internal
-    view
+    pure
     returns (uint16, uint64)
   {
     uint16 phaseId = uint16(roundId >> PHASE_OFFSET);
@@ -457,7 +457,7 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
       uint16 phaseId
   )
     internal
-    view
+    pure
     returns (uint80, int256, uint256, uint256, uint80)
   {
     return (

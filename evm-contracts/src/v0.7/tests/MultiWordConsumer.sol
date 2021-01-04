@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
 import "../ChainlinkClient.sol";
@@ -22,7 +23,7 @@ contract MultiWordConsumer is ChainlinkClient{
         bytes32 jpy
     );
 
-    constructor(address _link, address _oracle, bytes32 _specId) public {
+    constructor(address _link, address _oracle, bytes32 _specId) {
         setChainlinkToken(_link);
         setChainlinkOracle(_oracle);
         specId = _specId;
@@ -32,16 +33,16 @@ contract MultiWordConsumer is ChainlinkClient{
         specId = _specId;
     }
 
-    function requestEthereumPrice(string memory _currency, uint256 _payment) public {
-        requestEthereumPriceByCallback(_currency, _payment, address(this));
+    function requestEthereumPrice(uint256 _payment) public {
+        requestEthereumPriceByCallback(_payment, address(this));
     }
 
-    function requestEthereumPriceByCallback(string memory _currency, uint256 _payment, address _callback) public {
+    function requestEthereumPriceByCallback(uint256 _payment, address _callback) public {
         Chainlink.Request memory req = buildChainlinkRequest(specId, _callback, this.fulfillBytes.selector);
         sendChainlinkRequest(req, _payment);
     }
 
-    function requestMultipleParameters(string memory _currency, uint256 _payment) public {
+    function requestMultipleParameters(uint256 _payment) public {
         Chainlink.Request memory req = buildChainlinkRequest(specId, address(this), this.fulfillMultipleParameters.selector);
         sendChainlinkRequest(req, _payment);
     }
