@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
@@ -108,7 +109,8 @@ type ChainlinkApplication struct {
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
 	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
-	config.SetRuntimeStore(store.ORM)
+
+	setupConfig(config, store)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -204,6 +206,21 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
 	return app
+}
+
+func setupConfig(config *orm.Config, store *strpkg.Store) {
+	config.SetRuntimeStore(store.ORM)
+	if !config.P2PPeerIDIsSet() {
+		var keys []p2pkey.EncryptedP2PKey
+		err := store.DB.Find(&keys).Error
+		if err != nil {
+			logger.Warnw("Failed to load keys", "err", err)
+		} else {
+			if len(keys) == 1 {
+				config.Set("P2P_PEER_ID", keys[0].PeerID)
+			}
+		}
+	}
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also
