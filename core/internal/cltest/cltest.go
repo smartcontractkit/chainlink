@@ -213,6 +213,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.Set("P2P_LISTEN_PORT", "12345")
+	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
