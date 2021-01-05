@@ -201,6 +201,16 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
+func (c Config) AuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
+}
+
+// AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
+func (c Config) AuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
+}
+
 // BalanceMonitorEnabled enables the balance monitor
 func (c Config) BalanceMonitorEnabled() bool {
 	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
@@ -830,6 +840,16 @@ func (c Config) TxAttemptLimit() uint16 {
 // TLSRedirect forces TLS redirect for unencrypted connections
 func (c Config) TLSRedirect() bool {
 	return c.viper.GetBool(EnvVarName("TLSRedirect"))
+}
+
+// UnAuthenticatedRateLimit defines the threshold to which requests unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("UnAuthenticatedRateLimit"))
+}
+
+// UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
 }
 
 // KeysDir returns the path of the keys directory (used for keystore files).
