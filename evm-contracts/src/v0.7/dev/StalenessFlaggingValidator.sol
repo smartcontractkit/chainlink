@@ -76,10 +76,10 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @notice Check for staleness in an array of aggregators
    * @dev If any of the aggregators are stale, this function will return true,
    * otherwise false
-   * @param aggregators address[] memory
+   * @param aggregators address[] calldata
    * @return address[] memory stale aggregators
    */
-  function check(address[] memory aggregators) public view returns (address[] memory) {
+  function check(address[] calldata aggregators) external view returns (address[] memory) {
     return checkStalenessOf(aggregators);
   }
 
@@ -98,7 +98,10 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
 
   /**
    * @notice Check for staleness in an array of aggregators
-   * @param data Bytes
+   * @dev Overriding KeeperInterface
+   * @param data bytes encoded address array
+   * @return needsUpkeep bool indicating whether upkeep needs to be performed
+   * @return staleAggregators bytes encoded address array of stale aggregator addresses
    */
   function checkForUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
     address[] memory staleAggregators = checkStalenessOf(abi.decode(data, (address[])));
@@ -109,7 +112,8 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   /**
    * @notice Check for staleness in an array of aggregators, raise a flag
    * on the flags contract for each aggregator that is stale
-   * @param data Bytes
+   * @dev Overriding KeeperInterface
+   * @param data bytes encoded address array
    */
   function performUpkeep(bytes calldata data) external override {
     address[] memory staleAggregators = checkStalenessOf(abi.decode(data, (address[])));
