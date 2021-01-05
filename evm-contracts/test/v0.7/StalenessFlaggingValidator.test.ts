@@ -54,7 +54,7 @@ describe('StalenessFlaggingValidator', () => {
       'flags',
       // Upkeep methods:
       'checkForUpkeep',
-      
+
       'performUpkeep',
       // Owned methods:
       'acceptOwnership',
@@ -412,11 +412,17 @@ describe('StalenessFlaggingValidator', () => {
 
     describe('when neither are stale', () => {
       it('returns false and an empty array', async () => {
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const response = await validator.checkForUpkeep(bytesData)
 
         assert.equal(response[0], false)
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1])
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ['address[]'],
+          response?.[1],
+        )
         assert.equal(decodedResponse[0].length, 0)
       })
     })
@@ -426,11 +432,17 @@ describe('StalenessFlaggingValidator', () => {
         const agg3 = await aggregatorFactory
           .connect(personas.Carol)
           .deploy(decimals, initialAnswer)
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [[agg3.address]])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [[agg3.address]],
+        )
         const response = await validator.checkForUpkeep(bytesData)
 
         assert.equal(response[0], false)
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1])
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ['address[]'],
+          response?.[1],
+        )
         assert.equal(decodedResponse[0].length, 0)
       })
     })
@@ -448,11 +460,17 @@ describe('StalenessFlaggingValidator', () => {
           staleTimestamp,
         )
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const response = await validator.checkForUpkeep(bytesData)
-        
+
         assert.equal(response[0], true)
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1])
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ['address[]'],
+          response?.[1],
+        )
         const decodedArray = decodedResponse[0]
         assert.equal(decodedArray.length, 1)
         assert.equal(decodedArray[0], agg1.address)
@@ -481,11 +499,17 @@ describe('StalenessFlaggingValidator', () => {
           staleTimestamp,
         )
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const response = await validator.checkForUpkeep(bytesData)
-        
+
         assert.equal(response[0], true)
-        const decodedResponse = ethers.utils.defaultAbiCoder.decode(["address[]"], response?.[1])
+        const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+          ['address[]'],
+          response?.[1],
+        )
         const decodedArray = decodedResponse[0]
         assert.equal(decodedArray.length, 2)
         assert.equal(decodedArray[0], agg1.address)
@@ -515,7 +539,10 @@ describe('StalenessFlaggingValidator', () => {
 
     describe('when neither are stale', () => {
       it('does not raise a flag', async () => {
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const tx = await validator.performUpkeep(bytesData)
         const logs = await h.getLogs(tx)
         assert.equal(logs.length, 0)
@@ -527,7 +554,10 @@ describe('StalenessFlaggingValidator', () => {
         const agg3 = await aggregatorFactory
           .connect(personas.Carol)
           .deploy(decimals, initialAnswer)
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [[agg3.address]])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [[agg3.address]],
+        )
         const tx = await validator.performUpkeep(bytesData)
         const logs = await h.getLogs(tx)
         assert.equal(logs.length, 0)
@@ -547,7 +577,10 @@ describe('StalenessFlaggingValidator', () => {
           staleTimestamp,
         )
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const tx = await validator.performUpkeep(bytesData)
         const logs = await h.getLogs(tx)
         assert.equal(logs.length, 1)
@@ -577,7 +610,10 @@ describe('StalenessFlaggingValidator', () => {
           staleTimestamp,
         )
 
-        const bytesData = ethers.utils.defaultAbiCoder.encode(["address[]"], [aggregators])
+        const bytesData = ethers.utils.defaultAbiCoder.encode(
+          ['address[]'],
+          [aggregators],
+        )
         const tx = await validator.performUpkeep(bytesData)
         const logs = await h.getLogs(tx)
         assert.equal(logs.length, 2)
