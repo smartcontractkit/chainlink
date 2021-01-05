@@ -182,6 +182,18 @@ func NewRandomInt64() int64 {
 	return id
 }
 
+func MustRandomBytes(t *testing.T, l int) (b []byte) {
+	t.Helper()
+
+	b = make([]byte, l)
+	/* #nosec G404 */
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
