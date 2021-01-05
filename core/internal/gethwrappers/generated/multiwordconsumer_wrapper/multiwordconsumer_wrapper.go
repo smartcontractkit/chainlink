@@ -641,6 +641,7 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseChainlinkCancelled(log
 	if err := _MultiWordConsumer.contract.UnpackLog(event, "ChainlinkCancelled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -784,6 +785,7 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseChainlinkFulfilled(log
 	if err := _MultiWordConsumer.contract.UnpackLog(event, "ChainlinkFulfilled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -927,6 +929,7 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseChainlinkRequested(log
 	if err := _MultiWordConsumer.contract.UnpackLog(event, "ChainlinkRequested", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1079,6 +1082,7 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseRequestFulfilled(log t
 	if err := _MultiWordConsumer.contract.UnpackLog(event, "RequestFulfilled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1241,5 +1245,6 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseRequestMultipleFulfill
 	if err := _MultiWordConsumer.contract.UnpackLog(event, "RequestMultipleFulfilled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
