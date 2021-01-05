@@ -30,15 +30,15 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	require.NotEmpty(t, versions.GethVersion,
 		`version DB should have a "GETH_VERSION:" line`)
 	/*
-	TODO(XXX): Re-enable at 1.10 geth release.
-	wd, err := os.Getwd()
-	if err != nil {
-		wd = "<directory containing this test>"
-	}
-	require.Equal(t, versions.GethVersion, gethParams.Version,
-		color.HiRedString(boxOutput("please re-run `go generate %s` and commit the"+
-			"changes", wd)))
-	 */
+		TODO(XXX): Re-enable at 1.10 geth release.
+		wd, err := os.Getwd()
+		if err != nil {
+			wd = "<directory containing this test>"
+		}
+		require.Equal(t, versions.GethVersion, gethParams.Version,
+			color.HiRedString(boxOutput("please re-run `go generate %s` and commit the"+
+				"changes", wd)))
+	*/
 	for _, contractVersionInfo := range versions.ContractVersions {
 		compareCurrentCompilerAritfactAgainstRecordsAndSoliditySources(
 			t, contractVersionInfo)
