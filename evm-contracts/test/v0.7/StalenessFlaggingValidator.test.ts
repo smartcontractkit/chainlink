@@ -54,7 +54,6 @@ describe('StalenessFlaggingValidator', () => {
       'flags',
       // Upkeep methods:
       'checkForUpkeep',
-
       'performUpkeep',
       // Owned methods:
       'acceptOwnership',
