@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -1519,4 +1521,19 @@ func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription
 			logsCh <- args.Get(2).(chan<- types.Log)
 		})
 	return logsCh
+}
+
+func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
+	t.Helper()
+
+	return MustNewKeyedTransactor(t, key, 1337)
+}
+
+func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
+	t.Helper()
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
+	require.NoError(t, err)
+
+	return transactor
 }

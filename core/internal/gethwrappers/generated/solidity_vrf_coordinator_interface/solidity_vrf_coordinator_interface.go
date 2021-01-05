@@ -652,6 +652,7 @@ func (_VRFCoordinator *VRFCoordinatorFilterer) ParseNewServiceAgreement(log type
 	if err := _VRFCoordinator.contract.UnpackLog(event, "NewServiceAgreement", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -800,6 +801,7 @@ func (_VRFCoordinator *VRFCoordinatorFilterer) ParseRandomnessRequest(log types.
 	if err := _VRFCoordinator.contract.UnpackLog(event, "RandomnessRequest", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -934,5 +936,6 @@ func (_VRFCoordinator *VRFCoordinatorFilterer) ParseRandomnessRequestFulfilled(l
 	if err := _VRFCoordinator.contract.UnpackLog(event, "RandomnessRequestFulfilled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
