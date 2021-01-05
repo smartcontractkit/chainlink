@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.0;
+pragma solidity ^0.7.0;
 
 import "./ConfirmedOwner.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
+import "./UpkeepCompatible.sol";
 
-contract StalenessFlaggingValidator is ConfirmedOwner {
+contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
@@ -28,8 +29,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @dev Ensure that this contract has sufficient write permissions
    * on the flag contract
    */
-  constructor(address flagsAddress) 
-    public 
+  constructor(address flagsAddress)
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
@@ -80,24 +80,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @return address[] memory stale aggregators
    */
   function check(address[] memory aggregators) public view returns (address[] memory) {
-    uint256 currentTimestamp = block.timestamp;
-
-    address[] memory staleAggregators = new address[](aggregators.length);
-    uint256 staleCount = 0;
-    for (uint256 i = 0; i < aggregators.length; i++) {
-      address aggregator = aggregators[i];
-      if (isStale(aggregator, currentTimestamp)) {
-        staleAggregators[staleCount] = aggregator;
-        staleCount++;
-      }
-    }
-
-    if (aggregators.length != staleCount) {
-      assembly {
-        mstore(staleAggregators, staleCount)
-      }
-    }
-    return staleAggregators;
+    return checkStalenessOf(aggregators);
   }
 
   /**
@@ -108,9 +91,29 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @return address[] memory stale aggregators
    */
   function update(address[] calldata aggregators) external returns (address[] memory){
-    address[] memory staleAggregators = check(aggregators);
+    address[] memory staleAggregators = checkStalenessOf(aggregators);
     s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
+  }
+
+  /**
+   * @notice Check for staleness in an array of aggregators
+   * @param data Bytes
+   */
+  function checkForUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
+    address[] memory staleAggregators = checkStalenessOf(abi.decode(data, (address[])));
+    bool needsUpkeep = (staleAggregators.length > 0);
+    return (needsUpkeep, abi.encode(staleAggregators));
+  }
+
+  /**
+   * @notice Check for staleness in an array of aggregators, raise a flag
+   * on the flags contract for each aggregator that is stale
+   * @param data Bytes
+   */
+  function performUpkeep(bytes calldata data) external override {
+    address[] memory staleAggregators = checkStalenessOf(abi.decode(data, (address[])));
+    s_flags.raiseFlags(staleAggregators);
   }
 
   /**
@@ -128,6 +131,31 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    */
   function flags() external view returns (address) {
     return address(s_flags);
+  }
+
+  /**
+   * @notice Check the staleness of an array of aggregator addresses
+   * @param aggregators array of addresses
+   * @return staleAggregators array of stale aggregator adresses
+   */
+  function checkStalenessOf(address[] memory aggregators) internal view returns (address[] memory) {
+    uint256 currentTimestamp = block.timestamp;
+    address[] memory staleAggregators = new address[](aggregators.length);
+    uint256 staleCount = 0;
+    for (uint256 i = 0; i < aggregators.length; i++) {
+      address aggregator = aggregators[i];
+      if (isStale(aggregator, currentTimestamp)) {
+        staleAggregators[staleCount] = aggregator;
+        staleCount++;
+      }
+    }
+
+    if (aggregators.length != staleCount) {
+      assembly {
+        mstore(staleAggregators, staleCount)
+      }
+    }
+    return staleAggregators;
   }
 
   /**
