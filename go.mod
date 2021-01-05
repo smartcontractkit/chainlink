@@ -60,3 +60,5 @@ require (
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
+
+replace github.com/ethereum/go-ethereum => github.com/connorwstein/go-ethereum v1.9.26-0.20201211175038-9aa606358e06
