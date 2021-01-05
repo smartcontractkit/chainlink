@@ -52,7 +52,7 @@ func NewPeerstoreWrapper(db *gorm.DB, writeInterval time.Duration, peerID models
 	return &Pstorewrapper{
 		utils.StartStopOnce{},
 		pstoremem.NewPeerstore(),
-		peerID.String(),
+		peerID.Raw(),
 		db,
 		writeInterval,
 		ctx,
