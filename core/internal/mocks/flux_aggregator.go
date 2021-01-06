@@ -8,7 +8,7 @@ import (
 
 	contracts "github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	log "github.com/smartcontractkit/chainlink/core/services/log"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -168,35 +168,35 @@ func (_m *FluxAggregator) RoundState(oracle common.Address, roundID uint32) (con
 }
 
 // SubscribeToLogs provides a mock function with given fields: listener
-func (_m *FluxAggregator) SubscribeToLogs(listener eth.LogListener) (bool, eth.UnsubscribeFunc) {
+func (_m *FluxAggregator) SubscribeToLogs(listener log.Listener) (bool, contracts.UnsubscribeFunc) {
 	ret := _m.Called(listener)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(eth.LogListener) bool); ok {
+	if rf, ok := ret.Get(0).(func(log.Listener) bool); ok {
 		r0 = rf(listener)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	var r1 eth.UnsubscribeFunc
-	if rf, ok := ret.Get(1).(func(eth.LogListener) eth.UnsubscribeFunc); ok {
+	var r1 contracts.UnsubscribeFunc
+	if rf, ok := ret.Get(1).(func(log.Listener) contracts.UnsubscribeFunc); ok {
 		r1 = rf(listener)
 	} else {
 		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(eth.UnsubscribeFunc)
+			r1 = ret.Get(1).(contracts.UnsubscribeFunc)
 		}
 	}
 
 	return r0, r1
 }
 
-// UnpackLog provides a mock function with given fields: out, event, log
-func (_m *FluxAggregator) UnpackLog(out interface{}, event string, log types.Log) error {
-	ret := _m.Called(out, event, log)
+// UnpackLog provides a mock function with given fields: out, event, _a2
+func (_m *FluxAggregator) UnpackLog(out interface{}, event string, _a2 types.Log) error {
+	ret := _m.Called(out, event, _a2)
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(interface{}, string, types.Log) error); ok {
-		r0 = rf(out, event, log)
+		r0 = rf(out, event, _a2)
 	} else {
 		r0 = ret.Error(0)
 	}
