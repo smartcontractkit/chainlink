@@ -9,12 +9,12 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
-import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { BasicConsumer__factory } from '../../ethers/v0.6/factories/BasicConsumer__factory'
+import { Oracle__factory } from '../../ethers/v0.6/factories/Oracle__factory'
 
 const d = debug.makeDebug('BasicConsumer')
-const basicConsumerFactory = new BasicConsumerFactory()
-const oracleFactory = new OracleFactory()
+const basicConsumerFactory = new BasicConsumer__factory()
+const oracleFactory = new Oracle__factory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
 // create ethers provider from that web3js instance
@@ -33,8 +33,8 @@ describe('BasicConsumer', () => {
   const currency = 'USD'
   const payment = h.toWei('1')
   let link: contract.Instance<contract.LinkTokenFactory>
-  let oc: contract.Instance<OracleFactory>
-  let cc: contract.Instance<BasicConsumerFactory>
+  let oc: contract.Instance<Oracle__factory>
+  let cc: contract.Instance<BasicConsumer__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)
