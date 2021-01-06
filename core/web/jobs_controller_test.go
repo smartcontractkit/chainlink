@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -127,7 +128,7 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
 }
 
-func TestJobsController_Create_HappyPath_EthRequestEventSpec(t *testing.T) {
+func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
@@ -139,15 +140,16 @@ func TestJobsController_Create_HappyPath_EthRequestEventSpec(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
+	tomlBytes := cltest.MustReadFile(t, "testdata/direct-request-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
-		TOML: string(cltest.MustReadFile(t, "testdata/eth-request-event-spec.toml")),
+		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.JobSpecV2{}
-	require.NoError(t, app.Store.DB.Preload("EthRequestEventSpec").First(&jb).Error)
+	require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb).Error)
 
 	jobSpec := job.JobSpecV2{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
@@ -157,7 +159,10 @@ func TestJobsController_Create_HappyPath_EthRequestEventSpec(t *testing.T) {
 	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
-	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.EthRequestEventSpec.ContractAddress)
+	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
+
+	sha := sha256.Sum256(tomlBytes)
+	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
@@ -175,7 +180,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	require.Len(t, jobSpecs, 2)
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, jobSpecs[0])
-	runEthRequestEventJobSpecAssertions(t, ereJobSpecFromFile, jobSpecs[1])
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, jobSpecs[1])
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
@@ -200,7 +205,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJobSpec)
 	assert.NoError(t, err)
 
-	runEthRequestEventJobSpecAssertions(t, ereJobSpecFromFile, ereJobSpec)
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJobSpec)
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
@@ -243,14 +248,14 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
 }
 
-func runEthRequestEventJobSpecAssertions(t *testing.T, ereJobSpecFromFile services.EthRequestEventSpec, ereJobSpecFromServer job.JobSpecV2) {
-	assert.Equal(t, ereJobSpecFromFile.ContractAddress, ereJobSpecFromServer.EthRequestEventSpec.ContractAddress)
+func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile services.DirectRequestSpec, ereJobSpecFromServer job.JobSpecV2) {
+	assert.Equal(t, ereJobSpecFromFile.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
 	assert.Equal(t, ereJobSpecFromFile.Pipeline.DOTSource, ereJobSpecFromServer.PipelineSpec.DotDagSource)
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
 	// millenia and century characters to be present
-	assert.Contains(t, ereJobSpecFromServer.EthRequestEventSpec.CreatedAt.String(), "20")
-	assert.Contains(t, ereJobSpecFromServer.EthRequestEventSpec.UpdatedAt.String(), "20")
+	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.CreatedAt.String(), "20")
+	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
 func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
@@ -266,7 +271,7 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	return app, client, cleanup
 }
 
-func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32, services.EthRequestEventSpec, int32) {
+func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32, services.DirectRequestSpec, int32) {
 	t.Parallel()
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -285,8 +290,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFile.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 
-	var ereJobSpecFromFile services.EthRequestEventSpec
-	tree, err = toml.LoadFile("testdata/eth-request-event-spec.toml")
+	var ereJobSpecFromFile services.DirectRequestSpec
+	tree, err = toml.LoadFile("testdata/direct-request-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ereJobSpecFromFile)
 	require.NoError(t, err)

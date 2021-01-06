@@ -425,6 +425,9 @@ func (_FluxAggregator *FluxAggregatorCaller) GetRoundData(opts *bind.CallOpts, _
 		UpdatedAt       *big.Int
 		AnsweredInRound *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
 	outstruct.RoundId = out[0].(*big.Int)
 	outstruct.Answer = out[1].(*big.Int)
@@ -575,6 +578,9 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestRoundData(opts *bind.CallOpts
 		UpdatedAt       *big.Int
 		AnsweredInRound *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
 	outstruct.RoundId = out[0].(*big.Int)
 	outstruct.Answer = out[1].(*big.Int)
@@ -855,6 +861,9 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleRoundState(opts *bind.CallOpt
 		OracleCount      uint8
 		PaymentAmount    *big.Int
 	})
+	if err != nil {
+		return *outstruct, err
+	}
 
 	outstruct.EligibleToSubmit = out[0].(bool)
 	outstruct.RoundId = out[1].(uint32)
@@ -1562,6 +1571,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseAnswerUpdated(log types.Log)
 	if err := _FluxAggregator.contract.UnpackLog(event, "AnswerUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1705,6 +1715,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseAvailableFundsUpdated(log ty
 	if err := _FluxAggregator.contract.UnpackLog(event, "AvailableFundsUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1858,6 +1869,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseNewRound(log types.Log) (*Fl
 	if err := _FluxAggregator.contract.UnpackLog(event, "NewRound", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2003,6 +2015,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOracleAdminUpdateRequested(l
 	if err := _FluxAggregator.contract.UnpackLog(event, "OracleAdminUpdateRequested", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2155,6 +2168,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOracleAdminUpdated(log types
 	if err := _FluxAggregator.contract.UnpackLog(event, "OracleAdminUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2307,6 +2321,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOraclePermissionsUpdated(log
 	if err := _FluxAggregator.contract.UnpackLog(event, "OraclePermissionsUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2459,6 +2474,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOwnershipTransferRequested(l
 	if err := _FluxAggregator.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2611,6 +2627,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseOwnershipTransferred(log typ
 	if err := _FluxAggregator.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2756,6 +2773,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseRequesterPermissionsSet(log 
 	if err := _FluxAggregator.contract.UnpackLog(event, "RequesterPermissionsSet", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -2919,6 +2937,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseRoundDetailsUpdated(log type
 	if err := _FluxAggregator.contract.UnpackLog(event, "RoundDetailsUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -3080,6 +3099,7 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseSubmissionReceived(log types
 	if err := _FluxAggregator.contract.UnpackLog(event, "SubmissionReceived", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -3232,5 +3252,6 @@ func (_FluxAggregator *FluxAggregatorFilterer) ParseValidatorUpdated(log types.L
 	if err := _FluxAggregator.contract.UnpackLog(event, "ValidatorUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }

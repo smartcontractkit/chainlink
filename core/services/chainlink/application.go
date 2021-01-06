@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
@@ -110,7 +111,8 @@ type ChainlinkApplication struct {
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
 	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
-	config.SetRuntimeStore(store.ORM)
+
+	setupConfig(config, store)
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
@@ -145,12 +147,15 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	services.RegisterEthRequestEventDelegate(jobSpawner)
+	services.RegisterDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, store.DB)
 	var subservices []StartCloser
-	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 {
-		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, store.Config, store.DB)
+	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 && config.P2PPeerIDIsSet() {
+		logger.Debug("Off-chain reporting enabled")
+		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
 		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+	} else {
+		logger.Debug("Off-chain reporting disabled")
 	}
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
@@ -204,6 +209,26 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
 	return app
+}
+
+func setupConfig(config *orm.Config, store *strpkg.Store) {
+	config.SetRuntimeStore(store.ORM)
+
+	if !config.P2PPeerIDIsSet() {
+		var keys []p2pkey.EncryptedP2PKey
+		err := store.DB.Order("created_at asc, id asc").Find(&keys).Error
+		if err != nil {
+			logger.Warnw("Failed to load keys", "err", err)
+		} else {
+			if len(keys) > 0 {
+				peerID := keys[0].PeerID
+				config.Set("P2P_PEER_ID", peerID)
+				if len(keys) > 1 {
+					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
+				}
+			}
+		}
+	}
 }
 
 // Start all necessary services. If successful, nil will be returned.  Also

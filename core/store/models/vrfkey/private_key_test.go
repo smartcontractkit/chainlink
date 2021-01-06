@@ -53,7 +53,8 @@ func TestMarshaledProof(t *testing.T) {
 	// NB: For changes to the VRF solidity code to be reflected here, "go generate"
 	// must be run in core/services/vrf.
 	ethereumKey, _ := crypto.GenerateKey()
-	auth := bind.NewKeyedTransactor(ethereumKey)
+	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
+	require.NoError(t, err)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)

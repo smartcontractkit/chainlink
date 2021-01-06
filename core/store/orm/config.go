@@ -752,6 +752,10 @@ func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
 }
 
+func (c Config) P2PPeerIDIsSet() bool {
+	return c.viper.GetString(EnvVarName("P2PPeerID")) != ""
+}
+
 func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	if override != nil {
 		return override, nil

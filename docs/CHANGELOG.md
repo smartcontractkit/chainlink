@@ -15,10 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `chainlink keys eth delete`
 - All keys other than VRF keys now share the same password. If you have OCR, P2P, and ETH keys encrypted with different passwords, re-insert them into your DB encrypted with the same password prior to upgrading.
 
+### Fixed
+
+- Fixed reading of function selector values in DB.
+- Support for bignums encoded in CBOR
+- Silence spurious `Job spawner ORM attempted to claim locally-claimed job` warnings
+
 ### Changed
 
 - Key-related API endpoints have changed. All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
 - All key deletion commands now perform a soft-delete (i.e. archive) by default. A special CLI flag or query string parameter must be provided to hard-delete a key.
+- Node now supports multiple OCR jobs sharing the same peer ID. If you have more than one key in your database, you must now specify `P2P_PEER_ID` to indicate which key to use.
 
 ## [0.9.8] - 2020-12-17
 
@@ -42,8 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
-- Fixed reading of function selector values in DB.
-- Support for bignums encoded in CBOR
 
 #### BREAKING CHANGES
 
