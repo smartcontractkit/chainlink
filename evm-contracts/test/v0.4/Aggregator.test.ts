@@ -7,11 +7,11 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
-import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
+import { Aggregator__factory } from '../../ethers/v0.4/factories/Aggregator__factory'
+import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 
-const aggregatorFactory = new AggregatorFactory()
-const oracleFactory = new OracleFactory()
+const aggregatorFactory = new Aggregator__factory()
+const oracleFactory = new Oracle__factory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 
 let personas: setup.Personas
@@ -37,12 +37,12 @@ describe('Aggregator', () => {
   const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
   let link: contract.Instance<contract.LinkTokenFactory>
-  let rate: contract.Instance<AggregatorFactory>
-  let oc1: contract.Instance<OracleFactory>
-  let oc2: contract.Instance<OracleFactory>
-  let oc3: contract.Instance<OracleFactory>
-  let oc4: contract.Instance<OracleFactory>
-  let oracles: contract.Instance<OracleFactory>[]
+  let rate: contract.Instance<Aggregator__factory>
+  let oc1: contract.Instance<Oracle__factory>
+  let oc2: contract.Instance<Oracle__factory>
+  let oc3: contract.Instance<Oracle__factory>
+  let oc4: contract.Instance<Oracle__factory>
+  let oracles: contract.Instance<Oracle__factory>[]
   let jobIds: string[] = []
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()
@@ -765,7 +765,7 @@ describe('Aggregator', () => {
 
     for (const test of tests) {
       const responses = test.responses
-      const oracles: contract.Instance<OracleFactory>[] = []
+      const oracles: contract.Instance<Oracle__factory>[] = []
       const jobIds: string[] = []
 
       it(test.name, async () => {
