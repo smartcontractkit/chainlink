@@ -61,7 +61,7 @@ type fluxAggregatorUniverse struct {
 func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
-	return bind.NewKeyedTransactor(key)
+	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 }
 
 // setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
@@ -70,7 +70,7 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 func setupFluxAggregatorUniverse(t *testing.T, key models.Key) fluxAggregatorUniverse {
 	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
 	require.NoError(t, err)
-	oracleTransactor := bind.NewKeyedTransactor(k.PrivateKey)
+	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
 	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)

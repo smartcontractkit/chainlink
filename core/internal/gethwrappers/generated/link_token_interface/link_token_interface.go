@@ -650,6 +650,7 @@ func (_LinkToken *LinkTokenFilterer) ParseApproval(log types.Log) (*LinkTokenApp
 	if err := _LinkToken.contract.UnpackLog(event, "Approval", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -804,5 +805,6 @@ func (_LinkToken *LinkTokenFilterer) ParseTransfer(log types.Log) (*LinkTokenTra
 	if err := _LinkToken.contract.UnpackLog(event, "Transfer", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }

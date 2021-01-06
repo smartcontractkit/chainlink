@@ -10,7 +10,7 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.9.24
+	github.com/ethereum/go-ethereum v1.9.25
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
