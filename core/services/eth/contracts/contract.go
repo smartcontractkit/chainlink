@@ -1,31 +1,33 @@
-package eth
+package contracts
 
 import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
 type ConnectedContract interface {
-	ContractCodec
+	eth.ContractCodec
 	Call(result interface{}, methodName string, args ...interface{}) error
-	SubscribeToLogs(listener LogListener) (connected bool, _ UnsubscribeFunc)
+	SubscribeToLogs(listener log.LogListener) (connected bool, _ UnsubscribeFunc)
 }
 
 type connectedContract struct {
-	ContractCodec
+	eth.ContractCodec
 	address        common.Address
-	ethClient      Client
-	logBroadcaster LogBroadcaster
+	ethClient      eth.Client
+	logBroadcaster log.LogBroadcaster
 }
 
 type UnsubscribeFunc func()
 
 func NewConnectedContract(
-	codec ContractCodec,
+	codec eth.ContractCodec,
 	address common.Address,
-	ethClient Client,
-	logBroadcaster LogBroadcaster,
+	ethClient eth.Client,
+	logBroadcaster log.LogBroadcaster,
 ) ConnectedContract {
 	return &connectedContract{codec, address, ethClient, logBroadcaster}
 }
@@ -37,7 +39,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	}
 
 	var rawResult hexutil.Bytes
-	callArgs := CallArgs{To: contract.address, Data: data}
+	callArgs := eth.CallArgs{To: contract.address, Data: data}
 	err = contract.ethClient.Call(&rawResult, "eth_call", callArgs, "latest")
 	if err != nil {
 		return errors.Wrap(err, "unable to call client")
@@ -46,7 +48,7 @@ func (contract *connectedContract) Call(result interface{}, methodName string, a
 	return errors.Wrap(err, "unable to unpack values")
 }
 
-func (contract *connectedContract) SubscribeToLogs(listener LogListener) (connected bool, _ UnsubscribeFunc) {
+func (contract *connectedContract) SubscribeToLogs(listener log.LogListener) (connected bool, _ UnsubscribeFunc) {
 	connected = contract.logBroadcaster.Register(contract.address, listener)
 	unsub := func() { contract.logBroadcaster.Unregister(contract.address, listener) }
 	return connected, unsub

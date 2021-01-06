@@ -4,7 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	log "github.com/smartcontractkit/chainlink/core/services/log"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -40,11 +40,11 @@ func (_m *LogBroadcaster) DependentReady() {
 }
 
 // Register provides a mock function with given fields: address, listener
-func (_m *LogBroadcaster) Register(address common.Address, listener eth.LogListener) bool {
+func (_m *LogBroadcaster) Register(address common.Address, listener log.LogListener) bool {
 	ret := _m.Called(address, listener)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(common.Address, eth.LogListener) bool); ok {
+	if rf, ok := ret.Get(0).(func(common.Address, log.LogListener) bool); ok {
 		r0 = rf(address, listener)
 	} else {
 		r0 = ret.Get(0).(bool)
@@ -82,6 +82,6 @@ func (_m *LogBroadcaster) Stop() error {
 }
 
 // Unregister provides a mock function with given fields: address, listener
-func (_m *LogBroadcaster) Unregister(address common.Address, listener eth.LogListener) {
+func (_m *LogBroadcaster) Unregister(address common.Address, listener log.LogListener) {
 	_m.Called(address, listener)
 }

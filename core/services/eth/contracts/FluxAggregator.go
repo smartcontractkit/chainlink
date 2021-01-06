@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,7 +14,7 @@ import (
 //go:generate mockery --name FluxAggregator --output ../../../internal/mocks/ --case=underscore
 
 type FluxAggregator interface {
-	eth.ConnectedContract
+	ConnectedContract
 	RoundState(oracle common.Address, roundID uint32) (FluxAggregatorRoundState, error)
 	GetOracles() ([]common.Address, error)
 	LatestRoundData() (FluxAggregatorRoundData, error)
@@ -35,7 +36,7 @@ var (
 )
 
 type fluxAggregator struct {
-	eth.ConnectedContract
+	ConnectedContract
 	ethClient eth.Client
 	address   common.Address
 }
@@ -60,18 +61,18 @@ var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorAnswerUpdatedLogTopic20191220: &LogAnswerUpdated{},
 }
 
-func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster eth.LogBroadcaster) (FluxAggregator, error) {
+func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster log.LogBroadcaster) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(FluxAggregatorName)
 	if err != nil {
 		return nil, err
 	}
-	connectedContract := eth.NewConnectedContract(codec, address, ethClient, logBroadcaster)
+	connectedContract := NewConnectedContract(codec, address, ethClient, logBroadcaster)
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(listener eth.LogListener) (connected bool, _ eth.UnsubscribeFunc) {
+func (fa *fluxAggregator) SubscribeToLogs(listener log.LogListener) (connected bool, _ UnsubscribeFunc) {
 	return fa.ConnectedContract.SubscribeToLogs(
-		eth.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
+		log.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)
 }
 
