@@ -6,13 +6,13 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { SchnorrSECP256K1Factory } from '../../../ethers/v0.5/SchnorrSECP256K1Factory'
+import { SchnorrSECP256K1__factory } from '../../../ethers/v0.5/factories/SchnorrSECP256K1__factory'
 import * as f from './fixtures'
 
 const { bigNumberify: bn } = ethers.utils
 extensions.ethers.BigNumber.extend(ethers.utils.BigNumber)
 
-const schnorrSECP256K1Factory = new SchnorrSECP256K1Factory()
+const schnorrSECP256K1Factory = new SchnorrSECP256K1__factory()
 const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
@@ -22,7 +22,7 @@ beforeAll(async () => {
 })
 
 describe('SchnorrSECP256K1', () => {
-  let c: contract.Instance<SchnorrSECP256K1Factory>
+  let c: contract.Instance<SchnorrSECP256K1__factory>
   const deployment = setup.snapshot(provider, async () => {
     c = await schnorrSECP256K1Factory.connect(defaultAccount).deploy()
   })
