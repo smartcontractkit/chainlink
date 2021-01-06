@@ -4,7 +4,6 @@ import (
 	"strings"
 	"sync"
 
-
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"

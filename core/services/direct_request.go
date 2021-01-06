@@ -78,7 +78,7 @@ func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
 }
 
 func (d *DirectRequestSpecDelegate) FromDBRow(spec job.JobSpecV2) job.Spec {
-	if d.DirectRequestSpec == nil {
+	if spec.DirectRequestSpec == nil {
 		return nil
 	}
 	return &DirectRequestSpec{

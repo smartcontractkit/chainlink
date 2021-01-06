@@ -548,7 +548,7 @@ func ValidatedDirectRequestSpec(tomlString string) (spec DirectRequestSpec, err 
 		}
 	}()
 
-	var mSpec models.DirectRequestSpec
+	var mSpec job.DirectRequestSpec
 	spec = DirectRequestSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -567,7 +567,7 @@ func ValidatedDirectRequestSpec(tomlString string) (spec DirectRequestSpec, err 
 	mSpec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
 	spec.DirectRequestSpec = mSpec
 
-	if spec.Type != models.DirectRequestJobType {
+	if spec.Type != job.DirectRequestJobType {
 		return spec, errors.Errorf("unsupported type %s", spec.Type)
 	}
 	if spec.SchemaVersion != uint32(1) {
