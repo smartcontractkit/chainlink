@@ -46,7 +46,7 @@ async function sendRunlogTransaction({
   const signer = provider.getSigner(DEVNET_ADDRESS)
 
   const runLogFactory = new RunLogFactory(signer)
-  const linkTokenFactory = new contract.LinkTokenFactory(signer)
+  const linkTokenFactory = new contract.LinkToken__factory(signer)
   const runLog = runLogFactory.attach(runLogAddress)
   const linkToken = linkTokenFactory.attach(linkTokenAddress)
 

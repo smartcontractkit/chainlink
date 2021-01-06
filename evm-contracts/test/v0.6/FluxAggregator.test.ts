@@ -17,7 +17,7 @@ import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factorie
 
 let personas: setup.Personas
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const fluxAggregatorFactory = new FluxAggregator__factory()
 const validatorMockFactory = new AggregatorValidatorMock__factory()
 const testHelperFactory = new FluxAggregatorTestHelper__factory()
@@ -46,7 +46,7 @@ describe('FluxAggregator', () => {
   const maxSubmissionValue = h.bigNum('100000000000000000000')
 
   let aggregator: contract.Instance<FluxAggregator__factory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let testHelper: contract.Instance<FluxAggregatorTestHelper__factory>
   let validator: contract.Instance<AggregatorValidatorMock__factory>
   let gasGuzzler: contract.Instance<GasGuzzler__factory>

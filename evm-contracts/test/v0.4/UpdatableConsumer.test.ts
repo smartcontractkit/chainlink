@@ -12,7 +12,7 @@ import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 import { PublicResolver__factory } from '../../ethers/v0.4/factories/PublicResolver__factory'
 import { UpdatableConsumer__factory } from '../../ethers/v0.4/factories/UpdatableConsumer__factory'
 
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const ensRegistryFactory = new ENSRegistry__factory()
 const oracleFactory = new Oracle__factory()
 const publicResolverFacotory = new PublicResolver__factory()
@@ -48,7 +48,7 @@ describe('UpdatableConsumer', () => {
 
   let ens: contract.Instance<ENSRegistry__factory>
   let ensResolver: contract.Instance<PublicResolver__factory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let oc: contract.Instance<Oracle__factory>
   let uc: contract.Instance<UpdatableConsumer__factory>
   const deployment = setup.snapshot(provider, async () => {

@@ -16,7 +16,7 @@ const concreteChainlinkedFactory = new ConcreteChainlinked__factory()
 const emptyOracleFactory = new EmptyOracle__factory()
 const getterSetterFactory = new GetterSetter__factory()
 const oracleFactory = new Oracle__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 const provider = setup.provider()
 
@@ -35,7 +35,7 @@ describe('ConcreteChainlinked', () => {
   let gs: contract.Instance<GetterSetter__factory>
   let oc: contract.Instance<Oracle__factory | EmptyOracle__factory>
   let newoc: contract.Instance<Oracle__factory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)

@@ -14,7 +14,7 @@ import { Oracle__factory } from '../../ethers/v0.6/factories/Oracle__factory'
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const aggregatorFactory = new Aggregator__factory()
 const oracleFactory = new Oracle__factory()
 const aggregatorFacadeFactory = new AggregatorFacade__factory()
@@ -33,7 +33,7 @@ describe('AggregatorFacade', () => {
   const decimals = 18
   const description = 'LINK / USD: Historic Aggregator Facade'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let aggregator: contract.Instance<Aggregator__factory>
   let oc1: contract.Instance<Oracle__factory>
   let facade: contract.Instance<AggregatorFacade__factory>

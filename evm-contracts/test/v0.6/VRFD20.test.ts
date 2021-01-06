@@ -8,7 +8,7 @@ import { bigNumberify } from 'ethers/utils'
 let roles: setup.Roles
 let personas: setup.Personas
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const vrfCoordinatorMockFactory = new VRFCoordinatorMock__factory()
 const vrfD20Factory = new VRFD20__factory()
 
@@ -28,7 +28,7 @@ describe('VRFD20', () => {
   const requestId =
     '0x66f86cab16b057baa86d6171b59e4c356197fcebc0e2cd2a744fc2d2f4dacbfe'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let vrfCoordinator: contract.Instance<VRFCoordinatorMock__factory>
   let vrfD20: contract.Instance<VRFD20__factory>
 

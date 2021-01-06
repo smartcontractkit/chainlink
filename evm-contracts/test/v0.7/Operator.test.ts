@@ -26,7 +26,7 @@ const maliciousRequesterFactory = new MaliciousRequester__factory()
 const maliciousConsumerFactory = new MaliciousConsumer__factory()
 const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
 const operatorFactory = new Operator__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 const provider = setup.provider()
@@ -42,7 +42,7 @@ describe('Operator', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let operator: contract.Instance<Operator__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()

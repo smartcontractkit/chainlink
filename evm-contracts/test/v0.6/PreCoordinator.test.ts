@@ -16,7 +16,7 @@ const provider = setup.provider()
 const oracleFactory = new Oracle__factory()
 const preCoordinatorFactory = new PreCoordinator__factory()
 const requesterConsumerFactory = new BasicConsumer__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 beforeAll(async () => {
@@ -43,7 +43,7 @@ describe('PreCoordinator', () => {
   const payment = h.toWei('1')
   const totalPayment = h.toWei('4')
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let oc1: contract.Instance<Oracle__factory>
   let oc2: contract.Instance<Oracle__factory>
   let oc3: contract.Instance<Oracle__factory>

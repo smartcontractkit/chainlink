@@ -12,7 +12,7 @@ import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 
 const aggregatorFactory = new Aggregator__factory()
 const oracleFactory = new Oracle__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
@@ -36,7 +36,7 @@ describe('Aggregator', () => {
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000004'
   const deposit = h.toWei('100')
   const basePayment = h.toWei('1')
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let rate: contract.Instance<Aggregator__factory>
   let oc1: contract.Instance<Oracle__factory>
   let oc2: contract.Instance<Oracle__factory>
