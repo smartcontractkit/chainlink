@@ -7,8 +7,8 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
@@ -55,7 +55,7 @@ func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
 }
 
 type DirectRequestSpecDelegate struct {
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	pipelineRunner pipeline.Runner
 	db             *gorm.DB
 }
@@ -107,13 +107,13 @@ func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.Spec) (services []j
 	return
 }
 
-func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
+func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
 	jobSpawner.RegisterDelegate(
 		NewDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, db),
 	)
 }
 
-func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
+func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
 	return &DirectRequestSpecDelegate{
 		logBroadcaster,
 		pipelineRunner,
@@ -122,12 +122,12 @@ func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster eth.LogBroa
 }
 
 var (
-	_ eth.LogListener = &directRequestListener{}
-	_ job.Service     = &directRequestListener{}
+	_ log.Listener = &directRequestListener{}
+	_ job.Service  = &directRequestListener{}
 )
 
 type directRequestListener struct {
-	logBroadcaster  eth.LogBroadcaster
+	logBroadcaster  log.Broadcaster
 	contractAddress gethCommon.Address
 	pipelineRunner  pipeline.Runner
 	db              *gorm.DB
@@ -149,14 +149,14 @@ func (d directRequestListener) Close() error {
 	return nil
 }
 
-// OnConnect complies with eth.LogListener
+// OnConnect complies with log.Listener
 func (directRequestListener) OnConnect() {}
 
-// OnDisconnect complies with eth.LogListener
+// OnDisconnect complies with log.Listener
 func (directRequestListener) OnDisconnect() {}
 
-// OnConnect complies with eth.LogListener
-func (d directRequestListener) HandleLog(lb eth.LogBroadcast, err error) {
+// OnConnect complies with log.Listener
+func (d directRequestListener) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
 		logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
 		return
@@ -178,17 +178,17 @@ func (d directRequestListener) HandleLog(lb eth.LogBroadcast, err error) {
 	}
 }
 
-// JobID complies with eth.LogListener
+// JobID complies with log.Listener
 func (directRequestListener) JobID() *models.ID {
 	return nil
 }
 
-// JobSpecV2 complies with eth.LogListener
+// JobSpecV2 complies with log.Listener
 func (d directRequestListener) JobIDV2() int32 {
 	return d.jobID
 }
 
-// IsV2Job complies with eth.LogListener
+// IsV2Job complies with log.Listener
 func (directRequestListener) IsV2Job() bool {
 	return true
 }
