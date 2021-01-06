@@ -27,7 +27,7 @@ type (
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		contractAddress  gethCommon.Address
-		logBroadcaster   log.LogBroadcaster
+		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
 	}
@@ -38,7 +38,7 @@ func NewOCRContractConfigTracker(
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
 	ethClient eth.Client,
-	logBroadcaster log.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	jobID int32,
 	logger logger.Logger,
 ) (o *OCRContractConfigTracker, err error) {

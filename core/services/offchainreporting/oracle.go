@@ -37,7 +37,7 @@ func RegisterJobType(
 	jobSpawner job.Spawner,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
-	logBroadcaster log.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 ) {
 	jobSpawner.RegisterDelegate(
@@ -52,7 +52,7 @@ type jobSpawnerDelegate struct {
 	keyStore       *KeyStore
 	pipelineRunner pipeline.Runner
 	ethClient      eth.Client
-	logBroadcaster log.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	peerWrapper    *SingletonPeerWrapper
 }
 
@@ -63,7 +63,7 @@ func NewJobSpawnerDelegate(
 	keyStore *KeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
-	logBroadcaster log.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 ) *jobSpawnerDelegate {
 	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}

@@ -61,7 +61,7 @@ var fluxAggregatorLogTypes = map[common.Hash]interface{}{
 	AggregatorAnswerUpdatedLogTopic20191220: &LogAnswerUpdated{},
 }
 
-func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster log.LogBroadcaster) (FluxAggregator, error) {
+func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcaster log.Broadcaster) (FluxAggregator, error) {
 	codec, err := eth.GetV6ContractCodec(FluxAggregatorName)
 	if err != nil {
 		return nil, err
@@ -70,7 +70,7 @@ func NewFluxAggregator(address common.Address, ethClient eth.Client, logBroadcas
 	return &fluxAggregator{connectedContract, ethClient, address}, nil
 }
 
-func (fa *fluxAggregator) SubscribeToLogs(listener log.LogListener) (connected bool, _ UnsubscribeFunc) {
+func (fa *fluxAggregator) SubscribeToLogs(listener log.Listener) (connected bool, _ UnsubscribeFunc) {
 	return fa.ConnectedContract.SubscribeToLogs(
 		log.NewDecodingLogListener(fa, fluxAggregatorLogTypes, listener),
 	)

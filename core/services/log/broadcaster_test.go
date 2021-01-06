@@ -41,7 +41,7 @@ func requireLogConsumptionCount(t *testing.T, store *store.Store, expectedCount 
 	require.Eventually(t, comparisonFunc, 5*time.Second, 10*time.Millisecond)
 }
 
-func handleLogBroadcast(t *testing.T, lb log.LogBroadcast) {
+func handleLogBroadcast(t *testing.T, lb log.Broadcast) {
 	consumed, err := lb.WasAlreadyConsumed()
 	require.NoError(t, err)
 	require.False(t, consumed)
@@ -79,7 +79,7 @@ func TestLogBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
-	lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(2)
 	lb.Start()
 
@@ -129,12 +129,12 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		Run(func(mock.Arguments) { atomic.AddInt32(&unsubscribeCalls, 1) })
 	sub.On("Err").Return(nil)
 
-	lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	type registration struct {
 		common.Address
-		log.LogListener
+		log.Listener
 	}
 	registrations := make([]registration, numContracts)
 	for i := 0; i < numContracts; i++ {
@@ -142,7 +142,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		listener.On("OnConnect").Return()
 		listener.On("OnDisconnect").Return()
 		registrations[i] = registration{cltest.NewAddress(), listener}
-		lb.Register(registrations[i].Address, registrations[i].LogListener)
+		lb.Register(registrations[i].Address, registrations[i].Listener)
 	}
 
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&subscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
@@ -150,7 +150,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&unsubscribeCalls)).Should(gomega.Equal(int32(0)))
 
 	for _, r := range registrations {
-		lb.Unregister(r.Address, r.LogListener)
+		lb.Unregister(r.Address, r.Listener)
 	}
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&unsubscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(atomic.LoadInt32(&subscribeCalls)).Should(gomega.Equal(int32(1)))
@@ -163,11 +163,11 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 }
 
 type simpleLogListener struct {
-	handler    func(lb log.LogBroadcast, err error)
+	handler    func(lb log.Broadcast, err error)
 	consumerID *models.ID
 }
 
-func (listener simpleLogListener) HandleLog(lb log.LogBroadcast, err error) {
+func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
 	listener.handler(lb, err)
 }
 func (listener simpleLogListener) OnConnect()    {}
@@ -206,7 +206,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	addr1 := cltest.NewAddress()
@@ -225,7 +225,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []types.Log
 
 	listener1 := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs1 = append(addr1Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
@@ -233,7 +233,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener2 := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			addr1Logs2 = append(addr1Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
@@ -241,7 +241,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener3 := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs1 = append(addr2Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
@@ -249,7 +249,7 @@ func TestLogBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		createJob(t, store).ID,
 	}
 	listener4 := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			addr2Logs2 = append(addr2Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
@@ -373,7 +373,7 @@ func TestLogBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.
 	listener1.On("OnDisconnect").Return().Maybe()
 	listener2.On("OnDisconnect").Return().Maybe()
 
-	lb := log.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.AddDependents(1)
 	lb.Start() // Subscribe #0
 	lb.Register(addr0, listener0)
@@ -416,7 +416,7 @@ func TestDecodingLogListener(t *testing.T) {
 	var decodedLog interface{}
 
 	listener := simpleLogListener{
-		func(lb log.LogBroadcast, innerErr error) {
+		func(lb log.Broadcast, innerErr error) {
 			err = innerErr
 			decodedLog = lb.DecodedLog()
 		},
@@ -550,13 +550,13 @@ func TestLogBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			sub.On("Err").Return(nil)
 			sub.On("Unsubscribe").Return()
 
-			lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+			lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 			lb.Start()
 
 			recvdMutex := new(sync.RWMutex)
 			var recvd []types.Log
 
-			handleLog := func(lb log.LogBroadcast, err error) {
+			handleLog := func(lb log.Broadcast, err error) {
 				require.NoError(t, err)
 				consumed, err := lb.WasAlreadyConsumed()
 				require.NoError(t, err)
@@ -657,7 +657,7 @@ func TestLogBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewLogBroadcaster(nil, nil, 0)
+	lb := log.NewBroadcaster(nil, nil, 0)
 	type exportedAppendLogChanneler interface {
 		ExportedAppendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 	}
@@ -719,7 +719,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return()
 
-	lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 
 	lb.Start()
 
@@ -727,7 +727,7 @@ func TestLogBroadcaster_InjectsLogConsumptionRecordFunctions(t *testing.T) {
 
 	job := createJob(t, store)
 	logListener := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			consumed, err := lb.WasAlreadyConsumed()
 			require.NoError(t, err)
@@ -773,7 +773,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	lb := log.NewLogBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(store.EthClient, store.ORM, store.Config.BlockBackfillDepth())
 	lb.Start()
 
 	blockHash0 := cltest.NewHash()
@@ -796,7 +796,7 @@ func TestLogBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 
 	job := createJob(t, store)
 	listener := simpleLogListener{
-		func(lb log.LogBroadcast, err error) {
+		func(lb log.Broadcast, err error) {
 			require.NoError(t, err)
 			ethLog := lb.RawLog()
 			recvdMutex.Lock()
