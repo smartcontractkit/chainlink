@@ -138,13 +138,13 @@ func TestPipelineORM_Integration(t *testing.T) {
 	t.Run("creates runs", func(t *testing.T) {
 		orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
-		ORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-		defer ORM.Close()
+		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+		defer jobORM.Close()
 
 		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 		// Need a  in order to create a run
-		err := ORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -303,7 +303,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				{
 					anyRemaining := true
 					for anyRemaining {
-						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, ID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 							// Ensure we don't fetch the locked task run
 							require.NotEqual(t, locked.ID, taskRun.ID)
 
@@ -344,7 +344,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					<-chUnlocked
 					time.Sleep(3 * time.Second)
 
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, ID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
 							_, exists := test.answers[p.DotID()]
@@ -367,7 +367,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, ID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						t.Fatal("this callback should never be reached")
 						return pipeline.Result{}
 					})
@@ -437,7 +437,7 @@ func TestORM_CreateRunWhenJobDeleted(t *testing.T) {
 	orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
 	defer cleanup()
 
-	// Use non-existent  ID to simulate situation if a job is deleted between runs
+	// Use non-existent job ID to simulate situation if a job is deleted between runs
 	_, err := orm.CreateRun(context.Background(), -1, nil)
 	require.EqualError(t, err, "no job found with id -1 (most likely it was deleted)")
 }
