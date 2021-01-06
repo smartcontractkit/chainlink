@@ -16,7 +16,7 @@ import { ServiceAgreementConsumer__factory } from '../../ethers/v0.5/factories/S
 const coordinatorFactory = new Coordinator__factory()
 const meanAggregatorFactory = new MeanAggregator__factory()
 const serviceAgreementConsumerFactory = new ServiceAgreementConsumer__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 // create ethers provider from that web3js instance
 const provider = setup.provider()
@@ -32,7 +32,7 @@ beforeAll(async () => {
 describe('ServiceAgreementConsumer', () => {
   const currency = 'USD'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let coord: contract.Instance<Coordinator__factory>
   let cc: contract.Instance<ServiceAgreementConsumer__factory>
   let agreement: coordinator.ServiceAgreement

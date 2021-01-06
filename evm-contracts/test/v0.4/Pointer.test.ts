@@ -3,7 +3,7 @@ import { assert } from 'chai'
 import { Pointer__factory } from '../../ethers/v0.4/factories/Pointer__factory'
 
 const pointerFactory = new Pointer__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const provider = setup.provider()
 
 let roles: setup.Roles
@@ -16,7 +16,7 @@ beforeAll(async () => {
 
 describe('Pointer', () => {
   let pointer: contract.Instance<Pointer__factory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     pointer = await pointerFactory

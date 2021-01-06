@@ -11,7 +11,7 @@ import { FluxAggregatorTestHelper__factory } from '../../ethers/v0.6/factories/F
 let personas: setup.Personas
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const aggregatorFactory = new AccessControlledAggregator__factory()
 const testHelperFactory = new FluxAggregatorTestHelper__factory()
 const proxyFactory = new EACAggregatorProxy__factory()

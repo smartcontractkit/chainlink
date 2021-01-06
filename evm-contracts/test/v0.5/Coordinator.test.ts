@@ -19,7 +19,7 @@ import { MeanAggregator__factory } from '../../ethers/v0.5/factories/MeanAggrega
 
 const provider = setup.provider()
 
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const coordinatorFactory = new Coordinator__factory()
 const emptyAggregatorFactory = new EmptyAggregator__factory()
 const meanAggregatorFactory = new MeanAggregator__factory()
@@ -33,7 +33,7 @@ const newServiceAgreementEvent =
 
 let roles: setup.Roles
 
-let link: contract.Instance<contract.LinkTokenFactory>
+let link: contract.Instance<contract.LinkToken__factory>
 let coord: contract.Instance<Coordinator__factory>
 let emptyAggregator: contract.Instance<EmptyAggregator__factory>
 let meanAggregator: contract.Instance<MeanAggregator__factory>

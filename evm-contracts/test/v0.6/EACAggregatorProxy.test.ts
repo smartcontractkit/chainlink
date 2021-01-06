@@ -15,7 +15,7 @@ let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 const accessControlFactory = new SimpleReadAccessController__factory()
 const aggregatorFactory = new MockV3Aggregator__factory()
 const testHelperFactory = new FluxAggregatorTestHelper__factory()
@@ -38,7 +38,7 @@ describe('EACAggregatorProxy', () => {
   const timestamp = 678
   const startedAt = 677
 
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let controller: contract.Instance<SimpleReadAccessController__factory>
   let aggregator: contract.Instance<MockV3Aggregator__factory>
   let aggregator2: contract.Instance<MockV3Aggregator__factory>

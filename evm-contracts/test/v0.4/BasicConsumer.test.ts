@@ -13,7 +13,7 @@ import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 
 const basicConsumerFactory = new BasicConsumer__factory()
 const oracleFactory = new Oracle__factory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 // create ethers provider from that web3js instance
 const provider = setup.provider()
@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe('BasicConsumer', () => {
   const specId = '0x4c7b7ffb66b344fbaa64995af81e355a'.padEnd(66, '0')
   const currency = 'USD'
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
   let oc: contract.Instance<Oracle__factory>
   let cc: contract.Instance<BasicConsumer__factory>
   const deployment = setup.snapshot(provider, async () => {
