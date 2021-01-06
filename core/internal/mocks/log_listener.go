@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	eth "github.com/smartcontractkit/chainlink/core/services/eth"
+	log "github.com/smartcontractkit/chainlink/core/services/log"
 	mock "github.com/stretchr/testify/mock"
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
@@ -15,7 +15,7 @@ type LogListener struct {
 }
 
 // HandleLog provides a mock function with given fields: lb, err
-func (_m *LogListener) HandleLog(lb eth.LogBroadcast, err error) {
+func (_m *LogListener) HandleLog(lb log.LogBroadcast, err error) {
 	_m.Called(lb, err)
 }
 

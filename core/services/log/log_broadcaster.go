@@ -1,4 +1,4 @@
-package eth
+package log
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/tevino/abool"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -52,7 +53,7 @@ type ormInterface interface {
 }
 
 type logBroadcaster struct {
-	ethClient     Client
+	ethClient     eth.Client
 	orm           ormInterface
 	backfillDepth uint64
 	connected     *abool.AtomicBool
@@ -69,7 +70,7 @@ type logBroadcaster struct {
 }
 
 // NewLogBroadcaster creates a new instance of the logBroadcaster
-func NewLogBroadcaster(ethClient Client, orm ormInterface, backfillDepth uint64) LogBroadcaster {
+func NewLogBroadcaster(ethClient eth.Client, orm ormInterface, backfillDepth uint64) LogBroadcaster {
 	return &logBroadcaster{
 		ethClient:        ethClient,
 		orm:              orm,
@@ -540,14 +541,14 @@ func (s noopSubscription) Unsubscribe()         { close(s.chRawLogs) }
 // ABI type).
 type decodingLogListener struct {
 	logTypes map[common.Hash]reflect.Type
-	codec    ContractCodec
+	codec    eth.ContractCodec
 	LogListener
 }
 
 var _ LogListener = (*decodingLogListener)(nil)
 
 // NewDecodingLogListener creates a new decodingLogListener
-func NewDecodingLogListener(codec ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
+func NewDecodingLogListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {
 		logTypes[eventID] = reflect.TypeOf(logStruct)

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -26,7 +27,7 @@ type (
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		contractAddress  gethCommon.Address
-		logBroadcaster   eth.LogBroadcaster
+		logBroadcaster   log.LogBroadcaster
 		jobID            int32
 		logger           logger.Logger
 	}
@@ -37,7 +38,7 @@ func NewOCRContractConfigTracker(
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
 	ethClient eth.Client,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.LogBroadcaster,
 	jobID int32,
 	logger logger.Logger,
 ) (o *OCRContractConfigTracker, err error) {

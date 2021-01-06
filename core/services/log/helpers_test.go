@@ -1,4 +1,4 @@
-package eth
+package log
 
 import (
 	"github.com/ethereum/go-ethereum/core/types"

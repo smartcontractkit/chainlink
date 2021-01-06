@@ -5,7 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
 var flagsABI = mustGetABI(flags_wrapper.FlagsABI)
@@ -28,22 +28,22 @@ func NewFlagsContract(address common.Address, backend bind.ContractBackend) (*Fl
 
 type flagsDecodingLogListener struct {
 	contract *Flags
-	eth.LogListener
+	log.LogListener
 }
 
-var _ eth.LogListener = (*flagsDecodingLogListener)(nil)
+var _ log.LogListener = (*flagsDecodingLogListener)(nil)
 
 func NewFlagsDecodingLogListener(
 	contract *Flags,
-	innerListener eth.LogListener,
-) eth.LogListener {
+	innerListener log.LogListener,
+) log.LogListener {
 	return flagsDecodingLogListener{
 		contract:    contract,
 		LogListener: innerListener,
 	}
 }
 
-func (ll flagsDecodingLogListener) HandleLog(lb eth.LogBroadcast, err error) {
+func (ll flagsDecodingLogListener) HandleLog(lb log.LogBroadcast, err error) {
 	if err != nil {
 		ll.LogListener.HandleLog(lb, err)
 		return
