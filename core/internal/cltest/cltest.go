@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -967,12 +969,35 @@ func WaitForJobRunToPendOutgoingConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
+func SendBlocksUntilComplete(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+	blockCh chan<- *models.Head,
+	start int64) models.JobRun {
+	t.Helper()
+
+	var err error
+	block := start
+	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		blockCh <- &h
+		block++
+		jr, err = store.Unscoped().FindJobRun(jr.ID)
+		assert.NoError(t, err)
+		st := jr.GetStatus()
+		return st
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
+	return jr
+}
+
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
+
 ) models.JobRun {
 	t.Helper()
 
@@ -1519,4 +1544,19 @@ func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription
 			logsCh <- args.Get(2).(chan<- types.Log)
 		})
 	return logsCh
+}
+
+func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
+	t.Helper()
+
+	return MustNewKeyedTransactor(t, key, 1337)
+}
+
+func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
+	t.Helper()
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
+	require.NoError(t, err)
+
+	return transactor
 }

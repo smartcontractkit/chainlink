@@ -315,9 +315,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
-	sub.On("Err").Return(nil).Maybe()
-	sub.On("Unsubscribe").Return(nil).Maybe()
-	newHeadsCh := make(chan chan<- *models.Head, 10)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil)
+	newHeadsCh := make(chan chan<- *models.Head, 1)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -344,7 +344,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil).Maybe()
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(int64(logBlockNumber + 8)),
+	}), nil) // Gas updater checks the block by number.
 	newHeads := <-newHeadsCh
 	newHeads <- cltest.Head(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
@@ -354,14 +356,15 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		BlockHash:   runlog.BlockHash,
 		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
+
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(int64(logBlockNumber + 9)),
-	}), nil).Maybe()
+	}), nil)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -1103,7 +1106,7 @@ func assertPrices(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsume
 func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
-	user := bind.NewKeyedTransactor(key)
+	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10)
 	genesisData := core.GenesisAlloc{
@@ -1150,7 +1153,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	n, err := b.NonceAt(context.Background(), user.From, nil)
 	require.NoError(t, err)
 	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
-	signedTx, err := user.Signer(types.HomesteadSigner{}, user.From, tx)
+	signedTx, err := user.Signer(user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
 	require.NoError(t, err)
