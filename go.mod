@@ -10,7 +10,7 @@ require (
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.9.24
+	github.com/ethereum/go-ethereum v1.9.25
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
@@ -33,7 +33,7 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.4
-	github.com/pborman/uuid v1.2.0
+	github.com/pborman/uuid v1.2.1
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
