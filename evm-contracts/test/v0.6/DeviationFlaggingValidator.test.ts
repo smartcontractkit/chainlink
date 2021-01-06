@@ -5,24 +5,24 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { DeviationFlaggingValidatorFactory } from '../../ethers/v0.6/DeviationFlaggingValidatorFactory'
-import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
-import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
+import { DeviationFlaggingValidator__factory } from '../../ethers/v0.6/factories/DeviationFlaggingValidator__factory'
+import { Flags__factory } from '../../ethers/v0.6/factories/Flags__factory'
+import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
 
 let personas: setup.Personas
 const provider = setup.provider()
-const validatorFactory = new DeviationFlaggingValidatorFactory()
-const flagsFactory = new FlagsFactory()
-const acFactory = new SimpleWriteAccessControllerFactory()
+const validatorFactory = new DeviationFlaggingValidator__factory()
+const flagsFactory = new Flags__factory()
+const acFactory = new SimpleWriteAccessController__factory()
 
 beforeAll(async () => {
   personas = await setup.users(provider).then((x) => x.personas)
 })
 
 describe('DeviationFlaggingValidator', () => {
-  let validator: contract.Instance<DeviationFlaggingValidatorFactory>
-  let flags: contract.Instance<FlagsFactory>
-  let ac: contract.Instance<SimpleWriteAccessControllerFactory>
+  let validator: contract.Instance<DeviationFlaggingValidator__factory>
+  let flags: contract.Instance<Flags__factory>
+  let ac: contract.Instance<SimpleWriteAccessController__factory>
   const flaggingThreshold = 10000 // 10%
   const previousRoundId = 2
   const previousValue = 1000000
