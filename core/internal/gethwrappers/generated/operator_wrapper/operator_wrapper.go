@@ -693,6 +693,7 @@ func (_Operator *OperatorFilterer) ParseCancelOracleRequest(log types.Log) (*Ope
 	if err := _Operator.contract.UnpackLog(event, "CancelOracleRequest", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -844,6 +845,7 @@ func (_Operator *OperatorFilterer) ParseOracleRequest(log types.Log) (*OperatorO
 	if err := _Operator.contract.UnpackLog(event, "OracleRequest", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -987,6 +989,7 @@ func (_Operator *OperatorFilterer) ParseOracleResponse(log types.Log) (*Operator
 	if err := _Operator.contract.UnpackLog(event, "OracleResponse", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1139,6 +1142,7 @@ func (_Operator *OperatorFilterer) ParseOwnershipTransferRequested(log types.Log
 	if err := _Operator.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1291,5 +1295,6 @@ func (_Operator *OperatorFilterer) ParseOwnershipTransferred(log types.Log) (*Op
 	if err := _Operator.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }

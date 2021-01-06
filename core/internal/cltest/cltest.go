@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ import (
 
 	"github.com/DATA-DOG/go-txdb"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -213,6 +215,7 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.Set("P2P_LISTEN_PORT", "12345")
+	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -770,6 +773,20 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	AssertServerResponse(t, resp, http.StatusOK)
 
 	var createdJob models.JobSpec
+	err := ParseJSONAPIResponse(t, resp, &createdJob)
+	require.NoError(t, err)
+	return createdJob
+}
+
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpecV2 {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusOK)
+
+	var createdJob models.JobSpecV2
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
@@ -1504,4 +1521,19 @@ func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription
 			logsCh <- args.Get(2).(chan<- types.Log)
 		})
 	return logsCh
+}
+
+func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
+	t.Helper()
+
+	return MustNewKeyedTransactor(t, key, 1337)
+}
+
+func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
+	t.Helper()
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
+	require.NoError(t, err)
+
+	return transactor
 }

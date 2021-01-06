@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -540,22 +541,22 @@ func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
 	return err
 }
 
-func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, err error) {
+func ValidatedDirectRequestSpec(tomlString string) (spec DirectRequestSpec, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.Errorf("panicked with err %v", r)
 		}
 	}()
 
-	var eres job.EthRequestEventSpec
-	spec = EthRequestEventSpec{
+	var mSpec models.DirectRequestSpec
+	spec = DirectRequestSpec{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	tree, err := toml.Load(tomlString)
 	if err != nil {
 		return spec, err
 	}
-	err = tree.Unmarshal(&eres)
+	err = tree.Unmarshal(&mSpec)
 	if err != nil {
 		return spec, err
 	}
@@ -563,9 +564,10 @@ func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, 
 	if err != nil {
 		return spec, err
 	}
-	spec.EthRequestEventSpec = eres
+	mSpec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
+	spec.DirectRequestSpec = mSpec
 
-	if spec.Type != "ethrequestevent" {
+	if spec.Type != models.DirectRequestJobType {
 		return spec, errors.Errorf("unsupported type %s", spec.Type)
 	}
 	if spec.SchemaVersion != uint32(1) {

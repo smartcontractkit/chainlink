@@ -1103,7 +1103,7 @@ func assertPrices(t *testing.T, usd, eur, jpy []byte, consumer *multiwordconsume
 func setupMultiWordContracts(t *testing.T) (*bind.TransactOpts, common.Address, *link_token_interface.LinkToken, *multiwordconsumer_wrapper.MultiWordConsumer, *operator_wrapper.Operator, *backends.SimulatedBackend) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
-	user := bind.NewKeyedTransactor(key)
+	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10)
 	genesisData := core.GenesisAlloc{
@@ -1150,7 +1150,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	n, err := b.NonceAt(context.Background(), user.From, nil)
 	require.NoError(t, err)
 	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
-	signedTx, err := user.Signer(types.HomesteadSigner{}, user.From, tx)
+	signedTx, err := user.Signer(user.From, tx)
 	require.NoError(t, err)
 	err = b.SendTransaction(context.Background(), signedTx)
 	require.NoError(t, err)
