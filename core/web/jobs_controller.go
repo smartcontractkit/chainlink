@@ -37,7 +37,7 @@ func (jc *JobsController) Index(c *gin.Context) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
-	jobSpec := job.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -151,7 +151,7 @@ func (jc *JobsController) createDirectRequest(c *gin.Context, toml string) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

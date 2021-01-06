@@ -64,12 +64,12 @@ func (d *DirectRequestSpecDelegate) JobType() job.Type {
 	return job.DirectRequestJobType
 }
 
-func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
+func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.SpecDB {
 	concreteSpec, ok := spec.(DirectRequestSpec)
 	if !ok {
 		panic(fmt.Sprintf("expected a services.DirectRequestSpec, got %T", spec))
 	}
-	return job.JobSpecV2{
+	return job.SpecDB{
 		DirectRequestSpec: &concreteSpec.DirectRequestSpec,
 		Type:              string(job.DirectRequestJobType),
 		SchemaVersion:     concreteSpec.SchemaVersion,
@@ -77,7 +77,7 @@ func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
 	}
 }
 
-func (d *DirectRequestSpecDelegate) FromDBRow(spec job.JobSpecV2) job.Spec {
+func (d *DirectRequestSpecDelegate) FromDBRow(spec job.SpecDB) job.Spec {
 	if spec.DirectRequestSpec == nil {
 		return nil
 	}
@@ -183,7 +183,7 @@ func (directRequestListener) JobID() *models.ID {
 	return nil
 }
 
-// JobSpecV2 complies with log.Listener
+// SpecDB complies with log.Listener
 func (d directRequestListener) JobIDV2() int32 {
 	return d.jobID
 }

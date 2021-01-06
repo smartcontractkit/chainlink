@@ -51,8 +51,8 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
-		ToDBRow(spec Spec) JobSpecV2
-		FromDBRow(spec JobSpecV2) Spec
+		ToDBRow(spec Spec) SpecDB
+		FromDBRow(spec SpecDB) Spec
 		ServicesForSpec(spec Spec) ([]Service, error)
 	}
 )

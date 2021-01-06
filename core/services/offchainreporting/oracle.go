@@ -73,12 +73,12 @@ func (d jobSpawnerDelegate) JobType() job.Type {
 	return JobType
 }
 
-func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
+func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.SpecDB {
 	concreteSpec, ok := spec.(OracleSpec)
 	if !ok {
 		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
 	}
-	return job.JobSpecV2{
+	return job.SpecDB{
 		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
 		Type:                        string(JobType),
 		SchemaVersion:               concreteSpec.SchemaVersion,
@@ -86,7 +86,7 @@ func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.JobSpecV2 {
 	}
 }
 
-func (d jobSpawnerDelegate) FromDBRow(spec job.JobSpecV2) job.Spec {
+func (d jobSpawnerDelegate) FromDBRow(spec job.SpecDB) job.Spec {
 	if spec.OffchainreportingOracleSpec == nil {
 		return nil
 	}
