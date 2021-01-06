@@ -84,7 +84,7 @@ type ChainlinkApplication struct {
 	JobSubscriber            services.JobSubscriber
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
-	LogBroadcaster           log.LogBroadcaster
+	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
 	jobSpawner               job.Spawner
 	pipelineRunner           pipeline.Runner
@@ -127,7 +127,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	promReporter := services.NewPromReporter(store.DB.DB())
-	logBroadcaster := log.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)

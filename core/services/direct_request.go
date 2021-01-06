@@ -55,7 +55,7 @@ func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
 }
 
 type DirectRequestSpecDelegate struct {
-	logBroadcaster log.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	pipelineRunner pipeline.Runner
 	db             *gorm.DB
 }
@@ -107,13 +107,13 @@ func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.Spec) (services []j
 	return
 }
 
-func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
+func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
 	jobSpawner.RegisterDelegate(
 		NewDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, db),
 	)
 }
 
-func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.LogBroadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
+func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
 	return &DirectRequestSpecDelegate{
 		logBroadcaster,
 		pipelineRunner,
@@ -122,12 +122,12 @@ func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.LogBroa
 }
 
 var (
-	_ log.LogListener = &directRequestListener{}
-	_ job.Service     = &directRequestListener{}
+	_ log.Listener = &directRequestListener{}
+	_ job.Service  = &directRequestListener{}
 )
 
 type directRequestListener struct {
-	logBroadcaster  log.LogBroadcaster
+	logBroadcaster  log.Broadcaster
 	contractAddress gethCommon.Address
 	pipelineRunner  pipeline.Runner
 	db              *gorm.DB
@@ -149,14 +149,14 @@ func (d directRequestListener) Close() error {
 	return nil
 }
 
-// OnConnect complies with log.LogListener
+// OnConnect complies with log.Listener
 func (directRequestListener) OnConnect() {}
 
-// OnDisconnect complies with log.LogListener
+// OnDisconnect complies with log.Listener
 func (directRequestListener) OnDisconnect() {}
 
-// OnConnect complies with log.LogListener
-func (d directRequestListener) HandleLog(lb log.LogBroadcast, err error) {
+// OnConnect complies with log.Listener
+func (d directRequestListener) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
 		logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
 		return
@@ -178,17 +178,17 @@ func (d directRequestListener) HandleLog(lb log.LogBroadcast, err error) {
 	}
 }
 
-// JobID complies with log.LogListener
+// JobID complies with log.Listener
 func (directRequestListener) JobID() *models.ID {
 	return nil
 }
 
-// JobSpecV2 complies with log.LogListener
+// JobSpecV2 complies with log.Listener
 func (d directRequestListener) JobIDV2() int32 {
 	return d.jobID
 }
 
-// IsV2Job complies with log.LogListener
+// IsV2Job complies with log.Listener
 func (directRequestListener) IsV2Job() bool {
 	return true
 }

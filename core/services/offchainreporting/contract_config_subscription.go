@@ -25,7 +25,7 @@ var (
 
 var (
 	_ ocrtypes.ContractConfigSubscription = &OCRContractConfigSubscription{}
-	_ log.LogListener                     = &OCRContractConfigSubscription{}
+	_ log.Listener                        = &OCRContractConfigSubscription{}
 )
 
 const OCRContractConfigSubscriptionHandleLogTimeout = 5 * time.Second
@@ -75,7 +75,7 @@ func (sub *OCRContractConfigSubscription) OnConnect() {}
 func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
-func (sub *OCRContractConfigSubscription) HandleLog(lb log.LogBroadcast, err error) {
+func (sub *OCRContractConfigSubscription) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
 		sub.logger.Errorw("OCRContract: error in previous LogListener", "err", err)
 		return

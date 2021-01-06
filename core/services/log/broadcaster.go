@@ -18,28 +18,28 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name LogBroadcaster --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name LogListener --output ../../internal/mocks/ --case=underscore
-//go:generate mockery --name LogBroadcast --output ../../internal/mocks/ --case=underscore
+//go:generate mockery --name Broadcaster --output ../../internal/mocks/ --case=underscore --structname LogBroadcaster --filename log_broadcaster.go
+//go:generate mockery --name Listener --output ../../internal/mocks/ --case=underscore --structname LogListener --filename log_listener.go
+//go:generate mockery --name Broadcast --output ../../internal/mocks/ --case=underscore --structname LogBroadcast --filename log_broadcast.go
 
-// The LogBroadcaster manages log subscription requests for the Chainlink node.  Instead
+// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
 // of creating a new websocket subscription for each request, it multiplexes all subscriptions
 // to all of the relevant contracts over a single connection and forwards the logs to the
 // relevant subscribers.
-type LogBroadcaster interface {
+type Broadcaster interface {
 	utils.DependentAwaiter
 	Start() error
 	Stop() error
-	Register(address common.Address, listener LogListener) (connected bool)
-	Unregister(address common.Address, listener LogListener)
+	Register(address common.Address, listener Listener) (connected bool)
+	Unregister(address common.Address, listener Listener)
 }
 
-// The LogListener responds to log events through HandleLog, and contains setup/tear-down
+// The Listener responds to log events through HandleLog, and contains setup/tear-down
 // callbacks in the On* functions.
-type LogListener interface {
+type Listener interface {
 	OnConnect()
 	OnDisconnect()
-	HandleLog(lb LogBroadcast, err error)
+	HandleLog(lb Broadcast, err error)
 	JobID() *models.ID
 	JobIDV2() int32
 	IsV2Job() bool
@@ -52,14 +52,14 @@ type ormInterface interface {
 	MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error
 }
 
-type logBroadcaster struct {
+type broadcaster struct {
 	ethClient     eth.Client
 	orm           ormInterface
 	backfillDepth uint64
 	connected     *abool.AtomicBool
 	started       *abool.AtomicBool
 
-	listeners        map[common.Address]map[LogListener]struct{}
+	listeners        map[common.Address]map[Listener]struct{}
 	chAddListener    chan registration
 	chRemoveListener chan registration
 
@@ -69,15 +69,15 @@ type logBroadcaster struct {
 	chDone chan struct{}
 }
 
-// NewLogBroadcaster creates a new instance of the logBroadcaster
-func NewLogBroadcaster(ethClient eth.Client, orm ormInterface, backfillDepth uint64) LogBroadcaster {
-	return &logBroadcaster{
+// NewBroadcaster creates a new instance of the broadcaster
+func NewBroadcaster(ethClient eth.Client, orm ormInterface, backfillDepth uint64) Broadcaster {
+	return &broadcaster{
 		ethClient:        ethClient,
 		orm:              orm,
 		backfillDepth:    backfillDepth,
 		connected:        abool.New(),
 		started:          abool.New(),
-		listeners:        make(map[common.Address]map[LogListener]struct{}),
+		listeners:        make(map[common.Address]map[Listener]struct{}),
 		chAddListener:    make(chan registration),
 		chRemoveListener: make(chan registration),
 		chStop:           make(chan struct{}),
@@ -86,10 +86,10 @@ func NewLogBroadcaster(ethClient eth.Client, orm ormInterface, backfillDepth uin
 	}
 }
 
-// The LogBroadcast type wraps a models.Log but provides additional functionality
+// The Broadcast type wraps a models.Log but provides additional functionality
 // for determining whether or not the log has been consumed and for marking
 // the log as consumed
-type LogBroadcast interface {
+type Broadcast interface {
 	DecodedLog() interface{}
 	RawLog() types.Log
 	SetDecodedLog(interface{})
@@ -97,7 +97,7 @@ type LogBroadcast interface {
 	MarkConsumed() error
 }
 
-type logBroadcast struct {
+type broadcast struct {
 	orm        ormInterface
 	decodedLog interface{}
 	rawLog     types.Log
@@ -106,19 +106,19 @@ type logBroadcast struct {
 	isV2       bool
 }
 
-func (lb *logBroadcast) DecodedLog() interface{} {
+func (lb *broadcast) DecodedLog() interface{} {
 	return lb.decodedLog
 }
 
-func (lb *logBroadcast) RawLog() types.Log {
+func (lb *broadcast) RawLog() types.Log {
 	return lb.rawLog
 }
 
-func (lb *logBroadcast) SetDecodedLog(newLog interface{}) {
+func (lb *broadcast) SetDecodedLog(newLog interface{}) {
 	lb.decodedLog = newLog
 }
 
-func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
+func (lb *broadcast) WasAlreadyConsumed() (bool, error) {
 	rawLog := lb.rawLog
 	if lb.isV2 {
 		return lb.orm.HasConsumedLogV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2)
@@ -126,7 +126,7 @@ func (lb *logBroadcast) WasAlreadyConsumed() (bool, error) {
 	return lb.orm.HasConsumedLog(rawLog.BlockHash, rawLog.Index, lb.jobID)
 }
 
-func (lb *logBroadcast) MarkConsumed() error {
+func (lb *broadcast) MarkConsumed() error {
 	rawLog := lb.rawLog
 	if lb.isV2 {
 		return lb.orm.MarkLogConsumedV2(rawLog.BlockHash, rawLog.Index, lb.jobIDV2, rawLog.BlockNumber)
@@ -134,22 +134,22 @@ func (lb *logBroadcast) MarkConsumed() error {
 	return lb.orm.MarkLogConsumed(rawLog.BlockHash, rawLog.Index, lb.jobID, rawLog.BlockNumber)
 }
 
-// A `registration` represents a LogListener's subscription to the logs of a
+// A `registration` represents a Listener's subscription to the logs of a
 // particular contract.
 type registration struct {
 	address  common.Address
-	listener LogListener
+	listener Listener
 }
 
-func (b *logBroadcaster) Start() error {
+func (b *broadcaster) Start() error {
 	if !b.OkayToStart() {
-		return errors.New("LogBroadcaster is already started")
+		return errors.New("Broadcaster is already started")
 	}
 	go b.awaitInitialSubscribers()
 	return nil
 }
 
-func (b *logBroadcaster) awaitInitialSubscribers() {
+func (b *broadcaster) awaitInitialSubscribers() {
 	for {
 		select {
 		case r := <-b.chAddListener:
@@ -166,7 +166,7 @@ func (b *logBroadcaster) awaitInitialSubscribers() {
 	}
 }
 
-func (b *logBroadcaster) addresses() []common.Address {
+func (b *broadcaster) addresses() []common.Address {
 	var addresses []common.Address
 	for address := range b.listeners {
 		addresses = append(addresses, address)
@@ -174,16 +174,16 @@ func (b *logBroadcaster) addresses() []common.Address {
 	return addresses
 }
 
-func (b *logBroadcaster) Stop() error {
+func (b *broadcaster) Stop() error {
 	if !b.OkayToStop() {
-		return errors.New("LogBroadcaster is already stopped")
+		return errors.New("Broadcaster is already stopped")
 	}
 	close(b.chStop)
 	<-b.chDone
 	return nil
 }
 
-func (b *logBroadcaster) Register(address common.Address, listener LogListener) (connected bool) {
+func (b *broadcaster) Register(address common.Address, listener Listener) (connected bool) {
 	select {
 	case b.chAddListener <- registration{address, listener}:
 	case <-b.chStop:
@@ -191,7 +191,7 @@ func (b *logBroadcaster) Register(address common.Address, listener LogListener) 
 	return b.connected.IsSet()
 }
 
-func (b *logBroadcaster) Unregister(address common.Address, listener LogListener) {
+func (b *broadcaster) Unregister(address common.Address, listener Listener) {
 	select {
 	case b.chRemoveListener <- registration{address, listener}:
 	case <-b.chStop:
@@ -205,7 +205,7 @@ func (b *logBroadcaster) Unregister(address common.Address, listener LogListener
 // This method recreates the subscription in both cases.  In the event of a connection
 // error, it attempts to reconnect.  Any time there's a change in connection state, it
 // notifies its subscribers.
-func (b *logBroadcaster) startResubscribeLoop() {
+func (b *broadcaster) startResubscribeLoop() {
 	defer close(b.chDone)
 
 	var subscription managedSubscription = newNoopSubscription()
@@ -226,7 +226,7 @@ func (b *logBroadcaster) startResubscribeLoop() {
 		// Each time this loop runs, chRawLogs is reconstituted as:
 		//     remaining logs from last subscription <- backfilled logs <- logs from new subscription
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
-		// to account for this using the helpers on the LogBroadcast type.
+		// to account for this using the helpers on the Broadcast type.
 		chRawLogs = b.appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = b.appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
@@ -245,7 +245,7 @@ func (b *logBroadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *logBroadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
+func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
 	if ch1 == nil && ch2 == nil {
 		return nil
 	}
@@ -277,7 +277,7 @@ func (b *logBroadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.
 	return chCombined
 }
 
-func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
+func (b *broadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
 	if len(b.listeners) == 0 {
 		ch := make(chan types.Log)
 		close(ch)
@@ -293,7 +293,7 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 
 		latestBlock, err := b.ethClient.HeaderByNumber(ctx, nil)
 		if err != nil {
-			logger.Errorw("LogBroadcaster backfill: could not fetch latest block header", "error", err)
+			logger.Errorw("Broadcaster backfill: could not fetch latest block header", "error", err)
 			return true
 		} else if latestBlock == nil {
 			logger.Warn("got nil block header")
@@ -315,7 +315,7 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 
 		logs, err := b.ethClient.FilterLogs(ctx, q)
 		if err != nil {
-			logger.Errorw("LogBroadcaster backfill: could not fetch logs", "error", err)
+			logger.Errorw("Broadcaster backfill: could not fetch logs", "error", err)
 			return true
 		}
 
@@ -332,7 +332,7 @@ func (b *logBroadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort 
 	return
 }
 
-func (b *logBroadcaster) deliverBackfilledLogs(logs []types.Log, chBackfilledLogs chan<- types.Log) {
+func (b *broadcaster) deliverBackfilledLogs(logs []types.Log, chBackfilledLogs chan<- types.Log) {
 	defer close(chBackfilledLogs)
 	for _, log := range logs {
 		select {
@@ -343,7 +343,7 @@ func (b *logBroadcaster) deliverBackfilledLogs(logs []types.Log, chBackfilledLog
 	}
 }
 
-func (b *logBroadcaster) notifyConnect() {
+func (b *broadcaster) notifyConnect() {
 	b.connected.Set()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
@@ -352,7 +352,7 @@ func (b *logBroadcaster) notifyConnect() {
 	}
 }
 
-func (b *logBroadcaster) notifyDisconnect() {
+func (b *broadcaster) notifyDisconnect() {
 	b.connected.UnSet()
 	for _, listeners := range b.listeners {
 		for listener := range listeners {
@@ -361,7 +361,7 @@ func (b *logBroadcaster) notifyDisconnect() {
 	}
 }
 
-func (b *logBroadcaster) process(subscription managedSubscription, chRawLogs <-chan types.Log) (shouldResubscribe bool, _ error) {
+func (b *broadcaster) process(subscription managedSubscription, chRawLogs <-chan types.Log) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -393,7 +393,7 @@ func (b *logBroadcaster) process(subscription managedSubscription, chRawLogs <-c
 	}
 }
 
-func (b *logBroadcaster) onRawLog(rawLog types.Log) {
+func (b *broadcaster) onRawLog(rawLog types.Log) {
 	for listener := range b.listeners[rawLog.Address] {
 		// Ignore duplicate logs sent back due to reorgs
 		if rawLog.Removed {
@@ -402,7 +402,7 @@ func (b *logBroadcaster) onRawLog(rawLog types.Log) {
 
 		// Deep copy the log so that subscribers aren't sharing any state
 		rawLogCopy := copyLog(rawLog)
-		lb := &logBroadcast{
+		lb := &broadcast{
 			rawLog:  rawLogCopy,
 			orm:     b.orm,
 			jobID:   listener.JobID(),
@@ -433,10 +433,10 @@ func copyLog(l types.Log) types.Log {
 	return cpy
 }
 
-func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
+func (b *broadcaster) onAddListener(r registration) (needsResubscribe bool) {
 	_, knownAddress := b.listeners[r.address]
 	if !knownAddress {
-		b.listeners[r.address] = make(map[LogListener]struct{})
+		b.listeners[r.address] = make(map[Listener]struct{})
 	}
 	if _, exists := b.listeners[r.address][r.listener]; exists {
 		panic("registration already exists")
@@ -447,7 +447,7 @@ func (b *logBroadcaster) onAddListener(r registration) (needsResubscribe bool) {
 	return !knownAddress
 }
 
-func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool) {
+func (b *broadcaster) onRemoveListener(r registration) (needsResubscribe bool) {
 	r.listener.OnDisconnect()
 	delete(b.listeners[r.address], r.listener)
 	if len(b.listeners[r.address]) == 0 {
@@ -461,7 +461,7 @@ func (b *logBroadcaster) onRemoveListener(r registration) (needsResubscribe bool
 // createSubscription creates a new log subscription starting at the current block.  If previous logs
 // are needed, they must be obtained through backfilling, as subscriptions can only be started from
 // the current head.
-func (b *logBroadcaster) createSubscription() (sub managedSubscription, abort bool) {
+func (b *broadcaster) createSubscription() (sub managedSubscription, abort bool) {
 	if len(b.listeners) == 0 {
 		return newNoopSubscription(), false
 	}
@@ -479,7 +479,7 @@ func (b *logBroadcaster) createSubscription() (sub managedSubscription, abort bo
 		defer cancel()
 		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
 		if err != nil {
-			logger.Errorw("LogBroadcaster could not create subscription to Ethereum node", "error", err)
+			logger.Errorw("Broadcaster could not create subscription to Ethereum node", "error", err)
 			return true
 		}
 
@@ -536,34 +536,34 @@ func (s noopSubscription) Err() <-chan error    { return nil }
 func (s noopSubscription) Logs() chan types.Log { return s.chRawLogs }
 func (s noopSubscription) Unsubscribe()         { close(s.chRawLogs) }
 
-// DecodingLogListener receives raw logs from the LogBroadcaster and decodes them into
+// DecodingLogListener receives raw logs from the Broadcaster and decodes them into
 // Go structs using the provided ContractCodec (a simple wrapper around a go-ethereum
 // ABI type).
 type decodingLogListener struct {
 	logTypes map[common.Hash]reflect.Type
 	codec    eth.ContractCodec
-	LogListener
+	Listener
 }
 
-var _ LogListener = (*decodingLogListener)(nil)
+var _ Listener = (*decodingLogListener)(nil)
 
 // NewDecodingLogListener creates a new decodingLogListener
-func NewDecodingLogListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener LogListener) LogListener {
+func NewDecodingLogListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener Listener) Listener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {
 		logTypes[eventID] = reflect.TypeOf(logStruct)
 	}
 
 	return &decodingLogListener{
-		logTypes:    logTypes,
-		codec:       codec,
-		LogListener: innerListener,
+		logTypes: logTypes,
+		codec:    codec,
+		Listener: innerListener,
 	}
 }
 
-func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
+func (l *decodingLogListener) HandleLog(lb Broadcast, err error) {
 	if err != nil {
-		l.LogListener.HandleLog(&logBroadcast{}, err)
+		l.Listener.HandleLog(&broadcast{}, err)
 		return
 	}
 
@@ -593,15 +593,15 @@ func (l *decodingLogListener) HandleLog(lb LogBroadcast, err error) {
 	// Decode the raw log into the struct
 	event, err := l.codec.ABI().EventByID(eventID)
 	if err != nil {
-		l.LogListener.HandleLog(nil, err)
+		l.Listener.HandleLog(nil, err)
 		return
 	}
 	err = l.codec.UnpackLog(decodedLog, event.RawName, rawLog)
 	if err != nil {
-		l.LogListener.HandleLog(nil, err)
+		l.Listener.HandleLog(nil, err)
 		return
 	}
 
 	lb.SetDecodedLog(decodedLog)
-	l.LogListener.HandleLog(lb, nil)
+	l.Listener.HandleLog(lb, nil)
 }
