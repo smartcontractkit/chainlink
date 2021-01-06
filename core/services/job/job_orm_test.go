@@ -39,7 +39,7 @@ func TestORM(t *testing.T) {
 		err := orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
 		require.NoError(t, err)
 
-		var returnedSpec job.JobSpecV2
+		var returnedSpec job.SpecDB
 		err = db.
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", dbSpec.ID).First(&returnedSpec).Error
@@ -91,7 +91,7 @@ func TestORM(t *testing.T) {
 		err := orm2.DeleteJob(ctx, dbSpec.ID)
 		require.NoError(t, err)
 
-		var dbSpecs []job.JobSpecV2
+		var dbSpecs []job.SpecDB
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, dbSpecs, 1)
@@ -112,7 +112,7 @@ func TestORM(t *testing.T) {
 		claimedJobIDs = job.GetORMClaimedJobIDs(orm)
 		assert.NotContains(t, claimedJobIDs, dbSpec.ID)
 
-		var dbSpecs []job.JobSpecV2
+		var dbSpecs []job.SpecDB
 		err = db.Find(&dbSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, dbSpecs, 1)
@@ -137,7 +137,7 @@ func TestORM(t *testing.T) {
 		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, address)
 		err := orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
 		require.NoError(t, err)
-		var jobSpec job.JobSpecV2
+		var jobSpec job.SpecDB
 		err = db.
 			First(&jobSpec).
 			Error
@@ -149,7 +149,7 @@ func TestORM(t *testing.T) {
 		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError1)
 		orm.RecordError(context.Background(), jobSpec.ID, ocrSpecError2)
 
-		var specErrors []job.JobSpecErrorV2
+		var specErrors []job.SpecError
 		err = db.Find(&specErrors).Error
 		require.NoError(t, err)
 		require.Len(t, specErrors, 2)
@@ -160,7 +160,7 @@ func TestORM(t *testing.T) {
 		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
 		assert.True(t, specErrors[1].CreatedAt.After(specErrors[0].UpdatedAt))
-		var j2 job.JobSpecV2
+		var j2 job.SpecDB
 		err = db.
 			Preload("OffchainreportingOracleSpec").
 			Preload("JobSpecErrors").
@@ -188,7 +188,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
-	claimedJobs := make([]job.JobSpecV2, 3)
+	claimedJobs := make([]job.SpecDB, 3)
 	for i := range claimedJobs {
 		ocrSpec, dbSpec := makeOCRJobSpec(t, address)
 		require.NoError(t, orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG()))
@@ -228,7 +228,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))
 
-	claimedJobs := make([]job.JobSpecV2, 3)
+	claimedJobs := make([]job.SpecDB, 3)
 	for i := range claimedJobs {
 		_, dbSpec := makeOCRJobSpec(t, address)
 		dbSpec.ID = int32(i)

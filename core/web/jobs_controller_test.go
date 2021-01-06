@@ -103,10 +103,10 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	jb := job.JobSpecV2{}
+	jb := job.SpecDB{}
 	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&jb).Error)
 
-	ocrJobSpec := job.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
@@ -148,10 +148,10 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	jb := job.JobSpecV2{}
+	jb := job.SpecDB{}
 	require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb).Error)
 
-	jobSpec := job.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
 	assert.NoError(t, err)
 
@@ -173,7 +173,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	jobSpecs := []job.JobSpecV2{}
+	jobSpecs := []job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpecs)
 	assert.NoError(t, err)
 
@@ -191,7 +191,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ocrJobSpec := job.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ereJobSpec := job.JobSpecV2{}
+	ereJobSpec := job.SpecDB{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJobSpec)
 	assert.NoError(t, err)
 
@@ -226,7 +226,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer job.JobSpecV2) {
+func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer job.SpecDB) {
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PBootstrapPeers)
@@ -248,7 +248,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
 }
 
-func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile services.DirectRequestSpec, ereJobSpecFromServer job.JobSpecV2) {
+func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile services.DirectRequestSpec, ereJobSpecFromServer job.SpecDB) {
 	assert.Equal(t, ereJobSpecFromFile.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
 	assert.Equal(t, ereJobSpecFromFile.Pipeline.DOTSource, ereJobSpecFromServer.PipelineSpec.DotDagSource)
 	// Check that create and update dates are non empty values.

@@ -257,7 +257,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	ocrJobSpec := job.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
 		return cli.errorOut(err)
 	}

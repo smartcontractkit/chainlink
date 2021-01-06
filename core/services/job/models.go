@@ -17,7 +17,7 @@ type (
 		ID int32 `json:"-" toml:"-"                 gorm:"primary_key"`
 	}
 
-	JobSpecV2 struct {
+	SpecDB struct {
 		IDEmbed
 		OffchainreportingOracleSpecID *int32                       `json:"-"`
 		OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
@@ -25,14 +25,14 @@ type (
 		DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
 		PipelineSpecID                int32                        `json:"-"`
 		PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
-		JobSpecErrors                 []JobSpecErrorV2             `json:"errors" gorm:"foreignKey:JobID"`
+		JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
 		Type                          string                       `json:"type"`
 		SchemaVersion                 uint32                       `json:"schemaVersion"`
 		Name                          null.String                  `json:"name"`
 		MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
 	}
 
-	JobSpecErrorV2 struct {
+	SpecError struct {
 		ID          int64     `json:"id" gorm:"primary_key"`
 		JobID       int32     `json:"-"`
 		Description string    `json:"description"`
@@ -135,7 +135,7 @@ func (s *OffchainReportingOracleSpec) BeforeSave() error {
 	return nil
 }
 
-func (JobSpecV2) TableName() string                   { return "jobs" }
-func (JobSpecErrorV2) TableName() string              { return "job_spec_errors_v2" }
+func (SpecDB) TableName() string                      { return "jobs" }
+func (SpecError) TableName() string                   { return "job_spec_errors_v2" }
 func (OffchainReportingOracleSpec) TableName() string { return "offchainreporting_oracle_specs" }
 func (DirectRequestSpec) TableName() string           { return "direct_request_specs" }

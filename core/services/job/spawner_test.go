@@ -39,7 +39,7 @@ func (d delegate) ServicesForSpec(js job.Spec) ([]job.Service, error) {
 	return d.services, nil
 }
 
-func (d delegate) FromDBRow(dbRow job.JobSpecV2) job.Spec {
+func (d delegate) FromDBRow(dbRow job.SpecDB) job.Spec {
 	if d.chContinueCreatingServices != nil {
 		<-d.chContinueCreatingServices
 	}
@@ -52,7 +52,7 @@ func (d delegate) FromDBRow(dbRow job.JobSpecV2) job.Spec {
 	return &spec{inner, d.jobType}
 }
 
-func (d delegate) ToDBRow(js job.Spec) job.JobSpecV2 {
+func (d delegate) ToDBRow(js job.Spec) job.SpecDB {
 	// Unwrap
 	inner := js.(*spec).Spec.(*offchainreporting.OracleSpec)
 	return d.Delegate.ToDBRow(*inner)

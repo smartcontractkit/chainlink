@@ -129,7 +129,7 @@ observationSource = """
 `
 )
 
-func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
+func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.SpecDB) {
 	t.Helper()
 
 	peerID := cltest.DefaultP2PPeerID
@@ -140,7 +140,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainr
 	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := job.JobSpecV2{
+	dbSpec := job.SpecDB{
 		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
 		Type:                        string(offchainreporting.JobType),
 		SchemaVersion:               ocrspec.SchemaVersion,
@@ -152,7 +152,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainr
 // to do equality comparisons of these structs manually.
 //
 // https://github.com/stretchr/testify/issues/984
-func compareOCRJobSpecs(t *testing.T, expected, actual job.JobSpecV2) {
+func compareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
 	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
@@ -191,12 +191,12 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 	return &os
 }
 
-func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.SpecDB) {
 	t.Helper()
 	return MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar")
 }
 
-func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
+func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) (*offchainreporting.OracleSpec, *job.SpecDB) {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -205,7 +205,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
 }
 
-func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) (*offchainreporting.OracleSpec, *job.SpecDB) {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -214,14 +214,14 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitter
 	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
 }
 
-func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*offchainreporting.OracleSpec, *job.JobSpecV2) {
+func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*offchainreporting.OracleSpec, *job.SpecDB) {
 	t.Helper()
 
 	var ocrspec offchainreporting.OracleSpec
 	err := toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
 	require.NoError(t, err)
 
-	dbSpec := job.JobSpecV2{
+	dbSpec := job.SpecDB{
 		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
 		Type:                        string(offchainreporting.JobType),
 		SchemaVersion:               ocrspec.SchemaVersion,

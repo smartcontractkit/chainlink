@@ -20,15 +20,14 @@ type PipelineRunsController struct {
 // Example:
 // "GET <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Index(c *gin.Context, size, page, offset int) {
-	jobSpec := job.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	pipelineRuns, count, err := prc.App.GetStore().PipelineRunsByJobID(jobSpec.ID, offset, size)
-
+	pipelineRuns, count, err := prc.App.GetJobORM().PipelineRunsByJobID(jobSpec.ID, offset, size)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -64,7 +63,7 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
-	jobSpec := job.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
