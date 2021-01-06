@@ -58,7 +58,7 @@ var oneEth = big.NewInt(1000000000000000000) // 1e18 wei
 func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
-	return bind.NewKeyedTransactor(key)
+	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 }
 
 // newVRFCoordinatorUniverse sets up all identities and contracts associated with
@@ -66,7 +66,7 @@ func newIdentity(t *testing.T) *bind.TransactOpts {
 func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse {
 	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
 	require.NoError(t, err)
-	oracleTransactor := bind.NewKeyedTransactor(k.PrivateKey)
+	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 	var (
 		sergey  = newIdentity(t)
 		neil    = newIdentity(t)
