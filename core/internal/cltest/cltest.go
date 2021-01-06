@@ -971,12 +971,35 @@ func WaitForJobRunToPendOutgoingConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
+func SendBlocksUntilComplete(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+	blockCh chan<- *models.Head,
+	start int64) models.JobRun {
+	t.Helper()
+
+	var err error
+	block := start
+	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		blockCh <- &h
+		block++
+		jr, err = store.Unscoped().FindJobRun(jr.ID)
+		assert.NoError(t, err)
+		st := jr.GetStatus()
+		return st
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
+	return jr
+}
+
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
+
 ) models.JobRun {
 	t.Helper()
 
