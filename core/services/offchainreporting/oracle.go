@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
@@ -36,7 +37,7 @@ func RegisterJobType(
 	jobSpawner job.Spawner,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 ) {
 	jobSpawner.RegisterDelegate(
@@ -51,7 +52,7 @@ type jobSpawnerDelegate struct {
 	keyStore       *KeyStore
 	pipelineRunner pipeline.Runner
 	ethClient      eth.Client
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	peerWrapper    *SingletonPeerWrapper
 }
 
@@ -62,7 +63,7 @@ func NewJobSpawnerDelegate(
 	keyStore *KeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
 ) *jobSpawnerDelegate {
 	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}
