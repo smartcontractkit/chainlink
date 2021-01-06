@@ -1,8 +1,8 @@
 import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { PointerFactory } from '../../ethers/v0.4/PointerFactory'
+import { Pointer__factory } from '../../ethers/v0.4/factories/Pointer__factory'
 
-const pointerFactory = new PointerFactory()
+const pointerFactory = new Pointer__factory()
 const linkTokenFactory = new contract.LinkTokenFactory()
 const provider = setup.provider()
 
@@ -15,7 +15,7 @@ beforeAll(async () => {
 })
 
 describe('Pointer', () => {
-  let pointer: contract.Instance<PointerFactory>
+  let pointer: contract.Instance<Pointer__factory>
   let link: contract.Instance<contract.LinkTokenFactory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
