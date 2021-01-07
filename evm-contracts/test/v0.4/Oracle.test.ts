@@ -7,18 +7,18 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.4/BasicConsumerFactory'
-import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
-import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
-import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
+import { BasicConsumer__factory } from '../../ethers/v0.4/factories/BasicConsumer__factory'
+import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
+import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/MaliciousConsumer__factory'
+import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
+import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 
-const basicConsumerFactory = new BasicConsumerFactory()
-const getterSetterFactory = new GetterSetterFactory()
-const maliciousRequesterFactory = new MaliciousRequesterFactory()
-const maliciousConsumerFactory = new MaliciousConsumerFactory()
-const oracleFactory = new OracleFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const basicConsumerFactory = new BasicConsumer__factory()
+const getterSetterFactory = new GetterSetter__factory()
+const maliciousRequesterFactory = new MaliciousRequester__factory()
+const maliciousConsumerFactory = new MaliciousConsumer__factory()
+const oracleFactory = new Oracle__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 const provider = setup.provider()
@@ -34,8 +34,8 @@ describe('Oracle', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let oc: contract.Instance<OracleFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let oc: contract.Instance<Oracle__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
@@ -136,8 +136,8 @@ describe('Oracle', () => {
     })
 
     describe('malicious requester', () => {
-      let mock: contract.Instance<MaliciousRequesterFactory>
-      let requester: contract.Instance<BasicConsumerFactory>
+      let mock: contract.Instance<MaliciousRequester__factory>
+      let requester: contract.Instance<BasicConsumer__factory>
       const paymentAmount = h.toWei('1')
 
       beforeEach(async () => {
@@ -300,9 +300,9 @@ describe('Oracle', () => {
 
   describe('#fulfillOracleRequest', () => {
     const response = 'Hi Mom!'
-    let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-    let basicConsumer: contract.Instance<BasicConsumerFactory>
-    let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
+    let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+    let basicConsumer: contract.Instance<BasicConsumer__factory>
+    let maliciousConsumer: contract.Instance<MaliciousConsumer__factory>
     let request: ReturnType<typeof oracle.decodeRunRequest>
 
     describe('cooperative consumer', () => {

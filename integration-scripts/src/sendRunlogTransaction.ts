@@ -9,7 +9,7 @@ import {
   registerPromiseHandler,
 } from './common'
 import { RunLog } from './generated/RunLog'
-import { RunLogFactory } from './generated/RunLogFactory'
+import { RunLog__factory } from './generated/factories/RunLog__factory'
 const request = require('request-promise').defaults({ jar: true })
 
 async function main() {
@@ -45,8 +45,8 @@ async function sendRunlogTransaction({
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
 
-  const runLogFactory = new RunLogFactory(signer)
-  const linkTokenFactory = new contract.LinkTokenFactory(signer)
+  const runLogFactory = new RunLog__factory(signer)
+  const linkTokenFactory = new contract.LinkToken__factory(signer)
   const runLog = runLogFactory.attach(runLogAddress)
   const linkToken = linkTokenFactory.attach(linkTokenAddress)
 
