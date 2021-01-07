@@ -1,16 +1,16 @@
 import { contract, setup, helpers, matchers } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ContractTransaction } from 'ethers'
-import { VRFD20Factory } from '../../ethers/v0.6/VRFD20Factory'
-import { VRFCoordinatorMockFactory } from '../../ethers/v0.6/VRFCoordinatorMockFactory'
+import { VRFD20__factory } from '../../ethers/v0.6/factories/VRFD20__factory'
+import { VRFCoordinatorMock__factory } from '../../ethers/v0.6/factories/VRFCoordinatorMock__factory'
 import { bigNumberify } from 'ethers/utils'
 
 let roles: setup.Roles
 let personas: setup.Personas
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const vrfCoordinatorMockFactory = new VRFCoordinatorMockFactory()
-const vrfD20Factory = new VRFD20Factory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const vrfCoordinatorMockFactory = new VRFCoordinatorMock__factory()
+const vrfD20Factory = new VRFD20__factory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -28,9 +28,9 @@ describe('VRFD20', () => {
   const requestId =
     '0x66f86cab16b057baa86d6171b59e4c356197fcebc0e2cd2a744fc2d2f4dacbfe'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let vrfCoordinator: contract.Instance<VRFCoordinatorMockFactory>
-  let vrfD20: contract.Instance<VRFD20Factory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let vrfCoordinator: contract.Instance<VRFCoordinatorMock__factory>
+  let vrfD20: contract.Instance<VRFD20__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()

@@ -30,13 +30,10 @@ require (
 	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/lib/pq v1.8.0
 	github.com/libp2p/go-libp2p v0.13.0 // indirect
-	github.com/libp2p/go-libp2p-autonat v0.4.0 // indirect
 	github.com/libp2p/go-libp2p-core v0.8.0
 	github.com/libp2p/go-libp2p-kad-dht v0.11.1 // indirect
 	github.com/libp2p/go-libp2p-noise v0.1.2 // indirect
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
-	github.com/libp2p/go-libp2p-swarm v0.4.0 // indirect
-	github.com/libp2p/go-libp2p-yamux v0.5.1 // indirect
 	github.com/libp2p/go-netroute v0.1.4 // indirect
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0

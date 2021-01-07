@@ -81,7 +81,7 @@ async function deployContract({ Factory, name, signer }, ...deployArgs) {
 
 async function deployLINK(wallet, nonce) {
   const linkToken = await deployContract({
-    Factory: contract.LinkTokenFactory,
+    Factory: contract.LinkToken__factory,
     name: 'LinkToken',
     signer: wallet,
     nonce: nonce,

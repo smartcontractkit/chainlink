@@ -1044,7 +1044,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
 
   function validRoundId(uint256 _roundId)
     private
-    view
+    pure
     returns (bool)
   {
     return _roundId <= ROUND_MAX;

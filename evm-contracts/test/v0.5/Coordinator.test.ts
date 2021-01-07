@@ -10,22 +10,22 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
 import { BigNumberish } from 'ethers/utils'
-import { CoordinatorFactory } from '../../ethers/v0.5/CoordinatorFactory'
-import { EmptyAggregatorFactory } from '../../ethers/v0.5/EmptyAggregatorFactory'
-import { GetterSetterFactory } from '../../ethers/v0.5/GetterSetterFactory'
-import { MaliciousConsumerFactory } from '../../ethers/v0.5/MaliciousConsumerFactory'
-import { MaliciousRequesterFactory } from '../../ethers/v0.5/MaliciousRequesterFactory'
-import { MeanAggregatorFactory } from '../../ethers/v0.5/MeanAggregatorFactory'
+import { Coordinator__factory } from '../../ethers/v0.5/factories/Coordinator__factory'
+import { EmptyAggregator__factory } from '../../ethers/v0.5/factories/EmptyAggregator__factory'
+import { GetterSetter__factory } from '../../ethers/v0.5/factories/GetterSetter__factory'
+import { MaliciousConsumer__factory } from '../../ethers/v0.5/factories/MaliciousConsumer__factory'
+import { MaliciousRequester__factory } from '../../ethers/v0.5/factories/MaliciousRequester__factory'
+import { MeanAggregator__factory } from '../../ethers/v0.5/factories/MeanAggregator__factory'
 
 const provider = setup.provider()
 
-const linkTokenFactory = new contract.LinkTokenFactory()
-const coordinatorFactory = new CoordinatorFactory()
-const emptyAggregatorFactory = new EmptyAggregatorFactory()
-const meanAggregatorFactory = new MeanAggregatorFactory()
-const getterSetterFactory = new GetterSetterFactory()
-const maliciousRequesterFactory = new MaliciousRequesterFactory()
-const maliciousConsumerFactory = new MaliciousConsumerFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const coordinatorFactory = new Coordinator__factory()
+const emptyAggregatorFactory = new EmptyAggregator__factory()
+const meanAggregatorFactory = new MeanAggregator__factory()
+const getterSetterFactory = new GetterSetter__factory()
+const maliciousRequesterFactory = new MaliciousRequester__factory()
+const maliciousConsumerFactory = new MaliciousConsumer__factory()
 
 const oracleRequestEvent = coordinatorFactory.interface.events.OracleRequest
 const newServiceAgreementEvent =
@@ -33,10 +33,10 @@ const newServiceAgreementEvent =
 
 let roles: setup.Roles
 
-let link: contract.Instance<contract.LinkTokenFactory>
-let coord: contract.Instance<CoordinatorFactory>
-let emptyAggregator: contract.Instance<EmptyAggregatorFactory>
-let meanAggregator: contract.Instance<MeanAggregatorFactory>
+let link: contract.Instance<contract.LinkToken__factory>
+let coord: contract.Instance<Coordinator__factory>
+let emptyAggregator: contract.Instance<EmptyAggregator__factory>
+let meanAggregator: contract.Instance<MeanAggregator__factory>
 let oracle1: string
 let oracle2: string
 let oracle3: string
@@ -306,7 +306,7 @@ describe('Coordinator', () => {
   describe('#fulfillOracleRequest', () => {
     let agreement: coordinator.ServiceAgreement
     let sAID: string
-    let mock: contract.Instance<GetterSetterFactory>
+    let mock: contract.Instance<GetterSetter__factory>
     let request: oracle.RunRequest
     let fHash: string
     beforeEach(async () => {
@@ -398,7 +398,7 @@ describe('Coordinator', () => {
     })
 
     describe('with a malicious requester', () => {
-      let mock: contract.Instance<MaliciousRequesterFactory>
+      let mock: contract.Instance<MaliciousRequester__factory>
       const paymentAmount = h.toWei('1')
 
       beforeEach(async () => {
@@ -445,7 +445,7 @@ describe('Coordinator', () => {
 
     describe('with a malicious consumer', () => {
       const paymentAmount = h.toWei('1')
-      let mock: contract.Instance<MaliciousConsumerFactory>
+      let mock: contract.Instance<MaliciousConsumer__factory>
 
       beforeEach(async () => {
         mock = await maliciousConsumerFactory

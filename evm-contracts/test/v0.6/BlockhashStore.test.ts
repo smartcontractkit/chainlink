@@ -6,18 +6,18 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BlockhashStoreTestHelperFactory } from '../../ethers/v0.6/BlockhashStoreTestHelperFactory'
+import { BlockhashStoreTestHelper__factory } from '../../ethers/v0.6/factories/BlockhashStoreTestHelper__factory'
 
 let personas: setup.Personas
 const provider = setup.provider()
-const blockhashStoreTestHelperFactory = new BlockhashStoreTestHelperFactory()
+const blockhashStoreTestHelperFactory = new BlockhashStoreTestHelper__factory()
 
 beforeAll(async () => {
   personas = await setup.users(provider).then((x) => x.personas)
 })
 
 describe('BlockhashStore', () => {
-  let blockhashStoreTestHelper: contract.Instance<BlockhashStoreTestHelperFactory>
+  let blockhashStoreTestHelper: contract.Instance<BlockhashStoreTestHelper__factory>
 
   const mainnetBlocks: {
     num: number

@@ -7,16 +7,16 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ENSRegistryFactory } from '../../ethers/v0.4/ENSRegistryFactory'
-import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
-import { PublicResolverFactory } from '../../ethers/v0.4/PublicResolverFactory'
-import { UpdatableConsumerFactory } from '../../ethers/v0.4/UpdatableConsumerFactory'
+import { ENSRegistry__factory } from '../../ethers/v0.4/factories/ENSRegistry__factory'
+import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
+import { PublicResolver__factory } from '../../ethers/v0.4/factories/PublicResolver__factory'
+import { UpdatableConsumer__factory } from '../../ethers/v0.4/factories/UpdatableConsumer__factory'
 
-const linkTokenFactory = new contract.LinkTokenFactory()
-const ensRegistryFactory = new ENSRegistryFactory()
-const oracleFactory = new OracleFactory()
-const publicResolverFacotory = new PublicResolverFactory()
-const updatableConsumerFactory = new UpdatableConsumerFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const ensRegistryFactory = new ENSRegistry__factory()
+const oracleFactory = new Oracle__factory()
+const publicResolverFacotory = new PublicResolver__factory()
+const updatableConsumerFactory = new UpdatableConsumer__factory()
 
 const provider = setup.provider()
 
@@ -46,11 +46,11 @@ describe('UpdatableConsumer', () => {
   const specId = ethers.utils.formatBytes32String('someSpecID')
   const newOracleAddress = '0xf000000000000000000000000000000000000ba7'
 
-  let ens: contract.Instance<ENSRegistryFactory>
-  let ensResolver: contract.Instance<PublicResolverFactory>
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let oc: contract.Instance<OracleFactory>
-  let uc: contract.Instance<UpdatableConsumerFactory>
+  let ens: contract.Instance<ENSRegistry__factory>
+  let ensResolver: contract.Instance<PublicResolver__factory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let oc: contract.Instance<Oracle__factory>
+  let uc: contract.Instance<UpdatableConsumer__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.oracleNode).deploy(link.address)

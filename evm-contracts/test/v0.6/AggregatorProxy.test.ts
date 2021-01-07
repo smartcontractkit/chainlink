@@ -7,24 +7,24 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BigNumber } from 'ethers/utils'
-import { MockV2AggregatorFactory } from '../../ethers/v0.6/MockV2AggregatorFactory'
-import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
-import { AggregatorProxyFactory } from '../../ethers/v0.6/AggregatorProxyFactory'
-import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
-import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
-import { ReverterFactory } from '../../ethers/v0.6/ReverterFactory'
+import { MockV2Aggregator__factory } from '../../ethers/v0.6/factories/MockV2Aggregator__factory'
+import { MockV3Aggregator__factory } from '../../ethers/v0.6/factories/MockV3Aggregator__factory'
+import { AggregatorProxy__factory } from '../../ethers/v0.6/factories/AggregatorProxy__factory'
+import { AggregatorFacade__factory } from '../../ethers/v0.6/factories/AggregatorFacade__factory'
+import { FluxAggregator__factory } from '../../ethers/v0.6/factories/FluxAggregator__factory'
+import { Reverter__factory } from '../../ethers/v0.6/factories/Reverter__factory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new MockV3AggregatorFactory()
-const historicAggregatorFactory = new MockV2AggregatorFactory()
-const aggregatorFacadeFactory = new AggregatorFacadeFactory()
-const aggregatorProxyFactory = new AggregatorProxyFactory()
-const fluxAggregatorFactory = new FluxAggregatorFactory()
-const reverterFactory = new ReverterFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const aggregatorFactory = new MockV3Aggregator__factory()
+const historicAggregatorFactory = new MockV2Aggregator__factory()
+const aggregatorFacadeFactory = new AggregatorFacade__factory()
+const aggregatorProxyFactory = new AggregatorProxy__factory()
+const fluxAggregatorFactory = new FluxAggregator__factory()
+const reverterFactory = new Reverter__factory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -40,13 +40,13 @@ describe('AggregatorProxy', () => {
   const decimals = 18
   const phaseBase = h.bigNum(2).pow(64)
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<MockV3AggregatorFactory>
-  let aggregator2: contract.Instance<MockV3AggregatorFactory>
-  let historicAggregator: contract.Instance<MockV2AggregatorFactory>
-  let proxy: contract.Instance<AggregatorProxyFactory>
-  let flux: contract.Instance<FluxAggregatorFactory>
-  let reverter: contract.Instance<ReverterFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let aggregator: contract.Instance<MockV3Aggregator__factory>
+  let aggregator2: contract.Instance<MockV3Aggregator__factory>
+  let historicAggregator: contract.Instance<MockV2Aggregator__factory>
+  let proxy: contract.Instance<AggregatorProxy__factory>
+  let flux: contract.Instance<FluxAggregator__factory>
+  let reverter: contract.Instance<Reverter__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()

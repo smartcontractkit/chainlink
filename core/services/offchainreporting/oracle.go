@@ -27,8 +27,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-const JobType job.Type = "offchainreporting"
-
 func RegisterJobType(
 	db *gorm.DB,
 	jobORM job.ORM,
@@ -70,37 +68,14 @@ func NewJobSpawnerDelegate(
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
-	return JobType
+	return job.OffchainReporting
 }
 
-func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.SpecDB {
-	concreteSpec, ok := spec.(OracleSpec)
-	if !ok {
-		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
-	}
-	return job.SpecDB{
-		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
-		Type:                        string(JobType),
-		SchemaVersion:               concreteSpec.SchemaVersion,
-		MaxTaskDuration:             concreteSpec.MaxTaskDuration,
-	}
-}
-
-func (d jobSpawnerDelegate) FromDBRow(spec job.SpecDB) job.Spec {
+func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
 	if spec.OffchainreportingOracleSpec == nil {
-		return nil
-	}
-	return &OracleSpec{
-		OffchainReportingOracleSpec: *spec.OffchainreportingOracleSpec,
-		jobID:                       spec.ID,
-	}
-}
-
-func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
-	concreteSpec, is := spec.(*OracleSpec)
-	if !is {
 		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
 	}
+	concreteSpec := spec.OffchainreportingOracleSpec
 
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -118,7 +93,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		contractCaller,
 		d.ethClient,
 		d.logBroadcaster,
-		concreteSpec.JobID(),
+		concreteSpec.ID,
 		*logger.Default,
 	)
 	if err != nil {
@@ -144,9 +119,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
-		"jobID", concreteSpec.jobID))
+		"jobID", concreteSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(context.Background(), spec.JobID(), msg)
+		d.jobORM.RecordError(context.Background(), spec.ID, msg)
 	})
 
 	var endpointURL *url.URL
@@ -222,7 +197,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+			Datasource:                   dataSource{jobID: concreteSpec.ID, pipelineRunner: d.pipelineRunner},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
