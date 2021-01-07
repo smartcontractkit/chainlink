@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.0;
+pragma solidity ^0.7.0;
 
 import "./ConfirmedOwner.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -29,7 +29,6 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * on the flag contract
    */
   constructor(address flagsAddress) 
-    public 
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
