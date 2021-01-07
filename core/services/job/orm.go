@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -33,13 +32,16 @@ var (
 type ORM interface {
 	ListenForNewJobs() (postgres.Subscription, error)
 	ListenForDeletedJobs() (postgres.Subscription, error)
-	ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error)
-	CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error
+	ClaimUnclaimedJobs(ctx context.Context) ([]SpecDB, error)
+	CreateJob(ctx context.Context, jobSpec *SpecDB, taskDAG pipeline.TaskDAG) error
+	JobsV2() ([]SpecDB, error)
+	FindJob(id int32) (SpecDB, error)
 	DeleteJob(ctx context.Context, id int32) error
 	RecordError(ctx context.Context, jobID int32, description string)
 	UnclaimJob(ctx context.Context, id int32) error
 	CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, err error)
 	Close() error
+	PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error)
 }
 
 type orm struct {
@@ -49,7 +51,7 @@ type orm struct {
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
 	eventBroadcaster    postgres.EventBroadcaster
-	claimedJobs         map[int32]models.JobSpecV2
+	claimedJobs         map[int32]SpecDB
 	claimedJobsMu       *sync.RWMutex
 }
 
@@ -63,7 +65,7 @@ func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcast
 		advisoryLockClassID: postgres.AdvisoryLockClassID_JobSpawner,
 		pipelineORM:         pipelineORM,
 		eventBroadcaster:    eventBroadcaster,
-		claimedJobs:         make(map[int32]models.JobSpecV2),
+		claimedJobs:         make(map[int32]SpecDB),
 		claimedJobsMu:       new(sync.RWMutex),
 	}
 }
@@ -81,7 +83,7 @@ func (o *orm) ListenForDeletedJobs() (postgres.Subscription, error) {
 }
 
 // ClaimUnclaimedJobs locks all currently unlocked jobs and returns all jobs locked by this process
-func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error) {
+func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]SpecDB, error) {
 	o.claimedJobsMu.Lock()
 	defer o.claimedJobsMu.Unlock()
 
@@ -110,7 +112,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]models.JobSpecV2, error
 		args = []interface{}{o.advisoryLockClassID}
 	}
 
-	var newlyClaimedJobs []models.JobSpecV2
+	var newlyClaimedJobs []SpecDB
 	err := o.db.
 		Joins(join, args...).
 		Preload("OffchainreportingOracleSpec").
@@ -134,7 +136,7 @@ func (o *orm) claimedJobIDs() (ids []int32) {
 	return
 }
 
-func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG pipeline.TaskDAG) error {
+func (o *orm) CreateJob(ctx context.Context, jobSpec *SpecDB, taskDAG pipeline.TaskDAG) error {
 	if taskDAG.HasCycles() {
 		return errors.New("task DAG has cycles, which are not permitted")
 	}
@@ -143,7 +145,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *models.JobSpecV2, taskDAG 
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG)
+		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG, jobSpec.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
 		}
@@ -239,7 +241,7 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 }
 
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
-	pse := models.JobSpecErrorV2{JobID: jobID, Description: description, Occurrences: 1}
+	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
 	err := o.db.
 		Set(
 			"gorm:insert_option",
@@ -252,5 +254,65 @@ func (o *orm) RecordError(ctx context.Context, jobID int32, description string) 
 	if err != nil && strings.Contains(err.Error(), ErrViolatesForeignKeyConstraint.Error()) {
 		return
 	}
-	logger.ErrorIf(err, fmt.Sprintf("error creating JobSpecErrorV2 %v", description))
+	logger.ErrorIf(err, fmt.Sprintf("error creating SpecError %v", description))
+}
+
+// OffChainReportingJobs returns job specs
+func (o *orm) JobsV2() ([]SpecDB, error) {
+	var jobs []SpecDB
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("DirectRequestSpec").
+		Preload("JobSpecErrors").
+		Find(&jobs).
+		Error
+	return jobs, err
+}
+
+// FindJob returns job by ID
+func (o *orm) FindJob(id int32) (SpecDB, error) {
+	var job SpecDB
+	err := o.db.
+		Preload("PipelineSpec").
+		Preload("OffchainreportingOracleSpec").
+		Preload("DirectRequestSpec").
+		Preload("JobSpecErrors").
+		First(&job, "jobs.id = ?", id).
+		Error
+	return job, err
+}
+
+// PipelineRunsByJobID returns pipeline runs for a job
+func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
+	var pipelineRuns []pipeline.Run
+	var count int
+	err := o.db.
+		Model(pipeline.Run{}).
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Count(&count).
+		Error
+
+	if err != nil {
+		return pipelineRuns, 0, err
+	}
+
+	err = o.db.
+		Preload("PipelineSpec").
+		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Where(`pipeline_task_runs.type != 'result'`).
+				Order("created_at ASC, id ASC")
+		}).
+		Preload("PipelineTaskRuns.PipelineTaskSpec").
+		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
+		Where("jobs.id = ?", jobID).
+		Limit(size).
+		Offset(offset).
+		Order("created_at DESC, id DESC").
+		Find(&pipelineRuns).
+		Error
+
+	return pipelineRuns, count, err
 }

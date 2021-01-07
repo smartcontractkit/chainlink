@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -518,7 +520,7 @@ answer1      [type=median index=0];
 				// This ensures the UnmarshalJSON's defined on the fields handle a min spec correctly.
 				b, err := jsonapi.Marshal(os.OffchainReportingOracleSpec)
 				require.NoError(t, err)
-				var r models.OffchainReportingOracleSpec
+				var r job.OffchainReportingOracleSpec
 				err = jsonapi.Unmarshal(b, &r)
 				require.NoError(t, err)
 			},
