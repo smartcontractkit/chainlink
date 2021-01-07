@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/stretchr/testify/mock"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -790,7 +792,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpecV2 {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -798,7 +800,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.Job
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
-	var createdJob models.JobSpecV2
+	var createdJob job.SpecDB
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
@@ -981,12 +983,35 @@ func WaitForJobRunToPendOutgoingConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
+func SendBlocksUntilComplete(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+	blockCh chan<- *models.Head,
+	start int64) models.JobRun {
+	t.Helper()
+
+	var err error
+	block := start
+	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		blockCh <- &h
+		block++
+		jr, err = store.Unscoped().FindJobRun(jr.ID)
+		assert.NoError(t, err)
+		st := jr.GetStatus()
+		return st
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
+	return jr
+}
+
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
+
 ) models.JobRun {
 	t.Helper()
 

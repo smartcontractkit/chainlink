@@ -5,15 +5,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 )
 
 type (
 	Spec struct {
-		ID           int32 `gorm:"primary_key"`
-		DotDagSource string
-		CreatedAt    time.Time
+		ID              int32 `gorm:"primary_key"`
+		DotDagSource    string
+		CreatedAt       time.Time
+		MaxTaskDuration models.Interval
 	}
 
 	TaskSpec struct {

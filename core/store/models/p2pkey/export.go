@@ -3,10 +3,11 @@ package p2pkey
 import (
 	"encoding/json"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
