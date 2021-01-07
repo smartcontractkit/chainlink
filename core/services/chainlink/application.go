@@ -59,6 +59,7 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *strpkg.Store
+	GetJobORM() job.ORM
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -86,6 +87,7 @@ type ChainlinkApplication struct {
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
+	JobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
@@ -168,6 +170,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
+		JobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
@@ -369,6 +372,10 @@ func (app *ChainlinkApplication) stop() error {
 // GetStore returns the pointer to the store for the ChainlinkApplication.
 func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
+}
+
+func (app *ChainlinkApplication) GetJobORM() job.ORM {
+	return app.JobORM
 }
 
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
