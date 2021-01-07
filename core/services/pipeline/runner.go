@@ -215,23 +215,23 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 			logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 			return Result{Error: err}
 		}
-		var job models.JobSpecV2
-		err = txdb.Find(&job, "id = ?", jobID).Error
+		var spec Spec
+		err = txdb.Find(&spec, "id = ?", taskRun.PipelineRun.PipelineSpecID).Error
 		if err != nil {
-			logger.Errorw("unexpected error could not find job by ID", append(loggerFields, "error", err)...)
+			logger.Errorw("unexpected error could not find pipeline spec by ID", append(loggerFields, "error", err)...)
 			return Result{Error: err}
 		}
 
 		// Order of precedence for task timeout:
 		// - Specific task timeout (task.TaskTimeout)
-		// - Job level task timeout (job.MaxTaskDuration)
+		// - Job level task timeout (spec.MaxTaskDuration)
 		// - Node level task timeout (JobPipelineMaxTaskDuration)
 		taskTimeout, isSet := task.TaskTimeout()
 		if isSet {
 			ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
 			defer cancel()
-		} else if job.MaxTaskDuration != models.Interval(time.Duration(0)) {
-			ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(job.MaxTaskDuration))
+		} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
+			ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
 			defer cancel()
 		}
 

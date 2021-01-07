@@ -23,7 +23,7 @@ type DirectRequestSpec struct {
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
-	models.DirectRequestSpec
+	job.DirectRequestSpec
 
 	// The `jobID` field exists to cache the ID from the jobs table that joins
 	// to the direct_requests table.
@@ -47,7 +47,7 @@ func (spec DirectRequestSpec) JobID() int32 {
 }
 
 func (spec DirectRequestSpec) JobType() job.Type {
-	return models.DirectRequestJobType
+	return job.DirectRequestJobType
 }
 
 func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
@@ -61,23 +61,23 @@ type DirectRequestSpecDelegate struct {
 }
 
 func (d *DirectRequestSpecDelegate) JobType() job.Type {
-	return models.DirectRequestJobType
+	return job.DirectRequestJobType
 }
 
-func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
+func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.SpecDB {
 	concreteSpec, ok := spec.(DirectRequestSpec)
 	if !ok {
 		panic(fmt.Sprintf("expected a services.DirectRequestSpec, got %T", spec))
 	}
-	return models.JobSpecV2{
+	return job.SpecDB{
 		DirectRequestSpec: &concreteSpec.DirectRequestSpec,
-		Type:              string(models.DirectRequestJobType),
+		Type:              string(job.DirectRequestJobType),
 		SchemaVersion:     concreteSpec.SchemaVersion,
 		MaxTaskDuration:   concreteSpec.MaxTaskDuration,
 	}
 }
 
-func (d *DirectRequestSpecDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
+func (d *DirectRequestSpecDelegate) FromDBRow(spec job.SpecDB) job.Spec {
 	if spec.DirectRequestSpec == nil {
 		return nil
 	}
@@ -183,7 +183,7 @@ func (directRequestListener) JobID() *models.ID {
 	return nil
 }
 
-// JobSpecV2 complies with log.Listener
+// SpecDB complies with log.Listener
 func (d directRequestListener) JobIDV2() int32 {
 	return d.jobID
 }
