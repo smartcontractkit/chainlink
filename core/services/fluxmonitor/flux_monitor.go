@@ -12,8 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -55,7 +55,7 @@ type Service interface {
 type concreteFluxMonitor struct {
 	store          *store.Store
 	runManager     RunManager
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.ID
@@ -76,7 +76,7 @@ type addEntry struct {
 func New(
 	store *store.Store,
 	runManager RunManager,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 ) Service {
 	return &concreteFluxMonitor{
 		store:          store,
@@ -232,7 +232,7 @@ type DeviationCheckerFactory interface {
 
 type pollingDeviationCheckerFactory struct {
 	store          *store.Store
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
 }
 
 func (f pollingDeviationCheckerFactory) New(
@@ -354,7 +354,7 @@ type PollingDeviationChecker struct {
 	store          *store.Store
 	fluxAggregator contracts.FluxAggregator
 	runManager     RunManager
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
 	fetcher        Fetcher
 	flagsContract  *contracts.Flags
 	oracleAddress  common.Address
@@ -382,7 +382,7 @@ type PollingDeviationChecker struct {
 func NewPollingDeviationChecker(
 	store *store.Store,
 	fluxAggregator contracts.FluxAggregator,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
 	initr models.Initiator,
 	minJobPayment *assets.Link,
 	runManager RunManager,
@@ -496,7 +496,7 @@ func (p *PollingDeviationChecker) JobID() *models.ID { return p.initr.JobSpecID 
 func (p *PollingDeviationChecker) JobIDV2() int32    { return 0 }
 func (p *PollingDeviationChecker) IsV2Job() bool     { return false }
 
-func (p *PollingDeviationChecker) HandleLog(broadcast eth.LogBroadcast, err error) {
+func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast, err error) {
 	if err != nil {
 		logger.Errorf("got error from LogBroadcaster: %v", err)
 		return
@@ -665,7 +665,7 @@ func (p *PollingDeviationChecker) reactivate() {
 func (p *PollingDeviationChecker) processLogs() {
 	for !p.backlog.Empty() {
 		maybeBroadcast := p.backlog.Take()
-		broadcast, ok := maybeBroadcast.(eth.LogBroadcast)
+		broadcast, ok := maybeBroadcast.(log.Broadcast)
 		if !ok {
 			logger.Errorf("Failed to convert backlog into LogBroadcast.  Type is %T", maybeBroadcast)
 		}

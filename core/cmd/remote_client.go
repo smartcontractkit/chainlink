@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
@@ -255,7 +257,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	ocrJobSpec := models.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
 		return cli.errorOut(err)
 	}

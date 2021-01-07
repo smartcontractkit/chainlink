@@ -3,9 +3,10 @@ package pipeline_test
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/bmizerany/assert"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/require"
 )
 
