@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -26,10 +28,11 @@ type (
 		PipelineSpecID                int32                        `json:"-"`
 		PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
 		JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
-		Type                          string                       `json:"type"`
+		Type                          Type                         `json:"type"`
 		SchemaVersion                 uint32                       `json:"schemaVersion"`
 		Name                          null.String                  `json:"name"`
 		MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
+		Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource"`
 	}
 
 	SpecError struct {
@@ -82,7 +85,8 @@ type (
 )
 
 const (
-	DirectRequestJobType = "directrequest"
+	DirectRequest     Type = "directrequest"
+	OffchainReporting Type = "offchainreporting"
 )
 
 func (id IDEmbed) GetID() string {

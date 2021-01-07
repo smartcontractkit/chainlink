@@ -6,11 +6,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/jinzhu/gorm"
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -71,21 +68,6 @@ observationSource = """
 
 func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55Address, peerID models.PeerID, monitoringEndpoint string, keyBundleID models.Sha256Hash) string {
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), monitoringEndpoint, keyBundleID)
-}
-
-func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Address) (*offchainreporting.OracleSpec, *job.SpecDB) {
-	t.Helper()
-
-	peerID := DefaultP2PPeerID
-	ocrKeyID := DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
-
-	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
-	require.NoError(t, err)
-
-	dbSpec := job.SpecDB{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
-	return &ocrspec, &dbSpec
 }
 
 // `require.Equal` currently has broken handling of `time.Time` values, so we have
