@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/stretchr/testify/mock"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -778,7 +780,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpecV2 {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -786,7 +788,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.Job
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
-	var createdJob models.JobSpecV2
+	var createdJob job.SpecDB
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
