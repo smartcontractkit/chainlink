@@ -5,26 +5,26 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { StalenessFlaggingValidatorFactory } from '../../ethers/v0.7/StalenessFlaggingValidatorFactory'
-import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
-import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
-import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
+import { StalenessFlaggingValidator__factory } from '../../ethers/v0.7/factories/StalenessFlaggingValidator__factory'
+import { Flags__factory } from '../../ethers/v0.6/factories/Flags__factory'
+import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
+import { MockV3Aggregator__factory } from '../../ethers/v0.6/factories/MockV3Aggregator__factory'
 
 let personas: setup.Personas
 const provider = setup.provider()
-const validatorFactory = new StalenessFlaggingValidatorFactory()
-const flagsFactory = new FlagsFactory()
-const acFactory = new SimpleWriteAccessControllerFactory()
-const aggregatorFactory = new MockV3AggregatorFactory()
+const validatorFactory = new StalenessFlaggingValidator__factory()
+const flagsFactory = new Flags__factory()
+const acFactory = new SimpleWriteAccessController__factory()
+const aggregatorFactory = new MockV3Aggregator__factory()
 
 beforeAll(async () => {
   personas = await setup.users(provider).then((x) => x.personas)
 })
 
 describe('StalenessFlaggingValidator', () => {
-  let validator: contract.Instance<StalenessFlaggingValidatorFactory>
-  let flags: contract.Instance<FlagsFactory>
-  let ac: contract.Instance<SimpleWriteAccessControllerFactory>
+  let validator: contract.Instance<StalenessFlaggingValidator__factory>
+  let flags: contract.Instance<Flags__factory>
+  let ac: contract.Instance<SimpleWriteAccessController__factory>
 
   const flaggingThreshold1 = 10000
   const flaggingThreshold2 = 20000
@@ -114,8 +114,8 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#setThresholds', () => {
-    let agg1: contract.Instance<MockV3AggregatorFactory>
-    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let agg1: contract.Instance<MockV3Aggregator__factory>
+    let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
     let thresholds: Array<number>
 
@@ -212,8 +212,8 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#check', () => {
-    let agg1: contract.Instance<MockV3AggregatorFactory>
-    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let agg1: contract.Instance<MockV3Aggregator__factory>
+    let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
     let thresholds: Array<number>
     const decimals = 8
@@ -298,8 +298,8 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#update', () => {
-    let agg1: contract.Instance<MockV3AggregatorFactory>
-    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let agg1: contract.Instance<MockV3Aggregator__factory>
+    let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
     let thresholds: Array<number>
     const decimals = 8
