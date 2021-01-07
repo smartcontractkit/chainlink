@@ -404,7 +404,7 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.SpecDB,
 
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
-	if specDB.Type != "offchainreporting" {
+	if specDB.Type != job.OffchainReporting {
 		return specDB, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", specDB.Type)
 	}
 	if specDB.SchemaVersion != uint32(1) {

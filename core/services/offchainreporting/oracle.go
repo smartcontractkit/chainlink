@@ -73,7 +73,7 @@ func (d jobSpawnerDelegate) JobType() job.Type {
 
 func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
 	if spec.OffchainreportingOracleSpec == nil {
-		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
+		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", spec)
 	}
 	concreteSpec := spec.OffchainreportingOracleSpec
 

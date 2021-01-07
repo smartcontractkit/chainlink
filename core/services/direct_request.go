@@ -25,7 +25,7 @@ func (d *DirectRequestSpecDelegate) JobType() job.Type {
 // TODO: This will need heavy test coverage
 func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
 	if spec.DirectRequestSpec == nil {
-		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *services.DirectRequestSpec, got %T", spec)
+		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *job.DirectRequestSpec to be present, got %v", spec)
 	}
 	concreteSpec := spec.DirectRequestSpec
 
