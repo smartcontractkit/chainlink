@@ -4,20 +4,27 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/curve25519"
 )
 
+const configPublicKeyPrefix = "ocrcfg"
+
 // ConfigPublicKey represents the public key for the config decryption keypair
 type ConfigPublicKey [curve25519.PointSize]byte
 
 func (cpk ConfigPublicKey) String() string {
+	return fmt.Sprintf("%s%s", configPublicKeyPrefix, cpk.Raw())
+}
+
+func (cpk ConfigPublicKey) Raw() string {
 	return hex.EncodeToString(cpk[:])
 }
 
 func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hex.EncodeToString(cpk[:]))
+	return json.Marshal(cpk.Raw())
 }
 
 func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
