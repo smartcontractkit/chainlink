@@ -192,7 +192,12 @@ func (js *spawner) startUnclaimedServices() {
 			continue
 		}
 
-		services, err := js.jobTypeDelegates[specDBRow.Type].ServicesForSpec(specDBRow)
+		delegate, exists := js.jobTypeDelegates[specDBRow.Type]
+		if !exists {
+			logger.Errorw("Job type has not been registered with job.Spawner", "type", specDBRow.Type, "jobID", specDBRow.ID)
+			continue
+		}
+		services, err := delegate.ServicesForSpec(specDBRow)
 		if err != nil {
 			logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
 			js.orm.RecordError(ctx, specDBRow.ID, err.Error())
