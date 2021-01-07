@@ -3,6 +3,7 @@ package ocrkey
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -10,10 +11,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
+const onChainSigningAddressPrefix = "ocrsad"
+
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 
 func (ocsa OnChainSigningAddress) String() string {
-	return hexutil.Encode(ocsa[:])
+	return fmt.Sprintf("%s%s", onChainSigningAddressPrefix, hexutil.Encode(ocsa[:]))
 }
 
 func (ocsa OnChainSigningAddress) MarshalJSON() ([]byte, error) {
