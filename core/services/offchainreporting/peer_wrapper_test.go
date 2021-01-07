@@ -105,6 +105,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, store.Config, store.DB)
 
-		require.EqualError(t, pw.Start(), fmt.Sprintf("multiple p2p keys found but none matched the given P2P_PEER_ID of '12D3KooWCJUPKsYAnCRTQ7SUNULt4Z9qF8Uk1xadhCs7e9M711Lp'. Keys available: %s, %s", k.MustGetPeerID(), k2.MustGetPeerID()))
+		require.Contains(t, pw.Start().Error(), "multiple p2p keys found but none matched the given P2P_PEER_ID of")
 	})
 }

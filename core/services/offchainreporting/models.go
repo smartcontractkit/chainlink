@@ -16,7 +16,7 @@ type OracleSpec struct {
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
 
-	models.OffchainReportingOracleSpec
+	job.OffchainReportingOracleSpec
 
 	// The `jobID` field exists to cache the ID from the jobs table that joins
 	// to the offchainreporting_oracle_specs table.
