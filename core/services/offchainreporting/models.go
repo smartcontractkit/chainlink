@@ -11,7 +11,7 @@ import (
 // representation of the OCR job spec.  It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type OracleSpec struct {
-	Type            string          `toml:"type"`
+	Type            job.Type        `toml:"type"`
 	SchemaVersion   uint32          `toml:"schemaVersion"`
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
@@ -40,7 +40,7 @@ func (spec OracleSpec) JobID() int32 {
 }
 
 func (spec OracleSpec) JobType() job.Type {
-	return JobType
+	return job.OffchainReporting
 }
 
 func (spec OracleSpec) TaskDAG() pipeline.TaskDAG {

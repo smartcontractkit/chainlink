@@ -27,7 +27,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-const JobType job.Type = "offchainreporting"
+//const JobType job.Type = "offchainreporting"
 
 func RegisterJobType(
 	db *gorm.DB,
@@ -70,7 +70,7 @@ func NewJobSpawnerDelegate(
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
-	return JobType
+	return job.OffchainReporting
 }
 
 func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.SpecDB {
@@ -80,7 +80,7 @@ func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) job.SpecDB {
 	}
 	return job.SpecDB{
 		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
-		Type:                        string(JobType),
+		Type:                        job.OffchainReporting,
 		SchemaVersion:               concreteSpec.SchemaVersion,
 		MaxTaskDuration:             concreteSpec.MaxTaskDuration,
 	}

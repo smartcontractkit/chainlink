@@ -567,7 +567,7 @@ func ValidatedDirectRequestSpec(tomlString string) (spec DirectRequestSpec, err 
 	mSpec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
 	spec.DirectRequestSpec = mSpec
 
-	if spec.Type != job.DirectRequestJobType {
+	if spec.Type != job.DirectRequest {
 		return spec, errors.Errorf("unsupported type %s", spec.Type)
 	}
 	if spec.SchemaVersion != uint32(1) {

@@ -142,7 +142,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainr
 
 	dbSpec := job.SpecDB{
 		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
-		Type:                        string(offchainreporting.JobType),
+		Type:                        job.OffchainReporting,
 		SchemaVersion:               ocrspec.SchemaVersion,
 	}
 	return &ocrspec, &dbSpec
@@ -223,7 +223,7 @@ func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*
 
 	dbSpec := job.SpecDB{
 		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
-		Type:                        string(offchainreporting.JobType),
+		Type:                        job.OffchainReporting,
 		SchemaVersion:               ocrspec.SchemaVersion,
 	}
 	return &ocrspec, &dbSpec

@@ -332,7 +332,7 @@ ds1 -> ds1_parse;
 		js := job.SpecDB{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               os.SchemaVersion,
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
@@ -378,7 +378,7 @@ ds1 -> ds1_parse;
 		js := job.SpecDB{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               os.SchemaVersion,
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
@@ -439,7 +439,7 @@ ds1 -> ds1_parse;
 		js := job.SpecDB{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               os.SchemaVersion,
 		}
 		err = jobORM.CreateJob(context.Background(), &js, os.TaskDAG())
@@ -489,7 +489,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &job.SpecDB{
 			MaxTaskDuration:             models.Interval(cltest.MustParseDuration(t, "1s")),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
@@ -530,7 +530,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &job.SpecDB{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               os.SchemaVersion,
 		}, os.TaskDAG())
 		require.NoError(t, err)
@@ -685,7 +685,7 @@ ds1 -> ds1_parse;
 		jb := &job.SpecDB{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job", true),
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               1,
 		}
 		err := jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
@@ -703,7 +703,7 @@ ds1 -> ds1_parse;
 		jb = &job.SpecDB{
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job 2", true),
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               1,
 		}
 		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())
@@ -723,7 +723,7 @@ ds1 -> ds1_parse;
 			MaxTaskDuration:             models.Interval(time.Duration(1)),
 			OffchainreportingOracleSpec: &os.OffchainReportingOracleSpec,
 			Name:                        null.NewString("a job 3", true),
-			Type:                        string(offchainreporting.JobType),
+			Type:                        job.OffchainReporting,
 			SchemaVersion:               1,
 		}
 		err = jobORM.CreateJob(context.Background(), jb, os.TaskDAG())

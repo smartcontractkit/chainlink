@@ -18,7 +18,7 @@ import (
 // representation of the job spec. It fulfills the job.Spec interface
 // and has facilities for unmarshaling the pipeline DAG from the job spec text.
 type DirectRequestSpec struct {
-	Type            string          `toml:"type"`
+	Type            job.Type        `toml:"type"`
 	SchemaVersion   uint32          `toml:"schemaVersion"`
 	Name            null.String     `toml:"name"`
 	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
@@ -47,7 +47,7 @@ func (spec DirectRequestSpec) JobID() int32 {
 }
 
 func (spec DirectRequestSpec) JobType() job.Type {
-	return job.DirectRequestJobType
+	return job.DirectRequest
 }
 
 func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
@@ -61,7 +61,7 @@ type DirectRequestSpecDelegate struct {
 }
 
 func (d *DirectRequestSpecDelegate) JobType() job.Type {
-	return job.DirectRequestJobType
+	return job.DirectRequest
 }
 
 func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.SpecDB {
@@ -71,7 +71,7 @@ func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.SpecDB {
 	}
 	return job.SpecDB{
 		DirectRequestSpec: &concreteSpec.DirectRequestSpec,
-		Type:              string(job.DirectRequestJobType),
+		Type:              job.DirectRequest,
 		SchemaVersion:     concreteSpec.SchemaVersion,
 		MaxTaskDuration:   concreteSpec.MaxTaskDuration,
 	}
