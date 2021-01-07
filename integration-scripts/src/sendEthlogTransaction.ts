@@ -6,7 +6,7 @@ import {
   getArgs,
   registerPromiseHandler,
 } from './common'
-import { EthLogFactory } from './generated/EthLogFactory'
+import { EthLog__factory } from './generated/factories/EthLog__factory'
 const request = require('request-promise').defaults({ jar: true })
 
 async function main() {
@@ -33,7 +33,7 @@ async function sendEthlogTransaction({
 }: Options) {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
-  const ethLog = new EthLogFactory(signer).attach(ethLogAddress)
+  const ethLog = new EthLog__factory(signer).attach(ethLogAddress)
 
   const sessionsUrl = url.resolve(chainlinkUrl, '/sessions')
   await request.post(sessionsUrl, { json: credentials })

@@ -6,20 +6,20 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
-import { SimpleReadAccessControllerFactory } from '../../ethers/v0.6/SimpleReadAccessControllerFactory'
-import { MockV3AggregatorFactory } from '../../ethers/v0.6/MockV3AggregatorFactory'
-import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
+import { EACAggregatorProxy__factory } from '../../ethers/v0.6/factories/EACAggregatorProxy__factory'
+import { SimpleReadAccessController__factory } from '../../ethers/v0.6/factories/SimpleReadAccessController__factory'
+import { MockV3Aggregator__factory } from '../../ethers/v0.6/factories/MockV3Aggregator__factory'
+import { FluxAggregatorTestHelper__factory } from '../../ethers/v0.6/factories/FluxAggregatorTestHelper__factory'
 
 let personas: setup.Personas
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const accessControlFactory = new SimpleReadAccessControllerFactory()
-const aggregatorFactory = new MockV3AggregatorFactory()
-const testHelperFactory = new FluxAggregatorTestHelperFactory()
-const proxyFactory = new EACAggregatorProxyFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const accessControlFactory = new SimpleReadAccessController__factory()
+const aggregatorFactory = new MockV3Aggregator__factory()
+const testHelperFactory = new FluxAggregatorTestHelper__factory()
+const proxyFactory = new EACAggregatorProxy__factory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
@@ -38,12 +38,12 @@ describe('EACAggregatorProxy', () => {
   const timestamp = 678
   const startedAt = 677
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let controller: contract.Instance<SimpleReadAccessControllerFactory>
-  let aggregator: contract.Instance<MockV3AggregatorFactory>
-  let aggregator2: contract.Instance<MockV3AggregatorFactory>
-  let proxy: contract.Instance<EACAggregatorProxyFactory>
-  let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let controller: contract.Instance<SimpleReadAccessController__factory>
+  let aggregator: contract.Instance<MockV3Aggregator__factory>
+  let aggregator2: contract.Instance<MockV3Aggregator__factory>
+  let proxy: contract.Instance<EACAggregatorProxy__factory>
+  let testHelper: contract.Instance<FluxAggregatorTestHelper__factory>
   const phaseBase = h.bigNum(2).pow(64)
 
   const deployment = setup.snapshot(provider, async () => {
@@ -226,7 +226,7 @@ describe('EACAggregatorProxy', () => {
   })
 
   describe('#setController', () => {
-    let newController: contract.Instance<SimpleReadAccessControllerFactory>
+    let newController: contract.Instance<SimpleReadAccessController__factory>
 
     beforeEach(async () => {
       newController = await accessControlFactory

@@ -7,16 +7,16 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ConcreteChainlinkedFactory } from '../../ethers/v0.4/ConcreteChainlinkedFactory'
-import { EmptyOracleFactory } from '../../ethers/v0.4/EmptyOracleFactory'
-import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
-import { OracleFactory } from '../../ethers/v0.4/OracleFactory'
+import { ConcreteChainlinked__factory } from '../../ethers/v0.4/factories/ConcreteChainlinked__factory'
+import { EmptyOracle__factory } from '../../ethers/v0.4/factories/EmptyOracle__factory'
+import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
+import { Oracle__factory } from '../../ethers/v0.4/factories/Oracle__factory'
 
-const concreteChainlinkedFactory = new ConcreteChainlinkedFactory()
-const emptyOracleFactory = new EmptyOracleFactory()
-const getterSetterFactory = new GetterSetterFactory()
-const oracleFactory = new OracleFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const concreteChainlinkedFactory = new ConcreteChainlinked__factory()
+const emptyOracleFactory = new EmptyOracle__factory()
+const getterSetterFactory = new GetterSetter__factory()
+const oracleFactory = new Oracle__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 const provider = setup.provider()
 
@@ -31,11 +31,11 @@ beforeAll(async () => {
 describe('ConcreteChainlinked', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
-  let cc: contract.Instance<ConcreteChainlinkedFactory>
-  let gs: contract.Instance<GetterSetterFactory>
-  let oc: contract.Instance<OracleFactory | EmptyOracleFactory>
-  let newoc: contract.Instance<OracleFactory>
-  let link: contract.Instance<contract.LinkTokenFactory>
+  let cc: contract.Instance<ConcreteChainlinked__factory>
+  let gs: contract.Instance<GetterSetter__factory>
+  let oc: contract.Instance<Oracle__factory | EmptyOracle__factory>
+  let newoc: contract.Instance<Oracle__factory>
+  let link: contract.Instance<contract.LinkToken__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     oc = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
@@ -139,7 +139,7 @@ describe('ConcreteChainlinked', () => {
   describe('#cancelChainlinkRequest', () => {
     let requestId: string
     // a concrete chainlink attached to an empty oracle
-    let ecc: contract.Instance<ConcreteChainlinkedFactory>
+    let ecc: contract.Instance<ConcreteChainlinked__factory>
 
     beforeEach(async () => {
       const emptyOracle = await emptyOracleFactory
@@ -258,7 +258,7 @@ describe('ConcreteChainlinked', () => {
   })
 
   describe('#addExternalRequest', () => {
-    let mock: contract.Instance<ConcreteChainlinkedFactory>
+    let mock: contract.Instance<ConcreteChainlinked__factory>
     let request: oracle.RunRequest
 
     beforeEach(async () => {

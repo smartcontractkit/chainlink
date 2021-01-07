@@ -8,10 +8,10 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { CheckedMathTestHelperFactory } from '../../ethers/v0.6/CheckedMathTestHelperFactory'
+import { CheckedMathTestHelper__factory } from '../../ethers/v0.6/factories/CheckedMathTestHelper__factory'
 
 const provider = setup.provider()
-const mathFactory = new CheckedMathTestHelperFactory()
+const mathFactory = new CheckedMathTestHelper__factory()
 let personas: setup.Personas
 
 beforeAll(async () => {
@@ -22,7 +22,7 @@ const int256Max = h.bigNum(2).pow(255).sub(1)
 const int256Min = h.bigNum(-2).pow(255)
 
 describe('CheckedMath', () => {
-  let math: contract.Instance<CheckedMathTestHelperFactory>
+  let math: contract.Instance<CheckedMathTestHelper__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     math = await mathFactory.connect(personas.Default).deploy()
