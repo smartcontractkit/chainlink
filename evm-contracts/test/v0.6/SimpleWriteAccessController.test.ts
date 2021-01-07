@@ -1,9 +1,9 @@
 import { contract, helpers, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
+import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
 import { ethers } from 'ethers'
 
-const controllerFactory = new SimpleWriteAccessControllerFactory()
+const controllerFactory = new SimpleWriteAccessController__factory()
 const provider = setup.provider()
 let personas: setup.Personas
 let tx: ethers.ContractTransaction
@@ -12,14 +12,14 @@ beforeAll(async () => {
 })
 
 describe('SimpleWriteAccessController', () => {
-  let controller: contract.Instance<SimpleWriteAccessControllerFactory>
+  let controller: contract.Instance<SimpleWriteAccessController__factory>
   const deployment = setup.snapshot(provider, async () => {
     controller = await controllerFactory.connect(personas.Carol).deploy()
   })
   beforeEach(deployment)
 
   it('has a limited public interface', () => {
-    matchers.publicAbi(new SimpleWriteAccessControllerFactory(), [
+    matchers.publicAbi(new SimpleWriteAccessController__factory(), [
       'hasAccess',
       'addAccess',
       'disableAccessCheck',
