@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gopkg.in/guregu/null.v4"
@@ -59,7 +58,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 }
 
 type GenericJobSpec struct {
-	Type          string      `toml:"type"`
+	Type          job.Type    `toml:"type"`
 	SchemaVersion uint32      `toml:"schemaVersion"`
 	Name          null.String `toml:"name"`
 }
@@ -81,9 +80,9 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 
 	switch genericJS.Type {
-	case string(offchainreporting.JobType):
+	case job.OffchainReporting:
 		jc.createOCR(c, request.TOML)
-	case string(job.DirectRequestJobType):
+	case job.DirectRequest:
 		jc.createDirectRequest(c, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
@@ -98,7 +97,7 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 	config := jc.App.GetStore().Config
-	if jobSpec.JobType() == offchainreporting.JobType && !config.Dev() && !config.FeatureOffchainReporting() {
+	if jobSpec.Type == job.OffchainReporting && !config.Dev() && !config.FeatureOffchainReporting() {
 		jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 		return
 	}
