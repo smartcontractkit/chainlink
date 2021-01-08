@@ -810,7 +810,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Unauthorized")
+	require.Contains(t, err.Error(), "Unauthorized")
 }
 
 func TestClient_IndexTransactions(t *testing.T) {
