@@ -391,8 +391,8 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#checkForUpkeep', () => {
-    let agg1: contract.Instance<MockV3AggregatorFactory>
-    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let agg1: contract.Instance<MockV3Aggregator__factory>
+    let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
     let thresholds: Array<number>
     const decimals = 8
@@ -518,8 +518,8 @@ describe('StalenessFlaggingValidator', () => {
   })
 
   describe('#performUpkeep', () => {
-    let agg1: contract.Instance<MockV3AggregatorFactory>
-    let agg2: contract.Instance<MockV3AggregatorFactory>
+    let agg1: contract.Instance<MockV3Aggregator__factory>
+    let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
     let thresholds: Array<number>
     const decimals = 8
