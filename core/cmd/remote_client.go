@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
-var errUnauthorized = errors.New("401 Unauthorized")
+var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 
 // CreateServiceAgreement creates a ServiceAgreement based on JSON input
 func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
@@ -251,8 +251,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
-		err = errors.New("client request error")
-		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
+		fmt.Printf("Error : %v\n", string(body))
 		return cli.errorOut(err)
 	}
 
@@ -1239,7 +1238,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New(resp.Status)
+		return b, errors.New(http.StatusText(resp.StatusCode))
 	}
 	return b, err
 }
