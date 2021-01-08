@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/jinzhu/gorm"
-	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -71,26 +70,11 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55
 	return fmt.Sprintf(minimalOCRNonBootstrapTemplate, contractAddress, peerID, transmitterAddress.Hex(), monitoringEndpoint, keyBundleID)
 }
 
-func MakeOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress models.EIP55Address) (*offchainreporting.OracleSpec, *models.JobSpecV2) {
-	t.Helper()
-
-	peerID := DefaultP2PPeerID
-	ocrKeyID := DefaultOCRKeyBundleID
-	jobSpecText := fmt.Sprintf(ocrJobSpecText, NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
-
-	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
-	require.NoError(t, err)
-
-	dbSpec := models.JobSpecV2{OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec}
-	return &ocrspec, &dbSpec
-}
-
 // `require.Equal` currently has broken handling of `time.Time` values, so we have
 // to do equality comparisons of these structs manually.
 //
 // https://github.com/stretchr/testify/issues/984
-func CompareOCRJobSpecs(t *testing.T, expected, actual models.JobSpecV2) {
+func CompareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
 	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)

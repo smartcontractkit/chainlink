@@ -98,7 +98,10 @@ func Router(app chainlink.Application) *gin.Engine {
 
 	api := engine.Group(
 		"/",
-		rateLimiter(1*time.Minute, 1000),
+		rateLimiter(
+			config.AuthenticatedRateLimitPeriod().Duration(),
+			config.AuthenticatedRateLimit(),
+		),
 		sessions.Sessions(SessionName, sessionStore),
 		explorerStatus(app),
 	)
@@ -185,7 +188,11 @@ func pprofHandler(h http.HandlerFunc) gin.HandlerFunc {
 }
 
 func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
-	unauth := r.Group("/", rateLimiter(20*time.Second, 5))
+	config := app.GetStore().Config
+	unauth := r.Group("/", rateLimiter(
+		config.UnAuthenticatedRateLimitPeriod().Duration(),
+		config.UnAuthenticatedRateLimit(),
+	))
 	sc := SessionsController{app}
 	unauth.POST("/sessions", sc.Create)
 	auth := r.Group("/", RequireAuth(app.GetStore(), AuthenticateBySession))

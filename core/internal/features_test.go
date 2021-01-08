@@ -315,9 +315,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
-	sub.On("Err").Return(nil).Maybe()
-	sub.On("Unsubscribe").Return(nil).Maybe()
-	newHeadsCh := make(chan chan<- *models.Head, 10)
+	sub.On("Err").Return(nil)
+	sub.On("Unsubscribe").Return(nil)
+	newHeadsCh := make(chan chan<- *models.Head, 1)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -344,7 +344,9 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
 
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil).Maybe()
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(int64(logBlockNumber + 8)),
+	}), nil) // Gas updater checks the block by number.
 	newHeads := <-newHeadsCh
 	newHeads <- cltest.Head(logBlockNumber + 8)
 	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
@@ -354,14 +356,15 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		BlockHash:   runlog.BlockHash,
 		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
+
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(int64(logBlockNumber + 9)),
-	}), nil).Maybe()
+	}), nil)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())

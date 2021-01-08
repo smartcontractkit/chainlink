@@ -4,17 +4,17 @@ import {
   helpers as h,
   setup,
 } from '@chainlink/test-helpers'
-import { EACAggregatorProxyFactory } from '../../ethers/v0.6/EACAggregatorProxyFactory'
-import { AccessControlledAggregatorFactory } from '../../ethers/v0.6/AccessControlledAggregatorFactory'
-import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
+import { EACAggregatorProxy__factory } from '../../ethers/v0.6/factories/EACAggregatorProxy__factory'
+import { AccessControlledAggregator__factory } from '../../ethers/v0.6/factories/AccessControlledAggregator__factory'
+import { FluxAggregatorTestHelper__factory } from '../../ethers/v0.6/factories/FluxAggregatorTestHelper__factory'
 
 let personas: setup.Personas
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new AccessControlledAggregatorFactory()
-const testHelperFactory = new FluxAggregatorTestHelperFactory()
-const proxyFactory = new EACAggregatorProxyFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const aggregatorFactory = new AccessControlledAggregator__factory()
+const testHelperFactory = new FluxAggregatorTestHelper__factory()
+const proxyFactory = new EACAggregatorProxy__factory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 const decimals = 18
 const phaseBase = h.bigNum(2).pow(64)
@@ -26,9 +26,9 @@ beforeAll(async () => {
 })
 
 describe('gas usage', () => {
-  let aggregator: contract.Instance<AccessControlledAggregatorFactory>
-  let proxy: contract.Instance<EACAggregatorProxyFactory>
-  let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
+  let aggregator: contract.Instance<AccessControlledAggregator__factory>
+  let proxy: contract.Instance<EACAggregatorProxy__factory>
+  let testHelper: contract.Instance<FluxAggregatorTestHelper__factory>
 
   describe('EACAggreagtorProxy => AccessControlledAggreagtor', () => {
     beforeEach(async () => {
