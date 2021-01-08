@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -1361,14 +1362,18 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 
-	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	var ocrJobSpecFromFile job.SpecDB
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
+	var ocrSpec job.OffchainReportingOracleSpec
+	err = tree.Unmarshal(&ocrSpec)
+	require.NoError(t, err)
+	ocrJobSpecFromFile.OffchainreportingOracleSpec = &ocrSpec
 
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
-	ocrJobSpecFromFile.TransmitterAddress = &key.Address
+	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
 

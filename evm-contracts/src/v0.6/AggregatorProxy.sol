@@ -176,14 +176,14 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     (uint16 phaseId, uint64 aggregatorRoundId) = parseIds(_roundId);
 
     (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
+      roundId,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
     ) = phaseAggregators[phaseId].getRoundData(aggregatorRoundId);
 
-    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, phaseId);
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, answeredInRound, phaseId);
   }
 
   /**
@@ -224,14 +224,14 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     Phase memory current = currentPhase; // cache storage reads
 
     (
-      uint80 roundId,
-      int256 answer,
-      uint256 startedAt,
-      uint256 updatedAt,
-      uint80 ansIn
+      roundId,
+      answer,
+      startedAt,
+      updatedAt,
+      answeredInRound
     ) = current.aggregator.latestRoundData();
 
-    return addPhaseIds(roundId, answer, startedAt, updatedAt, ansIn, current.id);
+    return addPhaseIds(roundId, answer, startedAt, updatedAt, answeredInRound, current.id);
   }
 
   /**
@@ -393,7 +393,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     uint64 _originalId
   )
     internal
-    view
+    pure
     returns (uint80)
   {
     return uint80(uint256(_phase) << PHASE_OFFSET | _originalId);
@@ -403,7 +403,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
     uint256 _roundId
   )
     internal
-    view
+    pure
     returns (uint16, uint64)
   {
     uint16 phaseId = uint16(_roundId >> PHASE_OFFSET);
@@ -421,7 +421,7 @@ contract AggregatorProxy is AggregatorV2V3Interface, Owned {
       uint16 phaseId
   )
     internal
-    view
+    pure
     returns (uint80, int256, uint256, uint256, uint80)
   {
     return (

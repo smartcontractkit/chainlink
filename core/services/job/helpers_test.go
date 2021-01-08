@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -18,7 +20,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 )
 
 const (
@@ -129,23 +130,24 @@ observationSource = """
 `
 )
 
-func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.SpecDB) {
+func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.SpecDB {
 	t.Helper()
 
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
 
-	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecText), &ocrspec)
-	require.NoError(t, err)
-
 	dbSpec := job.SpecDB{
-		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
-		Type:                        job.OffchainReporting,
-		SchemaVersion:               ocrspec.SchemaVersion,
+		Pipeline: *pipeline.NewTaskDAG(),
 	}
-	return &ocrspec, &dbSpec
+	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
+	require.NoError(t, err)
+	var ocrspec job.OffchainReportingOracleSpec
+	err = toml.Unmarshal([]byte(jobSpecText), &ocrspec)
+	require.NoError(t, err)
+	dbSpec.OffchainreportingOracleSpec = &ocrspec
+
+	return &dbSpec
 }
 
 // `require.Equal` currently has broken handling of `time.Time` values, so we have
@@ -168,18 +170,21 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *offchainreporting.OracleSpec {
+func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.SpecDB {
 	t.Helper()
-	var os = offchainreporting.OracleSpec{
-		OffchainReportingOracleSpec: job.OffchainReportingOracleSpec{
-			P2PBootstrapPeers:                      pq.StringArray{},
-			ObservationTimeout:                     models.Interval(10 * time.Second),
-			BlockchainTimeout:                      models.Interval(20 * time.Second),
-			ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
-			ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
-			ContractConfigConfirmations:            uint16(3),
-		},
-		Pipeline: *pipeline.NewTaskDAG(),
+	var ocrSpec = job.OffchainReportingOracleSpec{
+		P2PBootstrapPeers:                      pq.StringArray{},
+		ObservationTimeout:                     models.Interval(10 * time.Second),
+		BlockchainTimeout:                      models.Interval(20 * time.Second),
+		ContractConfigTrackerSubscribeInterval: models.Interval(2 * time.Minute),
+		ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
+		ContractConfigConfirmations:            uint16(3),
+	}
+	var os = job.SpecDB{
+		Name:          null.NewString("a job", true),
+		Pipeline:      *pipeline.NewTaskDAG(),
+		Type:          job.OffchainReporting,
+		SchemaVersion: 1,
 	}
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
 	c, cl := cltest.NewConfig(t)
@@ -188,15 +193,18 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)
+	err = toml.Unmarshal([]byte(s), &ocrSpec)
+	require.NoError(t, err)
+	os.OffchainreportingOracleSpec = &ocrSpec
 	return &os
 }
 
-func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) (*offchainreporting.OracleSpec, *job.SpecDB) {
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) *job.SpecDB {
 	t.Helper()
 	return MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar")
 }
 
-func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) (*offchainreporting.OracleSpec, *job.SpecDB) {
+func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) *job.SpecDB {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -205,7 +213,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
 }
 
-func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) (*offchainreporting.OracleSpec, *job.SpecDB) {
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) *job.SpecDB {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -214,17 +222,18 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitter
 	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
 }
 
-func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) (*offchainreporting.OracleSpec, *job.SpecDB) {
+func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) *job.SpecDB {
 	t.Helper()
 
-	var ocrspec offchainreporting.OracleSpec
-	err := toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
-	require.NoError(t, err)
-
-	dbSpec := job.SpecDB{
-		OffchainreportingOracleSpec: &ocrspec.OffchainReportingOracleSpec,
-		Type:                        job.OffchainReporting,
-		SchemaVersion:               ocrspec.SchemaVersion,
+	var jb = job.SpecDB{
+		Pipeline: *pipeline.NewTaskDAG(),
 	}
-	return &ocrspec, &dbSpec
+	err := toml.Unmarshal([]byte(jobSpecToml), &jb)
+	require.NoError(t, err)
+	var ocrspec job.OffchainReportingOracleSpec
+	err = toml.Unmarshal([]byte(jobSpecToml), &ocrspec)
+	require.NoError(t, err)
+	jb.OffchainreportingOracleSpec = &ocrspec
+
+	return &jb
 }

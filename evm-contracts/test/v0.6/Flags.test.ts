@@ -5,14 +5,14 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
-import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
-import { FlagsTestHelperFactory } from '../../ethers/v0.6/FlagsTestHelperFactory'
-import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
+import { Flags__factory } from '../../ethers/v0.6/factories/Flags__factory'
+import { FlagsTestHelper__factory } from '../../ethers/v0.6/factories/FlagsTestHelper__factory'
+import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
 
 const provider = setup.provider()
-const flagsFactory = new FlagsFactory()
-const consumerFactory = new FlagsTestHelperFactory()
-const accessControlFactory = new SimpleWriteAccessControllerFactory()
+const flagsFactory = new Flags__factory()
+const consumerFactory = new FlagsTestHelper__factory()
+const accessControlFactory = new SimpleWriteAccessController__factory()
 let personas: setup.Personas
 
 beforeAll(async () => {
@@ -20,9 +20,9 @@ beforeAll(async () => {
 })
 
 describe('Flags', () => {
-  let controller: contract.Instance<SimpleWriteAccessControllerFactory>
-  let flags: contract.Instance<FlagsFactory>
-  let consumer: contract.Instance<FlagsTestHelperFactory>
+  let controller: contract.Instance<SimpleWriteAccessController__factory>
+  let flags: contract.Instance<Flags__factory>
+  let consumer: contract.Instance<FlagsTestHelper__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     controller = await accessControlFactory.connect(personas.Nelly).deploy()

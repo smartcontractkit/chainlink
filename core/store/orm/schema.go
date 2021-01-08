@@ -16,6 +16,8 @@ import (
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
 	AllowOrigins                              string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
+	AuthenticatedRateLimit                    int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
+	AuthenticatedRateLimitPeriod              time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
 	BalanceMonitorEnabled                     bool            `env:"BALANCE_MONITOR_ENABLED" default:"true"`
 	BlockBackfillDepth                        string          `env:"BLOCK_BACKFILL_DEPTH" default:"10"`
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
@@ -114,6 +116,8 @@ type ConfigSchema struct {
 	TLSPort                                   uint16          `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TLSRedirect                               bool            `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 	TxAttemptLimit                            uint16          `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
+	UnAuthenticatedRateLimit                  int64           `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
+	UnAuthenticatedRateLimitPeriod            time.Duration   `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
 }
 
 // EnvVarName gets the environment variable name for a config schema field

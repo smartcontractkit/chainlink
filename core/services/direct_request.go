@@ -1,8 +1,6 @@
 package services
 
 import (
-	"fmt"
-
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -11,48 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"gopkg.in/guregu/null.v4"
 )
-
-// DirectRequest is a wrapper for `models.DirectRequest`, the DB
-// representation of the job spec. It fulfills the job.Spec interface
-// and has facilities for unmarshaling the pipeline DAG from the job spec text.
-type DirectRequestSpec struct {
-	Type            job.Type        `toml:"type"`
-	SchemaVersion   uint32          `toml:"schemaVersion"`
-	Name            null.String     `toml:"name"`
-	MaxTaskDuration models.Interval `toml:"maxTaskDuration"`
-
-	job.DirectRequestSpec
-
-	// The `jobID` field exists to cache the ID from the jobs table that joins
-	// to the direct_requests table.
-	jobID int32
-
-	// The `Pipeline` field is only used during unmarshaling.  A pipeline.TaskDAG
-	// is a type that implements gonum.org/v1/gonum/graph#Graph, which means that
-	// you can dot.Unmarshal(...) raw DOT source directly into it, and it will
-	// be a fully-instantiated DAG containing information about all of the nodes
-	// and edges described by the DOT.  Our pipeline.TaskDAG type has a method
-	// called `.TasksInDependencyOrder()` which converts this node/edge data
-	// structure into task specs which can then be saved to the database.
-	Pipeline pipeline.TaskDAG `toml:"observationSource"`
-}
-
-// DirectRequestSpec conforms to the job.Spec interface
-var _ job.Spec = DirectRequestSpec{}
-
-func (spec DirectRequestSpec) JobID() int32 {
-	return spec.jobID
-}
-
-func (spec DirectRequestSpec) JobType() job.Type {
-	return job.DirectRequest
-}
-
-func (spec DirectRequestSpec) TaskDAG() pipeline.TaskDAG {
-	return spec.Pipeline
-}
 
 type DirectRequestSpecDelegate struct {
 	logBroadcaster log.Broadcaster
@@ -64,43 +21,20 @@ func (d *DirectRequestSpecDelegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
-func (d *DirectRequestSpecDelegate) ToDBRow(spec job.Spec) job.SpecDB {
-	concreteSpec, ok := spec.(DirectRequestSpec)
-	if !ok {
-		panic(fmt.Sprintf("expected a services.DirectRequestSpec, got %T", spec))
-	}
-	return job.SpecDB{
-		DirectRequestSpec: &concreteSpec.DirectRequestSpec,
-		Type:              job.DirectRequest,
-		SchemaVersion:     concreteSpec.SchemaVersion,
-		MaxTaskDuration:   concreteSpec.MaxTaskDuration,
-	}
-}
-
-func (d *DirectRequestSpecDelegate) FromDBRow(spec job.SpecDB) job.Spec {
-	if spec.DirectRequestSpec == nil {
-		return nil
-	}
-	return &DirectRequestSpec{
-		DirectRequestSpec: *spec.DirectRequestSpec,
-		jobID:             spec.ID,
-	}
-}
-
 // ServicesForSpec returns the log listener service for a direct request job
 // TODO: This will need heavy test coverage
-func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
-	concreteSpec, is := spec.(*DirectRequestSpec)
-	if !is {
-		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *services.DirectRequestSpec, got %T", spec)
+func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
+	if spec.DirectRequestSpec == nil {
+		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *job.DirectRequestSpec to be present, got %v", spec)
 	}
+	concreteSpec := spec.DirectRequestSpec
 
 	logListener := directRequestListener{
 		d.logBroadcaster,
 		concreteSpec.ContractAddress.Address(),
 		d.pipelineRunner,
 		d.db,
-		spec.JobID(),
+		spec.ID,
 	}
 	services = append(services, logListener)
 

@@ -7,17 +7,17 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { AggregatorFactory } from '../../ethers/v0.4/AggregatorFactory'
-import { AggregatorFacadeFactory } from '../../ethers/v0.6/AggregatorFacadeFactory'
-import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
+import { Aggregator__factory } from '../../ethers/v0.4/factories/Aggregator__factory'
+import { AggregatorFacade__factory } from '../../ethers/v0.6/factories/AggregatorFacade__factory'
+import { Oracle__factory } from '../../ethers/v0.6/factories/Oracle__factory'
 
 let defaultAccount: ethers.Wallet
 
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const aggregatorFactory = new AggregatorFactory()
-const oracleFactory = new OracleFactory()
-const aggregatorFacadeFactory = new AggregatorFacadeFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const aggregatorFactory = new Aggregator__factory()
+const oracleFactory = new Oracle__factory()
+const aggregatorFacadeFactory = new AggregatorFacade__factory()
 
 beforeAll(async () => {
   const users = await setup.users(provider)
@@ -33,10 +33,10 @@ describe('AggregatorFacade', () => {
   const decimals = 18
   const description = 'LINK / USD: Historic Aggregator Facade'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let aggregator: contract.Instance<AggregatorFactory>
-  let oc1: contract.Instance<OracleFactory>
-  let facade: contract.Instance<AggregatorFacadeFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let aggregator: contract.Instance<Aggregator__factory>
+  let oc1: contract.Instance<Oracle__factory>
+  let facade: contract.Instance<AggregatorFacade__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(defaultAccount).deploy()

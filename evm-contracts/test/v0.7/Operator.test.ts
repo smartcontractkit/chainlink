@@ -7,26 +7,26 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers, utils } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
-import { MultiWordConsumerFactory } from '../../ethers/v0.6/MultiWordConsumerFactory'
-import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
-import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
-import { MaliciousMultiWordConsumerFactory } from '../../ethers/v0.6/MaliciousMultiWordConsumerFactory'
-import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
-import { ConsumerFactory } from '../../ethers/v0.7/ConsumerFactory'
-import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
+import { BasicConsumer__factory } from '../../ethers/v0.6/factories/BasicConsumer__factory'
+import { MultiWordConsumer__factory } from '../../ethers/v0.6/factories/MultiWordConsumer__factory'
+import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
+import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/MaliciousConsumer__factory'
+import { MaliciousMultiWordConsumer__factory } from '../../ethers/v0.6/factories/MaliciousMultiWordConsumer__factory'
+import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
+import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
+import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
+import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
 
-const v7ConsumerFactory = new ConsumerFactory()
-const basicConsumerFactory = new BasicConsumerFactory()
-const multiWordConsumerFactory = new MultiWordConsumerFactory()
-const gasGuzzlingConsumerFactory = new GasGuzzlingConsumerFactory()
-const getterSetterFactory = new GetterSetterFactory()
-const maliciousRequesterFactory = new MaliciousRequesterFactory()
-const maliciousConsumerFactory = new MaliciousConsumerFactory()
-const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumerFactory()
-const operatorFactory = new OperatorFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const v7ConsumerFactory = new Consumer__factory()
+const basicConsumerFactory = new BasicConsumer__factory()
+const multiWordConsumerFactory = new MultiWordConsumer__factory()
+const gasGuzzlingConsumerFactory = new GasGuzzlingConsumer__factory()
+const getterSetterFactory = new GetterSetter__factory()
+const maliciousRequesterFactory = new MaliciousRequester__factory()
+const maliciousConsumerFactory = new MaliciousConsumer__factory()
+const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
+const operatorFactory = new Operator__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 const provider = setup.provider()
@@ -42,8 +42,8 @@ describe('Operator', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let operator: contract.Instance<OperatorFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let operator: contract.Instance<Operator__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operator = await operatorFactory
@@ -153,8 +153,8 @@ describe('Operator', () => {
     })
 
     describe('malicious requester', () => {
-      let mock: contract.Instance<MaliciousRequesterFactory>
-      let requester: contract.Instance<BasicConsumerFactory>
+      let mock: contract.Instance<MaliciousRequester__factory>
+      let requester: contract.Instance<BasicConsumer__factory>
       const paymentAmount = h.toWei('1')
 
       beforeEach(async () => {
@@ -328,10 +328,10 @@ describe('Operator', () => {
 
   describe('#fulfillOracleRequest', () => {
     const response = 'Hi Mom!'
-    let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-    let basicConsumer: contract.Instance<BasicConsumerFactory>
-    let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
-    let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+    let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+    let basicConsumer: contract.Instance<BasicConsumer__factory>
+    let maliciousConsumer: contract.Instance<MaliciousConsumer__factory>
+    let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
     let request: ReturnType<typeof oracle.decodeRunRequest>
 
     describe('gas guzzling consumer', () => {
@@ -757,10 +757,10 @@ describe('Operator', () => {
       const response = 'Hi mom!'
       const responseTypes = ['bytes32']
       const responseValues = [h.toBytes32String(response)]
-      let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-      let basicConsumer: contract.Instance<BasicConsumerFactory>
-      let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
-      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+      let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+      let basicConsumer: contract.Instance<BasicConsumer__factory>
+      let maliciousConsumer: contract.Instance<MaliciousConsumer__factory>
+      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
       let request: ReturnType<typeof oracle.decodeRunRequest>
 
       describe('gas guzzling consumer', () => {
@@ -1002,7 +1002,7 @@ describe('Operator', () => {
         const paymentAmount = h.toWei('1')
 
         beforeEach(async () => {
-          maliciousConsumer = await maliciousMultiWordConsumerFactory
+          maliciousConsumer = await maliciousConsumerFactory
             .connect(roles.defaultAccount)
             .deploy(link.address, operator.address)
           await link.transfer(maliciousConsumer.address, paymentAmount)
@@ -1247,10 +1247,10 @@ describe('Operator', () => {
           Fusce euismod malesuada ligula, eget semper metus ultrices sit amet.'
         const responseTypes = ['bytes']
         const responseValues = [h.stringToBytes(response)]
-        let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-        let multiConsumer: contract.Instance<MultiWordConsumerFactory>
-        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+        let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+        let multiConsumer: contract.Instance<MultiWordConsumer__factory>
+        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumer__factory>
+        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
         let request: ReturnType<typeof oracle.decodeRunRequest>
 
         describe('gas guzzling consumer', () => {
@@ -1737,10 +1737,10 @@ describe('Operator', () => {
           h.toBytes32String(response1),
           h.toBytes32String(response2),
         ]
-        let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-        let multiConsumer: contract.Instance<MultiWordConsumerFactory>
-        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+        let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+        let multiConsumer: contract.Instance<MultiWordConsumer__factory>
+        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumer__factory>
+        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
         let request: ReturnType<typeof oracle.decodeRunRequest>
 
         describe('gas guzzling consumer', () => {
@@ -2514,7 +2514,7 @@ describe('Operator', () => {
     const payload = getterSetterFactory.interface.functions.setBytes.encode([
       bytes,
     ])
-    let mock: contract.Instance<GetterSetterFactory>
+    let mock: contract.Instance<GetterSetter__factory>
 
     beforeEach(async () => {
       mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -50,6 +52,7 @@ type SpecDB struct {
 	SchemaVersion                 uint32                       `json:"schemaVersion"`
 	Name                          null.String                  `json:"name"`
 	MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
+	Pipeline 					  pipeline.TaskDAG  `toml:"observationSource"`
 }
 
 func (SpecDB) TableName() string {

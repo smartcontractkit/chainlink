@@ -530,6 +530,29 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	return etx
 }
 
+func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store, fromAddress)
+
+	etx.BroadcastAt = &timeNow
+	n := nonce
+	etx.Nonce = &n
+	etx.State = models.EthTxUnconfirmed
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = models.EthTxAttemptInsufficientEth
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
 func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) models.EthTx {
 	timeNow := time.Now()
 	etx := NewEthTx(t, store, fromAddress)

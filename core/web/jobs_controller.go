@@ -84,8 +84,6 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jc.createOCR(c, request.TOML)
 	case job.DirectRequest:
 		jc.createDirectRequest(c, request.TOML)
-	case job.FluxMonitor:
-		jc.createDirectRequest(c, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
@@ -99,7 +97,7 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 	config := jc.App.GetStore().Config
-	if jobSpec.JobType() == job.OffchainReporting && !config.Dev() && !config.FeatureOffchainReporting() {
+	if jobSpec.Type == job.OffchainReporting && !config.Dev() && !config.FeatureOffchainReporting() {
 		jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 		return
 	}
@@ -124,31 +122,6 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 }
 
 func (jc *JobsController) createDirectRequest(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedDirectRequestSpec(toml)
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	}
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
-	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return
-		}
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	job, err := jc.App.GetJobORM().FindJob(jobID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, job, "DirectRequestSpec")
-}
-
-func (jc *JobsController) createFluxMonitor(c *gin.Context, toml string) {
 	jobSpec, err := services.ValidatedDirectRequestSpec(toml)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
