@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -58,10 +59,11 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *strpkg.Store
+	GetJobORM() job.ORM
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
 	ArchiveJob(*models.ID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -83,8 +85,9 @@ type ChainlinkApplication struct {
 	JobSubscriber            services.JobSubscriber
 	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
-	LogBroadcaster           eth.LogBroadcaster
+	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
+	JobORM                   job.ORM
 	jobSpawner               job.Spawner
 	pipelineRunner           pipeline.Runner
 	FluxMonitor              fluxmonitor.Service
@@ -126,7 +129,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	promReporter := services.NewPromReporter(store.DB.DB())
-	logBroadcaster := eth.NewLogBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -167,6 +170,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
+		JobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
 		pipelineRunner:           pipelineRunner,
 		FluxMonitor:              fluxMonitor,
@@ -370,6 +374,10 @@ func (app *ChainlinkApplication) GetStore() *strpkg.Store {
 	return app.Store
 }
 
+func (app *ChainlinkApplication) GetJobORM() job.ORM {
+	return app.JobORM
+}
+
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }
@@ -394,7 +402,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Spec, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error) {
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 

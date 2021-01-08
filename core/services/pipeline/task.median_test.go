@@ -81,7 +81,7 @@ func TestMedian(t *testing.T) {
 
 func TestMedian_Defaults(t *testing.T) {
 	var taskDAG pipeline.TaskDAG
-	err := taskDAG.UnmarshalText([]byte(dotStr))
+	err := taskDAG.UnmarshalText([]byte(pipeline.DotStr))
 	require.NoError(t, err)
 
 	tasks, err := taskDAG.TasksInDependencyOrder()

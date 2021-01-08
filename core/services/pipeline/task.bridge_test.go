@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -28,6 +29,66 @@ var (
 	ethUSDPairing = utils.MustUnmarshalToMap(`{"data":{"coin":"ETH","market":"USD"}}`)
 	emptyMeta     = utils.MustUnmarshalToMap("{}")
 )
+
+type adapterRequest struct {
+	ID   string                   `json:"id"`
+	Data pipeline.HttpRequestData `json:"data"`
+	Meta pipeline.HttpRequestData `json:"meta"`
+}
+
+type adapterResponseData struct {
+	Result *decimal.Decimal `json:"result"`
+}
+
+// adapterResponse is the HTTP response as defined by the external adapter:
+// https://github.com/smartcontractkit/bnc-adapter
+type adapterResponse struct {
+	Data         adapterResponseData `json:"data"`
+	ErrorMessage null.String         `json:"errorMessage"`
+}
+
+func (pr adapterResponse) Result() *decimal.Decimal {
+	return pr.Data.Result
+}
+
+func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
+	t.Helper()
+	var data adapterResponseData
+	body := []byte(fmt.Sprintf(`{"result":%v}`, result))
+	require.NoError(t, json.Unmarshal(body, &data))
+	return data
+}
+
+func mustReadFile(t testing.TB, file string) string {
+	t.Helper()
+
+	content, err := ioutil.ReadFile(file)
+	require.NoError(t, err)
+	return string(content)
+}
+
+func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal) http.Handler {
+	t.Helper()
+
+	body, err := json.Marshal(requestData)
+	require.NoError(t, err)
+	var expectedRequest adapterRequest
+	err = json.Unmarshal(body, &expectedRequest)
+	require.NoError(t, err)
+	response := adapterResponse{Data: dataWithResult(t, result)}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody adapterRequest
+		payload, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		defer r.Body.Close()
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		require.Equal(t, expectedRequest.Data, reqBody.Data)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+	})
+}
 
 func TestBridgeTask_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)

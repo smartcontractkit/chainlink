@@ -9,14 +9,14 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { CoordinatorFactory } from '../../ethers/v0.5/CoordinatorFactory'
-import { MeanAggregatorFactory } from '../../ethers/v0.5/MeanAggregatorFactory'
-import { ServiceAgreementConsumerFactory } from '../../ethers/v0.5/ServiceAgreementConsumerFactory'
+import { Coordinator__factory } from '../../ethers/v0.5/factories/Coordinator__factory'
+import { MeanAggregator__factory } from '../../ethers/v0.5/factories/MeanAggregator__factory'
+import { ServiceAgreementConsumer__factory } from '../../ethers/v0.5/factories/ServiceAgreementConsumer__factory'
 
-const coordinatorFactory = new CoordinatorFactory()
-const meanAggregatorFactory = new MeanAggregatorFactory()
-const serviceAgreementConsumerFactory = new ServiceAgreementConsumerFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const coordinatorFactory = new Coordinator__factory()
+const meanAggregatorFactory = new MeanAggregator__factory()
+const serviceAgreementConsumerFactory = new ServiceAgreementConsumer__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 // create ethers provider from that web3js instance
 const provider = setup.provider()
@@ -32,9 +32,9 @@ beforeAll(async () => {
 describe('ServiceAgreementConsumer', () => {
   const currency = 'USD'
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let coord: contract.Instance<CoordinatorFactory>
-  let cc: contract.Instance<ServiceAgreementConsumerFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let coord: contract.Instance<Coordinator__factory>
+  let cc: contract.Instance<ServiceAgreementConsumer__factory>
   let agreement: coordinator.ServiceAgreement
 
   beforeEach(async () => {

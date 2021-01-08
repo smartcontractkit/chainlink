@@ -6,9 +6,9 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { OwnedTestHelperFactory } from '../../ethers/v0.6/OwnedTestHelperFactory'
+import { OwnedTestHelper__factory } from '../../ethers/v0.6/factories/OwnedTestHelper__factory'
 
-const ownedTestHelperFactory = new OwnedTestHelperFactory()
+const ownedTestHelperFactory = new OwnedTestHelper__factory()
 const provider = setup.provider()
 
 let personas: setup.Personas
@@ -25,7 +25,7 @@ beforeAll(async () => {
 })
 
 describe('Owned', () => {
-  let owned: contract.Instance<OwnedTestHelperFactory>
+  let owned: contract.Instance<OwnedTestHelper__factory>
   const ownedEvents = ownedTestHelperFactory.interface.events
 
   beforeEach(async () => {
