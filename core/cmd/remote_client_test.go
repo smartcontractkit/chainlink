@@ -810,7 +810,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "401 Unauthorized")
+	assert.Contains(t, err.Error(), "Unauthorized")
 }
 
 func TestClient_IndexTransactions(t *testing.T) {
@@ -1414,7 +1414,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerPipelineRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "Internal Server Error; no job found with id 1 (most likely it was deleted)")
 }
 
 func TestClient_ListJobsV2(t *testing.T) {
