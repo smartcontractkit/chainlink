@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -30,7 +29,7 @@ type (
 	Spawner interface {
 		Start() error
 		Close() error
-		CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error)
+		CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 		RegisterDelegate(delegate Delegate)
 	}
@@ -52,9 +51,7 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
-		ToDBRow(spec Spec) models.JobSpecV2
-		FromDBRow(spec models.JobSpecV2) Spec
-		ServicesForSpec(spec Spec) ([]Service, error)
+		ServicesForSpec(spec SpecDB) ([]Service, error)
 	}
 )
 
@@ -195,21 +192,16 @@ func (js *spawner) startUnclaimedServices() {
 			continue
 		}
 
-		var services []Service
-		for _, delegate := range js.jobTypeDelegates {
-			spec := delegate.FromDBRow(specDBRow)
-			if spec == nil {
-				// This spec isn't owned by this delegate
-				continue
-			}
-
-			moreServices, err := delegate.ServicesForSpec(spec)
-			if err != nil {
-				logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
-				js.orm.RecordError(ctx, specDBRow.ID, err.Error())
-				continue
-			}
-			services = append(services, moreServices...)
+		delegate, exists := js.jobTypeDelegates[specDBRow.Type]
+		if !exists {
+			logger.Errorw("Job type has not been registered with job.Spawner", "type", specDBRow.Type, "jobID", specDBRow.ID)
+			continue
+		}
+		services, err := delegate.ServicesForSpec(specDBRow)
+		if err != nil {
+			logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
+			js.orm.RecordError(ctx, specDBRow.ID, err.Error())
+			continue
 		}
 
 		logger.Infow("Starting services for job", "jobID", specDBRow.ID, "count", len(services))
@@ -274,29 +266,27 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 
-	delegate, exists := js.jobTypeDelegates[spec.JobType()]
-	if !exists {
-		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
-		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
+	if _, exists := js.jobTypeDelegates[spec.Type]; !exists {
+		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
+		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 	}
 
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
 
-	specDBRow := delegate.ToDBRow(spec)
-	specDBRow.Name = name
-	err := js.orm.CreateJob(ctx, &specDBRow, spec.TaskDAG())
+	spec.Name = name
+	err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 	if err != nil {
-		logger.Errorw("Error creating job", "type", spec.JobType(), "error", err)
+		logger.Errorw("Error creating job", "type", spec.Type, "error", err)
 		return 0, err
 	}
 
-	logger.Infow("Created job", "type", spec.JobType(), "jobID", specDBRow.ID)
-	return specDBRow.ID, err
+	logger.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
+	return spec.ID, err
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {

@@ -1,4 +1,4 @@
-import { OracleFactory } from '@chainlink/contracts/ethers/v0.4/OracleFactory'
+import { Oracle__factory } from '@chainlink/contracts/ethers/v0.4/factories/Oracle__factory'
 import {
   createProvider,
   deployContract,
@@ -7,8 +7,8 @@ import {
   registerPromiseHandler,
 } from './common'
 import { deployLinkTokenContract } from './deployLinkTokenContract'
-import { EthLogFactory } from './generated/EthLogFactory'
-import { RunLogFactory } from './generated/RunLogFactory'
+import { EthLog__factory } from './generated/factories/EthLog__factory'
+import { RunLog__factory } from './generated/factories/RunLog__factory'
 
 async function main() {
   registerPromiseHandler()
@@ -30,15 +30,15 @@ async function deployContracts({ chainlinkNodeAddress }: Args) {
   const linkToken = await deployLinkTokenContract()
 
   const oracle = await deployContract(
-    { Factory: OracleFactory, name: 'Oracle', signer },
+    { Factory: Oracle__factory, name: 'Oracle', signer },
     linkToken.address,
   )
   await oracle.setFulfillmentPermission(chainlinkNodeAddress, true)
 
-  await deployContract({ Factory: EthLogFactory, name: 'EthLog', signer })
+  await deployContract({ Factory: EthLog__factory, name: 'EthLog', signer })
 
   await deployContract(
-    { Factory: RunLogFactory, name: 'RunLog', signer },
+    { Factory: RunLog__factory, name: 'RunLog', signer },
     linkToken.address,
     oracle.address,
   )
