@@ -52,7 +52,7 @@ type SpecDB struct {
 	SchemaVersion                 uint32                       `json:"schemaVersion"`
 	Name                          null.String                  `json:"name"`
 	MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
-	Pipeline 					  pipeline.TaskDAG  `toml:"observationSource"`
+	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource"`
 }
 
 func (SpecDB) TableName() string {
@@ -166,7 +166,9 @@ type FluxMonitorSpec struct {
 	// can be reported on-chain.
 	AbsoluteThreshold float32       `json:"absoluteThreshold" gorm:"type:float;not null"`
 	PollTimerPeriod   time.Duration `json:"pollTimerPeriod,omitempty" gorm:"type:jsonb"`
-	PollTimerEnabled  bool          `json:"pollTimerEnabled,omitempty" gorm:"type:jsonb"`
+	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
-	IdleTimerEnabled  bool          `json:"idleTimerEnabled,omitempty" gorm:"type:jsonb"`
+	IdleTimerDisabled bool          `json:"idleTimerDisabled,omitempty" gorm:"type:jsonb"`
+	CreatedAt        time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
 }

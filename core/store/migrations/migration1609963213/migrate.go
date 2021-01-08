@@ -12,17 +12,17 @@ func Migrate(tx *gorm.DB) error {
 			threshold real, 
 			absolute_threshold real,
 			poll_timer_period bigint,
-			poll_timer_enabled boolean,
-			CHECK (NOT poll_timer_enabled OR poll_timer_period > 0),
+			poll_timer_disabled boolean,
+			CHECK (poll_timer_disabled OR poll_timer_period > 0),
 			idle_timer_period bigint,
-			idle_timer_enabled boolean,
-			CHECK (NOT idle_timer_enabled OR idle_timer_period > 0),
+			idle_timer_disabled boolean,
+			CHECK (idle_timer_disabled OR idle_timer_period > 0),
 			created_at timestamptz NOT NULL,
 			updated_at timestamptz NOT NULL
 		);
 
 		ALTER TABLE jobs ADD COLUMN flux_monitor_spec_id INT REFERENCES flux_monitor_specs(id),
-			DROP CONSTRAINT chk_valid,
+			DROP CONSTRAINT chk_only_one_spec,
 			ADD CONSTRAINT chk_only_one_spec CHECK (
 				num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id) = 1
 		);

@@ -3,6 +3,8 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -79,30 +81,36 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
+	var js job.SpecDB
+	config := jc.App.GetStore().Config
 	switch genericJS.Type {
 	case job.OffchainReporting:
-		jc.createOCR(c, request.TOML)
+		js, err = services.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+		if !config.Dev() && !config.FeatureOffchainReporting() {
+			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
+			return
+		}
 	case job.DirectRequest:
-		jc.createDirectRequest(c, request.TOML)
+		js, err = services.ValidatedDirectRequestSpec(request.TOML)
+		if err != nil {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+	case job.FluxMonitor:
+		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
-
-}
-
-func (jc *JobsController) createOCR(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedOracleSpecToml(jc.App.GetStore().Config, toml)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-	config := jc.App.GetStore().Config
-	if jobSpec.Type == job.OffchainReporting && !config.Dev() && !config.FeatureOffchainReporting() {
-		jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
-		return
-	}
 
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
+	jobID, err := jc.App.AddJobV2(c.Request.Context(), js, js.Name)
 	if err != nil {
 		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -118,32 +126,8 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 
-	jsonAPIResponse(c, job, "offChainReportingJobSpec")
-}
+	jsonAPIResponse(c, job, job.Type.String())
 
-func (jc *JobsController) createDirectRequest(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedDirectRequestSpec(toml)
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	}
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
-	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return
-		}
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	job, err := jc.App.GetJobORM().FindJob(jobID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, job, "DirectRequestSpec")
 }
 
 // Delete soft deletes an OCR job spec.
