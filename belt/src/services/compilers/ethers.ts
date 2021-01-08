@@ -40,7 +40,7 @@ function compiler(
     rawConfig: {
       files: join(artifactsDir, subDir, '**', '*.json'),
       outDir: join(contractAbstractionDir, 'ethers', subDir),
-      target: 'ethers',
+      target: 'ethers-v4',
     },
   })
 }

@@ -7,24 +7,24 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { FluxAggregatorFactory } from '../../ethers/v0.6/FluxAggregatorFactory'
-import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6/FluxAggregatorTestHelperFactory'
-import { AggregatorValidatorMockFactory } from '../../ethers/v0.6/AggregatorValidatorMockFactory'
-import { GasGuzzlerFactory } from '../../ethers/v0.6/GasGuzzlerFactory'
-import { DeviationFlaggingValidatorFactory } from '../../ethers/v0.6/DeviationFlaggingValidatorFactory'
-import { FlagsFactory } from '../../ethers/v0.6/FlagsFactory'
-import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6/SimpleWriteAccessControllerFactory'
+import { FluxAggregator__factory } from '../../ethers/v0.6/factories/FluxAggregator__factory'
+import { FluxAggregatorTestHelper__factory } from '../../ethers/v0.6/factories/FluxAggregatorTestHelper__factory'
+import { AggregatorValidatorMock__factory } from '../../ethers/v0.6/factories/AggregatorValidatorMock__factory'
+import { GasGuzzler__factory } from '../../ethers/v0.6/factories/GasGuzzler__factory'
+import { DeviationFlaggingValidator__factory } from '../../ethers/v0.6/factories/DeviationFlaggingValidator__factory'
+import { Flags__factory } from '../../ethers/v0.6/factories/Flags__factory'
+import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
 
 let personas: setup.Personas
 const provider = setup.provider()
-const linkTokenFactory = new contract.LinkTokenFactory()
-const fluxAggregatorFactory = new FluxAggregatorFactory()
-const validatorMockFactory = new AggregatorValidatorMockFactory()
-const testHelperFactory = new FluxAggregatorTestHelperFactory()
-const validatorFactory = new DeviationFlaggingValidatorFactory()
-const flagsFactory = new FlagsFactory()
-const acFactory = new SimpleWriteAccessControllerFactory()
-const gasGuzzlerFactory = new GasGuzzlerFactory()
+const linkTokenFactory = new contract.LinkToken__factory()
+const fluxAggregatorFactory = new FluxAggregator__factory()
+const validatorMockFactory = new AggregatorValidatorMock__factory()
+const testHelperFactory = new FluxAggregatorTestHelper__factory()
+const validatorFactory = new DeviationFlaggingValidator__factory()
+const flagsFactory = new Flags__factory()
+const acFactory = new SimpleWriteAccessController__factory()
+const gasGuzzlerFactory = new GasGuzzler__factory()
 const emptyAddress = '0x0000000000000000000000000000000000000000'
 
 beforeAll(async () => {
@@ -45,16 +45,16 @@ describe('FluxAggregator', () => {
   const minSubmissionValue = h.bigNum('1')
   const maxSubmissionValue = h.bigNum('100000000000000000000')
 
-  let aggregator: contract.Instance<FluxAggregatorFactory>
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
-  let validator: contract.Instance<AggregatorValidatorMockFactory>
-  let gasGuzzler: contract.Instance<GasGuzzlerFactory>
+  let aggregator: contract.Instance<FluxAggregator__factory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let testHelper: contract.Instance<FluxAggregatorTestHelper__factory>
+  let validator: contract.Instance<AggregatorValidatorMock__factory>
+  let gasGuzzler: contract.Instance<GasGuzzler__factory>
   let nextRound: number
   let oracles: ethers.Wallet[]
 
   async function updateFutureRounds(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: contract.Instance<FluxAggregator__factory>,
     overrides: {
       minAnswers?: ethers.utils.BigNumberish
       maxAnswers?: ethers.utils.BigNumberish
@@ -82,7 +82,7 @@ describe('FluxAggregator', () => {
   }
 
   async function addOracles(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: contract.Instance<FluxAggregator__factory>,
     oraclesAndAdmin: ethers.Wallet[],
     minAnswers: number,
     maxAnswers: number,
@@ -99,7 +99,7 @@ describe('FluxAggregator', () => {
   }
 
   async function advanceRound(
-    aggregator: contract.Instance<FluxAggregatorFactory>,
+    aggregator: contract.Instance<FluxAggregator__factory>,
     submitters: ethers.Wallet[],
     currentSubmission: number = answer,
   ): Promise<number> {
@@ -3125,9 +3125,9 @@ describe('FluxAggregator', () => {
   })
 
   describe('integrating with historic deviation checker', () => {
-    let validator: contract.Instance<DeviationFlaggingValidatorFactory>
-    let flags: contract.Instance<FlagsFactory>
-    let ac: contract.Instance<SimpleWriteAccessControllerFactory>
+    let validator: contract.Instance<DeviationFlaggingValidator__factory>
+    let flags: contract.Instance<Flags__factory>
+    let ac: contract.Instance<SimpleWriteAccessController__factory>
     const flaggingThreshold = 1000 // 1%
 
     beforeEach(async () => {
