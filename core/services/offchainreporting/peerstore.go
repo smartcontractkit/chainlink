@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
@@ -14,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 

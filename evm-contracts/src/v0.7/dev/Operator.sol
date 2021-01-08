@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.7.0;
+pragma solidity ^0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
@@ -389,6 +389,7 @@ contract Operator is
     uint256 expiration
   )
   internal
+  pure
   returns (bytes31)
   {
     return bytes31(keccak256(
@@ -406,7 +407,7 @@ contract Operator is
    * @param number uint256
    * @return uint8 number
    */
-  function safeCastToUint8(uint256 number) internal returns (uint8) {
+  function safeCastToUint8(uint256 number) internal pure returns (uint8) {
     require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
     return uint8(number);
   }

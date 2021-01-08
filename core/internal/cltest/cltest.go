@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/stretchr/testify/mock"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -180,6 +182,18 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 func NewRandomInt64() int64 {
 	id := rand.Int63()
 	return id
+}
+
+func MustRandomBytes(t *testing.T, l int) (b []byte) {
+	t.Helper()
+
+	b = make([]byte, l)
+	/* #nosec G404 */
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
 
 // NewTestConfig returns a test configuration
@@ -778,7 +792,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.JobSpecV2 {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -786,7 +800,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) models.Job
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
-	var createdJob models.JobSpecV2
+	var createdJob job.SpecDB
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob

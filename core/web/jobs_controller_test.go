@@ -18,9 +18,7 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
 	"github.com/stretchr/testify/assert"
@@ -103,29 +101,29 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	job := models.JobSpecV2{}
-	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&job).Error)
+	jb := job.SpecDB{}
+	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&jb).Error)
 
-	ocrJobSpec := models.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "web oracle spec", job.Name.ValueOrZero())
-	assert.Equal(t, job.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
-	assert.Equal(t, job.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	assert.Equal(t, job.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
-	assert.Equal(t, job.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, job.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
-	assert.Equal(t, job.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-	assert.Equal(t, job.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
-	assert.Equal(t, job.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
-	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, job.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
+	assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
+	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
 	assert.NotNil(t, ocrJobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
-	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.OffchainreportingOracleSpec.ContractAddress)
+	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
@@ -148,21 +146,21 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	job := models.JobSpecV2{}
-	require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&job).Error)
+	jb := job.SpecDB{}
+	require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb).Error)
 
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "example eth request event spec", job.Name.ValueOrZero())
+	assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
 	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
-	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), job.DirectRequestSpec.ContractAddress)
+	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
 
 	sha := sha256.Sum256(tomlBytes)
-	require.Equal(t, sha[:], job.DirectRequestSpec.OnChainJobSpecID[:])
+	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
@@ -173,7 +171,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	jobSpecs := []models.JobSpecV2{}
+	jobSpecs := []job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpecs)
 	assert.NoError(t, err)
 
@@ -191,7 +189,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ocrJobSpec := models.JobSpecV2{}
+	ocrJobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
 	assert.NoError(t, err)
 
@@ -201,7 +199,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ereJobSpec := models.JobSpecV2{}
+	ereJobSpec := job.SpecDB{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJobSpec)
 	assert.NoError(t, err)
 
@@ -226,7 +224,8 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.OracleSpec, ocrJobSpecFromServer models.JobSpecV2) {
+func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.SpecDB, ocrJobSpecFromServer job.SpecDB) {
+	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OffchainreportingOracleSpec
 	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
 	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PBootstrapPeers)
@@ -239,7 +238,7 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
 	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigConfirmations)
-	assert.Equal(t, ocrJobSpecFromFile.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDagSource)
+	assert.Equal(t, ocrJobSpecFromFileDB.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDagSource)
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
@@ -248,8 +247,8 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFile offchainreporting.
 	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
 }
 
-func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile services.DirectRequestSpec, ereJobSpecFromServer models.JobSpecV2) {
-	assert.Equal(t, ereJobSpecFromFile.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
+func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.SpecDB, ereJobSpecFromServer job.SpecDB) {
+	assert.Equal(t, ereJobSpecFromFile.DirectRequestSpec.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
 	assert.Equal(t, ereJobSpecFromFile.Pipeline.DOTSource, ereJobSpecFromServer.PipelineSpec.DotDagSource)
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
@@ -271,7 +270,7 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	return app, client, cleanup
 }
 
-func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), offchainreporting.OracleSpec, int32, services.DirectRequestSpec, int32) {
+func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), job.SpecDB, int32, job.SpecDB, int32) {
 	t.Parallel()
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -282,20 +281,28 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFile offchainreporting.OracleSpec
+	var ocrJobSpecFromFileDB job.SpecDB
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ocrJobSpecFromFile)
+	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
 	require.NoError(t, err)
-	ocrJobSpecFromFile.TransmitterAddress = &app.Key.Address
-	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFile, null.String{})
+	var ocrSpec job.OffchainReportingOracleSpec
+	err = tree.Unmarshal(&ocrSpec)
+	require.NoError(t, err)
+	ocrJobSpecFromFileDB.OffchainreportingOracleSpec = &ocrSpec
+	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
+	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	var ereJobSpecFromFile services.DirectRequestSpec
+	var ereJobSpecFromFileDB job.SpecDB
 	tree, err = toml.LoadFile("testdata/direct-request-spec.toml")
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ereJobSpecFromFile)
+	err = tree.Unmarshal(&ereJobSpecFromFileDB)
 	require.NoError(t, err)
-	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFile, null.String{})
+	var drSpec job.DirectRequestSpec
+	err = tree.Unmarshal(&drSpec)
+	require.NoError(t, err)
+	ereJobSpecFromFileDB.DirectRequestSpec = &drSpec
+	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return client, cleanup, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2
+	return client, cleanup, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
 }

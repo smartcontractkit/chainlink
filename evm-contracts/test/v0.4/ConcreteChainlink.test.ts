@@ -7,14 +7,14 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ConcreteChainlinkFactory } from '../../ethers/v0.4/ConcreteChainlinkFactory'
+import { ConcreteChainlink__factory } from '../../ethers/v0.4/factories/ConcreteChainlink__factory'
 
 const provider = setup.provider()
-const concreteChainlinkFactory = new ConcreteChainlinkFactory()
+const concreteChainlinkFactory = new ConcreteChainlink__factory()
 const debug = d.makeDebug('ConcreteChainlink')
 
 describe('ConcreteChainlink', () => {
-  let ccl: contract.Instance<ConcreteChainlinkFactory>
+  let ccl: contract.Instance<ConcreteChainlink__factory>
   let defaultAccount: ethers.Wallet
   const deployment = setup.snapshot(provider, async () => {
     defaultAccount = await setup

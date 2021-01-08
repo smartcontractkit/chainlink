@@ -1,4 +1,4 @@
-package pipeline_test
+package job_test
 
 import (
 	"context"
@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
@@ -19,12 +20,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func clearDB(t *testing.T, db *gorm.DB) {
+func clearJobsDb(t *testing.T, db *gorm.DB) {
 	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs, pipeline_task_specs CASCADE`).Error
 	require.NoError(t, err)
 }
 
-func TestORM(t *testing.T) {
+func TestPipelineORM_Integration(t *testing.T) {
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_orm", true, true)
 	defer cleanupDB()
 	db := oldORM.DB
@@ -80,7 +81,7 @@ func TestORM(t *testing.T) {
 			DotID:          task.DotID(),
 			PipelineSpecID: specID,
 			Type:           task.Type(),
-			JSON:           pipeline.JSONSerializable{task},
+			JSON:           pipeline.JSONSerializable{Val: task},
 			Index:          task.OutputIndex(),
 		})
 	}
@@ -90,10 +91,10 @@ func TestORM(t *testing.T) {
 		defer cleanup()
 
 		g := pipeline.NewTaskDAG()
-		err := g.UnmarshalText([]byte(dotStr))
+		err := g.UnmarshalText([]byte(pipeline.DotStr))
 		require.NoError(t, err)
 
-		specID, err = orm.CreateSpec(context.Background(), db, *g)
+		specID, err = orm.CreateSpec(context.Background(), db, *g, models.Interval(0))
 		require.NoError(t, err)
 
 		var specs []pipeline.Spec
@@ -101,7 +102,7 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, specs, 1)
 		require.Equal(t, specID, specs[0].ID)
-		require.Equal(t, dotStr, specs[0].DotDagSource)
+		require.Equal(t, pipeline.DotStr, specs[0].DotDagSource)
 
 		var taskSpecs []pipeline.TaskSpec
 		err = db.Find(&taskSpecs).Error
@@ -140,10 +141,10 @@ func TestORM(t *testing.T) {
 		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
 
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
-		// Need a job in order to create a run
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		// Need a  in order to create a run
+		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -238,24 +239,24 @@ func TestORM(t *testing.T) {
 		}
 
 		for _, test := range tests {
-			clearDB(t, db)
+			clearJobsDb(t, db)
 
 			test := test
 			t.Run(test.name, func(t *testing.T) {
 				orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
 				defer cleanup()
-				jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-				defer jobORM.Close()
+				ORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+				defer ORM.Close()
 
 				var (
 					taskRuns     = make(map[string]pipeline.TaskRun)
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
-				ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
+				dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
-				// Need a job in order to create a run
-				err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+				// Need a  in order to create a run
+				err := ORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 				require.NoError(t, err)
 
 				// Create the run
