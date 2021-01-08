@@ -141,10 +141,10 @@ func TestPipelineORM_Integration(t *testing.T) {
 		jobORM := job.NewORM(db, config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer jobORM.Close()
 
-		ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
+		dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 		// Need a  in order to create a run
-		err := jobORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
@@ -253,10 +253,10 @@ func TestPipelineORM_Integration(t *testing.T) {
 					predecessors = make(map[string][]pipeline.TaskRun)
 				)
 
-				ocrSpec, dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
+				dbSpec := makeVoterTurnoutOCRJobSpec(t, db, transmitterAddress)
 
 				// Need a  in order to create a run
-				err := ORM.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+				err := ORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 				require.NoError(t, err)
 
 				// Create the run

@@ -33,10 +33,10 @@ func TestORM(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db)
 	address := key.Address.Address()
-	ocrSpec, dbSpec := makeOCRJobSpec(t, address)
+	dbSpec := makeOCRJobSpec(t, address)
 
 	t.Run("it creates job specs", func(t *testing.T) {
-		err := orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG())
+		err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
 		var returnedSpec job.SpecDB
@@ -67,8 +67,8 @@ func TestORM(t *testing.T) {
 		require.Equal(t, int32(1), unclaimed[0].PipelineSpecID)
 		require.Equal(t, int32(1), unclaimed[0].OffchainreportingOracleSpec.ID)
 
-		ocrSpec2, dbSpec2 := makeOCRJobSpec(t, address)
-		err = orm.CreateJob(context.Background(), dbSpec2, ocrSpec2.TaskDAG())
+		dbSpec2 := makeOCRJobSpec(t, address)
+		err = orm.CreateJob(context.Background(), dbSpec2, dbSpec2.Pipeline)
 		require.NoError(t, err)
 
 		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
@@ -134,8 +134,8 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
-		ocrSpec3, dbSpec3 := makeOCRJobSpec(t, address)
-		err := orm.CreateJob(context.Background(), dbSpec3, ocrSpec3.TaskDAG())
+		dbSpec3 := makeOCRJobSpec(t, address)
+		err := orm.CreateJob(context.Background(), dbSpec3, dbSpec3.Pipeline)
 		require.NoError(t, err)
 		var jobSpec job.SpecDB
 		err = db.
@@ -190,8 +190,8 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 
 	claimedJobs := make([]job.SpecDB, 3)
 	for i := range claimedJobs {
-		ocrSpec, dbSpec := makeOCRJobSpec(t, address)
-		require.NoError(t, orm.CreateJob(context.Background(), dbSpec, ocrSpec.TaskDAG()))
+		dbSpec := makeOCRJobSpec(t, address)
+		require.NoError(t, orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
 		claimedJobs[i] = *dbSpec
 	}
 	job.SetORMClaimedJobs(orm, claimedJobs)
@@ -230,7 +230,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 	claimedJobs := make([]job.SpecDB, 3)
 	for i := range claimedJobs {
-		_, dbSpec := makeOCRJobSpec(t, address)
+		dbSpec := makeOCRJobSpec(t, address)
 		dbSpec.ID = int32(i)
 		claimedJobs[i] = *dbSpec
 	}

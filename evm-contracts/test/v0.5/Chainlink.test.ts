@@ -7,9 +7,9 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
-import { ChainlinkTestHelperFactory } from '../../ethers/v0.5/ChainlinkTestHelperFactory'
+import { ChainlinkTestHelper__factory } from '../../ethers/v0.5/factories/ChainlinkTestHelper__factory'
 
-const chainlinkFactory = new ChainlinkTestHelperFactory()
+const chainlinkFactory = new ChainlinkTestHelper__factory()
 const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
@@ -20,9 +20,9 @@ beforeAll(async () => {
 })
 
 describe('Chainlink', () => {
-  let cl: contract.Instance<ChainlinkTestHelperFactory>
+  let cl: contract.Instance<ChainlinkTestHelper__factory>
   let clEvents: contract.Instance<
-    ChainlinkTestHelperFactory
+    ChainlinkTestHelper__factory
   >['interface']['events']
 
   const deployment = setup.snapshot(provider, async () => {
