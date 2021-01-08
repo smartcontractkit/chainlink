@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 
@@ -163,7 +164,6 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
-// TODO: table test creating all these different job types
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -187,20 +187,18 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	jb := job.SpecDB{}
 	require.NoError(t, app.Store.DB.Preload("FluxMonitorSpec").First(&jb).Error)
 
-
 	jobSpec := job.SpecDB{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
 	assert.NoError(t, err)
 	t.Log()
 
-	//assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
-	//assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
-	//
-	//// Sanity check to make sure it inserted correctly
-	//require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
-	//
-	//sha := sha256.Sum256(tomlBytes)
-	//require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
+	assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
+	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
+	assert.Equal(t, models.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
+	assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
+	assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
+	assert.Equal(t, int32(2), jb.FluxMonitorSpec.Precision)
+	assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
 }
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, cleanup, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
