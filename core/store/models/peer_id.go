@@ -3,21 +3,33 @@ package models
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 )
 
+const peerIDPrefix = "p2p"
+
 type PeerID peer.ID
 
 func (p PeerID) String() string {
+	return fmt.Sprintf("p2p%s", peer.ID(p).String())
+}
+
+func (p PeerID) Raw() string {
 	return peer.ID(p).String()
 }
 
 func (p *PeerID) UnmarshalText(bs []byte) error {
-	peerID, err := peer.Decode(string(bs))
+	input := string(bs)
+	if strings.HasPrefix(input, peerIDPrefix) {
+		input = string(bs[len(peerIDPrefix):])
+	}
+	peerID, err := peer.Decode(input)
 	if err != nil {
-		return errors.Wrapf(err, `PeerID#UnmarshalText("%v")`, string(bs))
+		return errors.Wrapf(err, `PeerID#UnmarshalText("%v")`, input)
 	}
 	*p = PeerID(peerID)
 	return nil
