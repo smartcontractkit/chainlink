@@ -3,9 +3,11 @@ package offchainreporting
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 type transmitter struct {
@@ -24,12 +26,38 @@ func NewTransmitter(sqldb *sql.DB, fromAddress gethCommon.Address, gasLimit uint
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
-	_, err := t.db.ExecContext(ctx, `
+	value := 0
+	res, err := t.db.ExecContext(ctx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
-VALUES ($1,$2,$3,$4,$5,'unstarted',NOW())
-`, t.fromAddress, toAddress, payload, 0, t.gasLimit)
+SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
+WHERE NOT EXISTS (
+    SELECT 1 FROM eth_tx_attempts
+	JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
+	WHERE eth_txes.from_address = $1
+		AND eth_txes.state = 'unconfirmed'
+		AND eth_tx_attempts.state = 'insufficient_eth'
+);
+`, t.fromAddress, toAddress, payload, value, t.gasLimit)
+	if err != nil {
+		return errors.Wrap(err, "transmitter failed to insert eth_tx")
+	}
 
-	return errors.Wrap(err, "failed to create eth_tx")
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "transmitter failed to get RowsAffected on eth_tx insert")
+	}
+	if rowsAffected == 0 {
+		err := errors.Errorf("Skipped OCR transmission because wallet is out of eth: %s", t.fromAddress.Hex())
+		logger.Warnw(err.Error(),
+			"fromAddress", t.fromAddress,
+			"toAddress", toAddress,
+			"payload", "0x"+hex.EncodeToString(payload),
+			"value", value,
+			"gasLimit", t.gasLimit,
+		)
+		return err
+	}
+	return nil
 }
 
 func (t *transmitter) FromAddress() gethCommon.Address {
