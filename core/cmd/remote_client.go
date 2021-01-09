@@ -591,7 +591,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -1238,7 +1238,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New(http.StatusText(resp.StatusCode))
+		return b, errors.New("Error")
 	}
 	return b, err
 }
