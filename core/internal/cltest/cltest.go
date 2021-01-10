@@ -230,6 +230,8 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
 	rawConfig.Set("P2P_LISTEN_PORT", "12345")
 	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
+	rawConfig.Set("DATABASE_TIMEOUT", "5s")
+	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config

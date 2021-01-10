@@ -42,6 +42,8 @@ func TestNewLockingStrategy(t *testing.T) {
 func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	delay := tc.DatabaseTimeout()
 	if tc.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")
@@ -68,6 +70,8 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	delay := tc.DatabaseTimeout()
+
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	if tc.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
@@ -93,6 +97,8 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
+
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -107,7 +113,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration())
+	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond)
 	require.NoError(t, err)
 	lock2, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
@@ -118,6 +124,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -141,6 +148,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 

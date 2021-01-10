@@ -23,7 +23,7 @@ type ConfigSchema struct {
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                             string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseTimeout                           models.Duration `env:"DATABASE_TIMEOUT" default:"500ms"`
+	DatabaseTimeout                           models.Duration `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                               string          `env:"DATABASE_URL"`
 	DatabaseListenerMinReconnectInterval      time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseListenerMaxReconnectDuration      time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
@@ -36,7 +36,7 @@ type ConfigSchema struct {
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
-	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"30s"`
+	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	MaximumServiceDuration                    models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration                    models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold                       uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
