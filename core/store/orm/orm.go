@@ -54,8 +54,8 @@ type ORM struct {
 }
 
 // NewORM initializes the orm with the configured uri
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64) (*ORM, error) {
-	ct, err := NewConnection(dialect, uri, advisoryLockID)
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64, lockRetryInterval time.Duration) (*ORM, error) {
+	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval)
 	if err != nil {
 		return nil, err
 	}
@@ -1388,12 +1388,13 @@ type Connection struct {
 	dialect            DialectName
 	locking            bool
 	advisoryLockID     int64
+	lockRetryInterval  time.Duration
 	transactionWrapped bool
 }
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
-func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Connection, error) {
+func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration) (Connection, error) {
 	switch dialect {
 	case DialectPostgres:
 		return Connection{
@@ -1403,6 +1404,7 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Conne
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
+			lockRetryInterval:  lockRetryInterval,
 		}, nil
 	case DialectPostgresWithoutLock:
 		return Connection{
@@ -1412,6 +1414,7 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Conne
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
+			lockRetryInterval:  lockRetryInterval,
 		}, nil
 	case DialectTransactionWrappedPostgres:
 		return Connection{
@@ -1421,6 +1424,7 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64) (Conne
 			name:               dialect,
 			transactionWrapped: true,
 			uri:                uri,
+			lockRetryInterval:  lockRetryInterval,
 		}, nil
 	}
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)

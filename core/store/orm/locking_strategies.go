@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"go.uber.org/multierr"
 )
@@ -76,12 +78,45 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.config.locking {
-		_, err := s.conn.ExecContext(ctx, "SELECT pg_advisory_lock($1)", s.config.advisoryLockID)
+		logger.Debug("Waiting for global lock...")
+		err := s.waitForLock(ctx)
 		if err != nil {
 			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)
 		}
+		logger.Debug("Got global lock")
 	}
 	return nil
+}
+
+func (s *PostgresLockingStrategy) waitForLock(ctx context.Context) error {
+	ticker := time.NewTicker(s.config.lockRetryInterval)
+	defer ticker.Stop()
+	for {
+		rows, err := s.conn.QueryContext(ctx, "SELECT pg_try_advisory_lock($1)", s.config.advisoryLockID)
+		if err != nil {
+			return err
+		}
+		var gotLock bool
+		for rows.Next() {
+			err := rows.Scan(&gotLock)
+			if err != nil {
+				return multierr.Combine(err, rows.Close())
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if gotLock {
+			return nil
+		}
+
+		select {
+		case <-ticker.C:
+			continue
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "timeout expired while waiting for lock")
+		}
+	}
 }
 
 // Unlock unlocks the locked postgres advisory lock.

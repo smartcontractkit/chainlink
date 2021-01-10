@@ -180,7 +180,10 @@ func (c Config) Set(name string, value interface{}) {
 	logger.Panicf("No configuration parameter for %s", name)
 }
 
-const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
+const (
+	defaultPostgresAdvisoryLockID int64         = 1027321974924625846
+	defaultLockRetryInterval      time.Duration = 30 * time.Second
+)
 
 func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	if c.AdvisoryLockID == 0 {
@@ -252,6 +255,11 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
+}
+
+// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
+func (c Config) GlobalLockRetryInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", parseDuration).(time.Duration))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
