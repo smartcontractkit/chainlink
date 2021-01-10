@@ -180,10 +180,7 @@ func (c Config) Set(name string, value interface{}) {
 	logger.Panicf("No configuration parameter for %s", name)
 }
 
-const (
-	defaultPostgresAdvisoryLockID int64         = 1027321974924625846
-	defaultLockRetryInterval      time.Duration = 30 * time.Second
-)
+const defaultPostgresAdvisoryLockID int64 = 1027321974924625846
 
 func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	if c.AdvisoryLockID == 0 {
