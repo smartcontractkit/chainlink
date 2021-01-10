@@ -1528,7 +1528,6 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
-			lockRetryInterval:  lockRetryInterval,
 		}, nil
 	case DialectTransactionWrappedPostgres:
 		return Connection{
@@ -1543,6 +1542,13 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 	}
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 }
+
+const (
+	// maxOpenConns limited to 10, by default this is unlimited which is not desirable
+	maxOpenConns = 10
+	// maxIdleConns of 5, by default this is 2 which is very conservative
+	maxIdleConns = 5
+)
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if ct.transactionWrapped {
@@ -1562,6 +1568,8 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 
 	db.SetLogger(newOrmLogWrapper(logger.Default))
+	db.DB().SetMaxOpenConns(maxOpenConns)
+	db.DB().SetMaxIdleConns(maxIdleConns)
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
