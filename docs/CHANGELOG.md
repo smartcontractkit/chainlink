@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for bignums encoded in CBOR
 - Silence spurious `Job spawner ORM attempted to claim locally-claimed job` warnings
 - OCR now drops transmissions instead of queueing them if the node is out of Ether
+- Fixed a long-standing issue where standby nodes would hold transactions open forever while waiting for a lock. This was preventing postgres from running necessary cleanup operations, resulting in bad database performance. Any node operators running standby failover chainlink nodes should see major database performance improvements with this release and may be able to reduce the size of their database instances.
 
 ### Changed
 
