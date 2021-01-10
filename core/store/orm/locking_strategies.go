@@ -78,7 +78,7 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.config.locking {
-		logger.Debug("Waiting for global lock...")
+		logger.Debug("Trying to get global lock...")
 		err := s.waitForLock(ctx)
 		if err != nil {
 			return errors.Wrapf(ErrNoAdvisoryLock, "postgres advisory locking strategy failed on .Lock, timeout set to %v: %v, lock ID: %v", displayTimeout(timeout), err, s.config.advisoryLockID)

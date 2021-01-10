@@ -340,7 +340,9 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 	// Ensure that the CL node is down by trying to acquire the global advisory lock.
 	// This method will panic if it can't get the lock.
 	logger.Info("Make sure the Chainlink node is not running")
-	ormInstance.MustEnsureAdvisoryLock()
+	if err := ormInstance.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 
 	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
 		logger.Errorw("failed to remove unstarted transactions", "error", err)
