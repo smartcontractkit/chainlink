@@ -1544,18 +1544,6 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 }
 
-// NOTE: In an ideal world the timeouts below would be set to something sane in
-// the postgres configuration by the user. Since we do not live in an ideal
-// world, it is necessary to override them here.
-const (
-	// LockTimeout controls the max time we will wait for any kind of database lock.
-	// It's good to set this to _something_ because waiting for locks forever is really bad.
-	LockTimeout = 1 * time.Minute
-	// IdleInTxSessionTimeout controls the max time we leave a transaction open and idle.
-	// It's good to set this to _something_ because leaving transactions open forever is really bad.
-	IdleInTxSessionTimeout = 1 * time.Hour
-)
-
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
@@ -1577,15 +1565,6 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
-	}
-
-	err = db.Exec(fmt.Sprintf(`SET lock_timeout = %v`, LockTimeout.Milliseconds())).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting lock timeout")
-	}
-	err = db.Exec(fmt.Sprintf(`SET idle_in_transaction_session_timeout = %v`, IdleInTxSessionTimeout.Milliseconds())).Error
-	if err != nil {
-		return nil, errors.Wrap(err, "error setting idle in transaction session timeout")
 	}
 
 	return db, nil
