@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -49,10 +50,13 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
@@ -102,11 +106,10 @@ var (
 	NonExistentP2PPeerID p2ppeer.ID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
+	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	storeCounter                uint64
+	minimumContractPayment      = assets.NewLink(100)
 )
-
-var storeCounter uint64
-
-var minimumContractPayment = assets.NewLink(100)
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -1492,6 +1495,31 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	return result.String()
 }
 
+// GenericEncode eth encodes values based on the provided types
+func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
+	if len(values) != len(types) {
+		return nil, errors.New("must include same number of values as types")
+	}
+
+	var inputList []string
+	for _, typeString := range types {
+		input := fmt.Sprintf(`{"name":"","type":"%s"}`, typeString)
+		inputList = append(inputList, input)
+	}
+	inputs := strings.Join(inputList, ",")
+	definition := fmt.Sprintf(`[{"inputs":[%s],"name":"foo","type":"function"}]`, inputs)
+	abi, err := abi.JSON(strings.NewReader(definition))
+	if err != nil {
+		return nil, err
+	}
+	out, err := abi.Pack("foo", values...)
+	if err != nil {
+		return nil, err
+	}
+	// remove function sig
+	return out[4:], nil
+}
+
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
@@ -1511,6 +1539,21 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	return data
+}
+
+func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
+	funcSig := hexutil.Encode(contracts.FluxAggregatorABI.Methods[funcName].ID)
+	if len(funcSig) != 10 {
+		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
+	}
+	return client.On(
+		"CallContract",
+		mock.Anything,
+		mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+			return *callArgs.To == address &&
+				hexutil.Encode(callArgs.Data)[0:10] == funcSig
+		}),
+		mock.Anything)
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM

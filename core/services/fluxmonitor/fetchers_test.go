@@ -123,7 +123,7 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := contracts.FluxAggregatorRoundState{ReportableRoundID: 7, Timeout: 11}
+	roundState := contracts.FluxAggregatorRoundState{RoundId: 7, Timeout: 11}
 	request, err := models.MarshalToMap(&roundState)
 	require.NoError(t, err)
 
