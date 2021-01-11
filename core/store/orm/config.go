@@ -658,6 +658,7 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 func (c Config) ORMMaxOpenConns() int {
 	return int(c.getWithFallback("ORMMaxOpenConns", parseUint16).(uint16))
 }
+
 func (c Config) ORMMaxIdleConns() int {
 	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
 }
