@@ -67,26 +67,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		spawner := job.NewSpawner(orm, config)
-		spawner.Start()
-
 		eventuallyA := cltest.NewAwaiter()
 		serviceA1 := new(mocks.Service)
 		serviceA2 := new(mocks.Service)
 		serviceA1.On("Start").Return(nil).Once()
 		serviceA2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyA.ItHappened() })
-
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil, nil)}
-		spawner.RegisterDelegate(delegateA)
-
-		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
-		require.NoError(t, err)
-		delegateA.jobID = jobSpecIDA
-		close(delegateA.chContinueCreatingServices)
-
-		eventuallyA.AwaitOrFail(t, 20*time.Second)
-		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
-
 		eventuallyB := cltest.NewAwaiter()
 		serviceB1 := new(mocks.Service)
 		serviceB2 := new(mocks.Service)
@@ -94,7 +80,18 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		serviceB2.On("Start").Return(nil).Once().Run(func(mock.Arguments) { eventuallyB.ItHappened() })
 
 		delegateB := &delegate{jobTypeB, []job.Service{serviceB1, serviceB2}, 0, make(chan struct{}), offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil, nil)}
-		spawner.RegisterDelegate(delegateB)
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+			jobTypeA: delegateA,
+			jobTypeB: delegateB,
+		})
+		spawner.Start()
+		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
+		require.NoError(t, err)
+		delegateA.jobID = jobSpecIDA
+		close(delegateA.chContinueCreatingServices)
+
+		eventuallyA.AwaitOrFail(t, 20*time.Second)
+		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		jobSpecIDB, err := spawner.CreateJob(context.Background(), *jobSpecB, null.String{})
 		require.NoError(t, err)
@@ -134,10 +131,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		spawner := job.NewSpawner(orm, config)
-
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil, nil)}
-		spawner.RegisterDelegate(delegateA)
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+			jobTypeA: delegateA,
+		})
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -165,10 +162,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		spawner := job.NewSpawner(orm, config)
-
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, orm, nil, nil, nil, nil, nil, nil)}
-		spawner.RegisterDelegate(delegateA)
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+			jobTypeA: delegateA,
+		})
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)
@@ -201,10 +198,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := job.NewORM(db, config, pipeline.NewORM(db, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 		defer orm.Close()
-		spawner := job.NewSpawner(orm, config)
-
 		delegateA := &delegate{jobTypeA, []job.Service{serviceA1, serviceA2}, 0, nil, offchainreporting.NewJobSpawnerDelegate(nil, nil, nil, nil, nil, nil, nil, nil)}
-		spawner.RegisterDelegate(delegateA)
+		spawner := job.NewSpawner(orm, config, map[job.Type]job.Delegate{
+			jobTypeA: delegateA,
+		})
 
 		jobSpecIDA, err := spawner.CreateJob(context.Background(), *jobSpecA, null.String{})
 		require.NoError(t, err)

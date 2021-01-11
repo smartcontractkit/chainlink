@@ -27,22 +27,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-func RegisterJobType(
-	db *gorm.DB,
-	jobORM job.ORM,
-	config *orm.Config,
-	keyStore *KeyStore,
-	jobSpawner job.Spawner,
-	pipelineRunner pipeline.Runner,
-	ethClient eth.Client,
-	logBroadcaster log.Broadcaster,
-	peerWrapper *SingletonPeerWrapper,
-) {
-	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper),
-	)
-}
-
 type jobSpawnerDelegate struct {
 	db             *gorm.DB
 	jobORM         job.ORM
