@@ -2,10 +2,10 @@ import { contract, setup, helpers } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ContractReceipt } from 'ethers/contract'
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
-import { ChainlinkOperatorFactory__factory } from '../../ethers/v0.7/factories/ChainlinkOperatorFactory__factory'
+import { OperatorFactory__factory } from '../../ethers/v0.7/factories/OperatorFactory__factory'
 
 const linkTokenFactory = new contract.LinkToken__factory()
-const operatorGeneratorFactory = new ChainlinkOperatorFactory__factory()
+const operatorGeneratorFactory = new OperatorFactory__factory()
 const operatorFactory = new Operator__factory()
 
 let roles: setup.Roles
@@ -19,7 +19,7 @@ beforeAll(async () => {
 
 describe('ChainlinkOperatorFactory', () => {
   let link: contract.Instance<contract.LinkToken__factory>
-  let operatorGenerator: contract.Instance<ChainlinkOperatorFactory__factory>
+  let operatorGenerator: contract.Instance<OperatorFactory__factory>
   let operator: contract.Instance<Operator__factory>
 
   const deployment = setup.snapshot(provider, async () => {
