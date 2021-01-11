@@ -730,13 +730,13 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestAnswer *big.Int) contracts.FluxAggregatorRoundState {
+func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) contracts.FluxAggregatorRoundState {
 	return contracts.FluxAggregatorRoundState{
-		ReportableRoundID: roundID,
-		EligibleToSubmit:  true,
-		LatestAnswer:      latestAnswer,
-		AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+		RoundId:          roundID,
+		EligibleToSubmit: true,
+		LatestSubmission: latestSubmission,
+		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
+		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
 	}
 }
 

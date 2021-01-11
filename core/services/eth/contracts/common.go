@@ -4,7 +4,13 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 )
+
+var DefaultCallOpts = &bind.CallOpts{
+	Pending: false,
+	Context: nil,
+}
 
 func mustGetABI(json string) abi.ABI {
 	abi, err := abi.JSON(strings.NewReader(json))

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -28,7 +29,7 @@ func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThre
 	p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	p.respondToNewRoundLog(*log)
 }
 
