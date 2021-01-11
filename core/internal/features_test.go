@@ -1521,3 +1521,77 @@ observationSource = """
 		}
 	}
 }
+
+func TestIntegration_DirectRequest(t *testing.T) {
+	t.Fatal("TODO: Write some tests")
+
+	triggeringBlockHash := cltest.NewHash()
+	otherBlockHash := cltest.NewHash()
+
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+
+	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+	defer assertMockCalls()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return(nil).Maybe()
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+
+	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
+	newHeads := make(chan<- *models.Head, 10)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
+		Run(func(args mock.Arguments) {
+			newHeads = args.Get(1).(chan<- *models.Head)
+		}).
+		Return(sub, nil)
+	require.NoError(t, app.StartAndConnect())
+
+	j := cltest.FixtureCreateJobSpecV2ViaWeb(t, app, "fixtures/web/direct-request-spec.toml")
+
+	// FIXME: Waiting for Ryan's work so that log broadcaster supports waiting for confirmations
+	// requiredConfs := int64(100)
+
+	creationHeight := int64(1)
+	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+	runlog.BlockHash = test.logBlockHash
+	logs := <-logsCh
+	logs <- runlog
+	cltest.WaitForRuns(t, j, app.Store, 1)
+
+	runs, err := app.Store.JobRunsFor(j.ID)
+	assert.NoError(t, err)
+	jr := runs[0]
+	cltest.WaitForJobRunToPendIncomingConfirmations(t, app.Store, jr)
+	require.Len(t, jr.TaskRuns, 1)
+	assert.False(t, jr.TaskRuns[0].ObservedIncomingConfirmations.Valid)
+
+	blockIncrease := int64(app.Store.Config.MinIncomingConfirmations())
+	minGlobalHeight := creationHeight + blockIncrease
+	newHeads <- cltest.Head(minGlobalHeight)
+	<-time.After(time.Second)
+	jr = cltest.JobRunStaysPendingIncomingConfirmations(t, app.Store, jr)
+	assert.Equal(t, int64(creationHeight+blockIncrease), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
+
+	safeNumber := creationHeight + requiredConfs
+	newHeads <- cltest.Head(safeNumber)
+	confirmedReceipt := &types.Receipt{
+		TxHash:      runlog.TxHash,
+		BlockHash:   test.receiptBlockHash,
+		BlockNumber: big.NewInt(creationHeight),
+	}
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil)
+	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
+		Return(confirmedReceipt, nil)
+
+	app.EthBroadcaster.Trigger()
+	jr = cltest.WaitForJobRunStatus(t, app.Store, jr, test.wantStatus)
+	assert.True(t, jr.FinishedAt.Valid)
+	assert.Equal(t, int64(requiredConfs), int64(jr.TaskRuns[0].ObservedIncomingConfirmations.Uint32))
+}
