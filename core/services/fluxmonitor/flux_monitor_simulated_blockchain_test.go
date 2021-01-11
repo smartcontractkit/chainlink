@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -570,41 +568,4 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 		t.Fatalf("should not trigger a new run, while flag is raised")
 	case <-time.After(5 * time.Second):
 	}
-}
-
-func TestFluxMonitor_LatestRoundData(t *testing.T) {
-	key := cltest.MustGenerateRandomKey(t)
-	fa := setupFluxAggregatorUniverse(t, key)
-
-	oracleList := []common.Address{fa.neil.From}
-	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 1, 0)
-	assert.NoError(t, err, "failed to add oracles to aggregator")
-	fa.backend.Commit()
-	checkOraclesAdded(t, fa, oracleList)
-
-	// must create at least 1 round
-	submitAnswer(t, answerParams{
-		fa:              &fa,
-		roundId:         1,
-		answer:          100,
-		from:            fa.neil,
-		isNewRound:      true,
-		completesAnswer: false,
-	})
-
-	config, cfgCleanup := cltest.NewConfig(t)
-	defer cfgCleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
-	defer cleanup()
-	client := app.Store.EthClient
-
-	lb := new(mocks.LogBroadcaster)
-	wrappedFA, err := contracts.NewFluxAggregator(fa.aggregatorContractAddress, client, lb)
-	require.NoError(t, err)
-
-	roundData, err := wrappedFA.LatestRoundData()
-	require.NoError(t, err)
-
-	assert.Equal(t, big.NewInt(1), roundData.RoundID)
-	assert.Equal(t, big.NewInt(100), roundData.Answer)
 }
