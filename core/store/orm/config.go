@@ -254,6 +254,11 @@ func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
 }
 
+// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
+func (c Config) GlobalLockRetryInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", parseDuration).(time.Duration))
+}
+
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
 func (c Config) DatabaseURL() string {
@@ -648,6 +653,14 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 		return kb, nil
 	}
 	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
+}
+
+func (c Config) ORMMaxOpenConns() int {
+	return int(c.getWithFallback("ORMMaxOpenConns", parseUint16).(uint16))
+}
+
+func (c Config) ORMMaxIdleConns() int {
+	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
 }
 
 // OperatorContractAddress represents the address where the Operator.sol
