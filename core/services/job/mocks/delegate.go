@@ -12,22 +12,6 @@ type Delegate struct {
 	mock.Mock
 }
 
-// FromDBRow provides a mock function with given fields: spec
-func (_m *Delegate) FromDBRow(spec job.SpecDB) job.Spec {
-	ret := _m.Called(spec)
-
-	var r0 job.Spec
-	if rf, ok := ret.Get(0).(func(job.SpecDB) job.Spec); ok {
-		r0 = rf(spec)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(job.Spec)
-		}
-	}
-
-	return r0
-}
-
 // JobType provides a mock function with given fields:
 func (_m *Delegate) JobType() job.Type {
 	ret := _m.Called()
@@ -43,11 +27,11 @@ func (_m *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec provides a mock function with given fields: spec
-func (_m *Delegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
+func (_m *Delegate) ServicesForSpec(spec job.SpecDB) ([]job.Service, error) {
 	ret := _m.Called(spec)
 
 	var r0 []job.Service
-	if rf, ok := ret.Get(0).(func(job.Spec) []job.Service); ok {
+	if rf, ok := ret.Get(0).(func(job.SpecDB) []job.Service); ok {
 		r0 = rf(spec)
 	} else {
 		if ret.Get(0) != nil {
@@ -56,25 +40,11 @@ func (_m *Delegate) ServicesForSpec(spec job.Spec) ([]job.Service, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(job.Spec) error); ok {
+	if rf, ok := ret.Get(1).(func(job.SpecDB) error); ok {
 		r1 = rf(spec)
 	} else {
 		r1 = ret.Error(1)
 	}
 
 	return r0, r1
-}
-
-// ToDBRow provides a mock function with given fields: spec
-func (_m *Delegate) ToDBRow(spec job.Spec) job.SpecDB {
-	ret := _m.Called(spec)
-
-	var r0 job.SpecDB
-	if rf, ok := ret.Get(0).(func(job.Spec) job.SpecDB); ok {
-		r0 = rf(spec)
-	} else {
-		r0 = ret.Get(0).(job.SpecDB)
-	}
-
-	return r0
 }

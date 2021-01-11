@@ -31,7 +31,6 @@ type (
 		Close() error
 		CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
-		RegisterDelegate(delegate Delegate)
 	}
 
 	spawner struct {
@@ -59,11 +58,11 @@ const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config) *spawner {
+func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spawner {
 	s := &spawner{
 		orm:              orm,
 		config:           config,
-		jobTypeDelegates: make(map[Type]Delegate),
+		jobTypeDelegates: jobTypeDelegates,
 		services:         make(map[int32][]Service),
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
@@ -101,17 +100,6 @@ func (js *spawner) destroy() {
 	if err != nil {
 		logger.Error(err)
 	}
-}
-
-func (js *spawner) RegisterDelegate(delegate Delegate) {
-	js.jobTypeDelegatesMu.Lock()
-	defer js.jobTypeDelegatesMu.Unlock()
-
-	if _, exists := js.jobTypeDelegates[delegate.JobType()]; exists {
-		panic("registered job type " + string(delegate.JobType()) + " more than once")
-	}
-	logger.Infof("Registered job type '%v'", delegate.JobType())
-	js.jobTypeDelegates[delegate.JobType()] = delegate
 }
 
 func (js *spawner) runLoop() {
