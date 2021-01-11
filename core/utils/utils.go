@@ -872,6 +872,14 @@ func (once *StartStopOnce) State() StartStopOnceState {
 	return once.state
 }
 
+func (once *StartStopOnce) IfStarted(f func()) {
+	once.RLock()
+	defer once.RUnlock()
+	if once.state == StartStopOnce_Started {
+		f()
+	}
+}
+
 // WithJitter adds +/- 10% to a duration
 func WithJitter(d time.Duration) time.Duration {
 	jitter := mrand.Intn(int(d) / 5)
