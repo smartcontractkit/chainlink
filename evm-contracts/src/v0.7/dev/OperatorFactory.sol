@@ -7,7 +7,7 @@ import "./Operator.sol";
  * @title Operator Factory
  * @notice Creates Operator contracts for node operators
  */
-contract ChainlinkOperatorFactory {
+contract OperatorFactory {
 
     address public link;
 
@@ -16,7 +16,7 @@ contract ChainlinkOperatorFactory {
     /**
      * @param linkAddress address
      */
-    constructor(address linkAddress) public {
+    constructor(address linkAddress) {
         link = linkAddress;
     }
 
