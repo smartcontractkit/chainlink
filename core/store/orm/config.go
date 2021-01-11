@@ -655,6 +655,13 @@ func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, 
 	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
 }
 
+func (c Config) ORMMaxOpenConns() int {
+	return int(c.getWithFallback("ORMMaxOpenConns", parseUint16).(uint16))
+}
+func (c Config) ORMMaxIdleConns() int {
+	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
+}
+
 // OperatorContractAddress represents the address where the Operator.sol
 // contract is deployed, this is used for filtering RunLog requests
 func (c Config) OperatorContractAddress() common.Address {

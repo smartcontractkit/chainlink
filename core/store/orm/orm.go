@@ -54,8 +54,8 @@ type ORM struct {
 }
 
 // NewORM initializes the orm with the configured uri
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64, lockRetryInterval time.Duration) (*ORM, error) {
-	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval)
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (*ORM, error) {
+	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval, maxOpenConns, maxIdleConns)
 	if err != nil {
 		return nil, err
 	}
@@ -1504,11 +1504,13 @@ type Connection struct {
 	advisoryLockID     int64
 	lockRetryInterval  time.Duration
 	transactionWrapped bool
+	maxOpenConns       int
+	maxIdleConns       int
 }
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
-func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration) (Connection, error) {
+func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
 	switch dialect {
 	case DialectPostgres:
 		return Connection{
@@ -1519,6 +1521,8 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			transactionWrapped: false,
 			uri:                uri,
 			lockRetryInterval:  lockRetryInterval,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
 	case DialectPostgresWithoutLock:
 		return Connection{
@@ -1528,6 +1532,8 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			name:               dialect,
 			transactionWrapped: false,
 			uri:                uri,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
 	case DialectTransactionWrappedPostgres:
 		return Connection{
@@ -1538,17 +1544,12 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			transactionWrapped: true,
 			uri:                uri,
 			lockRetryInterval:  lockRetryInterval,
+			maxOpenConns:       maxOpenConns,
+			maxIdleConns:       maxIdleConns,
 		}, nil
 	}
 	return Connection{}, errors.Errorf("%s is not a valid dialect type", dialect)
 }
-
-const (
-	// maxOpenConns limited to 10, by default this is unlimited which is not desirable
-	maxOpenConns = 10
-	// maxIdleConns of 5, by default this is 2 which is very conservative
-	maxIdleConns = 5
-)
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if ct.transactionWrapped {
@@ -1568,8 +1569,8 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 
 	db.SetLogger(newOrmLogWrapper(logger.Default))
-	db.DB().SetMaxOpenConns(maxOpenConns)
-	db.DB().SetMaxIdleConns(maxIdleConns)
+	db.DB().SetMaxOpenConns(ct.maxOpenConns)
+	db.DB().SetMaxIdleConns(ct.maxIdleConns)
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
