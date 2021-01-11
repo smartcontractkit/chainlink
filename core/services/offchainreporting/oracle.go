@@ -55,11 +55,11 @@ func (d jobSpawnerDelegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
-	if spec.OffchainreportingOracleSpec == nil {
-		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", spec)
+func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
+	if jobSpec.OffchainreportingOracleSpec == nil {
+		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
-	concreteSpec := spec.OffchainreportingOracleSpec
+	concreteSpec := jobSpec.OffchainreportingOracleSpec
 
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -77,7 +77,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Ser
 		contractCaller,
 		d.ethClient,
 		d.logBroadcaster,
-		concreteSpec.ID,
+		jobSpec.ID,
 		*logger.Default,
 	)
 	if err != nil {
@@ -103,9 +103,9 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Ser
 
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
-		"jobID", concreteSpec.ID))
+		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(context.Background(), spec.ID, msg)
+		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
 	var endpointURL *url.URL
@@ -181,7 +181,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Ser
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: concreteSpec.ID, pipelineRunner: d.pipelineRunner},
+			Datasource:                   dataSource{jobID: jobSpec.ID, pipelineRunner: d.pipelineRunner},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
