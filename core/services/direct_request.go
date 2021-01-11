@@ -1,10 +1,16 @@
 package services
 
 import (
+	"context"
+	"fmt"
+	"reflect"
+
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -104,15 +110,61 @@ func (d directRequestListener) HandleLog(lb log.Broadcast, err error) {
 		return
 	}
 
-	// TODO: Logic to handle log will go here
+	log := lb.DecodedLog()
+	if log == nil || reflect.ValueOf(log).IsNil() {
+		logger.Error("HandleLog: ignoring nil value")
+		return
+	}
 
-	err = lb.MarkConsumed()
-	if err != nil {
-		logger.Errorf("Error marking log as consumed: %v", err)
+	// TODO: Need to filter each job to the _jobId - can we filter upstream?
+	// TODO: Will need to generate a jobID somehow... hash of DAG?
+	switch log := log.(type) {
+	case *contracts.LogOracleRequest:
+		d.handleOracleRequest(log.ToOracleRequest())
+		err = lb.MarkConsumed()
+		if err != nil {
+			logger.Errorf("Error marking log as consumed: %v", err)
+		}
+	case *contracts.LogCancelOracleRequest:
+		d.handleCancelOracleRequest(log.RequestId)
+		// TODO: Transactional/atomic log consumption would be nice
+		err = lb.MarkConsumed()
+		if err != nil {
+			logger.Errorf("Error marking log as consumed: %v", err)
+		}
+
+	default:
+		logger.Warnf("unexpected log type %T", log)
 	}
 }
 
-// JobID complies with log.Listener
+func (d *directRequestListener) handleOracleRequest(req contracts.OracleRequest) {
+	meta := make(map[string]interface{})
+	meta["oracleRequest"] = req.ToMap()
+	panic("HERE")
+	ctx := context.TODO()
+	_, err := d.pipelineRunner.CreateRun(ctx, d.jobID, meta)
+	if err != nil {
+		logger.Errorw("DirectRequest failed to create run", "err", err)
+	}
+}
+
+// Cancels runs that haven't been started yet, with the given request ID
+// TODO: Boy does this ever need testing
+func (d *directRequestListener) handleCancelOracleRequest(requestID [32]byte) {
+	d.db.Exec(`
+	DELETE FROM pipeline_runs 
+	WHERE id IN (
+		SELECT id FROM pipeline_runs FOR UPDATE OF pipeline_task_runs SKIP LOCKED
+		INNER JOIN pipeline_task_runs WHERE pipeline_task_runs.pipeline_run_id = pipeline_runs.id
+		WHERE pipeline_spec_id = ?
+		AND pipeline_runs.meta->'oracleRequest'->'requestId' = ?
+		HAVING bool_and(pipeline_task_runs.finished_at IS NULL)
+	)
+	`)
+}
+
+// JobID complies with eth.LogListener
 func (directRequestListener) JobID() *models.ID {
 	return nil
 }
