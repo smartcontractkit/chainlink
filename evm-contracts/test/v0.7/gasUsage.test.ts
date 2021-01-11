@@ -55,6 +55,61 @@ describe('Operator Gas Tests', () => {
     await deployment()
   })
 
+  // Test Oracle.fulfillOracleRequest vs Operator.fulfillOracleRequest
+  describe('v0.6/Oracle vs v0.7/Operator #fulfillOracleRequest', () => {
+    const response = 'Hi Mom!'
+    let basicConsumer1: contract.Instance<BasicConsumer__factory>
+    let basicConsumer2: contract.Instance<BasicConsumer__factory>
+
+    let request1: ReturnType<typeof oracle.decodeRunRequest>
+    let request2: ReturnType<typeof oracle.decodeRunRequest>
+
+    beforeEach(async () => {
+      basicConsumer1 = await basicConsumerFactory
+        .connect(roles.consumer)
+        .deploy(link.address, oracle1.address, specId)
+      basicConsumer2 = await basicConsumerFactory
+        .connect(roles.consumer)
+        .deploy(link.address, operator1.address, specId)
+
+      const paymentAmount = h.toWei('1')
+      const currency = 'USD'
+
+      await link.transfer(basicConsumer1.address, paymentAmount)
+      const tx1 = await basicConsumer1.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      )
+      const receipt1 = await tx1.wait()
+      request1 = oracle.decodeRunRequest(receipt1.logs?.[3])
+
+      await link.transfer(basicConsumer2.address, paymentAmount)
+      const tx2 = await basicConsumer2.requestEthereumPrice(
+        currency,
+        paymentAmount,
+      )
+      const receipt2 = await tx2.wait()
+      request2 = oracle.decodeRunRequest(receipt2.logs?.[3])
+    })
+
+    it('uses acceptable gas', async () => {
+      const tx1 = await oracle1
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(
+          ...oracle.convertFufillParams(request1, response),
+        )
+      const tx2 = await operator1
+        .connect(roles.oracleNode)
+        .fulfillOracleRequest(
+          ...oracle.convertFufillParams(request2, response),
+        )
+      const receipt1 = await tx1.wait()
+      const receipt2 = await tx2.wait()
+      // 38014 vs 40260
+      matchers.gasDiffLessThan(2500, receipt1, receipt2)
+    })
+  })
+
   // Test Operator1.fulfillOracleRequest vs Operator2.fulfillOracleRequest2
   // with single word response
   describe('Operator #fulfillOracleRequest vs #fulfillOracleRequest2', () => {
@@ -110,10 +165,9 @@ describe('Operator Gas Tests', () => {
       
       const receipt1 = await tx1.wait()
       const receipt2 = await tx2.wait()
+      // 40260 vs 41423
       matchers.gasDiffLessThan(1200, receipt1, receipt2)
 
     })
   })
-
-  // Test Operator1.fulfillOracleRequest vs Oracle.fulfillOracleRequest
 })
