@@ -2399,6 +2399,210 @@ describe('Operator', () => {
     })
   })
 
+  describe('#recoverable', () => {
+    describe('no recoverable LINK', () => {
+      it('returns 0 when no requests have been made', async () => {
+        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        assert.equal(recoverableAmount.toString(), "0")
+      })
+
+      it('returns 0 after a request has been made but not fulfilled', async () => {
+        const paid = 1
+        const args = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0')
+        const tx = await link.transferAndCall(operator.address, paid, args)
+        const receipt = await tx.wait()
+        assert.equal(3, receipt?.logs?.length)
+
+        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        assert.equal(recoverableAmount.toString(), "0")
+      })
+
+      describe('after fulfilled requests', () => {
+        let basicConsumer: contract.Instance<BasicConsumer__factory>
+        let request: ReturnType<typeof oracle.decodeRunRequest>
+        const response = 'Hi Mom!'
+
+        beforeEach(async () => {
+          basicConsumer = await basicConsumerFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, operator.address, specId)
+          const paymentAmount = h.toWei('1')
+          await link.transfer(basicConsumer.address, paymentAmount)
+          const currency = 'USD'
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
+          const receipt = await tx.wait()
+          request = oracle.decodeRunRequest(receipt.logs?.[3])
+        })
+
+        it('returns 0 after fulfilled with fulfillOracleRequest', async () => {
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(
+              ...oracle.convertFufillParams(request, response),
+            )
+  
+          const currentValue = await basicConsumer.currentPrice()
+          assert.equal(response, ethers.utils.parseBytes32String(currentValue))
+          
+          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+          assert.equal(recoverableAmount.toString(), "0")
+        })
+  
+        it('returns 0 after fulfilled with fulfillOracleRequest2', async () => {
+          const responseTypes = ['bytes32']
+          const responseValues = [h.toBytes32String(response)]
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest2(
+              ...oracle.convertFulfill2Params(
+                request,
+                responseTypes,
+                responseValues,
+              ),
+            )
+          
+          const currentValue = await basicConsumer.currentPrice()
+          assert.equal(response, ethers.utils.parseBytes32String(currentValue))
+          
+          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+          assert.equal(recoverableAmount.toString(), "0")
+        })
+      })
+
+    })
+
+    describe('recoverable LINK', () => {
+      const transferAmount = 100
+      beforeEach(async () => {
+        await link.transfer(operator.address, transferAmount)
+      })
+
+      it('returns correct amount when no requests have been made', async () => {
+        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        assert.equal(recoverableAmount.toString(), recoverableAmount.toString())
+      })
+
+      it('returns correct amount after a request has been made but not fulfilled', async () => {
+        const paid = 1
+        const args = oracle.encodeOracleRequest(specId, to, fHash, 1, '0x0')
+        const tx = await link.transferAndCall(operator.address, paid, args)
+        const receipt = await tx.wait()
+        assert.equal(3, receipt?.logs?.length)
+
+        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        assert.equal(recoverableAmount.toString(), recoverableAmount.toString())
+      })
+
+      describe('after fulfilled requests', () => {
+        let basicConsumer: contract.Instance<BasicConsumer__factory>
+        let request: ReturnType<typeof oracle.decodeRunRequest>
+        const response = 'Hi Mom!'
+
+        beforeEach(async () => {
+          basicConsumer = await basicConsumerFactory
+            .connect(roles.defaultAccount)
+            .deploy(link.address, operator.address, specId)
+          const paymentAmount = h.toWei('1')
+          await link.transfer(basicConsumer.address, paymentAmount)
+          const currency = 'USD'
+          const tx = await basicConsumer.requestEthereumPrice(
+            currency,
+            paymentAmount,
+          )
+          const receipt = await tx.wait()
+          request = oracle.decodeRunRequest(receipt.logs?.[3])
+        })
+
+        it('returns correct amount after fulfilled with fulfillOracleRequest', async () => {
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest(
+              ...oracle.convertFufillParams(request, response),
+            )
+  
+          const currentValue = await basicConsumer.currentPrice()
+          assert.equal(response, ethers.utils.parseBytes32String(currentValue))
+          
+          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+          assert.equal(recoverableAmount.toString(), transferAmount.toString())
+        })
+
+        it('returns correct amount after fulfilled with fulfillOracleRequest2', async () => {
+          const responseTypes = ['bytes32']
+          const responseValues = [h.toBytes32String(response)]
+          await operator
+            .connect(roles.oracleNode)
+            .fulfillOracleRequest2(
+              ...oracle.convertFulfill2Params(
+                request,
+                responseTypes,
+                responseValues,
+              ),
+            )
+          
+          const currentValue = await basicConsumer.currentPrice()
+          assert.equal(response, ethers.utils.parseBytes32String(currentValue))
+          
+          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+          assert.equal(recoverableAmount.toString(), transferAmount.toString())
+        })
+      })
+
+    })
+
+  })
+
+  describe('#recover', () => {
+    const recoverAmount = 100
+    describe('being called by non-owner', () => {
+      it('should revert with owner message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.stranger).recover(roles.stranger.address, recoverAmount),
+          'Only callable by owner'
+        })
+      })
+    })
+
+    describe('being called by owner', () => {
+      describe('without recoverable funds', () => {
+        it('should revert with recoverable funds message', async () => {
+          await matchers.evmRevert(async () => {
+            await operator.connect(roles.stranger).recover(roles.stranger.address, recoverAmount),
+            'Not enough recoverable funds'
+          })
+        })
+      })
+
+      describe('with recoverable funds', () => {
+        beforeEach(async () => {
+          await link.transfer(operator.address, recoverAmount)
+          assert.equal(await link.balanceOf(operator.address), recoverAmount)
+        })
+
+        it('should send the funds', async () => {
+          let accountBalanceBefore = await link.balanceOf(roles.defaultAccount.address)
+          await operator.connect(roles.defaultAccount).recover(roles.defaultAccount.address, recoverAmount)
+          let accountBalanceAfter = await link.balanceOf(roles.defaultAccount.address)
+          let accountDifference = accountBalanceAfter.sub(accountBalanceBefore)
+
+          assert.equal((await link.balanceOf(operator.address)).toString(), "0")
+          assert.equal(accountDifference, recoverAmount)
+        })
+
+        it('should revert with recoverable funds message when amount > recoverable', async () => {
+          const tooMuch = recoverAmount + 50
+          await matchers.evmRevert(async () => {
+            await operator.connect(roles.defaultAccount).recover(roles.defaultAccount.address, tooMuch),
+            'Not enough recoverable funds'
+          })
+        })
+      })
+    })
+  })
+
   describe('#cancelOracleRequest', () => {
     describe('with no pending requests', () => {
       it('fails', async () => {
