@@ -13,6 +13,7 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -33,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 )
@@ -114,6 +116,7 @@ type ChainlinkApplication struct {
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
 	subservices              []StartCloser
+	monitoringEndpoint       ocrtypes.MonitoringEndpoint
 
 	started     bool
 	startStopMu sync.Mutex
@@ -131,10 +134,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	statsPusher := synchronization.StatsPusher(&synchronization.NoopStatsPusher{})
+	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if config.ExplorerURL() != nil {
 		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
+		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 
 	runExecutor := services.NewRunExecutor(store, statsPusher)
@@ -177,7 +182,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW, monitoringEndpoint)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
@@ -210,6 +215,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
+		monitoringEndpoint:       monitoringEndpoint,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,
