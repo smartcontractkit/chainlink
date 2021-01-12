@@ -70,6 +70,8 @@ describe('Operator', () => {
       'setAuthorizedSender',
       'withdraw',
       'withdrawable',
+      'recover',
+      'recoverable',
       // Ownable methods:
       'acceptOwnership',
       'owner',
