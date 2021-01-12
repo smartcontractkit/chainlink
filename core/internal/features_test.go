@@ -6,12 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
-	"gopkg.in/guregu/null.v4"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -21,6 +15,17 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
+	"github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/confighelper"
+	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -1249,11 +1254,11 @@ func TestIntegration_OCR(t *testing.T) {
 	max.Exp(big.NewInt(2), big.NewInt(191), nil)
 	max.Sub(max, big.NewInt(1))
 	ocrContractAddress, _, ocrContract, err := offchainaggregator.DeployOffchainAggregator(user, b,
-		1000, // _maximumGasPrice uint32,
-		200, //_reasonableGasPrice uint32,
-		3.6e7, // 3.6e7 microLINK, or 36 LINK
-		1e8, // _linkGweiPerObservation uint32,
-		4e8, // _linkGweiPerTransmission uint32,
+		1000,             // _maximumGasPrice uint32,
+		200,              //_reasonableGasPrice uint32,
+		3.6e7,            // 3.6e7 microLINK, or 36 LINK
+		1e8,              // _linkGweiPerObservation uint32,
+		4e8,              // _linkGweiPerTransmission uint32,
 		linkTokenAddress, //_link common.Address,
 		testValidatorAddress,
 		min, // -2**191
@@ -1264,107 +1269,141 @@ func TestIntegration_OCR(t *testing.T) {
 	_, err = linkContract.Transfer(user, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
 	t.Log(ocrContract, access, testValidator)
-
-	// Use a real db otherwise we don't get pg notifs
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "ocrtest", true, true)
-	defer cleanup()
-	config.Dialect = orm.DialectPostgresWithoutLock
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
-	defer cleanup()
-	b.Commit()
-	n, err := b.NonceAt(context.Background(), user.From, nil)
-	require.NoError(t, err)
-	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
-	signedTx, err := user.Signer(user.From, tx)
-	require.NoError(t, err)
-	err = b.SendTransaction(context.Background(), signedTx)
-	require.NoError(t, err)
 	b.Commit()
 
+	configBootstrap, _, cleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("bootstrap"), true)
+	defer cleanup()
+	configBootstrap.Dialect = orm.DialectPostgresWithoutLock
+	appBootstrap, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, configBootstrap, b)
+	defer cleanup()
+	_, _, err = appBootstrap.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+	require.NoError(t, err)
+	p2pIDs := appBootstrap.Store.OCRKeyStore.DecryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, p2pIDs, 1)
+	peerID := p2pIDs[0].MustGetPeerID().String()
+	bootstrapID, err := p2ppeer.Decode(peerID)
+	require.NoError(t, err)
+	appBootstrap.Config.Set("P2P_PEER_ID", peerID)
+	appBootstrap.Config.Set("P2P_LISTEN_PORT", 19999)
+	appBootstrap.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	appBootstrap.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
-	_, _, err = app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
-	require.NoError(t, err)
-	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
-	require.NoError(t, err)
-	//require.Len(t, p2pIDs, 1)
-	//fmt.Println(p2pIDs[0].MustGetPeerID())
-	app.Config.Set("P2P_PEER_ID", p2pIDs[0].MustGetPeerID().String())
-	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
-	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
-	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
-	require.NoError(t, err)
-	_, kb2, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
-	require.NoError(t, err)
-	_, kb3, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
-	require.NoError(t, err)
-	_, kb4, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
-	require.NoError(t, err)
-	//kbs, err := app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
-	//require.NoError(t, err)
-	//require.Len(t, kbs, 1)
+	var oracles []confighelper.OracleIdentity
+	var transmitters []common.Address
+	var configs []cltest.TestConfig
+	var kbs []ocrkey.EncryptedKeyBundle
+	var apps []cltest.TestApplication
+	for i := 0; i < 4; i++ {
+		config, _, cleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("oracle%d", i), true)
+		defer cleanup()
+		config.Dialect = orm.DialectPostgresWithoutLock
+		configs = append(configs, *config)
+		app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+		defer cleanup()
+		b.Commit()
 
-	// Min blocks
-	tick := time.NewTicker(100 * time.Millisecond)
+		transmitter := app.Store.KeyStore.Accounts()[0].Address
+
+		// Fund the transmitter address with some ETH
+		n, err := b.NonceAt(context.Background(), user.From, nil)
+		require.NoError(t, err)
+
+		tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+		signedTx, err := user.Signer(user.From, tx)
+		require.NoError(t, err)
+		err = b.SendTransaction(context.Background(), signedTx)
+		require.NoError(t, err)
+		b.Commit()
+
+		_, _, err = app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+		require.NoError(t, err)
+		p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
+		require.NoError(t, err)
+		require.Len(t, p2pIDs, 1)
+		peerID := p2pIDs[0].MustGetPeerID().String()
+		app.Config.Set("P2P_PEER_ID", peerID)
+		app.Config.Set("P2P_LISTEN_PORT", 20000+i)
+		app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+		app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+
+		_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+		require.NoError(t, err)
+		kbs = append(kbs, kb)
+
+		oracles = append(oracles, confighelper.OracleIdentity{
+			OnChainSigningAddress:           ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
+			TransmitAddress:                 transmitter,
+			OffchainPublicKey:               ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
+			PeerID:                          peerID,
+			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(kb.ConfigPublicKey),
+		})
+		transmitters = append(transmitters, transmitter)
+		apps = append(apps, *app)
+	}
+
+	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 	go func() {
 		for range tick.C {
 			b.Commit()
 		}
 	}()
-	err = app.StartAndConnect()
-	require.NoError(t, err)
-	a2, err := app.Store.KeyStore.NewAccount()
-	a3, err := app.Store.KeyStore.NewAccount()
-	a4, err := app.Store.KeyStore.NewAccount()
 
-	// _signers []common.Address, _transmitters []common.Address, _threshold uint8, _encodedConfigVersion uint64, _encoded []byte
 	_, err = ocrContract.SetPayees(user,
-		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
-		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
+		transmitters,
+		transmitters,
 	)
 	require.NoError(t, err)
-	//threshold = uint8(c.F)
-	//encodedConfigVersion = 1
-	//encodedConfig = (setConfigEncodedComponents{
-	//	40 * time.Second, // deltaProgress
-	//	5 * time.Second,  // deltaResend
-	//	20 * time.Second, // deltaRound
-	//	2 * time.Second,  // deltaGrace
-	//	3 * time.Minute,  // deltaC
-	//	1000000000 / 100, // alphaPPB
-	//	45 * time.Second, // deltaStage
-	//	4, // rmax
-	//	[]int{1}, // S ?
-	//	//offChainPublicKeys,
-	//	//peerIDs,
-	//	//XXXEncryptSharedSecret(
-	//	//	sharedSecretEncryptionPublicKeys,
-	//	//	c.SharedSecret,
-	//	//	cryptorand.Reader,
-	//	//),
-	//}).encode()
+	signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := confighelper.ContractSetConfigArgsForIntegrationTest(
+		oracles,
+		1,
+		1000000000/100, // threshold PPB
+	)
+	require.NoError(t, err)
 	_, err = ocrContract.SetConfig(user,
-		[]common.Address{common.Address(kb.OnChainSigningAddress), common.Address(kb2.OnChainSigningAddress), common.Address(kb3.OnChainSigningAddress), common.Address(kb4.OnChainSigningAddress)}, // signers
-		//[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
-		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
-		1,
-		1,
-		[]byte{0x01}, // TODO
-		)
+		signers,
+		transmitters,
+		threshold,
+		encodedConfigVersion,
+		encodedConfig,
+	)
 	require.NoError(t, err)
 	b.Commit()
 
-
-	mockHTTP, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 1}`)
-	//defer cleanupHTTP()
-	ocrJob, err := services.ValidatedOracleSpecToml(config.Config, fmt.Sprintf(`
+	err = appBootstrap.StartAndConnect()
+	require.NoError(t, err)
+	ocrJob, err := services.ValidatedOracleSpecToml(configBootstrap.Config, fmt.Sprintf(`
+type               = "offchainreporting"
+schemaVersion      = 1
+name               = "boot"
+contractAddress    = "%s"
+isBootstrapPeer    = true 
+`, ocrContractAddress))
+	require.NoError(t, err)
+	jid, err := appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+	require.NoError(t, err)
+	t.Log(jid)
+	//js, err := appBootstrap.GetJobORM().FindJob(jid)
+	//require.NoError(t, err)
+	//t.Log(js)
+	//_ = cltest.WaitForPipelineComplete(t, jid, appBootstrap.JobORM)
+	var jids []int32
+	for i := 0; i < 4; i++ {
+		err = apps[i].StartAndConnect()
+		require.NoError(t, err)
+		mockHTTP, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 1}`)
+		//defer cleanupHTTP()
+		// TODO: need address of real bootstrap node
+		//"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+		ocrJob, err := services.ValidatedOracleSpecToml(configs[i].Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
 contractAddress    = "%s"
 isBootstrapPeer    = false
 p2pBootstrapPeers  = [
-    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+    "/ip4/127.0.0.1/tcp/19999/p2p/%s"
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
@@ -1373,16 +1412,31 @@ observationSource = """
     ds1          [type=http method=GET url="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=10];
+	ds1->ds1_parse->ds1_multiply;
 """
-`, ocrContractAddress, kb.ID, app.Store.KeyStore.Accounts()[0].Address, mockHTTP.URL))
+`, ocrContractAddress, bootstrapID.String(), kbs[i].ID, transmitters[i], mockHTTP.URL))
+		require.NoError(t, err)
+		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+		require.NoError(t, err)
+		t.Log(jid)
+		jids = append(jids, jid)
+	}
+	time.Sleep(30 * time.Second)
+	for i := 0; i < 4; i++ {
+		prs, _, err := apps[i].JobORM.PipelineRunsByJobID(jids[i], 0, 10)
+		assert.NoError(t, err)
+		//return prs
+		t.Log("node runs", i, len(prs))
+		err = apps[i].Stop()
+		require.NoError(t, err)
+	}
+	err = appBootstrap.Stop()
 	require.NoError(t, err)
-	t.Log("dialect", app.Store.Config.Dialect)
-	jid, err := app.AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
-	require.NoError(t, err)
-	t.Log(jid)
-	js, err := app.JobORM.FindJob(jid)
-	require.NoError(t, err)
-	t.Log(js)
-	prs := cltest.WaitForPipelineComplete(t, jid, app.JobORM)
-	t.Log(prs)
+	//for i := 0; i < 4; i++ {
+	//	js, err := apps[i].GetJobORM().FindJob(jids[i])
+	//	require.NoError(t, err)
+	//	t.Log(js)
+	//	prs := cltest.WaitForPipelineComplete(t, i, jids[i], apps[i].GetJobORM())
+	//	t.Log(prs)
+	//}
 }
