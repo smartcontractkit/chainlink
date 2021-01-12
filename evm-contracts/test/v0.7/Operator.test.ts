@@ -2402,8 +2402,10 @@ describe('Operator', () => {
   describe('#recoverable', () => {
     describe('no recoverable LINK', () => {
       it('returns 0 when no requests have been made', async () => {
-        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
-        assert.equal(recoverableAmount.toString(), "0")
+        const recoverableAmount = await operator
+          .connect(roles.oracleNode)
+          .recoverable()
+        assert.equal(recoverableAmount.toString(), '0')
       })
 
       it('returns 0 after a request has been made but not fulfilled', async () => {
@@ -2413,8 +2415,10 @@ describe('Operator', () => {
         const receipt = await tx.wait()
         assert.equal(3, receipt?.logs?.length)
 
-        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
-        assert.equal(recoverableAmount.toString(), "0")
+        const recoverableAmount = await operator
+          .connect(roles.oracleNode)
+          .recoverable()
+        assert.equal(recoverableAmount.toString(), '0')
       })
 
       describe('after fulfilled requests', () => {
@@ -2443,14 +2447,16 @@ describe('Operator', () => {
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
             )
-  
+
           const currentValue = await basicConsumer.currentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
-          
-          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
-          assert.equal(recoverableAmount.toString(), "0")
+
+          const recoverableAmount = await operator
+            .connect(roles.oracleNode)
+            .recoverable()
+          assert.equal(recoverableAmount.toString(), '0')
         })
-  
+
         it('returns 0 after fulfilled with fulfillOracleRequest2', async () => {
           const responseTypes = ['bytes32']
           const responseValues = [h.toBytes32String(response)]
@@ -2463,15 +2469,16 @@ describe('Operator', () => {
                 responseValues,
               ),
             )
-          
+
           const currentValue = await basicConsumer.currentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
-          
-          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
-          assert.equal(recoverableAmount.toString(), "0")
+
+          const recoverableAmount = await operator
+            .connect(roles.oracleNode)
+            .recoverable()
+          assert.equal(recoverableAmount.toString(), '0')
         })
       })
-
     })
 
     describe('recoverable LINK', () => {
@@ -2481,7 +2488,9 @@ describe('Operator', () => {
       })
 
       it('returns correct amount when no requests have been made', async () => {
-        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        const recoverableAmount = await operator
+          .connect(roles.oracleNode)
+          .recoverable()
         assert.equal(recoverableAmount.toString(), recoverableAmount.toString())
       })
 
@@ -2492,7 +2501,9 @@ describe('Operator', () => {
         const receipt = await tx.wait()
         assert.equal(3, receipt?.logs?.length)
 
-        const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+        const recoverableAmount = await operator
+          .connect(roles.oracleNode)
+          .recoverable()
         assert.equal(recoverableAmount.toString(), recoverableAmount.toString())
       })
 
@@ -2522,11 +2533,13 @@ describe('Operator', () => {
             .fulfillOracleRequest(
               ...oracle.convertFufillParams(request, response),
             )
-  
+
           const currentValue = await basicConsumer.currentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
-          
-          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+
+          const recoverableAmount = await operator
+            .connect(roles.oracleNode)
+            .recoverable()
           assert.equal(recoverableAmount.toString(), transferAmount.toString())
         })
 
@@ -2542,17 +2555,17 @@ describe('Operator', () => {
                 responseValues,
               ),
             )
-          
+
           const currentValue = await basicConsumer.currentPrice()
           assert.equal(response, ethers.utils.parseBytes32String(currentValue))
-          
-          const recoverableAmount = await operator.connect(roles.oracleNode).recoverable()
+
+          const recoverableAmount = await operator
+            .connect(roles.oracleNode)
+            .recoverable()
           assert.equal(recoverableAmount.toString(), transferAmount.toString())
         })
       })
-
     })
-
   })
 
   describe('#recover', () => {
@@ -2560,8 +2573,10 @@ describe('Operator', () => {
     describe('being called by non-owner', () => {
       it('should revert with owner message', async () => {
         await matchers.evmRevert(async () => {
-          await operator.connect(roles.stranger).recover(roles.stranger.address, recoverAmount),
-          'Only callable by owner'
+          await operator
+            .connect(roles.stranger)
+            .recover(roles.stranger.address, recoverAmount),
+            'Only callable by owner'
         })
       })
     })
@@ -2570,8 +2585,10 @@ describe('Operator', () => {
       describe('without recoverable funds', () => {
         it('should revert with recoverable funds message', async () => {
           await matchers.evmRevert(async () => {
-            await operator.connect(roles.stranger).recover(roles.stranger.address, recoverAmount),
-            'Not enough recoverable funds'
+            await operator
+              .connect(roles.stranger)
+              .recover(roles.stranger.address, recoverAmount),
+              'Not enough recoverable funds'
           })
         })
       })
@@ -2583,20 +2600,30 @@ describe('Operator', () => {
         })
 
         it('should send the funds', async () => {
-          let accountBalanceBefore = await link.balanceOf(roles.defaultAccount.address)
-          await operator.connect(roles.defaultAccount).recover(roles.defaultAccount.address, recoverAmount)
-          let accountBalanceAfter = await link.balanceOf(roles.defaultAccount.address)
-          let accountDifference = accountBalanceAfter.sub(accountBalanceBefore)
+          const accountBalanceBefore = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+          await operator
+            .connect(roles.defaultAccount)
+            .recover(roles.defaultAccount.address, recoverAmount)
+          const accountBalanceAfter = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
 
-          assert.equal((await link.balanceOf(operator.address)).toString(), "0")
+          assert.equal((await link.balanceOf(operator.address)).toString(), '0')
           assert.equal(accountDifference, recoverAmount)
         })
 
         it('should revert with recoverable funds message when amount > recoverable', async () => {
           const tooMuch = recoverAmount + 50
           await matchers.evmRevert(async () => {
-            await operator.connect(roles.defaultAccount).recover(roles.defaultAccount.address, tooMuch),
-            'Not enough recoverable funds'
+            await operator
+              .connect(roles.defaultAccount)
+              .recover(roles.defaultAccount.address, tooMuch),
+              'Not enough recoverable funds'
           })
         })
       })
