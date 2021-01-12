@@ -6,6 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
+	"gopkg.in/guregu/null.v4"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -1215,4 +1221,138 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	// Job should complete successfully.
 	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
 	assertPrices(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
+}
+
+func TestIntegration_OCR(t *testing.T) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err, "failed to generate ethereum identity")
+	user := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	sb := new(big.Int)
+	sb, _ = sb.SetString("100000000000000000000", 10)
+	genesisData := core.GenesisAlloc{
+		user.From: {Balance: sb}, // 1 eth
+	}
+	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(user, b)
+	require.NoError(t, err)
+	testValidatorAddress, _, testValidator, err := testvalidator.DeployTestValidator(user, b)
+	require.NoError(t, err)
+	accessAddress, _, access, err :=
+		testoffchainaggregator.DeploySimpleWriteAccessController(user, b)
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to deploy test access controller contract"))
+	}
+	b.Commit()
+	min, max := new(big.Int), new(big.Int)
+	min.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	max.Exp(big.NewInt(2), big.NewInt(191), nil)
+	max.Sub(max, big.NewInt(1))
+	ocrContractAddress, _, ocrContract, err := offchainaggregator.DeployOffchainAggregator(user, b,
+		1000, // _maximumGasPrice uint32,
+		200, //_reasonableGasPrice uint32,
+		3.6e7, // 3.6e7 microLINK, or 36 LINK
+		1e8, // _linkGweiPerObservation uint32,
+		4e8, // _linkGweiPerTransmission uint32,
+		linkTokenAddress, //_link common.Address,
+		testValidatorAddress,
+		min, // -2**191
+		max, // 2**191 - 1
+		accessAddress,
+		0,
+		"TEST")
+	_, err = linkContract.Transfer(user, ocrContractAddress, big.NewInt(1000))
+	require.NoError(t, err)
+	t.Log(ocrContract, access, testValidator)
+
+	// Use a real db otherwise we don't get pg notifs
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "ocrtest", true, true)
+	defer cleanup()
+	config.Dialect = orm.DialectPostgresWithoutLock
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	defer cleanup()
+	b.Commit()
+	n, err := b.NonceAt(context.Background(), user.From, nil)
+	require.NoError(t, err)
+	tx := types.NewTransaction(n, app.Store.KeyStore.Accounts()[0].Address, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	signedTx, err := user.Signer(user.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+
+	_, _, err = app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+	require.NoError(t, err)
+	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
+	require.NoError(t, err)
+	//require.Len(t, p2pIDs, 1)
+	//fmt.Println(p2pIDs[0].MustGetPeerID())
+	app.Config.Set("P2P_PEER_ID", p2pIDs[0].MustGetPeerID().String())
+	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+	_, kb2, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+	_, kb3, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+	_, kb4, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+	//kbs, err := app.Store.OCRKeyStore.FindEncryptedOCRKeyBundles()
+	//require.NoError(t, err)
+	//require.Len(t, kbs, 1)
+
+	err = app.StartAndConnect()
+	require.NoError(t, err)
+	a2, err := app.Store.KeyStore.NewAccount()
+	a3, err := app.Store.KeyStore.NewAccount()
+	a4, err := app.Store.KeyStore.NewAccount()
+
+	// _signers []common.Address, _transmitters []common.Address, _threshold uint8, _encodedConfigVersion uint64, _encoded []byte
+	_, err = ocrContract.SetPayees(user,
+		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
+		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
+	)
+	require.NoError(t, err)
+	_, err = ocrContract.SetConfig(user,
+		[]common.Address{common.Address(kb.OnChainSigningAddress), common.Address(kb2.OnChainSigningAddress), common.Address(kb3.OnChainSigningAddress), common.Address(kb4.OnChainSigningAddress)}, // signers
+		//[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
+		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
+		1,
+		1,
+		[]byte{0x01},
+		)
+	require.NoError(t, err)
+	b.Commit()
+
+
+	mockHTTP, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 1}`)
+	//defer cleanupHTTP()
+	ocrJob, err := services.ValidatedOracleSpecToml(config.Config, fmt.Sprintf(`
+type               = "offchainreporting"
+schemaVersion      = 1
+name               = "web oracle spec"
+contractAddress    = "%s"
+isBootstrapPeer    = false
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+keyBundleID        = "%s"
+transmitterAddress = "%s"
+observationSource = """
+    // data source 1
+    ds1          [type=http method=GET url="%s"];
+    ds1_parse    [type=jsonparse path="data"];
+    ds1_multiply [type=multiply times=10];
+"""
+`, ocrContractAddress, kb.ID, app.Store.KeyStore.Accounts()[0].Address, mockHTTP.URL))
+	require.NoError(t, err)
+	t.Log("dialect", app.Store.Config.Dialect)
+	jid, err := app.AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+	require.NoError(t, err)
+	t.Log(jid)
+	js, err := app.JobORM.FindJob(jid)
+	require.NoError(t, err)
+	t.Log(js)
+	prs := cltest.WaitForPipelineComplete(t, jid, app.JobORM)
+	t.Log(prs)
 }
