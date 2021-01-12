@@ -1289,6 +1289,8 @@ func TestIntegration_OCR(t *testing.T) {
 	//require.Len(t, p2pIDs, 1)
 	//fmt.Println(p2pIDs[0].MustGetPeerID())
 	app.Config.Set("P2P_PEER_ID", p2pIDs[0].MustGetPeerID().String())
+	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 	require.NoError(t, err)
 	_, kb2, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
@@ -1301,6 +1303,14 @@ func TestIntegration_OCR(t *testing.T) {
 	//require.NoError(t, err)
 	//require.Len(t, kbs, 1)
 
+	// Min blocks
+	tick := time.NewTicker(100 * time.Millisecond)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			b.Commit()
+		}
+	}()
 	err = app.StartAndConnect()
 	require.NoError(t, err)
 	a2, err := app.Store.KeyStore.NewAccount()
@@ -1313,13 +1323,33 @@ func TestIntegration_OCR(t *testing.T) {
 		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
 	)
 	require.NoError(t, err)
+	//threshold = uint8(c.F)
+	//encodedConfigVersion = 1
+	//encodedConfig = (setConfigEncodedComponents{
+	//	40 * time.Second, // deltaProgress
+	//	5 * time.Second,  // deltaResend
+	//	20 * time.Second, // deltaRound
+	//	2 * time.Second,  // deltaGrace
+	//	3 * time.Minute,  // deltaC
+	//	1000000000 / 100, // alphaPPB
+	//	45 * time.Second, // deltaStage
+	//	4, // rmax
+	//	[]int{1}, // S ?
+	//	//offChainPublicKeys,
+	//	//peerIDs,
+	//	//XXXEncryptSharedSecret(
+	//	//	sharedSecretEncryptionPublicKeys,
+	//	//	c.SharedSecret,
+	//	//	cryptorand.Reader,
+	//	//),
+	//}).encode()
 	_, err = ocrContract.SetConfig(user,
 		[]common.Address{common.Address(kb.OnChainSigningAddress), common.Address(kb2.OnChainSigningAddress), common.Address(kb3.OnChainSigningAddress), common.Address(kb4.OnChainSigningAddress)}, // signers
 		//[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
 		[]common.Address{app.Store.KeyStore.Accounts()[0].Address, a2.Address, a3.Address, a4.Address}, // transmitters
 		1,
 		1,
-		[]byte{0x01},
+		[]byte{0x01}, // TODO
 		)
 	require.NoError(t, err)
 	b.Commit()
