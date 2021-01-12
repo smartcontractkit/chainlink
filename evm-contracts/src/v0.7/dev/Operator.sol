@@ -39,6 +39,9 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_authorizedSenders;
+  // Tokens sent during a request, but not yet completed
+  uint256 private s_nonWithdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
+  // Tokens that have been earnt and are therefore withdrawable
   uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
@@ -270,6 +273,33 @@ contract Operator is
   }
 
   /**
+   * @notice Recover funds that were mistakenly sent to this contract
+   * @param recipient The address to send the LINK token to
+   * @param amount The amount to send (specified in wei)
+   */
+  function recover(address recipient, uint256 amount) 
+    external 
+    override(OracleInterface, WithdrawalInterface)
+    onlyOwner()
+    hasRecoverableFunds(amount)
+  {
+    linkToken.transfer(recipient, amount);
+  }
+
+  /**
+   * @notice Returns the amount of LINK that is recoverable (mistakenly sent to this contract)
+   * @return uint256 recoverable token amount
+   */
+  function recoverable()
+    external
+    view
+    override(OracleInterface, WithdrawalInterface)
+    returns (uint256)
+  {
+    return calculateRecoverableFunds();
+  }
+
+  /**
    * @notice Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK
    * sent for the request back to the requester's address.
    * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid
@@ -346,6 +376,7 @@ contract Operator is
     expiration = block.timestamp.add(EXPIRY_TIME);
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, safeCastToUint8(dataVersion));
+    s_nonWithdrawableTokens = s_nonWithdrawableTokens.add(payment);
     return (requestId, expiration);
   }
 
@@ -370,6 +401,7 @@ contract Operator is
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     require(s_commitments[requestId].dataVersion <= safeCastToUint8(dataVersion), "Data versions must match");
+    s_nonWithdrawableTokens = s_nonWithdrawableTokens.sub(payment);
     s_withdrawableTokens = s_withdrawableTokens.add(payment);
     delete s_commitments[requestId];
   }
@@ -403,6 +435,22 @@ contract Operator is
   }
 
   /**
+   * @notice Calculate the recoverable funds. These are funds that were mistakenly sent to
+   * this contract and are not tied up in s_withdrawableTokens or s_nonWithdrawableTokens
+   * @return uint256 recoverable token amount
+   */
+  function calculateRecoverableFunds()
+    internal
+    view
+    returns (uint256)
+  {
+    uint256 nonWithdrawableTokens = s_nonWithdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    uint256 withdrawableTokens = s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    uint256 totalJobTokens = nonWithdrawableTokens.add(withdrawableTokens);
+    return linkToken.balanceOf(address(this)).sub(totalJobTokens);
+  }
+
+  /**
    * @notice Safely cast uint256 to uint8
    * @param number uint256
    * @return uint8 number
@@ -428,6 +476,14 @@ contract Operator is
     _;
   }
 
+  /**
+   * @dev Reverts if amount requested is greater than the recoverable balance
+   * @param amount The given amount to recover
+   */
+  modifier hasRecoverableFunds(uint256 amount) {
+    require(amount <= calculateRecoverableFunds(), "Not enough recoverable funds");
+    _;
+  }
 
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
