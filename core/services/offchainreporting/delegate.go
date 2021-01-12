@@ -32,6 +32,7 @@ type Delegate struct {
 	ethClient      eth.Client
 	logBroadcaster log.Broadcaster
 	peerWrapper    *SingletonPeerWrapper
+    monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
 func NewDelegate(
@@ -43,8 +44,9 @@ func NewDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
+    monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}
+	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper, monitoringEndpoint}
 }
 
 func (d Delegate) JobType() job.Type {
@@ -170,6 +172,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
 			Bootstrappers:                bootstrapPeers,
+			MonitoringEndpoint:           d.monitoringEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
