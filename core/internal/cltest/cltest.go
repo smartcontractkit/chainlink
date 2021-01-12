@@ -1087,16 +1087,16 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var prs []pipeline.Run
 	var err error
 	g.Eventually(func() []pipeline.Run {
-		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 0)
+		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1)
 		assert.NoError(t, err)
 		return prs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(1), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+	}, timeout, poll).Should(gomega.HaveLen(1), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
 	return prs
 }
 

@@ -1381,21 +1381,15 @@ contractAddress    = "%s"
 isBootstrapPeer    = true 
 `, ocrContractAddress))
 	require.NoError(t, err)
-	jid, err := appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 	require.NoError(t, err)
-	t.Log(jid)
-	//js, err := appBootstrap.GetJobORM().FindJob(jid)
-	//require.NoError(t, err)
-	//t.Log(js)
-	//_ = cltest.WaitForPipelineComplete(t, jid, appBootstrap.JobORM)
+
 	var jids []int32
 	for i := 0; i < 4; i++ {
 		err = apps[i].StartAndConnect()
 		require.NoError(t, err)
-		mockHTTP, _ := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 1}`)
-		//defer cleanupHTTP()
-		// TODO: need address of real bootstrap node
-		//"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 1}`)
+		defer cleanupHTTP()
 		ocrJob, err := services.ValidatedOracleSpecToml(configs[i].Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1407,6 +1401,9 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
+observationTimeout = "20s"
+contractConfigConfirmations = 1 
+contractConfigTrackerPollInterval = "15s"
 observationSource = """
     // data source 1
     ds1          [type=http method=GET url="%s"];
@@ -1418,25 +1415,22 @@ observationSource = """
 		require.NoError(t, err)
 		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
-		t.Log(jid)
 		jids = append(jids, jid)
 	}
-	time.Sleep(30 * time.Second)
+
+	// Assert that all the OCR jobs get a run with valid values
 	for i := 0; i < 4; i++ {
-		prs, _, err := apps[i].JobORM.PipelineRunsByJobID(jids[i], 0, 10)
+		// TODO: need to speed this up, currently the lower bound of 15s on the contract config is what slows us down.
+		prs := cltest.WaitForPipelineComplete(t, i, jids[i], apps[i].GetJobORM(), 25*time.Second, 1*time.Second)
 		assert.NoError(t, err)
-		//return prs
-		t.Log("node runs", i, len(prs))
+		require.Len(t, prs, 1)
+		jb, err := prs[0].Outputs.MarshalJSON()
+		require.NoError(t, err)
+		t.Log("VALUE", string(jb))
 		err = apps[i].Stop()
 		require.NoError(t, err)
 	}
+	// TODO check the onchain value
 	err = appBootstrap.Stop()
 	require.NoError(t, err)
-	//for i := 0; i < 4; i++ {
-	//	js, err := apps[i].GetJobORM().FindJob(jids[i])
-	//	require.NoError(t, err)
-	//	t.Log(js)
-	//	prs := cltest.WaitForPipelineComplete(t, i, jids[i], apps[i].GetJobORM())
-	//	t.Log(prs)
-	//}
 }
