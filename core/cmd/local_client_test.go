@@ -344,7 +344,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// the transaction cannot be seen from another connection.
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgres
+	config.Config.Dialect = orm.DialectPostgresWithoutLock
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 	defer connectedCleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)

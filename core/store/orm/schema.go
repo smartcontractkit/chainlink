@@ -23,7 +23,7 @@ type ConfigSchema struct {
 	BridgeResponseURL                         url.URL         `env:"BRIDGE_RESPONSE_URL"`
 	ChainID                                   big.Int         `env:"ETH_CHAIN_ID" default:"1"`
 	ClientNodeURL                             string          `env:"CLIENT_NODE_URL" default:"http://localhost:6688"`
-	DatabaseTimeout                           models.Duration `env:"DATABASE_TIMEOUT" default:"500ms"`
+	DatabaseTimeout                           models.Duration `env:"DATABASE_TIMEOUT" default:"0"`
 	DatabaseURL                               string          `env:"DATABASE_URL"`
 	DatabaseListenerMinReconnectInterval      time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseListenerMaxReconnectDuration      time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
@@ -36,6 +36,7 @@ type ConfigSchema struct {
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
+	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	MaximumServiceDuration                    models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
 	MinimumServiceDuration                    models.Duration `env:"MINIMUM_SERVICE_DURATION" default:"0s" `
 	EthGasBumpThreshold                       uint64          `env:"ETH_GAS_BUMP_THRESHOLD" default:"3" `
@@ -95,6 +96,8 @@ type ConfigSchema struct {
 	OCRTraceLogging                           bool            `env:"OCR_TRACE_LOGGING" default:"false"`
 	OCRMonitoringEndpoint                     string          `env:"OCR_MONITORING_ENDPOINT"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
+	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"10"`
+	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"5"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PDHTAnnouncementCounterUserPrefix       uint32          `env:"P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`
