@@ -14,16 +14,4 @@ interface WithdrawalInterface {
    * @notice query the available amount of LINK to withdraw by msg.sender
    */
   function withdrawable() external view returns (uint256);
-
-  /**
-   * @notice transfer LINK mistakenly sent to the contract
-   * @param recipient is the address to send the LINK to
-   * @param amount is the amount of LINK to send
-   */
-  function recover(address recipient, uint256 amount) external;
-
-  /**
-   * @notice query the available amount of LINK to recover by msg.sender
-   */
-  function recoverable() external view returns (uint256);
 }
