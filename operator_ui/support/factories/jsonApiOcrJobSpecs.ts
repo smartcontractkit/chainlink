@@ -19,7 +19,7 @@ export const jsonApiOcrJobSpecs = (
       const id = config.id || getRandomInt(1_000_000).toString()
 
       return {
-        type: 'jobSpecV2s',
+        type: 'specDBs',
         id,
         attributes: jobSpecV2(config),
       }

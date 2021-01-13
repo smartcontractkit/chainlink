@@ -1186,8 +1186,6 @@ github.com/smartcontractkit/chainlink v0.8.10-0.20200825114219-81dd2fc95bac/go.m
 github.com/smartcontractkit/chainlink v0.9.5-0.20201207211610-6c7fee37d5b7/go.mod h1:kmdLJbVZRCnBLiL6gG+U+1+0ofT3bB48DOF8tjQvcoI=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5 h1:nIjd4ebsU5dphoziTp/F79RNv8x3wOZmrn6A/5oYHI0=
 github.com/smartcontractkit/libocr v0.0.0-20201203233047-5d9b24f0cbb5/go.mod h1:bfdSuLnBWCkafDvPGsQ1V6nrXhg046gh227MKi4zkpc=
-github.com/smartcontractkit/libocr v0.0.0-20201217004406-38540d6302ee h1:m+3g52OQeqJjDAlrexme2us2RWCfKB9XpHmKcbDkws4=
-github.com/smartcontractkit/libocr v0.0.0-20201217004406-38540d6302ee/go.mod h1:GIwvGiV2QUQHg8UHCzyEj0KSVbuS4cYq/WzQqPa4fnE=
 github.com/smartcontractkit/libocr v0.0.0-20210108144752-331316fc6737 h1:yJH9FLy1Dx76HV5WN3287Q1SaTeKC0sNS2ZTxyzPxjQ=
 github.com/smartcontractkit/libocr v0.0.0-20210108144752-331316fc6737/go.mod h1:7GTogUpoWkaCrCFr56vSJ38EAQQZbO075EgpuwfGEMM=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d h1:zE9ykElWQ6/NYmHa3jpm/yHnI4xSofP+UP6SpjHcSeM=
