@@ -12,9 +12,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/pborman/uuid"
 
 	"github.com/onsi/gomega"
 
@@ -1241,9 +1244,9 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
-	testValidatorAddress, _, testValidator, err := testvalidator.DeployTestValidator(owner, b)
+	testValidatorAddress, _, _, err := testvalidator.DeployTestValidator(owner, b)
 	require.NoError(t, err)
-	accessAddress, _, access, err :=
+	accessAddress, _, _, err :=
 		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b)
 	require.NoError(t, err, "failed to deploy test access controller contract")
 	b.Commit()
@@ -1267,13 +1270,12 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		"TEST")
 	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
-	t.Log(ocrContract, access, testValidator)
 	b.Commit()
 	return owner, b, ocrContractAddress, ocrContract
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
-	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf(dbName), true)
+	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%s", dbName, strings.Replace(uuid.New(), "-", "", -1)), true)
 	config.Dialect = orm.DialectPostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
@@ -1287,6 +1289,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	app.Config.Set("P2P_LISTEN_PORT", port)
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
 
 	transmitter := app.Store.KeyStore.Accounts()[0].Address
 
@@ -1312,6 +1315,8 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 func TestIntegration_OCR(t *testing.T) {
 	owner, b, ocrContractAddress, ocrContract := setupOCRContracts(t)
 
+	// Note it's plausible these ports could be occupied on a CI machine.
+	// May need a port randomize + retry approach if we observe collisions.
 	appBootstrap, bootstrapPeerID, _, _, cleanup := setupNode(t, owner, 19999, "bootstrap", b)
 	defer cleanup()
 
@@ -1393,7 +1398,7 @@ isBootstrapPeer    = true
 
 		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
 		defer cleanupHTTP()
-
+		t.Log("node", i, "expecting call on", mockHTTP.URL)
 		ocrJob, err := services.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1423,23 +1428,25 @@ observationSource = """
 	}
 
 	// Assert that all the OCR jobs get a run with valid values eventually.
+	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {
-		prs, ok := cltest.WaitForPipelineComplete(t, i, jids[i], apps[i].GetJobORM(), 10*time.Second, 1*time.Second)
-		if ok {
-			require.Len(t, prs, 1)
-			jb, err := prs[0].Outputs.MarshalJSON()
+		ic := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 15*time.Second, 1*time.Second)
+			jb, err := pr.Outputs.MarshalJSON()
 			require.NoError(t, err)
-			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*i)), jb)
-		}
-		require.NoError(t, err)
+			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
+			require.NoError(t, err)
+		}()
 	}
+	wg.Wait()
 
 	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
-	g := gomega.NewGomegaWithT(t)
-	ok := g.Eventually(func() string {
+	gomega.NewGomegaWithT(t).Eventually(func() string {
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
-	assert.True(t, ok)
+	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 }

@@ -9,8 +9,16 @@ import (
 	"strings"
 	"time"
 
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/jinzhu/gorm"
+	"github.com/multiformats/go-multiaddr"
+	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -18,14 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
-	"github.com/multiformats/go-multiaddr"
-	"github.com/pelletier/go-toml"
-	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
 )
@@ -460,6 +460,9 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOracleSpec) error {
+	if config.Dev() {
+		return nil
+	}
 	return ocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),

@@ -176,7 +176,12 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 		err = o.processNextUnclaimedTaskRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
 		// task runs.
-		if postgres.IsRecordNotFound(err) {
+		if postgres.IsRecordNotFound(err) || ctx.Err() != nil {
+			// Context cancelled on either JobPipelineMaxTaskDuration
+			// or node shutdown.
+			if ctx.Err() != nil {
+				logger.Warn("cancelling task run processing due to shutdown or job pipeline timeout")
+			}
 			anyRemaining = false
 			retry = false
 			err = nil
