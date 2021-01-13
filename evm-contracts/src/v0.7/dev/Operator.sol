@@ -407,7 +407,7 @@ contract Operator is
    * @notice Returns the LINK available in this contract, not locked in escrow
    * @return uint256 LINK tokens available
    */
-  function fundsAvailable() internal view returns (uint256) {
+  function fundsAvailable() private view returns (uint256) {
     uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
     return linkToken.balanceOf(address(this)).sub(inEscrow);
   }
