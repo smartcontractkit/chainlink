@@ -389,7 +389,6 @@ export type Actions =
   | ReceiveSigninSuccessAction
   | ReceiveSigninFailAction
   | ReceiveSigninErrorAction
-  | RequestSignoutAction
   | ReceiveSignoutSuccessAction
   | ReceiveSignoutErrorAction
   | RequestCreateAction
