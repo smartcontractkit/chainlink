@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -145,19 +147,29 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pipelineORM    = pipeline.NewORM(store.ORM.DB, store.Config, eventBroadcaster)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, store.Config)
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
-		jobSpawner     = job.NewSpawner(jobORM, store.Config)
 	)
 
-	services.RegisterDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, store.DB)
-	var subservices []StartCloser
+	var (
+		subservices []StartCloser
+		delegates   = map[job.Type]job.Delegate{
+			job.DirectRequest: services.NewDirectRequestDelegate(
+				logBroadcaster,
+				pipelineRunner,
+				store.DB),
+			job.FluxMonitor: fluxmonitorv2.NewFluxMonitorDelegate(
+				pipelineRunner,
+				store.DB),
+		}
+	)
 	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 && config.P2PPeerIDIsSet() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		offchainreporting.RegisterJobType(store.ORM.DB, jobORM, store.Config, store.OCRKeyStore, jobSpawner, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewJobSpawnerDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
+	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner)
 
 	store.NotifyNewEthTx = ethBroadcaster

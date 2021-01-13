@@ -32,7 +32,7 @@ import SearchIcon from '@material-ui/icons/Search'
 
 enum JobSpecTypes {
   jobSpec = 'specs',
-  ocrJobSpec = 'jobSpecV2s',
+  ocrJobSpec = 'specDBs',
 }
 
 interface Job<T> {

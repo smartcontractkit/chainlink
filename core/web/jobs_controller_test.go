@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/mock"
 
@@ -163,6 +164,42 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
+func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "testdata/flux-monitor-spec.toml")
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.SpecDB{}
+	require.NoError(t, app.Store.DB.Preload("FluxMonitorSpec").First(&jb).Error)
+
+	jobSpec := job.SpecDB{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
+	assert.NoError(t, err)
+	t.Log()
+
+	assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
+	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
+	assert.Equal(t, models.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
+	assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
+	assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
+	assert.Equal(t, int32(2), jb.FluxMonitorSpec.Precision)
+	assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
+}
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, cleanup, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 	defer cleanup()
