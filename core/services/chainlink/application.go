@@ -161,7 +161,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB),
 		}
 	)
-	if (config.Dev() || config.FeatureOffchainReporting()) && config.P2PListenPort() > 0 && config.P2PPeerIDIsSet() {
+	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
@@ -235,6 +235,7 @@ func setupConfig(config *orm.Config, store *strpkg.Store) {
 		} else {
 			if len(keys) > 0 {
 				peerID := keys[0].PeerID
+				logger.Debugw("P2P_PEER_ID was not set, using the first available key", "peerID", peerID.String())
 				config.Set("P2P_PEER_ID", peerID)
 				if len(keys) > 1 {
 					logger.Warnf("Found more than one P2P key in the database, but no P2P_PEER_ID was specified. Defaulting to first key: %s. Please consider setting P2P_PEER_ID explicitly.", peerID.String())
