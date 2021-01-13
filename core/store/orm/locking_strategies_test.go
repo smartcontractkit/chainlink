@@ -29,7 +29,7 @@ func TestNewLockingStrategy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(string(test.name), func(t *testing.T) {
-			connectionType, err := orm.NewConnection(orm.DialectPostgres, test.path, 42)
+			connectionType, err := orm.NewConnection(orm.DialectPostgres, test.path, 42, 1*time.Second, 0, 0)
 			require.NoError(t, err)
 			rval, err := orm.NewLockingStrategy(connectionType)
 			require.NoError(t, err)
@@ -42,12 +42,14 @@ func TestNewLockingStrategy(t *testing.T) {
 func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	delay := tc.DatabaseTimeout()
 	if tc.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
 
-	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
@@ -68,18 +70,20 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 	tc, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 	delay := tc.DatabaseTimeout()
+
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	if tc.DatabaseURL() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
 
-	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	withLock, err := orm.NewConnection(orm.DialectPostgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
 
-	withoutLock, err := orm.NewConnection(orm.DialectPostgresWithoutLock, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault())
+	withoutLock, err := orm.NewConnection(orm.DialectPostgresWithoutLock, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls2, err := orm.NewPostgresLockingStrategy(withoutLock)
 	require.NoError(t, err)
@@ -93,6 +97,8 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 
 func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
+
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -107,7 +113,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond, 0, 0)
 	require.NoError(t, err)
 	lock2, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
@@ -118,6 +124,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -126,7 +133,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	require.NoError(t, dbErr)
 
 	orm2ShutdownSignal := gracefulpanic.NewSignal()
-	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, orm.DialectTransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, orm.DialectTransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	defer orm2.Close()
 
@@ -141,6 +148,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
+	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
 
@@ -150,7 +158,7 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault())
+	ct, err := orm.NewConnection(orm.DialectPostgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	lock, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)

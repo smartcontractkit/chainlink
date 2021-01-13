@@ -41,13 +41,7 @@ func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.SpecDB) (services [
 	return
 }
 
-func RegisterDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) {
-	jobSpawner.RegisterDelegate(
-		NewDirectRequestDelegate(jobSpawner, logBroadcaster, pipelineRunner, db),
-	)
-}
-
-func NewDirectRequestDelegate(jobSpawner job.Spawner, logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
+func NewDirectRequestDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
 	return &DirectRequestSpecDelegate{
 		logBroadcaster,
 		pipelineRunner,
