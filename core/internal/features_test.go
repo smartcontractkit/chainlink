@@ -39,6 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -637,13 +639,14 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
+		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
-		Body   web.JobSpecNotice
+		Body   services.JobSpecNotice
 	}{}
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
@@ -677,13 +680,13 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 	assert.Equal(t,
 		eip.OutgoingToken,
-		exInitr.Header.Get(web.ExternalInitiatorAccessKeyHeader),
+		exInitr.Header.Get(static.ExternalInitiatorAccessKeyHeader),
 	)
 	assert.Equal(t,
 		eip.OutgoingSecret,
-		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
+		exInitr.Header.Get(static.ExternalInitiatorSecretHeader),
 	)
-	expected := web.JobSpecNotice{
+	expected := services.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
