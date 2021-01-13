@@ -5,8 +5,9 @@ import "./ConfirmedOwner.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
+import "./UpkeepCompatible.sol";
 
-contract StalenessFlaggingValidator is ConfirmedOwner {
+contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
@@ -28,7 +29,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @dev Ensure that this contract has sufficient write permissions
    * on the flag contract
    */
-  constructor(address flagsAddress) 
+  constructor(address flagsAddress)
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
@@ -80,7 +81,6 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    */
   function check(address[] memory aggregators) public view returns (address[] memory) {
     uint256 currentTimestamp = block.timestamp;
-
     address[] memory staleAggregators = new address[](aggregators.length);
     uint256 staleCount = 0;
     for (uint256 i = 0; i < aggregators.length; i++) {
@@ -103,13 +103,36 @@ contract StalenessFlaggingValidator is ConfirmedOwner {
    * @notice Check for staleness in an array of aggregators, raise a flag
    * on the flags contract for each aggregator that is stale
    * @dev This contract must have write permissions on the flags contract
-   * @param aggregators address[] calldata
+   * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function update(address[] calldata aggregators) external returns (address[] memory){
+  function update(address[] memory aggregators) public returns (address[] memory){
     address[] memory staleAggregators = check(aggregators);
     s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
+  }
+
+  /**
+   * @notice Check for staleness in an array of aggregators
+   * @dev Overriding KeeperInterface
+   * @param data bytes encoded address array
+   * @return needsUpkeep bool indicating whether upkeep needs to be performed
+   * @return staleAggregators bytes encoded address array of stale aggregator addresses
+   */
+  function checkForUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
+    address[] memory staleAggregators = check(abi.decode(data, (address[])));
+    bool needsUpkeep = (staleAggregators.length > 0);
+    return (needsUpkeep, abi.encode(staleAggregators));
+  }
+
+  /**
+   * @notice Check for staleness in an array of aggregators, raise a flag
+   * on the flags contract for each aggregator that is stale
+   * @dev Overriding KeeperInterface
+   * @param data bytes encoded address array
+   */
+  function performUpkeep(bytes calldata data) external override {
+    update(abi.decode(data, (address[])));
   }
 
   /**
