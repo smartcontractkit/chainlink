@@ -148,11 +148,12 @@ func (ec *explorerClient) Send(data []byte, messageTypes ...int) {
 		messageType = messageTypes[0]
 	}
 	var send chan []byte
-	if messageType == ExplorerTextMessage {
+	switch messageType {
+	case ExplorerTextMessage:
 		send = ec.sendText
-	} else if messageType == ExplorerBinaryMessage {
+	case ExplorerBinaryMessage:
 		send = ec.sendBinary
-	} else {
+	default:
 		panic(fmt.Sprintf("send on explorer client received unsupported message type %d", messageType))
 	}
 	select {
