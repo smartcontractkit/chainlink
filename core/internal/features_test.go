@@ -1329,6 +1329,10 @@ func TestIntegration_OCR(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		app, peerID, transmitter, kb, cleanup := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d", i), b)
 		defer cleanup()
+		// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
+		// we'll flood it with messages and slow things down. 5s is about how long it takes the
+		// bootstrap node to come up.
+		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
@@ -1375,9 +1379,6 @@ func TestIntegration_OCR(t *testing.T) {
 	err = appBootstrap.StartAndConnect()
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
-
-	// TODO: Should not need to wait for the bootstrap to come up
-	time.Sleep(5 * time.Second)
 
 	ocrJob, err := services.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
@@ -1434,7 +1435,7 @@ observationSource = """
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 15*time.Second, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr.Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
