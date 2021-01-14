@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -37,6 +38,11 @@ const (
 // SendBufferSize is the number of messages to keep in the buffer before dropping additional ones
 const SendBufferSize = 100
 
+const (
+	ExplorerTextMessage   = websocket.TextMessage
+	ExplorerBinaryMessage = websocket.BinaryMessage
+)
+
 // ExplorerClient encapsulates all the functionality needed to
 // push run information to explorer.
 type ExplorerClient interface {
@@ -44,7 +50,7 @@ type ExplorerClient interface {
 	Status() ConnectionStatus
 	Start() error
 	Close() error
-	Send([]byte)
+	Send([]byte, ...int)
 	Receive(...time.Duration) ([]byte, error)
 }
 
@@ -54,14 +60,15 @@ func (NoopExplorerClient) Url() url.URL                             { return url
 func (NoopExplorerClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
 func (NoopExplorerClient) Start() error                             { return nil }
 func (NoopExplorerClient) Close() error                             { return nil }
-func (NoopExplorerClient) Send([]byte)                              {}
+func (NoopExplorerClient) Send([]byte, ...int)                      {}
 func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
 	boot             *sync.RWMutex
 	conn             *websocket.Conn
 	cancel           context.CancelFunc
-	send             chan []byte
+	sendText         chan []byte
+	sendBinary       chan []byte
 	dropMessageCount uint32
 	receive          chan []byte
 	sleeper          utils.Sleeper
@@ -81,14 +88,15 @@ type explorerClient struct {
 // delivery.
 func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 	return &explorerClient{
-		url:       url,
-		send:      make(chan []byte, SendBufferSize),
-		receive:   make(chan []byte),
-		boot:      new(sync.RWMutex),
-		sleeper:   utils.NewBackoffSleeper(),
-		status:    ConnectionStatusDisconnected,
-		accessKey: accessKey,
-		secret:    secret,
+		url:        url,
+		sendText:   make(chan []byte, SendBufferSize),
+		sendBinary: make(chan []byte, SendBufferSize),
+		receive:    make(chan []byte),
+		boot:       new(sync.RWMutex),
+		sleeper:    utils.NewBackoffSleeper(),
+		status:     ConnectionStatusDisconnected,
+		accessKey:  accessKey,
+		secret:     secret,
 
 		closeRequested: make(chan struct{}),
 		closed:         make(chan struct{}),
@@ -129,14 +137,28 @@ func (ec *explorerClient) Start() error {
 // Send sends data asynchronously across the websocket if it's open, or
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
-func (ec *explorerClient) Send(data []byte) {
+// func (ec *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
+func (ec *explorerClient) Send(data []byte, messageTypes ...int) {
 	ec.boot.RLock()
 	defer ec.boot.RUnlock()
 	if !ec.started {
 		panic("send on unstarted explorer client")
 	}
+	messageType := ExplorerTextMessage
+	if len(messageTypes) > 0 {
+		messageType = messageTypes[0]
+	}
+	var send chan []byte
+	switch messageType {
+	case ExplorerTextMessage:
+		send = ec.sendText
+	case ExplorerBinaryMessage:
+		send = ec.sendBinary
+	default:
+		log.Panicf("send on explorer client received unsupported message type %d", messageType)
+	}
 	select {
-	case ec.send <- data:
+	case send <- data:
 		atomic.StoreUint32(&ec.dropMessageCount, 0)
 	default:
 		ec.logBufferFullWithExpBackoff(data)
@@ -254,12 +276,22 @@ func (ec *explorerClient) writePump(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case message, open := <-ec.send:
-			if !open { // channel closed
+		case message, open := <-ec.sendText:
+			if !open {
 				ec.wrapConnErrorIf(ec.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 			}
 
-			err := ec.writeMessage(message)
+			err := ec.writeMessage(message, websocket.TextMessage)
+			if err != nil {
+				logger.Error("websocketStatsPusher: ", err)
+				return
+			}
+		case message, open := <-ec.sendBinary:
+			if !open {
+				ec.wrapConnErrorIf(ec.conn.WriteMessage(websocket.CloseMessage, []byte{}))
+			}
+
+			err := ec.writeMessage(message, websocket.BinaryMessage)
 			if err != nil {
 				logger.Error("websocketStatsPusher: ", err)
 				return
@@ -274,9 +306,9 @@ func (ec *explorerClient) writePump(ctx context.Context) {
 	}
 }
 
-func (ec *explorerClient) writeMessage(message []byte) error {
+func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 	ec.wrapConnErrorIf(ec.conn.SetWriteDeadline(time.Now().Add(writeWait)))
-	writer, err := ec.conn.NextWriter(websocket.TextMessage)
+	writer, err := ec.conn.NextWriter(messageType)
 	if err != nil {
 		return err
 	}
