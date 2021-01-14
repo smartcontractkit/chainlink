@@ -61,7 +61,7 @@ func (p *SingletonPeerWrapper) Start() (err error) {
 	p2pkeys := p.keyStore.DecryptedP2PKeys()
 	listenPort := p.config.P2PListenPort()
 	if listenPort == 0 {
-		return errors.New("failed to instantiate oracle or bootstrapper service, P2P_LISTEN_PORT is required and must be set to a non-zero value")
+		return errors.New("failed to instantiate oracle or bootstrapper service. If FEATURE_OFFCHAIN_REPORTING is on, then P2P_LISTEN_PORT is required and must be set to a non-zero value")
 	}
 
 	if len(p2pkeys) == 0 {
