@@ -15,7 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -154,7 +154,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := contracts.FluxAggregatorRoundState{RoundId: 7, Timeout: 11}
+	roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 7, Timeout: 11}
 	request, err := models.MarshalToMap(&roundState)
 	require.NoError(t, err)
 

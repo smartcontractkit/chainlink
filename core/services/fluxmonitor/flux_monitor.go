@@ -30,6 +30,8 @@ import (
 
 const hibernationPollPeriod = 24 * time.Hour
 
+var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationChecker --output ../../internal/mocks/ --case=underscore
@@ -269,7 +271,7 @@ func (f pollingDeviationCheckerFactory) New(
 	}
 
 	f.logBroadcaster.AddDependents(1)
-	fluxAggregator, err := contracts.NewFluxAggregatorContract(initr.Address, f.store.EthClient)
+	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.store.EthClient)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +354,7 @@ type DeviationChecker interface {
 // PollingDeviationChecker polls external price adapters via HTTP to check for price swings.
 type PollingDeviationChecker struct {
 	store          *store.Store
-	fluxAggregator contracts.FluxAggregator
+	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	fetcher        Fetcher
@@ -381,7 +383,7 @@ type PollingDeviationChecker struct {
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
 func NewPollingDeviationChecker(
 	store *store.Store,
-	fluxAggregator contracts.FluxAggregator,
+	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
 	logBroadcaster log.Broadcaster,
 	initr models.Initiator,
 	minJobPayment *assets.Link,
@@ -455,10 +457,7 @@ func (p *PollingDeviationChecker) isFlagLowered() (bool, error) {
 	if p.flagsContract == nil {
 		return true, nil
 	}
-	flags, err := p.flagsContract.GetFlags(
-		contracts.DefaultCallOpts,
-		[]common.Address{utils.ZeroAddress, p.initr.Address},
-	)
+	flags, err := p.flagsContract.GetFlags(nil, []common.Address{utils.ZeroAddress, p.initr.Address})
 	if err != nil {
 		return true, err
 	}
@@ -508,7 +507,7 @@ func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast, err error) 
 	}
 
 	switch log := log.(type) {
-	case *contracts.NewRound:
+	case *flux_aggregator_wrapper.FluxAggregatorNewRound:
 		p.backlog.Add(PriorityNewRoundLog, broadcast)
 
 	case *flux_aggregator_wrapper.FluxAggregatorAnswerUpdated:
@@ -544,7 +543,7 @@ func (p *PollingDeviationChecker) consume() {
 
 	// subscribe to contract logs
 	isConnected := false
-	fluxAggLogListener, err := contracts.NewFluxAggregatorDecodingLogListener(p.fluxAggregator.Address(), p.store.EthClient, p)
+	fluxAggLogListener, err := newFluxAggregatorDecodingLogListener(p.fluxAggregator.Address(), p.store.EthClient, p)
 	if err != nil {
 		logger.Errorw("unable to create flux agg decoding log listener", "err", err)
 	} else {
@@ -656,7 +655,6 @@ func (p *PollingDeviationChecker) shouldPerformInitialPoll() bool {
 func (p *PollingDeviationChecker) hibernate() {
 	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
-	// p.fluxAggregator.OracleRoundState.p.resetTickers(contracts.FluxAggregatorRoundState{})
 }
 
 // reactivate restarts the PollingDeviationChecker without hibernation mode
@@ -878,7 +876,7 @@ var (
 	ErrPaymentTooLow = errors.New("round payment amount < minimum contract payment")
 )
 
-func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState contracts.FluxAggregatorRoundState) error {
+func (p *PollingDeviationChecker) checkEligibilityAndAggregatorFunding(roundState flux_aggregator_wrapper.OracleRoundState) error {
 	if !roundState.EligibleToSubmit {
 		return ErrNotEligible
 	} else if !p.sufficientFunds(roundState) {
@@ -893,7 +891,7 @@ const MinFundedRounds int64 = 3
 
 // sufficientFunds checks if the contract has sufficient funding to pay all the oracles on a
 // conract for a minimum number of rounds, based on the payment amount in the contract
-func (p *PollingDeviationChecker) sufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+func (p *PollingDeviationChecker) sufficientFunds(state flux_aggregator_wrapper.OracleRoundState) bool {
 	min := big.NewInt(int64(state.OracleCount))
 	min = min.Mul(min, big.NewInt(MinFundedRounds))
 	min = min.Mul(min, state.PaymentAmount)
@@ -1020,18 +1018,18 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.RoundId)
 }
 
-func (p *PollingDeviationChecker) roundState(roundID uint32) (contracts.FluxAggregatorRoundState, error) {
+func (p *PollingDeviationChecker) roundState(roundID uint32) (flux_aggregator_wrapper.OracleRoundState, error) {
 	roundState, err := p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
 	if err != nil {
-		return contracts.FluxAggregatorRoundState{}, err
+		return flux_aggregator_wrapper.OracleRoundState{}, err
 	}
 	return roundState, nil
 }
 
 // initialRoundState fetches the round information that the fluxmonitor should use when starting
 // new jobs. Choosing the correct round on startup is key to setting timers correctly.
-func (p *PollingDeviationChecker) initialRoundState() contracts.FluxAggregatorRoundState {
-	defaultRoundState := contracts.FluxAggregatorRoundState{
+func (p *PollingDeviationChecker) initialRoundState() flux_aggregator_wrapper.OracleRoundState {
+	defaultRoundState := flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 	}
 	latestRoundData, err := p.fluxAggregator.LatestRoundData(nil)
@@ -1058,11 +1056,11 @@ func (p *PollingDeviationChecker) initialRoundState() contracts.FluxAggregatorRo
 	return latestRoundState
 }
 
-func (p *PollingDeviationChecker) resetTickers(roundState contracts.FluxAggregatorRoundState) {
+func (p *PollingDeviationChecker) resetTickers(roundState flux_aggregator_wrapper.OracleRoundState) {
 	p.resetPollTicker()
 	p.resetHibernationTimer()
 	p.resetIdleTimer(roundState.StartedAt)
-	p.resetRoundTimer(roundState.TimesOutAt())
+	p.resetRoundTimer(roundStateTimesOutAt(roundState))
 }
 
 func (p *PollingDeviationChecker) setInitialTickers() {
@@ -1151,7 +1149,7 @@ func (p *PollingDeviationChecker) createJobRun(
 	paymentAmount *assets.Link,
 ) error {
 
-	methodID := contracts.FluxAggregatorABI.Methods["submit"].ID
+	methodID := fluxAggregatorABI.Methods["submit"].ID
 	roundIDData := utils.EVMWordUint64(uint64(roundID))
 
 	payload, err := json.Marshal(jobRunRequest{
@@ -1316,4 +1314,8 @@ func (p *PollingDeviationChecker) statsAndStatusForRound(roundID uint32) (
 		}
 	}
 	return roundStats, jobRun.Status, nil
+}
+
+func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
+	return rs.StartedAt + rs.Timeout
 }

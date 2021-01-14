@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -1541,8 +1542,10 @@ func MakeRoundStateReturnData(
 	return data
 }
 
+var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+
 func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
-	funcSig := hexutil.Encode(contracts.FluxAggregatorABI.Methods[funcName].ID)
+	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
 	if len(funcSig) != 10 {
 		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
 	}
