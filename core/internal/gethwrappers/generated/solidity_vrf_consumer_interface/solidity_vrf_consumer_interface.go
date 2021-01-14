@@ -1,6 +1,3 @@
-// Code generated - DO NOT EDIT.
-// This file is a generated binding and any manual changes will be lost.
-
 package solidity_vrf_consumer_interface
 
 import (
@@ -15,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/event"
 )
 
-// Reference imports to suppress errors if they are not otherwise used.
 var (
 	_ = big.NewInt
 	_ = strings.NewReader
@@ -26,13 +22,10 @@ var (
 	_ = event.NewSubscription
 )
 
-// VRFConsumerABI is the input ABI used to generate the binding from.
 const VRFConsumerABI = "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"randomnessOutput\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"randomness\",\"type\":\"uint256\"}],\"name\":\"rawFulfillRandomness\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"requestId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"_keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"_fee\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"_seed\",\"type\":\"uint256\"}],\"name\":\"testRequestRandomness\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"requestId\",\"type\":\"bytes32\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]"
 
-// VRFConsumerBin is the compiled bytecode used for deploying new contracts.
 var VRFConsumerBin = "0x60c060405234801561001057600080fd5b506040516105373803806105378339818101604052604081101561003357600080fd5b5080516020909101516001600160601b0319606092831b811660a052911b1660805260805160601c60a05160601c6104b56100826000398060f952806101d352508061019752506104b56000f3fe608060405234801561001057600080fd5b506004361061004b5760003560e01c80626d6cae146100505780632f47fd861461006a5780638a5f002b1461007257806394985ddd1461009b575b600080fd5b6100586100c0565b60408051918252519081900360200190f35b6100586100c6565b6100586004803603606081101561008857600080fd5b50803590602081013590604001356100cc565b6100be600480360360408110156100b157600080fd5b50803590602001356100e1565b005b60025481565b60015481565b60006100d9848484610193565b949350505050565b3373ffffffffffffffffffffffffffffffffffffffff7f0000000000000000000000000000000000000000000000000000000000000000161461018557604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601f60248201527f4f6e6c7920565246436f6f7264696e61746f722063616e2066756c66696c6c00604482015290519081900360640190fd5b61018f828261037c565b5050565b60007f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16634000aea07f000000000000000000000000000000000000000000000000000000000000000085878660405160200180838152602001828152602001925050506040516020818303038152906040526040518463ffffffff1660e01b8152600401808473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200183815260200180602001828103825283818151815260200191508051906020019080838360005b8381101561029f578181015183820152602001610287565b50505050905090810190601f1680156102cc5780820380516001836020036101000a031916815260200191505b50945050505050602060405180830381600087803b1580156102ed57600080fd5b505af1158015610301573d6000803e3d6000fd5b505050506040513d602081101561031757600080fd5b505060008481526020819052604081205461033790869085903090610384565b60008681526020819052604090205490915061035a90600163ffffffff6103d816565b6000868152602081905260409020556103738582610453565b95945050505050565b600155600255565b604080516020808201969096528082019490945273ffffffffffffffffffffffffffffffffffffffff9290921660608401526080808401919091528151808403909101815260a09092019052805191012090565b60008282018381101561044c57604080517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f536166654d6174683a206164646974696f6e206f766572666c6f770000000000604482015290519081900360640190fd5b9392505050565b60408051602080820194909452808201929092528051808303820181526060909201905280519101209056fea264697066735822beefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef64736f6c6343decafe0033"
 
-// DeployVRFConsumer deploys a new Ethereum contract, binding an instance of VRFConsumer to it.
 func DeployVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, _vrfCoordinator common.Address, _link common.Address) (common.Address, *types.Transaction, *VRFConsumer, error) {
 	parsed, err := abi.JSON(strings.NewReader(VRFConsumerABI))
 	if err != nil {
@@ -46,75 +39,61 @@ func DeployVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, _v
 	return address, tx, &VRFConsumer{VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
 }
 
-// VRFConsumer is an auto generated Go binding around an Ethereum contract.
 type VRFConsumer struct {
-	VRFConsumerCaller     // Read-only binding to the contract
-	VRFConsumerTransactor // Write-only binding to the contract
-	VRFConsumerFilterer   // Log filterer for contract events
+	address common.Address
+	VRFConsumerCaller
+	VRFConsumerTransactor
+	VRFConsumerFilterer
 }
 
-// VRFConsumerCaller is an auto generated read-only Go binding around an Ethereum contract.
 type VRFConsumerCaller struct {
-	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	contract *bind.BoundContract
 }
 
-// VRFConsumerTransactor is an auto generated write-only Go binding around an Ethereum contract.
 type VRFConsumerTransactor struct {
-	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	contract *bind.BoundContract
 }
 
-// VRFConsumerFilterer is an auto generated log filtering Go binding around an Ethereum contract events.
 type VRFConsumerFilterer struct {
-	contract *bind.BoundContract // Generic contract wrapper for the low level calls
+	contract *bind.BoundContract
 }
 
-// VRFConsumerSession is an auto generated Go binding around an Ethereum contract,
-// with pre-set call and transact options.
 type VRFConsumerSession struct {
-	Contract     *VRFConsumer      // Generic contract binding to set the session for
-	CallOpts     bind.CallOpts     // Call options to use throughout this session
-	TransactOpts bind.TransactOpts // Transaction auth options to use throughout this session
+	Contract     *VRFConsumer
+	CallOpts     bind.CallOpts
+	TransactOpts bind.TransactOpts
 }
 
-// VRFConsumerCallerSession is an auto generated read-only Go binding around an Ethereum contract,
-// with pre-set call options.
 type VRFConsumerCallerSession struct {
-	Contract *VRFConsumerCaller // Generic contract caller binding to set the session for
-	CallOpts bind.CallOpts      // Call options to use throughout this session
+	Contract *VRFConsumerCaller
+	CallOpts bind.CallOpts
 }
 
-// VRFConsumerTransactorSession is an auto generated write-only Go binding around an Ethereum contract,
-// with pre-set transact options.
 type VRFConsumerTransactorSession struct {
-	Contract     *VRFConsumerTransactor // Generic contract transactor binding to set the session for
-	TransactOpts bind.TransactOpts      // Transaction auth options to use throughout this session
+	Contract     *VRFConsumerTransactor
+	TransactOpts bind.TransactOpts
 }
 
-// VRFConsumerRaw is an auto generated low-level Go binding around an Ethereum contract.
 type VRFConsumerRaw struct {
-	Contract *VRFConsumer // Generic contract binding to access the raw methods on
+	Contract *VRFConsumer
 }
 
-// VRFConsumerCallerRaw is an auto generated low-level read-only Go binding around an Ethereum contract.
 type VRFConsumerCallerRaw struct {
-	Contract *VRFConsumerCaller // Generic read-only contract binding to access the raw methods on
+	Contract *VRFConsumerCaller
 }
 
-// VRFConsumerTransactorRaw is an auto generated low-level write-only Go binding around an Ethereum contract.
 type VRFConsumerTransactorRaw struct {
-	Contract *VRFConsumerTransactor // Generic write-only contract binding to access the raw methods on
+	Contract *VRFConsumerTransactor
 }
 
-// NewVRFConsumer creates a new instance of VRFConsumer, bound to a specific deployed contract.
 func NewVRFConsumer(address common.Address, backend bind.ContractBackend) (*VRFConsumer, error) {
 	contract, err := bindVRFConsumer(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFConsumer{VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
+	return &VRFConsumer{address: address, VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
 }
 
-// NewVRFConsumerCaller creates a new read-only instance of VRFConsumer, bound to a specific deployed contract.
 func NewVRFConsumerCaller(address common.Address, caller bind.ContractCaller) (*VRFConsumerCaller, error) {
 	contract, err := bindVRFConsumer(address, caller, nil, nil)
 	if err != nil {
@@ -123,7 +102,6 @@ func NewVRFConsumerCaller(address common.Address, caller bind.ContractCaller) (*
 	return &VRFConsumerCaller{contract: contract}, nil
 }
 
-// NewVRFConsumerTransactor creates a new write-only instance of VRFConsumer, bound to a specific deployed contract.
 func NewVRFConsumerTransactor(address common.Address, transactor bind.ContractTransactor) (*VRFConsumerTransactor, error) {
 	contract, err := bindVRFConsumer(address, nil, transactor, nil)
 	if err != nil {
@@ -132,7 +110,6 @@ func NewVRFConsumerTransactor(address common.Address, transactor bind.ContractTr
 	return &VRFConsumerTransactor{contract: contract}, nil
 }
 
-// NewVRFConsumerFilterer creates a new log filterer instance of VRFConsumer, bound to a specific deployed contract.
 func NewVRFConsumerFilterer(address common.Address, filterer bind.ContractFilterer) (*VRFConsumerFilterer, error) {
 	contract, err := bindVRFConsumer(address, nil, nil, filterer)
 	if err != nil {
@@ -141,7 +118,6 @@ func NewVRFConsumerFilterer(address common.Address, filterer bind.ContractFilter
 	return &VRFConsumerFilterer{contract: contract}, nil
 }
 
-// bindVRFConsumer binds a generic wrapper to an already deployed contract.
 func bindVRFConsumer(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
 	parsed, err := abi.JSON(strings.NewReader(VRFConsumerABI))
 	if err != nil {
@@ -150,47 +126,30 @@ func bindVRFConsumer(address common.Address, caller bind.ContractCaller, transac
 	return bind.NewBoundContract(address, parsed, caller, transactor, filterer), nil
 }
 
-// Call invokes the (constant) contract method with params as input values and
-// sets the output to result. The result type might be a single field for simple
-// returns, a slice of interfaces for anonymous returns and a struct for named
-// returns.
 func (_VRFConsumer *VRFConsumerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFConsumer.Contract.VRFConsumerCaller.contract.Call(opts, result, method, params...)
 }
 
-// Transfer initiates a plain transaction to move funds to the contract, calling
-// its default method if one is available.
 func (_VRFConsumer *VRFConsumerRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.VRFConsumerTransactor.contract.Transfer(opts)
 }
 
-// Transact invokes the (paid) contract method with params as input values.
 func (_VRFConsumer *VRFConsumerRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.VRFConsumerTransactor.contract.Transact(opts, method, params...)
 }
 
-// Call invokes the (constant) contract method with params as input values and
-// sets the output to result. The result type might be a single field for simple
-// returns, a slice of interfaces for anonymous returns and a struct for named
-// returns.
 func (_VRFConsumer *VRFConsumerCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
 	return _VRFConsumer.Contract.contract.Call(opts, result, method, params...)
 }
 
-// Transfer initiates a plain transaction to move funds to the contract, calling
-// its default method if one is available.
 func (_VRFConsumer *VRFConsumerTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.contract.Transfer(opts)
 }
 
-// Transact invokes the (paid) contract method with params as input values.
 func (_VRFConsumer *VRFConsumerTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.contract.Transact(opts, method, params...)
 }
 
-// RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
-//
-// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _VRFConsumer.contract.Call(opts, &out, "randomnessOutput")
@@ -205,23 +164,14 @@ func (_VRFConsumer *VRFConsumerCaller) RandomnessOutput(opts *bind.CallOpts) (*b
 
 }
 
-// RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
-//
-// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerSession) RandomnessOutput() (*big.Int, error) {
 	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
-// RandomnessOutput is a free data retrieval call binding the contract method 0x2f47fd86.
-//
-// Solidity: function randomnessOutput() view returns(uint256)
 func (_VRFConsumer *VRFConsumerCallerSession) RandomnessOutput() (*big.Int, error) {
 	return _VRFConsumer.Contract.RandomnessOutput(&_VRFConsumer.CallOpts)
 }
 
-// RequestId is a free data retrieval call binding the contract method 0x006d6cae.
-//
-// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
 	err := _VRFConsumer.contract.Call(opts, &out, "requestId")
@@ -236,58 +186,56 @@ func (_VRFConsumer *VRFConsumerCaller) RequestId(opts *bind.CallOpts) ([32]byte,
 
 }
 
-// RequestId is a free data retrieval call binding the contract method 0x006d6cae.
-//
-// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerSession) RequestId() ([32]byte, error) {
 	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
 }
 
-// RequestId is a free data retrieval call binding the contract method 0x006d6cae.
-//
-// Solidity: function requestId() view returns(bytes32)
 func (_VRFConsumer *VRFConsumerCallerSession) RequestId() ([32]byte, error) {
 	return _VRFConsumer.Contract.RequestId(&_VRFConsumer.CallOpts)
 }
 
-// RawFulfillRandomness is a paid mutator transaction binding the contract method 0x94985ddd.
-//
-// Solidity: function rawFulfillRandomness(bytes32 requestId, uint256 randomness) returns()
 func (_VRFConsumer *VRFConsumerTransactor) RawFulfillRandomness(opts *bind.TransactOpts, requestId [32]byte, randomness *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.contract.Transact(opts, "rawFulfillRandomness", requestId, randomness)
 }
 
-// RawFulfillRandomness is a paid mutator transaction binding the contract method 0x94985ddd.
-//
-// Solidity: function rawFulfillRandomness(bytes32 requestId, uint256 randomness) returns()
 func (_VRFConsumer *VRFConsumerSession) RawFulfillRandomness(requestId [32]byte, randomness *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.RawFulfillRandomness(&_VRFConsumer.TransactOpts, requestId, randomness)
 }
 
-// RawFulfillRandomness is a paid mutator transaction binding the contract method 0x94985ddd.
-//
-// Solidity: function rawFulfillRandomness(bytes32 requestId, uint256 randomness) returns()
 func (_VRFConsumer *VRFConsumerTransactorSession) RawFulfillRandomness(requestId [32]byte, randomness *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.RawFulfillRandomness(&_VRFConsumer.TransactOpts, requestId, randomness)
 }
 
-// TestRequestRandomness is a paid mutator transaction binding the contract method 0x8a5f002b.
-//
-// Solidity: function testRequestRandomness(bytes32 _keyHash, uint256 _fee, uint256 _seed) returns(bytes32 requestId)
 func (_VRFConsumer *VRFConsumerTransactor) TestRequestRandomness(opts *bind.TransactOpts, _keyHash [32]byte, _fee *big.Int, _seed *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.contract.Transact(opts, "testRequestRandomness", _keyHash, _fee, _seed)
 }
 
-// TestRequestRandomness is a paid mutator transaction binding the contract method 0x8a5f002b.
-//
-// Solidity: function testRequestRandomness(bytes32 _keyHash, uint256 _fee, uint256 _seed) returns(bytes32 requestId)
 func (_VRFConsumer *VRFConsumerSession) TestRequestRandomness(_keyHash [32]byte, _fee *big.Int, _seed *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.TestRequestRandomness(&_VRFConsumer.TransactOpts, _keyHash, _fee, _seed)
 }
 
-// TestRequestRandomness is a paid mutator transaction binding the contract method 0x8a5f002b.
-//
-// Solidity: function testRequestRandomness(bytes32 _keyHash, uint256 _fee, uint256 _seed) returns(bytes32 requestId)
 func (_VRFConsumer *VRFConsumerTransactorSession) TestRequestRandomness(_keyHash [32]byte, _fee *big.Int, _seed *big.Int) (*types.Transaction, error) {
 	return _VRFConsumer.Contract.TestRequestRandomness(&_VRFConsumer.TransactOpts, _keyHash, _fee, _seed)
+}
+
+func (_VRFConsumer *VRFConsumer) UnpackLog(out interface{}, event string, log types.Log) error {
+	return _VRFConsumer.VRFConsumerFilterer.contract.UnpackLog(out, event, log)
+}
+
+func (_VRFConsumer *VRFConsumer) Address() common.Address {
+	return _VRFConsumer.address
+}
+
+type VRFConsumerInterface interface {
+	RandomnessOutput(opts *bind.CallOpts) (*big.Int, error)
+
+	RequestId(opts *bind.CallOpts) ([32]byte, error)
+
+	RawFulfillRandomness(opts *bind.TransactOpts, requestId [32]byte, randomness *big.Int) (*types.Transaction, error)
+
+	TestRequestRandomness(opts *bind.TransactOpts, _keyHash [32]byte, _fee *big.Int, _seed *big.Int) (*types.Transaction, error)
+
+	UnpackLog(out interface{}, event string, log types.Log) error
+
+	Address() common.Address
 }
