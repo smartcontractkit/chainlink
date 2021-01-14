@@ -14,5 +14,5 @@ func NewAgent(explorerClient synchronization.ExplorerClient) *Agent {
 
 // SendLog sends a telemetry log to the explorer
 func (t *Agent) SendLog(log []byte) {
-	t.explorerClient.Send(log)
+	t.explorerClient.Send(log, synchronization.ExplorerBinaryMessage)
 }
