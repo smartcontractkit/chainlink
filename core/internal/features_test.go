@@ -26,8 +26,8 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
-	"github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/confighelper"
-	ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting/types"
+	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -1268,6 +1268,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		accessAddress,
 		0,
 		"TEST")
+	require.NoError(t, err)
 	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
 	require.NoError(t, err)
 	b.Commit()

@@ -136,11 +136,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
 	}
-	// TODO: use the Development flag when available in libocr
-	if !d.config.Dev() {
-		if err := ocr.SanityCheckLocalConfig(lc); err != nil {
-			return nil, err
-		}
+	if d.config.Dev() {
+		// Skips config validation so we can use any config parameters we want.
+		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
+	}
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return nil, err
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 

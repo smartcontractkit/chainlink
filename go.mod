@@ -2,10 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
-replace github.com/smartcontractkit/libocr => /Users/connorstein/go/src/github.com/smartcontractkit/libocr
-
-replace github.com/smartcontractkit/offchain-reporting/lib => /Users/connorstein/go/src/github.com/smartcontractkit/offchain-reporting/lib
-
 require (
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -44,8 +40,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20210108144752-331316fc6737
-	github.com/smartcontractkit/offchain-reporting/lib v0.0.0-20210112182945-e358b2714ad6
+	github.com/smartcontractkit/libocr v0.0.0-20210114170344-699624b8b9fa
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
