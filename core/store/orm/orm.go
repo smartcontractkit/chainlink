@@ -65,15 +65,16 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		return nil, errors.Wrap(err, "unable to create ORM lock")
 	}
 
-	logger.Infof("Locking %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
 	orm := &ORM{
 		lockingStrategy:     lockingStrategy,
 		advisoryLockTimeout: timeout,
 		shutdownSignal:      shutdownSignal,
 	}
+	logger.Infof("Attempting to lock %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
 	if err = orm.MustEnsureAdvisoryLock(); err != nil {
 		return nil, err
 	}
+	logger.Info("Got global lock")
 
 	db, err := ct.initializeDatabase()
 	if err != nil {
