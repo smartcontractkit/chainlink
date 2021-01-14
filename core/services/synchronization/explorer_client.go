@@ -277,7 +277,7 @@ func (ec *explorerClient) writePump(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case message, open := <-ec.sendText:
-			if !open { // channel closed
+			if !open {
 				ec.wrapConnErrorIf(ec.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 			}
 
@@ -287,7 +287,7 @@ func (ec *explorerClient) writePump(ctx context.Context) {
 				return
 			}
 		case message, open := <-ec.sendBinary:
-			if !open { // channel closed
+			if !open {
 				ec.wrapConnErrorIf(ec.conn.WriteMessage(websocket.CloseMessage, []byte{}))
 			}
 
