@@ -2,6 +2,7 @@ package fluxmonitor
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -112,18 +113,19 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 		var req fetcherRequest
 		body, _ := ioutil.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
+		fmt.Println(req.Meta)
 		require.NoError(t, err)
-		require.Equal(t, false, req.Meta["eligibleToSubmit"])
-		require.Equal(t, float64(0), req.Meta["oracleCount"])
-		require.Equal(t, float64(7), req.Meta["reportableRoundID"])
-		require.Equal(t, float64(0), req.Meta["startedAt"])
-		require.Equal(t, float64(11), req.Meta["timeout"])
+		require.Equal(t, false, req.Meta["EligibleToSubmit"])
+		require.Equal(t, float64(0), req.Meta["OracleCount"])
+		require.Equal(t, float64(7), req.Meta["RoundId"])
+		require.Equal(t, float64(0), req.Meta["StartedAt"])
+		require.Equal(t, float64(11), req.Meta["Timeout"])
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := contracts.FluxAggregatorRoundState{RoundId: 7, Timeout: 11}
+	roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 7, Timeout: 11}
 	request, err := models.MarshalToMap(&roundState)
 	require.NoError(t, err)
 

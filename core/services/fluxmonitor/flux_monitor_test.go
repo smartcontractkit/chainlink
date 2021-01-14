@@ -43,13 +43,13 @@ var (
 	now            = func() uint64 { return uint64(time.Now().UTC().Unix()) }
 	nilOpts        *bind.CallOpts
 
-	makeRoundDataForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundData {
-		return contracts.FluxAggregatorRoundData{
+	makeRoundDataForRoundID = func(roundID uint32) flux_aggregator_wrapper.LatestRoundData {
+		return flux_aggregator_wrapper.LatestRoundData{
 			RoundId: big.NewInt(int64(roundID)),
 		}
 	}
-	freshContractRoundDataResponse = func() (contracts.FluxAggregatorRoundData, error) {
-		return contracts.FluxAggregatorRoundData{}, errors.New("unstarted")
+	freshContractRoundDataResponse = func() (flux_aggregator_wrapper.LatestRoundData, error) {
+		return flux_aggregator_wrapper.LatestRoundData{}, errors.New("unstarted")
 	}
 )
 
@@ -227,7 +227,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				paymentAmount = minPayment
 			}
 
-			roundState := contracts.FluxAggregatorRoundState{
+			roundState := flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          reportableRoundID,
 				EligibleToSubmit: test.eligible,
 				LatestSubmission: big.NewInt(latestAnswerNoPrecision),
@@ -302,7 +302,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
-	roundState := contracts.FluxAggregatorRoundState{}
+	roundState := flux_aggregator_wrapper.OracleRoundState{}
 	require.Len(t, job.Errors, 0)
 	err := store.CreateJob(&job)
 	require.NoError(t, err)
@@ -356,8 +356,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	// Test helpers
 	var (
-		makeRoundStateForRoundID = func(roundID uint32) contracts.FluxAggregatorRoundState {
-			return contracts.FluxAggregatorRoundState{
+		makeRoundStateForRoundID = func(roundID uint32) flux_aggregator_wrapper.OracleRoundState {
+			return flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100 * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
@@ -502,10 +502,10 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 			fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
 			if test.expectedToSubmit {
 				// performInitialPoll()
-				roundState1 := contracts.FluxAggregatorRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+				roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once()
 				// idleDuration 1
-				roundState2 := contracts.FluxAggregatorRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+				roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
@@ -533,7 +533,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 				chBlock := make(chan struct{})
 				// NewRound resets the idle timer
-				roundState2 := contracts.FluxAggregatorRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+				roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(2)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
 					close(chBlock)
 				})
@@ -547,7 +547,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
 
 				// idleDuration 2
-				roundState3 := contracts.FluxAggregatorRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+				roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
 					idleDurationOccured <- struct{}{}
 				})
@@ -594,9 +594,9 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 
 	fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 	fluxAggregator.On("Address").Return(initr.Address)
-	roundState0 := contracts.FluxAggregatorRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+	roundState0 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
 	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(roundState0, nil).Once() // initialRoundState()
-	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          1,
 		EligibleToSubmit: false,
 		LatestSubmission: answerBigInt,
@@ -673,7 +673,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
 			fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
-			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          1,
 				EligibleToSubmit: false,
 				StartedAt:        now(),
@@ -682,7 +682,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 
 			// 2nd roundstate call means round timer triggered
 			chRoundState := make(chan struct{})
-			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
+			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          1,
 				EligibleToSubmit: false,
 			}, nil).
@@ -760,7 +760,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 			// first roundstate in setInitialTickers()
-			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          1,
 				EligibleToSubmit: false,
 				StartedAt:        test.startedAt,
@@ -768,7 +768,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 			}, nil).Once()
 
 			// 2nd roundstate in performInitialPoll()
-			roundState := contracts.FluxAggregatorRoundState{RoundId: 1, EligibleToSubmit: false}
+			roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false}
 			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState, nil).Once()
 
 			// 3rd roundState call means idleTimer triggered
@@ -835,7 +835,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	fluxAggregator.On("Address").Return(initr.Address)
 	fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
-	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).Return(flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          1,
 		EligibleToSubmit: false,
 		LatestSubmission: answerBigInt,
@@ -845,7 +845,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 
 	startedAt := uint64(time.Now().Unix())
 	timeout := uint64(3)
-	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          1,
 		EligibleToSubmit: false,
 		LatestSubmission: answerBigInt,
@@ -854,7 +854,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	}, nil).Once().
 		Run(func(mock.Arguments) { close(chRoundState1) }).
 		Once()
-	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(contracts.FluxAggregatorRoundState{
+	fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          1,
 		EligibleToSubmit: false,
 		LatestSubmission: answerBigInt,
@@ -1023,7 +1023,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToFetchRoundState {
-				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(test.logRoundID)).Return(contracts.FluxAggregatorRoundState{
+				fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(test.logRoundID)).Return(flux_aggregator_wrapper.OracleRoundState{
 					RoundId:          test.fetchedReportableRoundID,
 					LatestSubmission: big.NewInt(test.latestAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision)))),
 					EligibleToSubmit: test.eligible,
@@ -1304,7 +1304,7 @@ func TestPollingDeviationChecker_SufficientFunds(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
-			state := contracts.FluxAggregatorRoundState{
+			state := flux_aggregator_wrapper.OracleRoundState{
 				AvailableFunds: big.NewInt(int64(test.funds)),
 				PaymentAmount:  big.NewInt(int64(payment)),
 				OracleCount:    uint8(oracleCount),
@@ -1459,7 +1459,7 @@ func TestFluxMonitor_ConsumeLogBroadcast_Happy(t *testing.T) {
 	p := cltest.NewPollingDeviationChecker(t, store)
 	p.ExportedFluxAggregator().(*mocks.FluxAggregator).
 		On("OracleRoundState", nilOpts, mock.Anything, mock.Anything).
-		Return(contracts.FluxAggregatorRoundState{RoundId: 123}, nil)
+		Return(flux_aggregator_wrapper.OracleRoundState{RoundId: 123}, nil)
 	p.ExportedFluxAggregator().(*mocks.FluxAggregator).
 		On("Address").
 		Return(cltest.NewAddress())
@@ -1554,7 +1554,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 
 		// Fire off the NewRound log, which the node should respond to
 		fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(roundID)).
-			Return(contracts.FluxAggregatorRoundState{
+			Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
 				LatestSubmission: big.NewInt(answer),
 				EligibleToSubmit: true,
@@ -1576,7 +1576,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 
 		// Now force the node to try to poll and ensure it does not respond this time
 		fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).
-			Return(contracts.FluxAggregatorRoundState{
+			Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
 				LatestSubmission: big.NewInt(answer),
 				EligibleToSubmit: true,
@@ -1637,7 +1637,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 
 		// First, force the node to try to poll, which should result in a submission
 		fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).
-			Return(contracts.FluxAggregatorRoundState{
+			Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
 				LatestSubmission: big.NewInt(answer),
 				EligibleToSubmit: true,
@@ -1646,7 +1646,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:      1,
 			}, nil).
 			Once()
-		meta := utils.MustUnmarshalToMap(`{"availableFunds":100000, "eligibleToSubmit":true, "latestAnswer":100, "oracleCount":1, "paymentAmount":100, "reportableRoundID":3, "startedAt":0, "timeout":0}`)
+		meta := utils.MustUnmarshalToMap(`{"AvailableFunds":100000, "EligibleToSubmit":true, "LatestSubmission":100, "OracleCount":1, "PaymentAmount":100, "RoundId":3, "StartedAt":0, "Timeout":0}`)
 		fetcher.On("Fetch", meta).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
