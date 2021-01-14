@@ -1099,7 +1099,6 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, 
 				errs, err := prs[i].Errors.MarshalJSON()
 				assert.NoError(t, err)
 				if string(errs) != "[null]" {
-					fmt.Println("json errors", string(errs))
 					return nil
 				}
 				pr = prs[i]

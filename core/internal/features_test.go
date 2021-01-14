@@ -1400,7 +1400,6 @@ isBootstrapPeer    = true
 
 		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
 		defer cleanupHTTP()
-		t.Log("node", i, "expecting call on", mockHTTP.URL)
 		ocrJob, err := services.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1

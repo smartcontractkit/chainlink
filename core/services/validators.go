@@ -460,10 +460,7 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 }
 
 func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOracleSpec) error {
-	if config.Dev() {
-		return nil
-	}
-	return ocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
+	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
 		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
@@ -471,7 +468,11 @@ func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOrac
 		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
-	})
+	}
+	if config.Dev() {
+		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
+	}
+	return ocr.SanityCheckLocalConfig(lc)
 }
 
 func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
