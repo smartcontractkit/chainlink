@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"sync"
@@ -154,7 +155,7 @@ func (ec *explorerClient) Send(data []byte, messageTypes ...int) {
 	case ExplorerBinaryMessage:
 		send = ec.sendBinary
 	default:
-		panic(fmt.Sprintf("send on explorer client received unsupported message type %d", messageType))
+		log.Panicf("send on explorer client received unsupported message type %d", messageType)
 	}
 	select {
 	case send <- data:
