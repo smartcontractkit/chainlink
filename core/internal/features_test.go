@@ -581,7 +581,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	var message string
 	cltest.CallbackOrTimeout(t, "stats pusher sends", func() {
-		message = <-wsserver.Received
+		message = <-wsserver.ReceivedText
 	}, 5*time.Second)
 
 	var run models.JobRun
