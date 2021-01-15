@@ -1,6 +1,8 @@
 package web
 
 import (
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -8,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -85,7 +86,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	config := jc.App.GetStore().Config
 	switch genericJS.Type {
 	case job.OffchainReporting:
-		js, err = services.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		js, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
 		if err != nil {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
@@ -95,7 +96,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 			return
 		}
 	case job.DirectRequest:
-		js, err = services.ValidatedDirectRequestSpec(request.TOML)
+		js, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 		if err != nil {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return

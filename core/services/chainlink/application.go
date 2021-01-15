@@ -4,6 +4,7 @@ import (
 	"context"
 	stderr "errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"os"
 	"os/signal"
 	"reflect"
@@ -152,11 +153,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	var (
 		subservices []StartCloser
 		delegates   = map[job.Type]job.Delegate{
-			job.DirectRequest: services.NewDirectRequestDelegate(
+			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
 				store.DB),
-			job.FluxMonitor: fluxmonitorv2.NewFluxMonitorDelegate(
+			job.FluxMonitor: fluxmonitorv2.NewDelegate(
 				pipelineRunner,
 				store.DB),
 		}
@@ -165,7 +166,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewJobSpawnerDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
