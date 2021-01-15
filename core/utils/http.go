@@ -109,6 +109,7 @@ func makeHTTPCall(
 		logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, err
 	}
+	defer client.CloseIdleConnections()
 	defer logger.ErrorIfCalling(r.Body.Close)
 
 	statusCode = r.StatusCode
