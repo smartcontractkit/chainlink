@@ -186,8 +186,6 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 	defer cancel()
 
 	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(ctx context.Context, txdb *gorm.DB, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
-		// Note if the context is cancelled while this is running, the tx will error when used.
-		// To avoid confusion we shouldn't log db errors here and instead just wrap the error we return with info.
 		loggerFields := []interface{}{
 			"jobID", jobID,
 			"taskName", taskRun.PipelineTaskSpec.DotID,
