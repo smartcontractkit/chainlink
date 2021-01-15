@@ -13,8 +13,14 @@ import (
 	"regexp"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"golang.org/x/tools/go/ast/astutil"
 )
+
+const headerComment = `// Code generated - DO NOT EDIT.
+// This file is a generated binding and any manual changes will be lost.
+
+`
 
 // AbigenArgs is the arguments to the abigen executable. E.g., Bin is the -bin
 // arg.
@@ -79,6 +85,7 @@ func ImproveAbigenOutput(path string) {
 	fset, fileNode = parseFile(bs)
 	fileNode = writeInterface(contractName, fileNode)
 	bs = generateCode(fset, fileNode)
+	bs = addHeader(bs)
 
 	err = ioutil.WriteFile(path, bs, 0600)
 	if err != nil {
@@ -290,4 +297,8 @@ func writeInterface(contractName string, fileNode *ast.File) *ast.File {
 	})
 
 	return fileNode
+}
+
+func addHeader(code []byte) []byte {
+	return utils.ConcatBytes([]byte(headerComment), code)
 }
