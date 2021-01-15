@@ -9,11 +9,11 @@
       "enabled": true
     },
     "versions": {
-      "v0.4": "0.4.24",
-      "v0.5": "0.5.0",
-      "v0.6": "0.6.6",
-      "v0.7": "0.7.0"
+      "v0.4": "0.4.24+commit.e67f0147",
+      "v0.5": "0.5.0+commit.1d4f565a",
+      "v0.6": "0.6.6+commit.6c089d02",
+      "v0.7": "0.7.0+commit.9e61f92b"
     }
   },
-  "publicVersions": ["0.4.24", "0.5.0"]
+  "publicVersions": ["0.4.24+commit.e67f0147.", "0.5.0+commit.1d4f565a"]
 }

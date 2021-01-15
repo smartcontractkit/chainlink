@@ -21,7 +21,7 @@ WORKDIR ${SRCROOT}
 
 # copy over all our dependencies
 COPY yarn.lock package.json .yarnrc tsconfig.cjs.json tsconfig.es6.json ./
-COPY patches patches
+
 COPY solc_bin solc_bin
 COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
@@ -34,7 +34,7 @@ COPY operator_ui/@types operator_ui/@types/
 COPY tools/ci-ts tools/ci-ts
 
 # install deps
-RUN yarn install
+RUN yarn install --ignore-engines
 RUN tools/bin/restore-solc-cache
 
 # setup contracts

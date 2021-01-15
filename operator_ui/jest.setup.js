@@ -1,9 +1,9 @@
+import Adapter from '@wojtekmaj/enzyme-adapter-react-17'
 import { configure } from 'enzyme'
-import Adapter from 'enzyme-adapter-react-16'
-import 'mock-local-storage'
-import promiseFinally from 'promise.prototype.finally'
 import JavascriptTimeAgo from 'javascript-time-ago'
 import en from 'javascript-time-ago/locale/en'
+import 'mock-local-storage'
+import promiseFinally from 'promise.prototype.finally'
 
 promiseFinally.shim(Promise)
 JavascriptTimeAgo.locale(en)

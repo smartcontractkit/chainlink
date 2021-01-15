@@ -15,7 +15,7 @@
     "belt"
   ],
   "engines": {
-    "node": "^12.0.0"
+    "node": "^14.0.0"
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
@@ -40,23 +40,10 @@
     "patch-package": "^6.2.1",
     "postinstall-postinstall": "^2.1.0",
     "prettier": "^2.1.2",
-    "typescript": "^3.7.4",
+    "typescript": "^4.1.3",
     "wsrun": "^5.2.0"
   },
-  "resolutions": {
-    "**/decompress": "^4.2.1 ",
-    "**/dot-prop": "^5.1.1",
-    "**/elliptic": "^6.5.3",
-    "**/http-proxy": "^1.18.1",
-    "**/keccak": "^3.0.0",
-    "**/lodash": "^4.17.9",
-    "**/prismjs": "^1.21.0",
-    "**/serialize-javascript": "^3.1.0",
-    "**/sha3": "^2.0.7",
-    "**/solc": "^0.6.4",
-    "**/source-map-support": "0.5.16",
-    "**/yargs-parser": "^15.0.1"
-  },
+  "resolutions": {},
   "dependencies": {
     "tslib": "^1.11.1"
   }

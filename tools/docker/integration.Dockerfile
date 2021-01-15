@@ -30,7 +30,7 @@ ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
 COPY yarn.lock package.json .yarnrc ./
-COPY patches patches
+
 COPY solc_bin solc_bin
 COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
@@ -42,7 +42,7 @@ COPY integration/package.json integration/
 COPY integration-scripts/package.json integration-scripts/
 
 # install deps for our integration scripts
-RUN yarn
+RUN yarn --ignore-engines
 RUN tools/bin/restore-solc-cache
 # copy our CI test
 COPY tools/ci/ethereum_test tools/ci/

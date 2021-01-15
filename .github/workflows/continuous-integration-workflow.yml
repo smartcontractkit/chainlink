@@ -38,6 +38,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Set up Postgres user
         uses: docker://postgres
         with:
@@ -94,6 +97,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Login to DockerHub
         uses: docker/login-action@v1
         with:
@@ -128,6 +134,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -142,7 +151,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --frozen-lockfile --ignore-engines
       - run: ./tools/bin/restore-solc-cache
       - name: Run tests
         run: ./tools/ci/solidity_test
@@ -158,6 +167,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -172,7 +184,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --frozen-lockfile --ignore-engines
       - run: ./tools/bin/restore-solc-cache
       - name: Run Operator UI tests
         run: ./tools/ci/operator_ui_test
@@ -188,6 +200,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -202,7 +217,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --frozen-lockfile --ignore-engines
       - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn lint
@@ -218,6 +233,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -232,7 +250,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --frozen-lockfile --ignore-engines
       - run: ./tools/bin/restore-solc-cache
       - name: Run Yarn lint
         run: yarn prettier:check
@@ -248,6 +266,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Yarn cache
         uses: actions/cache@v2
         env:
@@ -262,7 +283,7 @@ jobs:
             ${{ runner.os }}-build-${{ env.cache-name }}-
             ${{ runner.os }}-build-
             ${{ runner.os }}-
-      - run: yarn install --frozen-lockfile
+      - run: yarn install --frozen-lockfile --ignore-engines
       - run: ./tools/bin/restore-solc-cache
       - name: Run prepublish NPM test
         run: ./tools/ci/prepublish_npm_test
@@ -276,6 +297,9 @@ jobs:
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: '14'
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:

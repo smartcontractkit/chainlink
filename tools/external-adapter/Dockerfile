@@ -7,7 +7,7 @@ COPY .yarn .yarn
 COPY tools/external-adapter/package.json tools/external-adapter/
 
 # install deps for our integration scripts
-RUN yarn
+RUN yarn --ignore-engines
 
 # copy over all our dependencies
 COPY tools/external-adapter tools/external-adapter
