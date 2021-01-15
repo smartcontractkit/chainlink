@@ -1,6 +1,9 @@
 package offchainreporting
 
 import (
+	"net/url"
+	"time"
+
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -10,8 +13,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/smartcontractkit/libocr/offchainreporting/types"
 	"go.uber.org/multierr"
-	"net/url"
-	"time"
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML

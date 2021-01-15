@@ -2,6 +2,7 @@ package directrequest
 
 import (
 	"crypto/sha256"
+
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"

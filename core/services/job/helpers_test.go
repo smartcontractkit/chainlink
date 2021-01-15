@@ -2,9 +2,10 @@ package job_test
 
 import (
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"gopkg.in/guregu/null.v4"
 

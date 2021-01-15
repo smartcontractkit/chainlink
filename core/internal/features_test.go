@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"io"
 	"io/ioutil"
 	"math/big"
@@ -17,6 +16,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/pborman/uuid"
 

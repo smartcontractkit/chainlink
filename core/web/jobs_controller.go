@@ -1,9 +1,10 @@
 package web
 
 import (
+	"net/http"
+
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 

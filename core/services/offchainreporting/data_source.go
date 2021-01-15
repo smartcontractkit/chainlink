@@ -2,12 +2,13 @@ package offchainreporting
 
 import (
 	"context"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"time"
 )
 
 // dataSource is an abstraction over the process of initiating a pipeline run

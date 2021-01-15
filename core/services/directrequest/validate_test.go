@@ -2,9 +2,10 @@ package directrequest
 
 import (
 	"crypto/sha256"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidatedDirectRequestSpec(t *testing.T) {

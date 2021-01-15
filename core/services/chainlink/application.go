@@ -4,12 +4,13 @@ import (
 	"context"
 	stderr "errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"os"
 	"os/signal"
 	"reflect"
 	"sync"
 	"syscall"
+
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 
