@@ -284,7 +284,7 @@ func Test_ExternalInitiatorManager_DeleteJob(t *testing.T) {
 			err = manager.DeleteJob(store.DB, test.JobSpec.ID)
 			require.NoError(t, err)
 
-			assert.Equal(t, fmt.Sprintf("/jobs/%s", test.JobSpec.ID), deleteURL.String())
+			assert.Equal(t, fmt.Sprintf("/%s", test.JobSpec.ID), deleteURL.String())
 			assert.Equal(t, ei.OutgoingToken, outgoingToken)
 			assert.Equal(t, ei.OutgoingSecret, outgoingSecret)
 			assert.Equal(t, "DELETE", method)

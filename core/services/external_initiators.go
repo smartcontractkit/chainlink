@@ -123,7 +123,7 @@ func (externalInitiatorManager) DeleteJob(db *gorm.DB, jobID *models.ID) error {
 }
 
 func newDeleteJobFromExternalInitiatorHTTPRequest(ei models.ExternalInitiator, id *models.ID) (*http.Request, error) {
-	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/jobs/%s", ei.URL.String(), id), bytes.NewBuffer(nil))
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/%s", ei.URL.String(), id), bytes.NewBuffer(nil))
 	if err != nil {
 		return nil, err
 	}
