@@ -708,6 +708,6 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		r, err = runnerTest.ResultsForRun(context.Background(), runID)
 		require.NoError(t, err)
-		assert.EqualError(t, r[0].Error, "error making http request: context canceled")
+		assert.EqualError(t, r[0].Error, "http request timed out or interrupted")
 	})
 }
