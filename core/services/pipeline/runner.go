@@ -132,7 +132,6 @@ func (r *runner) runLoop() {
 func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	runID, err := r.orm.CreateRun(ctx, jobID, meta)
 	if err != nil {
-		logger.Errorw("Error creating new pipeline run", "jobID", jobID, "error", err)
 		return 0, err
 	}
 	logger.Infow("Pipeline run created", "jobID", jobID, "runID", runID)
@@ -218,8 +217,7 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 		var spec Spec
 		err = txdb.Find(&spec, "id = ?", taskRun.PipelineRun.PipelineSpecID).Error
 		if err != nil {
-			logger.Errorw("unexpected error could not find pipeline spec by ID", append(loggerFields, "error", err)...)
-			return Result{Error: err}
+			return Result{Error: errors.Wrap(err, "unexpected error could not find pipeline spec by ID")}
 		}
 
 		// Order of precedence for task timeout:

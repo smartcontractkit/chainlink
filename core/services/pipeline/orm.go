@@ -169,9 +169,7 @@ type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, pt
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (anyRemaining bool, err error) {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-
+	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	utils.RetryWithBackoff(ctx, func() (retry bool) {
 		err = o.processNextUnclaimedTaskRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
@@ -195,10 +193,11 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 }
 
 func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) error {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
+	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
 		var ptRun TaskRun
 		var predecessors []TaskRun
 
