@@ -281,7 +281,7 @@ ds1          [type=bridge name=voter_turnout timeout="30s"];
 		},
 		{
 			name: "toml parse doesn't panic",
-			toml: string(hexutil.MustDecode("2222220d5c22223b22225c0d21222222")),
+			toml: string(hexutil.MustDecode("0x2222220d5c22223b22225c0d21222222")),
 			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
