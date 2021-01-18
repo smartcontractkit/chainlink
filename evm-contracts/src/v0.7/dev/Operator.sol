@@ -39,7 +39,8 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_authorizedSenders;
-  uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
+  // Tokens sent for requests that have not been fulfilled yet
+  uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
 
   event OracleRequest(
     bytes32 indexed specId,
@@ -251,7 +252,6 @@ contract Operator is
     onlyOwner()
     hasAvailableFunds(amount)
   {
-    s_withdrawableTokens = s_withdrawableTokens.sub(amount);
     assert(linkToken.transfer(recipient, amount));
   }
 
@@ -266,7 +266,7 @@ contract Operator is
     override(OracleInterface, WithdrawalInterface)
     returns (uint256)
   {
-    return s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return fundsAvailable();
   }
 
   /**
@@ -346,6 +346,7 @@ contract Operator is
     expiration = block.timestamp.add(EXPIRY_TIME);
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, safeCastToUint8(dataVersion));
+    s_tokensInEscrow = s_tokensInEscrow.add(payment);
     return (requestId, expiration);
   }
 
@@ -370,7 +371,7 @@ contract Operator is
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     require(s_commitments[requestId].dataVersion <= safeCastToUint8(dataVersion), "Data versions must match");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    s_tokensInEscrow = s_tokensInEscrow.sub(payment);
     delete s_commitments[requestId];
   }
 
@@ -403,6 +404,15 @@ contract Operator is
   }
 
   /**
+   * @notice Returns the LINK available in this contract, not locked in escrow
+   * @return uint256 LINK tokens available
+   */
+  function fundsAvailable() private view returns (uint256) {
+    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return linkToken.balanceOf(address(this)).sub(inEscrow);
+  }
+
+  /**
    * @notice Safely cast uint256 to uint8
    * @param number uint256
    * @return uint8 number
@@ -428,13 +438,12 @@ contract Operator is
     _;
   }
 
-
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
    * @param amount The given amount to compare to `s_withdrawableTokens`
    */
   modifier hasAvailableFunds(uint256 amount) {
-    require(s_withdrawableTokens >= amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
+    require(fundsAvailable() >= amount, "Amount requested is greater than withdrawable balance");
     _;
   }
 

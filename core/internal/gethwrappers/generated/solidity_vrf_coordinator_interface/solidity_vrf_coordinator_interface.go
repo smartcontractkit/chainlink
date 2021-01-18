@@ -297,9 +297,6 @@ func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0
 		RandomnessFee    *big.Int
 		SeedAndBlockNum  [32]byte
 	})
-	if err != nil {
-		return *outstruct, err
-	}
 
 	outstruct.CallbackContract = out[0].(common.Address)
 	outstruct.RandomnessFee = out[1].(*big.Int)
@@ -378,9 +375,6 @@ func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOp
 		Fee       *big.Int
 		JobID     [32]byte
 	})
-	if err != nil {
-		return *outstruct, err
-	}
 
 	outstruct.VRFOracle = out[0].(common.Address)
 	outstruct.Fee = out[1].(*big.Int)
