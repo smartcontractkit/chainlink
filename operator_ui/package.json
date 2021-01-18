@@ -71,7 +71,6 @@
     "@babel/preset-env": "^7.8.2",
     "@babel/preset-react": "^7.12.5",
     "@babel/preset-typescript": "^7.9.0",
-    "@chainlink/ts-helpers": "0.0.3",
     "@types/classnames": "^2.2.8",
     "@types/cookie": "^0.4.0",
     "@types/d3": "^6.2.0",

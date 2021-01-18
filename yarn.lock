@@ -2279,15 +2279,6 @@
     local-storage-fallback "^4.1.1"
     typescript "^3.7.4"
 
-"@chainlink/redux@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@chainlink/redux/-/redux-0.0.2.tgz#173ceb2095b84a57a003ee8f5fe27e1c650fa245"
-  integrity sha512-50TFyADuc9CfXhCo1S5BR35hjOvw2ygg6YL/gj87rb6bmeicZkfc35otbV9brtToZENU/rsyP47Zptx5RcQi+Q==
-  dependencies:
-    redux "^4.0.5"
-    redux-devtools-extension "^2.13.8"
-    redux-logger "^3.0.6"
-
 "@chainlink/styleguide@0.0.4":
   version "0.0.4"
   resolved "https://registry.npmjs.org/@chainlink/styleguide/-/styleguide-0.0.4.tgz#1bb0eb6fd0d0e0ad49704903c9485e5e8d7fd0e2"
@@ -2304,13 +2295,6 @@
     react-time-ago "^5.0.7"
     storybook-addon-material-ui "^0.9.0-alpha.16"
     title-case "^3.0.2"
-    typescript "^3.7.4"
-
-"@chainlink/ts-helpers@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.npmjs.org/@chainlink/ts-helpers/-/ts-helpers-0.0.3.tgz#e8356f62d50f9abef8678a07829eaacdf527d995"
-  integrity sha512-MS7Vx2N0snqnqoOOK+qFDnpbWpjsZfmDzDM1Kfmc/FYakFgZUCgnz5zgN1drArv05nHHA20ggH/kZ86JvCOfEA==
-  dependencies:
     typescript "^3.7.4"
 
 "@cnakazawa/watch@^1.0.3":
@@ -8213,11 +8197,6 @@ decompress@^4.0.0, "decompress@^4.2.1 ":
     make-dir "^1.0.0"
     pify "^2.3.0"
     strip-dirs "^2.0.0"
-
-deep-diff@^0.3.5:
-  version "0.3.8"
-  resolved "https://registry.npmjs.org/deep-diff/-/deep-diff-0.3.8.tgz#c01de63efb0eec9798801d40c7e0dae25b582c84"
-  integrity sha1-wB3mPvsO7JeYgB1Ax+Da4ltYLIQ=
 
 deep-eql@^3.0.1:
   version "3.0.1"
@@ -16667,13 +16646,6 @@ redux-devtools-extension@^2.13.8:
   version "2.13.8"
   resolved "https://registry.npmjs.org/redux-devtools-extension/-/redux-devtools-extension-2.13.8.tgz#37b982688626e5e4993ff87220c9bbb7cd2d96e1"
   integrity sha512-8qlpooP2QqPtZHQZRhx3x3OP5skEV1py/zUdMY28WNAocbafxdG2tRD1MWE7sp8obGMNYuLWanhhQ7EQvT1FBg==
-
-redux-logger@^3.0.6:
-  version "3.0.6"
-  resolved "https://registry.npmjs.org/redux-logger/-/redux-logger-3.0.6.tgz#f7555966f3098f3c88604c449cf0baf5778274bf"
-  integrity sha1-91VZZvMJjzyIYExEnPC69XeCdL8=
-  dependencies:
-    deep-diff "^0.3.5"
 
 redux-mock-store@^1.5.3:
   version "1.5.4"
