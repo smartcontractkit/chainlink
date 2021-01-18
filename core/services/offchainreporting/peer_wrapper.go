@@ -12,12 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"go.uber.org/multierr"
 )
 
 type (
 	peer interface {
 		ocrtypes.BootstrapperFactory
 		ocrtypes.BinaryNetworkEndpointFactory
+		Close() error
 	}
 
 	// SingletonPeerWrapper manages all libocr peers for the application
@@ -61,7 +63,7 @@ func (p *SingletonPeerWrapper) Start() (err error) {
 	p2pkeys := p.keyStore.DecryptedP2PKeys()
 	listenPort := p.config.P2PListenPort()
 	if listenPort == 0 {
-		return errors.New("failed to instantiate oracle or bootstrapper service, P2P_LISTEN_PORT is required and must be set to a non-zero value")
+		return errors.New("failed to instantiate oracle or bootstrapper service. If FEATURE_OFFCHAIN_REPORTING is on, then P2P_LISTEN_PORT is required and must be set to a non-zero value")
 	}
 
 	if len(p2pkeys) == 0 {
@@ -138,7 +140,9 @@ func (p *SingletonPeerWrapper) Start() (err error) {
 	}
 	return p.pstoreWrapper.Start()
 }
-func (p SingletonPeerWrapper) Close() error {
+
+// Close closes the peer and peerstore
+func (p SingletonPeerWrapper) Close() (err error) {
 	p.startMu.Lock()
 	defer p.startMu.Unlock()
 	if !p.started {
@@ -146,8 +150,14 @@ func (p SingletonPeerWrapper) Close() error {
 	}
 
 	p.started = false
-	if p.pstoreWrapper != nil {
-		return p.pstoreWrapper.Close()
+
+	if p.Peer != nil {
+		err = p.Peer.Close()
 	}
-	return nil
+
+	if p.pstoreWrapper != nil {
+		err = multierr.Combine(err, p.pstoreWrapper.Close())
+	}
+
+	return err
 }
