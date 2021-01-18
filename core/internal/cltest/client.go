@@ -332,11 +332,11 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 }
 
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.CodeAt(ctx, account, blockNumber)
 }
 
 func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.PendingCodeAt(ctx, account)
 }
 
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {

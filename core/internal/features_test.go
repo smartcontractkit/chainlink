@@ -12,9 +12,23 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/pborman/uuid"
+
+	"github.com/onsi/gomega"
+
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers/testvalidator"
+	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -581,7 +595,7 @@ func TestIntegration_SyncJobRuns(t *testing.T) {
 
 	var message string
 	cltest.CallbackOrTimeout(t, "stats pusher sends", func() {
-		message = <-wsserver.Received
+		message = <-wsserver.ReceivedText
 	}, 5*time.Second)
 
 	var run models.JobRun
@@ -1215,4 +1229,225 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	// Job should complete successfully.
 	_ = cltest.WaitForJobRunStatus(t, app.Store, jr[0], models.RunStatusCompleted)
 	assertPrices(t, []byte("614.64"), []byte("507.07"), []byte("63818.86"), consumerContract)
+}
+
+func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBackend, common.Address, *offchainaggregator.OffchainAggregator) {
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err, "failed to generate ethereum identity")
+	owner := cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
+	sb := new(big.Int)
+	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
+	genesisData := core.GenesisAlloc{
+		owner.From: {Balance: sb},
+	}
+	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	b := backends.NewSimulatedBackend(genesisData, gasLimit)
+	linkTokenAddress, _, linkContract, err := link_token_interface.DeployLinkToken(owner, b)
+	require.NoError(t, err)
+	testValidatorAddress, _, _, err := testvalidator.DeployTestValidator(owner, b)
+	require.NoError(t, err)
+	accessAddress, _, _, err :=
+		testoffchainaggregator.DeploySimpleWriteAccessController(owner, b)
+	require.NoError(t, err, "failed to deploy test access controller contract")
+	b.Commit()
+
+	min, max := new(big.Int), new(big.Int)
+	min.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	max.Exp(big.NewInt(2), big.NewInt(191), nil)
+	max.Sub(max, big.NewInt(1))
+	ocrContractAddress, _, ocrContract, err := offchainaggregator.DeployOffchainAggregator(owner, b,
+		1000,             // _maximumGasPrice uint32,
+		200,              //_reasonableGasPrice uint32,
+		3.6e7,            // 3.6e7 microLINK, or 36 LINK
+		1e8,              // _linkGweiPerObservation uint32,
+		4e8,              // _linkGweiPerTransmission uint32,
+		linkTokenAddress, //_link common.Address,
+		testValidatorAddress,
+		min, // -2**191
+		max, // 2**191 - 1
+		accessAddress,
+		0,
+		"TEST")
+	require.NoError(t, err)
+	_, err = linkContract.Transfer(owner, ocrContractAddress, big.NewInt(1000))
+	require.NoError(t, err)
+	b.Commit()
+	return owner, b, ocrContractAddress, ocrContract
+}
+
+func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
+	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%s", dbName, strings.Replace(uuid.New(), "-", "", -1)), true)
+	config.Dialect = orm.DialectPostgresWithoutLock
+	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
+	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
+	require.NoError(t, err)
+	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
+	require.NoError(t, err)
+	require.Len(t, p2pIDs, 1)
+	peerID := p2pIDs[0].MustGetPeerID().String()
+
+	app.Config.Set("P2P_PEER_ID", peerID)
+	app.Config.Set("P2P_LISTEN_PORT", port)
+	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
+	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
+	app.Config.Set("CHAINLINK_DEV", true) // Disables ocr spec validation so we can have fast polling for the test.
+
+	transmitter := app.Store.KeyStore.Accounts()[0].Address
+
+	// Fund the transmitter address with some ETH
+	n, err := b.NonceAt(context.Background(), owner.From, nil)
+	require.NoError(t, err)
+
+	tx := types.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1), nil)
+	signedTx, err := owner.Signer(owner.From, tx)
+	require.NoError(t, err)
+	err = b.SendTransaction(context.Background(), signedTx)
+	require.NoError(t, err)
+	b.Commit()
+
+	_, kb, err := app.Store.OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	require.NoError(t, err)
+	return app, peerID, transmitter, kb, func() {
+		ormCleanup()
+		appCleanup()
+	}
+}
+
+func TestIntegration_OCR(t *testing.T) {
+	owner, b, ocrContractAddress, ocrContract := setupOCRContracts(t)
+
+	// Note it's plausible these ports could be occupied on a CI machine.
+	// May need a port randomize + retry approach if we observe collisions.
+	appBootstrap, bootstrapPeerID, _, _, cleanup := setupNode(t, owner, 19999, "bootstrap", b)
+	defer cleanup()
+
+	var (
+		oracles      []confighelper.OracleIdentity
+		transmitters []common.Address
+		kbs          []ocrkey.EncryptedKeyBundle
+		apps         []*cltest.TestApplication
+	)
+	for i := 0; i < 4; i++ {
+		app, peerID, transmitter, kb, cleanup := setupNode(t, owner, 20000+i, fmt.Sprintf("oracle%d", i), b)
+		defer cleanup()
+		// We want to quickly poll for the bootstrap node to come up, but if we poll too quickly
+		// we'll flood it with messages and slow things down. 5s is about how long it takes the
+		// bootstrap node to come up.
+		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
+
+		kbs = append(kbs, kb)
+		apps = append(apps, app)
+		transmitters = append(transmitters, transmitter)
+
+		oracles = append(oracles, confighelper.OracleIdentity{
+			OnChainSigningAddress:           ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
+			TransmitAddress:                 transmitter,
+			OffchainPublicKey:               ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
+			PeerID:                          peerID,
+			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(kb.ConfigPublicKey),
+		})
+	}
+
+	tick := time.NewTicker(1 * time.Second)
+	defer tick.Stop()
+	go func() {
+		for range tick.C {
+			b.Commit()
+		}
+	}()
+
+	_, err := ocrContract.SetPayees(owner,
+		transmitters,
+		transmitters,
+	)
+	require.NoError(t, err)
+	signers, transmitters, threshold, encodedConfigVersion, encodedConfig, err := confighelper.ContractSetConfigArgsForIntegrationTest(
+		oracles,
+		1,
+		1000000000/100, // threshold PPB
+	)
+	require.NoError(t, err)
+	_, err = ocrContract.SetConfig(owner,
+		signers,
+		transmitters,
+		threshold,
+		encodedConfigVersion,
+		encodedConfig,
+	)
+	require.NoError(t, err)
+	b.Commit()
+
+	err = appBootstrap.StartAndConnect()
+	require.NoError(t, err)
+	defer appBootstrap.Stop()
+
+	ocrJob, err := services.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
+type               = "offchainreporting"
+schemaVersion      = 1
+name               = "boot"
+contractAddress    = "%s"
+isBootstrapPeer    = true 
+`, ocrContractAddress))
+	require.NoError(t, err)
+	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
+	require.NoError(t, err)
+
+	var jids []int32
+	for i := 0; i < 4; i++ {
+		err = apps[i].StartAndConnect()
+		require.NoError(t, err)
+		defer apps[i].Stop()
+
+		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
+		defer cleanupHTTP()
+		ocrJob, err := services.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
+type               = "offchainreporting"
+schemaVersion      = 1
+name               = "web oracle spec"
+contractAddress    = "%s"
+isBootstrapPeer    = false
+p2pBootstrapPeers  = [
+    "/ip4/127.0.0.1/tcp/19999/p2p/%s"
+]
+keyBundleID        = "%s"
+transmitterAddress = "%s"
+observationTimeout = "20s"
+contractConfigConfirmations = 1 
+contractConfigTrackerPollInterval = "1s"
+observationSource = """
+    // data source 1
+    ds1          [type=http method=GET url="%s"];
+    ds1_parse    [type=jsonparse path="data"];
+    ds1_multiply [type=multiply times=%d];
+	ds1->ds1_parse->ds1_multiply;
+"""
+`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], mockHTTP.URL, i))
+		require.NoError(t, err)
+		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
+		require.NoError(t, err)
+		jids = append(jids, jid)
+	}
+
+	// Assert that all the OCR jobs get a run with valid values eventually.
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		ic := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			jb, err := pr.Outputs.MarshalJSON()
+			require.NoError(t, err)
+			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
+			require.NoError(t, err)
+		}()
+	}
+	wg.Wait()
+
+	// 4 oracles reporting 0, 10, 20, 30. Answer should be 20 (results[4/2]).
+	gomega.NewGomegaWithT(t).Eventually(func() string {
+		answer, err := ocrContract.LatestAnswer(nil)
+		require.NoError(t, err)
+		return answer.String()
+	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
 }

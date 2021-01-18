@@ -1,4 +1,4 @@
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import { OcrJobRun } from 'core/store/models'
 
 export function jobRunV2(
