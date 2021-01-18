@@ -1087,6 +1087,29 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) pipeline.Run {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var pr pipeline.Run
+	g.Eventually(func() *pipeline.Run {
+		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
+		assert.NoError(t, err)
+		for i := range prs {
+			if prs[i].Outputs != nil {
+				errs, err := prs[i].Errors.MarshalJSON()
+				assert.NoError(t, err)
+				if string(errs) != "[null]" {
+					return nil
+				}
+				pr = prs[i]
+				return &prs[i]
+			}
+		}
+		return nil
+	}, timeout, poll).ShouldNot(gomega.BeNil(), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+	return pr
+}
+
 // AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
 func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
