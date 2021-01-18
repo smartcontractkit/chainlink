@@ -8,7 +8,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -25,7 +25,7 @@ var (
 
 var (
 	_ ocrtypes.ContractConfigSubscription = &OCRContractConfigSubscription{}
-	_ eth.LogListener                     = &OCRContractConfigSubscription{}
+	_ log.Listener                        = &OCRContractConfigSubscription{}
 )
 
 const OCRContractConfigSubscriptionHandleLogTimeout = 5 * time.Second
@@ -75,7 +75,7 @@ func (sub *OCRContractConfigSubscription) OnConnect() {}
 func (sub *OCRContractConfigSubscription) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
-func (sub *OCRContractConfigSubscription) HandleLog(lb eth.LogBroadcast, err error) {
+func (sub *OCRContractConfigSubscription) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
 		sub.logger.Errorw("OCRContract: error in previous LogListener", "err", err)
 		return

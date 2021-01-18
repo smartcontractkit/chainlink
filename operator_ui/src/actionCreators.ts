@@ -109,7 +109,6 @@ export const receiveSignoutSuccess = () => ({
 })
 
 function sendSignOut(dispatch: Dispatch) {
-  dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
   return api.sessions
     .destroySession()
     .then(() => dispatch(receiveSignoutSuccess()))
@@ -242,7 +241,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut(dispatch)
+    dispatch(receiveSignoutSuccess())
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }

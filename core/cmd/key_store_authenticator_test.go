@@ -15,12 +15,12 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctNoPwdCreatesAccount(t *testing.
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccounts").Return(false)
-	kst.On("NewAccount", cltest.Password).Return(accounts.Account{}, nil)
 	kst.On("Unlock", cltest.Password).Return(nil)
+	kst.On("NewAccount").Return(accounts.Account{}, nil)
 	store.KeyStore = kst
-	defer cleanup()
 
 	prompt := &cltest.MockCountingPrompter{
 		T: t,
@@ -47,8 +47,8 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 	store, cleanup := cltest.NewStore(t)
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccounts").Return(false)
-	kst.On("NewAccount", "somepassword").Return(accounts.Account{}, nil)
 	kst.On("Unlock", "somepassword").Return(nil)
+	kst.On("NewAccount").Return(accounts.Account{}, nil)
 	kst.On("Accounts").Return([]accounts.Account{})
 	store.KeyStore = kst
 	defer cleanup()
@@ -68,6 +68,8 @@ func TestTerminalKeyStoreAuthenticator_WithAcctNoInitialPwdPromptLoop(t *testing
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
+	cltest.MustAddRandomKeyToKeystore(t, store)
+
 	// prompt loop tries all in array
 	prompt := &cltest.MockCountingPrompter{
 		T:              t,
@@ -85,6 +87,8 @@ func TestTerminalKeyStoreAuthenticator_WithAcctAndPwd(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
+	cltest.MustAddRandomKeyToKeystore(t, store)
 
 	tests := []struct {
 		password  string

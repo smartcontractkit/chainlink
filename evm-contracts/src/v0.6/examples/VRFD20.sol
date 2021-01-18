@@ -146,7 +146,7 @@ contract VRFD20 is VRFConsumerBase, Owned {
      * @param id uint256
      * @return house name string
      */
-    function getHouseName(uint256 id) private view returns (string memory) {
+    function getHouseName(uint256 id) private pure returns (string memory) {
         string[20] memory houseNames = [
             "Targaryen",
             "Lannister",

@@ -1,20 +1,15 @@
 package web
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/ethereum/go-ethereum/accounts"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
@@ -109,26 +104,6 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	}
 }
 
-// AccountBalances returns the account balances of ETH & LINK.
-// Example:
-//  "<application>/user/balances"
-func (c *UserController) AccountBalances(ctx *gin.Context) {
-	store := c.App.GetStore()
-	accounts := store.KeyStore.Accounts()
-	balances := []presenters.ETHKey{}
-	for _, a := range accounts {
-		fmt.Println("SKEET ~>", a.Address.Hex())
-		pa := getETHAccount(ctx, store, a)
-		if ctx.IsAborted() {
-			return
-		}
-		balances = append(balances, pa)
-	}
-	fmt.Println("BORK ~>", balances)
-
-	jsonAPIResponse(ctx, balances, "balances")
-}
-
 func (c *UserController) getCurrentSessionID(ctx *gin.Context) (string, error) {
 	session := sessions.Default(ctx)
 	sessionID, ok := session.Get(SessionIDKey).(string)
@@ -159,43 +134,4 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *models.User,
 		return fmt.Errorf("failed to update current user password: %+v", err)
 	}
 	return nil
-}
-
-func getETHAccount(ctx *gin.Context, store *store.Store, account accounts.Account) presenters.ETHKey {
-	ethBalance, err := store.EthClient.BalanceAt(context.TODO(), account.Address, nil)
-	if err != nil {
-		err = fmt.Errorf("error calling getEthBalance on Ethereum node: %v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-		ctx.Abort()
-		return presenters.ETHKey{}
-	}
-
-	linkAddress := common.HexToAddress(store.Config.LinkContractAddress())
-	linkBalance, err := store.EthClient.GetLINKBalance(linkAddress, account.Address)
-	if err != nil {
-		err = fmt.Errorf("error calling getLINKBalance on Ethereum node: %v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-		ctx.Abort()
-		return presenters.ETHKey{}
-	}
-
-	key, err := store.ORM.KeyByAddress(account.Address)
-	if err != nil {
-		err = fmt.Errorf("error fetching ETH key from DB: %v", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, err)
-		ctx.Abort()
-		return presenters.ETHKey{}
-	}
-
-	return presenters.ETHKey{
-		Address:     account.Address.Hex(),
-		EthBalance:  (*assets.Eth)(ethBalance),
-		LinkBalance: linkBalance,
-		NextNonce:   key.NextNonce,
-		LastUsed:    key.LastUsed,
-		IsFunding:   key.IsFunding,
-		CreatedAt:   key.CreatedAt,
-		UpdatedAt:   key.UpdatedAt,
-		DeletedAt:   key.DeletedAt,
-	}
 }

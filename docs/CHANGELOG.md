@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9] - 2021-01-18
+
+### Added
+
+- New CLI commands for key management:
+  - `chainlink keys eth import`
+  - `chainlink keys eth export`
+  - `chainlink keys eth delete`
+- All keys other than VRF keys now share the same password. If you have OCR, P2P, and ETH keys encrypted with different passwords, re-insert them into your DB encrypted with the same password prior to upgrading.
+
+### Fixed
+
+- Fixed reading of function selector values in DB.
+- Support for bignums encoded in CBOR
+- Silence spurious `Job spawner ORM attempted to claim locally-claimed job` warnings
+- OCR now drops transmissions instead of queueing them if the node is out of Ether
+- Fixed a long-standing issue where standby nodes would hold transactions open forever while waiting for a lock. This was preventing postgres from running necessary cleanup operations, resulting in bad database performance. Any node operators running standby failover chainlink nodes should see major database performance improvements with this release and may be able to reduce the size of their database instances.
+- Fixed an issue where expired session tokens in operator UI would cause a large number of reqeusts to be sent to the node, resulting in a temporary rate-limit and 429 errors.
+- Fixed issue whereby http client could leave too many open file descriptors
+
+### Changed
+
+- Key-related API endpoints have changed. All key-related commands are now namespaced under `/v2/keys/...`, and are standardized across key types.
+- All key deletion commands now perform a soft-delete (i.e. archive) by default. A special CLI flag or query string parameter must be provided to hard-delete a key.
+- Node now supports multiple OCR jobs sharing the same peer ID. If you have more than one key in your database, you must now specify `P2P_PEER_ID` to indicate which key to use.
+- `DATABASE_TIMEOUT` is now set to 0 by default, so that nodes will wait forever for a lock. If you already have `DATABASE_TIMEOUT=0` set explicitly in your env (most node operators) then you don't need to do anything. If you didn't have it set, and you want to keep the old default behaviour where a node exits shortly if it can't get a lock, you can manually set `DATABASE_TIMEOUT=500ms` in your env.
+
 ## [0.9.8] - 2020-12-17
 
 ### Fixed
@@ -23,15 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Old jobs now allow duplicate job names. Also, if the name field is empty we no longer generate a name.
+- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
 
 ### Fixed
 
 - Brings `/runs` tab back to the operator UI.
 - Signs out a user from operator UI on authentication error.
-
-### Changes
-
-- Removes broken `ACCOUNT_ADDRESS` field from `/config` page.
 
 #### BREAKING CHANGES
 

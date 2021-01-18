@@ -6,12 +6,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,7 +19,11 @@ import (
 func TestUserController_UpdatePassword(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -52,80 +55,14 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-func TestUserController_AccountBalances_NoAccounts(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	kst := new(mocks.KeyStoreInterface)
-	kst.On("Accounts").Return([]accounts.Account{})
-	app.Store.KeyStore = kst
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	client := app.NewHTTPClient()
-
-	resp, cleanup := client.Get("/v2/user/balances")
-	defer cleanup()
-
-	balances := []presenters.ETHKey{}
-	err := cltest.ParseJSONAPIResponse(t, resp, &balances)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, balances, 0)
-	kst.AssertExpectations(t)
-}
-
-func TestUserController_AccountBalances_Success(t *testing.T) {
-	t.Parallel()
-
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	app.AddUnlockedKey()
-	client := app.NewHTTPClient()
-
-	ethMock := app.EthMock
-	ethMock.Context("first wallet", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getBalance", "0x100")
-		ethMock.Register("eth_call", "0x100")
-	})
-	ethMock.Context("second wallet", func(ethMock *cltest.EthMock) {
-		ethMock.Register("eth_getBalance", "0x1")
-		ethMock.Register("eth_call", "0x1")
-	})
-
-	app.Store.SyncDiskKeyStoreToDB()
-
-	resp, cleanup := client.Get("/v2/user/balances")
-	defer cleanup()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	expectedAccounts := app.Store.KeyStore.Accounts()
-	actualBalances := []presenters.ETHKey{}
-	err := cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
-	assert.NoError(t, err)
-
-	first := actualBalances[0]
-	assert.Equal(t, expectedAccounts[0].Address.Hex(), first.Address)
-	assert.Equal(t, "0.000000000000000256", first.EthBalance.String())
-	assert.Equal(t, "0.000000000000000256", first.LinkBalance.String())
-
-	second := actualBalances[1]
-	assert.Equal(t, expectedAccounts[1].Address.Hex(), second.Address)
-	assert.Equal(t, "0.000000000000000001", second.EthBalance.String())
-	assert.Equal(t, "0.000000000000000001", second.LinkBalance.String())
-}
-
 func TestUserController_NewAPIToken(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -148,7 +85,11 @@ func TestUserController_NewAPIToken(t *testing.T) {
 func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -165,7 +106,11 @@ func TestUserController_NewAPIToken_unauthorized(t *testing.T) {
 func TestUserController_DeleteAPIKey(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
@@ -183,7 +128,11 @@ func TestUserController_DeleteAPIKey(t *testing.T) {
 func TestUserController_DeleteAPIKey_unauthorized(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 

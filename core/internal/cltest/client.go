@@ -108,6 +108,10 @@ func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethe
 	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
+func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	panic("not implemented")
+}
+
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
@@ -328,11 +332,11 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 }
 
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.CodeAt(ctx, account, blockNumber)
 }
 
 func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.PendingCodeAt(ctx, account)
 }
 
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {

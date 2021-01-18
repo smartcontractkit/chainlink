@@ -115,7 +115,7 @@ func TestHTTPGet_TimeoutAllowsRetries(t *testing.T) {
 
 	store := leanStore()
 	timeout := 30 * time.Millisecond
-	store.Config.Set("DEFAULT_HTTP_TIMEOUT", strconv.Itoa(int(timeout)))
+	store.Config.Set("DEFAULT_HTTP_TIMEOUT", timeout.String())
 	store.Config.Set("MAX_HTTP_ATTEMPTS", "2")
 
 	attempts := make(chan struct{}, 2)

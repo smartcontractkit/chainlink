@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -28,11 +27,10 @@ type (
 	// "direct request" model allows for multiple initiators, which imply multiple
 	// services.
 	Spawner interface {
-		Start()
-		Stop()
-		CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error)
+		Start() error
+		Close() error
+		CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
-		RegisterDelegate(delegate Delegate)
 	}
 
 	spawner struct {
@@ -52,9 +50,7 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
-		ToDBRow(spec Spec) models.JobSpecV2
-		FromDBRow(spec models.JobSpecV2) Spec
-		ServicesForSpec(spec Spec) ([]Service, error)
+		ServicesForSpec(spec SpecDB) ([]Service, error)
 	}
 )
 
@@ -62,11 +58,11 @@ const checkForDeletedJobsPollInterval = 5 * time.Minute
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config) *spawner {
+func NewSpawner(orm ORM, config Config, jobTypeDelegates map[Type]Delegate) *spawner {
 	s := &spawner{
 		orm:              orm,
 		config:           config,
-		jobTypeDelegates: make(map[Type]Delegate),
+		jobTypeDelegates: jobTypeDelegates,
 		services:         make(map[int32][]Service),
 		chStopJob:        make(chan int32),
 		chStop:           make(chan struct{}),
@@ -78,22 +74,23 @@ func NewSpawner(orm ORM, config Config) *spawner {
 	return s
 }
 
-func (js *spawner) Start() {
+func (js *spawner) Start() error {
 	if !js.OkayToStart() {
-		logger.Error("Job spawner has already been started")
-		return
+		return errors.New("Job spawner has already been started")
 	}
 	go js.runLoop()
+	return nil
 }
 
-func (js *spawner) Stop() {
+func (js *spawner) Close() error {
 	if !js.OkayToStop() {
-		logger.Error("Job spawner has already been stopped")
-		return
+		return errors.New("Job spawner has already been closed")
 	}
 
 	close(js.chStop)
 	<-js.chDone
+
+	return nil
 }
 
 func (js *spawner) destroy() {
@@ -103,17 +100,6 @@ func (js *spawner) destroy() {
 	if err != nil {
 		logger.Error(err)
 	}
-}
-
-func (js *spawner) RegisterDelegate(delegate Delegate) {
-	js.jobTypeDelegatesMu.Lock()
-	defer js.jobTypeDelegatesMu.Unlock()
-
-	if _, exists := js.jobTypeDelegates[delegate.JobType()]; exists {
-		panic("registered job type " + string(delegate.JobType()) + " more than once")
-	}
-	logger.Infof("Registered job type '%v'", delegate.JobType())
-	js.jobTypeDelegates[delegate.JobType()] = delegate
 }
 
 func (js *spawner) runLoop() {
@@ -194,21 +180,16 @@ func (js *spawner) startUnclaimedServices() {
 			continue
 		}
 
-		var services []Service
-		for _, delegate := range js.jobTypeDelegates {
-			spec := delegate.FromDBRow(specDBRow)
-			if spec == nil {
-				// This spec isn't owned by this delegate
-				continue
-			}
-
-			moreServices, err := delegate.ServicesForSpec(spec)
-			if err != nil {
-				logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
-				js.orm.RecordError(ctx, specDBRow.ID, err.Error())
-				continue
-			}
-			services = append(services, moreServices...)
+		delegate, exists := js.jobTypeDelegates[specDBRow.Type]
+		if !exists {
+			logger.Errorw("Job type has not been registered with job.Spawner", "type", specDBRow.Type, "jobID", specDBRow.ID)
+			continue
+		}
+		services, err := delegate.ServicesForSpec(specDBRow)
+		if err != nil {
+			logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
+			js.orm.RecordError(ctx, specDBRow.ID, err.Error())
+			continue
 		}
 
 		logger.Infow("Starting services for job", "jobID", specDBRow.ID, "count", len(services))
@@ -231,12 +212,12 @@ func (js *spawner) stopAllServices() {
 }
 
 func (js *spawner) stopService(jobID int32) {
-	for _, service := range js.services[jobID] {
+	for i, service := range js.services[jobID] {
 		err := service.Close()
 		if err != nil {
-			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err)
+			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i)
 		} else {
-			logger.Infow("Stopped job service", "jobID", jobID)
+			logger.Infow("Stopped job service", "jobID", jobID, "subservice", i)
 		}
 	}
 	delete(js.services, jobID)
@@ -273,29 +254,27 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec Spec, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 
-	delegate, exists := js.jobTypeDelegates[spec.JobType()]
-	if !exists {
-		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
-		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.JobType())
+	if _, exists := js.jobTypeDelegates[spec.Type]; !exists {
+		logger.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
+		return 0, errors.Errorf("job type '%s' has not been registered with the job.Spawner", spec.Type)
 	}
 
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
 
-	specDBRow := delegate.ToDBRow(spec)
-	specDBRow.Name = name
-	err := js.orm.CreateJob(ctx, &specDBRow, spec.TaskDAG())
+	spec.Name = name
+	err := js.orm.CreateJob(ctx, &spec, spec.Pipeline)
 	if err != nil {
-		logger.Errorw("Error creating job", "type", spec.JobType(), "error", err)
+		logger.Errorw("Error creating job", "type", spec.Type, "error", err)
 		return 0, err
 	}
 
-	logger.Infow("Created job", "type", spec.JobType(), "jobID", specDBRow.ID)
-	return specDBRow.ID, err
+	logger.Infow("Created job", "type", spec.Type, "jobID", spec.ID)
+	return spec.ID, err
 }
 
 func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -52,21 +53,6 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 	require.NoError(t, explorerClient.Close())
 }
 
-func TestWebSocketClient_Send(t *testing.T) {
-	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
-	defer cleanup()
-
-	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
-	require.NoError(t, explorerClient.Start())
-	defer explorerClient.Close()
-
-	expectation := `{"hello": "world"}`
-	explorerClient.Send([]byte(expectation))
-	cltest.CallbackOrTimeout(t, "receive stats", func() {
-		require.Equal(t, expectation, <-wsserver.Received)
-	})
-}
-
 func TestWebSocketClient_Authentication(t *testing.T) {
 	headerChannel := make(chan http.Header)
 	handler := func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +76,7 @@ func TestWebSocketClient_Authentication(t *testing.T) {
 	})
 }
 
-func TestWebSocketClient_SendWithAck(t *testing.T) {
+func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
@@ -101,7 +87,66 @@ func TestWebSocketClient_SendWithAck(t *testing.T) {
 	expectation := `{"hello": "world"}`
 	explorerClient.Send([]byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
-		require.Equal(t, expectation, <-wsserver.Received)
+		require.Equal(t, expectation, <-wsserver.ReceivedText)
+	})
+}
+
+func TestWebSocketClient_Send_TextMessage(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	require.NoError(t, explorerClient.Start())
+	defer explorerClient.Close()
+
+	expectation := `{"hello": "world"}`
+	explorerClient.Send([]byte(expectation), synchronization.ExplorerTextMessage)
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.ReceivedText)
+	})
+}
+
+func TestWebSocketClient_Send_Binary(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	require.NoError(t, explorerClient.Start())
+	defer explorerClient.Close()
+
+	address := common.HexToAddress("0xabc123")
+	addressBytes := address.Bytes()
+	explorerClient.Send(addressBytes, synchronization.ExplorerBinaryMessage)
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, addressBytes, <-wsserver.ReceivedBinary)
+	})
+}
+
+func TestWebSocketClient_Send_Unsupported(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	require.NoError(t, explorerClient.Start())
+	defer explorerClient.Close()
+
+	assert.PanicsWithValue(t, "send on explorer client received unsupported message type -1", func() {
+		explorerClient.Send([]byte(`{"hello": "world"}`), -1)
+	})
+}
+
+func TestWebSocketClient_Send_WithAck(t *testing.T) {
+	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
+	defer cleanup()
+
+	explorerClient := synchronization.NewExplorerClient(wsserver.URL, "", "")
+	require.NoError(t, explorerClient.Start())
+	defer explorerClient.Close()
+
+	expectation := `{"hello": "world"}`
+	explorerClient.Send([]byte(expectation))
+	cltest.CallbackOrTimeout(t, "receive stats", func() {
+		require.Equal(t, expectation, <-wsserver.ReceivedText)
 		err := wsserver.Broadcast(`{"result": 200}`)
 		assert.NoError(t, err)
 	})
@@ -113,7 +158,7 @@ func TestWebSocketClient_SendWithAck(t *testing.T) {
 	})
 }
 
-func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
+func TestWebSocketClient_Send_WithAckTimeout(t *testing.T) {
 	wsserver, cleanup := cltest.NewEventWebSocketServer(t)
 	defer cleanup()
 
@@ -124,7 +169,7 @@ func TestWebSocketClient_SendWithAckTimeout(t *testing.T) {
 	expectation := `{"hello": "world"}`
 	explorerClient.Send([]byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
-		require.Equal(t, expectation, <-wsserver.Received)
+		require.Equal(t, expectation, <-wsserver.ReceivedText)
 	})
 
 	cltest.CallbackOrTimeout(t, "receive response", func() {

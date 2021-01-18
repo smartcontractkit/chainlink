@@ -8,15 +8,15 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
-import { OracleFactory } from '../../ethers/v0.6/OracleFactory'
-import { PreCoordinatorFactory } from '../../ethers/v0.6/PreCoordinatorFactory'
+import { BasicConsumer__factory } from '../../ethers/v0.6/factories/BasicConsumer__factory'
+import { Oracle__factory } from '../../ethers/v0.6/factories/Oracle__factory'
+import { PreCoordinator__factory } from '../../ethers/v0.6/factories/PreCoordinator__factory'
 
 const provider = setup.provider()
-const oracleFactory = new OracleFactory()
-const preCoordinatorFactory = new PreCoordinatorFactory()
-const requesterConsumerFactory = new BasicConsumerFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const oracleFactory = new Oracle__factory()
+const preCoordinatorFactory = new PreCoordinator__factory()
+const requesterConsumerFactory = new BasicConsumer__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 beforeAll(async () => {
@@ -43,13 +43,13 @@ describe('PreCoordinator', () => {
   const payment = h.toWei('1')
   const totalPayment = h.toWei('4')
 
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let oc1: contract.Instance<OracleFactory>
-  let oc2: contract.Instance<OracleFactory>
-  let oc3: contract.Instance<OracleFactory>
-  let oc4: contract.Instance<OracleFactory>
-  let rc: contract.Instance<BasicConsumerFactory>
-  let pc: contract.Instance<PreCoordinatorFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let oc1: contract.Instance<Oracle__factory>
+  let oc2: contract.Instance<Oracle__factory>
+  let oc3: contract.Instance<Oracle__factory>
+  let oc4: contract.Instance<Oracle__factory>
+  let rc: contract.Instance<BasicConsumer__factory>
+  let pc: contract.Instance<PreCoordinator__factory>
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
@@ -441,7 +441,7 @@ describe('PreCoordinator', () => {
     })
 
     describe('when consumer is different than requester', () => {
-      let cc: contract.Instance<BasicConsumerFactory>
+      let cc: contract.Instance<BasicConsumer__factory>
       let request1: oracle.RunRequest
       let request2: oracle.RunRequest
       let request3: oracle.RunRequest
