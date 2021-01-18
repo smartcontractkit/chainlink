@@ -21,17 +21,18 @@
     "@0x/sol-compiler": "^4.0.8",
     "@oclif/command": "^1",
     "@oclif/config": "^1",
-    "@oclif/plugin-help": "^2",
+    "@oclif/plugin-help": "^3",
     "@oclif/plugin-not-found": "^1.2.3",
+    "@typechain/ethers-v4": "^4.0.0",
     "chalk": "^4.1.0",
     "cli-ux": "^5.5.0",
     "debug": "^4.1.1",
+    "ethers": "^4.0.45",
     "inquirer": "^7.3.3",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.1.1",
     "tslib": "^1",
-    "typechain": "^1.0.5",
-    "typechain-target-ethers": "^1.0.4"
+    "typechain": "^4.0.1"
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1",

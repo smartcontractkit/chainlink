@@ -87,6 +87,10 @@ func (t *HTTPTask) Type() TaskType {
 	return TaskTypeHTTP
 }
 
+func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+	return nil
+}
+
 func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
@@ -122,6 +126,9 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	start := time.Now()
 	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
 	if err != nil {
+		if ctx.Err() != nil {
+			return Result{Error: errors.New("http request timed out or interrupted")}
+		}
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)

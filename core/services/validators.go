@@ -1,6 +1,7 @@
 package services
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -8,25 +9,25 @@ import (
 	"strings"
 	"time"
 
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/multiformats/go-multiaddr"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"go.uber.org/multierr"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/jinzhu/gorm"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 )
 
 // ValidateJob checks the job and its associated Initiators and Tasks for any
@@ -253,14 +254,16 @@ func validateRunLogInitiator(i models.Initiator, j models.JobSpec, s *store.Stor
 				} else if key == "address" {
 					fe.Add("Cannot set EthTx Task's address parameter with a RunLog Initiator")
 				} else if key == "fromaddress" {
-					address, err := hexutil.Decode(v.String())
+					if !common.IsHexAddress(v.String()) {
+						fe.Add("Cannot set EthTx Task's fromAddress parameter: invalid address")
+						return true
+					}
+					address := common.HexToAddress(v.String())
+					exists, err := s.KeyExists(address)
 					if err != nil {
-						fe.Add(fmt.Sprintf("Cannot set EthTx Task's fromAddress parameter: %s", err.Error()))
-					} else {
-						exists, err := s.KeyExists(address)
-						if err != nil || !exists {
-							fe.Add("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database")
-						}
+						fe.Add("Cannot set EthTx Task's fromAddress parameter: " + err.Error())
+					} else if !exists {
+						fe.Add("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database")
 					}
 				}
 				return true
@@ -378,63 +381,57 @@ func ValidateServiceAgreement(sa models.ServiceAgreement, store *store.Store) er
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (spec offchainreporting.OracleSpec, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("panicked with err %v", r)
-		}
-	}()
-
-	var oros models.OffchainReportingOracleSpec
-	spec = offchainreporting.OracleSpec{
+func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.SpecDB, error) {
+	var specDB = job.SpecDB{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
+	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return spec, err
+		return specDB, err
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
-	err = tree.Unmarshal(&oros)
-	if err != nil {
-		return spec, err
-	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return spec, err
+		return specDB, err
 	}
-	spec.OffchainReportingOracleSpec = oros
+	err = tree.Unmarshal(&specDB)
+	if err != nil {
+		return specDB, err
+	}
+	specDB.OffchainreportingOracleSpec = &spec
 
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
-	if spec.Type != "offchainreporting" {
-		return spec, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", spec.Type)
+	if specDB.Type != job.OffchainReporting {
+		return specDB, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", specDB.Type)
 	}
-	if spec.SchemaVersion != uint32(1) {
-		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
+	if specDB.SchemaVersion != uint32(1) {
+		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
 	}
 	if !tree.Has("isBootstrapPeer") {
-		return spec, errors.New("isBootstrapPeer is not defined")
+		return specDB, errors.New("isBootstrapPeer is not defined")
 	}
 	for i := range spec.P2PBootstrapPeers {
 		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return spec, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
+			return specDB, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
 		}
 	}
 	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(tree, spec); err != nil {
-			return spec, err
+		if err := validateBootstrapSpec(tree, specDB); err != nil {
+			return specDB, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, config, spec); err != nil {
-		return spec, err
+	} else if err := validateNonBootstrapSpec(tree, config, specDB); err != nil {
+		return specDB, err
 	}
 	if err := validateTimingParameters(config, spec); err != nil {
-		return spec, err
+		return specDB, err
 	}
 	if err := validateMonitoringURL(spec); err != nil {
-		return spec, err
+		return specDB, err
 	}
-	return spec, nil
+	return specDB, nil
 }
 
 // Parameters that must be explicitly set by the operator.
@@ -462,8 +459,8 @@ func cloneSet(in map[string]struct{}) map[string]struct{} {
 	return out
 }
 
-func validateTimingParameters(config *orm.Config, spec offchainreporting.OracleSpec) error {
-	return ocr.SanityCheckLocalConfig(ocrtypes.LocalConfig{
+func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOracleSpec) error {
+	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      config.OCRBlockchainTimeout(time.Duration(spec.BlockchainTimeout)),
 		ContractConfigConfirmations:            config.OCRContractConfirmations(spec.ContractConfigConfirmations),
 		ContractConfigTrackerPollInterval:      config.OCRContractPollInterval(time.Duration(spec.ContractConfigTrackerPollInterval)),
@@ -471,10 +468,14 @@ func validateTimingParameters(config *orm.Config, spec offchainreporting.OracleS
 		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
-	})
+	}
+	if config.Dev() {
+		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
+	}
+	return ocr.SanityCheckLocalConfig(lc)
 }
 
-func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) error {
+func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
 	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
@@ -485,7 +486,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec offchainreporting.OracleSpec) e
 	return nil
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec offchainreporting.OracleSpec) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.SpecDB) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
@@ -496,7 +497,7 @@ func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec offchain
 	if spec.Pipeline.DOTSource == "" {
 		return errors.New("no pipeline specified")
 	}
-	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout))
+	observationTimeout := config.OCRObservationTimeout(time.Duration(spec.OffchainreportingOracleSpec.ObservationTimeout))
 	if time.Duration(spec.MaxTaskDuration) > observationTimeout {
 		return errors.Errorf("max task duration must be < observation timeout")
 	}
@@ -529,7 +530,7 @@ func validateExplicitlySetKeys(tree *toml.Tree, expected map[string]struct{}, no
 	return err
 }
 
-func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
+func validateMonitoringURL(spec job.OffchainReportingOracleSpec) error {
 	if spec.MonitoringEndpoint == "" {
 		return nil
 	}
@@ -537,36 +538,31 @@ func validateMonitoringURL(spec offchainreporting.OracleSpec) error {
 	return err
 }
 
-func ValidatedEthRequestEventSpec(tomlString string) (spec EthRequestEventSpec, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("panicked with err %v", r)
-		}
-	}()
-
-	var eres models.EthRequestEventSpec
-	spec = EthRequestEventSpec{
+func ValidatedDirectRequestSpec(tomlString string) (job.SpecDB, error) {
+	var specDB = job.SpecDB{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
+	var spec job.DirectRequestSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return spec, err
+		return specDB, err
 	}
-	err = tree.Unmarshal(&eres)
+	err = tree.Unmarshal(&specDB)
 	if err != nil {
-		return spec, err
+		return specDB, err
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return spec, err
+		return specDB, err
 	}
-	spec.EthRequestEventSpec = eres
+	spec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
+	specDB.DirectRequestSpec = &spec
 
-	if spec.Type != "ethrequestevent" {
-		return spec, errors.Errorf("unsupported type %s", spec.Type)
+	if specDB.Type != job.DirectRequest {
+		return specDB, errors.Errorf("unsupported type %s", specDB.Type)
 	}
-	if spec.SchemaVersion != uint32(1) {
-		return spec, errors.Errorf("the only supported schema version is currently 1, got %v", spec.SchemaVersion)
+	if specDB.SchemaVersion != uint32(1) {
+		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
 	}
-	return spec, nil
+	return specDB, nil
 }

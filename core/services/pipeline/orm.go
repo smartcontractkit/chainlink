@@ -21,7 +21,7 @@ import (
 
 type (
 	ORM interface {
-		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG) (int32, error)
+		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
 		ListenForNewRuns() (postgres.Subscription, error)
@@ -68,10 +68,11 @@ func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcast
 }
 
 // The tx argument must be an already started transaction.
-func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG) (int32, error) {
+func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskDuration models.Interval) (int32, error) {
 	var specID int32
 	spec := Spec{
-		DotDagSource: taskDAG.DOTSource,
+		DotDagSource:    taskDAG.DOTSource,
+		MaxTaskDuration: maxTaskDuration,
 	}
 	err := tx.Create(&spec).Error
 	if err != nil {
@@ -168,9 +169,7 @@ type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, pt
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (anyRemaining bool, err error) {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
-	defer cancel()
-
+	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	utils.RetryWithBackoff(ctx, func() (retry bool) {
 		err = o.processNextUnclaimedTaskRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
@@ -194,10 +193,11 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 }
 
 func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) error {
-	ctx, cancel := utils.CombinedContext(ctx, o.config.DatabaseMaximumTxDuration())
+	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
+	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
-	err := postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
 		var ptRun TaskRun
 		var predecessors []TaskRun
 

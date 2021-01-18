@@ -714,6 +714,7 @@ func (_Flags *FlagsFilterer) ParseAddedAccess(log types.Log) (*FlagsAddedAccess,
 	if err := _Flags.contract.UnpackLog(event, "AddedAccess", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -846,6 +847,7 @@ func (_Flags *FlagsFilterer) ParseCheckAccessDisabled(log types.Log) (*FlagsChec
 	if err := _Flags.contract.UnpackLog(event, "CheckAccessDisabled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -978,6 +980,7 @@ func (_Flags *FlagsFilterer) ParseCheckAccessEnabled(log types.Log) (*FlagsCheck
 	if err := _Flags.contract.UnpackLog(event, "CheckAccessEnabled", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1121,6 +1124,7 @@ func (_Flags *FlagsFilterer) ParseFlagLowered(log types.Log) (*FlagsFlagLowered,
 	if err := _Flags.contract.UnpackLog(event, "FlagLowered", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1264,6 +1268,7 @@ func (_Flags *FlagsFilterer) ParseFlagRaised(log types.Log) (*FlagsFlagRaised, e
 	if err := _Flags.contract.UnpackLog(event, "FlagRaised", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1416,6 +1421,7 @@ func (_Flags *FlagsFilterer) ParseOwnershipTransferRequested(log types.Log) (*Fl
 	if err := _Flags.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1568,6 +1574,7 @@ func (_Flags *FlagsFilterer) ParseOwnershipTransferred(log types.Log) (*FlagsOwn
 	if err := _Flags.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1720,6 +1727,7 @@ func (_Flags *FlagsFilterer) ParseRaisingAccessControllerUpdated(log types.Log) 
 	if err := _Flags.contract.UnpackLog(event, "RaisingAccessControllerUpdated", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }
 
@@ -1853,5 +1861,6 @@ func (_Flags *FlagsFilterer) ParseRemovedAccess(log types.Log) (*FlagsRemovedAcc
 	if err := _Flags.contract.UnpackLog(event, "RemovedAccess", log); err != nil {
 		return nil, err
 	}
+	event.Raw = log
 	return event, nil
 }

@@ -1,14 +1,17 @@
 package services_test
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/manyminds/api2go/jsonapi"
+
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -309,13 +312,14 @@ func TestValidateServiceAgreement(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	_, err := store.KeyStore.NewAccount("password") // matches correct_password.txt
-	assert.NoError(t, err)
-	err = store.KeyStore.Unlock("password")
-	assert.NoError(t, err)
 	defer cleanup()
+	err := store.KeyStore.Unlock(cltest.Password)
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	assert.NoError(t, err)
+	_, err = store.KeyStore.NewAccount()
+	assert.NoError(t, err)
 
-	oracles := []string{cltest.DefaultKeyAddress.Hex()}
+	oracles := []string{fromAddress.Hex()}
 
 	basic := string(cltest.MustReadFile(t, "testdata/hello_world_agreement.json"))
 	basic = cltest.MustJSONSet(t, basic, "oracles", oracles)
@@ -491,8 +495,34 @@ func TestValidateOracleSpec(t *testing.T) {
 		name       string
 		toml       string
 		setGlobals func(t *testing.T, c *orm.Config)
-		assertion  func(t *testing.T, os offchainreporting.OracleSpec, err error)
+		assertion  func(t *testing.T, os job.SpecDB, err error)
 	}{
+		{
+			name: "minimal non-bootstrap oracle spec",
+			toml: `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
+isBootstrapPeer    = false
+observationSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+`,
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
+				require.NoError(t, err)
+				// Should be able to jsonapi marshal/unmarshal the minimum spec.
+				// This ensures the UnmarshalJSON's defined on the fields handle a min spec correctly.
+				b, err := jsonapi.Marshal(os.OffchainreportingOracleSpec)
+				require.NoError(t, err)
+				var r job.OffchainReportingOracleSpec
+				err = jsonapi.Unmarshal(b, &r)
+				require.NoError(t, err)
+			},
+		},
 		{
 			name: "decodes valid oracle spec toml",
 			toml: `
@@ -516,10 +546,10 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
-				assert.False(t, os.IsBootstrapPeer)
+				assert.False(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
 			},
 		},
 		{
@@ -532,10 +562,10 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
-				assert.True(t, os.IsBootstrapPeer)
+				assert.True(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
 			},
 		},
 		{
@@ -561,7 +591,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationSource")
 			},
@@ -576,7 +606,7 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = false
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -593,7 +623,7 @@ observationSource = """
 ->
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -610,7 +640,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -628,7 +658,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -646,7 +676,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -661,7 +691,7 @@ p2pBootstrapPeers  = []
 isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.EqualError(t, err, "(8, 23): invalid escape sequence: \\2")
 			},
 		},
@@ -685,7 +715,7 @@ observationSource = """
 ds1          [type=bridge name=voter_turnout];
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "max task duration must be < observation timeout")
 			},
@@ -697,9 +727,9 @@ type               = "offchainreporting"
 schemaVersion      = 1
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID = "blah"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "failed to parse peer ID")
 			},
@@ -723,7 +753,7 @@ observationSource = """
 ds1          [type=bridge name=voter_turnout timeout="30s"];
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "individual max task duration must be < observation timeout")
 			},
@@ -731,7 +761,7 @@ ds1          [type=bridge name=voter_turnout timeout="30s"];
 		{
 			name: "toml parse doesn't panic",
 			toml: string(cltest.MustHexDecodeString("2222220d5c22223b22225c0d21222222")),
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -757,7 +787,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os offchainreporting.OracleSpec, err error) {
+			assertion: func(t *testing.T, os job.SpecDB, err error) {
 				require.Error(t, err)
 			},
 			setGlobals: func(t *testing.T, c *orm.Config) {
@@ -776,4 +806,30 @@ answer1      [type=median index=0];
 			tc.assertion(t, s, err)
 		})
 	}
+}
+
+func TestValidatedDirectRequestSpec(t *testing.T) {
+	toml := `
+type                = "directrequest"
+schemaVersion       = 1
+name                = "example eth request event spec"
+contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+observationSource   = """
+    ds1          [type=http method=GET url="example.com" allowunrestrictednetworkaccess="true"];
+    ds1_parse    [type=jsonparse path="USD"];
+    ds1_multiply [type=multiply times=100];
+    ds1 -> ds1_parse -> ds1_multiply;
+"""
+`
+
+	s, err := services.ValidatedDirectRequestSpec(toml)
+	require.NoError(t, err)
+
+	sha := sha256.Sum256([]byte(toml))
+
+	require.Equal(t, int32(0), s.ID)
+	require.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.DirectRequestSpec.ContractAddress.Hex())
+	require.Equal(t, sha[:], s.DirectRequestSpec.OnChainJobSpecID[:])
+	require.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
+	require.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
 }

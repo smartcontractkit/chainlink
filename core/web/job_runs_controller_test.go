@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -19,7 +21,11 @@ import (
 )
 
 func BenchmarkJobRunsController_Index(b *testing.B) {
-	app, cleanup := cltest.NewApplication(b, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(b)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(b,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	app.Start()
 	run1, _, _ := setupJobRunsControllerIndex(b, app)
@@ -36,9 +42,13 @@ func BenchmarkJobRunsController_Index(b *testing.B) {
 func TestJobRunsController_Index(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	runA, runB, runC := setupJobRunsControllerIndex(t, app)
@@ -124,9 +134,13 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 
 func TestJobRunsController_Create_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.NoError(t, app.Store.CreateJob(&j))
@@ -139,9 +153,13 @@ func TestJobRunsController_Create_Success(t *testing.T) {
 
 func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
 
@@ -180,9 +198,13 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 
 func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eia := auth.NewToken()
@@ -208,9 +230,13 @@ func TestJobRunsController_Create_ExternalInitiator_Success(t *testing.T) {
 
 func TestJobRunsController_Create_Archived(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	j := cltest.NewJobWithWebInitiator()
 	require.NoError(t, app.Store.CreateJob(&j))
@@ -224,9 +250,13 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	j := cltest.NewJobWithWebInitiator()
 	assert.Nil(t, app.Store.CreateJob(&j))
@@ -237,9 +267,13 @@ func TestJobRunsController_Create_EmptyBody(t *testing.T) {
 
 func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJobWithWebInitiator()
@@ -252,9 +286,13 @@ func TestJobRunsController_Create_InvalidBody(t *testing.T) {
 
 func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJob()
@@ -267,9 +305,13 @@ func TestJobRunsController_Create_WithoutWebInitiator(t *testing.T) {
 
 func TestJobRunsController_Create_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post("/v2/specs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C/runs", bytes.NewBuffer([]byte{}))
@@ -279,9 +321,13 @@ func TestJobRunsController_Create_NotFound(t *testing.T) {
 
 func TestJobRunsController_Create_InvalidID(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post("/v2/specs/garbageID/runs", bytes.NewBuffer([]byte{}))
@@ -291,10 +337,13 @@ func TestJobRunsController_Create_InvalidID(t *testing.T) {
 
 func TestJobRunsController_Update_Success(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	tests := []struct {
 		name     string
@@ -339,9 +388,13 @@ func TestJobRunsController_Update_Success(t *testing.T) {
 
 func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	_, bt := cltest.NewBridgeType(t)
@@ -364,9 +417,13 @@ func TestJobRunsController_Update_WrongAccessToken(t *testing.T) {
 
 func TestJobRunsController_Update_NotPending(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	bta, bt := cltest.NewBridgeType(t)
@@ -386,9 +443,13 @@ func TestJobRunsController_Update_NotPending(t *testing.T) {
 
 func TestJobRunsController_Update_WithError(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	bta, bt := cltest.NewBridgeType(t)
@@ -415,9 +476,13 @@ func TestJobRunsController_Update_WithError(t *testing.T) {
 
 func TestJobRunsController_Update_BadInput(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	_, bt := cltest.NewBridgeType(t)
@@ -439,9 +504,13 @@ func TestJobRunsController_Update_BadInput(t *testing.T) {
 
 func TestJobRunsController_Update_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	_, bt := cltest.NewBridgeType(t)
@@ -464,9 +533,13 @@ func TestJobRunsController_Update_NotFound(t *testing.T) {
 func TestJobRunsController_Show_Found(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	j := cltest.NewJobWithSchedule("CRON_TZ=UTC 9 9 9 9 6")
@@ -487,9 +560,13 @@ func TestJobRunsController_Show_Found(t *testing.T) {
 
 func TestJobRunsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/runs/4C95A8FA-EEAC-4BD5-97D9-27806D200D3C")
@@ -499,9 +576,13 @@ func TestJobRunsController_Show_NotFound(t *testing.T) {
 
 func TestJobRunsController_Show_InvalidID(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Get("/v2/runs/garbage")
@@ -511,9 +592,13 @@ func TestJobRunsController_Show_InvalidID(t *testing.T) {
 
 func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	resp, err := http.Get(app.Server.URL + "/v2/runs/notauthorized")
 	assert.NoError(t, err)
@@ -522,9 +607,13 @@ func TestJobRunsController_Show_Unauthenticated(t *testing.T) {
 
 func TestJobRunsController_Cancel(t *testing.T) {
 	t.Parallel()
-	app, cleanup := cltest.NewApplication(t, cltest.LenientEthMock)
-	app.Start()
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
+	app.Start()
 
 	client := app.NewHTTPClient()
 

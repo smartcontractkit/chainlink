@@ -7,43 +7,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/jinzhu/gorm"
-	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	ocrnetworking "github.com/smartcontractkit/libocr/networking"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
-
-const JobType job.Type = "offchainreporting"
-
-func RegisterJobType(
-	db *gorm.DB,
-	jobORM job.ORM,
-	config *orm.Config,
-	keyStore *KeyStore,
-	jobSpawner job.Spawner,
-	pipelineRunner pipeline.Runner,
-	ethClient eth.Client,
-	logBroadcaster eth.LogBroadcaster,
-) {
-	jobSpawner.RegisterDelegate(
-		NewJobSpawnerDelegate(db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster),
-	)
-}
 
 type jobSpawnerDelegate struct {
 	db             *gorm.DB
@@ -52,7 +34,8 @@ type jobSpawnerDelegate struct {
 	keyStore       *KeyStore
 	pipelineRunner pipeline.Runner
 	ethClient      eth.Client
-	logBroadcaster eth.LogBroadcaster
+	logBroadcaster log.Broadcaster
+	peerWrapper    *SingletonPeerWrapper
 }
 
 func NewJobSpawnerDelegate(
@@ -62,43 +45,21 @@ func NewJobSpawnerDelegate(
 	keyStore *KeyStore,
 	pipelineRunner pipeline.Runner,
 	ethClient eth.Client,
-	logBroadcaster eth.LogBroadcaster,
+	logBroadcaster log.Broadcaster,
+	peerWrapper *SingletonPeerWrapper,
 ) *jobSpawnerDelegate {
-	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster}
+	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}
 }
 
 func (d jobSpawnerDelegate) JobType() job.Type {
-	return JobType
+	return job.OffchainReporting
 }
 
-func (d jobSpawnerDelegate) ToDBRow(spec job.Spec) models.JobSpecV2 {
-	concreteSpec, ok := spec.(OracleSpec)
-	if !ok {
-		panic(fmt.Sprintf("expected an offchainreporting.OracleSpec, got %T", spec))
+func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
+	if jobSpec.OffchainreportingOracleSpec == nil {
+		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
-	return models.JobSpecV2{
-		OffchainreportingOracleSpec: &concreteSpec.OffchainReportingOracleSpec,
-		Type:                        string(JobType),
-		SchemaVersion:               concreteSpec.SchemaVersion,
-		MaxTaskDuration:             concreteSpec.MaxTaskDuration,
-	}
-}
-
-func (d jobSpawnerDelegate) FromDBRow(spec models.JobSpecV2) job.Spec {
-	if spec.OffchainreportingOracleSpec == nil {
-		return nil
-	}
-	return &OracleSpec{
-		OffchainReportingOracleSpec: *spec.OffchainreportingOracleSpec,
-		jobID:                       spec.ID,
-	}
-}
-
-func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Service, err error) {
-	concreteSpec, is := spec.(*OracleSpec)
-	if !is {
-		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *offchainreporting.OracleSpec, got %T", spec)
-	}
+	concreteSpec := jobSpec.OffchainreportingOracleSpec
 
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -116,7 +77,7 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		contractCaller,
 		d.ethClient,
 		d.logBroadcaster,
-		concreteSpec.JobID(),
+		jobSpec.ID,
 		*logger.Default,
 	)
 	if err != nil {
@@ -127,63 +88,25 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 	if err != nil {
 		return nil, err
 	}
-	p2pkey, exists := d.keyStore.DecryptedP2PKey(peer.ID(peerID))
-	if !exists {
-		return nil, errors.Errorf("P2P key '%v' does not exist", peerID)
+	peerWrapper := d.peerWrapper
+	if peerWrapper == nil {
+		return nil, errors.New("cannot setup OCR job service, libp2p peer was missing")
+	} else if !peerWrapper.IsStarted() {
+		return nil, errors.New("peerWrapper is not started. OCR jobs require a started and running peer. Did you forget to specify P2P_LISTEN_PORT?")
+	} else if peerWrapper.PeerID != peerID {
+		return nil, errors.Errorf("given peer with ID '%s' does not match OCR configured peer with ID: %s", peerWrapper.PeerID.String(), peerID.String())
 	}
 	bootstrapPeers, err := d.config.P2PBootstrapPeers(concreteSpec.P2PBootstrapPeers)
 	if err != nil {
 		return nil, err
 	}
 
-	pstorewrapper, err := NewPeerstoreWrapper(d.db, d.config.P2PPeerstoreWriteInterval(), concreteSpec.JobID())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not make new pstorewrapper")
-	}
-
-	services = append(services, pstorewrapper)
-
 	loggerWith := logger.CreateLogger(logger.Default.With(
 		"contractAddress", concreteSpec.ContractAddress,
-		"jobID", concreteSpec.jobID))
+		"jobID", jobSpec.ID))
 	ocrLogger := NewLogger(loggerWith, d.config.OCRTraceLogging(), func(msg string) {
-		d.jobORM.RecordError(context.Background(), spec.JobID(), msg)
+		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
-
-	listenPort := d.config.P2PListenPort()
-	if listenPort == 0 {
-		return nil, errors.New("failed to instantiate oracle or bootstrapper service, P2P_LISTEN_PORT is required and must be set to a non-zero value")
-	}
-
-	// If the P2PAnnounceIP is set we must also set the P2PAnnouncePort
-	// Fallback to P2PListenPort if it wasn't made explicit
-	var announcePort uint16
-	if d.config.P2PAnnounceIP() != nil && d.config.P2PAnnouncePort() != 0 {
-		announcePort = d.config.P2PAnnouncePort()
-	} else if d.config.P2PAnnounceIP() != nil {
-		announcePort = listenPort
-	}
-
-	peer, err := ocrnetworking.NewPeer(ocrnetworking.PeerConfig{
-		PrivKey:      p2pkey.PrivKey,
-		ListenIP:     d.config.P2PListenIP(),
-		ListenPort:   listenPort,
-		AnnounceIP:   d.config.P2PAnnounceIP(),
-		AnnouncePort: announcePort,
-		Logger:       ocrLogger,
-		Peerstore:    pstorewrapper.Peerstore,
-		EndpointConfig: ocrnetworking.EndpointConfig{
-			IncomingMessageBufferSize: d.config.OCRIncomingMessageBufferSize(),
-			OutgoingMessageBufferSize: d.config.OCROutgoingMessageBufferSize(),
-			NewStreamTimeout:          d.config.OCRNewStreamTimeout(),
-			DHTLookupInterval:         d.config.OCRDHTLookupInterval(),
-			BootstrapCheckInterval:    d.config.OCRBootstrapCheckInterval(),
-		},
-		DHTAnnouncementCounterUserPrefix: d.config.P2PDHTAnnouncementCounterUserPrefix(),
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error calling NewPeer")
-	}
 
 	var endpointURL *url.URL
 	if me := d.config.OCRMonitoringEndpoint(concreteSpec.MonitoringEndpoint); me != "" {
@@ -213,13 +136,19 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
 	}
+	if d.config.Dev() {
+		// Skips config validation so we can use any config parameters we want.
+		// For example to lower contractConfigTrackerPollInterval to speed up tests.
+		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
+	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
+	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
-			BootstrapperFactory:   peer,
+			BootstrapperFactory:   peerWrapper.Peer,
 			Bootstrappers:         bootstrapPeers,
 			ContractConfigTracker: ocrContract,
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
@@ -257,12 +186,12 @@ func (d jobSpawnerDelegate) ServicesForSpec(spec job.Spec) (services []job.Servi
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: concreteSpec.JobID(), pipelineRunner: d.pipelineRunner},
+			Datasource:                   dataSource{jobID: jobSpec.ID, pipelineRunner: d.pipelineRunner},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
-			BinaryNetworkEndpointFactory: peer,
+			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			MonitoringEndpoint:           monitoringEndpoint,
 			Logger:                       ocrLogger,
 			Bootstrappers:                bootstrapPeers,
@@ -286,19 +215,35 @@ type dataSource struct {
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
+// The context passed in here has a timeout of observationTimeout.
+// Gorm/pgx doesn't return a helpful error upon cancellation, so we manually check for cancellation and return a
+// appropriate error.
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
+	start := time.Now()
 	runID, err := ds.pipelineRunner.CreateRun(ctx, ds.jobID, nil)
+	endCreate := time.Now()
+	if ctx.Err() != nil {
+		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel create run. Runtime %v", endCreate.Sub(start))
+	}
 	if err != nil {
+		logger.Errorw("Error creating new pipeline run", "jobID", ds.jobID, "error", err)
 		return nil, err
 	}
 
 	err = ds.pipelineRunner.AwaitRun(ctx, runID)
+	endAwait := time.Now()
+	if ctx.Err() != nil {
+		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel await run. Runtime %v", endAwait.Sub(start))
+	}
 	if err != nil {
 		return nil, err
 	}
 
 	results, err := ds.pipelineRunner.ResultsForRun(ctx, runID)
-	if err != nil {
+	endResults := time.Now()
+	if ctx.Err() != nil {
+		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel get results for run. Runtime %v", endResults.Sub(start))
+	} else if err != nil {
 		return nil, errors.Wrapf(err, "pipeline error")
 	} else if len(results) != 1 {
 		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
