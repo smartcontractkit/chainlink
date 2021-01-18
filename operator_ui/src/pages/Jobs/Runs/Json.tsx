@@ -1,5 +1,5 @@
 import React from 'react'
-import { PaddedCard } from '@chainlink/styleguide'
+import { PaddedCard } from 'components/PaddedCard'
 import PrettyJson from 'components/PrettyJson'
 
 export const Json = ({ jobRun }: { jobRun: object }) => {
