@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -135,7 +138,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	defer cancel()
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
-		// Create the job run
+		// Step 1: Create the job run
 		run := Run{}
 
 		err = tx.Raw(`
@@ -151,36 +154,80 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 		runID = run.ID
 
-		// Create the task runs
-		err = tx.Exec(`
+		var taskRunIDs []int64
+
+		// Step 2: Create the task runs
+		err = tx.Raw(`
             INSERT INTO pipeline_task_runs (
             	pipeline_run_id, pipeline_task_spec_id, type, index, created_at
             )
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
             FROM pipeline_task_specs
-            WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
-		return errors.Wrap(err, "could not create pipeline task runs")
+            WHERE pipeline_spec_id = ?
+			RETURNING pipeline_task_runs.id
+		`, run.ID, run.PipelineSpecID).Scan(&taskRunIDs).Error
+		if err != nil {
+			return errors.Wrap(err, "could not create pipeline task runs")
+		}
+
+		// Step 3: Create the queue items
+		var taskRuns []TaskRun
+		if err = tx.Find(&taskRuns, "id = ANY(?)", pq.Array(taskRunIDs)).Preload("PipelineTaskSpec").Error; err != nil {
+			return errors.Wrap(err, "could not load task runs")
+		}
+
+		var queueItems = make(map[int64]*QueueItem)
+		for _, trID := range taskRunIDs {
+			queueItems[trID] = &QueueItem{PipelineTaskRunID: trID, PredecessorTaskRunIDs: make([]int64, 0)}
+		}
+
+		for _, tr := range taskRuns {
+			// Append self to successor's PredecessorTaskRunIDs
+			successorID := tr.PipelineTaskSpec.SuccessorID
+			if !successorID.IsZero() {
+				qi := queueItems[successorID.ValueOrZero()]
+				qi.PredecessorTaskRunIDs = append(qi.PredecessorTaskRunIDs, tr.ID)
+			}
+		}
+
+		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
+		// manually construct it ourselves
+		//
+		// I don't think the insert order particularly affects performance
+		valueStrings := []string{}
+		valueArgs := []interface{}{}
+		for _, qi := range queueItems {
+			valueStrings = append(valueStrings, "(?, ?)")
+			valueArgs = append(valueArgs, qi.PipelineTaskRunID)
+			valueArgs = append(valueArgs, pq.Array(qi.PredecessorTaskRunIDs))
+		}
+
+		// TODO: Replace this with a bulk insert when we upgrade to gormv2
+		/* #nosec G201 */
+		stmt := fmt.Sprintf("INSERT INTO queue_items (pipeline_task_run_id, depends_on) VALUES %s", strings.Join(valueStrings, ","))
+		return tx.Exec(stmt, valueArgs...).Error
+
 	})
 	return runID, errors.WithStack(err)
 }
 
 type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
 
+// TODO: Write dox
 // ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
-func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (anyRemaining bool, err error) {
+func (o *orm) ProcessNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) (anyRemaining bool, err error) {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		err = o.processNextUnclaimedTaskRun(ctx, fn)
-		// "Record not found" errors mean that we're done with all unclaimed
-		// task runs.
+		err = o.processNextQueueItem(ctx, fn)
+		// "Record not found" errors mean that we're done with all queue items
 		if postgres.IsRecordNotFound(err) {
 			anyRemaining = false
 			retry = false
 			err = nil
 		} else if err != nil {
 			retry = true
-			err = errors.Wrap(err, "Pipeline runner could not process task run")
+			err = errors.Wrap(err, "Pipeline runner could not process queue item")
 			logger.Error(err)
 
 		} else {
@@ -192,52 +239,50 @@ func (o *orm) ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 	return anyRemaining, errors.WithStack(err)
 }
 
-func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) error {
+func (o *orm) processNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) error {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 
 	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
-		var ptRun TaskRun
+		var ptRunID int64
 		var predecessors []TaskRun
 
-		// NOTE: Manual loads below can probably be replaced with Joins in
-		// gormv2.
-		//
-		// Further optimisations (condensing into fewer queries) are
-		// probably possible if this turns out to be a hot path
-
-		// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
+		// Delete (implicitly locks until transaction commit) the next available QueueItem with completed predecessors
 		err := tx.Raw(`
-            SELECT * from pipeline_task_runs WHERE id IN (
-                SELECT pipeline_task_runs.id FROM pipeline_task_runs
-                    INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-                    LEFT JOIN pipeline_task_specs AS predecessor_specs ON predecessor_specs.successor_id = pipeline_task_specs.id
-                    LEFT JOIN pipeline_task_runs AS predecessor_unfinished_runs ON predecessor_specs.id = predecessor_unfinished_runs.pipeline_task_spec_id
-                          AND pipeline_task_runs.pipeline_run_id = predecessor_unfinished_runs.pipeline_run_id
-                WHERE pipeline_task_runs.finished_at IS NULL
-                GROUP BY (pipeline_task_runs.id)
-                HAVING (
-                    bool_and(predecessor_unfinished_runs.finished_at IS NOT NULL)
-                    OR
-                    count(predecessor_unfinished_runs.id) = 0
-                )
-            )
-            LIMIT 1
-            FOR UPDATE OF pipeline_task_runs SKIP LOCKED;
-        `).Scan(&ptRun).Error
+		DELETE FROM pipeline_queue WHERE pipeline_task_run_id = (
+			SELECT pipeline_task_run_id
+			FROM pipeline_queue
+			WHERE predecessor_task_run_ids = '{}'
+			ORDER BY pipeline_task_run_id ASC
+			FOR UPDATE SKIP LOCKED
+			LIMIT 1
+        )
+		RETURNING pipeline_task_run_id
+		`).Scan(&ptRunID).Error
+		// FIXME: What happens if there are no queue items?
+		// Can ptRunID be nil instead of error?
 		if err != nil {
-			return errors.Wrap(err, "error finding next task run")
+			return errors.Wrap(err, "failed to pull next item from queue")
 		}
 
-		// Load the TaskSpec
-		if err = tx.Where("id = ?", ptRun.PipelineTaskSpecID).First(&ptRun.PipelineTaskSpec).Error; err != nil {
-			return errors.Wrap(err, "error finding next task run's spec")
+		// NOTE: This locks all the downstream tasks, but it doesn't matter
+		// because none can execute until this transaction commits anyway
+		// FIXME: FUCK can this block on other tasks in a way that fucks us?
+		// "stream id" ??
+		err = tx.Exec(`
+		UPDATE pipeline_queue
+		SET predecessor_task_run_ids = array_remove(predecessor_task_run_ids, $1)
+		WHERE predecessor_task_run_ids @> $1
+		`, ptRunID).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to remove self as dependent from downstream queue items")
 		}
 
-		// Load the PipelineRun
-		if err = tx.Where("id = ?", ptRun.PipelineRunID).First(&ptRun.PipelineRun).Error; err != nil {
-			return errors.Wrap(err, "error finding next task run's pipeline.Run")
+		var ptRun TaskRun
+		err = tx.Preload("PipelineTaskSpec").Preload("PipelineRun").First(&ptRun, "id = ?", ptRunID).Error
+		if err != nil {
+			return errors.Wrap(err, "pipeline task run was unexpectedly missing")
 		}
 
 		// Find all the predecessor task runs

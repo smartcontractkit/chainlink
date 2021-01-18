@@ -54,6 +54,12 @@ type (
 		CreatedAt          time.Time         `json:"createdAt"`
 		FinishedAt         *time.Time        `json:"finishedAt"`
 	}
+
+	QueueItem struct {
+		PipelineTaskRunID     int64
+		PipelineTaskRun       TaskRun `gorm:"foreignkey:PipelineTaskRunID;association_autoupdate:false;association_autocreate:false"`
+		PredecessorTaskRunIDs []int64
+	}
 )
 
 func (Spec) TableName() string     { return "pipeline_specs" }
