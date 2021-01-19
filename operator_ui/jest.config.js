@@ -14,7 +14,6 @@ module.exports = {
     '<rootDir>/node_modules/',
     '<rootDir>/__tests__/.eslintrc.js',
   ],
-  transformIgnorePatterns: ['node_modules/(?!(@chainlink/json-api-client)/)'],
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/src/$1',
     '^support/(.*)$': '<rootDir>/support/$1',
