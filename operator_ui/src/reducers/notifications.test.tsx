@@ -1,5 +1,5 @@
 import * as React from 'react'
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import reducer, { INITIAL_STATE } from '../../src/reducers'
 import {
   AuthActionType,

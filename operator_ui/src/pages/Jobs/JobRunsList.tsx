@@ -1,6 +1,6 @@
 import React from 'react'
 import { useHistory } from 'react-router-dom'
-import { TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from 'components/TimeAgo'
 import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles'
 import Table from '@material-ui/core/Table'
 import TableBody from '@material-ui/core/TableBody'
