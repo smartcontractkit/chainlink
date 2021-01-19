@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
@@ -17,12 +18,6 @@ const (
 	APIKey = "X-API-KEY"
 	// APISecret is the header name for the API token secret for user authentication.
 	APISecret = "X-API-SECRET"
-	// ExternalInitiatorAccessKeyHeader is the header name for the access key
-	// used by external initiators to authenticate
-	ExternalInitiatorAccessKeyHeader = "X-Chainlink-EA-AccessKey"
-	// ExternalInitiatorSecretHeader is the header name for the secret used by
-	// external initiators to authenticate
-	ExternalInitiatorSecretHeader = "X-Chainlink-EA-Secret"
 )
 
 type AuthStorer interface {
@@ -43,8 +38,8 @@ func authenticatedUser(c *gin.Context) (*models.User, bool) {
 
 func AuthenticateExternalInitiator(store AuthStorer, c *gin.Context) error {
 	eia := &auth.Token{
-		AccessKey: c.GetHeader(ExternalInitiatorAccessKeyHeader),
-		Secret:    c.GetHeader(ExternalInitiatorSecretHeader),
+		AccessKey: c.GetHeader(static.ExternalInitiatorAccessKeyHeader),
+		Secret:    c.GetHeader(static.ExternalInitiatorSecretHeader),
 	}
 
 	ei, err := store.FindExternalInitiator(eia)
