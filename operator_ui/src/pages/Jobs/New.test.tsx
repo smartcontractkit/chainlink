@@ -6,7 +6,7 @@ import { CREATE_ENDPOINT as JSON_CREATE_ENDPOINT } from 'api/v2/specs'
 import { ENDPOINT as TOML_CREATE_ENDPOINT } from 'api/v2/ocrSpecs'
 import { JobSpecFormats } from './utils'
 import { Route } from 'react-router-dom'
-import * as storage from '@chainlink/local-storage'
+import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT } from './New'
 import { setPersistJobSpec, getPersistJobSpec } from 'utils/storage'
 
