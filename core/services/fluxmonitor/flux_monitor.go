@@ -546,10 +546,11 @@ func (p *PollingDeviationChecker) consume() {
 	fluxAggLogListener, err := newFluxAggregatorDecodingLogListener(p.fluxAggregator.Address(), p.store.EthClient, p)
 	if err != nil {
 		logger.Errorw("unable to create flux agg decoding log listener", "err", err)
-	} else {
-		isConnected = p.logBroadcaster.Register(p.fluxAggregator.Address(), fluxAggLogListener)
-		defer func() { p.logBroadcaster.Unregister(p.fluxAggregator.Address(), fluxAggLogListener) }()
+		return
 	}
+
+	isConnected = p.logBroadcaster.Register(p.fluxAggregator.Address(), fluxAggLogListener)
+	defer func() { p.logBroadcaster.Unregister(p.fluxAggregator.Address(), fluxAggLogListener) }()
 
 	if p.flagsContract != nil {
 		flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
@@ -655,6 +656,7 @@ func (p *PollingDeviationChecker) shouldPerformInitialPoll() bool {
 func (p *PollingDeviationChecker) hibernate() {
 	logger.Infof("entering hibernation mode for contract: %s", p.initr.Address.Hex())
 	p.isHibernating = true
+	p.resetTickers(flux_aggregator_wrapper.OracleRoundState{})
 }
 
 // reactivate restarts the PollingDeviationChecker without hibernation mode
