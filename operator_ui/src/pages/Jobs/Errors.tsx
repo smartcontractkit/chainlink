@@ -11,7 +11,7 @@ import {
 import { v2 } from 'api'
 import Button from 'components/Button'
 import Content from 'components/Content'
-import { TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from 'components/TimeAgo'
 import { JobData } from './sharedTypes'
 
 export const JobsErrors: React.FC<{
