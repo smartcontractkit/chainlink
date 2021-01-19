@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -26,7 +25,7 @@ type (
 	ORM interface {
 		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-		ProcessNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
+		ProcessNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) (bool, error)
 		ListenForNewRuns() (postgres.Subscription, error)
 		AwaitRun(ctx context.Context, runID int64) error
 		RunFinished(runID int64) (bool, error)
@@ -171,24 +170,13 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		}
 
 		// Step 3: Create the queue items
+
 		var taskRuns []TaskRun
 		if err = tx.Find(&taskRuns, "id = ANY(?)", pq.Array(taskRunIDs)).Preload("PipelineTaskSpec").Error; err != nil {
 			return errors.Wrap(err, "could not load task runs")
 		}
 
-		var queueItems = make(map[int64]*QueueItem)
-		for _, trID := range taskRunIDs {
-			queueItems[trID] = &QueueItem{PipelineTaskRunID: trID, PredecessorTaskRunIDs: make([]int64, 0)}
-		}
-
-		for _, tr := range taskRuns {
-			// Append self to successor's PredecessorTaskRunIDs
-			successorID := tr.PipelineTaskSpec.SuccessorID
-			if !successorID.IsZero() {
-				qi := queueItems[successorID.ValueOrZero()]
-				qi.PredecessorTaskRunIDs = append(qi.PredecessorTaskRunIDs, tr.ID)
-			}
-		}
+		queueItems := TaskRunsToQueueItems(taskRuns)
 
 		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
 		// manually construct it ourselves
@@ -197,9 +185,8 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		valueStrings := []string{}
 		valueArgs := []interface{}{}
 		for _, qi := range queueItems {
-			valueStrings = append(valueStrings, "(?, ?)")
-			valueArgs = append(valueArgs, qi.PipelineTaskRunID)
-			valueArgs = append(valueArgs, pq.Array(qi.PredecessorTaskRunIDs))
+			valueStrings = append(valueStrings, "(?)")
+			valueArgs = append(valueArgs, pq.Array(qi.PipelineTaskRunIDs))
 		}
 
 		// TODO: Replace this with a bulk insert when we upgrade to gormv2
@@ -209,6 +196,48 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 	})
 	return runID, errors.WithStack(err)
+}
+
+// TaskRunsToQueueItems gathers the task runs and organises them into
+// independently parallelizable work streams called QueueItems.
+//
+// All the task runs in a single queue item must be executed serially.
+func TaskRunsToQueueItems(taskRuns []TaskRun) []QueueItem {
+	// 1. Make map of all task runs keyed by task spec id
+	all := make(map[int32]TaskRun)
+	for _, tr := range taskRuns {
+		all[tr.PipelineTaskSpec.ID] = tr
+	}
+	var firsts []TaskRun
+
+	// 2. Find all "firsts" aka initial tasks
+	for id, tr := range all {
+		var hasPredecessor bool
+		for _, tr := range all {
+			if tr.PipelineTaskSpec.SuccessorID.ValueOrZero() == int64(id) {
+				hasPredecessor = true
+				break
+			}
+		}
+		if !hasPredecessor {
+			// No predecessors so this is the first one
+			firsts = append(firsts, tr)
+		}
+	}
+
+	// 3. Put firsts into QueueItem.PipelineTaskRunIDs and fill out the rest by looking up in map made in #1
+	qis := make([]QueueItem, len(firsts))
+	for i, tr := range firsts {
+		qi := QueueItem{PipelineTaskRunIDs: []int64{tr.ID}}
+		for !tr.PipelineTaskSpec.SuccessorID.IsZero() {
+			successorID := int32(tr.PipelineTaskSpec.SuccessorID.ValueOrZero())
+			tr = all[successorID]
+			qi.PipelineTaskRunIDs = append(qi.PipelineTaskRunIDs, tr.ID)
+		}
+		qis[i] = qi
+	}
+
+	return qis
 }
 
 type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
@@ -247,36 +276,20 @@ func (o *orm) processNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) e
 	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
 		var ptRunID int64
 		var predecessors []TaskRun
+		var qi QueueItem
 
-		// Delete (implicitly locks until transaction commit) the next available QueueItem with completed predecessors
-		err := tx.Raw(`
-		DELETE FROM pipeline_queue WHERE pipeline_task_run_id = (
-			SELECT pipeline_task_run_id
-			FROM pipeline_queue
-			WHERE predecessor_task_run_ids = '{}'
-			ORDER BY pipeline_task_run_id ASC
-			FOR UPDATE SKIP LOCKED
-			LIMIT 1
-        )
-		RETURNING pipeline_task_run_id
-		`).Scan(&ptRunID).Error
-		// FIXME: What happens if there are no queue items?
-		// Can ptRunID be nil instead of error?
+		err := tx.Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").First(&qi).Error
 		if err != nil {
 			return errors.Wrap(err, "failed to pull next item from queue")
 		}
-
-		// NOTE: This locks all the downstream tasks, but it doesn't matter
-		// because none can execute until this transaction commits anyway
-		// FIXME: FUCK can this block on other tasks in a way that fucks us?
-		// "stream id" ??
-		err = tx.Exec(`
-		UPDATE pipeline_queue
-		SET predecessor_task_run_ids = array_remove(predecessor_task_run_ids, $1)
-		WHERE predecessor_task_run_ids @> $1
-		`, ptRunID).Error
+		ptRunID = qi.PipelineTaskRunIDs[0]
+		if len(qi.PipelineTaskRunIDs) == 1 {
+			err = tx.Exec("DELETE FROM pipeline_queue WHERE id = ?", qi.ID).Error
+		} else {
+			err = tx.Exec("UPDATE pipeline_queue WHERE id = ? SET pipeline_task_run_ids = pipeline_task_run_ids[1:]").Error
+		}
 		if err != nil {
-			return errors.Wrap(err, "failed to remove self as dependent from downstream queue items")
+			return errors.Wrap(err, "failed to update or delete queue item")
 		}
 
 		var ptRun TaskRun

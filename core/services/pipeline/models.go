@@ -56,16 +56,16 @@ type (
 	}
 
 	QueueItem struct {
-		PipelineTaskRunID     int64
-		PipelineTaskRun       TaskRun `gorm:"foreignkey:PipelineTaskRunID;association_autoupdate:false;association_autocreate:false"`
-		PredecessorTaskRunIDs []int64
+		ID                 int64 `gorm:"primary_key"`
+		PipelineTaskRunIDs []int64
 	}
 )
 
-func (Spec) TableName() string     { return "pipeline_specs" }
-func (Run) TableName() string      { return "pipeline_runs" }
-func (TaskSpec) TableName() string { return "pipeline_task_specs" }
-func (TaskRun) TableName() string  { return "pipeline_task_runs" }
+func (Spec) TableName() string      { return "pipeline_specs" }
+func (Run) TableName() string       { return "pipeline_runs" }
+func (TaskSpec) TableName() string  { return "pipeline_task_specs" }
+func (TaskRun) TableName() string   { return "pipeline_task_runs" }
+func (QueueItem) TableName() string { return "pipeline_queue_items" }
 
 func (r Run) GetID() string {
 	return fmt.Sprintf("%v", r.ID)

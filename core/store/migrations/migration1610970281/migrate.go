@@ -6,11 +6,8 @@ import "github.com/jinzhu/gorm"
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		CREATE TABLE pipeline_queue (
-			pipeline_task_run_id bigint REFERENCES pipeline_task_runs (id) NOT NULL,
-			predecessor_task_run_ids bigint[] NOT NULL,
+			id BIGSERIAL PRIMARY KEY,
+			pipeline_task_run_ids bigint[] NOT NULL CHECK (cardinality(pipeline_task_run_ids) > 0)
 		);
-
-		CREATE UNIQUE INDEX idx_pipeline_queue_task_run_ids ON pipeline_queue (pipeline_task_run_id);
-		CREATE INDEX idx_pipeline_queue_predecessor_task_run_ids ON pipeline_queue USING GIN(predecessor_task_run_ids);
 	`).Error
 }

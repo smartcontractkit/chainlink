@@ -185,7 +185,7 @@ func (r *runner) processTaskRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxTaskDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnclaimedTaskRun(ctx, func(ctx context.Context, txdb *gorm.DB, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
+	return r.orm.ProcessNextQueueItem(ctx, func(ctx context.Context, txdb *gorm.DB, jobID int32, taskRun TaskRun, predecessors []TaskRun) Result {
 		loggerFields := []interface{}{
 			"jobID", jobID,
 			"taskName", taskRun.PipelineTaskSpec.DotID,
