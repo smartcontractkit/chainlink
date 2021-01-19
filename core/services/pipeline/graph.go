@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
@@ -86,6 +88,22 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 		visited[node.ID()] = true
 	}
 	return tasks, nil
+}
+
+func (g TaskDAG) MinTimeout() (time.Duration, bool, error) {
+	var minTimeout time.Duration = 1<<63 - 1
+	var aTimeoutSet bool
+	tasks, err := g.TasksInDependencyOrder()
+	if err != nil {
+		return minTimeout, aTimeoutSet, err
+	}
+	for _, t := range tasks {
+		if timeout, set := t.TaskTimeout(); set && timeout < minTimeout {
+			minTimeout = timeout
+			aTimeoutSet = true
+		}
+	}
+	return minTimeout, aTimeoutSet, nil
 }
 
 func (g TaskDAG) outputs() []*taskDAGNode {
