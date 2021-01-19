@@ -1,4 +1,4 @@
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { JobRun, OcrJobRun } from 'core/store/models'
 import { parseDot, Stratify } from './parseDot'
 import {

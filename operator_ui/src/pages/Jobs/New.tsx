@@ -7,7 +7,7 @@ import {
   isJson,
   isToml,
 } from './utils'
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'

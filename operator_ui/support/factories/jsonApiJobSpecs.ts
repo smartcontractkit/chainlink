@@ -1,5 +1,5 @@
 import { v4 as uuid } from 'uuid'
-import { PaginatedApiResponse } from '@chainlink/json-api-client'
+import { PaginatedApiResponse } from 'utils/json-api-client'
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import { JobSpec, TaskSpec, InitiatorType } from 'core/store/models'
 
