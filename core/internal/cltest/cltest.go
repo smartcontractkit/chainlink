@@ -22,7 +22,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/stretchr/testify/mock"
 
@@ -379,18 +381,21 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
 		case postgres.AdvisoryLocker:
 			advisoryLocker = dep
+		case chainlink.ExternalInitiatorManager:
+			externalInitiatorManager = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
 
-	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, func(app chainlink.Application) {
+	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
@@ -840,8 +845,8 @@ func CreateJobRunViaExternalInitiator(
 	t.Helper()
 
 	headers := make(map[string]string)
-	headers[web.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[web.ExternalInitiatorSecretHeader] = eia.Secret
+	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
 
 	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
 	bodyBuf := bytes.NewBufferString(body)
