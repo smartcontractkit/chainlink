@@ -2271,14 +2271,6 @@
     typescript "^3.7.4"
     url "^0.11.0"
 
-"@chainlink/local-storage@0.0.2":
-  version "0.0.2"
-  resolved "https://registry.npmjs.org/@chainlink/local-storage/-/local-storage-0.0.2.tgz#9ca005ed17768527d8ddc18a8baaf125fa7d8d40"
-  integrity sha512-Eqip3o8dcgjRqmGwSIhKWuusC0V9/Yd3DQEcltQb2NdAwR9L6czAdHycQ8gjwoGhTs0KjRk5zeHQiKfKNwH+vw==
-  dependencies:
-    local-storage-fallback "^4.1.1"
-    typescript "^3.7.4"
-
 "@cnakazawa/watch@^1.0.3":
   version "1.0.4"
   resolved "https://registry.npmjs.org/@cnakazawa/watch/-/watch-1.0.4.tgz#f864ae85004d0fcab6f50be9141c4da368d1656a"

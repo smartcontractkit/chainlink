@@ -1,4 +1,4 @@
-import * as storage from '@chainlink/local-storage'
+import * as storage from 'utils/local-storage'
 
 const PERSIST_URL = 'persistURL'
 const PERSIST_JOB_SPEC = 'persistJobSpec'
