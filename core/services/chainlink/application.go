@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 
 	"github.com/gobuffalo/packr"
@@ -152,11 +154,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	var (
 		subservices []StartCloser
 		delegates   = map[job.Type]job.Delegate{
-			job.DirectRequest: services.NewDirectRequestDelegate(
+			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
 				store.DB),
-			job.FluxMonitor: fluxmonitorv2.NewFluxMonitorDelegate(
+			job.FluxMonitor: fluxmonitorv2.NewDelegate(
 				pipelineRunner,
 				store.DB),
 		}
@@ -165,7 +167,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewJobSpawnerDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}

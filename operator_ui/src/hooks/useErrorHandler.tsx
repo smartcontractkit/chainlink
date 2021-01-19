@@ -1,6 +1,6 @@
 import React from 'react'
 import { useHistory } from 'react-router-dom'
-import { AuthenticationError } from '@chainlink/json-api-client'
+import { AuthenticationError } from 'utils/json-api-client'
 import { useDispatch } from 'react-redux'
 import { receiveSignoutSuccess } from 'actionCreators'
 

@@ -1,4 +1,4 @@
-import { theme } from '@chainlink/styleguide'
+import { theme } from 'src/theme'
 import {
   createGenerateClassName,
   createMuiTheme,
