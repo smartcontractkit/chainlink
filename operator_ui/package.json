@@ -20,7 +20,6 @@
   "dependencies": {
     "@babel/polyfill": "7.7.0",
     "@chainlink/json-api-client": "0.0.2",
-    "@chainlink/local-storage": "0.0.2",
     "@iarna/toml": "3.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",

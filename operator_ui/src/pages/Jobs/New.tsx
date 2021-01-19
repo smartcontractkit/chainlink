@@ -20,7 +20,7 @@ import { JobSpec } from 'core/store/presenters'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
 import { notifySuccess, notifyError } from 'actionCreators'
-import * as storage from '@chainlink/local-storage'
+import * as storage from 'utils/local-storage'
 import Content from 'components/Content'
 import {
   TextField,
