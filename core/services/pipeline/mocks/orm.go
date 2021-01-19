@@ -137,8 +137,8 @@ func (_m *ORM) ListenForNewRuns() (postgres.Subscription, error) {
 	return r0, r1
 }
 
-// ProcessNextUnclaimedTaskRun provides a mock function with given fields: ctx, fn
-func (_m *ORM) ProcessNextUnclaimedTaskRun(ctx context.Context, fn pipeline.ProcessTaskRunFunc) (bool, error) {
+// ProcessNextQueueItem provides a mock function with given fields: ctx, fn
+func (_m *ORM) ProcessNextQueueItem(ctx context.Context, fn pipeline.ProcessTaskRunFunc) (bool, error) {
 	ret := _m.Called(ctx, fn)
 
 	var r0 bool

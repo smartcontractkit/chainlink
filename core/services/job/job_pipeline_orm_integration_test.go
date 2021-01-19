@@ -273,7 +273,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					close(chRunComplete)
 				}()
 
-				// First, "claim" one of the output task runs to ensure that `ProcessNextUnclaimedTaskRun` doesn't return it
+				// First, "claim" one of the output task runs to ensure that `ProcessNextQueueItem` doesn't return it
 				var (
 					chClaimed  = make(chan struct{})
 					chBlock    = make(chan struct{})
@@ -303,7 +303,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				{
 					anyRemaining := true
 					for anyRemaining {
-						anyRemaining, err = orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+						anyRemaining, err = orm.ProcessNextQueueItem(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 							// Ensure we don't fetch the locked task run
 							require.NotEqual(t, locked.ID, taskRun.ID)
 
@@ -344,7 +344,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					<-chUnlocked
 					time.Sleep(3 * time.Second)
 
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextQueueItem(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						// Ensure the predecessors' answers match what we expect
 						for _, p := range predecessorRuns {
 							_, exists := test.answers[p.DotID()]
@@ -367,7 +367,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnclaimedTaskRun(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
+					anyRemaining, err2 := orm.ProcessNextQueueItem(context.Background(), func(_ context.Context, db *gorm.DB, jobID int32, taskRun pipeline.TaskRun, predecessorRuns []pipeline.TaskRun) pipeline.Result {
 						t.Fatal("this callback should never be reached")
 						return pipeline.Result{}
 					})

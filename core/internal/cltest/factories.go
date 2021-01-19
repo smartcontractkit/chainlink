@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/adapters"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
@@ -744,4 +745,31 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
+}
+
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+	t.Helper()
+
+	pspec := pipeline.Spec{}
+	require.NoError(t, db.Create(&pspec).Error)
+
+	finalTspec := pipeline.TaskSpec{PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&finalTspec).Error)
+
+	tspecPath1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath1).Error)
+
+	tspecPath2_2 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath2_2).Error)
+
+	tspecPath2_1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(tspecPath2_2.ID))}
+	require.NoError(t, db.Create(&tspecPath2_1).Error)
+
+	drspec := job.DirectRequestSpec{}
+	require.NoError(t, db.Create(&drspec).Error)
+
+	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&job).Error)
+
+	return job
 }

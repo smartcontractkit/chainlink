@@ -153,7 +153,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 		runID = run.ID
 
-		var taskRunIDs []int64
+		var taskRuns []TaskRun
 
 		// Step 2: Create the task runs
 		err = tx.Raw(`
@@ -163,20 +163,28 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?
-			RETURNING pipeline_task_runs.id
-		`, run.ID, run.PipelineSpecID).Scan(&taskRunIDs).Error
+			RETURNING pipeline_task_runs.*
+		`, run.ID, run.PipelineSpecID).Scan(&taskRuns).Error
 		if err != nil {
 			return errors.Wrap(err, "could not create pipeline task runs")
 		}
 
 		// Step 3: Create the queue items
-
-		var taskRuns []TaskRun
-		if err = tx.Find(&taskRuns, "id = ANY(?)", pq.Array(taskRunIDs)).Preload("PipelineTaskSpec").Error; err != nil {
+		// var taskRuns []TaskRun
+		// FIXME: I am not convinced this query does the right thing
+		if err = tx.Debug().Preload("PipelineTaskSpec").Find(&taskRuns).Error; err != nil {
 			return errors.Wrap(err, "could not load task runs")
 		}
 
 		queueItems := TaskRunsToQueueItems(taskRuns)
+
+		if len(queueItems) == 0 {
+			// fmt.Println("taskRuns", taskRuns)
+			fmt.Println("taskRuns", taskRuns)
+			fmt.Println("taskRuns[0]", taskRuns[0])
+			fmt.Println("taskRuns[0].PipelineTaskSpec", taskRuns[0].PipelineTaskSpec)
+			panic("BALLS")
+		}
 
 		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
 		// manually construct it ourselves
@@ -191,7 +199,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 		// TODO: Replace this with a bulk insert when we upgrade to gormv2
 		/* #nosec G201 */
-		stmt := fmt.Sprintf("INSERT INTO queue_items (pipeline_task_run_id, depends_on) VALUES %s", strings.Join(valueStrings, ","))
+		stmt := fmt.Sprintf("INSERT INTO pipeline_queue (pipeline_task_run_ids) VALUES %s", strings.Join(valueStrings, ","))
 		return tx.Exec(stmt, valueArgs...).Error
 
 	})
@@ -243,7 +251,7 @@ func TaskRunsToQueueItems(taskRuns []TaskRun) []QueueItem {
 type ProcessTaskRunFunc func(ctx context.Context, txdb *gorm.DB, jobID int32, ptRun TaskRun, predecessors []TaskRun) Result
 
 // TODO: Write dox
-// ProcessNextUnclaimedTaskRun chooses any arbitrary incomplete TaskRun from the DB
+// ProcessNextQueueItem chooses any arbitrary incomplete TaskRun from the DB
 // whose parent TaskRuns have already been processed.
 func (o *orm) ProcessNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) (anyRemaining bool, err error) {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
@@ -286,7 +294,7 @@ func (o *orm) processNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) e
 		if len(qi.PipelineTaskRunIDs) == 1 {
 			err = tx.Exec("DELETE FROM pipeline_queue WHERE id = ?", qi.ID).Error
 		} else {
-			err = tx.Exec("UPDATE pipeline_queue WHERE id = ? SET pipeline_task_run_ids = pipeline_task_run_ids[1:]").Error
+			err = tx.Exec("UPDATE pipeline_queue SET pipeline_task_run_ids = pipeline_task_run_ids[1:] WHERE id = ?", qi.ID).Error
 		}
 		if err != nil {
 			return errors.Wrap(err, "failed to update or delete queue item")
@@ -358,6 +366,7 @@ func (o *orm) processNextQueueItem(ctx context.Context, fn ProcessTaskRunFunc) e
 		}
 		promPipelineTasksTotalFinished.WithLabelValues(pipelineSpecIDStr, string(ptRun.PipelineTaskSpec.Type), status).Inc()
 
+		// FIXME: This finality check is much simpler with QueueItem
 		if ptRun.PipelineTaskSpec.IsFinalPipelineOutput() {
 			err = tx.Exec(`UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ? WHERE id = ?`, time.Now(), out, errString, ptRun.PipelineRunID).Error
 			if err != nil {

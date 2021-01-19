@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -57,7 +58,7 @@ type (
 
 	QueueItem struct {
 		ID                 int64 `gorm:"primary_key"`
-		PipelineTaskRunIDs []int64
+		PipelineTaskRunIDs pq.Int64Array
 	}
 )
 
@@ -65,7 +66,7 @@ func (Spec) TableName() string      { return "pipeline_specs" }
 func (Run) TableName() string       { return "pipeline_runs" }
 func (TaskSpec) TableName() string  { return "pipeline_task_specs" }
 func (TaskRun) TableName() string   { return "pipeline_task_runs" }
-func (QueueItem) TableName() string { return "pipeline_queue_items" }
+func (QueueItem) TableName() string { return "pipeline_queue" }
 
 func (r Run) GetID() string {
 	return fmt.Sprintf("%v", r.ID)
