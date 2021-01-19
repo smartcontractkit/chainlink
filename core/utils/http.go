@@ -6,12 +6,46 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+var (
+	Client             *http.Client
+	UnrestrictedClient *http.Client
+)
+
+func newDefaultTransport() *http.Transport {
+	// This is taken from the golang http client defaults
+	// See: https://golang.org/pkg/net/http/#Transport
+	t := http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	t.DisableCompression = true
+	return &t
+}
+
+func init() {
+	tr := newDefaultTransport()
+	tr.DialContext = restrictedDialContext
+	Client = &http.Client{Transport: tr}
+
+	unrestrictedTr := newDefaultTransport()
+	UnrestrictedClient = &http.Client{Transport: unrestrictedTr}
+}
 
 type HTTPRequest struct {
 	Request *http.Request
@@ -27,15 +61,14 @@ type HTTPRequestConfig struct {
 }
 
 func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, err error) {
-	tr := &http.Transport{
-		DisableCompression: true,
+	var c *http.Client
+	if h.Config.AllowUnrestrictedNetworkAccess {
+		c = UnrestrictedClient
+	} else {
+		c = Client
 	}
-	if !h.Config.AllowUnrestrictedNetworkAccess {
-		tr.DialContext = restrictedDialContext
-	}
-	client := &http.Client{Transport: tr}
 
-	return withRetry(ctx, client, h.Request, h.Config)
+	return withRetry(ctx, c, h.Request, h.Config)
 }
 
 // withRetry executes the http request in a retry. Timeout is controlled with a context
@@ -100,7 +133,6 @@ func makeHTTPCall(
 		logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, err
 	}
-	defer client.CloseIdleConnections()
 	defer logger.ErrorIfCalling(r.Body.Close)
 
 	statusCode = r.StatusCode
