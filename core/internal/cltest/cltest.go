@@ -1501,24 +1501,16 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 	if len(values) != len(types) {
 		return nil, errors.New("must include same number of values as types")
 	}
-
-	var inputList []string
-	for _, typeString := range types {
-		input := fmt.Sprintf(`{"name":"","type":"%s"}`, typeString)
-		inputList = append(inputList, input)
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
 	}
-	inputs := strings.Join(inputList, ",")
-	definition := fmt.Sprintf(`[{"inputs":[%s],"name":"foo","type":"function"}]`, inputs)
-	abi, err := abi.JSON(strings.NewReader(definition))
+	out, err := args.PackValues(values)
 	if err != nil {
 		return nil, err
 	}
-	out, err := abi.Pack("foo", values...)
-	if err != nil {
-		return nil, err
-	}
-	// remove function sig
-	return out[4:], nil
+	return out, nil
 }
 
 func MakeRoundStateReturnData(
