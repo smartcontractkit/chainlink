@@ -1,7 +1,7 @@
 import React from 'react'
 import { v2 } from 'api'
 import { Route, RouteComponentProps, Switch } from 'react-router-dom'
-import { CardTitle } from '@chainlink/styleguide'
+import { CardTitle } from 'components/CardTitle'
 import { Card, Grid, Typography } from '@material-ui/core'
 import Content from 'components/Content'
 import { useErrorHandler } from 'hooks/useErrorHandler'
