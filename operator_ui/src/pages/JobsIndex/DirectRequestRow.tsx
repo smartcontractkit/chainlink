@@ -1,6 +1,6 @@
 import React from 'react'
 import { TableCell, TableRow, Typography } from '@material-ui/core'
-import { TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
