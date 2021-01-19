@@ -53,7 +53,15 @@ func withRetry(
 		Jitter: true,
 	}
 	for {
-		responseBody, statusCode, err = makeHTTPCall(ctx, client, originalRequest, config)
+		timeoutCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+		defer cancel()
+
+		requestWithTimeout, err := cloneRequest(timeoutCtx, originalRequest)
+		if err != nil {
+			return responseBody, statusCode, err
+		}
+
+		responseBody, statusCode, err = makeHTTPCall(client, requestWithTimeout, config)
 		if err == nil {
 			return responseBody, statusCode, nil
 		}
@@ -69,8 +77,10 @@ func withRetry(
 		}
 		// Sleep and retry.
 		select {
-		case <-ctx.Done():
-			return responseBody, statusCode, ctx.Err()
+		case <-timeoutCtx.Done():
+			if timeoutCtx.Err() != context.DeadlineExceeded {
+				return responseBody, statusCode, timeoutCtx.Err()
+			}
 		case <-time.After(bb.Duration()):
 		}
 		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.Timeout)
@@ -78,33 +88,14 @@ func withRetry(
 }
 
 func makeHTTPCall(
-	ctx context.Context,
 	client *http.Client,
-	originalRequest *http.Request,
+	request *http.Request,
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, _ error) {
-	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
-	defer cancel()
-	requestWithTimeout := originalRequest.Clone(ctx)
-
-	// XXX: Workaround for https://github.com/golang/go/issues/36095
-	// http.Request#Clone actually only does a shallow copy
-	if originalRequest.GetBody != nil {
-		originalRequestBody, err := originalRequest.GetBody()
-		if err != nil {
-			return nil, 0, err
-		}
-		var b bytes.Buffer
-		_, err = b.ReadFrom(originalRequestBody)
-		if err != nil {
-			return nil, 0, err
-		}
-		requestWithTimeout.Body = ioutil.NopCloser(&b)
-	}
 
 	start := time.Now()
 
-	r, err := client.Do(requestWithTimeout)
+	r, err := client.Do(request)
 	if err != nil {
 		logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, err
@@ -133,6 +124,27 @@ func makeHTTPCall(
 	}
 
 	return responseBody, statusCode, nil
+}
+
+func cloneRequest(ctx context.Context, originalRequest *http.Request) (*http.Request, error) {
+	clonedRequest := originalRequest.Clone(ctx)
+
+	// XXX: Workaround for https://github.com/golang/go/issues/36095
+	// http.Request#Clone actually only does a shallow copy
+	if originalRequest.GetBody != nil {
+		originalRequestBody, err := originalRequest.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		var b bytes.Buffer
+		_, err = b.ReadFrom(originalRequestBody)
+		if err != nil {
+			return nil, err
+		}
+		clonedRequest.Body = ioutil.NopCloser(&b)
+	}
+
+	return clonedRequest, nil
 }
 
 type RemoteServerError struct {
