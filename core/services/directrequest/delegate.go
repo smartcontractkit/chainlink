@@ -1,4 +1,4 @@
-package services
+package directrequest
 
 import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
@@ -11,25 +11,33 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-type DirectRequestSpecDelegate struct {
+type Delegate struct {
 	logBroadcaster log.Broadcaster
 	pipelineRunner pipeline.Runner
 	db             *gorm.DB
 }
 
-func (d *DirectRequestSpecDelegate) JobType() job.Type {
+func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *Delegate {
+	return &Delegate{
+		logBroadcaster,
+		pipelineRunner,
+		db,
+	}
+}
+
+func (d *Delegate) JobType() job.Type {
 	return job.DirectRequest
 }
 
 // ServicesForSpec returns the log listener service for a direct request job
 // TODO: This will need heavy test coverage
-func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
+func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
 	if spec.DirectRequestSpec == nil {
-		return nil, errors.Errorf("services.DirectRequestSpecDelegate expects a *job.DirectRequestSpec to be present, got %v", spec)
+		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", spec)
 	}
 	concreteSpec := spec.DirectRequestSpec
 
-	logListener := directRequestListener{
+	logListener := listener{
 		d.logBroadcaster,
 		concreteSpec.ContractAddress.Address(),
 		d.pipelineRunner,
@@ -41,20 +49,12 @@ func (d *DirectRequestSpecDelegate) ServicesForSpec(spec job.SpecDB) (services [
 	return
 }
 
-func NewDirectRequestDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *DirectRequestSpecDelegate {
-	return &DirectRequestSpecDelegate{
-		logBroadcaster,
-		pipelineRunner,
-		db,
-	}
-}
-
 var (
-	_ log.Listener = &directRequestListener{}
-	_ job.Service  = &directRequestListener{}
+	_ log.Listener = &listener{}
+	_ job.Service  = &listener{}
 )
 
-type directRequestListener struct {
+type listener struct {
 	logBroadcaster  log.Broadcaster
 	contractAddress gethCommon.Address
 	pipelineRunner  pipeline.Runner
@@ -63,28 +63,28 @@ type directRequestListener struct {
 }
 
 // Start complies with job.Service
-func (d directRequestListener) Start() error {
+func (d listener) Start() error {
 	connected := d.logBroadcaster.Register(d.contractAddress, d)
 	if !connected {
-		return errors.New("Failed to register directRequestListener with logBroadcaster")
+		return errors.New("Failed to register listener with logBroadcaster")
 	}
 	return nil
 }
 
 // Close complies with job.Service
-func (d directRequestListener) Close() error {
+func (d listener) Close() error {
 	d.logBroadcaster.Unregister(d.contractAddress, d)
 	return nil
 }
 
 // OnConnect complies with log.Listener
-func (directRequestListener) OnConnect() {}
+func (listener) OnConnect() {}
 
 // OnDisconnect complies with log.Listener
-func (directRequestListener) OnDisconnect() {}
+func (listener) OnDisconnect() {}
 
 // OnConnect complies with log.Listener
-func (d directRequestListener) HandleLog(lb log.Broadcast, err error) {
+func (d listener) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
 		logger.Errorw("DirectRequestListener: error in previous LogListener", "err", err)
 		return
@@ -107,16 +107,16 @@ func (d directRequestListener) HandleLog(lb log.Broadcast, err error) {
 }
 
 // JobID complies with log.Listener
-func (directRequestListener) JobID() *models.ID {
+func (listener) JobID() *models.ID {
 	return nil
 }
 
 // SpecDB complies with log.Listener
-func (d directRequestListener) JobIDV2() int32 {
+func (d listener) JobIDV2() int32 {
 	return d.jobID
 }
 
 // IsV2Job complies with log.Listener
-func (directRequestListener) IsV2Job() bool {
+func (listener) IsV2Job() bool {
 	return true
 }
