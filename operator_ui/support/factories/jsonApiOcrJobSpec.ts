@@ -1,4 +1,4 @@
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { OcrJobSpec } from 'core/store/models'
 import { jobSpecV2 } from './jobSpecV2'
 

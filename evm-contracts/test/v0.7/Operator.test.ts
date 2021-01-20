@@ -2259,6 +2259,39 @@ describe('Operator', () => {
         balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
       })
+
+      describe('recovering funds that were mistakenly sent', () => {
+        const paid = 1
+        beforeEach(async () => {
+          await link.transfer(operator.address, paid)
+        })
+
+        it('withdraws funds', async () => {
+          const operatorBalanceBefore = await link.balanceOf(operator.address)
+          const accountBalanceBefore = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(roles.defaultAccount.address, paid)
+
+          const operatorBalanceAfter = await link.balanceOf(operator.address)
+          const accountBalanceAfter = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
+          const operatorDifference = operatorBalanceBefore.sub(
+            operatorBalanceAfter,
+          )
+
+          matchers.bigNum(operatorDifference, paid)
+          matchers.bigNum(accountDifference, paid)
+        })
+      })
     })
 
     describe('reserving funds via oracleRequest', () => {
@@ -2291,6 +2324,39 @@ describe('Operator', () => {
           })
           const balance = await link.balanceOf(roles.oracleNode.address)
           assert.equal(0, balance.toNumber())
+        })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
         })
       })
 
@@ -2361,15 +2427,48 @@ describe('Operator', () => {
           const balance = await link.balanceOf(roles.stranger.address)
           assert.isTrue(ethers.constants.Zero.eq(balance))
         })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
+        })
       })
     })
   })
 
   describe('#withdrawable', () => {
     let request: ReturnType<typeof oracle.decodeRunRequest>
+    const amount = h.toWei('1')
 
     beforeEach(async () => {
-      const amount = h.toWei('1')
       const mock = await getterSetterFactory
         .connect(roles.defaultAccount)
         .deploy()
@@ -2394,6 +2493,20 @@ describe('Operator', () => {
     it('returns the correct value', async () => {
       const withdrawAmount = await operator.withdrawable()
       matchers.bigNum(withdrawAmount, request.payment)
+    })
+
+    describe('funds that were mistakenly sent', () => {
+      const paid = 1
+      beforeEach(async () => {
+        await link.transfer(operator.address, paid)
+      })
+
+      it('returns the correct value', async () => {
+        const withdrawAmount = await operator.withdrawable()
+
+        const expectedAmount = amount.add(paid)
+        matchers.bigNum(withdrawAmount, expectedAmount)
+      })
     })
   })
 

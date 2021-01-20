@@ -1,8 +1,6 @@
-import {
-  SimpleListCard,
-  SimpleListCardItem,
-  TimeAgo,
-} from '@chainlink/styleguide'
+import { SimpleListCard } from 'components/SimpleListCard'
+import { SimpleListCardItem } from 'components/SimpleListCardItem'
+import { TimeAgo } from 'components/TimeAgo'
 import Grid from '@material-ui/core/Grid'
 import { withStyles } from '@material-ui/core/styles'
 import TableCell from '@material-ui/core/TableCell'

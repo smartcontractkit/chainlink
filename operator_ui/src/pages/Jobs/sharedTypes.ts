@@ -1,4 +1,4 @@
-import { ApiResponse, PaginatedApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse, PaginatedApiResponse } from 'utils/json-api-client'
 import {
   Initiator,
   JobRun,

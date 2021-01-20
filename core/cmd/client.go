@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -81,7 +82,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, services.NewExternalInitiatorManager(), onConnectCallbacks...)
 }
 
 // Runner implements the Run method.

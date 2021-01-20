@@ -1,4 +1,5 @@
-import { CardTitle, KeyValueList } from '@chainlink/styleguide'
+import { CardTitle } from 'components/CardTitle'
+import { KeyValueList } from 'components/KeyValueList'
 import {
   Card,
   Grid,
