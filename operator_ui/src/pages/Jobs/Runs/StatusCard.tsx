@@ -1,4 +1,4 @@
-import { PaddedCard } from '@chainlink/styleguide'
+import { PaddedCard } from 'components/PaddedCard'
 import {
   createStyles,
   withStyles,
@@ -10,7 +10,7 @@ import { titleCase } from 'title-case'
 import { noCase } from 'change-case'
 import classNames from 'classnames'
 import React, { useState, useEffect } from 'react'
-import { ElapsedDuration } from '@chainlink/styleguide'
+import { ElapsedDuration } from 'components/ElapsedDuration'
 import StatusIcon from 'components/StatusIcon'
 
 const styles = (theme: any) =>

@@ -1,7 +1,7 @@
 import React from 'react'
 import Grid from '@material-ui/core/Grid'
 import { v2 } from 'api'
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import * as presenters from 'core/store/presenters'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
@@ -14,7 +14,7 @@ import Card from '@material-ui/core/Card'
 import CardContent from '@material-ui/core/CardContent'
 import CardHeader from '@material-ui/core/CardHeader'
 import Typography from '@material-ui/core/Typography'
-import { TimeAgo } from '@chainlink/styleguide'
+import { TimeAgo } from 'components/TimeAgo'
 import {
   createStyles,
   withStyles,
