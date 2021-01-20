@@ -135,9 +135,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	defer cancel()
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) (err error) {
-		// Create the job run
 		run := Run{}
-
 		err = tx.Raw(`
             INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
             SELECT pipeline_spec_id, $1, NOW()
@@ -159,6 +157,48 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
+		if err != nil {
+			return err
+		}
+
+
+		// Ammend the TaskRuns with their predecessors.
+		var tr []TaskRun
+		err = tx.Find(&tr).Where("pipeline_run_id = ?", runID).Error
+		if err != nil {
+			return err
+		}
+
+		var ts []TaskSpec
+		err = tx.Find(&ts).Where("pipeline_spec_id = ?", run.PipelineSpecID).Error
+		if err != nil {
+			return err
+		}
+
+		var preds = make(map[int32][]int32)
+		for _, taskSpec := range ts {
+			if taskSpec.SuccessorID.Valid {
+				preds[int32(taskSpec.SuccessorID.Int64)] = append(preds[int32(taskSpec.SuccessorID.Int64)], taskSpec.ID)
+			}
+		}
+		for _, taskRun := range tr {
+			if preds, ok := preds[taskRun.PipelineTaskSpecID]; ok {
+				// Find the corresponding taskRun for each pred
+				// TODO: clever optimize?
+				var predTaskRuns []int64
+				for _, p := range preds {
+					for _, predTaskRun := range tr {
+						if predTaskRun.PipelineTaskSpecID == p {
+							predTaskRuns = append(predTaskRuns, predTaskRun.ID)
+						}
+					}
+				}
+				err = tx.Model(&taskRun).Update("predecessor_task_run_ids", predTaskRuns).Error
+				if err != nil {
+					return err
+				}
+			}
+		}
 		return errors.Wrap(err, "could not create pipeline task runs")
 	})
 	return runID, errors.WithStack(err)
@@ -209,22 +249,16 @@ func (o *orm) processNextUnclaimedTaskRun(ctx context.Context, fn ProcessTaskRun
 
 		// Find (and lock) the next unlocked, unfinished pipeline_task_run with no uncompleted predecessors
 		err := tx.Raw(`
-            SELECT * from pipeline_task_runs WHERE id IN (
-                SELECT pipeline_task_runs.id FROM pipeline_task_runs
-                    INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-                    LEFT JOIN pipeline_task_specs AS predecessor_specs ON predecessor_specs.successor_id = pipeline_task_specs.id
-                    LEFT JOIN pipeline_task_runs AS predecessor_unfinished_runs ON predecessor_specs.id = predecessor_unfinished_runs.pipeline_task_spec_id
-                          AND pipeline_task_runs.pipeline_run_id = predecessor_unfinished_runs.pipeline_run_id
-                WHERE pipeline_task_runs.finished_at IS NULL
-                GROUP BY (pipeline_task_runs.id)
-                HAVING (
-                    bool_and(predecessor_unfinished_runs.finished_at IS NOT NULL)
-                    OR
-                    count(predecessor_unfinished_runs.id) = 0
-                )
-            )
-            LIMIT 1
-            FOR UPDATE OF pipeline_task_runs SKIP LOCKED;
+			SELECT * FROM pipeline_task_runs WHERE id IN (
+				SELECT runs.id FROM pipeline_task_runs AS runs
+				LEFT JOIN pipeline_task_runs AS preds ON preds.id = ANY (runs.predecessor_task_run_ids)
+				WHERE runs.finished_at is null
+				GROUP BY runs.id
+				HAVING (bool_and(preds.finished_at is not null) 
+					OR count(preds) = 0)
+			)
+           LIMIT 1
+           FOR UPDATE OF pipeline_task_runs SKIP LOCKED;
         `).Scan(&ptRun).Error
 		if err != nil {
 			return errors.Wrap(err, "error finding next task run")

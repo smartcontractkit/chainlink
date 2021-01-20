@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -43,16 +45,17 @@ type (
 	}
 
 	TaskRun struct {
-		ID                 int64             `json:"-" gorm:"primary_key"`
-		Type               TaskType          `json:"type"`
-		PipelineRun        Run               `json:"-"`
-		PipelineRunID      int64             `json:"-"`
-		Output             *JSONSerializable `json:"output" gorm:"type:jsonb"`
-		Error              null.String       `json:"error"`
-		PipelineTaskSpecID int32             `json:"-"`
-		PipelineTaskSpec   TaskSpec          `json:"taskSpec" gorm:"foreignkey:PipelineTaskSpecID;association_autoupdate:false;association_autocreate:false"`
-		CreatedAt          time.Time         `json:"createdAt"`
-		FinishedAt         *time.Time        `json:"finishedAt"`
+		ID                    int64             `json:"-" gorm:"primary_key"`
+		Type                  TaskType          `json:"type"`
+		PipelineRun           Run               `json:"-"`
+		PipelineRunID         int64             `json:"-"`
+		Output                *JSONSerializable `json:"output" gorm:"type:jsonb"`
+		Error                 null.String       `json:"error"`
+		PipelineTaskSpecID    int32             `json:"-"`
+		PipelineTaskSpec      TaskSpec          `json:"taskSpec" gorm:"foreignkey:PipelineTaskSpecID;association_autoupdate:false;association_autocreate:false"`
+		CreatedAt             time.Time         `json:"createdAt"`
+		FinishedAt            *time.Time        `json:"finishedAt"`
+		PredecessorTaskRunIds pq.Int64Array     `json:"-" gorm:"type:integer[]"`
 	}
 )
 
