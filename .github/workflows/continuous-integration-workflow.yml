@@ -146,7 +146,7 @@ jobs:
       - run: ./tools/bin/restore-solc-cache
       - name: Run tests
         run: ./tools/ci/solidity_test
-  
+
   solidity-old:
     name: Solidity old versions
     runs-on: [self-hosted, sdlc-ghr-prod]
