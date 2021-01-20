@@ -16,6 +16,7 @@ import (
 )
 
 func TestClaimTaskScale(t *testing.T) {
+	t.Skip()
 	dsn := "host=localhost user=postgres password=node dbname=postgres port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
@@ -35,7 +36,7 @@ func TestClaimTaskScale(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		// Create pipeline specs
 		sp := Spec{DotDagSource: fmt.Sprintf("test%d", i)}
-		err := db2.Create(&sp).Error
+		err = db2.Create(&sp).Error
 		require.NoError(t, err)
 		// Create pipeline runs
 		pr := Run{
@@ -66,6 +67,7 @@ func TestClaimTaskScale(t *testing.T) {
 				ts.SuccessorID = null.NewInt(0, false)
 			}
 			err = db2.Create(&ts).Error
+			require.NoError(t, err)
 			if prev != 0 {
 				preds[prev] = ts.ID
 			}

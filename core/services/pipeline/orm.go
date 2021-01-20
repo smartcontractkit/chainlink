@@ -161,7 +161,6 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 			return err
 		}
 
-
 		// Ammend the TaskRuns with their predecessors.
 		var tr []TaskRun
 		err = tx.Find(&tr).Where("pipeline_run_id = ?", runID).Error
