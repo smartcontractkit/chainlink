@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed a UI bug with fluxmonitor jobs where initiator params were bunched up.
+
 ## [0.9.9] - 2021-01-18
 
 ### Added
