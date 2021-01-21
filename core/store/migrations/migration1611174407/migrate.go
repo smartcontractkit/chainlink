@@ -7,6 +7,6 @@ import "github.com/jinzhu/gorm"
 func Migrate(tx *gorm.DB) error {
 	return tx.Exec(`
 		ALTER TABLE pipeline_task_runs 
-		ADD COLUMN predecessor_task_run_ids integer[]; 
+		ADD COLUMN predecessor_task_run_ids integer[] NOT NULL; 
 	`).Error
 }
