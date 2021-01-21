@@ -126,6 +126,42 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxT
 	return specID, errors.WithStack(err)
 }
 
+// Example:
+//
+// TaskSpecs   TaskRuns
+// 1   2        101   102
+// \  /
+//  3              103
+//  |
+//  4              104
+//
+// We want to copy the dep graph from specs onto runs.
+func taskRunsWithPredecessors(trs []TaskRun, tss []TaskSpec) []TaskRun {
+	// Flatten the task specs into a map of specID to successorID
+	specToSuccessor := make(map[int32]int64)
+	for _, t := range tss {
+		specToSuccessor[t.ID] = t.SuccessorID.ValueOrZero()
+	}
+	// For every pair of task runs,
+	// if there is a dependency relationship, add the predecessor
+	for i := range trs {
+		for j := range trs {
+			if i == j {
+				continue
+			}
+			if trs[j].PredecessorTaskRunIds == nil {
+				trs[j].PredecessorTaskRunIds = make([]int64, 0) // Explictly empty slice
+			}
+			// If A->B, add A as a pred of B
+			successor := specToSuccessor[trs[i].PipelineTaskSpecID]
+			if successor != 0 && int32(successor) == trs[j].PipelineTaskSpecID {
+				trs[j].PredecessorTaskRunIds = append(trs[j].PredecessorTaskRunIds, trs[i].ID)
+			}
+		}
+	}
+	return trs
+}
+
 // CreateRun adds a Run record to the DB, and one TaskRun
 // per TaskSpec associated with the given Spec.  Processing of the
 // TaskRuns is maximally parallelized across all of the Chainlink nodes in the
@@ -162,40 +198,23 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		}
 
 		// Ammend the TaskRuns with their predecessors.
-		var tr []TaskRun
-		err = tx.Find(&tr).Where("pipeline_run_id = ?", runID).Error
+		var trs []TaskRun
+		err = tx.Find(&trs).Where("pipeline_run_id = ?", runID).Error
 		if err != nil {
 			return err
 		}
 
-		var ts []TaskSpec
-		err = tx.Find(&ts).Where("pipeline_spec_id = ?", run.PipelineSpecID).Error
+		var tss []TaskSpec
+		err = tx.Find(&tss).Where("pipeline_spec_id = ?", run.PipelineSpecID).Error
 		if err != nil {
 			return err
 		}
 
-		var preds = make(map[int32][]int32)
-		for _, taskSpec := range ts {
-			if taskSpec.SuccessorID.Valid {
-				preds[int32(taskSpec.SuccessorID.Int64)] = append(preds[int32(taskSpec.SuccessorID.Int64)], taskSpec.ID)
-			}
-		}
-		for _, taskRun := range tr {
-			if preds, ok := preds[taskRun.PipelineTaskSpecID]; ok {
-				// Find the corresponding taskRun for each pred
-				// TODO: clever optimize?
-				var predTaskRuns []int64
-				for _, p := range preds {
-					for _, predTaskRun := range tr {
-						if predTaskRun.PipelineTaskSpecID == p {
-							predTaskRuns = append(predTaskRuns, predTaskRun.ID)
-						}
-					}
-				}
-				err = tx.Model(&taskRun).Update("predecessor_task_run_ids", predTaskRuns).Error
-				if err != nil {
-					return err
-				}
+		trsWithPreds := taskRunsWithPredecessors(trs, tss)
+		for _, tr := range trsWithPreds {
+			err = tx.Model(&tr).Update("predecessor_task_run_ids", tr.PredecessorTaskRunIds).Error
+			if err != nil {
+				return err
 			}
 		}
 		return errors.Wrap(err, "could not create pipeline task runs")

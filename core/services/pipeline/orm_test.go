@@ -6,6 +6,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
+	"github.com/stretchr/testify/assert"
+
 	gormv1 "github.com/jinzhu/gorm"
 	p "github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/migrations"
@@ -13,6 +16,48 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func TestTaskRunsWithPredecessors(t *testing.T) {
+	r := taskRunsWithPredecessors([]TaskRun{
+		{
+			ID:                 1,
+			PipelineTaskSpecID: 101,
+		},
+		{
+			ID:                 2,
+			PipelineTaskSpecID: 102,
+		},
+		{
+			ID:                 3,
+			PipelineTaskSpecID: 103,
+		},
+		{
+			ID:                 4,
+			PipelineTaskSpecID: 104,
+		},
+	}, []TaskSpec{
+		{
+			ID:          101,
+			SuccessorID: null.NewInt(103, true),
+		},
+		{
+			ID:          102,
+			SuccessorID: null.NewInt(103, true),
+		},
+		{
+			ID:          103,
+			SuccessorID: null.NewInt(104, true),
+		},
+		{
+			ID:          104,
+			SuccessorID: null.NewInt(0, false),
+		},
+	})
+	assert.Equal(t, pq.Int64Array([]int64{}), r[0].PredecessorTaskRunIds)
+	assert.Equal(t, pq.Int64Array([]int64{}), r[1].PredecessorTaskRunIds)
+	assert.Equal(t, pq.Int64Array([]int64{1, 2}), r[2].PredecessorTaskRunIds)
+	assert.Equal(t, pq.Int64Array([]int64{3}), r[3].PredecessorTaskRunIds)
+}
 
 func requireNoError(b *testing.B, err error) {
 	if err != nil {
@@ -82,7 +127,7 @@ func BenchmarkClaimTaskQuery(b *testing.B) {
 		// For each job run, create the task runs
 		// including the predessor task run info
 		// That would mean we need to create the task runs inorder of successors
-		for j := 0; j < 100; j++ {
+		for j := 0; j < 5000; j++ {
 			var last int64
 			for k := 0; k < 3; k++ {
 				tr := TaskRun{
