@@ -194,7 +194,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at, '{}'
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?
-			RETURNING *`, run.ID, run.PipelineSpecID).Scan(&trs).Error
+            RETURNING *`, run.ID, run.PipelineSpecID).Scan(&trs).Error
 		if err != nil {
 			return err
 		}

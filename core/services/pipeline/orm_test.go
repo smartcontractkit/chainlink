@@ -66,7 +66,6 @@ func requireNoError(b *testing.B, err error) {
 }
 
 func BenchmarkClaimTaskQuery(b *testing.B) {
-	//b.Skip()
 	dsn := "host=localhost user=postgres password=node dbname=postgres port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	requireNoError(b, err)
