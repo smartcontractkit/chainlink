@@ -741,7 +741,7 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestAnswer *
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
-	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
+	p := pipeline.TaskRun{PipelineRunID: pipelineRunID, PredecessorTaskRunIds: make([]int64, 0)}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
 }
