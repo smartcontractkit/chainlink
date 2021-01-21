@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
@@ -439,8 +440,10 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	defer assertMocksCalled()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	eim := new(mocks.ExternalInitiatorManager)
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
+		eim,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -453,6 +456,10 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	set := flag.NewFlagSet("archive", 0)
 	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
+
+	eim.On("DeleteJob", mock.Anything, mock.MatchedBy(func(id *models.ID) bool {
+		return id.String() == job.ID.String()
+	})).Once().Return(nil)
 
 	require.NoError(t, client.ArchiveJobSpec(c))
 

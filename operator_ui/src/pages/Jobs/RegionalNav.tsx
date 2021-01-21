@@ -12,7 +12,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 import React from 'react'

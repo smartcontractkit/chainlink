@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -261,7 +262,7 @@ func TestJobSpecsController_Create_CustomName(t *testing.T) {
 func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	t.Parallel()
 
-	var eiReceived web.JobSpecNotice
+	var eiReceived services.JobSpecNotice
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
 			err := json.Unmarshal([]byte(body), &eiReceived)
@@ -274,6 +275,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
+		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
 	app.Start()
@@ -290,7 +292,7 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
-	expected := web.JobSpecNotice{
+	expected := services.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
