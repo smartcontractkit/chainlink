@@ -1,6 +1,6 @@
 import React from 'react'
 import { Action } from 'redux'
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 
 export interface InitialStateAction extends Action<'INITIAL_STATE'> {}
 

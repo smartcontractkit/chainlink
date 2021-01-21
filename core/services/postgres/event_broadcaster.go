@@ -277,11 +277,11 @@ func (sub *subscription) channelName() string {
 }
 
 func (sub *subscription) Close() {
+	sub.eventBroadcaster.removeSubscription(sub)
 	// Close chDone before stopping the SleeperTask to avoid deadlocks
 	close(sub.chDone)
 	err := sub.processQueueWorker.Stop()
 	if err != nil {
 		logger.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
 	}
-	sub.eventBroadcaster.removeSubscription(sub)
 }
