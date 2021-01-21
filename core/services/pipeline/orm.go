@@ -188,9 +188,9 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		// Create the task runs
 		err = tx.Exec(`
             INSERT INTO pipeline_task_runs (
-            	pipeline_run_id, pipeline_task_spec_id, type, index, created_at
+            	pipeline_run_id, pipeline_task_spec_id, type, index, created_at, predecessor_task_run_ids
             )
-            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
+            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at, '{}'
             FROM pipeline_task_specs
             WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
 		if err != nil {
