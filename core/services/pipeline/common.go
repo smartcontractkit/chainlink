@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-//go:generate mockery --name Task --output ./mocks/ --case=underscore
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
 
 type (

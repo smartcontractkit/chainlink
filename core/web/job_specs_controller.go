@@ -87,7 +87,7 @@ func (jsc *JobSpecsController) Create(c *gin.Context) {
 		jsonAPIError(c, httpStatus, err)
 		return
 	}
-	if err := NotifyExternalInitiator(js, jsc.App.GetStore()); err != nil {
+	if err := jsc.App.GetExternalInitiatorManager().Notify(js, jsc.App.GetStore()); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

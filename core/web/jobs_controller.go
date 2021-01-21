@@ -3,12 +3,14 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -85,23 +87,15 @@ func (jc *JobsController) Create(c *gin.Context) {
 	config := jc.App.GetStore().Config
 	switch genericJS.Type {
 	case job.OffchainReporting:
-		js, err = services.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
-		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return
-		}
+		js, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
 		if !config.Dev() && !config.FeatureOffchainReporting() {
 			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
 			return
 		}
 	case job.DirectRequest:
-		js, err = services.ValidatedDirectRequestSpec(request.TOML)
-		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return
-		}
+		js, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
-		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(request.TOML)
+		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
