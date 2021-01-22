@@ -14,8 +14,6 @@ import (
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink/core/services"
-
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -325,7 +323,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		os, err := services.ValidatedOracleSpecToml(config.Config, s)
+		os, err := offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -337,7 +335,7 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -366,7 +364,7 @@ ds1 -> ds1_parse;
 `
 		config.Set("P2P_PEER_ID", ek.PeerID)
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -381,7 +379,7 @@ ds1 -> ds1_parse;
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -422,7 +420,7 @@ ds1 -> ds1_parse;
 			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
 		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())
 		config.Set("OCR_TRANSMITTER_ADDRESS", transmitterAddress)
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -442,7 +440,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -466,7 +464,7 @@ ds1 -> ds1_parse;
 		}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -484,7 +482,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -505,7 +503,7 @@ ds1 -> ds1_parse;
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -520,7 +518,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -555,7 +553,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,

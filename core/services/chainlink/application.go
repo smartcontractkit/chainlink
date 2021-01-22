@@ -10,6 +10,8 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/jinzhu/gorm"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 
 	"github.com/gobuffalo/packr"
@@ -17,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -34,8 +37,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-// headTrackableCallback is a simple wrapper around an On Connect callback
+//go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
+	// headTrackableCallback is a simple wrapper around an On Connect callback
 	headTrackableCallback struct {
 		onConnect func()
 	}
@@ -43,6 +47,12 @@ type (
 	StartCloser interface {
 		Start() error
 		Close() error
+	}
+
+	// ExternalInitiatorManager manages HTTP requests to remote external initiators
+	ExternalInitiatorManager interface {
+		Notify(models.JobSpec, *strpkg.Store) error
+		DeleteJob(db *gorm.DB, jobID *models.ID) error
 	}
 )
 
@@ -62,6 +72,7 @@ type Application interface {
 	Stop() error
 	GetStore() *strpkg.Store
 	GetJobORM() job.ORM
+	GetExternalInitiatorManager() ExternalInitiatorManager
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
@@ -95,6 +106,7 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
+	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
 	shutdownOnce             sync.Once
@@ -111,7 +123,7 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) Application {
 	shutdownSignal := gracefulpanic.NewSignal()
 	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
 
@@ -152,11 +164,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	var (
 		subservices []StartCloser
 		delegates   = map[job.Type]job.Delegate{
-			job.DirectRequest: services.NewDirectRequestDelegate(
+			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
 				store.DB),
-			job.FluxMonitor: fluxmonitorv2.NewFluxMonitorDelegate(
+			job.FluxMonitor: fluxmonitorv2.NewDelegate(
 				pipelineRunner,
 				store.DB),
 		}
@@ -165,7 +177,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewJobSpawnerDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
@@ -193,6 +205,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
 		Exiter:                   os.Exit,
+		ExternalInitiatorManager: externalInitiatorManager,
 		pendingConnectionResumer: pendingConnectionResumer,
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
@@ -391,6 +404,10 @@ func (app *ChainlinkApplication) GetJobORM() job.ORM {
 	return app.JobORM
 }
 
+func (app *ChainlinkApplication) GetExternalInitiatorManager() ExternalInitiatorManager {
+	return app.ExternalInitiatorManager
+}
+
 func (app *ChainlinkApplication) GetStatsPusher() synchronization.StatsPusher {
 	return app.StatsPusher
 }
@@ -428,10 +445,15 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+// It is idempotent and can be run as many times as you like.
+func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) (err error) {
 	_ = app.JobSubscriber.RemoveJob(ID)
 	app.FluxMonitor.RemoveJob(ID)
-	return app.Store.ArchiveJob(ID)
+
+	if err = app.ExternalInitiatorManager.DeleteJob(app.Store.DB, ID); err != nil {
+		err = errors.Wrapf(err, "failed to delete job with id %s from external initiator", ID)
+	}
+	return multierr.Combine(err, app.Store.ArchiveJob(ID))
 }
 
 func (app *ChainlinkApplication) DeleteJobV2(ctx context.Context, jobID int32) error {

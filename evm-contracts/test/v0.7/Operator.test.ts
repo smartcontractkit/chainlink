@@ -16,6 +16,7 @@ import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/Malicio
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
 import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
 import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
+import { ContractReceipt } from 'ethers/contract'
 
 const v7ConsumerFactory = new Consumer__factory()
 const basicConsumerFactory = new BasicConsumer__factory()
@@ -70,6 +71,7 @@ describe('Operator', () => {
       'setAuthorizedSender',
       'withdraw',
       'withdrawable',
+      'operatorTransferAndCall',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -2259,6 +2261,39 @@ describe('Operator', () => {
         balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
       })
+
+      describe('recovering funds that were mistakenly sent', () => {
+        const paid = 1
+        beforeEach(async () => {
+          await link.transfer(operator.address, paid)
+        })
+
+        it('withdraws funds', async () => {
+          const operatorBalanceBefore = await link.balanceOf(operator.address)
+          const accountBalanceBefore = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(roles.defaultAccount.address, paid)
+
+          const operatorBalanceAfter = await link.balanceOf(operator.address)
+          const accountBalanceAfter = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
+          const operatorDifference = operatorBalanceBefore.sub(
+            operatorBalanceAfter,
+          )
+
+          matchers.bigNum(operatorDifference, paid)
+          matchers.bigNum(accountDifference, paid)
+        })
+      })
     })
 
     describe('reserving funds via oracleRequest', () => {
@@ -2291,6 +2326,39 @@ describe('Operator', () => {
           })
           const balance = await link.balanceOf(roles.oracleNode.address)
           assert.equal(0, balance.toNumber())
+        })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
         })
       })
 
@@ -2361,15 +2429,48 @@ describe('Operator', () => {
           const balance = await link.balanceOf(roles.stranger.address)
           assert.isTrue(ethers.constants.Zero.eq(balance))
         })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
+        })
       })
     })
   })
 
   describe('#withdrawable', () => {
     let request: ReturnType<typeof oracle.decodeRunRequest>
+    const amount = h.toWei('1')
 
     beforeEach(async () => {
-      const amount = h.toWei('1')
       const mock = await getterSetterFactory
         .connect(roles.defaultAccount)
         .deploy()
@@ -2394,6 +2495,108 @@ describe('Operator', () => {
     it('returns the correct value', async () => {
       const withdrawAmount = await operator.withdrawable()
       matchers.bigNum(withdrawAmount, request.payment)
+    })
+
+    describe('funds that were mistakenly sent', () => {
+      const paid = 1
+      beforeEach(async () => {
+        await link.transfer(operator.address, paid)
+      })
+
+      it('returns the correct value', async () => {
+        const withdrawAmount = await operator.withdrawable()
+
+        const expectedAmount = amount.add(paid)
+        matchers.bigNum(withdrawAmount, expectedAmount)
+      })
+    })
+  })
+
+  describe('#operatorTransferAndCall', () => {
+    let operator2: contract.Instance<Operator__factory>
+    let args: string
+    let to: string
+    const startingBalance = 1000
+    const payment = 20
+
+    beforeEach(async () => {
+      operator2 = await operatorFactory
+        .connect(roles.oracleNode2)
+        .deploy(link.address, roles.oracleNode2.address)
+      to = operator2.address
+      args = oracle.encodeOracleRequest(
+        specId,
+        operator.address,
+        operatorFactory.interface.functions.fulfillOracleRequest.sighash,
+        1,
+        '0x0',
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts with owner error message', async () => {
+        await link.transfer(operator.address, startingBalance)
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .operatorTransferAndCall(to, payment, args),
+            'Only callable by owner'
+        })
+      })
+    })
+
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        await link.transfer(operator.address, startingBalance)
+      })
+
+      describe('without sufficient funds in contract', () => {
+        it('reverts with funds message', async () => {
+          const tooMuch = startingBalance * 2
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.stranger)
+              .operatorTransferAndCall(to, tooMuch, args),
+              'Amount requested is greater than withdrawable balance'
+          })
+        })
+      })
+
+      describe('with sufficient funds', () => {
+        let receipt: ContractReceipt
+        let requesterBalanceBefore: utils.BigNumber
+        let requesterBalanceAfter: utils.BigNumber
+        let receiverBalanceBefore: utils.BigNumber
+        let receiverBalanceAfter: utils.BigNumber
+
+        beforeAll(async () => {
+          requesterBalanceBefore = await link.balanceOf(operator.address)
+          receiverBalanceBefore = await link.balanceOf(operator2.address)
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .operatorTransferAndCall(to, payment, args)
+          receipt = await tx.wait()
+          requesterBalanceAfter = await link.balanceOf(operator.address)
+          receiverBalanceAfter = await link.balanceOf(operator2.address)
+        })
+
+        it('emits an event', async () => {
+          assert.equal(3, receipt.logs?.length)
+          const request = oracle.decodeRunRequest(receipt.logs?.[2])
+          assert.equal(request.requester, operator.address)
+        })
+
+        it('transfers the tokens', async () => {
+          matchers.bigNum(
+            requesterBalanceBefore.sub(requesterBalanceAfter),
+            payment,
+          )
+          matchers.bigNum(
+            receiverBalanceAfter.sub(receiverBalanceBefore),
+            payment,
+          )
+        })
+      })
     })
   })
 
