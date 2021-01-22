@@ -1109,7 +1109,7 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, 
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		for i := range prs {
-			if prs[i].Outputs != nil {
+			if !prs[i].Outputs.Null {
 				errs, err := prs[i].Errors.MarshalJSON()
 				assert.NoError(t, err)
 				if string(errs) != "[null]" {
@@ -1648,4 +1648,13 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 	require.NoError(t, err)
 
 	return transactor
+}
+
+func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
+	t.Helper()
+
+	js := new(pipeline.JSONSerializable)
+	err := js.UnmarshalJSON([]byte(s))
+	require.NoError(t, err)
+	return *js
 }

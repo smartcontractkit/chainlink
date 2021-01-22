@@ -137,19 +137,19 @@ func (_m *ORM) ListenForNewRuns() (postgres.Subscription, error) {
 	return r0, r1
 }
 
-// ProcessNextUnclaimedTaskRun provides a mock function with given fields: ctx, fn
-func (_m *ORM) ProcessNextUnclaimedTaskRun(ctx context.Context, fn pipeline.ProcessTaskRunFunc) (bool, error) {
+// ProcessNextUnfinishedRun provides a mock function with given fields: ctx, fn
+func (_m *ORM) ProcessNextUnfinishedRun(ctx context.Context, fn pipeline.ProcessRunFunc) (bool, error) {
 	ret := _m.Called(ctx, fn)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.ProcessTaskRunFunc) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.ProcessRunFunc) bool); ok {
 		r0 = rf(ctx, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.ProcessTaskRunFunc) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.ProcessRunFunc) error); ok {
 		r1 = rf(ctx, fn)
 	} else {
 		r1 = ret.Error(1)

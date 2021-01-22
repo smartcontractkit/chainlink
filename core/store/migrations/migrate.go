@@ -4,6 +4,7 @@ import (
 	"regexp"
 
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1609963213"
+	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1611388693"
 
 	"github.com/smartcontractkit/chainlink/core/store/migrations/migration1608217193"
 
@@ -492,6 +493,10 @@ func init() {
 		{
 			ID:      "1610630629",
 			Migrate: migration1610630629.Migrate,
+		},
+		{
+			ID:      "1611388693",
+			Migrate: migration1611388693.Migrate,
 		},
 	}
 }
