@@ -23,12 +23,14 @@ import { OVMGanacheSubprovider } from './subproviders'
 
 const debug = makeDebug('helpers')
 
+const OVM_BLOCK_GAS_LIMIT = 9_000_000
+const EVM_BLOCK_GAS_LIMIT = 8_000_000
+
 /**
  * Create a test provider which uses an in-memory, in-process chain
  */
 export function provider(): ethers.providers.JsonRpcProvider {
   const providerEngine = new Web3ProviderEngine()
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(5 * 10 ** 6)) // Ganache does a poor job of estimating gas, so just crank it up for testing.
 
   // OVM CHANGE: sol-trace does not seem to work on OVM
   if (process.env.DEBUG && !isOVM()) {
@@ -46,8 +48,14 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
+  // Ganache does a poor job of estimating gas, so just crank it up for testing.
+  if (!isOVM()) {
+    const gasAmount = 5 * 10 ** 6
+    providerEngine.addProvider(new FakeGasEstimateSubprovider(gasAmount))
+  }
+
   const options = {
-    gasLimit: 8_000_000,
+    gasLimit: isOVM() ? OVM_BLOCK_GAS_LIMIT : EVM_BLOCK_GAS_LIMIT,
   }
 
   const ganacheProvider = isOVM()
