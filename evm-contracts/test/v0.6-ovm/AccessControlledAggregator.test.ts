@@ -176,6 +176,13 @@ describe('AccessControlledAggregator', () => {
 
     describe('when read by a regular account', () => {
       describe('without explicit access', () => {
+        it('has NO access', async () => {
+          const access = await aggregator
+            .connect(personas.Carol)
+            .hasAccess(personas.Eddy.address, '0x')
+          assert.isFalse(access)
+        })
+
         it('succeeds', async () => {
           const round = await aggregator.connect(personas.Carol).latestRound()
           await matchers.evmRevert(

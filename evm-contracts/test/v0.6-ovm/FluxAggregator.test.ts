@@ -1197,11 +1197,17 @@ describe('FluxAggregator', () => {
           )
           await aggregator.updateAvailableFunds()
 
-          let addresses = oracles.slice(0, 50).map(o => o.address)
+          let addresses = oracles.slice(0, 25).map(o => o.address)
           await aggregator
             .connect(personas.Carol)
-            .changeOracles([], addresses, addresses, 1, 50, rrDelay)
-          // add in two transactions to avoid gas limit issues
+            .changeOracles([], addresses, addresses, 1, 25, rrDelay)
+          // OVM CHANGE: gas metering on OVM (three tx instead of two on EVM)
+          // add in three transactions to avoid gas limit issues
+          addresses = oracles.slice(25, 50).map(o => o.address)
+          await aggregator
+            .connect(personas.Carol)
+            .changeOracles([], addresses, addresses, 1, 25, rrDelay)
+          // add in three transactions to avoid gas limit issues
           addresses = oracles.slice(50, 100).map(o => o.address)
           await aggregator
             .connect(personas.Carol)

@@ -23,6 +23,9 @@ import { OVMGanacheSubprovider } from './subproviders'
 
 const debug = makeDebug('helpers')
 
+const OVM_BLOCK_GAS_LIMIT = 9_000_000
+const EVM_BLOCK_GAS_LIMIT = 8_000_000
+
 /**
  * Create a test provider which uses an in-memory, in-process chain
  */
@@ -45,13 +48,14 @@ export function provider(): ethers.providers.JsonRpcProvider {
     providerEngine.addProvider(revertTraceSubprovider)
   }
 
-  // OVM CHANGE: over the top gas settings to make the tests run on OVM
   // Ganache does a poor job of estimating gas, so just crank it up for testing.
-  const gasAmount = (isOVM() ? 1_900 : 5) * 10 ** 6
-  providerEngine.addProvider(new FakeGasEstimateSubprovider(gasAmount))
+  if (!isOVM()) {
+    const gasAmount = 5 * 10 ** 6
+    providerEngine.addProvider(new FakeGasEstimateSubprovider(gasAmount))
+  }
 
   const options = {
-    gasLimit: isOVM() ? 2_000_000_000 : 8_000_000,
+    gasLimit: isOVM() ? OVM_BLOCK_GAS_LIMIT : EVM_BLOCK_GAS_LIMIT,
   }
 
   const ganacheProvider = isOVM()
