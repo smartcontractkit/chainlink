@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jinzhu/gorm"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gopkg.in/guregu/null.v4"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore
@@ -33,11 +35,6 @@ type (
 		SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error
 	}
 
-	Result struct {
-		Value interface{}
-		Error error
-	}
-
 	Config interface {
 		BridgeResponseURL() *url.URL
 		DatabaseMaximumTxDuration() time.Duration
@@ -48,6 +45,7 @@ type (
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxTaskDuration() time.Duration
+		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration
@@ -58,6 +56,49 @@ var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
 )
+
+type Result struct {
+	Value interface{}
+	Error error
+}
+
+// OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
+func (result Result) OutputDB() JSONSerializable {
+	return JSONSerializable{Val: result.Value, Null: result.Value == nil}
+}
+
+// ErrorDB dumps a single result error for a pipeline_task_run
+func (result Result) ErrorDB() null.String {
+	var errString null.String
+	if finalErrors, is := result.Error.(FinalErrors); is {
+		errString = null.StringFrom(finalErrors.Error())
+	} else if result.Error != nil {
+		errString = null.StringFrom(result.Error.Error())
+	}
+	return errString
+}
+
+// ErrorsDB dumps a result error for a pipeline_run
+func (result Result) ErrorsDB() JSONSerializable {
+	var val interface{}
+	if finalErrors, is := result.Error.(FinalErrors); is {
+		val = finalErrors
+	} else if result.Error != nil {
+		val = result.Error.Error()
+	} else {
+		val = nil
+	}
+	return JSONSerializable{Val: val, Null: false}
+}
+
+// TaskRunResult describes the result of a task run, suitable for database
+// update or insert
+type TaskRunResult struct {
+	ID         int64
+	Result     Result
+	FinishedAt time.Time
+	IsFinal    bool
+}
 
 type BaseTask struct {
 	outputTask Task
@@ -78,7 +119,8 @@ func (t BaseTask) TaskTimeout() (time.Duration, bool) {
 }
 
 type JSONSerializable struct {
-	Val interface{}
+	Val  interface{}
+	Null bool
 }
 
 func (js *JSONSerializable) UnmarshalJSON(bs []byte) error {
@@ -98,6 +140,10 @@ func (js JSONSerializable) MarshalJSON() ([]byte, error) {
 }
 
 func (js *JSONSerializable) Scan(value interface{}) error {
+	if value == nil {
+		*js = JSONSerializable{Null: true}
+		return nil
+	}
 	bytes, ok := value.([]byte)
 	if !ok {
 		return errors.Errorf("JSONSerializable#Scan received a value of type %T", value)
@@ -109,6 +155,9 @@ func (js *JSONSerializable) Scan(value interface{}) error {
 }
 
 func (js JSONSerializable) Value() (driver.Value, error) {
+	if js.Null {
+		return nil, nil
+	}
 	return js.MarshalJSON()
 }
 
@@ -125,12 +174,12 @@ const (
 
 const ResultTaskDotID = "__result__"
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
 	default:
-		return nil, errors.New("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
+		return nil, errors.Errorf("UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got %v (%#v) of type %T", taskMap, taskMap, taskMap)
 	case map[string]interface{}, map[string]string:
 	}
 
@@ -141,7 +190,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, txdb: txdb, BaseTask: BaseTask{dotID: dotID}}
+		task = &BridgeTask{config: config, txdb: txdb, txdbMutex: txdbMutex, BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeMedian:
 		task = &MedianTask{BaseTask: BaseTask{dotID: dotID}}
 	case TaskTypeJSONParse:

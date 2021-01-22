@@ -90,6 +90,14 @@ func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result
 	})
 }
 
+func fakeStringResponder(t *testing.T, s string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(s))
+		require.NoError(t, err)
+	})
+}
+
 func TestBridgeTask_Happy(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -120,7 +128,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.NoError(t, result.Error)
@@ -130,7 +138,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal(result.Value.([]byte), &x)
+	json.Unmarshal([]byte(result.Value.(string)), &x)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
@@ -176,7 +184,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{request},
+			Meta: pipeline.JSONSerializable{request, false},
 		},
 	}, nil)
 }
@@ -266,7 +274,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.Nil(t, result.Value)
@@ -335,7 +343,7 @@ func TestBridgeTask_AddsID(t *testing.T) {
 
 	r := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.NoError(t, r.Error)
