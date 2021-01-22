@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: andstor/copycat-action@v3.2.3
         with:
-          personal_token: ${{ secrets.GITHUB_TOKEN }}
+          personal_token: ${{ secrets.ERC_REPO }}
           src_path: evm-contracts/src/.
           dst_path: contracts/
           dst_owner: smartcontractkit
