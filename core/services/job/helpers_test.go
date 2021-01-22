@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -189,7 +190,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout)
 	c, cl := cltest.NewConfig(t)
 	defer cl()
-	_, err := services.ValidatedOracleSpecToml(c.Config, s)
+	_, err := offchainreporting.ValidatedOracleSpecToml(c.Config, s)
 	require.NoError(t, err)
 	err = toml.Unmarshal([]byte(s), &os)
 	require.NoError(t, err)

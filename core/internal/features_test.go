@@ -17,11 +17,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"github.com/pborman/uuid"
 
 	"github.com/onsi/gomega"
 
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
@@ -38,6 +39,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -636,13 +639,14 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
+		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
-		Body   web.JobSpecNotice
+		Body   services.JobSpecNotice
 	}{}
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
@@ -676,13 +680,13 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 	assert.Equal(t,
 		eip.OutgoingToken,
-		exInitr.Header.Get(web.ExternalInitiatorAccessKeyHeader),
+		exInitr.Header.Get(static.ExternalInitiatorAccessKeyHeader),
 	)
 	assert.Equal(t,
 		eip.OutgoingSecret,
-		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
+		exInitr.Header.Get(static.ExternalInitiatorSecretHeader),
 	)
-	expected := web.JobSpecNotice{
+	expected := services.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
@@ -1381,7 +1385,7 @@ func TestIntegration_OCR(t *testing.T) {
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
-	ocrJob, err := services.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
+	ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -1400,7 +1404,7 @@ isBootstrapPeer    = true
 
 		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
 		defer cleanupHTTP()
-		ocrJob, err := services.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
+		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
