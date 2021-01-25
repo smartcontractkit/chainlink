@@ -116,7 +116,6 @@ type ChainlinkApplication struct {
 	balanceMonitor           services.BalanceMonitor
 	explorerClient           synchronization.ExplorerClient
 	subservices              []StartCloser
-	monitoringEndpoint       ocrtypes.MonitoringEndpoint
 
 	started     bool
 	startStopMu sync.Mutex
@@ -215,7 +214,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		shutdownSignal:           shutdownSignal,
 		balanceMonitor:           balanceMonitor,
 		explorerClient:           explorerClient,
-		monitoringEndpoint:       monitoringEndpoint,
 		// NOTE: Can keep things clean by putting more things in subservices
 		// instead of manually start/closing
 		subservices: subservices,

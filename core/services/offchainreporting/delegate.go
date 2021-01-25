@@ -24,15 +24,15 @@ import (
 )
 
 type Delegate struct {
-	db             *gorm.DB
-	jobORM         job.ORM
-	config         *orm.Config
-	keyStore       *KeyStore
-	pipelineRunner pipeline.Runner
-	ethClient      eth.Client
-	logBroadcaster log.Broadcaster
-	peerWrapper    *SingletonPeerWrapper
-    monitoringEndpoint ocrtypes.MonitoringEndpoint
+	db                 *gorm.DB
+	jobORM             job.ORM
+	config             *orm.Config
+	keyStore           *KeyStore
+	pipelineRunner     pipeline.Runner
+	ethClient          eth.Client
+	logBroadcaster     log.Broadcaster
+	peerWrapper        *SingletonPeerWrapper
+	monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
 func NewDelegate(
@@ -44,7 +44,7 @@ func NewDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
-    monitoringEndpoint ocrtypes.MonitoringEndpoint,
+	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
 	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper, monitoringEndpoint}
 }
