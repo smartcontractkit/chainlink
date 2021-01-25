@@ -30,7 +30,7 @@ If you wanted to consume the v0.6.x version of our `ChainlinkClient` smart contr
 import "@chainlink/contracts/contracts/v0.6/ChainlinkClient.sol";
 ```
 
-## Development
+## Local Development
 
 Note: Contracts in `src/v0.7/dev` are under active development and not yet stable.
 Please use them for testing and development only.
