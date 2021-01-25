@@ -270,6 +270,27 @@ contract Operator is
   }
 
   /**
+   * @notice Interact with other LinkTokenReceiver contracts by calling transferAndCall
+   * @param to The address to transfer to.
+   * @param value The amount to be transferred.
+   * @param data The extra data to be passed to the receiving contract.
+   * @return success bool
+   */
+  function operatorTransferAndCall(
+    address to,
+    uint256 value,
+    bytes calldata data
+  )
+    external
+    override
+    onlyOwner()
+    hasAvailableFunds(value)
+    returns (bool success)
+  {
+    return linkToken.transferAndCall(to, value, data);
+  }
+
+  /**
    * @notice Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK
    * sent for the request back to the requester's address.
    * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid

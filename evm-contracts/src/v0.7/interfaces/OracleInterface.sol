@@ -14,4 +14,5 @@ interface OracleInterface {
   function setAuthorizedSender(address node, bool allowed) external;
   function withdraw(address recipient, uint256 amount) external;
   function withdrawable() external view returns (uint256);
+  function operatorTransferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success);
 }
