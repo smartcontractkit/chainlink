@@ -1001,7 +1001,9 @@ func SendBlocksUntilComplete(
 	store *strpkg.Store,
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
-	start int64) models.JobRun {
+	start int64,
+	gethClient *mocks.GethClient,
+) models.JobRun {
 	t.Helper()
 
 	var err error
@@ -1009,6 +1011,9 @@ func SendBlocksUntilComplete(
 	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
 		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
 		blockCh <- &h
+		gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(block),
+		}), nil)
 		block++
 		jr, err = store.Unscoped().FindJobRun(jr.ID)
 		assert.NoError(t, err)
