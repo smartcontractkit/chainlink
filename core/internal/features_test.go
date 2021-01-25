@@ -374,14 +374,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
 
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
-		Number: big.NewInt(int64(logBlockNumber + 9)),
-	}), nil)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), gethClient)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -876,10 +873,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	newHeads <- cltest.Head(safe)
-
 	// Check the FM price on completed run output
-	jr = cltest.WaitForJobRunToComplete(t, app.GetStore(), jr)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, gethClient)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -1010,8 +1005,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil)
 
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
-
 	logs <- log
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -1020,8 +1013,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-newHeadsCh
-	newHeads <- cltest.Head(safe)
-	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, gethClient)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
