@@ -306,7 +306,7 @@ contract Operator is
     payable
     onlyOwner()
   {
-    require(receivers.length == amounts.length, "Array lengths unequal");
+    require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
     uint256 valueRemaining = msg.value;
     for (uint256 i = 0; i < receivers.length; i++) {
       uint256 sendAmount = amounts[i];
