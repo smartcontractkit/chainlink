@@ -85,7 +85,7 @@ import { ChainlinkClientFactory } from '@chainlink/contracts/ethers/v0.6/Chainli
 
 This gives a fully typed (if using TypeScript) version of a ethers.js contract factory. See the [ethers.js](https://docs.ethers.io/ethers.js/html/api-contract.html) documentation on usage.
 
-#### Truffle
+#### Using Truffle Files
 
 This library ships with [@truffle/contract](https://github.com/trufflesuite/truffle/tree/master/packages/contract#readme) abstractions of each of our smart contracts. To use these, make sure you have @truffle/contract as a dependency.
 
