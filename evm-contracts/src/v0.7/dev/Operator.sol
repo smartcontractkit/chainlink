@@ -291,6 +291,32 @@ contract Operator is
   }
 
   /**
+   * @notice Distribute funds to multiple addresses using ETH send
+   * to this payable function.
+   * @dev Array length must be equal, ETH sent must equal the sum of amounts.
+   * @param receivers list of addresses
+   * @param amounts list of amounts
+   */
+  function distributeFunds(
+    address payable[] calldata receivers,
+    uint[] calldata amounts
+  )
+    external
+    override
+    payable
+    onlyOwner()
+  {
+    require(receivers.length == amounts.length, "Array lengths unequal");
+    uint256 valueRemaining = msg.value;
+    for (uint256 i = 0; i < receivers.length; i++) {
+      uint256 sendAmount = amounts[i];
+      valueRemaining = valueRemaining.sub(sendAmount);
+      receivers[i].transfer(sendAmount);
+    }
+    require(valueRemaining == 0, "Too much ETH sent");
+  }
+
+  /**
    * @notice Allows requesters to cancel requests sent to this oracle contract. Will transfer the LINK
    * sent for the request back to the requester's address.
    * @dev Given params must hash to a commitment stored on the contract in order for the request to be valid
