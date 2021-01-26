@@ -10,6 +10,14 @@ interface OracleInterface {
     uint256 expiration,
     bytes32 data
   ) external returns (bool);
+  function fulfillOracleRequest2(
+    bytes32 requestId,
+    uint256 payment,
+    address callbackAddress,
+    bytes4 callbackFunctionId,
+    uint256 expiration,
+    bytes calldata data
+  ) external returns (bool);
   function isAuthorizedSender(address node) external view returns (bool);
   function setAuthorizedSender(address node, bool allowed) external;
   function withdraw(address recipient, uint256 amount) external;
