@@ -84,10 +84,8 @@ describe('Operator', () => {
     describe('when called by a non-owner', () => {
       it('cannot add an authorized node', async () => {
         await matchers.evmRevert(async () => {
-          await operator
-            .connect(roles.stranger)
-            .distributeFunds([], [])
-          , 'Only callable by owner'
+          await operator.connect(roles.stranger).distributeFunds([], []),
+            'Only callable by owner'
         })
       })
     })
@@ -98,60 +96,54 @@ describe('Operator', () => {
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .distributeFunds([], [])
-            , 'Invalid array length(s)'
+              .distributeFunds([], []),
+              'Invalid array length(s)'
           })
         })
       })
 
       describe('with unequal array lengths', () => {
         it('reverts with invalid array message', async () => {
-          let receivers = [
+          const receivers = [
             roles.oracleNode2.address,
-            roles.oracleNode3.address
+            roles.oracleNode3.address,
           ]
-          let amounts = [
-            1,2,3
-          ]
+          const amounts = [1, 2, 3]
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .distributeFunds(receivers, amounts)
-            , 'Invalid array length(s)'
+              .distributeFunds(receivers, amounts),
+              'Invalid array length(s)'
           })
         })
       })
 
       describe('with not enough ETH', () => {
         it('reverts with subtraction overflow message', async () => {
-          let amountToSend = h.toWei("2")
-          let ethSent = h.toWei("1")
+          const amountToSend = h.toWei('2')
+          const ethSent = h.toWei('1')
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .distributeFunds(
-                [roles.oracleNode2.address],
-                [amountToSend],
-                {value: ethSent}
-              )
-            , 'SafeMath: subtraction overflow'
+              .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+                value: ethSent,
+              }),
+              'SafeMath: subtraction overflow'
           })
         })
       })
 
       describe('with too much ETH', () => {
         it('reverts with too much ETH message', async () => {
-          let amountToSend = h.toWei("2")
-          let ethSent = h.toWei("3")
+          const amountToSend = h.toWei('2')
+          const ethSent = h.toWei('3')
           await matchers.evmRevert(async () => {
             await operator
               .connect(roles.defaultAccount)
-              .distributeFunds(
-                [roles.oracleNode2.address],
-                [amountToSend],
-                {value: ethSent}
-              )
-            , 'Too much ETH sent'
+              .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+                value: ethSent,
+              }),
+              'Too much ETH sent'
           })
         })
       })
@@ -160,39 +152,31 @@ describe('Operator', () => {
         it('updates the balances', async () => {
           const node2BalanceBefore = await roles.oracleNode2.getBalance()
           const node3BalanceBefore = await roles.oracleNode3.getBalance()
-          let receivers = [
+          const receivers = [
             roles.oracleNode2.address,
-            roles.oracleNode3.address
+            roles.oracleNode3.address,
           ]
-          const sendNode2 = h.toWei("2")
-          const sendNode3 = h.toWei("3")
-          const totalAmount = h.toWei("5")
-          let amounts = [
-            sendNode2,
-            sendNode3
-          ]
+          const sendNode2 = h.toWei('2')
+          const sendNode3 = h.toWei('3')
+          const totalAmount = h.toWei('5')
+          const amounts = [sendNode2, sendNode3]
 
           await operator
             .connect(roles.defaultAccount)
-            .distributeFunds(
-              receivers,
-              amounts,
-              {value: totalAmount}
-            )
-          
+            .distributeFunds(receivers, amounts, { value: totalAmount })
+
           const node2BalanceAfter = await roles.oracleNode2.getBalance()
           const node3BalanceAfter = await roles.oracleNode3.getBalance()
 
           assert.equal(
             node2BalanceAfter.sub(node2BalanceBefore).toString(),
-            sendNode2.toString()
+            sendNode2.toString(),
           )
 
           assert.equal(
             node3BalanceAfter.sub(node3BalanceBefore).toString(),
-            sendNode3.toString()
+            sendNode3.toString(),
           )
-            
         })
       })
     })
