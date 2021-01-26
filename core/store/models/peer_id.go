@@ -15,7 +15,7 @@ const peerIDPrefix = "p2p"
 type PeerID peer.ID
 
 func (p PeerID) String() string {
-	return fmt.Sprintf("p2p%s", peer.ID(p).String())
+	return fmt.Sprintf("%s%s", peerIDPrefix, peer.ID(p).String())
 }
 
 func (p PeerID) Raw() string {

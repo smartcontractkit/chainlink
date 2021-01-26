@@ -1280,7 +1280,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].MustGetPeerID().String()
+	peerID := p2pIDs[0].MustGetPeerID().Raw()
 
 	app.Config.Set("P2P_PEER_ID", peerID)
 	app.Config.Set("P2P_LISTEN_PORT", port)
