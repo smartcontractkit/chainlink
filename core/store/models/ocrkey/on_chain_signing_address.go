@@ -11,7 +11,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-const onChainSigningAddressPrefix = "ocrsad"
+const onChainSigningAddressPrefix = "ocrsad_"
 
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 

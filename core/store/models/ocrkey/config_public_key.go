@@ -10,7 +10,7 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
-const configPublicKeyPrefix = "ocrcfg"
+const configPublicKeyPrefix = "ocrcfg_"
 
 // ConfigPublicKey represents the public key for the config decryption keypair
 type ConfigPublicKey [curve25519.PointSize]byte

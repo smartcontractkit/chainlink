@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const peerIDPrefix = "p2p"
+const peerIDPrefix = "p2p_"
 
 type PeerID peer.ID
 

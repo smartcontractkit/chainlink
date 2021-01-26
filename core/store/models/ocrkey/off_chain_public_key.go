@@ -10,7 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const offChainPublicKeyPrefix = "ocroff"
+const offChainPublicKeyPrefix = "ocroff_"
 
 type OffChainPublicKey ed25519.PublicKey
 
