@@ -178,7 +178,7 @@ jobs:
         run: ./tools/ci/solidity_test v0.6
 
   solidity-old:
-    name: Solidity older version tests
+    name: Solidity old versions
     runs-on: [self-hosted, sdlc-ghr-prod]
     container:
       image: smartcontract/builder:1.0.37
