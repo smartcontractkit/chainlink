@@ -15,4 +15,5 @@ interface OracleInterface {
   function withdraw(address recipient, uint256 amount) external;
   function withdrawable() external view returns (uint256);
   function operatorTransferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success);
+  function distributeFunds(address payable[] calldata receivers,uint[] calldata amounts) external payable;
 }
