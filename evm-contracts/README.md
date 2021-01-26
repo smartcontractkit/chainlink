@@ -99,7 +99,9 @@ $ npm install @truffle/contract@^4.1.8 --save
 If you wanted to consume the v0.6.x version of our ChainlinkClient with JavaScript, you could do the following:
 
 ```js
-const { ChainlinkClient } = require('@chainlink/contracts/truffle/v0.4/ChainlinkClient')
+const {
+  ChainlinkClient,
+} = require('@chainlink/contracts/truffle/v0.4/ChainlinkClient')
 ```
 
 For usage, see the [@truffle/contract](https://github.com/trufflesuite/truffle/tree/master/packages/contract#readme) documentation.
