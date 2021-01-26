@@ -30,6 +30,34 @@ If you wanted to consume the v0.6.x version of our `ChainlinkClient` smart contr
 import "@chainlink/contracts/contracts/v0.6/ChainlinkClient.sol";
 ```
 
+### Directory Structure
+
+The contracts are compiled, packaged and published from a separate workflow. When installed via NPM, the files are structured like this:
+
+```sh
+contracts
+├── abi # abi output from src/
+│   ├── v0.4
+│   ├── v0.5
+│   └── v0.6
+|   └── v0.7
+├── ethers # ethers contract abstractions codegenned from abis
+│   ├── v0.4
+│   ├── v0.5
+│   └── v0.6
+|   └── v0.7
+├── contracts # the contracts themselves, in .sol form
+│   ├── v0.4
+│   ├── v0.5
+│   └── v0.6
+|   └── v0.7
+└── truffle  # truffle contract abstractions codegenned from abis
+    ├── v0.4
+    ├── v0.5
+    └── v0.6
+    └── v0.7
+```
+
 ## Local Development
 
 Note: Contracts in `src/v0.7/dev` are under active development and not yet stable.
