@@ -16,7 +16,7 @@
     "test:reset": "yarn setup && yarn test",
     "test": "jest --testTimeout 80000 --forceExit --detectOpenHandles",
     "test:ci:old": "./scripts/test_ci_old",
-    "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
+    "prepublishOnly": "yarn clean && yarn setup && yarn test v0.7 && yarn setup"
   },
   "devDependencies": {
     "@chainlink/belt": "0.0.3",
