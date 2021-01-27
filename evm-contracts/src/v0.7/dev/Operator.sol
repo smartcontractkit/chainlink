@@ -5,6 +5,7 @@ import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OracleInterface.sol";
+import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -18,6 +19,7 @@ contract Operator is
   ConfirmedOwner,
   ChainlinkRequestInterface,
   OracleInterface,
+  OperatorInterface,
   WithdrawalInterface
 {
   using SafeMathChainlink for uint256;
@@ -302,7 +304,6 @@ contract Operator is
     external
     override
     payable
-    onlyOwner()
   {
     require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
     uint256 valueRemaining = msg.value;
