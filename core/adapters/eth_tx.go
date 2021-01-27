@@ -181,10 +181,9 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 	var r gethTypes.Receipt
 	err = json.Unmarshal(receipt.Receipt, &r)
 	if err != nil {
-		logger.Error("unable to unmarshal tx receipt", err)
-		return models.NewRunOutputError(err)
+		logger.Debug("unable to unmarshal tx receipt", err)
 	}
-	if r.Status == 0 {
+	if err == nil && r.Status == 0 {
 		err = errors.Errorf("transaction %s reverted on-chain", r.TxHash)
 		logger.Error(err)
 		return models.NewRunOutputError(err)
