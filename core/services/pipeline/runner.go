@@ -25,7 +25,10 @@ type (
 	Runner interface {
 		Start() error
 		Close() error
-		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+		NewRun(ctx context.Context, jobID int32, startedAt time.Time) (Run, error)
+		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
+		ExecuteRun(ctx context.Context, run Run) (trrs []TaskRunResult, err error)
+		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	}
@@ -146,6 +149,33 @@ func (r *runner) runLoop() {
 	}
 }
 
+// NewRun creates an in-memory Run along with its TaskRuns for the provided job
+// It does not write to the database
+func (r *runner) NewRun(ctx context.Context, jobID int32, startedAt time.Time) (run Run, err error) {
+	spec, err := r.orm.LoadSpec(ctx, jobID)
+	if err != nil {
+		return run, errors.Wrapf(err, "could not load spec for job ID %v", jobID)
+	}
+
+	taskRuns := make([]TaskRun, len(spec.PipelineTaskSpecs))
+	for i, taskSpec := range spec.PipelineTaskSpecs {
+		taskRuns[i] = TaskRun{
+			Type:               taskSpec.Type,
+			PipelineTaskSpecID: taskSpec.ID,
+			PipelineTaskSpec:   taskSpec,
+			CreatedAt:          startedAt,
+		}
+	}
+	run = Run{
+		PipelineSpecID:   spec.ID,
+		PipelineSpec:     spec,
+		PipelineTaskRuns: taskRuns,
+		CreatedAt:        startedAt,
+	}
+
+	return run, nil
+}
+
 func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	runID, err := r.orm.CreateRun(ctx, jobID, meta)
 	if err != nil {
@@ -153,6 +183,10 @@ func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]int
 	}
 	logger.Infow("Pipeline run created", "jobID", jobID, "runID", runID)
 	return runID, nil
+}
+
+func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error) {
+	return r.orm.InsertFinishedRunWithResults(ctx, run, trrs)
 }
 
 func (r *runner) AwaitRun(ctx context.Context, runID int64) error {
@@ -180,7 +214,7 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.ExecuteRun)
+	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
 }
 
 type (
@@ -216,13 +250,24 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs []TaskRunResult) {
+func (r *runner) ExecuteRun(ctx context.Context, run Run) (trrs []TaskRunResult, err error) {
+	db := r.orm.DB()
+	return r.executeRun(ctx, db, run)
+}
+
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs []TaskRunResult, err error) {
 	logger.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
 
 	// Find "firsts" and work forwards
 	// 1. Make map of all memory task runs keyed by task spec id
 	all := make(map[int32]*memoryTaskRun)
 	for _, tr := range run.PipelineTaskRuns {
+		if tr.PipelineTaskSpec.ID == 0 {
+			return nil, errors.Errorf("taskRun.PipelineTaskSpec has 0 ID: %#v", tr)
+		}
+		if tr.PipelineTaskSpec.PipelineSpecID == 0 {
+			return nil, errors.Errorf("taskRun.PipelineTaskSpec has 0 PipelineTaskSpecID: %#v", tr)
+		}
 		mtr := memoryTaskRun{
 			taskRun: tr,
 		}
@@ -301,6 +346,7 @@ func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs [
 
 				trr := TaskRunResult{
 					ID:         m.taskRun.ID,
+					TaskSpecID: m.taskRun.PipelineTaskSpecID,
 					Result:     result,
 					FinishedAt: finishedAt,
 				}
@@ -343,7 +389,7 @@ func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs [
 
 	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID)
 
-	return trrs
+	return trrs, nil
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {

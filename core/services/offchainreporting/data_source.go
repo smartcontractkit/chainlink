@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -26,40 +25,43 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 // appropriate error.
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	start := time.Now()
-	runID, err := ds.pipelineRunner.CreateRun(ctx, ds.jobID, nil)
-	endCreate := time.Now()
-	if ctx.Err() != nil {
-		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel create run. Runtime %v", endCreate.Sub(start))
-	}
+
+	// FIXME: Pull out the spec load from NewRun and make it pure
+	run, err := ds.pipelineRunner.NewRun(ctx, ds.jobID, start)
 	if err != nil {
-		logger.Errorw("Error creating new pipeline run", "jobID", ds.jobID, "error", err)
-		return nil, err
+		return nil, errors.Wrapf(err, "error creating new run for job ID %v", ds.jobID)
 	}
 
-	err = ds.pipelineRunner.AwaitRun(ctx, runID)
-	endAwait := time.Now()
-	if ctx.Err() != nil {
-		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel await run. Runtime %v", endAwait.Sub(start))
-	}
+	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, run)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error executing run for job ID %v", ds.jobID)
 	}
 
-	results, err := ds.pipelineRunner.ResultsForRun(ctx, runID)
-	endResults := time.Now()
-	if ctx.Err() != nil {
-		return nil, errors.Errorf("context cancelled due to timeout or shutdown, cancel get results for run. Runtime %v", endResults.Sub(start))
-	} else if err != nil {
-		return nil, errors.Wrapf(err, "pipeline error")
-	} else if len(results) != 1 {
-		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
+	run.CreatedAt = start
+	end := time.Now()
+	run.FinishedAt = &end
+
+	// TODO: Might wanna add some logging with runID
+	if _, err := ds.pipelineRunner.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
+		return nil, errors.Wrapf(err, "error inserting finished results for job ID %v", ds.jobID)
 	}
 
-	if results[0].Error != nil {
-		return nil, results[0].Error
+	// TODO: Can we pull this into a function on []TaskRunResult?
+	var result pipeline.Result
+	for _, trr := range trrs {
+		if trr.IsFinal {
+			// FIXME: This assumes there is only one final result and will
+			// have to change when the magical "__result__" type is removed
+			// https://www.pivotaltracker.com/story/show/176557536
+			result = trr.Result
+		}
 	}
 
-	asDecimal, err := utils.ToDecimal(results[0].Value)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	asDecimal, err := utils.ToDecimal(result.Value)
 	if err != nil {
 		return nil, err
 	}

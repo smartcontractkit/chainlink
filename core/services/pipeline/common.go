@@ -92,9 +92,12 @@ func (result Result) ErrorsDB() JSONSerializable {
 }
 
 // TaskRunResult describes the result of a task run, suitable for database
-// update or insert
+// update or insert.
+// ID might be zero if the TaskRun has not been inserted yet
+// TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         int64
+	TaskSpecID int32
 	Result     Result
 	FinishedAt time.Time
 	IsFinal    bool
