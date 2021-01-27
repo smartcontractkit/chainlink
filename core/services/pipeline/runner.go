@@ -378,7 +378,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 
 	wg.Wait()
 
-	runTime := time.Now().Sub(startRun)
+	runTime := time.Since(startRun)
 	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
 	return trrs, err
