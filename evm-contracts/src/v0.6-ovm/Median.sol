@@ -12,6 +12,22 @@ library Median {
   /**
    * @notice Returns the sorted middle, or the average of the two middle indexed items if the
    * array has an even number of elements.
+   * @dev The list passed as an argument isn't modified. (Input data is copied on DELEGATECALL as this is a public lib fn)
+   * @dev This algorithm has expected runtime O(n), but for adversarially chosen inputs
+   * the runtime is O(n^2).
+   * @param list The list of elements to compare
+   */
+  function calculate__public(int256[] memory list)
+    public
+    pure
+    returns (int256)
+  {
+    return calculateInplace(list);
+  }
+
+  /**
+   * @notice Returns the sorted middle, or the average of the two middle indexed items if the
+   * array has an even number of elements.
    * @dev The list passed as an argument isn't modified.
    * @dev This algorithm has expected runtime O(n), but for adversarially chosen inputs
    * the runtime is O(n^2).

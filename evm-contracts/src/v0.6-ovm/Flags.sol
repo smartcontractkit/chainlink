@@ -158,7 +158,7 @@ contract Flags is FlagsInterface, SimpleReadAccessController {
     view
     returns (bool)
   {
-    return msg.sender == owner ||
+    return msg.sender == owner() ||
       raisingAccessController.hasAccess(msg.sender, msg.data);
   }
 

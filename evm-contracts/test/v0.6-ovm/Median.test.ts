@@ -3,7 +3,6 @@ import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { MedianTestHelper__factory } from '../../ethers/v0.6-ovm/factories/MedianTestHelper__factory'
 
-const medianTestHelperFactory = new MedianTestHelper__factory()
 const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
@@ -16,7 +15,7 @@ describe('Median', () => {
   let median: contract.Instance<MedianTestHelper__factory>
 
   beforeEach(async () => {
-    median = await medianTestHelperFactory.connect(defaultAccount).deploy()
+    median = await new MedianTestHelper__factory(defaultAccount).deploy()
   })
 
   describe('testing various lists', () => {

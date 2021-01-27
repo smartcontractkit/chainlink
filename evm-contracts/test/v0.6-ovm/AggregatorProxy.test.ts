@@ -7,6 +7,7 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BigNumber } from 'ethers/utils'
+import { deployLibraries } from './helpers'
 import { MockV2Aggregator__factory } from '../../ethers/v0.6-ovm/factories/MockV2Aggregator__factory'
 import { MockV3Aggregator__factory } from '../../ethers/v0.6-ovm/factories/MockV3Aggregator__factory'
 import { AggregatorProxy__factory } from '../../ethers/v0.6-ovm/factories/AggregatorProxy__factory'
@@ -23,7 +24,6 @@ const aggregatorFactory = new MockV3Aggregator__factory()
 const historicAggregatorFactory = new MockV2Aggregator__factory()
 const aggregatorFacadeFactory = new AggregatorFacade__factory()
 const aggregatorProxyFactory = new AggregatorProxy__factory()
-const fluxAggregatorFactory = new FluxAggregator__factory()
 const reverterFactory = new Reverter__factory()
 
 beforeAll(async () => {
@@ -58,9 +58,10 @@ describe('AggregatorProxy', () => {
       .connect(defaultAccount)
       .deploy(aggregator.address)
     const emptyAddress = '0x0000000000000000000000000000000000000000'
-    flux = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(link.address, 0, 0, emptyAddress, 0, 0, 18, 'TEST / LINK')
+
+    const libs = await deployLibraries(personas.Carol)
+    flux = await new FluxAggregator__factory(libs, personas.Carol).deploy()
+    flux.init(link.address, 0, 0, emptyAddress, 0, 0, 18, 'TEST / LINK')
   })
 
   beforeEach(async () => {
@@ -341,8 +342,8 @@ describe('AggregatorProxy', () => {
           matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
-          // OVM CHANGE: slower OVM tests (by a factor of 2)
-          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 2)
+          // OVM CHANGE: slower OVM tests (by a factor of 2-3)
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 3)
           matchers.bigNum(round.updatedAt, round.startedAt)
           matchers.bigNum(proxyId, round.answeredInRound)
         })
@@ -393,8 +394,8 @@ describe('AggregatorProxy', () => {
       matchers.bigNum(proxyId, round.roundId)
       matchers.bigNum(response, round.answer)
       const nowSeconds = new Date().valueOf() / 1000
-      // OVM CHANGE: slower OVM tests (by a factor of 2)
-      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120 * 2)
+      // OVM CHANGE: slower OVM tests (by a factor of 2-3)
+      assert.isAbove(round.startedAt.toNumber(), nowSeconds - 120 * 3)
       assert.isBelow(round.startedAt.toNumber(), nowSeconds)
       matchers.bigNum(round.startedAt, round.updatedAt)
       matchers.bigNum(proxyId, round.answeredInRound)
@@ -437,8 +438,8 @@ describe('AggregatorProxy', () => {
           matchers.bigNum(proxyId, round.roundId)
           matchers.bigNum(response2, round.answer)
           const nowSeconds = new Date().valueOf() / 1000
-          // OVM CHANGE: slower OVM tests (by a factor of 2)
-          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 2)
+          // OVM CHANGE: slower OVM tests (by a factor of 2-3)
+          assert.isAbove(round.updatedAt.toNumber(), nowSeconds - 120 * 3)
           matchers.bigNum(round.updatedAt, round.startedAt)
           matchers.bigNum(proxyId, round.answeredInRound)
         })
