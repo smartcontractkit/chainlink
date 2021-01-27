@@ -54,7 +54,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
 		trrs := []pipeline.TaskRunResult{
 			pipeline.TaskRunResult{
-				IsFinal: true,
+				IsTerminal: true,
 				Result: pipeline.Result{
 					Value: []interface{}{nil},
 					Error: errors.New("Random: String, foo"),
@@ -75,7 +75,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
 		trrs := []pipeline.TaskRunResult{
 			pipeline.TaskRunResult{
-				IsFinal: true,
+				IsTerminal: true,
 				Result: pipeline.Result{
 					Value: []interface{}{nil},
 					Error: pipeline.FinalErrors([]null.String{

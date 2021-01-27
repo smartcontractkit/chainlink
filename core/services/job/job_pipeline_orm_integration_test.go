@@ -309,7 +309,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				// Process the run
 				{
 					var anyRemaining bool
-					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) (trrs []pipeline.TaskRunResult, err error) {
+					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) (trrs pipeline.TaskRunResults, err error) {
 						for dotID, result := range test.answers {
 							var tr pipeline.TaskRun
 							require.NoError(t, db.
@@ -320,7 +320,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 								ID:         tr.ID,
 								Result:     result,
 								FinishedAt: time.Now(),
-								IsFinal:    dotID == "__result__",
+								IsTerminal: dotID == "__result__",
 							}
 							trrs = append(trrs, trr)
 						}
@@ -332,7 +332,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) ([]pipeline.TaskRunResult, error) {
+					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) (pipeline.TaskRunResults, error) {
 						t.Fatal("this callback should never be reached")
 						return nil, nil
 					})

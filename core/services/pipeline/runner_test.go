@@ -221,7 +221,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	var finalResults []pipeline.Result
 	for _, trr := range trrs {
-		if trr.IsFinal {
+		if trr.IsTerminal {
 			finalResults = append(finalResults, trr.Result)
 		}
 	}
@@ -251,7 +251,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
-		if trr.Result.Error != nil && !trr.IsFinal {
+		if trr.Result.Error != nil && !trr.IsTerminal {
 			errorResults = append(errorResults, trr)
 		}
 	}

@@ -130,7 +130,7 @@ type TaskRunResult struct {
 // TaskRunResults represents a collection of results for all task runs for one pipeline run
 type TaskRunResults []TaskRunResult
 
-// FinalResults pulls the FinalResult for the pipeline_run from the task runs
+// FinalResult pulls the FinalResult for the pipeline_run from the task runs
 func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 	var found bool
 	for _, trr := range trrs {
@@ -140,20 +140,24 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 			// "__result__" type is removed.
 			// https://www.pivotaltracker.com/story/show/176557536
 			values, is := trr.Result.Value.([]interface{})
-			if !is || len(values) != 1 {
+			if !is {
 				panic("expected final task to have exactly one value")
 			}
-			result.Values = append(result.Values, values[0])
+			result.Values = append(result.Values, values...)
 
-			errs, is := trr.Result.Error.(FinalErrors)
-			if !is || len(errs) != 1 {
+			finalErrs, is := trr.Result.Error.(FinalErrors)
+			if !is {
 				panic("expected final task to have exactly one error")
 			}
-			var err error
-			if !errs[0].IsZero() {
-				err = errors.New(errs[0].ValueOrZero())
+			errs := make([]error, len(finalErrs))
+			for i, finalErr := range finalErrs {
+				if finalErr.IsZero() {
+					errs[i] = nil
+				} else {
+					errs[i] = errors.New(finalErr.ValueOrZero())
+				}
 			}
-			result.Errors = append(result.Errors, err)
+			result.Errors = append(result.Errors, errs...)
 			found = true
 		}
 	}
