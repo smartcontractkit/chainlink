@@ -2,9 +2,10 @@ package pipeline_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"testing"
 
 	"github.com/stretchr/testify/assert"
 
