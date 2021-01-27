@@ -5,11 +5,14 @@ import {
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
+import { ethers } from 'ethers'
+import { deployLibraries } from './helpers'
 import { AccessControlledAggregatorFactory } from '../../ethers/v0.6-ovm/AccessControlledAggregatorFactory'
+import { FluxAggregatorFactory } from '../../ethers/v0.6-ovm/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6-ovm/FluxAggregatorTestHelperFactory'
 
-const aggregatorFactory = new AccessControlledAggregatorFactory()
 const linkTokenFactory = new contract.ovm.LinkTokenFactory()
+const aggregatorFactory = new AccessControlledAggregatorFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const provider = setup.provider()
 let personas: setup.Personas
@@ -33,27 +36,39 @@ describe('AccessControlledAggregator', () => {
   const emptyAddress = '0x0000000000000000000000000000000000000000'
 
   let link: contract.Instance<contract.ovm.LinkTokenFactory>
-  let aggregator: contract.Instance<AccessControlledAggregatorFactory>
+  let aggregator: ethers.Contract
   let testHelper: contract.Instance<FluxAggregatorTestHelperFactory>
   let nextRound: number
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await (aggregatorFactory as any)
+
+    const libs = await deployLibraries(personas.Carol)
+    const impl = await new FluxAggregatorFactory(libs, personas.Carol).deploy()
+
+    const aca = await aggregatorFactory
       .connect(personas.Carol)
-      .deploy(
-        link.address,
-        paymentAmount,
-        timeout,
-        emptyAddress,
-        minSubmissionValue,
-        maxSubmissionValue,
-        decimals,
-        h.toBytes32String(description),
-        // Remove when this PR gets merged:
-        // https://github.com/ethereum-ts/TypeChain/pull/218
-        { gasLimit: 8_000_000 },
-      )
+      .deploy(impl.address)
+
+    aggregator = new ethers.Contract(
+      aca.address,
+      [...impl.interface.abi, ...aca.interface.abi],
+      personas.Carol,
+    )
+
+    await aggregator.init(
+      link.address,
+      paymentAmount,
+      timeout,
+      emptyAddress,
+      minSubmissionValue,
+      maxSubmissionValue,
+      decimals,
+      h.toBytes32String(description),
+      // Remove when this PR gets merged:
+      // https://github.com/ethereum-ts/TypeChain/pull/218
+      { gasLimit: 8_000_000 },
+    )
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -67,44 +82,9 @@ describe('AccessControlledAggregator', () => {
 
   it('has a limited public interface', () => {
     matchers.publicAbi(aggregatorFactory, [
-      'acceptAdmin',
-      'allocatedFunds',
-      'availableFunds',
-      'changeOracles',
-      'decimals',
-      'description',
-      'getAdmin',
-      'getAnswer',
-      'getOracles',
-      'getRoundData',
-      'getTimestamp',
-      'latestAnswer',
-      'latestRound',
-      'latestRoundData',
-      'latestTimestamp',
-      'linkToken',
-      'maxSubmissionCount',
-      'maxSubmissionValue',
-      'minSubmissionCount',
-      'minSubmissionValue',
-      'onTokenTransfer',
-      'oracleCount',
-      'oracleRoundState',
-      'paymentAmount',
-      'requestNewRound',
-      'restartDelay',
-      'setRequesterPermissions',
-      'setValidator',
-      'submit',
-      'timeout',
-      'transferAdmin',
-      'updateAvailableFunds',
-      'updateFutureRounds',
-      'withdrawFunds',
-      'withdrawPayment',
-      'withdrawablePayment',
-      'validator',
-      'version',
+      // NOTICE: FluxAggregator methods are not available in ABI
+      // Proxy methods:
+      'implementation',
       // Owned methods:
       'acceptOwnership',
       'owner',

@@ -8,13 +8,13 @@ import {
 import cbor from 'cbor'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { deployLibraries } from './helpers'
 import { BasicConsumerFactory } from '../../ethers/v0.6-ovm/BasicConsumerFactory'
 import { OracleFactory } from '../../ethers/v0.6-ovm/OracleFactory'
 import { PreCoordinatorFactory } from '../../ethers/v0.6-ovm/PreCoordinatorFactory'
 
 const provider = setup.provider()
 const oracleFactory = new OracleFactory()
-const preCoordinatorFactory = new PreCoordinatorFactory()
 const requesterConsumerFactory = new BasicConsumerFactory()
 const linkTokenFactory = new contract.ovm.LinkTokenFactory()
 
@@ -57,9 +57,11 @@ describe('PreCoordinator', () => {
     oc2 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     oc3 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
     oc4 = await oracleFactory.connect(roles.defaultAccount).deploy(link.address)
-    pc = await preCoordinatorFactory
-      .connect(roles.defaultAccount)
-      .deploy(link.address)
+
+    const libs = await deployLibraries(roles.defaultAccount)
+    pc = await new PreCoordinatorFactory(libs, roles.defaultAccount).deploy(
+      link.address,
+    )
 
     await oc1
       .connect(roles.defaultAccount)

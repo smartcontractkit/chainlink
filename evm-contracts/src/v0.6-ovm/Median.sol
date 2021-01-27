@@ -9,27 +9,11 @@ library Median {
   int256 constant INT_MAX = 2**255-1;
 
   /**
-   * @notice Returns the sorted middle, or the average of the two middle indexed items if the
-   * array has an even number of elements.
-   * @dev The list passed as an argument isn't modified.
-   * @dev This algorithm has expected runtime O(n), but for adversarially chosen inputs
-   * the runtime is O(n^2).
-   * @param list The list of elements to compare
-   */
-  function calculate(int256[] memory list)
-    internal
-    pure
-    returns (int256)
-  {
-    return calculateInplace(copy(list));
-  }
-
-  /**
    * @notice See documentation for function calculate.
    * @dev The list passed as an argument may be permuted.
    */
-  function calculateInplace(int256[] memory list)
-    internal
+  function calculate(int256[] memory list)
+    public
     pure
     returns (int256)
   {
@@ -229,19 +213,4 @@ library Median {
     }
   }
 
-  /**
-   * @notice Makes an in-memory copy of the array passed in
-   * @param list Reference to the array to be copied
-   */
-  function copy(int256[] memory list)
-    private
-    pure
-    returns(int256[] memory)
-  {
-    int256[] memory list2 = new int256[](list.length);
-    for (uint256 i = 0; i < list.length; i++) {
-      list2[i] = list[i];
-    }
-    return list2;
-  }
 }

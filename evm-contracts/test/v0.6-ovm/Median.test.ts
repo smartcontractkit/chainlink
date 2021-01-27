@@ -1,9 +1,9 @@
 import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { deployLibraries } from './helpers'
 import { MedianTestHelperFactory } from '../../ethers/v0.6-ovm/MedianTestHelperFactory'
 
-const medianTestHelperFactory = new MedianTestHelperFactory()
 const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
@@ -16,7 +16,8 @@ describe('Median', () => {
   let median: contract.Instance<MedianTestHelperFactory>
 
   beforeEach(async () => {
-    median = await medianTestHelperFactory.connect(defaultAccount).deploy()
+    const libs = await deployLibraries(defaultAccount)
+    median = await new MedianTestHelperFactory(libs, defaultAccount).deploy()
   })
 
   describe('testing various lists', () => {

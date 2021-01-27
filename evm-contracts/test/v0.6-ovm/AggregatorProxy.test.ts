@@ -7,6 +7,7 @@ import {
 import { assert } from 'chai'
 import { ethers } from 'ethers'
 import { BigNumber } from 'ethers/utils'
+import { deployLibraries } from './helpers'
 import { MockV2AggregatorFactory } from '../../ethers/v0.6-ovm/MockV2AggregatorFactory'
 import { MockV3AggregatorFactory } from '../../ethers/v0.6-ovm/MockV3AggregatorFactory'
 import { AggregatorProxyFactory } from '../../ethers/v0.6-ovm/AggregatorProxyFactory'
@@ -23,7 +24,6 @@ const aggregatorFactory = new MockV3AggregatorFactory()
 const historicAggregatorFactory = new MockV2AggregatorFactory()
 const aggregatorFacadeFactory = new AggregatorFacadeFactory()
 const aggregatorProxyFactory = new AggregatorProxyFactory()
-const fluxAggregatorFactory = new FluxAggregatorFactory()
 const reverterFactory = new ReverterFactory()
 
 beforeAll(async () => {
@@ -58,9 +58,10 @@ describe('AggregatorProxy', () => {
       .connect(defaultAccount)
       .deploy(aggregator.address)
     const emptyAddress = '0x0000000000000000000000000000000000000000'
-    flux = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(link.address, 0, 0, emptyAddress, 0, 0, 18, 'TEST / LINK')
+
+    const libs = await deployLibraries(personas.Carol)
+    flux = await new FluxAggregatorFactory(libs, personas.Carol).deploy()
+    flux.init(link.address, 0, 0, emptyAddress, 0, 0, 18, 'TEST / LINK')
   })
 
   beforeEach(async () => {

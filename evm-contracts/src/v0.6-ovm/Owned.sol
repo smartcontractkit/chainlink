@@ -6,8 +6,8 @@ pragma solidity ^0.6.0;
  */
 contract Owned {
 
-  address public owner;
-  address private pendingOwner;
+  address private __owner;
+  address private __pendingOwner;
 
   event OwnershipTransferRequested(
     address indexed from,
@@ -19,33 +19,65 @@ contract Owned {
   );
 
   constructor() public {
-    owner = msg.sender;
+    _setOwner(msg.sender);
+  }
+
+  /**
+   * @return The address of the owner.
+   */
+  function owner() public view returns (address) {
+    return _owner();
+  }
+
+  /**
+   * @return The owner slot.
+   */
+  function _owner() internal virtual view returns (address) {
+    return __owner;
+  }
+
+  /**
+   * @dev Sets the address of the owner.
+   * @param newOwner Address of the new owner.
+   */
+  function _setOwner(address newOwner) internal virtual {
+    __owner = newOwner;
+  }
+
+  /**
+   * @return The pending owner slot.
+   */
+  function _pendingOwner() internal virtual view returns (address) {
+    return __pendingOwner;
+  }
+
+  /**
+   * @dev Sets the address of the pending owner.
+   * @param newPendingOwner Address of the new pending owner.
+   */
+  function _setPendingOwner(address newPendingOwner) internal virtual {
+    __pendingOwner = newPendingOwner;
   }
 
   /**
    * @dev Allows an owner to begin transferring ownership to a new address,
    * pending.
    */
-  function transferOwnership(address _to)
-    external
-    onlyOwner()
-  {
-    pendingOwner = _to;
+  function transferOwnership(address _to) external onlyOwner() {
+    _setPendingOwner(_to);
 
-    emit OwnershipTransferRequested(owner, _to);
+    emit OwnershipTransferRequested(_owner(), _to);
   }
 
   /**
    * @dev Allows an ownership transfer to be completed by the recipient.
    */
-  function acceptOwnership()
-    external
-  {
-    require(msg.sender == pendingOwner, "Must be proposed owner");
+  function acceptOwnership() external {
+    require(msg.sender == _pendingOwner(), "Must be proposed owner");
 
-    address oldOwner = owner;
-    owner = msg.sender;
-    pendingOwner = address(0);
+    address oldOwner = _owner();
+    _setOwner(msg.sender);
+    _setPendingOwner(address(0));
 
     emit OwnershipTransferred(oldOwner, msg.sender);
   }
@@ -54,8 +86,7 @@ contract Owned {
    * @dev Reverts if called by anyone other than the contract owner.
    */
   modifier onlyOwner() {
-    require(msg.sender == owner, "Only callable by owner");
+    require(msg.sender == _owner(), "Only callable by owner");
     _;
   }
-
 }

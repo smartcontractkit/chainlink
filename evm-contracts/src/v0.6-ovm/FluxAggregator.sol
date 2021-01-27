@@ -9,6 +9,7 @@ import "./interfaces/AggregatorV2V3Interface.sol";
 import "./interfaces/AggregatorValidatorInterface.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./vendor/SafeMathChainlink.sol";
+import "./vendor/Initializable.sol";
 
 /**
  * @title The Prepaid Aggregator contract
@@ -18,7 +19,7 @@ import "./vendor/SafeMathChainlink.sol";
  * single answer. The latest aggregated answer is exposed as well as historical
  * answers and their updated at timestamp.
  */
-contract FluxAggregator is AggregatorV2V3Interface, Owned {
+contract FluxAggregator is AggregatorV2V3Interface, Initializable, Owned {
   using SafeMathChainlink for uint256;
   using SafeMath128 for uint128;
   using SafeMath64 for uint64;
@@ -74,8 +75,8 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
   uint8 public override decimals;
   string public override description;
 
-  int256 immutable public minSubmissionValue;
-  int256 immutable public maxSubmissionValue;
+  int256 public minSubmissionValue;
+  int256 public maxSubmissionValue;
 
   uint256 constant public override version = 3;
 
@@ -157,7 +158,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
    * @param _decimals represents the number of decimals to offset the answer by
    * @param _description a short description of what is being reported
    */
-  constructor(
+  function init(
     address _link,
     uint128 _paymentAmount,
     uint32 _timeout,
@@ -166,7 +167,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
     int256 _maxSubmissionValue,
     uint8 _decimals,
     string memory _description
-  ) public {
+  ) public initializer {
     linkToken = LinkTokenInterface(_link);
     updateFutureRounds(_paymentAmount, 0, 0, 0, _timeout);
     setValidator(_validator);
@@ -842,7 +843,7 @@ contract FluxAggregator is AggregatorV2V3Interface, Owned {
       return (false, 0);
     }
 
-    int256 newAnswer = Median.calculateInplace(details[_roundId].submissions);
+    int256 newAnswer = Median.calculate(details[_roundId].submissions);
     rounds[_roundId].answer = newAnswer;
     rounds[_roundId].updatedAt = uint64(block.timestamp);
     rounds[_roundId].answeredInRound = _roundId;

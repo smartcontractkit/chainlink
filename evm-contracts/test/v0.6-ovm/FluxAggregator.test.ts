@@ -7,6 +7,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
+import { deployLibraries } from './helpers'
 import { FluxAggregatorFactory } from '../../ethers/v0.6-ovm/FluxAggregatorFactory'
 import { FluxAggregatorTestHelperFactory } from '../../ethers/v0.6-ovm/FluxAggregatorTestHelperFactory'
 import { AggregatorValidatorMockFactory } from '../../ethers/v0.6-ovm/AggregatorValidatorMockFactory'
@@ -18,7 +19,6 @@ import { SimpleWriteAccessControllerFactory } from '../../ethers/v0.6-ovm/Simple
 let personas: setup.Personas
 const provider = setup.provider()
 const linkTokenFactory = new contract.ovm.LinkTokenFactory()
-const fluxAggregatorFactory = new FluxAggregatorFactory()
 const validatorMockFactory = new AggregatorValidatorMockFactory()
 const testHelperFactory = new FluxAggregatorTestHelperFactory()
 const validatorFactory = new DeviationFlaggingValidatorFactory()
@@ -179,18 +179,20 @@ describe('FluxAggregator', () => {
 
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(personas.Default).deploy()
-    aggregator = await fluxAggregatorFactory
-      .connect(personas.Carol)
-      .deploy(
-        link.address,
-        paymentAmount,
-        timeout,
-        emptyAddress,
-        minSubmissionValue,
-        maxSubmissionValue,
-        decimals,
-        ethers.utils.formatBytes32String(description),
-      )
+
+    const libs = await deployLibraries(personas.Carol)
+    aggregator = await new FluxAggregatorFactory(libs, personas.Carol).deploy()
+    await aggregator.init(
+      link.address,
+      paymentAmount,
+      timeout,
+      emptyAddress,
+      minSubmissionValue,
+      maxSubmissionValue,
+      decimals,
+      ethers.utils.formatBytes32String(description),
+    )
+
     await link.transfer(aggregator.address, deposit)
     await aggregator.updateAvailableFunds()
     matchers.bigNum(deposit, await link.balanceOf(aggregator.address))
@@ -201,8 +203,11 @@ describe('FluxAggregator', () => {
     nextRound = 1
   })
 
-  it('has a limited public interface', () => {
+  it('has a limited public interface', async () => {
+    const libs = await deployLibraries(personas.Carol)
+    const fluxAggregatorFactory = new FluxAggregatorFactory(libs)
     matchers.publicAbi(fluxAggregatorFactory, [
+      'init',
       'acceptAdmin',
       'allocatedFunds',
       'availableFunds',
