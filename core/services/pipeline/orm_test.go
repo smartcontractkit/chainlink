@@ -52,7 +52,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 
 	t.Run("saves errored run with string error correctly", func(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
-		trrs := []pipeline.TaskRunResult{
+		trrs := pipeline.TaskRunResults{
 			pipeline.TaskRunResult{
 				IsTerminal: true,
 				Result: pipeline.Result{
@@ -63,7 +63,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 			},
 		}
 
-		err := orm.UpdatePipelineRun(db, &run, trrs)
+		err := orm.UpdatePipelineRun(db, &run, trrs.FinalResult())
 		require.NoError(t, err)
 
 		require.Equal(t, []interface{}{nil}, run.Outputs.Val)
@@ -73,7 +73,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 
 	t.Run("saves errored run with final errors correctly", func(t *testing.T) {
 		run := cltest.MustInsertPipelineRun(t, db)
-		trrs := []pipeline.TaskRunResult{
+		trrs := pipeline.TaskRunResults{
 			pipeline.TaskRunResult{
 				IsTerminal: true,
 				Result: pipeline.Result{
@@ -87,7 +87,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 			},
 		}
 
-		err := orm.UpdatePipelineRun(db, &run, trrs)
+		err := orm.UpdatePipelineRun(db, &run, trrs.FinalResult())
 		require.NoError(t, err)
 
 		require.Equal(t, []interface{}{nil}, run.Outputs.Val)
