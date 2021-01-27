@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.7.0;
 
-interface OperatorInterface {
+import "./OracleInterface.sol";
+
+interface OperatorInterface is OracleInterface {
   function fulfillOracleRequest2(
     bytes32 requestId,
     uint256 payment,

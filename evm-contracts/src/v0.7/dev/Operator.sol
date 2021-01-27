@@ -4,7 +4,6 @@ pragma solidity ^0.7.0;
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
-import "../interfaces/OracleInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
@@ -18,7 +17,6 @@ contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
   ChainlinkRequestInterface,
-  OracleInterface,
   OperatorInterface,
   WithdrawalInterface
 {
