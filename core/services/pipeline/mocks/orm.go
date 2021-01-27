@@ -79,6 +79,22 @@ func (_m *ORM) CreateSpec(ctx context.Context, db *gorm.DB, taskDAG pipeline.Tas
 	return r0, r1
 }
 
+// DB provides a mock function with given fields:
+func (_m *ORM) DB() *gorm.DB {
+	ret := _m.Called()
+
+	var r0 *gorm.DB
+	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gorm.DB)
+		}
+	}
+
+	return r0
+}
+
 // DeleteRunsOlderThan provides a mock function with given fields: threshold
 func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
 	ret := _m.Called(threshold)
@@ -107,6 +123,27 @@ func (_m *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(models.TaskType) error); ok {
 		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs
+func (_m *ORM) InsertFinishedRunWithResults(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult) (int64, error) {
+	ret := _m.Called(ctx, run, trrs)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) int64); ok {
+		r0 = rf(ctx, run, trrs)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) error); ok {
+		r1 = rf(ctx, run, trrs)
 	} else {
 		r1 = ret.Error(1)
 	}

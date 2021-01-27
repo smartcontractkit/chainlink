@@ -2,7 +2,6 @@ package offchainreporting
 
 import (
 	"context"
-	"time"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -12,7 +11,7 @@ import (
 )
 
 // dataSource is an abstraction over the process of initiating a pipeline run
-// and capturing the result.  Additionally, it converts the result to an
+// and capturing the result. Additionally, it converts the result to an
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
 	pipelineRunner pipeline.Runner
@@ -32,38 +31,16 @@ func newDatasource(db *gorm.DB, jobID int32, pipelineRunner pipeline.Runner) (*d
 
 // The context passed in here has a timeout of observationTimeout.
 // Gorm/pgx doesn't return a helpful error upon cancellation, so we manually check for cancellation and return a
-// appropriate error.
+// appropriate error (FIXME: How does this work after the current refactoring?)
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	start := time.Now()
-
-	// FIXME: Pull out the spec load from NewRun and make it pure
-	run, err := ds.pipelineRunner.NewRun(ctx, ds.spec, start)
+	results, err := ds.pipelineRunner.ExecuteAndInsertNewRun(ctx, ds.spec)
 	if err != nil {
-		return nil, errors.Wrapf(err, "error creating new run for job ID %v", ds.jobID)
+		return nil, errors.Wrapf(err, "error executing new run for job ID %v", ds.jobID)
 	}
 
-	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, run)
+	result, err := results.SingularResult()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error executing run for job ID %v", ds.jobID)
-	}
-
-	end := time.Now()
-	run.FinishedAt = &end
-
-	// TODO: Might wanna add some logging with runID
-	if _, err := ds.pipelineRunner.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
-		return nil, errors.Wrapf(err, "error inserting finished results for job ID %v", ds.jobID)
-	}
-
-	// TODO: Can we pull this into a function on []TaskRunResult?
-	var result pipeline.Result
-	for _, trr := range trrs {
-		if trr.IsFinal {
-			// FIXME: This assumes there is only one final result and will
-			// have to change when the magical "__result__" type is removed
-			// https://www.pivotaltracker.com/story/show/176557536
-			result = trr.Result
-		}
+		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.jobID)
 	}
 
 	if result.Error != nil {

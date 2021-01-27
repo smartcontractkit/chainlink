@@ -171,7 +171,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 // TODO: Remove generation of special "result" task
 // TODO: Remove the unique index on successor_id
 // https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) ([]TaskRunResult, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) (TaskRunResults, error)
 
 // ProcessNextUnfinishedRun pulls the next available unfinished run from the
 // database and passes it into the provided ProcessRunFunc for execution.
@@ -290,22 +290,14 @@ WHERE ptr.id = updates.id
 	return db.Exec(stmt, valueArgs...).Error
 }
 
-func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, trrs []TaskRunResult) error {
-	var result Result
-	for _, trr := range trrs {
-		if trr.IsFinal {
-			// FIXME: This assumes there is only one final result and will
-			// have to change when the magical "__result__" type is removed
-			// https://www.pivotaltracker.com/story/show/176557536
-			result = trr.Result
-		}
-	}
+func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, trrs TaskRunResults) error {
+	result := trrs.FinalResult()
 
 	return db.Raw(`
 		UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ?
 		WHERE id = ?
 		RETURNING *
-		`, time.Now(), result.OutputDB(), result.ErrorsDB(), run.ID).
+		`, time.Now(), result.OutputsDB(), result.ErrorsDB(), run.ID).
 		Scan(run).Error
 }
 
@@ -321,7 +313,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 		return 0, errors.New("run.FinishedAt must be set")
 	}
 	if run.Outputs.Val == nil || run.Errors.Val == nil {
-		return 0, errors.New("run must have both Outputs and Errors set")
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
@@ -334,15 +326,15 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 		sql := `
 		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, pipeline_task_spec_id, created_at, finished_at)
 		SELECT ?, pts.type, pts.index, ptruns.output, ptruns.error, pts.id, ptruns.created_at, ptruns.finished_at
-		FROM  (VALUES %s) ptruns (output, error, created_at, finished_at)
+		FROM (VALUES %s) ptruns (pipeline_task_spec_id, output, error, created_at, finished_at)
 		JOIN pipeline_task_specs pts ON pts.id = ptruns.pipeline_task_spec_id
 		`
 
 		valueStrings := []string{}
 		valueArgs := []interface{}{runID}
 		for _, trr := range trrs {
-			valueStrings = append(valueStrings, "(?,?,?,?)")
-			valueArgs = append(valueArgs, trr.Result.OutputDB(), trr.Result.ErrorDB(), run.CreatedAt, trr.FinishedAt)
+			valueStrings = append(valueStrings, "(?::int,?::jsonb,?::text,?::timestamptz,?::timestamptz)")
+			valueArgs = append(valueArgs, trr.TaskSpecID, trr.Result.OutputDB(), trr.Result.ErrorDB(), run.CreatedAt, trr.FinishedAt)
 		}
 
 		/* #nosec G201 */

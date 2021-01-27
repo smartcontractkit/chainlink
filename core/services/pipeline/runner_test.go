@@ -47,6 +47,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	defer s5.Close()
 
 	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
 
 	r := pipeline.NewRunner(orm, store.Config)
 
@@ -213,7 +214,8 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 		PipelineTaskRuns: taskRuns,
 	}
 
-	trrs := r.ExecuteRun(context.Background(), store.DB, run)
+	trrs, err := r.ExecuteRun(context.Background(), run)
+	require.NoError(t, err)
 
 	require.Len(t, trrs, len(taskRuns))
 
