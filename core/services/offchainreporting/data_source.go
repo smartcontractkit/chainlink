@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -16,9 +17,18 @@ import (
 type dataSource struct {
 	pipelineRunner pipeline.Runner
 	jobID          int32
+	spec           pipeline.Spec
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
+
+func newDatasource(db *gorm.DB, jobID int32, pipelineRunner pipeline.Runner) (*dataSource, error) {
+	var spec pipeline.Spec
+	if err := db.Preload("PipelineTaskSpecs").First(&spec).Error; err != nil {
+		return nil, errors.Wrapf(err, "could not load pipeline_spec for job ID %v", jobID)
+	}
+	return &dataSource{jobID: jobID, spec: spec, pipelineRunner: pipelineRunner}, nil
+}
 
 // The context passed in here has a timeout of observationTimeout.
 // Gorm/pgx doesn't return a helpful error upon cancellation, so we manually check for cancellation and return a
@@ -27,7 +37,7 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	start := time.Now()
 
 	// FIXME: Pull out the spec load from NewRun and make it pure
-	run, err := ds.pipelineRunner.NewRun(ctx, ds.jobID, start)
+	run, err := ds.pipelineRunner.NewRun(ctx, ds.spec, start)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error creating new run for job ID %v", ds.jobID)
 	}
@@ -37,7 +47,6 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		return nil, errors.Wrapf(err, "error executing run for job ID %v", ds.jobID)
 	}
 
-	run.CreatedAt = start
 	end := time.Now()
 	run.FinishedAt = &end
 

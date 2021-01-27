@@ -25,7 +25,7 @@ type (
 	Runner interface {
 		Start() error
 		Close() error
-		NewRun(ctx context.Context, jobID int32, startedAt time.Time) (Run, error)
+		NewRun(ctx context.Context, spec Spec, startedAt time.Time) (Run, error)
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 		ExecuteRun(ctx context.Context, run Run) (trrs []TaskRunResult, err error)
 		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
@@ -150,13 +150,8 @@ func (r *runner) runLoop() {
 }
 
 // NewRun creates an in-memory Run along with its TaskRuns for the provided job
-// It does not write to the database
-func (r *runner) NewRun(ctx context.Context, jobID int32, startedAt time.Time) (run Run, err error) {
-	spec, err := r.orm.LoadSpec(ctx, jobID)
-	if err != nil {
-		return run, errors.Wrapf(err, "could not load spec for job ID %v", jobID)
-	}
-
+// It does not interact with the database
+func (r *runner) NewRun(ctx context.Context, spec Spec, startedAt time.Time) (run Run, err error) {
 	taskRuns := make([]TaskRun, len(spec.PipelineTaskSpecs))
 	for i, taskSpec := range spec.PipelineTaskSpecs {
 		taskRuns[i] = TaskRun{

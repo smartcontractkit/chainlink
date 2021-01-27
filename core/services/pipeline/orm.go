@@ -24,7 +24,6 @@ type (
 	ORM interface {
 		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-		LoadSpec(ctx context.Context, jobID int32) (Spec, error)
 		ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
 		ListenForNewRuns() (postgres.Subscription, error)
 		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
@@ -173,13 +172,6 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 // TODO: Remove the unique index on successor_id
 // https://www.pivotaltracker.com/story/show/176557536
 type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) ([]TaskRunResult, error)
-
-func (o *orm) LoadSpec(_ context.Context, jobID int32) (spec Spec, err error) {
-	// TODO: Use the context for the database load
-	// https://www.pivotaltracker.com/story/show/174401187
-	err = o.db.Preload("PipelineTaskSpecs").First(&spec).Error
-	return spec, errors.Wrapf(err, "could not load pipeline_spec for job ID %v", jobID)
-}
 
 // ProcessNextUnfinishedRun pulls the next available unfinished run from the
 // database and passes it into the provided ProcessRunFunc for execution.
