@@ -150,13 +150,13 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 			// https://www.pivotaltracker.com/story/show/176557536
 			values, is := trr.Result.Value.([]interface{})
 			if !is {
-				panic("expected final task to have exactly one value")
+				panic("expected terminal task run result to have multiple values")
 			}
 			result.Values = append(result.Values, values...)
 
 			finalErrs, is := trr.Result.Error.(FinalErrors)
 			if !is {
-				panic("expected final task to have exactly one error")
+				panic("expected terminal task run result to be FinalErrors")
 			}
 			errs := make([]error, len(finalErrs))
 			for i, finalErr := range finalErrs {

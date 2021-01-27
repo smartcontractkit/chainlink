@@ -246,6 +246,7 @@ func (r *runner) ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, 
 
 func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs TaskRunResults, err error) {
 	logger.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
+	start := time.Now()
 
 	if run.PipelineSpec.ID == 0 {
 		return nil, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
@@ -329,7 +330,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 				start := time.Now()
 
 				taskCtx, cancel := utils.CombinedContext(ctx, r.config.JobPipelineMaxTaskDuration())
-				result := r.executeTaskRun(taskCtx, txdb, m.taskRun, m.results(), &txdbMutex)
+				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex)
 				cancel()
 
 				finishedAt := time.Now()
@@ -377,12 +378,13 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 
 	wg.Wait()
 
-	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID)
+	runTime := time.Now().Sub(start)
+	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
-	return trrs, nil
+	return trrs, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {
+func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {
 	loggerFields := []interface{}{
 		"taskName", taskRun.PipelineTaskSpec.DotID,
 		"taskID", taskRun.PipelineTaskSpecID,
@@ -402,8 +404,6 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 		logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 		return Result{Error: err}
 	}
-
-	spec := taskRun.PipelineTaskSpec.PipelineSpec
 
 	// Order of precedence for task timeout:
 	// - Specific task timeout (task.TaskTimeout)
@@ -425,7 +425,8 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 
 	result := task.Run(ctx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
-		logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
+		f := append(loggerFields, "error", result.Error)
+		logger.Errorw("Pipeline task run errored", f...)
 	} else {
 		f := append(loggerFields, "result", result.Value)
 		switch v := result.Value.(type) {

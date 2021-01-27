@@ -221,6 +221,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		// Trying to lock and load in one hit _sometimes_ fails to preload
 		// associations for no discernable reason.
 		err = tx.
+			Preload("PipelineSpec").
 			Preload("PipelineTaskRuns.PipelineTaskSpec").
 			Where("pipeline_runs.id = ?", pRun.ID).
 			First(&pRun).Error
