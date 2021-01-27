@@ -239,7 +239,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 			return errors.Wrap(err, "could not update task runs")
 		}
 
-		if err = o.UpdatePipelineRun(tx, &pRun, trrs); err != nil {
+		if err = o.UpdatePipelineRun(tx, &pRun, trrs.FinalResult()); err != nil {
 			return errors.Wrap(err, "could not mark pipeline_run as finished")
 		}
 
@@ -265,7 +265,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 }
 
 // updateTaskRuns updates multiple task runs in one query
-func (o *orm) updateTaskRuns(db *gorm.DB, trrs []TaskRunResult) error {
+func (o *orm) updateTaskRuns(db *gorm.DB, trrs TaskRunResults) error {
 	sql := `
 UPDATE pipeline_task_runs AS ptr SET
 output = updates.output,
@@ -290,9 +290,7 @@ WHERE ptr.id = updates.id
 	return db.Exec(stmt, valueArgs...).Error
 }
 
-func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, trrs TaskRunResults) error {
-	result := trrs.FinalResult()
-
+func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, result FinalResult) error {
 	return db.Raw(`
 		UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ?
 		WHERE id = ?

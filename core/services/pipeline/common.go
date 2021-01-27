@@ -94,7 +94,16 @@ func (result FinalResult) OutputsDB() JSONSerializable {
 
 // ErrorsDB dumps a result error for a pipeline_run
 func (result FinalResult) ErrorsDB() JSONSerializable {
-	return JSONSerializable{Val: result.Errors, Null: false}
+	errStrs := make([]null.String, len(result.Errors))
+	for i, err := range result.Errors {
+		if err == nil {
+			errStrs[i] = null.String{}
+		} else {
+			errStrs[i] = null.StringFrom(err.Error())
+		}
+	}
+
+	return JSONSerializable{Val: errStrs, Null: false}
 }
 
 // HasErrors returns true if the final result has any errors
