@@ -93,7 +93,7 @@ Check out the [docs'](https://docs.chain.link/) pages on [Adapters](https://docs
 
 ## Configure
 
-You can configure your node's behavior by setting environment variables which can be, along with default values that get used if no corresponding environment variable is found. The latest information on configuration variables are available in [the docs](https://docs.chain.link/docs/configuration-variables).
+You can configure your node's behavior by setting environment variables. All the environment variables can be found in the `ConfigSchema` struct of `schema.go`. You can also read the [official documentation](https://docs.chain.link/docs/configuration-variables) to learn the most up to date information on each of them. For every variable, default values get used if no corresponding environment variable is found.
 
 ## Project Structure
 
