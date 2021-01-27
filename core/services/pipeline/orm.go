@@ -316,7 +316,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		if err := tx.Create(&run).Error; err != nil {
+		if err = tx.Create(&run).Error; err != nil {
 			return errors.Wrap(err, "error inserting finished pipeline_run")
 		}
 
@@ -338,7 +338,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 
 		/* #nosec G201 */
 		stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
-		err := tx.Exec(stmt, valueArgs...).Error
+		err = tx.Exec(stmt, valueArgs...).Error
 		return errors.Wrap(err, "error inserting finished pipeline_task_runs")
 	})
 

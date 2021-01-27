@@ -246,7 +246,7 @@ func (r *runner) ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, 
 
 func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs TaskRunResults, err error) {
 	logger.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
-	start := time.Now()
+	startRun := time.Now()
 
 	if run.PipelineSpec.ID == 0 {
 		return nil, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
@@ -327,7 +327,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 				m.finished = true
 				m.finishMu.Unlock()
 
-				start := time.Now()
+				startTaskRun := time.Now()
 
 				taskCtx, cancel := utils.CombinedContext(ctx, r.config.JobPipelineMaxTaskDuration())
 				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex)
@@ -350,7 +350,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 				trrs = append(trrs, trr)
 				updateMu.Unlock()
 
-				elapsed := finishedAt.Sub(start)
+				elapsed := finishedAt.Sub(startTaskRun)
 
 				promPipelineTaskExecutionTime.WithLabelValues(string(run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
 				var status string
@@ -378,7 +378,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 
 	wg.Wait()
 
-	runTime := time.Now().Sub(start)
+	runTime := time.Now().Sub(startRun)
 	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
 	return trrs, err
