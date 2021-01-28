@@ -374,18 +374,17 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 	// - Job level task timeout (spec.MaxTaskDuration)
 	// - Passed in context
 	taskTimeout, isSet := task.TaskTimeout()
-	specificTaskCtx := context.Background()
 	if isSet {
 		var cancel context.CancelFunc
-		specificTaskCtx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+		ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
 		defer cancel()
 	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
 		var cancel context.CancelFunc
-		specificTaskCtx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
+		ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
 
-	result := task.Run(specificTaskCtx, taskRun, inputs)
+	result := task.Run(ctx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 		logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 	} else {
