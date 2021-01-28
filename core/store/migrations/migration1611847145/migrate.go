@@ -13,9 +13,5 @@ func Migrate(tx *gorm.DB) error {
 		RETURN NEW;
 	END
 	$_$ LANGUAGE 'plpgsql';
-
-	CREATE TRIGGER notify_pipeline_run_started
-	AFTER INSERT ON pipeline_runs
-	FOR EACH ROW EXECUTE PROCEDURE notifyPipelineRunStarted();
 	`).Error
 }
