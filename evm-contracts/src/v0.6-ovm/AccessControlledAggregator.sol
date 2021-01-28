@@ -14,11 +14,11 @@ contract AccessControlledAggregator is Proxy, SimpleReadAccessController {
   // Underlying implementation we delegate calls to
   address immutable public implementation;
   // We check access for these functions before delegating
-  mapping(bytes4 => bool) guardedFunctions;
+  mapping(bytes4 => bool) private guardedFunctions;
 
   /**
    * @notice Creates an AccessControlledAggregator contract.
-   * @dev The underlying aggregator implementation must extend Initializable, as this proxy depends on reserved ([0,50] slots) storage space.
+   * @dev The underlying aggregator implementation must extend Initializable, as this proxy depends on reserved ([0,49] slots) storage space.
    * @param implementationAddr The address of underlying aggregator implementation used by the proxy.
    */
   constructor(address implementationAddr) public {
@@ -64,12 +64,12 @@ contract AccessControlledAggregator is Proxy, SimpleReadAccessController {
 
   /**
    * @dev Storage slots for the Owned contract storage.
-   * As we expect the implementation contract to extend both Initializable ([0,50] slots reserved) and Owned,
-   * and this proxy contract is also Owned, we need to make sure that Owned storage in this contract
+   * As we expect the implementation contract to extend both Initializable ([0,49] slots reserved) and Owned.
+   * As this proxy contract is also Owned, we need to make sure that Owned storage in this contract
    * alligns with Owned storage in the underlying contract.
    */
-  uint8 internal constant SLOT_OWNER = 51;
-  uint8 internal constant SLOT_PENDIG_OWNER = SLOT_OWNER + 1;
+  uint8 internal constant SLOT_OWNER = 50;
+  uint8 internal constant SLOT_PENDIG_OWNER = 51; // SLOT_OWNER + 1
 
   /**
    * @return owner - The owner slot.

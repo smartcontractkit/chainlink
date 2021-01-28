@@ -64,4 +64,13 @@ abstract contract Proxy {
     _willFallback();
     _delegate(_implementation());
   }
+
+  // Reserved storage space to allow for layout changes in the future.
+  // WARNING: Should be used in combination with the Initializable contract,
+  // which uses first 20 storage slots, and reserves next 30 slots on the implementation side.
+  // The storage structure:
+  //  - Slots [0..19] reserved for the Initializable contract
+  //  - Slots [20..49] reserved for this Proxy contract (+ any children)
+  //  - Slots [50...] reserved for the implementation contract (child of Initializable)
+  uint256[20] private ______gap;
 }

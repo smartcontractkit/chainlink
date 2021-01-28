@@ -58,5 +58,11 @@ contract Initializable {
   }
 
   // Reserved storage space to allow for layout changes in the future.
-  uint256[50] private ______gap;
+  // WARNING: Should be used in combination with the Proxy contract,
+  // which reserves first 20 storage slots on the proxy side.
+  // The storage structure:
+  //  - Slots [0..19] reserved for this Initializable contract
+  //  - Slots [20..49] reserved for the Proxy contract (+ any children)
+  //  - Slots [50...] reserved for the implementation contract (child of Initializable)
+  uint256[49] private ______gap;
 }
