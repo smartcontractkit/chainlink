@@ -3,6 +3,8 @@ package offchainreporting
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -22,15 +24,12 @@ type dataSource struct {
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 func newDatasource(db *gorm.DB, jobID int32, pipelineRunner pipeline.Runner) (*dataSource, error) {
-	var spec pipeline.Spec
-	err := db.
-		Preload("PipelineTaskSpecs").
-		Joins("JOIN jobs ON jobs.pipeline_spec_id = pipeline_specs.id").
-		First(&spec).Error
+	var j job.SpecDB
+	err := db.Preload("PipelineSpec.PipelineTaskSpecs").Find(&j, "id = ?", jobID).Error
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not load pipeline_spec for job ID %v", jobID)
 	}
-	return &dataSource{jobID: jobID, spec: spec, pipelineRunner: pipelineRunner}, nil
+	return &dataSource{jobID: jobID, spec: *j.PipelineSpec, pipelineRunner: pipelineRunner}, nil
 }
 
 // The context passed in here has a timeout of observationTimeout.

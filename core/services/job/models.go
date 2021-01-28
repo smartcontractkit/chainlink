@@ -46,7 +46,7 @@ type SpecDB struct {
 	FluxMonitorSpecID             *int32                       `json:"-"`
 	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
 	PipelineSpecID                int32                        `json:"-"`
-	PipelineSpec                  *PipelineSpec                `json:"pipelineSpec"`
+	PipelineSpec                  *pipeline.Spec               `json:"pipelineSpec"`
 	JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
 	Type                          Type                         `json:"type"`
 	SchemaVersion                 uint32                       `json:"schemaVersion"`
@@ -87,12 +87,6 @@ func (pr *PipelineRun) SetID(value string) error {
 	}
 	pr.ID = int64(ID)
 	return nil
-}
-
-type PipelineSpec struct {
-	IDEmbed
-	DotDagSource string    `json:"dotDagSource"`
-	CreatedAt    time.Time `json:"-"`
 }
 
 // TODO: remove pointers when upgrading to gormv2
