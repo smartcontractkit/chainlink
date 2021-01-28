@@ -287,10 +287,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				)
 				go func() {
 					err2 := postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
-						err2 := tx.Exec(`
-							DELETE FROM pipeline_runs
-							WHERE id = ?
-                        `, runID2).Error
+						err2 := tx.Exec(`DELETE FROM pipeline_runs WHERE id = ?`, runID2).Error
 						assert.NoError(t, err2)
 
 						close(chClaimed)
