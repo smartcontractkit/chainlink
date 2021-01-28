@@ -979,8 +979,32 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 
 	polledAnswer, err := p.fetcher.Fetch(request)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("can't fetch answer: %v", err), loggerFields...)
+		logger.Errorw("can't fetch answer", append(loggerFields, "err", err)...)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")
+		return
+	}
+
+	// If the polledAnswer is outside the allowable range, log an error and don't submit.
+	// to avoid an onchain reversion.
+	max, err := p.fluxAggregator.MaxSubmissionValue(nil)
+	if err != nil {
+		logger.Errorw("can't get max submission value", append(loggerFields, "err", err)...)
+		p.store.UpsertErrorFor(p.JobID(), "Error getting max submission value")
+		return
+	}
+
+	min, err := p.fluxAggregator.MinSubmissionValue(nil)
+	if err != nil {
+		logger.Errorw("can't get min submission value", append(loggerFields, "err", err)...)
+		p.store.UpsertErrorFor(p.JobID(), "Error getting min submission value")
+		return
+	}
+	polledAnswerInt := new(big.Int)
+	polledAnswerInt.SetString(polledAnswer.String(), 10)
+
+	if polledAnswerInt.Cmp(min) < 0 || polledAnswerInt.Cmp(max) > 0 {
+		logger.Errorw("polled value is outside acceptable range", append(loggerFields, "min", min, "max", max, "polled value", polledAnswerInt)...)
+		p.store.UpsertErrorFor(p.JobID(), "Polled value is outside acceptable range")
 		return
 	}
 

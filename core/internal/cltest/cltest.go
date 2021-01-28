@@ -1078,6 +1078,20 @@ func JobRunStaysPendingIncomingConfirmations(
 	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
+func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.ID, count int) []models.JobSpecError {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var jse []models.JobSpecError
+	g.Eventually(func() []models.JobSpecError {
+		err := store.DB.
+			Where("job_spec_id = ?", jobID.String()).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()

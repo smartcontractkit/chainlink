@@ -614,9 +614,7 @@ func TestFluxMonitor_OnChainRevert(t *testing.T) {
 			time.Sleep(500 * time.Millisecond)
 		}
 	}()
-	// We should see multiple job runs which all error.
-	// The fact that it continues to submit after a chain reversion is desirable.
-	jrs := cltest.WaitForRuns(t, j, app.Store, 2)
-	cltest.WaitForJobRunStatus(t, app.Store, jrs[0], models.RunStatusErrored)
-	cltest.WaitForJobRunStatus(t, app.Store, jrs[1], models.RunStatusErrored)
+	// We should see a spec error because the value is too large to submit on-chain.
+	jse := cltest.WaitForSpecError(t, app.Store, *j.ID, 1)
+	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
 }
