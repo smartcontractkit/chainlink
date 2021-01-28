@@ -104,6 +104,7 @@ export const generateTOMLDefinition = (
       schemaVersion: 1,
       ...ocrSpecWithoutDates,
       observationSource: jobSpecAttributes.pipelineSpec.dotDagSource,
+      maxTaskTimeout: jobSpecAttributes.maxTaskDuration,
     },
     format: JobSpecFormats.TOML,
   })
