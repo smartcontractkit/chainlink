@@ -4,8 +4,7 @@ pragma solidity ^0.7.0;
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
-import "../interfaces/OracleInterface.sol";
-import "../interfaces/OracleInterface2.sol";
+import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -18,8 +17,7 @@ contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
   ChainlinkRequestInterface,
-  OracleInterface,
-  OracleInterface2,
+  OperatorInterface,
   WithdrawalInterface
 {
   using SafeMathChainlink for uint256;
@@ -288,6 +286,31 @@ contract Operator is
     returns (bool success)
   {
     return linkToken.transferAndCall(to, value, data);
+  }
+
+  /**
+   * @notice Distribute funds to multiple addresses using ETH send
+   * to this payable function.
+   * @dev Array length must be equal, ETH sent must equal the sum of amounts.
+   * @param receivers list of addresses
+   * @param amounts list of amounts
+   */
+  function distributeFunds(
+    address payable[] calldata receivers,
+    uint[] calldata amounts
+  )
+    external
+    override
+    payable
+  {
+    require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
+    uint256 valueRemaining = msg.value;
+    for (uint256 i = 0; i < receivers.length; i++) {
+      uint256 sendAmount = amounts[i];
+      valueRemaining = valueRemaining.sub(sendAmount);
+      receivers[i].transfer(sendAmount);
+    }
+    require(valueRemaining == 0, "Too much ETH sent");
   }
 
   /**
