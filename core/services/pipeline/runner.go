@@ -384,10 +384,8 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 		specificTaskCtx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
-	ctx, cancel := utils.CombinedContext(ctx, specificTaskCtx)
-	defer cancel()
 
-	result := task.Run(ctx, taskRun, inputs)
+	result := task.Run(specificTaskCtx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 		logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
 	} else {
