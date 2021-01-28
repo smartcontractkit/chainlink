@@ -72,11 +72,95 @@ describe('Operator', () => {
       'withdraw',
       'withdrawable',
       'operatorTransferAndCall',
+      'distributeFunds',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#distributeFunds', () => {
+    describe('when called with empty arrays', () => {
+      it('reverts with invalid array message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.defaultAccount).distributeFunds([], []),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with unequal array lengths', () => {
+      it('reverts with invalid array message', async () => {
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const amounts = [1, 2, 3]
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds(receivers, amounts),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with not enough ETH', () => {
+      it('reverts with subtraction overflow message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('1')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'SafeMath: subtraction overflow'
+        })
+      })
+    })
+
+    describe('when called with too much ETH', () => {
+      it('reverts with too much ETH message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('3')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'Too much ETH sent'
+        })
+      })
+    })
+
+    describe('when called with correct values', () => {
+      it('updates the balances', async () => {
+        const node2BalanceBefore = await roles.oracleNode2.getBalance()
+        const node3BalanceBefore = await roles.oracleNode3.getBalance()
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const sendNode2 = h.toWei('2')
+        const sendNode3 = h.toWei('3')
+        const totalAmount = h.toWei('5')
+        const amounts = [sendNode2, sendNode3]
+
+        await operator
+          .connect(roles.defaultAccount)
+          .distributeFunds(receivers, amounts, { value: totalAmount })
+
+        const node2BalanceAfter = await roles.oracleNode2.getBalance()
+        const node3BalanceAfter = await roles.oracleNode3.getBalance()
+
+        assert.equal(
+          node2BalanceAfter.sub(node2BalanceBefore).toString(),
+          sendNode2.toString(),
+        )
+
+        assert.equal(
+          node3BalanceAfter.sub(node3BalanceBefore).toString(),
+          sendNode3.toString(),
+        )
+      })
+    })
   })
 
   describe('#setAuthorizedSender', () => {
