@@ -227,7 +227,7 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
-maxTaskDuration="10s"
+maxTaskDuration = "10s"
 `
     /* eslint-enable no-useless-escape */
 
