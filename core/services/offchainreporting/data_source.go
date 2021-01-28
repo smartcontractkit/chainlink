@@ -23,7 +23,11 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 func newDatasource(db *gorm.DB, jobID int32, pipelineRunner pipeline.Runner) (*dataSource, error) {
 	var spec pipeline.Spec
-	if err := db.Preload("PipelineTaskSpecs").First(&spec).Error; err != nil {
+	err := db.
+		Preload("PipelineTaskSpecs").
+		Joins("JOIN jobs ON jobs.pipeline_spec_id = pipeline_specs.id").
+		First(&spec).Error
+	if err != nil {
 		return nil, errors.Wrapf(err, "could not load pipeline_spec for job ID %v", jobID)
 	}
 	return &dataSource{jobID: jobID, spec: spec, pipelineRunner: pipelineRunner}, nil

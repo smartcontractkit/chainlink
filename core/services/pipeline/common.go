@@ -172,6 +172,7 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 	}
 
 	if !found {
+		logger.Errorw("expected at least one task to be final", "tasks", trrs)
 		panic("expected at least one task to be final")
 	}
 	return
