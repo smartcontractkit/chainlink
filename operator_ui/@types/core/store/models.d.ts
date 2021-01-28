@@ -499,7 +499,7 @@ declare module 'core/store/models' {
     pipelineSpec: {
       ID: number
       CreatedAt: time.Time
-      DotDagSource: string
+      dotDagSource: string
     }
   }
 }
