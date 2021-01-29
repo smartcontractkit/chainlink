@@ -196,7 +196,7 @@ describe('generateTOMLDefinition', () => {
         createdAt: '2020-11-17T13:50:13.182669Z',
         updatedAt: '2020-11-17T13:50:13.182669Z',
       },
-      maxTaskDuration: "10s",
+      maxTaskDuration: '10s',
       pipelineSpec: {
         dotDagSource:
           '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
