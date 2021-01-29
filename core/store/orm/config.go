@@ -17,8 +17,6 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -766,11 +764,12 @@ func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		pid, err := peer.Decode(pidStr)
+		var pid models.PeerID
+		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
 		}
-		return models.PeerID(pid), nil
+		return pid, nil
 	}
 	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
 }
