@@ -147,7 +147,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	promReporter := services.NewPromReporter(store.DB.DB())
-	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.ORM.DB), ethClient, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -228,6 +228,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer,
 		balanceMonitor,
 		promReporter,
+		logBroadcaster,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
