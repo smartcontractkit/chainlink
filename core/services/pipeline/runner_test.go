@@ -47,6 +47,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	defer s5.Close()
 
 	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
 
 	r := pipeline.NewRunner(orm, store.Config)
 
@@ -213,13 +214,14 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 		PipelineTaskRuns: taskRuns,
 	}
 
-	trrs := r.ExecuteRun(context.Background(), store.DB, run)
+	trrs, err := r.ExecuteRun(context.Background(), run)
+	require.NoError(t, err)
 
 	require.Len(t, trrs, len(taskRuns))
 
 	var finalResults []pipeline.Result
 	for _, trr := range trrs {
-		if trr.IsFinal {
+		if trr.IsTerminal {
 			finalResults = append(finalResults, trr.Result)
 		}
 	}
@@ -249,7 +251,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
-		if trr.Result.Error != nil && !trr.IsFinal {
+		if trr.Result.Error != nil && !trr.IsTerminal {
 			errorResults = append(errorResults, trr)
 		}
 	}

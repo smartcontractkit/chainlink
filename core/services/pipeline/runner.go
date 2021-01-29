@@ -25,7 +25,9 @@ type (
 	Runner interface {
 		Start() error
 		Close() error
-		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
+		ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, err error)
+		ExecuteAndInsertNewRun(ctx context.Context, spec Spec) (finalResult FinalResult, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	}
@@ -146,6 +148,31 @@ func (r *runner) runLoop() {
 	}
 }
 
+// newRun creates an in-memory Run along with its TaskRuns for the provided job
+// It does not interact with the database
+func newRun(spec Spec, startedAt time.Time) (run Run, err error) {
+	if len(spec.PipelineTaskSpecs) == 0 {
+		return run, errors.New("spec.PipelineTaskSpecs was empty")
+	}
+	taskRuns := make([]TaskRun, len(spec.PipelineTaskSpecs))
+	for i, taskSpec := range spec.PipelineTaskSpecs {
+		taskRuns[i] = TaskRun{
+			Type:               taskSpec.Type,
+			PipelineTaskSpecID: taskSpec.ID,
+			PipelineTaskSpec:   taskSpec,
+			CreatedAt:          startedAt,
+		}
+	}
+	run = Run{
+		PipelineSpecID:   spec.ID,
+		PipelineSpec:     spec,
+		PipelineTaskRuns: taskRuns,
+		CreatedAt:        startedAt,
+	}
+
+	return run, nil
+}
+
 func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	runID, err := r.orm.CreateRun(ctx, jobID, meta)
 	if err != nil {
@@ -180,7 +207,7 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.ExecuteRun)
+	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
 }
 
 type (
@@ -216,13 +243,25 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs []TaskRunResult) {
+func (r *runner) ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, err error) {
+	return r.executeRun(ctx, r.orm.DB(), run)
+}
+
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs TaskRunResults, err error) {
 	logger.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
+	startRun := time.Now()
+
+	if run.PipelineSpec.ID == 0 {
+		return nil, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
+	}
 
 	// Find "firsts" and work forwards
 	// 1. Make map of all memory task runs keyed by task spec id
 	all := make(map[int32]*memoryTaskRun)
 	for _, tr := range run.PipelineTaskRuns {
+		if tr.PipelineTaskSpec.ID == 0 {
+			return nil, errors.Errorf("taskRun.PipelineTaskSpec.ID may not be 0: %#v", tr)
+		}
 		mtr := memoryTaskRun{
 			taskRun: tr,
 		}
@@ -291,38 +330,36 @@ func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs [
 				m.finished = true
 				m.finishMu.Unlock()
 
-				start := time.Now()
+				startTaskRun := time.Now()
 
 				taskCtx, cancel := utils.CombinedContext(ctx, r.config.JobPipelineMaxTaskDuration())
-				result := r.executeTaskRun(taskCtx, txdb, m.taskRun, m.results(), &txdbMutex)
+				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex)
 				cancel()
 
 				finishedAt := time.Now()
 
 				trr := TaskRunResult{
 					ID:         m.taskRun.ID,
+					TaskSpecID: m.taskRun.PipelineTaskSpec.ID,
 					Result:     result,
 					FinishedAt: finishedAt,
-				}
-
-				if m.next == nil {
-					trr.IsFinal = true
+					IsTerminal: m.next == nil,
 				}
 
 				updateMu.Lock()
 				trrs = append(trrs, trr)
 				updateMu.Unlock()
 
-				elapsed := finishedAt.Sub(start)
+				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(string(m.taskRun.PipelineTaskSpec.PipelineSpecID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(string(run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(string(m.taskRun.PipelineTaskSpec.PipelineSpecID), string(m.taskRun.PipelineTaskSpec.Type), status).Inc()
+				promPipelineTasksTotalFinished.WithLabelValues(string(run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type), status).Inc()
 
 				if m.next == nil {
 					return
@@ -335,18 +372,18 @@ func (r *runner) ExecuteRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs [
 
 				m = m.next
 			}
-
 		}(mtr)
 	}
 
 	wg.Wait()
 
-	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID)
+	runTime := time.Since(startRun)
+	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
-	return trrs
+	return trrs, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {
+func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {
 	loggerFields := []interface{}{
 		"taskName", taskRun.PipelineTaskSpec.DotID,
 		"taskID", taskRun.PipelineTaskSpecID,
@@ -367,26 +404,28 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 		return Result{Error: err}
 	}
 
-	spec := taskRun.PipelineTaskSpec.PipelineSpec
-
 	// Order of precedence for task timeout:
 	// - Specific task timeout (task.TaskTimeout)
 	// - Job level task timeout (spec.MaxTaskDuration)
 	// - Passed in context
 	taskTimeout, isSet := task.TaskTimeout()
+	specificTaskCtx := context.Background()
 	if isSet {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
+		specificTaskCtx, cancel = utils.CombinedContext(r.chStop, taskTimeout)
 		defer cancel()
 	} else if spec.MaxTaskDuration != models.Interval(time.Duration(0)) {
 		var cancel context.CancelFunc
-		ctx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
+		specificTaskCtx, cancel = utils.CombinedContext(r.chStop, time.Duration(spec.MaxTaskDuration))
 		defer cancel()
 	}
+	ctx, cancel := utils.CombinedContext(ctx, specificTaskCtx)
+	defer cancel()
 
 	result := task.Run(ctx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
-		logger.Errorw("Pipeline task run errored", append(loggerFields, "error", result.Error)...)
+		f := append(loggerFields, "error", result.Error)
+		logger.Errorw("Pipeline task run errored", f...)
 	} else {
 		f := append(loggerFields, "result", result.Value)
 		switch v := result.Value.(type) {
@@ -398,6 +437,36 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, taskRun Task
 	}
 
 	return result
+}
+
+// ExecuteAndInsertNewRun bypasses the job pipeline entirely.
+// It executes a run in memory then inserts the finished run/task run records, returning the final result
+func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec) (result FinalResult, err error) {
+	start := time.Now()
+
+	run, err := newRun(spec, start)
+	if err != nil {
+		return result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
+	}
+
+	trrs, err := r.ExecuteRun(ctx, run)
+	if err != nil {
+		return result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+	}
+
+	end := time.Now()
+	run.FinishedAt = &end
+
+	finalResult := trrs.FinalResult()
+	run.Outputs = finalResult.OutputsDB()
+	run.Errors = finalResult.ErrorsDB()
+
+	// TODO: Might wanna add some logging with runID
+	if _, err := r.orm.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
+		return result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+	}
+
+	return finalResult, nil
 }
 
 func (r *runner) runReaper() {

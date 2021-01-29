@@ -26,12 +26,15 @@ type (
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 		ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
 		ListenForNewRuns() (postgres.Subscription, error)
+		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		RunFinished(runID int64) (bool, error)
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 		DeleteRunsOlderThan(threshold time.Duration) error
 
 		FindBridge(name models.TaskType) (models.BridgeType, error)
+
+		DB() *gorm.DB
 	}
 
 	orm struct {
@@ -168,7 +171,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 // TODO: Remove generation of special "result" task
 // TODO: Remove the unique index on successor_id
 // https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) []TaskRunResult
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) (TaskRunResults, error)
 
 // ProcessNextUnfinishedRun pulls the next available unfinished run from the
 // database and passes it into the provided ProcessRunFunc for execution.
@@ -218,7 +221,8 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		// Trying to lock and load in one hit _sometimes_ fails to preload
 		// associations for no discernable reason.
 		err = tx.
-			Preload("PipelineTaskRuns.PipelineTaskSpec.PipelineSpec").
+			Preload("PipelineSpec").
+			Preload("PipelineTaskRuns.PipelineTaskSpec").
 			Where("pipeline_runs.id = ?", pRun.ID).
 			First(&pRun).Error
 		if err != nil {
@@ -227,13 +231,16 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs := fn(ctx, tx, pRun)
+		trrs, err := fn(ctx, tx, pRun)
+		if err != nil {
+			return errors.Wrap(err, "error calling ProcessRunFunc")
+		}
 
 		if err = o.updateTaskRuns(tx, trrs); err != nil {
 			return errors.Wrap(err, "could not update task runs")
 		}
 
-		if err = o.UpdatePipelineRun(tx, &pRun, trrs); err != nil {
+		if err = o.UpdatePipelineRun(tx, &pRun, trrs.FinalResult()); err != nil {
 			return errors.Wrap(err, "could not mark pipeline_run as finished")
 		}
 
@@ -259,7 +266,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 }
 
 // updateTaskRuns updates multiple task runs in one query
-func (o *orm) updateTaskRuns(db *gorm.DB, trrs []TaskRunResult) error {
+func (o *orm) updateTaskRuns(db *gorm.DB, trrs TaskRunResults) error {
 	sql := `
 UPDATE pipeline_task_runs AS ptr SET
 output = updates.output,
@@ -284,27 +291,58 @@ WHERE ptr.id = updates.id
 	return db.Exec(stmt, valueArgs...).Error
 }
 
-func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, trrs []TaskRunResult) error {
-	var result Result
-	for _, trr := range trrs {
-		if trr.IsFinal {
-			// FIXME: This assumes there is only one final result and will
-			// have to change when the magical "__result__" type is removed
-			// https://www.pivotaltracker.com/story/show/176557536
-			result = trr.Result
-		}
-	}
-
+func (o *orm) UpdatePipelineRun(db *gorm.DB, run *Run, result FinalResult) error {
 	return db.Raw(`
 		UPDATE pipeline_runs SET finished_at = ?, outputs = ?, errors = ?
 		WHERE id = ?
 		RETURNING *
-		`, time.Now(), result.OutputDB(), result.ErrorsDB(), run.ID).
+		`, time.Now(), result.OutputsDB(), result.ErrorsDB(), run.ID).
 		Scan(run).Error
 }
 
 func (o *orm) ListenForNewRuns() (postgres.Subscription, error) {
 	return o.eventBroadcaster.Subscribe(postgres.ChannelRunStarted, "")
+}
+
+func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error) {
+	if run.CreatedAt.IsZero() {
+		return 0, errors.New("run.CreatedAt must be set")
+	}
+	if run.FinishedAt.IsZero() {
+		return 0, errors.New("run.FinishedAt must be set")
+	}
+	if run.Outputs.Val == nil || run.Errors.Val == nil {
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
+	}
+
+	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		if err = tx.Create(&run).Error; err != nil {
+			return errors.Wrap(err, "error inserting finished pipeline_run")
+		}
+
+		runID = run.ID
+
+		sql := `
+		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, pipeline_task_spec_id, created_at, finished_at)
+		SELECT ?, pts.type, pts.index, ptruns.output, ptruns.error, pts.id, ptruns.created_at, ptruns.finished_at
+		FROM (VALUES %s) ptruns (pipeline_task_spec_id, output, error, created_at, finished_at)
+		JOIN pipeline_task_specs pts ON pts.id = ptruns.pipeline_task_spec_id
+		`
+
+		valueStrings := []string{}
+		valueArgs := []interface{}{runID}
+		for _, trr := range trrs {
+			valueStrings = append(valueStrings, "(?::int,?::jsonb,?::text,?::timestamptz,?::timestamptz)")
+			valueArgs = append(valueArgs, trr.TaskSpecID, trr.Result.OutputDB(), trr.Result.ErrorDB(), run.CreatedAt, trr.FinishedAt)
+		}
+
+		/* #nosec G201 */
+		stmt := fmt.Sprintf(sql, strings.Join(valueStrings, ","))
+		err = tx.Exec(stmt, valueArgs...).Error
+		return errors.Wrap(err, "error inserting finished pipeline_task_runs")
+	})
+
+	return runID, err
 }
 
 // AwaitRun waits until a run has completed (either successfully or with errors)
@@ -449,4 +487,8 @@ func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
 func FindBridge(db *gorm.DB, name models.TaskType) (models.BridgeType, error) {
 	var bt models.BridgeType
 	return bt, errors.Wrapf(db.First(&bt, "name = ?", name.String()).Error, "could not find bridge with name '%s'", name)
+}
+
+func (o *orm) DB() *gorm.DB {
+	return o.db
 }

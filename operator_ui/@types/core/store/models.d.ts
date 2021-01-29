@@ -485,6 +485,7 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
     }
+    maxTaskDuration: string
     pipelineSpec: {
       dotDagSource: string
     }
@@ -499,7 +500,7 @@ declare module 'core/store/models' {
     pipelineSpec: {
       ID: number
       CreatedAt: time.Time
-      DotDagSource: string
+      dotDagSource: string
     }
   }
 }

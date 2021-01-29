@@ -57,9 +57,18 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 )
 
+// Result is the result of a TaskRun
 type Result struct {
 	Value interface{}
 	Error error
+}
+
+// FinalResult is the result of a Run
+// TODO: Get rid of FinalErrors and use FinalResult instead
+// https://www.pivotaltracker.com/story/show/176557536
+type FinalResult struct {
+	Values []interface{}
+	Errors []error
 }
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
@@ -78,26 +87,95 @@ func (result Result) ErrorDB() null.String {
 	return errString
 }
 
+// OutputsDB dumps a result output for a pipeline_run
+func (result FinalResult) OutputsDB() JSONSerializable {
+	return JSONSerializable{Val: result.Values, Null: false}
+}
+
 // ErrorsDB dumps a result error for a pipeline_run
-func (result Result) ErrorsDB() JSONSerializable {
-	var val interface{}
-	if finalErrors, is := result.Error.(FinalErrors); is {
-		val = finalErrors
-	} else if result.Error != nil {
-		val = result.Error.Error()
-	} else {
-		val = nil
+func (result FinalResult) ErrorsDB() JSONSerializable {
+	errStrs := make([]null.String, len(result.Errors))
+	for i, err := range result.Errors {
+		if err == nil {
+			errStrs[i] = null.String{}
+		} else {
+			errStrs[i] = null.StringFrom(err.Error())
+		}
 	}
-	return JSONSerializable{Val: val, Null: false}
+
+	return JSONSerializable{Val: errStrs, Null: false}
+}
+
+// HasErrors returns true if the final result has any errors
+func (result FinalResult) HasErrors() bool {
+	for _, err := range result.Errors {
+		if err != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// SingularResult returns a single result if the FinalResult only has one set of outputs/errors
+func (result FinalResult) SingularResult() (Result, error) {
+	if len(result.Errors) != 1 || len(result.Values) != 1 {
+		return Result{}, errors.Errorf("cannot cast FinalResult to singular result; it does not have exactly 1 error and exactly 1 output: %#v", result)
+	}
+	return Result{Error: result.Errors[0], Value: result.Values[0]}, nil
 }
 
 // TaskRunResult describes the result of a task run, suitable for database
-// update or insert
+// update or insert.
+// ID might be zero if the TaskRun has not been inserted yet
+// TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         int64
+	TaskSpecID int32
 	Result     Result
 	FinishedAt time.Time
-	IsFinal    bool
+	IsTerminal bool
+}
+
+// TaskRunResults represents a collection of results for all task runs for one pipeline run
+type TaskRunResults []TaskRunResult
+
+// FinalResult pulls the FinalResult for the pipeline_run from the task runs
+func (trrs TaskRunResults) FinalResult() (result FinalResult) {
+	var found bool
+	for _, trr := range trrs {
+		if trr.IsTerminal {
+			// FIXME: This is a mess because of the special `__result__` task.
+			// It gets much simpler and will change when the magical
+			// "__result__" type is removed.
+			// https://www.pivotaltracker.com/story/show/176557536
+			values, is := trr.Result.Value.([]interface{})
+			if !is {
+				panic("expected terminal task run result to have multiple values")
+			}
+			result.Values = append(result.Values, values...)
+
+			finalErrs, is := trr.Result.Error.(FinalErrors)
+			if !is {
+				panic("expected terminal task run result to be FinalErrors")
+			}
+			errs := make([]error, len(finalErrs))
+			for i, finalErr := range finalErrs {
+				if finalErr.IsZero() {
+					errs[i] = nil
+				} else {
+					errs[i] = errors.New(finalErr.ValueOrZero())
+				}
+			}
+			result.Errors = append(result.Errors, errs...)
+			found = true
+		}
+	}
+
+	if !found {
+		logger.Errorw("expected at least one task to be final", "tasks", trrs)
+		panic("expected at least one task to be final")
+	}
+	return
 }
 
 type BaseTask struct {
