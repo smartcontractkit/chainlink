@@ -213,7 +213,7 @@ isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
 			assertion: func(t *testing.T, os job.SpecDB, err error) {
-				require.EqualError(t, err, "(8, 23): invalid escape sequence: \\2")
+				require.EqualError(t, err, "toml error on load: (8, 23): invalid escape sequence: \\2")
 			},
 		},
 		{
