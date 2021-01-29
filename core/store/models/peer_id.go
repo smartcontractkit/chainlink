@@ -27,6 +27,7 @@ func (p *PeerID) UnmarshalText(bs []byte) error {
 	if strings.HasPrefix(input, peerIDPrefix) {
 		input = string(bs[len(peerIDPrefix):])
 	}
+
 	peerID, err := peer.Decode(input)
 	if err != nil {
 		return errors.Wrapf(err, `PeerID#UnmarshalText("%v")`, input)
@@ -49,7 +50,7 @@ func (p PeerID) Value() (driver.Value, error) {
 }
 
 func (p PeerID) MarshalJSON() ([]byte, error) {
-	return json.Marshal(peer.Encode(peer.ID(p)))
+	return json.Marshal(p.String())
 }
 
 func (p *PeerID) UnmarshalJSON(input []byte) error {
@@ -58,11 +59,5 @@ func (p *PeerID) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	peerId, err := peer.Decode(result)
-	if err != nil {
-		return err
-	}
-
-	*p = PeerID(peerId)
-	return nil
+	return p.UnmarshalText([]byte(result))
 }

@@ -23,21 +23,7 @@ func (ocpk OffChainPublicKey) Raw() string {
 }
 
 func (ocpk OffChainPublicKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(ocpk.Raw())
-}
-
-func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
-	input := string(bs)
-	if strings.HasPrefix(input, offChainPublicKeyPrefix) {
-		input = string(bs[len(offChainPublicKeyPrefix):])
-	}
-	result, err := hex.DecodeString(input)
-	if err != nil {
-		return err
-	}
-	copy(result[:], result[:common.AddressLength])
-	*ocpk = result
-	return nil
+	return json.Marshal(ocpk.String())
 }
 
 func (ocpk *OffChainPublicKey) UnmarshalJSON(input []byte) error {
@@ -46,4 +32,19 @@ func (ocpk *OffChainPublicKey) UnmarshalJSON(input []byte) error {
 		return err
 	}
 	return ocpk.UnmarshalText([]byte(hexString))
+}
+
+func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
+	input := string(bs)
+	if strings.HasPrefix(input, offChainPublicKeyPrefix) {
+		input = string(bs[len(offChainPublicKeyPrefix):])
+	}
+
+	result, err := hex.DecodeString(input)
+	if err != nil {
+		return err
+	}
+	copy(result[:], result[:common.AddressLength])
+	*ocpk = result
+	return nil
 }

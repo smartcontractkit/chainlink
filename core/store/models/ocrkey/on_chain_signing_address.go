@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -20,21 +21,29 @@ func (ocsa OnChainSigningAddress) String() string {
 }
 
 func (ocsa OnChainSigningAddress) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hexutil.Encode(ocsa[:]))
+	return json.Marshal(ocsa.String())
 }
 
 func (ocsa *OnChainSigningAddress) UnmarshalJSON(input []byte) error {
 	var hexString string
-	var onChainSigningAddress common.Address
 	if err := json.Unmarshal(input, &hexString); err != nil {
 		return err
 	}
+	return ocsa.UnmarshalText([]byte(hexString))
+}
 
-	result, err := hexutil.Decode(hexString)
+func (ocsa *OnChainSigningAddress) UnmarshalText(bs []byte) error {
+	input := string(bs)
+	if strings.HasPrefix(input, onChainSigningAddressPrefix) {
+		input = string(bs[len(onChainSigningAddressPrefix):])
+	}
+
+	result, err := hexutil.Decode(input)
 	if err != nil {
 		return err
 	}
 
+	var onChainSigningAddress common.Address
 	copy(onChainSigningAddress[:], result[:common.AddressLength])
 	*ocsa = OnChainSigningAddress(onChainSigningAddress)
 	return nil

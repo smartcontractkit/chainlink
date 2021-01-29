@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/curve25519"
@@ -24,23 +25,16 @@ func (cpk ConfigPublicKey) Raw() string {
 }
 
 func (cpk ConfigPublicKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(cpk.Raw())
+	return json.Marshal(cpk.String())
 }
 
 func (cpk *ConfigPublicKey) UnmarshalJSON(input []byte) error {
-	var result [curve25519.PointSize]byte
 	var hexString string
 	if err := json.Unmarshal(input, &hexString); err != nil {
 		return err
 	}
 
-	decodedString, err := hex.DecodeString(hexString)
-	if err != nil {
-		return err
-	}
-	copy(result[:], decodedString[:curve25519.PointSize])
-	*cpk = result
-	return nil
+	return cpk.UnmarshalText([]byte(hexString))
 }
 
 // Scan reads the database value and returns an instance.
@@ -59,4 +53,20 @@ func (cpk *ConfigPublicKey) Scan(value interface{}) error {
 // Value returns this instance serialized for database storage.
 func (cpk ConfigPublicKey) Value() (driver.Value, error) {
 	return cpk[:], nil
+}
+
+func (cpk *ConfigPublicKey) UnmarshalText(bs []byte) error {
+	input := string(bs)
+	if strings.HasPrefix(input, configPublicKeyPrefix) {
+		input = string(bs[len(configPublicKeyPrefix):])
+	}
+
+	decodedString, err := hex.DecodeString(input)
+	if err != nil {
+		return err
+	}
+	var result [curve25519.PointSize]byte
+	copy(result[:], decodedString[:curve25519.PointSize])
+	*cpk = result
+	return nil
 }
