@@ -14,7 +14,7 @@ func TestOCR_OffchainPublicKey_MarshalJSON(t *testing.T) {
 	rawBytes[31] = 1
 	pubKey := OffChainPublicKey(rawBytes)
 
-	pubKeyString := "0000000000000000000000000000000000000000000000000000000000000001"
+	pubKeyString := "ocroff_0000000000000000000000000000000000000000000000000000000000000001"
 	pubKeyJSON := fmt.Sprintf(`"%s"`, pubKeyString)
 
 	result, err := json.Marshal(pubKey)
