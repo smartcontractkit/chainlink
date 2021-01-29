@@ -47,7 +47,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.NoError(t, result.Error)
@@ -57,7 +57,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal(result.Value.([]byte), &x)
+	json.Unmarshal([]byte(result.Value.(string)), &x)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
