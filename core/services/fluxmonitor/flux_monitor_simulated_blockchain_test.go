@@ -570,7 +570,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	}
 }
 
-func TestFluxMonitor_OnChainRevert(t *testing.T) {
+func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
 	key := cltest.MustGenerateRandomKey(t)
 	fa := setupFluxAggregatorUniverse(t, key)
