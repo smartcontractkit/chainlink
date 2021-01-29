@@ -1,5 +1,6 @@
 pragma solidity ^0.6.0;
 
+import "./InitializableConstants.sol";
 
 /**
  * @title Initializable
@@ -12,8 +13,22 @@ pragma solidity ^0.6.0;
  * WARNING: When used with inheritance, manual care must be taken to not invoke
  * a parent initializer twice, or ensure that all initializers are idempotent,
  * because this is not dealt with automatically as with constructors.
+ * WARNING: The contract reserves part of storage which is useful when used
+ * in combination with the Proxy contract:
+ *   - Slots [0..29] reserved for the Proxy contract (+ any children)
+ *   - Slots [30..49] reserved for future layout changes of this Initializable contract
+ *   - Slots [50..] reserved for the implementation contract (child of Initializable)
  */
-contract Initializable {
+contract Initializable is InitializableConstants {
+
+  // If this Initializable contract storage is expanded, this constant
+  // needs to be appropriately updated
+  uint8 internal constant STORAGE_USED_INITIALIZABLE = 1;
+  // Amount of reserved storage still available before the free pointer
+  uint8 internal constant STORAGE_RESERVED_INITIALIZABLE = STORAGE_FREE_POINTER - STORAGE_RESERVED_PROXY - STORAGE_USED_INITIALIZABLE;
+
+  // Reserved storage space for the Proxy contract
+  uint256[STORAGE_RESERVED_PROXY] private _____gap;
 
   /**
    * @dev Indicates that the contract has been initialized.
@@ -58,11 +73,5 @@ contract Initializable {
   }
 
   // Reserved storage space to allow for layout changes in the future.
-  // WARNING: Should be used in combination with the Proxy contract,
-  // which reserves first 20 storage slots on the proxy side.
-  // The storage structure:
-  //  - Slots [0..19] reserved for this Initializable contract
-  //  - Slots [20..49] reserved for the Proxy contract (+ any children)
-  //  - Slots [50...] reserved for the implementation contract (child of Initializable)
-  uint256[49] private ______gap;
+  uint256[STORAGE_RESERVED_INITIALIZABLE] private ______gap;
 }
