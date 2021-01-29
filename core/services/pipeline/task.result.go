@@ -10,6 +10,9 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
+// TODO: This task type is no longer necessary, we should deprecate/remove it.
+// See: https://www.pivotaltracker.com/story/show/176557536
+
 // ResultTask exists solely as a Postgres performance optimization.  It's added
 // automatically to the end of every pipeline, and it receives the outputs of all
 // tasks that have no successor tasks.  This allows the pipeline runner to detect
@@ -43,6 +46,10 @@ func (t *ResultTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) Re
 	return Result{Value: values, Error: errors}
 }
 
+// FIXME: This error/FinalErrors conflation exists solely because of the __result__ task.
+// It is confusing and needs to go, making this note to remove it along with the
+// special __result__ task.
+// https://www.pivotaltracker.com/story/show/176557536
 type FinalErrors []null.String
 
 func (fe FinalErrors) HasErrors() bool {

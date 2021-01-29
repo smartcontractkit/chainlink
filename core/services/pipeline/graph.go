@@ -62,7 +62,7 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil)
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil)
 		if err != nil {
 			return nil, err
 		}

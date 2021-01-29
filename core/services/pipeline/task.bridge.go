@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"sync"
 
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
@@ -18,8 +19,14 @@ type BridgeTask struct {
 	Name        string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData"`
 
-	txdb   *gorm.DB
-	config Config
+	txdb *gorm.DB
+	// HACK: This mutex is necessary to work around a bug in the pq driver that
+	// causes concurrent database calls inside the same transaction to fail
+	// with a mysterious `pq: unexpected Parse response 'C'` error
+	// FIXME: Get rid of this by replacing pq with pgx
+	// https://www.pivotaltracker.com/story/show/174401187
+	txdbMutex *sync.Mutex
+	config    Config
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -69,7 +76,7 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 		return result
 	}
 	logger.Debugw("Bridge task: fetched answer",
-		"answer", string(result.Value.([]byte)),
+		"answer", result.Value,
 		"url", url.String(),
 	)
 	return result
@@ -77,6 +84,12 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 
 func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	task := models.TaskType(t.Name)
+
+	if t.txdbMutex != nil {
+		t.txdbMutex.Lock()
+		defer t.txdbMutex.Unlock()
+	}
+
 	bridge, err := FindBridge(t.txdb, task)
 	if err != nil {
 		return url.URL{}, err
