@@ -13,10 +13,11 @@ import (
 
 type (
 	Spec struct {
-		ID              int32 `gorm:"primary_key"`
-		DotDagSource    string
-		CreatedAt       time.Time
-		MaxTaskDuration models.Interval
+		ID                int32           `gorm:"primary_key"`
+		DotDagSource      string          `json:"dotDagSource"`
+		CreatedAt         time.Time       `json:"-"`
+		MaxTaskDuration   models.Interval `json:"-"`
+		PipelineTaskSpecs []TaskSpec      `json:"-" gorm:"foreignkey:PipelineSpecID;association_autoupdate:false;association_autocreate:false"`
 	}
 
 	TaskSpec struct {

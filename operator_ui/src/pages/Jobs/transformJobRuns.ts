@@ -63,7 +63,7 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
   jobRun: ApiResponse<OcrJobRun>['data'],
 ): PipelineJobRun => {
   const stratify = parseDot(
-    `digraph {${jobRun.attributes.pipelineSpec.DotDagSource}}`,
+    `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
   )
 
   return {

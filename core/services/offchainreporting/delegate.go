@@ -162,9 +162,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(d.db.DB(), ta.Address(), d.config.EthGasLimitDefault()))
 
+		ds, err := newDatasource(d.db, jobSpec.ID, d.pipelineRunner)
+		if err != nil {
+			return nil, errors.Wrap(err, "error instantiating data source")
+		}
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: jobSpec.ID, pipelineRunner: d.pipelineRunner},
+			Datasource:                   ds,
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
