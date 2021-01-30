@@ -10,7 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a UI bug with fluxmonitor jobs where initiator params were bunched up.
-- Improved performance of OCR jobs to reduce database load
+- Improved performance of OCR jobs to reduce database load. OCR jobs now run with unlimited parallelism and are not affected by `JOB_PIPELINE_PARALLELISM`.
+
+### Added
+
+- A new env var `JOB_PIPELINE_MAX_RUN_DURATION` has been added which controls maximum duration of the total run.
 
 ## [0.9.9] - 2021-01-18
 
