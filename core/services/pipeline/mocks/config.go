@@ -116,6 +116,20 @@ func (_m *Config) DefaultMaxHTTPAttempts() uint {
 	return r0
 }
 
+// JobPipelineMaxRunDuration provides a mock function with given fields:
+func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
+	ret := _m.Called()
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
+	}
+
+	return r0
+}
+
 // JobPipelineMaxTaskDuration provides a mock function with given fields:
 func (_m *Config) JobPipelineMaxTaskDuration() time.Duration {
 	ret := _m.Called()
