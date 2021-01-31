@@ -48,7 +48,7 @@ type ORM interface {
 }
 
 type orm struct {
-	db *gorm.DB
+	db                  *gorm.DB
 	config              *storm.Config
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
