@@ -5,7 +5,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
-//go:generate mockery --name Broadcast --output ./mocks/ --case=underscore --structname LogBroadcast --filename broadcast.go
+//go:generate mockery --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
 
 type (
 	// The Broadcast type wraps a models.Log but provides additional functionality
@@ -43,7 +43,7 @@ func (b *broadcast) SetDecodedLog(newLog interface{}) {
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
 func (b *broadcast) WasAlreadyConsumed() (bool, error) {
-	return b.orm.BroadcastWasAlreadyConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.jobID, b.jobIDV2)
+	return b.orm.WasBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.jobID, b.jobIDV2)
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber

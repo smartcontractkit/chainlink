@@ -11,6 +11,7 @@ func Migrate(tx *gorm.DB) error {
             "address" bytea NOT NULL,
             "topics" bytea[] NOT NULL,
             "data" bytea NOT NULL,
+            "order_received" serial NOT NULL,
             "created_at" timestamp without time zone NOT NULL,
             PRIMARY KEY (block_hash, index)
         );

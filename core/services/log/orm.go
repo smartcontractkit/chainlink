@@ -13,11 +13,12 @@ import (
 
 type ORM interface {
 	UpsertLog(log types.Log) error
-	UpsertUnconsumedLogBroadcastForListener(log types.Log, listener Listener) error
+	UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error)
 	MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error
 	UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error)
-	DeleteLogAndBroadcasts(blockHash common.Hash, blockNumber uint64, logIndex uint) error
+	DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error
+	DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error
 }
 
 type orm struct {
@@ -58,8 +59,8 @@ func (o *orm) UpsertLog(log types.Log) error {
 	return err
 }
 
-func (o *orm) UpsertUnconsumedLogBroadcastForListener(log types.Log, listener Listener) error {
-	if listener.IsV2Job() {
+func (o *orm) UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error {
+	if jobID == nil {
 		return o.db.Exec(`
             INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
             VALUES (?, ?, ?, ?, false, NOW())
@@ -67,16 +68,14 @@ func (o *orm) UpsertUnconsumedLogBroadcastForListener(log types.Log, listener Li
                 block_hash,
                 block_number,
                 log_index,
-                job_id_v2,
-                consumed
+                job_id_v2
             ) = (
                 EXCLUDED.block_hash,
                 EXCLUDED.block_number,
                 EXCLUDED.log_index,
-                EXCLUDED.job_id_v2,
-                false
+                EXCLUDED.job_id_v2
             )
-        `, log.BlockHash, log.BlockNumber, log.Index, listener.JobIDV2()).Error
+        `, log.BlockHash, log.BlockNumber, log.Index, jobIDV2).Error
 	} else {
 		return o.db.Exec(`
             INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, consumed, created_at)
@@ -85,16 +84,14 @@ func (o *orm) UpsertUnconsumedLogBroadcastForListener(log types.Log, listener Li
                 block_hash,
                 block_number,
                 log_index,
-                job_id,
-                consumed
+                job_id
             ) = (
                 EXCLUDED.block_hash,
                 EXCLUDED.block_number,
                 EXCLUDED.log_index,
-                EXCLUDED.job_id,
-                false
+                EXCLUDED.job_id
             )
-        `, log.BlockHash, log.BlockNumber, log.Index, listener.JobID()).Error
+        `, log.BlockHash, log.BlockNumber, log.Index, jobID).Error
 	}
 }
 
@@ -167,7 +164,7 @@ func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error
         WHERE logs.block_number < ?
         GROUP BY logs.block_hash, logs.index, log_broadcasts.consumed
         HAVING consumed = false
-        ORDER BY logs.block_number, logs.index ASC
+        ORDER BY logs.order_received, logs.block_number, logs.index ASC
     `, blockNumber).
 		Scan(&logRows).Error
 	if err != nil {
@@ -193,8 +190,14 @@ func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error
 	return logs, nil
 }
 
-func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, blockNumber uint64, logIndex uint) error {
-	return o.db.Exec(`
-        DELETE FROM logs WHERE block_hash = ? AND block_number = ? AND index = ?
-    `, blockHash, blockNumber, logIndex).Error
+func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error {
+	return o.db.Exec(`DELETE FROM logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
+}
+
+func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
+	if jobID == nil {
+		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id IS NULL AND job_id_v2 = ? AND consumed = false`, jobIDV2).Error
+	} else {
+		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
+	}
 }
