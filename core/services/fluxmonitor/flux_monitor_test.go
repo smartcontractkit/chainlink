@@ -268,6 +268,8 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 
@@ -318,6 +320,8 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 		fetcher,
 		nil,
 		func() {},
+		big.NewInt(0),
+		big.NewInt(100000000000),
 	)
 	require.NoError(t, err)
 	checker.OnConnect()
@@ -425,6 +429,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		fetcher,
 		nil,
 		func() {},
+		big.NewInt(0),
+		big.NewInt(100000000000),
 	)
 	require.NoError(t, err)
 
@@ -521,6 +527,8 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 
@@ -616,6 +624,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		fetcher,
 		nil,
 		func() {},
+		big.NewInt(0),
+		big.NewInt(100000000000),
 	)
 	require.NoError(t, err)
 
@@ -699,6 +709,8 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 
@@ -787,6 +799,8 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 
@@ -874,6 +888,8 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		fetcher,
 		nil,
 		func() {},
+		big.NewInt(0),
+		big.NewInt(100000000000),
 	)
 	require.NoError(t, err)
 	deviationChecker.Start()
@@ -1063,6 +1079,8 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(0),
 			)
 			require.NoError(t, err)
 
@@ -1273,6 +1291,8 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 				fetcher,
 				nil,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 
@@ -1544,6 +1564,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			fetcher,
 			nil,
 			func() {},
+			big.NewInt(0),
+			big.NewInt(100000000000),
 		)
 		require.NoError(t, err)
 
@@ -1630,6 +1652,8 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			fetcher,
 			nil,
 			func() {},
+			big.NewInt(0),
+			big.NewInt(100000000000),
 		)
 		require.NoError(t, err)
 
@@ -1738,6 +1762,8 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 				fetcher,
 				flagsContract,
 				func() {},
+				big.NewInt(0),
+				big.NewInt(100000000000),
 			)
 			require.NoError(t, err)
 

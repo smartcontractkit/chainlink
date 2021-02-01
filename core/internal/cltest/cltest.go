@@ -1080,6 +1080,22 @@ func JobRunStaysPendingIncomingConfirmations(
 	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
+// Polls until the passed in jobID has count number
+// of job spec errors.
+func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.ID, count int) []models.JobSpecError {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var jse []models.JobSpecError
+	g.Eventually(func() []models.JobSpecError {
+		err := store.DB.
+			Where("job_spec_id = ?", jobID.String()).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1518,6 +1534,22 @@ func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
 		return nil, err
 	}
 	return out, nil
+}
+
+func MustGenericEncode(types []string, values ...interface{}) []byte {
+	if len(values) != len(types) {
+		panic("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		panic(err)
+	}
+	return out
 }
 
 func MakeRoundStateReturnData(
