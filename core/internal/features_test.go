@@ -802,6 +802,11 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	gethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
@@ -929,6 +934,11 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	gethClient.AssertExpectations(t)
 	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
+
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
