@@ -39,12 +39,12 @@ describe('Operator Gas Tests', () => {
     operator1 = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator1.setAuthorizedSender(roles.oracleNode.address, true)
+    await operator1.setAuthorizedSenders([roles.oracleNode.address])
 
     operator2 = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator2.setAuthorizedSender(roles.oracleNode.address, true)
+    await operator2.setAuthorizedSenders([roles.oracleNode.address])
 
     oracle1 = await oracleFactory
       .connect(roles.defaultAccount)
