@@ -103,8 +103,8 @@ const (
 )
 
 var (
-	DefaultP2PPeerID     p2ppeer.ID
-	NonExistentP2PPeerID p2ppeer.ID
+	DefaultP2PPeerID     models.PeerID
+	NonExistentP2PPeerID models.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
 	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -145,14 +145,16 @@ func init() {
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
 
-	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	NonExistentP2PPeerID, err = p2ppeer.Decode(NonExistentPeerID)
+	DefaultP2PPeerID = models.PeerID(defaultP2PPeerID)
+	nonExistentP2PPeerID, err := p2ppeer.Decode(NonExistentPeerID)
 	if err != nil {
 		panic(err)
 	}
+	NonExistentP2PPeerID = models.PeerID(nonExistentP2PPeerID)
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
 	if err != nil {
 		panic(err)
@@ -1125,7 +1127,7 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, 
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		for i := range prs {
-			if prs[i].Outputs != nil {
+			if !prs[i].Outputs.Null {
 				errs, err := prs[i].Errors.MarshalJSON()
 				assert.NoError(t, err)
 				if string(errs) != "[null]" {
@@ -1680,4 +1682,13 @@ func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) 
 	require.NoError(t, err)
 
 	return transactor
+}
+
+func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
+	t.Helper()
+
+	js := new(pipeline.JSONSerializable)
+	err := js.UnmarshalJSON([]byte(s))
+	require.NoError(t, err)
+	return *js
 }

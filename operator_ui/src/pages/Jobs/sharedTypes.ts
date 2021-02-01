@@ -74,7 +74,7 @@ export type PipelineJobRun = BaseJobRun & {
   outputs: null | (string | null)[]
   errors: null | (string | null)[]
   pipelineSpec: {
-    DotDagSource: string
+    dotDagSource: string
   }
   status: PipelineJobRunStatus
   taskRuns: PipelineTaskRun[]

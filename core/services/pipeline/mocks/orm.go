@@ -79,6 +79,22 @@ func (_m *ORM) CreateSpec(ctx context.Context, db *gorm.DB, taskDAG pipeline.Tas
 	return r0, r1
 }
 
+// DB provides a mock function with given fields:
+func (_m *ORM) DB() *gorm.DB {
+	ret := _m.Called()
+
+	var r0 *gorm.DB
+	if rf, ok := ret.Get(0).(func() *gorm.DB); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*gorm.DB)
+		}
+	}
+
+	return r0
+}
+
 // DeleteRunsOlderThan provides a mock function with given fields: threshold
 func (_m *ORM) DeleteRunsOlderThan(threshold time.Duration) error {
 	ret := _m.Called(threshold)
@@ -114,6 +130,27 @@ func (_m *ORM) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	return r0, r1
 }
 
+// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs
+func (_m *ORM) InsertFinishedRunWithResults(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult) (int64, error) {
+	ret := _m.Called(ctx, run, trrs)
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) int64); ok {
+		r0 = rf(ctx, run, trrs)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) error); ok {
+		r1 = rf(ctx, run, trrs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListenForNewRuns provides a mock function with given fields:
 func (_m *ORM) ListenForNewRuns() (postgres.Subscription, error) {
 	ret := _m.Called()
@@ -137,19 +174,19 @@ func (_m *ORM) ListenForNewRuns() (postgres.Subscription, error) {
 	return r0, r1
 }
 
-// ProcessNextUnclaimedTaskRun provides a mock function with given fields: ctx, fn
-func (_m *ORM) ProcessNextUnclaimedTaskRun(ctx context.Context, fn pipeline.ProcessTaskRunFunc) (bool, error) {
+// ProcessNextUnfinishedRun provides a mock function with given fields: ctx, fn
+func (_m *ORM) ProcessNextUnfinishedRun(ctx context.Context, fn pipeline.ProcessRunFunc) (bool, error) {
 	ret := _m.Called(ctx, fn)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.ProcessTaskRunFunc) bool); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.ProcessRunFunc) bool); ok {
 		r0 = rf(ctx, fn)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.ProcessTaskRunFunc) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.ProcessRunFunc) error); ok {
 		r1 = rf(ctx, fn)
 	} else {
 		r1 = ret.Error(1)

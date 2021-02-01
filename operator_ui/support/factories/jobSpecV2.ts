@@ -7,6 +7,7 @@ export function jobSpecV2(
     OcrJobSpec['offChainReportingOracleSpec'] & {
       name?: string
       id?: string
+      maxTaskDuration?: string
     } & {
       dotDagSource?: string
     }
@@ -35,6 +36,7 @@ export function jobSpecV2(
     name: config.name || 'V2 job',
     offChainReportingOracleSpec,
     errors: [],
+    maxTaskDuration: '',
     pipelineSpec: {
       dotDagSource:
         typeof config.dotDagSource === 'string'
