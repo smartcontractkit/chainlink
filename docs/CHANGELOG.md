@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fixed a UI bug with fluxmonitor jobs where initiator params were bunched up.
+- Fixed a fluxmonitor job bug where submitting a value outside the acceptable range would stall the job
+  permanently. Now a job spec error will be thrown if the polled answer is outside the
+  acceptable range and no ethtx will be submitted. As additional protection, we also now
+  check the receipts of the ethtx's and if they were reverted, we mark the ethtx task as failed.
 - Improved performance of OCR jobs to reduce database load. OCR jobs now run with unlimited parallelism and are not affected by `JOB_PIPELINE_PARALLELISM`.
 
 ### Added
