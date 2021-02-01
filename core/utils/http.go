@@ -6,12 +6,46 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"time"
 
 	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/logger"
 )
+
+var (
+	Client             *http.Client
+	UnrestrictedClient *http.Client
+)
+
+func newDefaultTransport() *http.Transport {
+	// This is taken from the golang http client defaults
+	// See: https://golang.org/pkg/net/http/#Transport
+	t := http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			DualStack: true,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	t.DisableCompression = true
+	return &t
+}
+
+func init() {
+	tr := newDefaultTransport()
+	tr.DialContext = restrictedDialContext
+	Client = &http.Client{Transport: tr}
+
+	unrestrictedTr := newDefaultTransport()
+	UnrestrictedClient = &http.Client{Transport: unrestrictedTr}
+}
 
 type HTTPRequest struct {
 	Request *http.Request
@@ -27,15 +61,14 @@ type HTTPRequestConfig struct {
 }
 
 func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, err error) {
-	tr := &http.Transport{
-		DisableCompression: true,
+	var c *http.Client
+	if h.Config.AllowUnrestrictedNetworkAccess {
+		c = UnrestrictedClient
+	} else {
+		c = Client
 	}
-	if !h.Config.AllowUnrestrictedNetworkAccess {
-		tr.DialContext = restrictedDialContext
-	}
-	client := &http.Client{Transport: tr}
 
-	return withRetry(ctx, client, h.Request, h.Config)
+	return withRetry(ctx, c, h.Request, h.Config)
 }
 
 // withRetry executes the http request in a retry. Timeout is controlled with a context
@@ -53,7 +86,15 @@ func withRetry(
 		Jitter: true,
 	}
 	for {
-		responseBody, statusCode, err = makeHTTPCall(ctx, client, originalRequest, config)
+		timeoutCtx, cancel := context.WithTimeout(ctx, config.Timeout)
+		defer cancel()
+
+		requestWithTimeout, err := cloneRequest(timeoutCtx, originalRequest)
+		if err != nil {
+			return responseBody, statusCode, err
+		}
+
+		responseBody, statusCode, err = makeHTTPCall(client, requestWithTimeout, config)
 		if err == nil {
 			return responseBody, statusCode, nil
 		}
@@ -69,8 +110,10 @@ func withRetry(
 		}
 		// Sleep and retry.
 		select {
-		case <-ctx.Done():
-			return responseBody, statusCode, ctx.Err()
+		case <-timeoutCtx.Done():
+			if timeoutCtx.Err() != context.DeadlineExceeded {
+				return responseBody, statusCode, timeoutCtx.Err()
+			}
 		case <-time.After(bb.Duration()):
 		}
 		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.Timeout)
@@ -78,38 +121,18 @@ func withRetry(
 }
 
 func makeHTTPCall(
-	ctx context.Context,
 	client *http.Client,
-	originalRequest *http.Request,
+	request *http.Request,
 	config HTTPRequestConfig,
 ) (responseBody []byte, statusCode int, _ error) {
-	ctx, cancel := context.WithTimeout(ctx, config.Timeout)
-	defer cancel()
-	requestWithTimeout := originalRequest.Clone(ctx)
-
-	// XXX: Workaround for https://github.com/golang/go/issues/36095
-	// http.Request#Clone actually only does a shallow copy
-	if originalRequest.GetBody != nil {
-		originalRequestBody, err := originalRequest.GetBody()
-		if err != nil {
-			return nil, 0, err
-		}
-		var b bytes.Buffer
-		_, err = b.ReadFrom(originalRequestBody)
-		if err != nil {
-			return nil, 0, err
-		}
-		requestWithTimeout.Body = ioutil.NopCloser(&b)
-	}
 
 	start := time.Now()
 
-	r, err := client.Do(requestWithTimeout)
+	r, err := client.Do(request)
 	if err != nil {
 		logger.Warnw("http adapter got error", "error", err)
 		return nil, 0, err
 	}
-	defer client.CloseIdleConnections()
 	defer logger.ErrorIfCalling(r.Body.Close)
 
 	statusCode = r.StatusCode
@@ -133,6 +156,27 @@ func makeHTTPCall(
 	}
 
 	return responseBody, statusCode, nil
+}
+
+func cloneRequest(ctx context.Context, originalRequest *http.Request) (*http.Request, error) {
+	clonedRequest := originalRequest.Clone(ctx)
+
+	// XXX: Workaround for https://github.com/golang/go/issues/36095
+	// http.Request#Clone actually only does a shallow copy
+	if originalRequest.GetBody != nil {
+		originalRequestBody, err := originalRequest.GetBody()
+		if err != nil {
+			return nil, err
+		}
+		var b bytes.Buffer
+		_, err = b.ReadFrom(originalRequestBody)
+		if err != nil {
+			return nil, err
+		}
+		clonedRequest.Body = ioutil.NopCloser(&b)
+	}
+
+	return clonedRequest, nil
 }
 
 type RemoteServerError struct {

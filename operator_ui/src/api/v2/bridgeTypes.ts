@@ -1,5 +1,5 @@
-import * as jsonapi from '@chainlink/json-api-client'
-import { Api } from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
+import { Api } from 'utils/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 

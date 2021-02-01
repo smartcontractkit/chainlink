@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -e
+
+yarn setup:contracts
+
+yarn workspace @chainlink/contracts test:ci:old
+yarn workspace @chainlink/test-helpers test

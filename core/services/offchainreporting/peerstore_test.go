@@ -42,7 +42,7 @@ func Test_Peerstore_Start(t *testing.T) {
 		NOW(),
 		$2
 	)
-	`, cltest.DefaultP2PPeerID.Pretty(), cltest.NonExistentP2PPeerID.Pretty()).Error
+	`, cltest.DefaultP2PPeerID, cltest.NonExistentP2PPeerID).Error
 	require.NoError(t, err)
 
 	wrapper, err := offchainreporting.NewPeerstoreWrapper(store.DB, 1*time.Second, models.PeerID(cltest.DefaultP2PPeerID))
@@ -88,5 +88,5 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	peer := peers[0]
 	require.Equal(t, "12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.ID)
 	require.Equal(t, "/ip4/127.0.0.2/tcp/12000/p2p/12D3KooWL1yndUw9T2oWXjhfjdwSscWA78YCpUdduA3Cnn4dCtph", peer.Addr)
-	require.Equal(t, cltest.DefaultP2PPeerID.Pretty(), peer.PeerID)
+	require.Equal(t, cltest.DefaultP2PPeerID.Raw(), peer.PeerID)
 }

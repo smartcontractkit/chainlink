@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,11 +18,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
 	"github.com/pborman/uuid"
 
 	"github.com/onsi/gomega"
 
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers/testoffchainaggregator"
@@ -38,6 +40,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -51,7 +55,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -371,14 +374,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		BlockNumber: big.NewInt(int64(logBlockNumber)),
 	}
 
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
-		Number: big.NewInt(int64(logBlockNumber + 9)),
-	}), nil)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(confirmedReceipt, nil)
 
 	newHeads <- cltest.Head(logBlockNumber + 9)
-	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9))
+	jr = cltest.SendBlocksUntilComplete(t, app.Store, jr, newHeads, int64(logBlockNumber+9), gethClient)
 
 	tr := jr.TaskRuns[0]
 	assert.Equal(t, "randomnumber", tr.TaskSpec.Type.String())
@@ -636,13 +636,14 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	defer assertMockCalls()
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
+		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 
 	exInitr := struct {
 		Header http.Header
-		Body   web.JobSpecNotice
+		Body   services.JobSpecNotice
 	}{}
 	eiMockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", "",
 		func(header http.Header, body string) {
@@ -676,13 +677,13 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 	assert.Equal(t,
 		eip.OutgoingToken,
-		exInitr.Header.Get(web.ExternalInitiatorAccessKeyHeader),
+		exInitr.Header.Get(static.ExternalInitiatorAccessKeyHeader),
 	)
 	assert.Equal(t,
 		eip.OutgoingSecret,
-		exInitr.Header.Get(web.ExternalInitiatorSecretHeader),
+		exInitr.Header.Get(static.ExternalInitiatorSecretHeader),
 	)
-	expected := web.JobSpecNotice{
+	expected := services.JobSpecNotice{
 		JobID:  jobSpec.ID,
 		Type:   models.InitiatorExternal,
 		Params: cltest.JSONFromString(t, `{"foo":"bar"}`),
@@ -777,6 +778,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	kst.On("HasAccountWithAddress", address).Return(true)
 	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
 	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(&types.Transaction{}, nil)
+	kst.On("Accounts").Return([]accounts.Account{})
 
 	app.Store.KeyStore = kst
 
@@ -794,21 +796,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	logsSub.On("Err").Return(nil)
 	logsSub.On("Unsubscribe").Return(nil).Maybe()
 
-	// GetOracles()
-	rpcClient.On(
-		"Call",
-		mock.Anything,
-		"eth_call",
-		mock.MatchedBy(func(callArgs eth.CallArgs) bool {
-			if (callArgs.To.Hex() == "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42") && (hexutil.Encode(callArgs.Data) == "0x40884c52") {
-				return true
-			}
-			return false
-		}),
-		mock.Anything,
-		mock.Anything,
-	).Return(nil).Once()
-
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
@@ -818,11 +805,26 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			*args.Get(0).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-		}).
-		Return(nil)
+
+	// getOracles()
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{address})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil).Once()
+
+	// latestRoundData()
+	lrdTypes := []string{"uint80", "int256", "uint256", "uint256", "uint80"}
+	latestRoundDataResult, err := cltest.GenericEncode(
+		lrdTypes, big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
+	)
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(latestRoundDataResult, nil).Once()
+
+	// oracleRoundState()
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Twice()
 
 	// Have server respond with 102 for price when FM checks external price
 	// adapter for deviation. 102 is enough deviation to trigger a job run.
@@ -871,10 +873,8 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	newHeads <- cltest.Head(safe)
-
 	// Check the FM price on completed run output
-	jr = cltest.WaitForJobRunToComplete(t, app.GetStore(), jr)
+	jr = cltest.SendBlocksUntilComplete(t, app.GetStore(), jr, newHeads, safe, gethClient)
 
 	requestParams := jr.RunRequest.RequestParams
 	assert.Equal(t, "102", requestParams.Get("result").String())
@@ -931,11 +931,17 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	sub.AssertExpectations(t)
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			*args.Get(0).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-		}).
-		Return(nil)
+	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+		Return(getOraclesResult, nil).Once()
+
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(nil, errors.New("first round")).Once()
+
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil)
 
 	// Have price adapter server respond with 100 for price on initialization,
 	// NOT enough for deviation.
@@ -999,15 +1005,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil)
 
-	gethClient.On("BlockByNumber", mock.Anything, big.NewInt(inLongestChain)).Return(cltest.BlockWithTransactions(), nil)
-
-	// Flux Monitor queries FluxAggregator.RoundState()
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			*args.Get(1).(*hexutil.Bytes) = cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
-		}).
-		Return(nil)
-
 	logs <- log
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
@@ -1016,8 +1013,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
 	newHeads := <-newHeadsCh
-	newHeads <- cltest.Head(safe)
-	_ = cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
+	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, gethClient)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
 	assert.Equal(t, app.Store.Config.MinimumContractPayment(), linkEarned)
@@ -1284,7 +1280,7 @@ func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, 
 	p2pIDs := app.Store.OCRKeyStore.DecryptedP2PKeys()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
-	peerID := p2pIDs[0].MustGetPeerID().String()
+	peerID := p2pIDs[0].MustGetPeerID().Raw()
 
 	app.Config.Set("P2P_PEER_ID", peerID)
 	app.Config.Set("P2P_LISTEN_PORT", port)
@@ -1381,7 +1377,7 @@ func TestIntegration_OCR(t *testing.T) {
 	require.NoError(t, err)
 	defer appBootstrap.Stop()
 
-	ocrJob, err := services.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
+	ocrJob, err := offchainreporting.ValidatedOracleSpecToml(appBootstrap.Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -1400,7 +1396,7 @@ isBootstrapPeer    = true
 
 		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
 		defer cleanupHTTP()
-		ocrJob, err := services.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
+		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"

@@ -9,16 +9,16 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/pelletier/go-toml"
 
-	"github.com/smartcontractkit/chainlink/core/services"
-
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
+
+var monitoringEndpoint = ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "pipeline_runner", true, true)
@@ -325,7 +327,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		os, err := services.ValidatedOracleSpecToml(config.Config, s)
+		os, err := offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -337,7 +339,7 @@ ds1 -> ds1_parse;
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -345,7 +347,8 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			nil)
+			nil,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		// We expect this to fail as neither the required vars are not set either via the env nor the job itself.
 		require.Error(t, err)
@@ -366,7 +369,7 @@ ds1 -> ds1_parse;
 `
 		config.Set("P2P_PEER_ID", ek.PeerID)
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -381,7 +384,7 @@ ds1 -> ds1_parse;
 
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -390,6 +393,7 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			pw,
+			monitoringEndpoint,
 		)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
@@ -422,7 +426,7 @@ ds1 -> ds1_parse;
 			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"})
 		config.Set("OCR_KEY_BUNDLE_ID", kb.ID.String())
 		config.Set("OCR_TRANSMITTER_ADDRESS", transmitterAddress)
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -442,7 +446,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -450,7 +454,8 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -466,7 +471,7 @@ ds1 -> ds1_parse;
 		}
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID, transmitterAddress.Hex(), kb.ID, "http://blah.com", "")
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -484,7 +489,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -492,7 +497,8 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -505,7 +511,7 @@ ds1 -> ds1_parse;
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
-		os, err = services.ValidatedOracleSpecToml(config.Config, s)
+		os, err = offchainreporting.ValidatedOracleSpecToml(config.Config, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &os)
 		require.NoError(t, err)
@@ -520,7 +526,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -528,7 +534,8 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		_, err = sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 	})
@@ -555,7 +562,7 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
-		sd := offchainreporting.NewJobSpawnerDelegate(
+		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
@@ -563,7 +570,8 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			pw)
+			pw,
+			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
