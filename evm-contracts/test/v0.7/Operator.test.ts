@@ -69,6 +69,7 @@ describe('Operator', () => {
       'onTokenTransfer',
       'oracleRequest',
       'setAuthorizedSender',
+      'getAuthorizedSenders',
       'withdraw',
       'withdrawable',
       'operatorTransferAndCall',
@@ -176,6 +177,9 @@ describe('Operator', () => {
           roles.stranger.address,
         )
         assert.equal(true, authorized)
+        const senders = await operator.getAuthorizedSenders()
+        assert.equal(senders.length, 2)
+        assert.equal(senders[1], roles.stranger.address)
       })
 
       it('removes an authorized node', async () => {
@@ -186,6 +190,8 @@ describe('Operator', () => {
           roles.stranger.address,
         )
         assert.equal(false, authorized)
+        const senders = await operator.getAuthorizedSenders()
+        assert.equal(senders.length, 1)
       })
     })
 

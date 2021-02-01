@@ -14,4 +14,5 @@ interface OperatorInterface is OracleInterface {
   ) external returns (bool);
   function operatorTransferAndCall(address to, uint256 value, bytes calldata data) external returns (bool success);
   function distributeFunds(address payable[] calldata receivers,uint[] calldata amounts) external payable;
+  function getAuthorizedSenders() external returns (address[] memory);
 }
