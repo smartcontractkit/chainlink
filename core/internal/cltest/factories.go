@@ -704,6 +704,24 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
+func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.SpecDB {
+	t.Helper()
+
+	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
+	require.NoError(t, err)
+
+	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
+	specDB := job.SpecDB{
+		OffchainreportingOracleSpec: &oracleSpec,
+		Type:                        job.OffchainReporting,
+		SchemaVersion:               1,
+		PipelineSpec:                &job.PipelineSpec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
