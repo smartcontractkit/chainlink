@@ -11,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+//go:generate mockery --name ORM --output ./mocks/ --case=underscore --structname ORM --filename orm.go
+
 type ORM interface {
 	UpsertLog(log types.Log) error
 	UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error
