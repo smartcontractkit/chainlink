@@ -22,17 +22,17 @@ func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.SpecDB,
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return specDB, err
+		return specDB, errors.Wrap(err, "toml error on load")
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return specDB, err
+		return specDB, errors.Wrap(err, "toml unmarshal error on spec")
 	}
 	err = tree.Unmarshal(&specDB)
 	if err != nil {
-		return specDB, err
+		return specDB, errors.Wrap(err, "toml unmarshal error on specDB")
 	}
 	specDB.OffchainreportingOracleSpec = &spec
 

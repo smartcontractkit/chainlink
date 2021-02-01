@@ -2,6 +2,7 @@ package pipeline_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
@@ -11,6 +12,8 @@ import (
 )
 
 func TestTimeoutAttribute(t *testing.T) {
+	t.Parallel()
+
 	g := pipeline.NewTaskDAG()
 	a := `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}" timeout="10s"];`
 	err := g.UnmarshalText([]byte(a))
@@ -33,6 +36,8 @@ func TestTimeoutAttribute(t *testing.T) {
 }
 
 func Test_TaskHTTPUnmarshal(t *testing.T) {
+	t.Parallel()
+
 	g := pipeline.NewTaskDAG()
 	a := `ds1 [type=http allowunrestrictednetworkaccess=true method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}" timeout="10s"];`
 	err := g.UnmarshalText([]byte(a))
@@ -43,4 +48,22 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 
 	task := tasks[0].(*pipeline.HTTPTask)
 	require.Equal(t, pipeline.MaybeBoolTrue, task.AllowUnrestrictedNetworkAccess)
+}
+
+func Test_UnmarshalTaskFromMap(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns error if task is not the right type", func(t *testing.T) {
+		taskMap := interface{}(nil)
+		_, err := pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, "foo-dot-id", nil, nil, nil)
+		require.EqualError(t, err, "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string. Got <nil> (<nil>) of type <nil>")
+
+		taskMap = struct {
+			foo time.Time
+			bar int
+		}{time.Unix(42, 42), 42}
+		_, err = pipeline.UnmarshalTaskFromMap(pipeline.TaskType("http"), taskMap, "foo-dot-id", nil, nil, nil)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "UnmarshalTaskFromMap: UnmarshalTaskFromMap only accepts a map[string]interface{} or a map[string]string")
+	})
 }

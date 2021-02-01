@@ -39,6 +39,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 // NewJob return new NoOp JobSpec
@@ -740,8 +741,45 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 	}
 }
 
+func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
+	run := pipeline.Run{
+		Outputs:    pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.JSONSerializable{Null: true},
+		FinishedAt: nil,
+	}
+	require.NoError(t, db.Create(&run).Error)
+	return run
+}
+
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
 	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
+}
+
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+	t.Helper()
+
+	pspec := pipeline.Spec{}
+	require.NoError(t, db.Create(&pspec).Error)
+
+	finalTspec := pipeline.TaskSpec{PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&finalTspec).Error)
+
+	tspecPath1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath1).Error)
+
+	tspecPath2_2 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath2_2).Error)
+
+	tspecPath2_1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(tspecPath2_2.ID))}
+	require.NoError(t, db.Create(&tspecPath2_1).Error)
+
+	drspec := job.DirectRequestSpec{}
+	require.NoError(t, db.Create(&drspec).Error)
+
+	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&job).Error)
+
+	return job
 }

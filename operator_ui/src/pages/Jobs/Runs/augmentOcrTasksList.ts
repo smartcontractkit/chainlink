@@ -20,7 +20,7 @@ function assignAttributes(stratify: Stratify): AugmentedStratify {
 }
 
 export function augmentOcrTasksList({ jobRun }: { jobRun: PipelineJobRun }) {
-  const graph = parseDot(`digraph {${jobRun.pipelineSpec.DotDagSource}}`)
+  const graph = parseDot(`digraph {${jobRun.pipelineSpec.dotDagSource}}`)
 
   return graph.map((stratifyNode) => {
     const stratifyNodeCopy = assignAttributes(
