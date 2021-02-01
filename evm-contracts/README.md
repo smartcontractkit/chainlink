@@ -48,8 +48,8 @@ contracts
 └── truffle  # truffle contract abstractions codegenned from abis
     ├── v0.4
     ├── v0.5
-│   ├── v0.6
-│   └── v0.7
+    ├── v0.6
+    └── v0.7
 ```
 
 ## Usage
