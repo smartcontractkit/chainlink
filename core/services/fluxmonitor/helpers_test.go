@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,11 +28,11 @@ func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThre
 	p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	p.respondToNewRoundLog(*log)
 }
 
-func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state flux_aggregator_wrapper.OracleRoundState) bool {
 	return p.sufficientFunds(state)
 }
 
@@ -48,7 +48,7 @@ func (p *PollingDeviationChecker) ExportedBacklog() *utils.BoundedPriorityQueue 
 	return p.backlog
 }
 
-func (p *PollingDeviationChecker) ExportedFluxAggregator() contracts.FluxAggregator {
+func (p *PollingDeviationChecker) ExportedFluxAggregator() flux_aggregator_wrapper.FluxAggregatorInterface {
 	return p.fluxAggregator
 }
 
@@ -56,7 +56,7 @@ func (p *PollingDeviationChecker) ExportedRoundState() {
 	p.roundState(0)
 }
 
-func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa contracts.FluxAggregator) {
+func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa flux_aggregator_wrapper.FluxAggregatorInterface) {
 	p.fluxAggregator = fa
 }
 

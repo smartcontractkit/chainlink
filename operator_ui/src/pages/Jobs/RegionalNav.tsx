@@ -1,4 +1,4 @@
-import { localizedTimestamp, TimeAgo } from '@chainlink/styleguide'
+import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import Dialog from '@material-ui/core/Dialog'
 import Grid from '@material-ui/core/Grid'
@@ -12,7 +12,7 @@ import {
   WithStyles,
 } from '@material-ui/core/styles'
 import Typography from '@material-ui/core/Typography'
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 import React from 'react'

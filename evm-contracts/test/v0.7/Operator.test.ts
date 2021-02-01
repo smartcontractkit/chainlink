@@ -16,6 +16,7 @@ import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/Malicio
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
 import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
 import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
+import { ContractReceipt } from 'ethers/contract'
 
 const v7ConsumerFactory = new Consumer__factory()
 const basicConsumerFactory = new BasicConsumer__factory()
@@ -70,11 +71,96 @@ describe('Operator', () => {
       'setAuthorizedSender',
       'withdraw',
       'withdrawable',
+      'operatorTransferAndCall',
+      'distributeFunds',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#distributeFunds', () => {
+    describe('when called with empty arrays', () => {
+      it('reverts with invalid array message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.defaultAccount).distributeFunds([], []),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with unequal array lengths', () => {
+      it('reverts with invalid array message', async () => {
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const amounts = [1, 2, 3]
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds(receivers, amounts),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with not enough ETH', () => {
+      it('reverts with subtraction overflow message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('1')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'SafeMath: subtraction overflow'
+        })
+      })
+    })
+
+    describe('when called with too much ETH', () => {
+      it('reverts with too much ETH message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('3')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'Too much ETH sent'
+        })
+      })
+    })
+
+    describe('when called with correct values', () => {
+      it('updates the balances', async () => {
+        const node2BalanceBefore = await roles.oracleNode2.getBalance()
+        const node3BalanceBefore = await roles.oracleNode3.getBalance()
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const sendNode2 = h.toWei('2')
+        const sendNode3 = h.toWei('3')
+        const totalAmount = h.toWei('5')
+        const amounts = [sendNode2, sendNode3]
+
+        await operator
+          .connect(roles.defaultAccount)
+          .distributeFunds(receivers, amounts, { value: totalAmount })
+
+        const node2BalanceAfter = await roles.oracleNode2.getBalance()
+        const node3BalanceAfter = await roles.oracleNode3.getBalance()
+
+        assert.equal(
+          node2BalanceAfter.sub(node2BalanceBefore).toString(),
+          sendNode2.toString(),
+        )
+
+        assert.equal(
+          node3BalanceAfter.sub(node3BalanceBefore).toString(),
+          sendNode3.toString(),
+        )
+      })
+    })
   })
 
   describe('#setAuthorizedSender', () => {
@@ -2259,6 +2345,39 @@ describe('Operator', () => {
         balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
       })
+
+      describe('recovering funds that were mistakenly sent', () => {
+        const paid = 1
+        beforeEach(async () => {
+          await link.transfer(operator.address, paid)
+        })
+
+        it('withdraws funds', async () => {
+          const operatorBalanceBefore = await link.balanceOf(operator.address)
+          const accountBalanceBefore = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(roles.defaultAccount.address, paid)
+
+          const operatorBalanceAfter = await link.balanceOf(operator.address)
+          const accountBalanceAfter = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
+          const operatorDifference = operatorBalanceBefore.sub(
+            operatorBalanceAfter,
+          )
+
+          matchers.bigNum(operatorDifference, paid)
+          matchers.bigNum(accountDifference, paid)
+        })
+      })
     })
 
     describe('reserving funds via oracleRequest', () => {
@@ -2291,6 +2410,39 @@ describe('Operator', () => {
           })
           const balance = await link.balanceOf(roles.oracleNode.address)
           assert.equal(0, balance.toNumber())
+        })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
         })
       })
 
@@ -2361,15 +2513,48 @@ describe('Operator', () => {
           const balance = await link.balanceOf(roles.stranger.address)
           assert.isTrue(ethers.constants.Zero.eq(balance))
         })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
+        })
       })
     })
   })
 
   describe('#withdrawable', () => {
     let request: ReturnType<typeof oracle.decodeRunRequest>
+    const amount = h.toWei('1')
 
     beforeEach(async () => {
-      const amount = h.toWei('1')
       const mock = await getterSetterFactory
         .connect(roles.defaultAccount)
         .deploy()
@@ -2394,6 +2579,108 @@ describe('Operator', () => {
     it('returns the correct value', async () => {
       const withdrawAmount = await operator.withdrawable()
       matchers.bigNum(withdrawAmount, request.payment)
+    })
+
+    describe('funds that were mistakenly sent', () => {
+      const paid = 1
+      beforeEach(async () => {
+        await link.transfer(operator.address, paid)
+      })
+
+      it('returns the correct value', async () => {
+        const withdrawAmount = await operator.withdrawable()
+
+        const expectedAmount = amount.add(paid)
+        matchers.bigNum(withdrawAmount, expectedAmount)
+      })
+    })
+  })
+
+  describe('#operatorTransferAndCall', () => {
+    let operator2: contract.Instance<Operator__factory>
+    let args: string
+    let to: string
+    const startingBalance = 1000
+    const payment = 20
+
+    beforeEach(async () => {
+      operator2 = await operatorFactory
+        .connect(roles.oracleNode2)
+        .deploy(link.address, roles.oracleNode2.address)
+      to = operator2.address
+      args = oracle.encodeOracleRequest(
+        specId,
+        operator.address,
+        operatorFactory.interface.functions.fulfillOracleRequest.sighash,
+        1,
+        '0x0',
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts with owner error message', async () => {
+        await link.transfer(operator.address, startingBalance)
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .operatorTransferAndCall(to, payment, args),
+            'Only callable by owner'
+        })
+      })
+    })
+
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        await link.transfer(operator.address, startingBalance)
+      })
+
+      describe('without sufficient funds in contract', () => {
+        it('reverts with funds message', async () => {
+          const tooMuch = startingBalance * 2
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.stranger)
+              .operatorTransferAndCall(to, tooMuch, args),
+              'Amount requested is greater than withdrawable balance'
+          })
+        })
+      })
+
+      describe('with sufficient funds', () => {
+        let receipt: ContractReceipt
+        let requesterBalanceBefore: utils.BigNumber
+        let requesterBalanceAfter: utils.BigNumber
+        let receiverBalanceBefore: utils.BigNumber
+        let receiverBalanceAfter: utils.BigNumber
+
+        beforeAll(async () => {
+          requesterBalanceBefore = await link.balanceOf(operator.address)
+          receiverBalanceBefore = await link.balanceOf(operator2.address)
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .operatorTransferAndCall(to, payment, args)
+          receipt = await tx.wait()
+          requesterBalanceAfter = await link.balanceOf(operator.address)
+          receiverBalanceAfter = await link.balanceOf(operator2.address)
+        })
+
+        it('emits an event', async () => {
+          assert.equal(3, receipt.logs?.length)
+          const request = oracle.decodeRunRequest(receipt.logs?.[2])
+          assert.equal(request.requester, operator.address)
+        })
+
+        it('transfers the tokens', async () => {
+          matchers.bigNum(
+            requesterBalanceBefore.sub(requesterBalanceAfter),
+            payment,
+          )
+          matchers.bigNum(
+            receiverBalanceAfter.sub(receiverBalanceBefore),
+            payment,
+          )
+        })
+      })
     })
   })
 

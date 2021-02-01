@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.0.12",
+  "version": "0.1.6",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
@@ -15,8 +15,8 @@
     "lint:sol": "solhint -f table ./src/**/**/*.sol",
     "test:reset": "yarn setup && yarn test",
     "test": "jest --testTimeout 80000 --forceExit --detectOpenHandles",
-    "test:ci": "./scripts/test_ci",
-    "prepublishOnly": "yarn clean && yarn setup && yarn test:ci && yarn setup"
+    "test:ci:old": "./scripts/test_ci_old",
+    "prepublishOnly": "yarn clean && yarn setup"
   },
   "devDependencies": {
     "@chainlink/belt": "0.0.3",

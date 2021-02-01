@@ -3,7 +3,6 @@ package offchainreporting
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -18,27 +17,25 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
-	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
-type jobSpawnerDelegate struct {
-	db             *gorm.DB
-	jobORM         job.ORM
-	config         *orm.Config
-	keyStore       *KeyStore
-	pipelineRunner pipeline.Runner
-	ethClient      eth.Client
-	logBroadcaster log.Broadcaster
-	peerWrapper    *SingletonPeerWrapper
+type Delegate struct {
+	db                 *gorm.DB
+	jobORM             job.ORM
+	config             *orm.Config
+	keyStore           *KeyStore
+	pipelineRunner     pipeline.Runner
+	ethClient          eth.Client
+	logBroadcaster     log.Broadcaster
+	peerWrapper        *SingletonPeerWrapper
+	monitoringEndpoint ocrtypes.MonitoringEndpoint
 }
 
-func NewJobSpawnerDelegate(
+func NewDelegate(
 	db *gorm.DB,
 	jobORM job.ORM,
 	config *orm.Config,
@@ -47,17 +44,18 @@ func NewJobSpawnerDelegate(
 	ethClient eth.Client,
 	logBroadcaster log.Broadcaster,
 	peerWrapper *SingletonPeerWrapper,
-) *jobSpawnerDelegate {
-	return &jobSpawnerDelegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper}
+	monitoringEndpoint ocrtypes.MonitoringEndpoint,
+) *Delegate {
+	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper, monitoringEndpoint}
 }
 
-func (d jobSpawnerDelegate) JobType() job.Type {
+func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
+func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {
-		return nil, errors.Errorf("offchainreporting.jobSpawnerDelegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
+		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}
 	concreteSpec := jobSpec.OffchainreportingOracleSpec
 
@@ -108,25 +106,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 		d.jobORM.RecordError(context.Background(), jobSpec.ID, msg)
 	})
 
-	var endpointURL *url.URL
-	if me := d.config.OCRMonitoringEndpoint(concreteSpec.MonitoringEndpoint); me != "" {
-		endpointURL, err = url.Parse(me)
-		if err != nil {
-			return nil, errors.Wrapf(err, "invalid monitoring url: %s", me)
-		}
-	} else {
-		endpointURL = d.config.ExplorerURL()
-	}
-
-	var monitoringEndpoint ocrtypes.MonitoringEndpoint
-	if endpointURL != nil {
-		client := synchronization.NewExplorerClient(endpointURL, d.config.ExplorerAccessKey(), d.config.ExplorerSecret())
-		monitoringEndpoint = telemetry.NewAgent(client)
-		services = append(services, client)
-	} else {
-		monitoringEndpoint = ocrtypes.MonitoringEndpoint(nil)
-	}
-
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      d.config.OCRBlockchainTimeout(time.Duration(concreteSpec.BlockchainTimeout)),
 		ContractConfigConfirmations:            d.config.OCRContractConfirmations(concreteSpec.ContractConfigConfirmations),
@@ -135,6 +114,11 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
+	}
+	if d.config.Dev() {
+		// Skips config validation so we can use any config parameters we want.
+		// For example to lower contractConfigTrackerPollInterval to speed up tests.
+		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode
 	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
@@ -149,7 +133,6 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 			Database:              NewDB(d.db.DB(), concreteSpec.ID),
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
-			MonitoringEndpoint:    monitoringEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewBootstrapNode")
@@ -179,17 +162,21 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(d.db.DB(), ta.Address(), d.config.EthGasLimitDefault()))
 
+		ds, err := newDatasource(d.db, jobSpec.ID, d.pipelineRunner)
+		if err != nil {
+			return nil, errors.Wrap(err, "error instantiating data source")
+		}
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
-			Datasource:                   dataSource{jobID: jobSpec.ID, pipelineRunner: d.pipelineRunner},
+			Datasource:                   ds,
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
 			ContractConfigTracker:        ocrContract,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
-			MonitoringEndpoint:           monitoringEndpoint,
 			Logger:                       ocrLogger,
 			Bootstrappers:                bootstrapPeers,
+			MonitoringEndpoint:           d.monitoringEndpoint,
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "error calling NewOracle")
@@ -198,43 +185,4 @@ func (d jobSpawnerDelegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.
 	}
 
 	return services, nil
-}
-
-// dataSource is an abstraction over the process of initiating a pipeline run
-// and capturing the result.  Additionally, it converts the result to an
-// ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
-type dataSource struct {
-	pipelineRunner pipeline.Runner
-	jobID          int32
-}
-
-var _ ocrtypes.DataSource = (*dataSource)(nil)
-
-func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	runID, err := ds.pipelineRunner.CreateRun(ctx, ds.jobID, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	err = ds.pipelineRunner.AwaitRun(ctx, runID)
-	if err != nil {
-		return nil, err
-	}
-
-	results, err := ds.pipelineRunner.ResultsForRun(ctx, runID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "pipeline error")
-	} else if len(results) != 1 {
-		return nil, errors.Errorf("offchain reporting pipeline should have a single output (job spec ID: %v, pipeline run ID: %v)", ds.jobID, runID)
-	}
-
-	if results[0].Error != nil {
-		return nil, results[0].Error
-	}
-
-	asDecimal, err := utils.ToDecimal(results[0].Value)
-	if err != nil {
-		return nil, err
-	}
-	return ocrtypes.Observation(asDecimal.BigInt()), nil
 }

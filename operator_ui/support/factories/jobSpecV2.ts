@@ -1,4 +1,4 @@
-import { partialAsFull } from '@chainlink/ts-helpers'
+import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import { OcrJobSpec } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
@@ -7,6 +7,7 @@ export function jobSpecV2(
     OcrJobSpec['offChainReportingOracleSpec'] & {
       name?: string
       id?: string
+      maxTaskDuration?: string
     } & {
       dotDagSource?: string
     }
@@ -35,6 +36,7 @@ export function jobSpecV2(
     name: config.name || 'V2 job',
     offChainReportingOracleSpec,
     errors: [],
+    maxTaskDuration: '',
     pipelineSpec: {
       dotDagSource:
         typeof config.dotDagSource === 'string'

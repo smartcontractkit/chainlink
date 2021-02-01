@@ -17,8 +17,6 @@ import (
 
 	"github.com/multiformats/go-multiaddr"
 
-	"github.com/libp2p/go-libp2p-core/peer"
-
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
@@ -501,12 +499,18 @@ func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
+// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
 }
 
+// JobPipelineMaxRunDuration is the maximum time that a job run may take
+func (c Config) JobPipelineMaxRunDuration() time.Duration {
+	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
+}
+
 // JobPipelineParallelism controls how many workers the pipeline.Runner
-// uses in parallel
+// uses in parallel (how many pipeline runs may simultaneously be executing)
 func (c Config) JobPipelineParallelism() uint8 {
 	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
 }
@@ -766,11 +770,12 @@ func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
 	}
 	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
 	if pidStr != "" {
-		pid, err := peer.Decode(pidStr)
+		var pid models.PeerID
+		err := pid.UnmarshalText([]byte(pidStr))
 		if err != nil {
 			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
 		}
-		return models.PeerID(pid), nil
+		return pid, nil
 	}
 	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
 }

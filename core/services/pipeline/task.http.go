@@ -126,6 +126,9 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	start := time.Now()
 	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
 	if err != nil {
+		if ctx.Err() != nil {
+			return Result{Error: errors.New("http request timed out or interrupted")}
+		}
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)
@@ -141,7 +144,11 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		"response", string(responseBytes),
 		"url", t.URL.String(),
 	)
-	return Result{Value: responseBytes}
+	// NOTE: We always stringify the response since this is required for all current jobs.
+	// If a binary response is required we might consider adding an adapter
+	// flag such as  "BinaryMode: true" which passes through raw binary as the
+	// value instead.
+	return Result{Value: string(responseBytes)}
 }
 
 func (t *HTTPTask) allowUnrestrictedNetworkAccess() bool {
