@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"encoding/json"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 )
@@ -167,18 +169,27 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		minRequiredOutgoingConfirmations = e.MinRequiredOutgoingConfirmations
 	}
 
-	hash, err := getConfirmedTxHash(ethTxID, s.DB, minRequiredOutgoingConfirmations)
-
+	receipt, err := getConfirmedReceipt(ethTxID, s.DB, minRequiredOutgoingConfirmations)
 	if err != nil {
 		logger.Error(err)
 		return models.NewRunOutputError(err)
 	}
 
-	if hash == nil {
+	if receipt == nil {
 		return models.NewRunOutputPendingOutgoingConfirmationsWithData(input.Data())
 	}
+	var r gethTypes.Receipt
+	err = json.Unmarshal(receipt.Receipt, &r)
+	if err != nil {
+		logger.Debug("unable to unmarshal tx receipt", err)
+	}
+	if err == nil && r.Status == 0 {
+		err = errors.Errorf("transaction %s reverted on-chain", r.TxHash)
+		logger.Error(err)
+		return models.NewRunOutputError(err)
+	}
 
-	hexHash := (*hash).Hex()
+	hexHash := receipt.TxHash.Hex()
 
 	output := input.Data()
 	output, err = output.MultiAdd(models.KV{
@@ -187,14 +198,13 @@ func (e *EthTx) checkEthTxForReceipt(ethTxID int64, input models.RunInput, s *st
 		"latestOutgoingTxHash": hexHash,
 	})
 	if err != nil {
-		err = errors.Wrap(err, "checkEthTxForReceipt failed")
-		logger.Error(err)
+		logger.Error("unable to add tx hash to output", err)
 		return models.NewRunOutputError(err)
 	}
 	return models.NewRunOutputComplete(output)
 }
 
-func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmations uint64) (*common.Hash, error) {
+func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmations uint64) (*models.EthReceipt, error) {
 	receipt := models.EthReceipt{}
 	err := db.
 		Joins("INNER JOIN eth_tx_attempts ON eth_tx_attempts.hash = eth_receipts.tx_hash AND eth_tx_attempts.eth_tx_id = ?", ethTxID).
@@ -204,14 +214,14 @@ func getConfirmedTxHash(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirmat
 		Error
 
 	if err == nil {
-		return &receipt.TxHash, nil
+		return &receipt, nil
 	}
 
 	if gorm.IsRecordNotFoundError(err) {
 		return nil, nil
 	}
 
-	return nil, errors.Wrap(err, "getConfirmedTxHash failed")
+	return nil, errors.Wrap(err, "getConfirmedReceipt failed")
 
 }
 

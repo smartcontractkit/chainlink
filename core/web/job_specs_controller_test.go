@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"math/big"
 	"net/http"
 	"strings"
 	"testing"
@@ -402,6 +403,13 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 		Return(getOraclesResult, nil)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
 		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 
@@ -432,6 +440,13 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 		Return(getOraclesResult, nil)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
 		Return(nil, errors.New("first round"))
+	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+		Return(result, nil).Maybe()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
 
