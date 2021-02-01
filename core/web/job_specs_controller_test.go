@@ -405,7 +405,7 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 		Return(nil, errors.New("first round"))
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
-		Return(result, nil)
+		Return(result, nil).Maybe()
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
@@ -442,7 +442,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 		Return(nil, errors.New("first round"))
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
-		Return(result, nil)
+		Return(result, nil).Maybe()
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").

@@ -937,12 +937,6 @@ type DeviationThresholds struct {
 }
 
 func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds) {
-	//loggerFields := []interface{}{
-	//	"jobID", p.initr.JobSpecID,
-	//	"address", p.initr.InitiatorParams.Address,
-	//	"threshold", thresholds.Rel,
-	//	"absoluteThreshold", thresholds.Abs,
-	//}
 	l := logger.Default.With(
 		"jobID", p.initr.JobSpecID,
 		"address", p.initr.InitiatorParams.Address,
@@ -975,7 +969,6 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	}
 	p.resetTickers(roundState)
 	l = l.With("reportableRound", roundState.RoundId)
-	//loggerFields = append(loggerFields, "reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := p.statsAndStatusForRound(roundState.RoundId)
 	if err != nil {
