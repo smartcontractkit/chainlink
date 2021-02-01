@@ -5,7 +5,7 @@ describe('augmentOcrTasksList', () => {
   it('adds error, output and status attributes', () => {
     const jobRun: PipelineJobRun = {
       pipelineSpec: {
-        DotDagSource:
+        dotDagSource:
           '    fetch   [type=http method=GET url="https://bitstamp.net/api/ticker/"];\n    parseLast    [type=jsonparse path="last"];\n    multiplyLast [type=multiply times=100];\n\n    fetch2    [type=http method=GET url="https://bitstamp.net/api/ticker/"];\n    parseOpen    [type=jsonparse path="open"];\n    multiplyOpen [type=multiply times=100];\n\n\n fetch -> parseLast  -> multiplyLast -> answer;\n fetch2 -> parseOpen  -> multiplyOpen -> answer;\n\nanswer [type=median                      index=0];\nanswer [type=median                      index=1];\n\n',
       },
       errors: [

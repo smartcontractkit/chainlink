@@ -13,16 +13,18 @@ import (
 
 type (
 	Spec struct {
-		ID              int32 `gorm:"primary_key"`
-		DotDagSource    string
-		CreatedAt       time.Time
-		MaxTaskDuration models.Interval
+		ID                int32           `gorm:"primary_key"`
+		DotDagSource      string          `json:"dotDagSource"`
+		CreatedAt         time.Time       `json:"-"`
+		MaxTaskDuration   models.Interval `json:"-"`
+		PipelineTaskSpecs []TaskSpec      `json:"-" gorm:"foreignkey:PipelineSpecID;association_autoupdate:false;association_autocreate:false"`
 	}
 
 	TaskSpec struct {
 		ID             int32            `json:"-" gorm:"primary_key"`
 		DotID          string           `json:"dotId"`
 		PipelineSpecID int32            `json:"-"`
+		PipelineSpec   Spec             `json:"-"`
 		Type           TaskType         `json:"-"`
 		JSON           JSONSerializable `json:"-" gorm:"type:jsonb"`
 		Index          int32            `json:"-"`
@@ -31,15 +33,15 @@ type (
 	}
 
 	Run struct {
-		ID               int64             `json:"-" gorm:"primary_key"`
-		PipelineSpecID   int32             `json:"-"`
-		PipelineSpec     Spec              `json:"pipelineSpec"`
-		Meta             JSONSerializable  `json:"meta"`
-		Errors           *JSONSerializable `json:"errors" gorm:"type:jsonb"`
-		Outputs          *JSONSerializable `json:"outputs" gorm:"type:jsonb"`
-		CreatedAt        time.Time         `json:"createdAt"`
-		FinishedAt       *time.Time        `json:"finishedAt"`
-		PipelineTaskRuns []TaskRun         `json:"taskRuns" gorm:"foreignkey:PipelineRunID;association_autoupdate:false;association_autocreate:false"`
+		ID               int64            `json:"-" gorm:"primary_key"`
+		PipelineSpecID   int32            `json:"-"`
+		PipelineSpec     Spec             `json:"pipelineSpec"`
+		Meta             JSONSerializable `json:"meta"`
+		Errors           JSONSerializable `json:"errors" gorm:"type:jsonb"`
+		Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
+		CreatedAt        time.Time        `json:"createdAt"`
+		FinishedAt       *time.Time       `json:"finishedAt"`
+		PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;association_autoupdate:false;association_autocreate:false"`
 	}
 
 	TaskRun struct {
@@ -72,6 +74,15 @@ func (r *Run) SetID(value string) error {
 	}
 	r.ID = int64(ID)
 	return nil
+}
+
+func (r Run) HasErrors() bool {
+	return r.FinalErrors().HasErrors()
+}
+
+func (r Run) FinalErrors() (f FinalErrors) {
+	f, _ = r.Errors.Val.(FinalErrors)
+	return f
 }
 
 func (tr TaskRun) GetID() string {

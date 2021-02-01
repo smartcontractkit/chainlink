@@ -265,6 +265,30 @@ func NewHTTPMockServer(
 	}
 }
 
+// NewHTTPMockServerWithRequest creates http test server that makes the request
+// available in the callback
+func NewHTTPMockServerWithRequest(
+	t *testing.T,
+	status int,
+	response string,
+	callback func(r *http.Request),
+) (*httptest.Server, func()) {
+	called := false
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callback(r)
+		called = true
+
+		w.WriteHeader(status)
+		io.WriteString(w, response)
+	})
+
+	server := httptest.NewServer(handler)
+	return server, func() {
+		server.Close()
+		assert.True(t, called, "expected call Mock HTTP endpoint '%s'", server.URL)
+	}
+}
+
 func NewHTTPMockServerWithAlterableResponse(
 	t *testing.T, response func() string) (server *httptest.Server) {
 	server = httptest.NewServer(

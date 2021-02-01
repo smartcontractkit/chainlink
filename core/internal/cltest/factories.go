@@ -21,9 +21,9 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -39,6 +39,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 // NewJob return new NoOp JobSpec
@@ -730,18 +731,55 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestAnswer *big.Int) contracts.FluxAggregatorRoundState {
-	return contracts.FluxAggregatorRoundState{
-		ReportableRoundID: roundID,
-		EligibleToSubmit:  true,
-		LatestAnswer:      latestAnswer,
-		AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
+	return flux_aggregator_wrapper.OracleRoundState{
+		RoundId:          roundID,
+		EligibleToSubmit: true,
+		LatestSubmission: latestSubmission,
+		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
+		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
 	}
+}
+
+func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
+	run := pipeline.Run{
+		Outputs:    pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.JSONSerializable{Null: true},
+		FinishedAt: nil,
+	}
+	require.NoError(t, db.Create(&run).Error)
+	return run
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
 	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
+}
+
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+	t.Helper()
+
+	pspec := pipeline.Spec{}
+	require.NoError(t, db.Create(&pspec).Error)
+
+	finalTspec := pipeline.TaskSpec{PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&finalTspec).Error)
+
+	tspecPath1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath1).Error)
+
+	tspecPath2_2 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath2_2).Error)
+
+	tspecPath2_1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(tspecPath2_2.ID))}
+	require.NoError(t, db.Create(&tspecPath2_1).Error)
+
+	drspec := job.DirectRequestSpec{}
+	require.NoError(t, db.Create(&drspec).Error)
+
+	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&job).Error)
+
+	return job
 }

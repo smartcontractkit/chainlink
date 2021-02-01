@@ -284,9 +284,6 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		result := dbtx.Unscoped().
 			Model(run).
@@ -542,12 +539,7 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		return orm.createJob(dbtx, job)
-	})
+	return orm.createJob(orm.DB, job)
 }
 
 func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
@@ -562,21 +554,14 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 }
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
+// It is idempotent, subsequent runs will do nothing and return no error
 func (orm *ORM) ArchiveJob(ID *models.ID) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	j, err := orm.FindJobSpec(ID)
-	if err != nil {
-		return err
-	}
-
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return multierr.Combine(
-			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Exec("UPDATE task_specs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Exec("UPDATE job_runs SET deleted_at = NOW() WHERE job_spec_id = ?", ID).Error,
-			dbtx.Delete(&j).Error,
+			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE task_specs SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE job_runs SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
+			dbtx.Exec("UPDATE job_specs SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL", ID).Error,
 		)
 	})
 }
@@ -584,9 +569,6 @@ func (orm *ORM) ArchiveJob(ID *models.ID) error {
 // CreateServiceAgreement saves a Service Agreement, its JobSpec and its
 // associations to the database.
 func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := orm.createJob(dbtx, &sa.JobSpec)
 		if err != nil {
@@ -773,9 +755,6 @@ func (orm *ORM) FindEthTxAttempt(hash common.Hash) (*models.EthTxAttempt, error)
 
 // MarkRan will set Ran to true for a given initiator
 func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		var newi models.Initiator
 		if err := dbtx.Select("ran").First(&newi, "ID = ?", i.ID).Error; err != nil {
@@ -834,9 +813,6 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() (models.User, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return models.User{}, err
-	}
 	user, err := orm.FindUser()
 	if err != nil {
 		return user, err
@@ -1137,9 +1113,6 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 // TaskRuns are removed by ON DELETE CASCADE when the JobRuns and RunResults
 // are deleted.
 func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Exec(`
 			WITH deleted_job_runs AS (

@@ -3,6 +3,8 @@ package ocrkey
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -10,28 +12,38 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
+const onChainSigningAddressPrefix = "ocrsad_"
+
 type OnChainSigningAddress ocrtypes.OnChainSigningAddress
 
 func (ocsa OnChainSigningAddress) String() string {
-	return hexutil.Encode(ocsa[:])
+	return fmt.Sprintf("%s%s", onChainSigningAddressPrefix, hexutil.Encode(ocsa[:]))
 }
 
 func (ocsa OnChainSigningAddress) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hexutil.Encode(ocsa[:]))
+	return json.Marshal(ocsa.String())
 }
 
 func (ocsa *OnChainSigningAddress) UnmarshalJSON(input []byte) error {
 	var hexString string
-	var onChainSigningAddress common.Address
 	if err := json.Unmarshal(input, &hexString); err != nil {
 		return err
 	}
+	return ocsa.UnmarshalText([]byte(hexString))
+}
 
-	result, err := hexutil.Decode(hexString)
+func (ocsa *OnChainSigningAddress) UnmarshalText(bs []byte) error {
+	input := string(bs)
+	if strings.HasPrefix(input, onChainSigningAddressPrefix) {
+		input = string(bs[len(onChainSigningAddressPrefix):])
+	}
+
+	result, err := hexutil.Decode(input)
 	if err != nil {
 		return err
 	}
 
+	var onChainSigningAddress common.Address
 	copy(onChainSigningAddress[:], result[:common.AddressLength])
 	*ocsa = OnChainSigningAddress(onChainSigningAddress)
 	return nil

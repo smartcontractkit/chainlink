@@ -4,13 +4,21 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 )
 
+const offChainPublicKeyPrefix = "ocroff_"
+
 type OffChainPublicKey ed25519.PublicKey
 
 func (ocpk OffChainPublicKey) String() string {
+	return fmt.Sprintf("%s%s", offChainPublicKeyPrefix, ocpk.Raw())
+}
+
+func (ocpk OffChainPublicKey) Raw() string {
 	return hex.EncodeToString(ocpk)
 }
 
@@ -20,12 +28,19 @@ func (ocpk OffChainPublicKey) MarshalJSON() ([]byte, error) {
 
 func (ocpk *OffChainPublicKey) UnmarshalJSON(input []byte) error {
 	var hexString string
-	var result OffChainPublicKey
-
 	if err := json.Unmarshal(input, &hexString); err != nil {
 		return err
 	}
-	result, err := hex.DecodeString(hexString)
+	return ocpk.UnmarshalText([]byte(hexString))
+}
+
+func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
+	input := string(bs)
+	if strings.HasPrefix(input, offChainPublicKeyPrefix) {
+		input = string(bs[len(offChainPublicKeyPrefix):])
+	}
+
+	result, err := hex.DecodeString(input)
 	if err != nil {
 		return err
 	}

@@ -7,26 +7,26 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-type FluxMonitorDelegate struct {
+type Delegate struct {
 	pipelineRunner pipeline.Runner
 	db             *gorm.DB
 }
 
-func (d *FluxMonitorDelegate) JobType() job.Type {
-	return job.FluxMonitor
-}
-
-func (d *FluxMonitorDelegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
-	if spec.FluxMonitorSpec == nil {
-		return nil, errors.Errorf("FluxMonitorDelegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
-	}
-	// TODO
-	return nil, nil
-}
-
-func NewFluxMonitorDelegate(pipelineRunner pipeline.Runner, db *gorm.DB) *FluxMonitorDelegate {
-	return &FluxMonitorDelegate{
+func NewDelegate(pipelineRunner pipeline.Runner, db *gorm.DB) *Delegate {
+	return &Delegate{
 		pipelineRunner,
 		db,
 	}
+}
+
+func (d *Delegate) JobType() job.Type {
+	return job.FluxMonitor
+}
+
+func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
+	if spec.FluxMonitorSpec == nil {
+		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
+	}
+	// TODO
+	return nil, nil
 }

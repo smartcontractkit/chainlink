@@ -133,7 +133,15 @@ export const Overview = ({ jobRun }: Props) => {
             confirmations={0}
             minConfirmations={0}
           >
-            <Initiator params={initiator.params || {}} />
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100%',
+              }}
+            >
+              <Initiator params={initiator.params || {}} />
+            </div>
           </StatusItem>
         </Grid>
         {jobRun.taskRuns.map((taskRun) => {

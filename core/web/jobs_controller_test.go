@@ -29,8 +29,7 @@ import (
 
 func TestJobsController_Create_ValidationFailure(t *testing.T) {
 	var (
-		contractAddress    = cltest.NewEIP55Address()
-		monitoringEndpoint = "chain.link:101"
+		contractAddress = cltest.NewEIP55Address()
 	)
 
 	var tt = []struct {
@@ -75,7 +74,7 @@ func TestJobsController_Create_ValidationFailure(t *testing.T) {
 				address = cltest.NewEIP55Address()
 			}
 
-			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, monitoringEndpoint, tc.kb)
+			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
 			body, _ := json.Marshal(models.CreateJobSpecRequest{
 				TOML: sp,
 			})
@@ -114,7 +113,6 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
 	assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
 	assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.MonitoringEndpoint, ocrJobSpec.OffchainreportingOracleSpec.MonitoringEndpoint)
 	assert.Equal(t, jb.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 	assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
 	assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
@@ -268,7 +266,6 @@ func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.SpecDB, ocrJ
 	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PBootstrapPeers)
 	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffchainreportingOracleSpec.IsBootstrapPeer)
 	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, ocrJobSpecFromFile.MonitoringEndpoint, ocrJobSpecFromServer.OffchainreportingOracleSpec.MonitoringEndpoint)
 	assert.Equal(t, ocrJobSpecFromFile.TransmitterAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.TransmitterAddress)
 	assert.Equal(t, ocrJobSpecFromFile.ObservationTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.ObservationTimeout)
 	assert.Equal(t, ocrJobSpecFromFile.BlockchainTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.BlockchainTimeout)

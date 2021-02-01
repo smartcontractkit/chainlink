@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -186,8 +187,8 @@ func TestJobRunsController_Create_Wrong_ExternalInitiator(t *testing.T) {
 
 	// Set up AUTH
 	headers := make(map[string]string)
-	headers[web.ExternalInitiatorAccessKeyHeader] = wrongEIA.AccessKey
-	headers[web.ExternalInitiatorSecretHeader] = wrongEIA.Secret
+	headers[static.ExternalInitiatorAccessKeyHeader] = wrongEIA.AccessKey
+	headers[static.ExternalInitiatorSecretHeader] = wrongEIA.Secret
 
 	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
 	bodyBuf := bytes.NewBufferString(`{"result":"100"}`)

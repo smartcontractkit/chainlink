@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
-
 	"github.com/shopspring/decimal"
+
+	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -91,6 +93,35 @@ func TestMedian_Defaults(t *testing.T) {
 		if asMedian, isMedian := task.(*pipeline.MedianTask); isMedian {
 			require.Equal(t, uint64(1), asMedian.AllowedFaults)
 			break
+		}
+	}
+}
+
+func TestMedian_Faults_Unmarshal(t *testing.T) {
+	var taskDAG pipeline.TaskDAG
+	err := taskDAG.UnmarshalText([]byte(`
+	// data source 1
+	ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+	ds1_multiply [type=multiply times=1.23];
+
+	// data source 2
+	ds2          [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData="{\"hi\": \"hello\"}"];
+	ds2_parse    [type=jsonparse path="three,four"];
+	ds2_multiply [type=multiply times=4.56];
+
+	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+	answer1 [type=median                      index=0 allowedFaults=10];
+	answer2 [type=bridge name=election_winner index=1];
+`))
+	require.NoError(t, err)
+	ts, err := taskDAG.TasksInDependencyOrder()
+	require.NoError(t, err)
+	for _, task := range ts {
+		if task.Type() == pipeline.TaskTypeMedian {
+			assert.Equal(t, uint64(10), task.(*pipeline.MedianTask).AllowedFaults)
 		}
 	}
 }
