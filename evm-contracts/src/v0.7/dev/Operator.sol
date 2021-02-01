@@ -27,6 +27,11 @@ contract Operator is
     uint8 dataVersion;
   }
 
+  struct Authorization {
+    bool authorized;
+    uint256 index;
+  }
+
   uint256 constant public EXPIRY_TIME = 5 minutes;
   uint256 constant private MAXIMUM_DATA_VERSION = 256;
   uint256 constant private MINIMUM_CONSUMER_GAS_LIMIT = 400000;
@@ -36,7 +41,8 @@ contract Operator is
 
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
-  mapping(address => bool) private s_authorizedSenders;
+  mapping(address => Authorization) private s_authorizedSenders;
+  address[] private s_authorizedSenderList;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
 
@@ -222,7 +228,7 @@ contract Operator is
     override
     returns (bool)
   {
-    return s_authorizedSenders[node];
+    return s_authorizedSenders[node].authorized;
   }
 
   /**
@@ -235,7 +241,29 @@ contract Operator is
     override
     onlyOwner()
   {
-    s_authorizedSenders[node] = allowed;
+    if (allowed) {
+      require(s_authorizedSenders[node].authorized == false, "Already authorized sender");
+      uint256 index = s_authorizedSenderList.length;
+      s_authorizedSenders[node] = Authorization(allowed, index);
+      s_authorizedSenderList.push(node);
+    }
+    else {
+      require(s_authorizedSenders[node].authorized == true, "Not an autorized sender");
+      // copy last element into index slot, then pop
+      uint256 index = s_authorizedSenders[node].index;
+      s_authorizedSenderList[index] = s_authorizedSenderList[s_authorizedSenderList.length.sub(1)];
+      s_authorizedSenderList.pop();
+      s_authorizedSenders[node].authorized = allowed;
+    }
+  }
+
+  /**
+   * @notice Retrieve a list of authorized senders
+   * @return array of addresses
+   */
+  function getAuthorizedSenders() external view override returns (address[] memory) {
+    address[] memory authorizedSendersList = s_authorizedSenderList;
+    return authorizedSendersList;
   }
 
   /**
@@ -504,7 +532,7 @@ contract Operator is
    * @dev Reverts if `msg.sender` is not authorized to fulfill requests
    */
   modifier onlyAuthorizedSender() {
-    require(s_authorizedSenders[msg.sender], "Not an authorized node to fulfill requests");
+    require(s_authorizedSenders[msg.sender].authorized, "Not an authorized node to fulfill requests");
     _;
   }
 
