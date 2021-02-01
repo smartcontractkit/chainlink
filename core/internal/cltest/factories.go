@@ -8,11 +8,13 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	mathrand "math/rand"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -25,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -480,7 +483,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 			},
 		},
 	}
-	lb := new(mocks.LogBroadcaster)
+	lb := new(logmocks.Broadcaster)
 	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {}, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
@@ -775,6 +778,7 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 	return p
 }
 
+<<<<<<< HEAD
 func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	t.Helper()
 
@@ -800,4 +804,38 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	require.NoError(t, db.Create(&job).Error)
 
 	return job
+=======
+func RandomLog(t *testing.T) types.Log {
+	t.Helper()
+
+	topics := make([]common.Hash, 4)
+	for i := range topics {
+		topics[i] = NewHash()
+	}
+
+	return types.Log{
+		Address:     NewAddress(),
+		BlockHash:   NewHash(),
+		BlockNumber: uint64(mathrand.Intn(9999999)),
+		Index:       uint(mathrand.Intn(9999999)),
+		Data:        MustRandomBytes(t, 512),
+		Topics:      []common.Hash{NewHash(), NewHash(), NewHash(), NewHash()},
+	}
+}
+
+func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
+	t.Helper()
+
+	topics := make([][]byte, len(log.Topics))
+	for i, topic := range log.Topics {
+		x := make([]byte, len(topic))
+		copy(x, topic[:])
+		topics[i] = x
+	}
+
+	err := store.DB.Exec(`
+        INSERT INTO logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
+	require.NoError(t, err)
+>>>>>>> Add cltest.RandomLog and cltest.MustInsertLog
 }
