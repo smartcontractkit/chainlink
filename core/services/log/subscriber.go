@@ -68,7 +68,7 @@ func (s *subscriber) awaitInitialSubscribers() {
 			s.onAddContracts()
 
 		case <-s.rmContract.Notify():
-			s.onRemoveContracts()
+			s.onRmContracts()
 
 		case <-s.DependentAwaiter.AwaitDependents():
 			go s.startResubscribeLoop()
@@ -209,13 +209,14 @@ func (s *subscriber) upsertOrDeleteLogs(logs ...types.Log) {
 		loggerFields := []interface{}{
 			"contract", log.Address,
 			"block", log.BlockHash,
+			"blockNumber", log.BlockNumber,
 			"tx", log.TxHash,
 			"logIndex", log.Index,
 			"removed", log.Removed,
 		}
 
 		if log.Removed {
-			err := s.orm.DeleteLogAndBroadcasts(log.BlockHash, log.BlockNumber, log.Index)
+			err := s.orm.DeleteLogAndBroadcasts(log.BlockHash, log.Index)
 			if err != nil {
 				loggerFields = append(loggerFields, "error", err)
 				logger.Errorw("Log subscriber could not delete reorged log", loggerFields...)
@@ -253,7 +254,7 @@ func (s *subscriber) process(chRawLogs <-chan types.Log, chErr <-chan error) (sh
 			needsResubscribe = s.onAddContracts() || needsResubscribe
 
 		case <-s.rmContract.Notify():
-			needsResubscribe = s.onRemoveContracts() || needsResubscribe
+			needsResubscribe = s.onRmContracts() || needsResubscribe
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
@@ -279,9 +280,9 @@ func (s *subscriber) onAddContracts() (needsResubscribe bool) {
 	return
 }
 
-func (s *subscriber) onRemoveContracts() (needsResubscribe bool) {
+func (s *subscriber) onRmContracts() (needsResubscribe bool) {
 	for {
-		x := s.addContract.Retrieve()
+		x := s.rmContract.Retrieve()
 		if x == nil {
 			break
 		}

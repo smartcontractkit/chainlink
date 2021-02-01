@@ -19,7 +19,7 @@ type decodingListener struct {
 var _ Listener = (*decodingListener)(nil)
 
 // NewDecodingListener creates a new decodingListener
-func NewDecodingListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener Listener) Listener {
+func NewDecodingListener(codec eth.ContractCodec, nativeLogTypes map[common.Hash]interface{}, innerListener Listener) *decodingListener {
 	logTypes := make(map[common.Hash]reflect.Type)
 	for eventID, logStruct := range nativeLogTypes {
 		logTypes[eventID] = reflect.TypeOf(logStruct)

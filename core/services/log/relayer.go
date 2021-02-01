@@ -73,7 +73,7 @@ func (r *relayer) awaitInitialSubscribers() {
 			r.onAddListeners()
 
 		case <-r.rmListener.Notify():
-			r.onRemoveListeners()
+			r.onRmListeners()
 
 		case <-r.DependentAwaiter.AwaitDependents():
 			go r.runLoop()
@@ -119,13 +119,14 @@ func (r *relayer) NotifyDisconnected() {
 }
 
 func (r *relayer) runLoop() {
+	defer close(r.chDone)
 	for {
 		select {
 		case <-r.addListener.Notify():
 			r.onAddListeners()
 
 		case <-r.rmListener.Notify():
-			r.onRemoveListeners()
+			r.onRmListeners()
 
 		case <-r.newLogs.Notify():
 			r.onNewLogs()
@@ -135,6 +136,9 @@ func (r *relayer) runLoop() {
 
 		case <-r.connectionEvents.Notify():
 			r.onConnectionEvents()
+
+		case <-r.chStop:
+			return
 		}
 	}
 }
@@ -157,7 +161,7 @@ func (r *relayer) onAddListeners() {
 	}
 }
 
-func (r *relayer) onRemoveListeners() {
+func (r *relayer) onRmListeners() {
 	for {
 		x := r.rmListener.Retrieve()
 		if x == nil {
@@ -168,6 +172,11 @@ func (r *relayer) onRemoveListeners() {
 		delete(r.listeners[reg.address], reg.listener)
 		if len(r.listeners[reg.address]) == 0 {
 			delete(r.listeners, reg.address)
+		}
+
+		err := r.orm.DeleteUnconsumedBroadcastsForListener(reg.listener.JobID(), reg.listener.JobIDV2())
+		if err != nil {
+			logger.Errorw("could not delete unconsumed log broadcasts for unregistering listener", "error", err)
 		}
 	}
 }
@@ -180,11 +189,12 @@ func (r *relayer) onNewLogs() {
 		}
 		log := x.(types.Log)
 		for listener := range r.listeners[log.Address] {
-			err := r.orm.UpsertUnconsumedLogBroadcastForListener(log, listener)
+			err := r.orm.UpsertLogBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
 			if err != nil {
 				logger.Errorw("could not upsert log consumption record",
 					"contract", log.Address,
 					"block", log.BlockHash,
+					"blockNumber", log.BlockNumber,
 					"tx", log.TxHash,
 					"logIndex", log.Index,
 					"removed", log.Removed,
