@@ -383,7 +383,7 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", attempt.Hash.Hex())
+	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
 	etx.State = models.EthTxUnconfirmed
 	attempt.State = models.EthTxAttemptBroadcast
 	return store.Transaction(func(tx *gorm.DB) error {

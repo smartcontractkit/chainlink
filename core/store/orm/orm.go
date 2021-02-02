@@ -719,7 +719,9 @@ func (orm *ORM) FindEthTaskRunTxByTaskRunID(taskRunID uuid.UUID) (*models.EthTas
 // FindEthTxWithAttempts finds the EthTx with its attempts and receipts preloaded
 func (orm *ORM) FindEthTxWithAttempts(etxID int64) (models.EthTx, error) {
 	etx := models.EthTx{}
-	err := orm.DB.Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
+	err := orm.DB.Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
+		return db.Order("gas_price asc, id asc")
+	}).Preload("EthTxAttempts.EthReceipts").First(&etx, "id = ?", &etxID).Error
 	return etx, err
 }
 
