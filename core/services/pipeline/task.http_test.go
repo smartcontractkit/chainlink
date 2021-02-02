@@ -23,6 +23,8 @@ import (
 // https://github.com/smartcontractkit/price-adapters
 
 func TestHTTPTask_Happy(t *testing.T) {
+	t.Parallel()
+
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
@@ -62,6 +64,8 @@ func TestHTTPTask_Happy(t *testing.T) {
 }
 
 func TestHTTPTask_ErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
@@ -93,6 +97,8 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 }
 
 func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 

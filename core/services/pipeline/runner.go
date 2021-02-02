@@ -422,7 +422,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 	result := task.Run(ctx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 		f := append(loggerFields, "error", result.Error)
-		logger.Errorw("Pipeline task run errored", f...)
+		logger.Warnw("Pipeline task run errored", f...)
 	} else {
 		f := append(loggerFields, "result", result.Value)
 		switch v := result.Value.(type) {

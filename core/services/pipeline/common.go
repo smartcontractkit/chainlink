@@ -248,6 +248,7 @@ const (
 	TaskTypeMultiply  TaskType = "multiply"
 	TaskTypeJSONParse TaskType = "jsonparse"
 	TaskTypeResult    TaskType = "result"
+	TaskTypeAny       TaskType = "any"
 )
 
 const ResultTaskDotID = "__result__"
