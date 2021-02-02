@@ -42,7 +42,7 @@ require (
 	github.com/shopspring/decimal v1.2.0
 	github.com/smartcontractkit/libocr v0.0.0-20210114170344-699624b8b9fa
 	github.com/spf13/viper v1.7.1
-	github.com/stretchr/testify v1.6.1
+	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
 	github.com/tidwall/gjson v1.6.7
 	github.com/tidwall/sjson v1.1.4
