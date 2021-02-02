@@ -450,8 +450,11 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 // It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) (err error) {
-	_ = app.JobSubscriber.RemoveJob(ID)
+func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+	err := app.JobSubscriber.RemoveJob(ID)
+	if err != nil {
+		logger.Warnw("Error removing job from JobSubscriber", "error", err)
+	}
 	app.FluxMonitor.RemoveJob(ID)
 
 	if err = app.ExternalInitiatorManager.DeleteJob(app.Store.DB, ID); err != nil {
