@@ -28,7 +28,7 @@ func TestORM(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	key := cltest.MustInsertRandomKey(t, db)
@@ -51,7 +51,7 @@ func TestORM(t *testing.T) {
 	require.NoError(t, err)
 	defer db2.Close()
 
-	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm2 := job.NewORM(db2, config.Config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
@@ -185,7 +185,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	claimedJobs := make([]job.SpecDB, 3)
@@ -223,7 +223,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 	defer cleanupORM()
 
 	advisoryLocker := new(mocks.AdvisoryLocker)
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker)
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	defer orm.Close()
 
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))

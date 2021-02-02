@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
+	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
@@ -46,7 +49,7 @@ type ORM interface {
 
 type orm struct {
 	db                  *gorm.DB
-	config              Config
+	config              *storm.Config
 	advisoryLocker      postgres.AdvisoryLocker
 	advisoryLockClassID int32
 	pipelineORM         pipeline.ORM
@@ -57,7 +60,7 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *gorm.DB, config Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
+func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
 	return &orm{
 		db:                  db,
 		config:              config,
@@ -267,7 +270,34 @@ func (o *orm) JobsV2() ([]SpecDB, error) {
 		Preload("JobSpecErrors").
 		Find(&jobs).
 		Error
+	for i := range jobs {
+		if jobs[i].OffchainreportingOracleSpec != nil {
+			jobs[i].OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *jobs[i].OffchainreportingOracleSpec)
+		}
+	}
 	return jobs, err
+}
+
+func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
+	// Load dynamic variables
+	return &OffchainReportingOracleSpec{
+		IDEmbed: IDEmbed{
+			os.ID,
+		},
+		ContractAddress:                        os.ContractAddress,
+		P2PPeerID:                              os.P2PPeerID,
+		P2PBootstrapPeers:                      os.P2PBootstrapPeers,
+		IsBootstrapPeer:                        os.IsBootstrapPeer,
+		EncryptedOCRKeyBundleID:                os.EncryptedOCRKeyBundleID,
+		TransmitterAddress:                     os.TransmitterAddress,
+		ObservationTimeout:                     models.Interval(cfg.OCRObservationTimeout(time.Duration(os.ObservationTimeout))),
+		BlockchainTimeout:                      models.Interval(cfg.OCRBlockchainTimeout(time.Duration(os.BlockchainTimeout))),
+		ContractConfigTrackerSubscribeInterval: models.Interval(cfg.OCRContractSubscribeInterval(time.Duration(os.ContractConfigTrackerSubscribeInterval))),
+		ContractConfigTrackerPollInterval:      models.Interval(cfg.OCRContractPollInterval(time.Duration(os.ContractConfigTrackerPollInterval))),
+		ContractConfigConfirmations:            cfg.OCRContractConfirmations(os.ContractConfigConfirmations),
+		CreatedAt:                              os.CreatedAt,
+		UpdatedAt:                              os.UpdatedAt,
+	}
 }
 
 // FindJob returns job by ID
@@ -280,6 +310,9 @@ func (o *orm) FindJob(id int32) (SpecDB, error) {
 		Preload("JobSpecErrors").
 		First(&job, "jobs.id = ?", id).
 		Error
+	if job.OffchainreportingOracleSpec != nil {
+		job.OffchainreportingOracleSpec = loadDynamicConfigVars(o.config, *job.OffchainreportingOracleSpec)
+	}
 	return job, err
 }
 
