@@ -50,6 +50,20 @@ func Test_TaskHTTPUnmarshal(t *testing.T) {
 	require.Equal(t, pipeline.MaybeBoolTrue, task.AllowUnrestrictedNetworkAccess)
 }
 
+func Test_TaskAnyUnmarshal(t *testing.T) {
+	t.Parallel()
+
+	g := pipeline.NewTaskDAG()
+	a := `ds1 [type=any];`
+	err := g.UnmarshalText([]byte(a))
+	require.NoError(t, err)
+	tasks, err := g.TasksInDependencyOrder()
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+	_, ok := tasks[0].(*pipeline.AnyTask)
+	require.True(t, ok)
+}
+
 func Test_UnmarshalTaskFromMap(t *testing.T) {
 	t.Parallel()
 
