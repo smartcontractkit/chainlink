@@ -25,7 +25,7 @@ CREATE TYPE public.eth_tx_attempts_state AS ENUM (
 );
 
 
-ALTER TYPE public.eth_tx_attempts_state OWNER TO postgres;
+
 
 --
 -- Name: eth_txes_state; Type: TYPE; Schema: public; Owner: postgres
@@ -41,7 +41,7 @@ CREATE TYPE public.eth_txes_state AS ENUM (
 );
 
 
-ALTER TYPE public.eth_txes_state OWNER TO postgres;
+
 
 --
 -- Name: run_status; Type: TYPE; Schema: public; Owner: postgres
@@ -61,7 +61,7 @@ CREATE TYPE public.run_status AS ENUM (
 );
 
 
-ALTER TYPE public.run_status OWNER TO postgres;
+
 
 --
 -- Name: notifyethtxinsertion(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -77,7 +77,7 @@ CREATE FUNCTION public.notifyethtxinsertion() RETURNS trigger
         $$;
 
 
-ALTER FUNCTION public.notifyethtxinsertion() OWNER TO postgres;
+
 
 --
 -- Name: notifyjobcreated(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -93,7 +93,7 @@ CREATE FUNCTION public.notifyjobcreated() RETURNS trigger
         $$;
 
 
-ALTER FUNCTION public.notifyjobcreated() OWNER TO postgres;
+
 
 --
 -- Name: notifyjobdeleted(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -109,7 +109,7 @@ CREATE FUNCTION public.notifyjobdeleted() RETURNS trigger
 	$$;
 
 
-ALTER FUNCTION public.notifyjobdeleted() OWNER TO postgres;
+
 
 --
 -- Name: notifypipelinerunstarted(); Type: FUNCTION; Schema: public; Owner: postgres
@@ -127,7 +127,7 @@ CREATE FUNCTION public.notifypipelinerunstarted() RETURNS trigger
 	$$;
 
 
-ALTER FUNCTION public.notifypipelinerunstarted() OWNER TO postgres;
+
 
 SET default_tablespace = '';
 
