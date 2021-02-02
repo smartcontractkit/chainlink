@@ -99,6 +99,8 @@ func fakeStringResponder(t *testing.T, s string) http.Handler {
 }
 
 func TestBridgeTask_Happy(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -143,6 +145,8 @@ func TestBridgeTask_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_Meta(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -190,6 +194,8 @@ func TestBridgeTask_Meta(t *testing.T) {
 }
 
 func TestBridgeTask_ErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -225,6 +231,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 }
 
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -258,6 +266,8 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 }
 
 func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -285,6 +295,8 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 // Sample input taken from
 // https://github.com/smartcontractkit/price-adapters#chainlink-price-request-adapters
 func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name, content string
 		expect        decimal.Decimal
@@ -307,6 +319,8 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_AddsID(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
