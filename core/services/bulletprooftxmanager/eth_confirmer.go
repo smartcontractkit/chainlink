@@ -174,30 +174,39 @@ func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan mode
 			return
 		}
 		for _, attempt := range etx.EthTxAttempts {
+			// NOTE: Returning here on context error prevents a bunch of
+			// useless failed requests on context cancellation/timeout
+			if ctx.Err() != nil {
+				return
+			}
+
+			l := logger.Default.With(
+				"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID, "nonce", etx.Nonce,
+			)
 			// NOTE: This could conceivably be optimised even further at the
 			// expense of slightly higher load for the remote eth node, by
 			// batch requesting all receipts at once
 			receipt, err := ec.fetchReceipt(ctx, attempt.Hash)
 			if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
-				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet", "txHash", attempt.Hash.Hex())
+				l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
 				break
 			} else if err != nil {
-				logger.Errorw("EthConfirmer#fetchReceipts: fetchReceipt failed", "txHash", attempt.Hash.Hex(), "err", err)
+				l.Errorw("EthConfirmer#fetchReceipts: fetchReceipt failed", "err", err)
 				break
 			}
 			if receipt != nil {
-				logger.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "txHash", attempt.Hash.Hex(), "blockNumber", receipt.BlockNumber)
+				l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
 				if receipt.TxHash != attempt.Hash {
-					logger.Errorf("EthConfirmer#fetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
+					l.Errorf("EthConfirmer#fetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
 					break
 				}
 				if err := ec.saveReceipt(*receipt, etx.ID); err != nil {
-					logger.Errorw("EthConfirmer#fetchReceipts: saveReceipt failed", "err", err)
+					l.Errorw("EthConfirmer#fetchReceipts: saveReceipt failed", "err", err)
 					break
 				}
 				break
 			} else {
-				logger.Debugw("EthConfirmer#fetchReceipts: still waiting for receipt", "txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID)
+				l.Debugw("EthConfirmer#fetchReceipts: still waiting for receipt")
 			}
 		}
 	}
@@ -236,7 +245,17 @@ func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) er
 				TransactionIndex: receipt.TransactionIndex,
 			}).Error
 		if err == nil || err.Error() == "sql: no rows in result set" {
-			return errors.Wrap(tx.Exec(`UPDATE eth_txes SET state = 'confirmed' WHERE id = ?`, ethTxID).Error, "saveReceipt failed to update eth_txes")
+			err = multierr.Combine(
+				errors.Wrap(tx.Exec(`UPDATE eth_txes SET state = 'confirmed' WHERE id = ?`, ethTxID).Error, "saveReceipt failed to update eth_txes"),
+				// NOTE: It should always be safe to mark the attempt as
+				// broadcast here because if it were not successfully broadcast
+				// how could it possibly have a receipt?
+				//
+				// This state is reachable for example if the eth node errors
+				// so the attempt was left in_progress but the transaction was
+				// actually accepted.
+				errors.Wrap(tx.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast', broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, ?) WHERE hash = ?`, receipt.BlockNumber.Int64(), receipt.TxHash).Error, "saveReceipt failed to update eth_tx_attempts"),
+			)
 		}
 
 		return errors.Wrap(err, "saveReceipt failed to save receipt")

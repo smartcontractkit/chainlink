@@ -116,6 +116,8 @@ func TestMultiplyTask_Happy(t *testing.T) {
 }
 
 func TestMultiplyTask_Unhappy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		times decimal.Decimal
