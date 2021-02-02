@@ -15,6 +15,8 @@ import (
 )
 
 func TestMedian(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		inputs        []pipeline.Result
@@ -82,6 +84,8 @@ func TestMedian(t *testing.T) {
 }
 
 func TestMedian_Defaults(t *testing.T) {
+	t.Parallel()
+
 	var taskDAG pipeline.TaskDAG
 	err := taskDAG.UnmarshalText([]byte(pipeline.DotStr))
 	require.NoError(t, err)
@@ -98,6 +102,8 @@ func TestMedian_Defaults(t *testing.T) {
 }
 
 func TestMedian_Faults_Unmarshal(t *testing.T) {
+	t.Parallel()
+
 	var taskDAG pipeline.TaskDAG
 	err := taskDAG.UnmarshalText([]byte(`
 	// data source 1
