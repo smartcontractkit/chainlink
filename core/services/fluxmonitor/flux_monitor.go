@@ -164,9 +164,15 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 				logger.Debugf("job '%s' is missing from the flux monitor", jobID.String())
 				continue
 			}
+			waiter := sync.WaitGroup()
+			waiter.Add(len(checkers))
 			for _, checker := range checkers {
-				checker.Stop()
+				go func() {
+					checker.Stop()
+					waiter.Done()
+				}()
 			}
+			waiter.Wait()
 			delete(jobMap, jobID)
 
 		case <-fm.chStop:
