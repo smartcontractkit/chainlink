@@ -29,11 +29,11 @@ func TestDecodingLogListener(t *testing.T) {
 	var decodedLog interface{}
 
 	listener := simpleLogListener{
-		func(lb log.Broadcast, innerErr error) {
+		handler: func(lb log.Broadcast, innerErr error) {
 			err = innerErr
 			decodedLog = lb.DecodedLog()
 		},
-		createJob(t, store).ID,
+		consumerID: createJob(t, store).ID,
 	}
 
 	decodingListener := log.NewDecodingListener(contract, logTypes, &listener)

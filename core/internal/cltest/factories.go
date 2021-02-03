@@ -718,7 +718,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 		OffchainreportingOracleSpec: &oracleSpec,
 		Type:                        job.OffchainReporting,
 		SchemaVersion:               1,
-		PipelineSpec:                &job.PipelineSpec{},
+		PipelineSpec:                &pipeline.Spec{},
 	}
 	err = store.DB.Create(&specDB).Error
 	require.NoError(t, err)
@@ -778,7 +778,6 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 	return p
 }
 
-<<<<<<< HEAD
 func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	t.Helper()
 
@@ -804,7 +803,8 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	require.NoError(t, db.Create(&job).Error)
 
 	return job
-=======
+}
+
 func RandomLog(t *testing.T) types.Log {
 	t.Helper()
 
@@ -837,5 +837,4 @@ func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
         INSERT INTO logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
     `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
 	require.NoError(t, err)
->>>>>>> Add cltest.RandomLog and cltest.MustInsertLog
 }
