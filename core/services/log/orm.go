@@ -149,28 +149,47 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID 
 }
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
-	type logRow struct {
-		Address     common.Address
-		Topics      pq.ByteaArray
-		Data        []byte
-		BlockNumber uint64
-		BlockHash   common.Hash
-		Index       uint
-		Consumed    bool
-	}
-
-	var logRows []logRow
-	err := o.db.Raw(`
+	logs, err := FetchLogs(o.db, `
         SELECT logs.*, bool_and(log_broadcasts.consumed) as consumed FROM logs
         LEFT JOIN log_broadcasts ON logs.block_hash = log_broadcasts.block_hash AND logs.index = log_broadcasts.log_index
         WHERE logs.block_number < ?
         GROUP BY logs.block_hash, logs.index, log_broadcasts.consumed
         HAVING consumed = false
         ORDER BY logs.order_received, logs.block_number, logs.index ASC
-    `, blockNumber).
-		Scan(&logRows).Error
+    `, blockNumber)
 	if err != nil {
 		logger.Errorw("could not fetch logs to broadcast", "error", err)
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error {
+	return o.db.Exec(`DELETE FROM logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
+}
+
+func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
+	if jobID == nil {
+		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id IS NULL AND job_id_v2 = ? AND consumed = false`, jobIDV2).Error
+	} else {
+		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
+	}
+}
+
+type logRow struct {
+	Address     common.Address
+	Topics      pq.ByteaArray
+	Data        []byte
+	BlockNumber uint64
+	BlockHash   common.Hash
+	Index       uint
+	Removed     bool
+}
+
+func FetchLogs(db *gorm.DB, query string, args ...interface{}) ([]types.Log, error) {
+	var logRows []logRow
+	err := db.Raw(query, args...).Scan(&logRows).Error
+	if err != nil {
 		return nil, err
 	}
 	logs := make([]types.Log, len(logRows))
@@ -187,19 +206,8 @@ func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error
 			BlockNumber: log.BlockNumber,
 			BlockHash:   log.BlockHash,
 			Index:       log.Index,
+			Removed:     log.Removed,
 		}
 	}
 	return logs, nil
-}
-
-func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error {
-	return o.db.Exec(`DELETE FROM logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
-}
-
-func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
-	if jobID == nil {
-		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id IS NULL AND job_id_v2 = ? AND consumed = false`, jobIDV2).Error
-	} else {
-		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
-	}
 }
