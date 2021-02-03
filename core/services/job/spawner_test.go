@@ -63,7 +63,12 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	address := key.Address.Address()
 
 	rpc, geth, _, _ := cltest.NewEthMocks(t)
-	geth.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&models.Head{Number: 10}, nil)
+	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
 		jobSpecA := makeOCRJobSpec(t, address)

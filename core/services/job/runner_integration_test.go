@@ -54,7 +54,12 @@ func TestRunner(t *testing.T) {
 	transmitterAddress := key.Address.Address()
 
 	rpc, geth, _, _ := cltest.NewEthMocks(t)
-	geth.On("HeaderByNumber", mock.Anything, mock.Anything).Return(&models.Head{Number: 10}, nil)
+	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
