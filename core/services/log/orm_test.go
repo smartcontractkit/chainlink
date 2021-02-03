@@ -5,45 +5,12 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
-
-type logRow struct {
-	Address     common.Address
-	Topics      pq.ByteaArray
-	Data        []byte
-	BlockNumber uint64
-	BlockHash   common.Hash
-	Index       uint
-}
-
-type logBroadcastRow struct {
-	BlockHash   common.Hash
-	BlockNumber uint64
-	LogIndex    uint
-	JobID       *models.ID
-	JobIDV2     int32
-	Consumed    bool
-}
-
-type mockListener struct {
-	jobID   *models.ID
-	jobIDV2 int32
-}
-
-func (l *mockListener) JobID() *models.ID              { return l.jobID }
-func (l *mockListener) JobIDV2() int32                 { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool                  { return l.jobID == nil }
-func (l *mockListener) OnConnect()                     {}
-func (l *mockListener) OnDisconnect()                  {}
-func (l *mockListener) HandleLog(log.Broadcast, error) {}
 
 func TestORM_UpsertLog(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
@@ -67,28 +34,9 @@ func TestORM_UpsertLog(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	var logRows []logRow
-	err := store.DB.Raw(`SELECT * FROM logs ORDER BY block_hash, index ASC`).Scan(&logRows).Error
+	dbLogs, err := log.FetchLogs(store.DB, `SELECT * FROM logs ORDER BY block_hash, index ASC`)
 	require.NoError(t, err)
-
-	logRowsDecoded := make([]types.Log, len(logRows))
-	for i, log := range logRows {
-		topics := make([]common.Hash, len(log.Topics))
-		bytesTopics := [][]byte(log.Topics)
-		for j, topic := range bytesTopics {
-			topics[j] = common.BytesToHash(topic)
-		}
-		logRowsDecoded[i] = types.Log{
-			Address:     log.Address,
-			Topics:      topics,
-			Data:        log.Data,
-			BlockNumber: log.BlockNumber,
-			BlockHash:   log.BlockHash,
-			Index:       log.Index,
-		}
-	}
-
-	require.Len(t, logRows, len(logs))
+	require.Len(t, dbLogs, len(logs))
 
 	sort.Slice(logs, func(i, j int) bool {
 		if x := bytes.Compare(logs[i].BlockHash[:], logs[j].BlockHash[:]); x == 0 {
@@ -97,7 +45,7 @@ func TestORM_UpsertLog(t *testing.T) {
 			return x < 0
 		}
 	})
-	require.Equal(t, logs, logRowsDecoded)
+	require.Equal(t, logs, dbLogs)
 }
 
 func TestORM_UpsertLogBroadcastForListener(t *testing.T) {

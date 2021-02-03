@@ -121,7 +121,7 @@ func (s *subscriber) startResubscribeLoop() {
 			return
 		}
 
-		abort = s.backfillLogs()
+		chBackfilledLogs, abort := s.backfillLogs()
 		if abort {
 			return
 		}
@@ -130,6 +130,7 @@ func (s *subscriber) startResubscribeLoop() {
 		//     remaining logs from last subscription <- backfilled logs <- logs from new subscription
 		// There will be duplicated logs in this channel.  It is the responsibility of subscribers
 		// to account for this using the helpers on the Broadcast type.
+		chRawLogs = s.appendLogChannel(chRawLogs, chBackfilledLogs)
 		chRawLogs = s.appendLogChannel(chRawLogs, newSubscription.Logs())
 		subscription.Unsubscribe()
 		subscription = newSubscription
@@ -151,9 +152,11 @@ func (s *subscriber) startResubscribeLoop() {
 	}
 }
 
-func (s *subscriber) backfillLogs() (abort bool) {
+func (s *subscriber) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
 	if len(s.contracts) == 0 {
-		return false
+		ch := make(chan types.Log)
+		close(ch)
+		return ch, false
 	}
 
 	ctx, cancel := utils.ContextFromChan(s.chStop)
@@ -191,7 +194,8 @@ func (s *subscriber) backfillLogs() (abort bool) {
 			return true
 		}
 
-		s.upsertOrDeleteLogs(logs...)
+		chBackfilledLogs = make(chan types.Log)
+		go s.deliverBackfilledLogs(logs, chBackfilledLogs)
 
 		return false
 	})
@@ -204,6 +208,17 @@ func (s *subscriber) backfillLogs() (abort bool) {
 	return
 }
 
+func (s *subscriber) deliverBackfilledLogs(logs []types.Log, chBackfilledLogs chan<- types.Log) {
+	defer close(chBackfilledLogs)
+	for _, log := range logs {
+		select {
+		case chBackfilledLogs <- log:
+		case <-s.chStop:
+			return
+		}
+	}
+}
+
 func (s *subscriber) upsertOrDeleteLogs(logs ...types.Log) {
 	for _, log := range logs {
 		loggerFields := []interface{}{
@@ -213,6 +228,11 @@ func (s *subscriber) upsertOrDeleteLogs(logs ...types.Log) {
 			"tx", log.TxHash,
 			"logIndex", log.Index,
 			"removed", log.Removed,
+		}
+
+		if _, exists := s.contracts[log.Address]; !exists {
+			logger.Warnw("Log subscriber got log from unknown contract", loggerFields...)
+			continue
 		}
 
 		if log.Removed {
