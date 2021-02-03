@@ -1,6 +1,8 @@
 package log
 
 import (
+	"context"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
@@ -8,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -15,7 +18,8 @@ import (
 
 type ORM interface {
 	UpsertLog(log types.Log) error
-	UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error
+	UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error
+	UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error)
 	MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error
 	UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error)
@@ -61,9 +65,31 @@ func (o *orm) UpsertLog(log types.Log) error {
 	return err
 }
 
-func (o *orm) UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error {
+func (o *orm) UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error {
+	return o.upsertBroadcastForListener(o.db, log, jobID, jobIDV2)
+}
+
+func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error {
+	ctx := context.TODO() // TODO: change this once our gormv2 migration lands
+	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		logs, err := FetchLogs(tx, `SELECT * FROM logs WHERE logs.block_number >= ? AND address = ?`, blockNumber, address)
+		if err != nil {
+			return err
+		}
+
+		for _, log := range logs {
+			err := o.upsertBroadcastForListener(tx, log, jobID, jobIDV2)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (o *orm) upsertBroadcastForListener(db *gorm.DB, log types.Log, jobID *models.ID, jobIDV2 int32) error {
 	if jobID == nil {
-		return o.db.Exec(`
+		return db.Exec(`
             INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
             VALUES (?, ?, ?, ?, false, NOW())
             ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
@@ -79,7 +105,7 @@ func (o *orm) UpsertLogBroadcastForListener(log types.Log, jobID *models.ID, job
             )
         `, log.BlockHash, log.BlockNumber, log.Index, jobIDV2).Error
 	} else {
-		return o.db.Exec(`
+		return db.Exec(`
             INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, consumed, created_at)
             VALUES (?, ?, ?, ?, false, NOW())
             ON CONFLICT (job_id, block_hash, log_index) DO UPDATE SET (

@@ -3,6 +3,7 @@ package log
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -16,6 +17,7 @@ type relayer struct {
 	orm       ORM
 	listeners map[common.Address]map[Listener]struct{}
 
+	latestBlock                  uint64
 	fewestRequestedConfirmations uint64
 
 	addListener      *utils.Mailbox
@@ -120,6 +122,13 @@ func (r *relayer) NotifyDisconnected() {
 
 func (r *relayer) runLoop() {
 	defer close(r.chDone)
+
+	// DB polling is an absolute worst-case fallback. It should not be relied
+	// upon to guarantee 100% log delivery. As a result, we set the poll to be
+	// fairly infrequent to try to mitigate load on the DB.
+	dbPoll := time.NewTicker(15 * time.Second)
+	defer dbPoll.Stop()
+
 	for {
 		select {
 		case <-r.addListener.Notify():
@@ -133,6 +142,9 @@ func (r *relayer) runLoop() {
 
 		case <-r.newHeads.Notify():
 			r.onNewHeads()
+
+		case <-dbPoll.C:
+			r.onDBPoll()
 
 		case <-r.connectionEvents.Notify():
 			r.onConnectionEvents()
@@ -158,7 +170,18 @@ func (r *relayer) onAddListeners() {
 			panic("registration already exists")
 		}
 		r.listeners[reg.address][reg.listener] = struct{}{}
+		err := r.orm.UpsertBroadcastsForListenerSinceBlock(r.latestBlock, reg.address, reg.listener.JobID(), reg.listener.JobIDV2())
+		if err != nil {
+			logger.Errorw("error upserting log broadcast",
+				"error", err,
+				"contract", reg.address,
+				"latestBlock", r.latestBlock,
+				"jobID", reg.listener.JobID(),
+				"jobIDV2", reg.listener.JobIDV2(),
+			)
+		}
 	}
+	r.broadcastAllUnconsumed()
 }
 
 func (r *relayer) onRmListeners() {
@@ -189,7 +212,7 @@ func (r *relayer) onNewLogs() {
 		}
 		log := x.(types.Log)
 		for listener := range r.listeners[log.Address] {
-			err := r.orm.UpsertLogBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+			err := r.orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
 			if err != nil {
 				logger.Errorw("could not upsert log consumption record",
 					"contract", log.Address,
@@ -204,6 +227,7 @@ func (r *relayer) onNewLogs() {
 				)
 			}
 		}
+		r.broadcastAllUnconsumed()
 	}
 }
 
@@ -214,15 +238,23 @@ func (r *relayer) onNewHeads() {
 			break
 		}
 		head := x.(models.Head)
+		r.latestBlock = uint64(head.Number)
+	}
+	r.broadcastAllUnconsumed()
+}
 
-		logs, err := r.orm.UnconsumedLogsPriorToBlock(uint64(head.Number) - r.fewestRequestedConfirmations)
-		if err != nil {
-			logger.Errorw("could not fetch logs to broadcast", "error", err)
-			return
-		}
-		for _, log := range logs {
-			r.broadcast(log)
-		}
+func (r *relayer) onDBPoll() {
+	r.broadcastAllUnconsumed()
+}
+
+func (r *relayer) broadcastAllUnconsumed() {
+	logs, err := r.orm.UnconsumedLogsPriorToBlock(r.latestBlock + 1 - r.fewestRequestedConfirmations)
+	if err != nil {
+		logger.Errorw("could not fetch logs to broadcast", "error", err)
+		return
+	}
+	for _, log := range logs {
+		r.broadcast(log)
 	}
 }
 

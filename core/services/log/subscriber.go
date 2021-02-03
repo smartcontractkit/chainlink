@@ -231,7 +231,7 @@ func (s *subscriber) upsertOrDeleteLogs(logs ...types.Log) {
 		}
 
 		if _, exists := s.contracts[log.Address]; !exists {
-			logger.Warnw("Log subscriber got log from unknown contract", loggerFields...)
+			// logger.Warnw("Log subscriber got log from unknown contract", loggerFields...)
 			continue
 		}
 
