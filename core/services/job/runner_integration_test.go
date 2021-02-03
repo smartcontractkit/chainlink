@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
@@ -49,6 +52,14 @@ func TestRunner(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
+
+	rpc, geth, _, _ := cltest.NewEthMocks(t)
+	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -345,7 +356,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			nil,
 			monitoringEndpoint)
@@ -390,7 +401,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -452,7 +463,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -495,7 +506,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -532,7 +543,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -568,7 +579,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
