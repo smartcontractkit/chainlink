@@ -1,7 +1,6 @@
 package fluxmonitor
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -62,12 +61,11 @@ type concreteFluxMonitor struct {
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	checkerFactory DeviationCheckerFactory
-	ctx            context.Context
-	cancel         context.CancelFunc
 	chAdd          chan addEntry
 	chRemove       chan models.ID
 	chConnect      chan *models.Head
 	chDisconnect   chan struct{}
+	chStop         chan struct{}
 	chDone         chan struct{}
 	started        bool
 }
@@ -84,7 +82,6 @@ func New(
 	runManager RunManager,
 	logBroadcaster log.Broadcaster,
 ) Service {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &concreteFluxMonitor{
 		store:          store,
 		runManager:     runManager,
@@ -92,14 +89,12 @@ func New(
 		checkerFactory: pollingDeviationCheckerFactory{
 			store:          store,
 			logBroadcaster: logBroadcaster,
-			ctx:            ctx,
 		},
-		ctx:          ctx,
-		cancel:       cancel,
 		chAdd:        make(chan addEntry),
 		chRemove:     make(chan models.ID),
 		chConnect:    make(chan *models.Head),
 		chDisconnect: make(chan struct{}),
+		chStop:       make(chan struct{}),
 		chDone:       make(chan struct{}),
 	}
 }
@@ -136,7 +131,7 @@ func (fm *concreteFluxMonitor) Start() error {
 
 // Disconnect cleans up running deviation checkers.
 func (fm *concreteFluxMonitor) Stop() {
-	fm.cancel()
+	close(fm.chStop)
 	if fm.started {
 		fm.started = false
 		<-fm.chDone
@@ -180,7 +175,7 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 			waiter.Wait()
 			delete(jobMap, jobID)
 
-		case <-fm.ctx.Done():
+		case <-fm.chStop:
 			waiter := sync.WaitGroup{}
 			for _, checkers := range jobMap {
 				waiter.Add(len(checkers))
@@ -254,7 +249,6 @@ type DeviationCheckerFactory interface {
 type pollingDeviationCheckerFactory struct {
 	store          *store.Store
 	logBroadcaster log.Broadcaster
-	ctx            context.Context
 }
 
 func (f pollingDeviationCheckerFactory) New(
@@ -285,8 +279,7 @@ func (f pollingDeviationCheckerFactory) New(
 		timeout,
 		requestData,
 		urls,
-		f.store.Config.DefaultHTTPLimit(),
-		f.ctx)
+		f.store.Config.DefaultHTTPLimit())
 	if err != nil {
 		return nil, err
 	}
@@ -411,8 +404,7 @@ type PollingDeviationChecker struct {
 	minSubmission, maxSubmission *big.Int
 
 	readyForLogs func()
-	ctx          context.Context
-	cancel       context.CancelFunc
+	chStop       chan struct{}
 	waitOnStop   chan struct{}
 }
 
@@ -429,7 +421,6 @@ func NewPollingDeviationChecker(
 	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
-	ctx, cancel := context.WithCancel(context.Background())
 	return &PollingDeviationChecker{
 		readyForLogs:     readyForLogs,
 		store:            store,
@@ -458,10 +449,8 @@ func NewPollingDeviationChecker(
 			PriorityFlagChangedLog:   2,
 		}),
 		chProcessLogs: make(chan struct{}, 1),
-
-		ctx:        ctx,
-		cancel:     cancel,
-		waitOnStop: make(chan struct{}),
+		chStop:        make(chan struct{}),
+		waitOnStop:    make(chan struct{}),
 	}, nil
 }
 
@@ -512,7 +501,7 @@ func (p *PollingDeviationChecker) Stop() {
 	p.hibernationTimer.Stop()
 	p.idleTimer.Stop()
 	p.roundTimer.Stop()
-	p.cancel()
+	close(p.chStop)
 	<-p.waitOnStop
 }
 
@@ -614,7 +603,7 @@ func (p *PollingDeviationChecker) consume() {
 
 	for {
 		select {
-		case <-p.ctx.Done():
+		case <-p.chStop:
 			return
 
 		case <-p.chProcessLogs:
@@ -894,7 +883,9 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 		return
 	}
 
-	polledAnswer, err := p.fetcher.Fetch(request)
+	ctx, cancel := utils.CombinedContext(p.chStop)
+	defer cancel()
+	polledAnswer, err := p.fetcher.Fetch(request, ctx)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to fetch median price: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -1019,7 +1010,9 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
-	polledAnswer, err := p.fetcher.Fetch(request)
+	ctx, cancel := utils.CombinedContext(p.chStop)
+	defer cancel()
+	polledAnswer, err := p.fetcher.Fetch(request, ctx)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")

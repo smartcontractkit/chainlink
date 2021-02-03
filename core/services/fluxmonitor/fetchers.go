@@ -26,7 +26,7 @@ import (
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
 type Fetcher interface {
-	Fetch(map[string]interface{}) (decimal.Decimal, error)
+	Fetch(map[string]interface{}, context.Context) (decimal.Decimal, error)
 }
 
 // httpFetcher retrieves data via HTTP from an external price adapter source.
@@ -35,7 +35,6 @@ type httpFetcher struct {
 	url         *url.URL
 	requestData map[string]interface{}
 	sizeLimit   int64
-	ctx         context.Context
 }
 
 func newHTTPFetcher(
@@ -43,7 +42,6 @@ func newHTTPFetcher(
 	requestData map[string]interface{},
 	url *url.URL,
 	sizeLimit int64,
-	ctx context.Context,
 ) Fetcher {
 	client := &http.Client{Timeout: timeout.Duration(), Transport: http.DefaultTransport}
 	client.Transport = promhttp.InstrumentRoundTripperDuration(promFMResponseTime, client.Transport)
@@ -53,19 +51,18 @@ func newHTTPFetcher(
 		client:      client,
 		url:         url,
 		requestData: requestData,
-		ctx:         ctx,
 		sizeLimit:   sizeLimit,
 	}
 }
 
-func (p *httpFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
+func (p *httpFetcher) Fetch(meta map[string]interface{}, ctx context.Context) (decimal.Decimal, error) {
 	request := withIDAndMeta(p.requestData, meta)
 	body, err := json.Marshal(request)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "error encoding request body as JSON")
 	}
 
-	req, err := http.NewRequestWithContext(p.ctx, "POST", p.url.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.url.String(), bytes.NewReader(body))
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "unable to create request")
 	}
@@ -146,11 +143,10 @@ func newMedianFetcherFromURLs(
 	requestData map[string]interface{},
 	priceURLs []*url.URL,
 	sizeLimit int64,
-	ctx context.Context,
 ) (Fetcher, error) {
 	fetchers := []Fetcher{}
 	for _, url := range priceURLs {
-		ps := newHTTPFetcher(timeout, requestData, url, sizeLimit, ctx)
+		ps := newHTTPFetcher(timeout, requestData, url, sizeLimit)
 		fetchers = append(fetchers, ps)
 	}
 
@@ -171,7 +167,7 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	}, nil
 }
 
-func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
+func (m *medianFetcher) Fetch(meta map[string]interface{}, ctx context.Context) (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -184,7 +180,7 @@ func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, err
 	for _, fetcher := range m.fetchers {
 		fetcher := fetcher
 		go func() {
-			price, err := fetcher.Fetch(meta)
+			price, err := fetcher.Fetch(meta, ctx)
 			if err != nil {
 				logger.Warn(err)
 				chResults <- result{err: err}
