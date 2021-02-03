@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -74,7 +75,7 @@ func TestNewMedianFetcherFromURLs_Happy(t *testing.T) {
 				urls = append(urls, newURL)
 			}
 
-			medianFetcher, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls, 32768)
+			medianFetcher, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls, 32768, context.Background())
 			require.NoError(t, err)
 
 			medianPrice, err := medianFetcher.Fetch(emptyMeta)
@@ -89,7 +90,7 @@ func TestNewMedianFetcherFromURLs_EmptyError(t *testing.T) {
 	defer s1.Close()
 	var urls []*url.URL
 
-	_, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls, 32768)
+	_, err := newMedianFetcherFromURLs(defaultHTTPTimeout, ethUSDPairing, urls, 32768, context.Background())
 	require.Error(t, err)
 }
 
@@ -100,7 +101,7 @@ func TestHTTPFetcher_Happy(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, btcUSDPairing, feedURL, 32768, context.Background())
 	price, err := fetcher.Fetch(emptyMeta)
 	require.NoError(t, err)
 	assert.Equal(t, decimal.NewFromInt(9700), price)
@@ -135,7 +136,7 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768, context.Background())
 	fetcher.Fetch(request)
 }
 
@@ -155,7 +156,7 @@ func TestHTTPFetcher_ErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768, context.Background())
 	price, err := fetcher.Fetch(emptyMeta)
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
@@ -175,7 +176,7 @@ func TestHTTPFetcher_OnlyErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768, context.Background())
 	price, err := fetcher.Fetch(emptyMeta)
 	assert.Error(t, err)
 	assert.Equal(t, decimal.NewFromInt(0).String(), price.String())
@@ -194,7 +195,7 @@ func TestHTTPFetcher_NoResultNorErrorMessage(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(server.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768, context.Background())
 	price, err := fetcher.Fetch(emptyMeta)
 	assert.Error(t, err)
 	assert.True(t, decimal.NewFromInt(0).Equal(price))
@@ -338,6 +339,6 @@ func TestHTTPFetcher_AddsArbitraryRequestID(t *testing.T) {
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)
 
-	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768)
+	fetcher := newHTTPFetcher(defaultHTTPTimeout, ethUSDPairing, feedURL, 32768, context.Background())
 	fetcher.Fetch(emptyMeta)
 }
