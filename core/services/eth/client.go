@@ -40,6 +40,7 @@ type Client interface {
 	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
 	// These methods are reimplemented due to a difference in how block header hashes are
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
@@ -361,4 +362,11 @@ func (client *client) CallContext(ctx context.Context, result interface{}, metho
 		"args", args,
 	)
 	return client.RPCClient.CallContext(ctx, result, method, args...)
+}
+
+func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	logger.Debugw("eth.Client#BatchCall(...)",
+		"batchElems", b,
+	)
+	return client.RPCClient.BatchCallContext(ctx, b)
 }
