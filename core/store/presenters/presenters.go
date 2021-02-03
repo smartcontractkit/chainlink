@@ -135,7 +135,6 @@ type EnvPrinter struct {
 	TLSHost                               string          `json:"chainlinkTLSHost"`
 	TLSPort                               uint16          `json:"chainlinkTLSPort"`
 	TLSRedirect                           bool            `json:"chainlinkTLSRedirect"`
-	TxAttemptLimit                        uint16          `json:"txAttemptLimit"`
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
@@ -220,7 +219,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			TLSHost:                               config.TLSHost(),
 			TLSPort:                               config.TLSPort(),
 			TLSRedirect:                           config.TLSRedirect(),
-			TxAttemptLimit:                        config.TxAttemptLimit(),
 		},
 	}, nil
 }

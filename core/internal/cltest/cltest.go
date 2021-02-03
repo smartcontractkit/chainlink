@@ -59,6 +59,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -1691,4 +1692,11 @@ func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
 	err := js.UnmarshalJSON([]byte(s))
 	require.NoError(t, err)
 	return *js
+}
+
+var NilReceipt *types.Receipt
+
+func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
+	return req.Method == "eth_getTransactionReceipt" &&
+		len(req.Args) == 1 && req.Args[0] == hash
 }

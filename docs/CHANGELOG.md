@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Fix a case where archiving jobs could try to delete it from the external initiator even if the job was not an EI job.
+- Improved performance of the transaction manager by fetching receipts in
+  batches. This should help prevent the node from getting stuck when processing
+  large numbers of OCR jobs.
 
 ## [0.9.10] - 2021-01-30
 

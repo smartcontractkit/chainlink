@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -132,8 +133,12 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+			})
 		}).
 		Return(nil).Once()
 
@@ -292,6 +297,7 @@ func TestIntegration_RunLog(t *testing.T) {
 				BlockNumber: big.NewInt(creationHeight),
 			}
 			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil)
+
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(confirmedReceipt, nil)
 
@@ -849,8 +855,12 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+			})
 		}).
 		Return(nil).Once()
 
@@ -1003,8 +1013,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+			})
 		}).
 		Return(nil).Once()
 
@@ -1070,6 +1084,12 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				tx.Data()[4:])
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+			}).Maybe()
 		}).
 		Return(nil).Once()
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
