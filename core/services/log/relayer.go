@@ -48,10 +48,10 @@ func newRelayer(orm ORM, dependentAwaiter utils.DependentAwaiter) *relayer {
 	return &relayer{
 		orm:              orm,
 		listeners:        make(map[common.Address]map[Listener]struct{}),
-		addListener:      utils.NewMailbox(500),
-		rmListener:       utils.NewMailbox(500),
+		addListener:      utils.NewMailbox(0),
+		rmListener:       utils.NewMailbox(0),
 		newHeads:         utils.NewMailbox(1),
-		newLogs:          utils.NewMailbox(1000),
+		newLogs:          utils.NewMailbox(10000),
 		connectionEvents: utils.NewMailbox(1),
 		DependentAwaiter: dependentAwaiter,
 		chStop:           make(chan struct{}),
