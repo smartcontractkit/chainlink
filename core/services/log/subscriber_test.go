@@ -122,7 +122,7 @@ func TestSubscriber(t *testing.T) {
 			t.Fatal("did not subscribe")
 		}
 
-		ethClient.AssertExpectations(t)
+		cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
 	})
 
 	t.Run("does not save logs to the DB for which there are no subscribers", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestSubscriber(t *testing.T) {
 			t.Fatal("did not subscribe")
 		}
 
-		ethClient.AssertExpectations(t)
+		cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
 
 		for currentBlockNumber <= lastBlock/2 {
 			expected := filterLogs(logs, map[common.Address]fromTo{
@@ -208,7 +208,7 @@ func TestSubscriber(t *testing.T) {
 			t.Fatal("did not subscribe")
 		}
 
-		ethClient.AssertExpectations(t)
+		cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
 
 		addr2FirstBlock := currentBlockNumber - backfillDepth
 

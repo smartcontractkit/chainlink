@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -25,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
-
-	"github.com/stretchr/testify/mock"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -70,6 +69,7 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
@@ -1699,20 +1699,25 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 		len(req.Args) == 1 && req.Args[0] == hash
 }
 
-func SimulateIncomingHeads(t *testing.T, headTrackable strpkg.HeadTrackable, startBlockNumber int64, timeout time.Duration) (cleanup func()) {
+type SimulateIncomingHeadsArgs struct {
+	StartBlock, EndBlock int64
+	Interval             time.Duration
+	Timeout              time.Duration
+	HeadTrackables       []strpkg.HeadTrackable
+}
+
+func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanup func()) {
 	t.Helper()
 
-	var ctx context.Context
-	var cancel context.CancelFunc
-	var chTimeout <-chan time.Time
-	if timeout > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		chTimeout = time.After(timeout)
-	} else {
-		ctx = context.Background()
-		cancel = func() {}
+	if args.Timeout == 0 {
+		args.Timeout = 60 * time.Second
 	}
+	if args.Interval == 0 {
+		args.Interval = 500 * time.Millisecond
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), args.Timeout)
+	defer cancel()
+	chTimeout := time.After(args.Timeout)
 
 	chDone := make(chan struct{})
 	go func() {
@@ -1723,14 +1728,63 @@ func SimulateIncomingHeads(t *testing.T, headTrackable strpkg.HeadTrackable, sta
 			case <-chTimeout:
 				return
 			default:
-				headTrackable.OnNewLongestChain(ctx, models.Head{Number: startBlockNumber})
-				startBlockNumber++
-				time.Sleep(1 * time.Second)
+				for _, ht := range args.HeadTrackables {
+					ht.OnNewLongestChain(ctx, models.Head{Number: args.StartBlock})
+				}
+				if args.EndBlock >= 0 && args.StartBlock == args.EndBlock {
+					return
+				}
+				args.StartBlock++
+				time.Sleep(args.Interval)
 			}
 		}
 	}()
+	var once sync.Once
 	return func() {
-		close(chDone)
-		cancel()
+		once.Do(func() {
+			close(chDone)
+			cancel()
+		})
+	}
+}
+
+type HeadTrackableFunc func(context.Context, models.Head)
+
+func (HeadTrackableFunc) Connect(*models.Head) error { return nil }
+func (HeadTrackableFunc) Disconnect()                {}
+func (fn HeadTrackableFunc) OnNewLongestChain(ctx context.Context, head models.Head) {
+	fn(ctx, head)
+}
+
+type testifyExpectationsAsserter interface {
+	AssertExpectations(t mock.TestingT) bool
+}
+
+type fakeT struct {
+	didFail bool
+}
+
+func (t fakeT) Logf(format string, args ...interface{})   {}
+func (t fakeT) Errorf(format string, args ...interface{}) {}
+func (t fakeT) FailNow() {
+	t.didFail = true
+}
+
+func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
+	t.Helper()
+
+	chTimeout := time.After(timeout)
+	for {
+		var fakeT fakeT
+		mock.AssertExpectations(fakeT)
+		if !fakeT.didFail {
+			return
+		}
+		select {
+		case <-chTimeout:
+			t.FailNow()
+		default:
+			time.Sleep(interval)
+		}
 	}
 }
