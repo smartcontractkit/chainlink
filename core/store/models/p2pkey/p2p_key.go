@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
@@ -29,7 +28,7 @@ type Key struct {
 type PublicKeyBytes []byte
 
 func (pkb PublicKeyBytes) String() string {
-	return hexutil.Encode(pkb)
+	return hex.EncodeToString(pkb)
 }
 
 func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
