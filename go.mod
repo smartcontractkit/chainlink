@@ -30,7 +30,7 @@ require (
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/mitchellh/mapstructure v1.4.0
+	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/onsi/gomega v1.10.4
@@ -45,8 +45,8 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
-	github.com/tidwall/gjson v1.6.7
-	github.com/tidwall/sjson v1.1.4
+	github.com/tidwall/gjson v1.6.8
+	github.com/tidwall/sjson v1.1.5
 	github.com/ulule/limiter v0.0.0-20190417201358-7873d115fc4e
 	github.com/unrolled/secure v0.0.0-20190624173513-716474489ad3
 	github.com/urfave/cli v1.22.5
