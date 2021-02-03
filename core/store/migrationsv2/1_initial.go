@@ -6,6 +6,7 @@ import (
 )
 
 var (
+	// TODO (176786815): Use the embed directive once 1.16 is released.
 	up1 = `
 --
 -- PostgreSQL database dump
