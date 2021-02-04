@@ -140,7 +140,6 @@ func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, wr
 }
 
 func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
-	fmt.Println("WRITE TIMEOUT", writeTimeout)
 	url := fmt.Sprintf(":%d", port)
 	s := &http.Server{
 		Addr:           url,
