@@ -800,6 +800,10 @@ func (c Config) Port() uint16 {
 	return c.getWithFallback("Port", parseUint16).(uint16)
 }
 
+func (c Config) HTTPServerWriteTimeout() time.Duration {
+	return c.getWithFallback("HTTPServerWriteTimeout", parseDuration).(time.Duration)
+}
+
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", parseDuration).(time.Duration))
