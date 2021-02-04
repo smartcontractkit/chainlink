@@ -250,10 +250,10 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		}
 
 		elapsed := time.Since(pRun.CreatedAt)
-		promPipelineRunTotalTimeToCompletion.WithLabelValues(string(pRun.PipelineSpecID)).Set(float64(elapsed))
+		promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Set(float64(elapsed))
 
 		if pRun.HasErrors() {
-			promPipelineRunErrors.WithLabelValues(string(pRun.PipelineSpecID)).Inc()
+			promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Inc()
 		}
 
 		return nil
