@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   acceptable range and no ethtx will be submitted. As additional protection, we also now
   check the receipts of the ethtx's and if they were reverted, we mark the ethtx task as failed.
 - Improved performance of OCR jobs to reduce database load. OCR jobs now run with unlimited parallelism and are not affected by `JOB_PIPELINE_PARALLELISM`.
+- Squashed migrations into a single 1_initial migration. If you were running a version
+  older than 0.9.10, you need to upgrade to 0.9.10 first before upgrading to the next
+  version so that the migrations are run.
 
 ### Added
 

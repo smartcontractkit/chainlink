@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+
 	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -434,7 +435,7 @@ func migrateTestDB(config *orm.Config) error {
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrations.GORMMigrate(db)
+		return migrationsv2.Migrate(db)
 	})
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)
