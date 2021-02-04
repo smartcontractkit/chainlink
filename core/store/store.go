@@ -246,7 +246,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if err := CheckSquashUpgrade(orm.DB); err != nil {
+	if err = CheckSquashUpgrade(orm.DB); err != nil {
 		panic(err)
 	}
 	if config.MigrateDatabase() {
