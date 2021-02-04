@@ -656,7 +656,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			EthTxID:   etx.ID,
 			TaskRunID: taskRunID.UUID(),
 		}
-		require.NoError(t, store.DB.Save(&ethTaskRunTx).Error)
+		// Create instead of Save because EthTaskRunTxes doesn't have a PK.
+		require.NoError(t, store.DB.Create(&ethTaskRunTx).Error)
 
 		// First send, replacement underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {

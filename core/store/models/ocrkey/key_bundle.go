@@ -13,6 +13,8 @@ import (
 	"math/big"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
@@ -20,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
-	"gopkg.in/guregu/null.v4"
 )
 
 type (
@@ -41,7 +42,7 @@ type (
 		EncryptedPrivateKeys  []byte                `json:"-"`
 		CreatedAt             time.Time             `json:"createdAt"`
 		UpdatedAt             time.Time             `json:"updatedAt,omitempty"`
-		DeletedAt             null.Time             `json:"deletedAt,omitempty"`
+		DeletedAt             gorm.DeletedAt        `json:"deletedAt,omitempty"`
 	}
 
 	keyBundleRawData struct {

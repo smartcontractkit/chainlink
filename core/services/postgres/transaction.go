@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // NOTE: In an ideal world the timeouts below would be set to something sane in
@@ -32,7 +32,7 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 	} else {
 		txOpts = DefaultSqlTxOptions
 	}
-	tx := db.BeginTx(ctx, &txOpts)
+	tx := db.WithContext(ctx).Begin(&txOpts)
 	err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
 	if err != nil {
 		return errors.Wrap(err, "error setting transaction timeouts")

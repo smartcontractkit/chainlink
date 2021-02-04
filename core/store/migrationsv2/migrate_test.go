@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	_ "github.com/jinzhu/gorm/dialects/postgres" // http://doc.gorm.io/database.html#connecting-to-a-database
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,12 +62,16 @@ func TestMigrate_Migrations(t *testing.T) {
 		"users",
 	}
 	for _, table := range tables {
-		assert.True(t, orm.DB.HasTable(table), "table %v not found", table)
+		r := orm.DB.Exec("SELECT * from information_schema.tables where table_name = ?", table)
+		require.NoError(t, r.Error)
+		assert.True(t, r.RowsAffected > 0, "table %v not found", table)
 	}
 	err = migrationsv2.MigrateDown(orm.DB)
 	require.NoError(t, err)
 
 	for _, table := range tables {
-		assert.False(t, orm.DB.HasTable(table), "table %v found", table)
+		r := orm.DB.Exec("SELECT * from information_schema.tables where table_name = ?", table)
+		require.NoError(t, r.Error)
+		assert.False(t, r.RowsAffected > 0, "table %v found", table)
 	}
 }

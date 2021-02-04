@@ -20,7 +20,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	sqldb := store.DB.DB()
+	sqldb, _ := store.DB.DB()
 	configDigest := cltest.MakeConfigDigest(t)
 	key := cltest.MustInsertRandomKey(t, store.DB)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)
@@ -101,7 +101,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	sqldb := store.DB.DB()
+	sqldb, _ := store.DB.DB()
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
 		Signers:              []common.Address{cltest.NewAddress()},
@@ -166,7 +166,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	sqldb := store.DB.DB()
+	sqldb, _ := store.DB.DB()
 	key := cltest.MustInsertRandomKey(t, store.DB)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, store, key.Address)

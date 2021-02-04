@@ -2,10 +2,15 @@ package ocrkey
 
 import (
 	"crypto/ed25519"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
+	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -47,4 +52,32 @@ func (ocpk *OffChainPublicKey) UnmarshalText(bs []byte) error {
 	copy(result[:], result[:common.AddressLength])
 	*ocpk = result
 	return nil
+}
+
+func (ocpk *OffChainPublicKey) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		*ocpk = v
+		return nil
+	default:
+		return errors.Errorf("invalid public key bytes got %T wanted []byte", v)
+	}
+}
+
+func (ocpk OffChainPublicKey) Value() (driver.Value, error) {
+	return []byte(ocpk), nil
+}
+
+// GormDataType gorm common data type
+func (OffChainPublicKey) GormDataType() string {
+	return "bytea"
+}
+
+// GormDBDataType gorm db data type
+func (OffChainPublicKey) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "BYTEA"
+	}
+	return ""
 }
