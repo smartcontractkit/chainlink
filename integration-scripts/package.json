@@ -29,7 +29,7 @@
     "@chainlink/contracts": "0.0.3",
     "@chainlink/test-helpers": "0.0.2",
     "chalk": "^4.0.0",
-    "ethers": "^4.0.45",
+    "ethers": "^5.0.0",
     "link_token": "^1.0.6",
     "request-promise": "4.2.5",
     "shelljs": "^0.8.3",
