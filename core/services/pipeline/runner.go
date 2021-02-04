@@ -352,14 +352,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 
 				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(string(run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(string(run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type), status).Inc()
+				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type), status).Inc()
 
 				if m.next == nil {
 					return
