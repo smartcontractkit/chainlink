@@ -6,6 +6,11 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
+	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -15,6 +20,30 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tevino/abool"
 )
+
+func TestChainlinkApplication_SquashMigrationUpgrade(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationssquash", false)
+	defer cleanup()
+	db := orm.DB
+
+	// Latest migrations should work fine.
+	static.Version = "0.9.11"
+	err := migrationsv2.MigrateUp(db, "")
+	require.NoError(t, err)
+	err = chainlink.CheckSquashUpgrade(db)
+	require.NoError(t, err)
+	err = migrationsv2.MigrateDown(db)
+	require.NoError(t, err)
+
+	// Newer app version with older migrations should fail.
+	err = migrations.MigrateTo(db, "1611388693") // 1 before S-1
+	require.NoError(t, err)
+	err = chainlink.CheckSquashUpgrade(db)
+	t.Log(err)
+	require.Error(t, err)
+
+	static.Version = "unset"
+}
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 
