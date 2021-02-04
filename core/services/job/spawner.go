@@ -282,20 +282,23 @@ func (js *spawner) DeleteJob(ctx context.Context, jobID int32) error {
 		return errors.New("will not delete job with 0 ID")
 	}
 
+	// Stop the service if we own the job.
+	for _, s := range js.services[jobID] {
+		err := s.Close()
+		if err != nil {
+			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err)
+			return err
+		}
+	}
+
 	ctx, cancel := utils.CombinedContext(js.chStop, ctx)
 	defer cancel()
-
 	err := js.orm.DeleteJob(ctx, jobID)
 	if err != nil {
 		logger.Errorw("Error deleting job", "jobID", jobID, "error", err)
 		return err
 	}
 	logger.Infow("Deleted job", "jobID", jobID)
-
-	select {
-	case <-js.chStop:
-	case js.chStopJob <- jobID:
-	}
 
 	return nil
 }
