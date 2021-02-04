@@ -8,6 +8,13 @@ import { JobSpecFormats } from './utils'
 import { Route } from 'react-router-dom'
 import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
+import { ReactWrapper } from 'enzyme'
+
+const switchTo = (component: ReactWrapper, format: JobSpecFormats) => {
+  component.find(`input[value="${format}"]`).simulate('change', {
+    target: { value: format },
+  })
+}
 
 describe('pages/Jobs/New', () => {
   beforeEach(() => {
@@ -131,12 +138,7 @@ describe('pages/Jobs/New', () => {
       target: { value: expectedJson, name: 'jobSpec' },
     })
 
-    // switch to TOML
-
-    wrapper.find(`input[value="${JobSpecFormats.TOML}"]`).simulate('change', {
-      target: { value: JobSpecFormats.TOML },
-    })
-
+    switchTo(wrapper, JobSpecFormats.TOML)
     expect(textArea.text()).not.toContain(expectedJson)
 
     textArea.simulate('change', {
@@ -144,13 +146,7 @@ describe('pages/Jobs/New', () => {
     })
 
     expect(textArea.text()).toContain(expectedToml)
-
-    // switch back to JSON
-
-    wrapper.find(`input[value="${JobSpecFormats.JSON}"]`).simulate('change', {
-      target: { value: JobSpecFormats.JSON },
-    })
-
+    switchTo(wrapper, JobSpecFormats.JSON)
     expect(textArea.text()).toContain(expectedJson)
   })
 
@@ -163,15 +159,11 @@ describe('pages/Jobs/New', () => {
     )
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
 
-    wrapper.find(`input[value="${JobSpecFormats.TOML}"]`).simulate('change', {
-      target: { value: JobSpecFormats.TOML },
-    })
+    switchTo(wrapper, JobSpecFormats.TOML)
     expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.TOML)
 
-    wrapper.find(`input[value="${JobSpecFormats.JSON}"]`).simulate('change', {
-      target: { value: JobSpecFormats.JSON },
-    })
+    switchTo(wrapper, JobSpecFormats.JSON)
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
   })
