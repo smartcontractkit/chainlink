@@ -141,7 +141,7 @@ func findExternalInitiatorForJob(db *gorm.DB, id *models.ID) (exi *models.Extern
 	exi = new(models.ExternalInitiator)
 	err = db.
 		Joins("INNER JOIN initiators ON initiators.name = external_initiators.name").
-		Joins("INNER JOIN job_specs ON job_specs.id = initiators.job_spec_id").
+		Where("initiators.job_spec_id = ?", id).
 		First(exi).
 		Error
 	if err == gorm.ErrRecordNotFound {
