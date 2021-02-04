@@ -119,6 +119,7 @@ type ConfigSchema struct {
 	TLSKeyPath                                string          `env:"TLS_KEY_PATH" `
 	TLSPort                                   uint16          `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TLSRedirect                               bool            `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
+	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
 	TxAttemptLimit                            uint16          `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
 	UnAuthenticatedRateLimit                  int64           `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod            time.Duration   `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
