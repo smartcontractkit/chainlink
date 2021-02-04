@@ -135,11 +135,10 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	squashVersionMinus1 := semver.New("0.9.10")
 	currentVersion := semver.New(static.Version)
 	lastV1Migration := "1612225637"
-	firstV2Migration := "1_initial"
 	if squashVersionMinus1.LessThan(*currentVersion) {
-		// Running code later than S - 1. Ensure that we either see
-		// the new migrations format "1_initial" OR we see the last migration
-		q := db.Exec("SELECT * FROM migrations WHERE id = ? OR id = ?", lastV1Migration, firstV2Migration)
+		// Running code later than S - 1. Ensure that we see
+		// the last v1 migration.
+		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
 		if q.Error != nil {
 			return q.Error
 		}
