@@ -27,20 +27,6 @@ func (_m *AdvisoryLocker) Close() error {
 	return r0
 }
 
-// TryLock provides a mock function with given fields: ctx, classID, objectID
-func (_m *AdvisoryLocker) TryLock(ctx context.Context, classID int32, objectID int32) error {
-	ret := _m.Called(ctx, classID, objectID)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32, int32) error); ok {
-		r0 = rf(ctx, classID, objectID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Unlock provides a mock function with given fields: ctx, classID, objectID
 func (_m *AdvisoryLocker) Unlock(ctx context.Context, classID int32, objectID int32) error {
 	ret := _m.Called(ctx, classID, objectID)
