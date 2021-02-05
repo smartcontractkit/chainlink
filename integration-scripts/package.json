@@ -39,7 +39,7 @@
   },
   "devDependencies": {
     "@types/shelljs": "^0.8.5",
-    "debug": "4.1.1",
+    "debug": "4.3.1",
     "rimraf": "^3.0.2",
     "typescript": "^3.7.4"
   }
