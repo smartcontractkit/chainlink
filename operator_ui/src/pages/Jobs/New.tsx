@@ -44,7 +44,6 @@ import {
 import { useLocation, useHistory } from 'react-router-dom'
 
 const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
-
 export const SELECTED_FORMAT = 'persistSpec.format'
 export const PERSIST_SPEC = 'persistSpec.'
 
