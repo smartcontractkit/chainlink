@@ -31,7 +31,7 @@
     "core-js": "^3.4.0",
     "d3": "^6.2.0",
     "d3-dag": "^0.4.7",
-    "formik": "^2.1.4",
+    "formik": "^2.2.6",
     "graphlib-dot": "^0.6.4",
     "humps": "^2.0.1",
     "isomorphic-unfetch": "^3.0.0",
