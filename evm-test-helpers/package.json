@@ -15,7 +15,7 @@
     "prepublishOnly": "yarn setup --force && yarn test"
   },
   "dependencies": {
-    "@0x/sol-trace": "^3.0.7",
+    "@0x/sol-trace": "^3.0.29",
     "@0x/subproviders": "^6.1.1",
     "@typechain/ethers-v4": "^4.0.0",
     "bn.js": "^5.1.3",
