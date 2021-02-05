@@ -11,6 +11,7 @@ const styles = ({ palette, shadows, typography }: Theme) =>
   createStyles({
     lightTooltip: {
       background: palette.primary.contrastText,
+      // @ts-expect-error
       color: palette.text.primary,
       boxShadow: shadows[24],
       ...typography.h6,
