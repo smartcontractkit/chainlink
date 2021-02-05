@@ -1,5 +1,7 @@
 import TOML from '@iarna/toml'
 import { PipelineTaskError, RunStatus } from 'core/store/models'
+import { TaskSpec } from 'core/store/models'
+import { parseDot, Stratify } from './parseDot'
 
 export enum JobSpecFormats {
   JSON = 'json',
@@ -83,3 +85,30 @@ export function getOcrJobStatus({
 //  as it doesn't have the behaviour we want.
 export const isOcrJob = (jobSpecId: string): boolean =>
   !isNaN((jobSpecId as unknown) as number)
+
+export function getTaskList({ value }: { value: string }) {
+  const format = getJobSpecFormat({ value })
+  let list: TaskSpec[] | Stratify[] | false = false
+
+  if (format === JobSpecFormats.JSON) {
+    const tasks = JSON.parse(value).tasks
+    list = Array.isArray(tasks) ? tasks : false
+  } else if (format === JobSpecFormats.TOML) {
+    try {
+      const observationSource = parseDot(
+        `digraph {${TOML.parse(value).observationSource as string}}`,
+      )
+      list =
+        observationSource && observationSource.length
+          ? observationSource
+          : false
+    } catch {
+      list = false
+    }
+  }
+
+  return {
+    list,
+    format,
+  }
+}
