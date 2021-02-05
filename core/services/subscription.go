@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -68,9 +69,15 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 
 // Unsubscribe stops the subscription and cleans up associated resources.
 func (js JobSubscription) Unsubscribe() {
+	waiter := sync.WaitGroup{}
+	waiter.Add(len(js.unsubscribers))
 	for _, sub := range js.unsubscribers {
-		sub.Unsubscribe()
+		go func(sub Unsubscriber) {
+			sub.Unsubscribe()
+			waiter.Done()
+		}(sub)
 	}
+	waiter.Wait()
 }
 
 // InitiatorSubscription encapsulates all functionality needed to wrap an ethereum subscription

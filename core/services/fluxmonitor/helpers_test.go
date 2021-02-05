@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -76,7 +77,7 @@ func newFixedPricedFetcher(price decimal.Decimal) *fixedFetcher {
 	return &fixedFetcher{price: price}
 }
 
-func (ps *fixedFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (ps *fixedFetcher) Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error) {
 	return ps.price, nil
 }
 
@@ -86,7 +87,7 @@ func newErroringPricedFetcher() *erroringFetcher {
 	return &erroringFetcher{}
 }
 
-func (*erroringFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (*erroringFetcher) Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 

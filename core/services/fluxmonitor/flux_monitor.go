@@ -164,17 +164,29 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 				logger.Debugf("job '%s' is missing from the flux monitor", jobID.String())
 				continue
 			}
+			waiter := sync.WaitGroup{}
+			waiter.Add(len(checkers))
 			for _, checker := range checkers {
-				checker.Stop()
+				go func(checker DeviationChecker) {
+					checker.Stop()
+					waiter.Done()
+				}(checker)
 			}
+			waiter.Wait()
 			delete(jobMap, jobID)
 
 		case <-fm.chStop:
+			waiter := sync.WaitGroup{}
 			for _, checkers := range jobMap {
+				waiter.Add(len(checkers))
 				for _, checker := range checkers {
-					checker.Stop()
+					go func(checker DeviationChecker) {
+						checker.Stop()
+						waiter.Done()
+					}(checker)
 				}
 			}
+			waiter.Wait()
 			return
 		}
 	}
@@ -871,7 +883,9 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 		return
 	}
 
-	polledAnswer, err := p.fetcher.Fetch(request)
+	ctx, cancel := utils.CombinedContext(p.chStop)
+	defer cancel()
+	polledAnswer, err := p.fetcher.Fetch(ctx, request)
 	if err != nil {
 		logger.Errorw(fmt.Sprintf("unable to fetch median price: %v", err), p.loggerFieldsForNewRound(log)...)
 		return
@@ -996,7 +1010,9 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
-	polledAnswer, err := p.fetcher.Fetch(request)
+	ctx, cancel := utils.CombinedContext(p.chStop)
+	defer cancel()
+	polledAnswer, err := p.fetcher.Fetch(ctx, request)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		p.store.UpsertErrorFor(p.JobID(), "Error polling")

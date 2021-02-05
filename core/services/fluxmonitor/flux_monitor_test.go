@@ -238,7 +238,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState, nil).Maybe()
 
 			if test.expectedToPoll {
-				fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(answers.polledAnswer), nil)
+				fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(answers.polledAnswer), nil)
 			}
 
 			if test.expectedToSubmit {
@@ -404,7 +404,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fluxAggregator.On("Address").Return(initr.Address, nil)
 
 	fetcher := new(mocks.Fetcher)
-	fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
+	fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(mocks.LogBroadcaster)
 	logBroadcaster.On("Register", initr.Address, mock.Anything).Return(true)
@@ -1050,7 +1050,7 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 			}
 
 			if expectedToPoll {
-				fetcher.On("Fetch", mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
+				fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(test.polledAnswer), nil).Once()
 			}
 
 			if expectedToSubmit {
@@ -1585,7 +1585,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:      1,
 			}, nil).
 			Once()
-		fetcher.On("Fetch", mock.Anything).
+		fetcher.On("Fetch", mock.Anything, mock.Anything).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
@@ -1671,7 +1671,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			}, nil).
 			Once()
 		meta := utils.MustUnmarshalToMap(`{"AvailableFunds":100000, "EligibleToSubmit":true, "LatestSubmission":100, "OracleCount":1, "PaymentAmount":100, "RoundId":3, "StartedAt":0, "Timeout":0}`)
-		fetcher.On("Fetch", meta).
+		fetcher.On("Fetch", mock.Anything, meta).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()
 		rm.On("Create", job.ID, &initr, mock.Anything, mock.Anything).
