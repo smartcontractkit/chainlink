@@ -7,12 +7,20 @@ import { ENDPOINT as TOML_CREATE_ENDPOINT } from 'api/v2/ocrSpecs'
 import { JobSpecFormats } from './utils'
 import { Route } from 'react-router-dom'
 import * as storage from 'utils/local-storage'
-import New, { validate, SELECTED_FORMAT } from './New'
-import { setPersistJobSpec, getPersistJobSpec } from 'utils/storage'
+import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
+import { ReactWrapper } from 'enzyme'
+
+const switchTo = (component: ReactWrapper, format: JobSpecFormats) => {
+  component.find(`input[value="${format}"]`).simulate('change', {
+    target: { value: format },
+  })
+}
 
 describe('pages/Jobs/New', () => {
   beforeEach(() => {
-    setPersistJobSpec('')
+    storage.remove(`${PERSIST_SPEC}${JobSpecFormats.JSON}`)
+    storage.remove(`${PERSIST_SPEC}${JobSpecFormats.TOML}`)
+    storage.remove(SELECTED_FORMAT)
   })
   it('submits JSON job spec form', async () => {
     const expectedSubmit = '{"foo":"bar"}'
@@ -108,7 +116,38 @@ describe('pages/Jobs/New', () => {
       target: { value: expected, name: 'jobSpec' },
     })
 
-    expect(getPersistJobSpec()).toContain(expected)
+    expect(storage.get(`${PERSIST_SPEC}${JobSpecFormats.JSON}`)).toContain(
+      expected,
+    )
+  })
+
+  it('persists spec definitions when switch the format', async () => {
+    const expectedJson = '{"foo":"bar"}'
+    const expectedToml = '"foo":"bar"'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+
+    const textArea = wrapper.find('textarea[name="jobSpec"]')
+
+    textArea.simulate('change', {
+      target: { value: expectedJson, name: 'jobSpec' },
+    })
+
+    switchTo(wrapper, JobSpecFormats.TOML)
+    expect(textArea.text()).not.toContain(expectedJson)
+
+    textArea.simulate('change', {
+      target: { value: expectedToml, name: 'jobSpec' },
+    })
+
+    expect(textArea.text()).toContain(expectedToml)
+    switchTo(wrapper, JobSpecFormats.JSON)
+    expect(textArea.text()).toContain(expectedJson)
   })
 
   it('saves last selected spec format in a storage', async () => {
@@ -119,17 +158,12 @@ describe('pages/Jobs/New', () => {
       },
     )
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
-    expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
 
-    wrapper.find(`input[value="${JobSpecFormats.TOML}"]`).simulate('change', {
-      target: { value: JobSpecFormats.TOML },
-    })
+    switchTo(wrapper, JobSpecFormats.TOML)
     expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.TOML)
 
-    wrapper.find(`input[value="${JobSpecFormats.JSON}"]`).simulate('change', {
-      target: { value: JobSpecFormats.JSON },
-    })
+    switchTo(wrapper, JobSpecFormats.JSON)
     expect(wrapper.text()).toContain(`${JobSpecFormats.JSON} blob`)
     expect(storage.get(SELECTED_FORMAT)).toEqual(JobSpecFormats.JSON)
   })
