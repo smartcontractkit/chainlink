@@ -41,7 +41,7 @@ describe('pages/jobs/utils', () => {
   })
 
   describe('stringifyJobSpec', () => {
-    it('stringify and indent JSON job spec', async () => {
+    it('stringify and indent JSON job spec', () => {
       expect(
         stringifyJobSpec({
           value: { foo: 'bar' },
@@ -54,7 +54,7 @@ describe('pages/jobs/utils', () => {
       )
     })
 
-    it('stringify TOML spec', async () => {
+    it('stringify TOML spec', () => {
       expect(
         stringifyJobSpec({
           value: { foo: 'bar' },
@@ -66,7 +66,7 @@ describe('pages/jobs/utils', () => {
   })
 
   describe('getTaskList', () => {
-    it('parse string to Json TaskSpec list', async () => {
+    it('parse string to Json TaskSpec list', () => {
       expect(
         getTaskList({
           value: '{"tasks":[{ "type": "HTTPGet"}, { "type": "JSONParse"}]}',
@@ -77,7 +77,7 @@ describe('pages/jobs/utils', () => {
       })
     })
 
-    it('return false on bad json format', async () => {
+    it('return false on bad json format', () => {
       expect(
         getTaskList({
           value: '{"tasks":[{ "type": HTTPGet}, { "type": JSONParse}]}',
@@ -88,7 +88,7 @@ describe('pages/jobs/utils', () => {
       })
     })
 
-    it('parse string to Toml Stratify list', async () => {
+    it('parse string to Toml Stratify list', () => {
       expect(
         getTaskList({
           value:
@@ -115,7 +115,7 @@ describe('pages/jobs/utils', () => {
       })
     })
 
-    it('return false on bad toml format', async () => {
+    it('return false on bad toml format', () => {
       expect(
         getTaskList({
           value:

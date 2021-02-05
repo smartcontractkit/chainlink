@@ -86,13 +86,20 @@ export function getOcrJobStatus({
 export const isOcrJob = (jobSpecId: string): boolean =>
   !isNaN((jobSpecId as unknown) as number)
 
-export function getTaskList({ value }: { value: string }) {
+export function getTaskList({
+  value,
+}: {
+  value: string
+}): {
+  list: false | TaskSpec[] | Stratify[]
+  format: false | JobSpecFormats
+} {
   const format = getJobSpecFormat({ value })
-  let list: TaskSpec[] | Stratify[] | false = false
+  let list: false | TaskSpec[] | Stratify[] = false
 
   if (format === JobSpecFormats.JSON) {
     const tasks = JSON.parse(value).tasks
-    list = Array.isArray(tasks) ? tasks : false
+    list = Array.isArray(tasks) && tasks.length ? tasks : false
   } else if (format === JobSpecFormats.TOML) {
     try {
       const observationSource = parseDot(
