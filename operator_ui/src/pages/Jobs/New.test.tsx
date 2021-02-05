@@ -72,7 +72,7 @@ describe('pages/Jobs/New', () => {
     )
   })
 
-  it('loads and indents JSON spec definition from search param', async () => {
+  it('loads and indents JSON spec definition from search param', () => {
     const expected = { foo: 'bar' }
 
     const wrapper = mountWithProviders(
@@ -87,7 +87,7 @@ describe('pages/Jobs/New', () => {
     expect(wrapper.text()).toContain(JSON.stringify(expected))
   })
 
-  it('loads TOML spec definition from search param', async () => {
+  it('loads TOML spec definition from search param', () => {
     const expected = '"foo"="bar"'
 
     const wrapper = mountWithProviders(
@@ -101,7 +101,7 @@ describe('pages/Jobs/New', () => {
     expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
   })
 
-  it('saves spec definition in storage', async () => {
+  it('saves spec definition in storage', () => {
     const expected = '"foo"="bar"'
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
@@ -115,7 +115,7 @@ describe('pages/Jobs/New', () => {
     )
   })
 
-  it('persists spec definitions when switch the format', async () => {
+  it('persists spec definitions when switch the format', () => {
     const expectedJson = '{"foo":"bar"}'
     const expectedToml = '"foo":"bar"'
 
@@ -139,7 +139,7 @@ describe('pages/Jobs/New', () => {
     expect(textArea.text()).toContain(expectedJson)
   })
 
-  it('saves last selected spec format in a storage', async () => {
+  it('saves last selected spec format in a storage', () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
       {
@@ -207,7 +207,7 @@ describe('pages/Jobs/New', () => {
     })
   })
 
-  it('updates json preview task list', async () => {
+  it('updates json preview task list', () => {
     const jobSpec1 = '{"tasks":[{ "type": "Httpget"}, { "type": "Jsonparse"}]}'
     const jobSpec2 =
       '{"tasks":[{ "type": "Multiply"}, { "type": "Jsonparse"}, { "type": "Httpget"}]}'
@@ -220,7 +220,6 @@ describe('pages/Jobs/New', () => {
     )
     fillTextarea(wrapper, jobSpec1)
     const taskList = wrapper.find('[data-testid="task-list-item"]')
-    expect(taskList).toHaveLength(2)
     expect(taskList.map((task: ReactWrapper) => task.text())).toEqual([
       'Httpget',
       'Jsonparse',
@@ -229,7 +228,6 @@ describe('pages/Jobs/New', () => {
     fillTextarea(wrapper, jobSpec2)
 
     const taskList2 = wrapper.find('[data-testid="task-list-item"]')
-    expect(taskList2).toHaveLength(3)
     expect(taskList2.map((task: ReactWrapper) => task.text())).toEqual([
       'Multiply',
       'Jsonparse',
@@ -237,7 +235,7 @@ describe('pages/Jobs/New', () => {
     ])
   })
 
-  it('updates toml preview task list', async () => {
+  it('updates toml preview task list', () => {
     const jobSpec1 =
       'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
     const jobSpec2 =
@@ -252,14 +250,12 @@ describe('pages/Jobs/New', () => {
 
     fillTextarea(wrapper, jobSpec1)
     const taskList = wrapper.find('[data-testid^="task-list-id-"]')
-    expect(taskList).toHaveLength(2)
     expect(
       taskList.map((task: ReactWrapper) => task.prop('data-testid')),
     ).toEqual(['task-list-id-ds_parse', 'task-list-id-ds'])
 
     fillTextarea(wrapper, jobSpec2)
     const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
-    expect(taskList2).toHaveLength(3)
     expect(
       taskList2.map((task: ReactWrapper) => task.prop('data-testid')),
     ).toEqual([
@@ -269,7 +265,7 @@ describe('pages/Jobs/New', () => {
     ])
   })
 
-  it('shows "Tasks not found" on job spec errors', async () => {
+  it('shows "Tasks not found" on job spec errors', () => {
     const jsonSpec = '{"tasks":[{ "type": Httpget}, { "type": "Jsonparse"}]}'
     const tomlSpec =
       'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
@@ -281,13 +277,26 @@ describe('pages/Jobs/New', () => {
       },
     )
     fillTextarea(wrapper, jsonSpec)
-    const taskList = wrapper.find('[data-testid="task-list-item"]')
-    expect(taskList).toHaveLength(0)
     expect(wrapper.text()).toContain('Tasks not found')
 
     fillTextarea(wrapper, tomlSpec)
-    const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
-    expect(taskList2).toHaveLength(0)
+    expect(wrapper.text()).toContain('Tasks not found')
+  })
+
+  it('shows "Tasks not found" on empty job spec', () => {
+    const jsonSpec = '{"tasks":[]}'
+    const tomlSpec = 'observationSource = ""  """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    fillTextarea(wrapper, jsonSpec)
+    expect(wrapper.text()).toContain('Tasks not found')
+
+    fillTextarea(wrapper, tomlSpec)
     expect(wrapper.text()).toContain('Tasks not found')
   })
 })

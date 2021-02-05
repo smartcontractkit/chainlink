@@ -165,10 +165,9 @@ export const New = ({
   const [value, setValue] = React.useState<string>(initialValues.jobSpec)
   const [valid, setValid] = React.useState<boolean>(true)
   const [loading, setLoading] = React.useState<boolean>(false)
-  const [tasks, setTasks] = React.useState<{
-    list: boolean | TaskSpec[] | Stratify[]
-    format: false | JobSpecFormats
-  }>(getTaskList({ value: initialValues.jobSpec }))
+  const [tasks, setTasks] = React.useState(
+    getTaskList({ value: initialValues.jobSpec }),
+  )
   const dispatch = useDispatch()
   const history = useHistory()
 
