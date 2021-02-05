@@ -16,6 +16,12 @@ const switchTo = (component: ReactWrapper, format: JobSpecFormats) => {
   })
 }
 
+const fillTextarea = (component: ReactWrapper, jobSpec: string) => {
+  return component.find(`textarea[name="jobSpec"]`).simulate('change', {
+    target: { value: jobSpec, name: 'jobSpec' },
+  })
+}
+
 describe('pages/Jobs/New', () => {
   beforeEach(() => {
     storage.remove(`${PERSIST_SPEC}${JobSpecFormats.JSON}`)
@@ -32,11 +38,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expectedSubmit, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expectedSubmit)
     wrapper
       .find('[data-testid="new-job-spec-submit"]')
       .first()
@@ -57,11 +59,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new?format=${JobSpecFormats.TOML}`],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expectedSubmit, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expectedSubmit)
     wrapper
       .find('[data-testid="new-job-spec-submit"]')
       .first()
@@ -111,11 +109,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: ['/jobs/new'],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expected, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expected)
     expect(storage.get(`${PERSIST_SPEC}${JobSpecFormats.JSON}`)).toContain(
       expected,
     )
@@ -131,12 +125,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
-
-    const textArea = wrapper.find('textarea[name="jobSpec"]')
-
-    textArea.simulate('change', {
-      target: { value: expectedJson, name: 'jobSpec' },
-    })
+    const textArea = fillTextarea(wrapper, expectedJson)
 
     switchTo(wrapper, JobSpecFormats.TOML)
     expect(textArea.text()).not.toContain(expectedJson)
@@ -216,5 +205,89 @@ describe('pages/Jobs/New', () => {
         }),
       ).toEqual(false)
     })
+  })
+
+  it('updates json preview task list', async () => {
+    const jobSpec1 = '{"tasks":[{ "type": "Httpget"}, { "type": "Jsonparse"}]}'
+    const jobSpec2 =
+      '{"tasks":[{ "type": "Multiply"}, { "type": "Jsonparse"}, { "type": "Httpget"}]}'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    fillTextarea(wrapper, jobSpec1)
+    const taskList = wrapper.find('[data-testid="task-list-item"]')
+    expect(taskList).toHaveLength(2)
+    expect(taskList.map((task: ReactWrapper) => task.text())).toEqual([
+      'Httpget',
+      'Jsonparse',
+    ])
+
+    fillTextarea(wrapper, jobSpec2)
+
+    const taskList2 = wrapper.find('[data-testid="task-list-item"]')
+    expect(taskList2).toHaveLength(3)
+    expect(taskList2.map((task: ReactWrapper) => task.text())).toEqual([
+      'Multiply',
+      'Jsonparse',
+      'Httpget',
+    ])
+  })
+
+  it('updates toml preview task list', async () => {
+    const jobSpec1 =
+      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
+    const jobSpec2 =
+      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+
+    fillTextarea(wrapper, jobSpec1)
+    const taskList = wrapper.find('[data-testid^="task-list-id-"]')
+    expect(taskList).toHaveLength(2)
+    expect(
+      taskList.map((task: ReactWrapper) => task.prop('data-testid')),
+    ).toEqual(['task-list-id-ds_parse', 'task-list-id-ds'])
+
+    fillTextarea(wrapper, jobSpec2)
+    const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
+    expect(taskList2).toHaveLength(3)
+    expect(
+      taskList2.map((task: ReactWrapper) => task.prop('data-testid')),
+    ).toEqual([
+      'task-list-id-ds_multiply',
+      'task-list-id-ds_parse',
+      'task-list-id-ds',
+    ])
+  })
+
+  it('shows "Tasks not found" on job spec errors', async () => {
+    const jsonSpec = '{"tasks":[{ "type": Httpget}, { "type": "Jsonparse"}]}'
+    const tomlSpec =
+      'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    fillTextarea(wrapper, jsonSpec)
+    const taskList = wrapper.find('[data-testid="task-list-item"]')
+    expect(taskList).toHaveLength(0)
+    expect(wrapper.text()).toContain('Tasks not found')
+
+    fillTextarea(wrapper, tomlSpec)
+    const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
+    expect(taskList2).toHaveLength(0)
+    expect(wrapper.text()).toContain('Tasks not found')
   })
 })
