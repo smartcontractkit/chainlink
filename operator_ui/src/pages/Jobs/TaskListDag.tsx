@@ -83,13 +83,7 @@ function createDag({
     .enter()
     .append('g')
     .attr('style', 'cursor: default')
-    .attr('id', (node) => {
-      setIcon((s: TaskNodes) => ({
-        ...s,
-        [node.id]: node,
-      }))
-      return node.id
-    })
+    .attr('id', (node) => node.id)
     .attr('transform', ({ x, y }: any) => `translate(${x}, ${y})`)
     .on('mouseover', (_, node) => {
       setTooltip(node)
@@ -105,6 +99,12 @@ function createDag({
         .attr('r', nodeRadius)
         .duration(50)
     })
+
+  setIcon(
+    nodes
+      .data()
+      .reduce((accumulator, node) => ({ ...accumulator, [node.id]: node }), {}),
+  )
 
   // Styling dots
   nodes
@@ -204,6 +204,7 @@ export const TaskList = ({ stratify }: Props) => {
       )}
       {Object.values(icons).map((icon) => (
         <span
+          data-testid={`task-list-id-${icon.data.id}`}
           key={JSON.stringify(icon.data)}
           style={{
             position: 'absolute',
