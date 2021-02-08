@@ -6,6 +6,7 @@ import {
   getJobSpecFormat,
   isJson,
   isToml,
+  getTaskList,
 } from './utils'
 import { ApiResponse } from 'utils/json-api-client'
 import Button from 'components/Button'
@@ -34,6 +35,7 @@ import {
   Divider,
   CardHeader,
   CircularProgress,
+  Typography,
 } from '@material-ui/core'
 import {
   createStyles,
@@ -42,6 +44,10 @@ import {
   Theme,
 } from '@material-ui/core/styles'
 import { useLocation, useHistory } from 'react-router-dom'
+import { TaskSpec } from 'core/store/models'
+import TaskListDag from './TaskListDag'
+import TaskList from 'components/Jobs/TaskList'
+import { Stratify } from './parseDot'
 
 const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
 
@@ -51,11 +57,13 @@ export const PERSIST_SPEC = 'persistSpec.'
 const styles = (theme: Theme) =>
   createStyles({
     card: {
-      padding: theme.spacing.unit,
       marginBottom: theme.spacing.unit * 3,
     },
     loader: {
       position: 'absolute',
+    },
+    emptyTasks: {
+      padding: theme.spacing.unit * 3,
     },
   })
 
@@ -146,7 +154,7 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const location = useLocation()
-  const [initialValues] = React.useState(
+  const [initialValues] = React.useState(() =>
     getInitialValues({
       query: location.search,
     }),
@@ -157,8 +165,16 @@ export const New = ({
   const [value, setValue] = React.useState<string>(initialValues.jobSpec)
   const [valid, setValid] = React.useState<boolean>(true)
   const [loading, setLoading] = React.useState<boolean>(false)
+  const [tasks, setTasks] = React.useState(() =>
+    getTaskList({ value: initialValues.jobSpec }),
+  )
   const dispatch = useDispatch()
   const history = useHistory()
+
+  React.useEffect(() => {
+    const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+    return () => clearTimeout(timeout)
+  }, [value, setTasks])
 
   function handleFormat(_event: React.ChangeEvent<{}>, format: string) {
     setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
@@ -204,7 +220,7 @@ export const New = ({
   return (
     <Content>
       <Grid container spacing={40}>
-        <Grid item xs={12} md={11} lg={9}>
+        <Grid item xs={12} lg={8}>
           <Card className={classes.card}>
             <CardHeader title="New Job" />
             <Divider />
@@ -272,6 +288,27 @@ export const New = ({
                 </Grid>
               </form>
             </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} lg={4}>
+          <Card style={{ overflow: 'visible' }} className={classes.card}>
+            <CardHeader title="Task list preview" />
+            <Divider />
+            {tasks.format === JobSpecFormats.JSON && tasks.list && (
+              <TaskList tasks={tasks.list as TaskSpec[]} />
+            )}
+            {tasks.format === JobSpecFormats.TOML && tasks.list && (
+              <TaskListDag stratify={tasks.list as Stratify[]} />
+            )}
+            {!tasks.list && (
+              <Typography
+                className={classes.emptyTasks}
+                variant="body1"
+                color="textSecondary"
+              >
+                Tasks not found
+              </Typography>
+            )}
           </Card>
         </Grid>
       </Grid>

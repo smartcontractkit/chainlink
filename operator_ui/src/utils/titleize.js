@@ -1,7 +1,10 @@
 // insight from - https://github.com/sindresorhus/titleize
 export default (input) => {
-  const normalized = input || ''
-  return normalized
+  if (typeof input !== 'string') {
+    return input
+  }
+
+  return input
     .toLowerCase()
     .replace(/_/g, ' ')
     .replace(/(?:^|\s|-)\S/g, (x) => x.toUpperCase())
