@@ -106,7 +106,9 @@ export function getTaskList({
         `digraph {${TOML.parse(value).observationSource as string}}`,
       )
       list =
-        observationSource && observationSource.length
+        observationSource &&
+        observationSource.length &&
+        observationSource.some((node) => !node.parentIds.length)
           ? observationSource
           : false
     } catch {

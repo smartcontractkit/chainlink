@@ -126,5 +126,16 @@ describe('pages/jobs/utils', () => {
         list: false,
       })
     })
+
+    it('return false on circular dependency', () => {
+      expect(
+        getTaskList({
+          value: 'observationSource = """ ds -> ds_parse -> ds  """',
+        }),
+      ).toEqual({
+        format: JobSpecFormats.TOML,
+        list: false,
+      })
+    })
   })
 })
