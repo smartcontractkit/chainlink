@@ -35,7 +35,6 @@ type (
 	}
 
 	AdvisoryLocker interface {
-		TryLock(ctx context.Context, classID int32, objectID int32) (err error)
 		Unlock(ctx context.Context, classID int32, objectID int32) error
 		WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error
 		Close() error
@@ -74,7 +73,7 @@ func (lock *postgresAdvisoryLock) Close() error {
 	return multierr.Combine(connErr, dbErr)
 }
 
-func (lock *postgresAdvisoryLock) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
+func (lock *postgresAdvisoryLock) tryLock(ctx context.Context, classID int32, objectID int32) (err error) {
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 	defer utils.WrapIfError(&err, "TryAdvisoryLock failed")
@@ -127,7 +126,7 @@ func (lock *postgresAdvisoryLock) Unlock(ctx context.Context, classID int32, obj
 }
 
 func (lock *postgresAdvisoryLock) WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error {
-	err := lock.TryLock(ctx, classID, objectID)
+	err := lock.tryLock(ctx, classID, objectID)
 	if err != nil {
 		return errors.Wrapf(err, "could not get advisory lock for classID, objectID %v, %v", classID, objectID)
 	}
@@ -149,10 +148,6 @@ func (n *NullAdvisoryLocker) Close() error {
 		panic("already closed")
 	}
 	n.closed = true
-	return nil
-}
-
-func (*NullAdvisoryLocker) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
 	return nil
 }
 

@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/coreos/go-semver/semver"
+	"github.com/smartcontractkit/chainlink/core/static"
+
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -212,10 +215,39 @@ func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
 	})
 }
 
+func CheckSquashUpgrade(db *gorm.DB) error {
+	// Ensure that we don't try to run a node version later than the
+	// squashed database versions without first migrating up to just before the squash.
+	// If we don't see the latest migration and node version >= S, error and recommend
+	// first running version S - 1 (S = version in which migrations are squashed).
+	if static.Version == "unset" {
+		return nil
+	}
+	squashVersionMinus1 := semver.New("0.9.10")
+	currentVersion := semver.New(static.Version)
+	lastV1Migration := "1612225637"
+	if squashVersionMinus1.LessThan(*currentVersion) {
+		// Running code later than S - 1. Ensure that we see
+		// the last v1 migration.
+		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
+		if q.Error != nil {
+			return q.Error
+		}
+		if q.RowsAffected == 0 {
+			// Do not have the S-1 migration.
+			return errors.Errorf("Need to upgrade to chainlink version %v first before upgrading to version %v in order to run migrations", squashVersionMinus1, currentVersion)
+		}
+	}
+	return nil
+}
+
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
+	}
+	if err = CheckSquashUpgrade(orm.DB); err != nil {
+		panic(err)
 	}
 	if config.MigrateDatabase() {
 		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
