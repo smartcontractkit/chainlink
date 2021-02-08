@@ -9,6 +9,7 @@ import { Route } from 'react-router-dom'
 import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
 import { ReactWrapper } from 'enzyme'
+import { act } from 'react-dom/test-utils'
 
 const switchTo = (component: ReactWrapper, format: JobSpecFormats) => {
   component.find(`input[value="${format}"]`).simulate('change', {
@@ -28,6 +29,7 @@ describe('pages/Jobs/New', () => {
     storage.remove(`${PERSIST_SPEC}${JobSpecFormats.TOML}`)
     storage.remove(SELECTED_FORMAT)
   })
+
   it('submits JSON job spec form', async () => {
     const expectedSubmit = '{"foo":"bar"}'
     const submit = global.fetch.postOnce(globPath(JSON_CREATE_ENDPOINT), {})
@@ -218,14 +220,24 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
+    jest.useFakeTimers()
     fillTextarea(wrapper, jobSpec1)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
     const taskList = wrapper.find('[data-testid="task-list-item"]')
     expect(taskList.map((task: ReactWrapper) => task.text())).toEqual([
       'Httpget',
       'Jsonparse',
     ])
 
+    jest.runAllTimers()
     fillTextarea(wrapper, jobSpec2)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
 
     const taskList2 = wrapper.find('[data-testid="task-list-item"]')
     expect(taskList2.map((task: ReactWrapper) => task.text())).toEqual([
@@ -247,14 +259,24 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
-
+    jest.useFakeTimers()
     fillTextarea(wrapper, jobSpec1)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+
     const taskList = wrapper.find('[data-testid^="task-list-id-"]')
     expect(
       taskList.map((task: ReactWrapper) => task.prop('data-testid')),
     ).toEqual(['task-list-id-ds_parse', 'task-list-id-ds'])
 
     fillTextarea(wrapper, jobSpec2)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+
     const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
     expect(
       taskList2.map((task: ReactWrapper) => task.prop('data-testid')),
@@ -276,10 +298,19 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
+    jest.useFakeTimers()
     fillTextarea(wrapper, jsonSpec)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
     expect(wrapper.text()).toContain('Tasks not found')
 
     fillTextarea(wrapper, tomlSpec)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
     expect(wrapper.text()).toContain('Tasks not found')
   })
 

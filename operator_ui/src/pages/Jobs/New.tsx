@@ -154,7 +154,7 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const location = useLocation()
-  const [initialValues] = React.useState(
+  const [initialValues] = React.useState(() =>
     getInitialValues({
       query: location.search,
     }),
@@ -165,15 +165,16 @@ export const New = ({
   const [value, setValue] = React.useState<string>(initialValues.jobSpec)
   const [valid, setValid] = React.useState<boolean>(true)
   const [loading, setLoading] = React.useState<boolean>(false)
-  const [tasks, setTasks] = React.useState(
+  const [tasks, setTasks] = React.useState(() =>
     getTaskList({ value: initialValues.jobSpec }),
   )
   const dispatch = useDispatch()
   const history = useHistory()
 
   React.useEffect(() => {
-    setTasks(getTaskList({ value }))
-  }, [value])
+    const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+    return () => clearTimeout(timeout)
+  }, [value, setTasks])
 
   function handleFormat(_event: React.ChangeEvent<{}>, format: string) {
     setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
