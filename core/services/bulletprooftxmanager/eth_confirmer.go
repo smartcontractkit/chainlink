@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -112,22 +114,37 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	).Error
 }
 
-// receiptFetcherWorkerCount is the max number of concurrently executing
-// workers that will fetch receipts for eth transactions
-const receiptFetcherWorkerCount = 10
-
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	etxs, err := ec.findEthTxsRequiringReceiptFetch()
+	batchSize := int(ec.config.EthReceiptFetchBatchSize())
+
+	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
 	if err != nil {
-		return errors.Wrap(err, "findEthTxsRequiringReceiptFetch failed")
+		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
 	}
-	if len(etxs) == 0 {
+	if len(attempts) == 0 {
 		return nil
 	}
 
-	logger.Debugf("EthConfirmer: fetching receipt for %v transactions", len(etxs))
+	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
-	ec.concurrentlyFetchReceipts(ctx, etxs)
+	for i := 0; i < len(attempts); i += batchSize {
+		j := i + batchSize
+		if j > len(attempts) {
+			j = len(attempts)
+		}
+
+		logger.Debugw(fmt.Sprintf("EthConfirmer: batch fetching receipts %v thru %v", i, j), "blockNum", blockNum)
+
+		batch := attempts[i:j]
+
+		receipts, err := ec.batchFetchReceipts(ctx, batch)
+		if err != nil {
+			return errors.Wrap(err, "batchFetchReceipts failed")
+		}
+		if err := ec.saveFetchedReceipts(ctx, receipts); err != nil {
+			return errors.Wrap(err, "saveFetchedReceipts failed")
+		}
+	}
 
 	if err := ec.markConfirmedMissingReceipt(ctx); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
@@ -140,126 +157,135 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	return nil
 }
 
-func (ec *ethConfirmer) findEthTxsRequiringReceiptFetch() (etxs []models.EthTx, err error) {
+func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []models.EthTxAttempt, err error) {
 	err = ec.store.DB.
-		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
-			return db.Order("eth_tx_attempts.gas_price DESC")
-		}).
-		Order("nonce ASC").
-		Find(&etxs, "state IN ('unconfirmed', 'confirmed_missing_receipt')").Error
+		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id").
+		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
+		Find(&attempts, "eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").Error
 
 	return
 }
 
-func (ec *ethConfirmer) concurrentlyFetchReceipts(ctx context.Context, etxs []models.EthTx) {
-	var wg sync.WaitGroup
-	wg.Add(receiptFetcherWorkerCount)
-	chEthTxes := make(chan models.EthTx)
-	for i := 0; i < receiptFetcherWorkerCount; i++ {
-		go ec.fetchReceipts(ctx, chEthTxes, &wg)
-	}
-	for _, etx := range etxs {
-		chEthTxes <- etx
-	}
-	close(chEthTxes)
-	wg.Wait()
-
-}
-
-func (ec *ethConfirmer) fetchReceipts(ctx context.Context, chEthTxes <-chan models.EthTx, wg *sync.WaitGroup) {
-	defer wg.Done()
-	for {
-		etx, ok := <-chEthTxes
-		if !ok {
-			return
+func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []gethTypes.Receipt, err error) {
+	var reqs []rpc.BatchElem
+	for _, attempt := range attempts {
+		req := rpc.BatchElem{
+			Method: "eth_getTransactionReceipt",
+			Args:   []interface{}{attempt.Hash},
+			Result: &gethTypes.Receipt{},
 		}
-		for _, attempt := range etx.EthTxAttempts {
-			// NOTE: Returning here on context error prevents a bunch of
-			// useless failed requests on context cancellation/timeout
-			if ctx.Err() != nil {
-				return
+		reqs = append(reqs, req)
+	}
+
+	err = ec.ethClient.BatchCallContext(ctx, reqs)
+	if err != nil {
+		return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext")
+	}
+
+	for i, req := range reqs {
+		attempt := attempts[i]
+		result, err := req.Result, req.Error
+
+		receipt, is := result.(*gethTypes.Receipt)
+		if !is {
+			return nil, errors.Errorf("expected result to be a *types.Receipt, got %T", receipt)
+		}
+
+		l := logger.Default.With(
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID,
+		)
+
+		if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
+			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
+			continue
+		} else if err != nil && err.Error() != "not found" {
+			l.Errorw("EthConfirmer#batchFetchReceipts: fetchReceipt failed", "err", err)
+			continue
+		}
+		if receipt != nil {
+			l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
+			if receipt.TxHash != attempt.Hash {
+				l.Errorf("EthConfirmer#batchFetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
+				continue
 			}
 
-			l := logger.Default.With(
-				"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", etx.ID, "nonce", etx.Nonce,
-			)
-			// NOTE: This could conceivably be optimised even further at the
-			// expense of slightly higher load for the remote eth node, by
-			// batch requesting all receipts at once
-			receipt, err := ec.fetchReceipt(ctx, attempt.Hash)
-			if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
-				l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
-				break
-			} else if err != nil {
-				l.Errorw("EthConfirmer#fetchReceipts: fetchReceipt failed", "err", err)
-				break
-			}
-			if receipt != nil {
-				l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
-				if receipt.TxHash != attempt.Hash {
-					l.Errorf("EthConfirmer#fetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
-					break
-				}
-				if err := ec.saveReceipt(*receipt, etx.ID); err != nil {
-					l.Errorw("EthConfirmer#fetchReceipts: saveReceipt failed", "err", err)
-					break
-				}
-				break
-			} else {
-				l.Debugw("EthConfirmer#fetchReceipts: still waiting for receipt")
-			}
+			receipts = append(receipts, *receipt)
+		} else {
+			l.Debugw("EthConfirmer#batchFetchReceipts: still waiting for receipt")
 		}
 	}
+
+	return
 }
 
-func (ec *ethConfirmer) fetchReceipt(ctx context.Context, hash gethCommon.Hash) (*gethTypes.Receipt, error) {
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
-	defer cancel()
-	receipt, err := ec.ethClient.TransactionReceipt(ctx, hash)
-	if err != nil && err.Error() == "not found" {
-		return nil, nil
+func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []gethTypes.Receipt) (err error) {
+	if len(receipts) == 0 {
+		return nil
 	}
-	return receipt, err
-}
-
-func (ec *ethConfirmer) saveReceipt(receipt gethTypes.Receipt, ethTxID int64) error {
-	if receipt.BlockNumber == nil {
-		return errors.Errorf("receipt was missing block number: %#v", receipt)
-	}
-
-	return ec.store.Transaction(func(tx *gorm.DB) error {
-		receiptJSON, err := json.Marshal(receipt)
+	// Notes on this query:
+	//
+	// # Receipts insert
+	// Conflict on (tx_hash, block_hash) shouldn't be possible because there
+	// should only ever be one receipt for an eth_tx, and if it exists then the
+	// transaction is marked confirmed which means we can never get here.
+	// However, even so, it still shouldn't be an error to upsert a receipt
+	// we already have.
+	//
+	// # EthTxAttempts update
+	// It should always be safe to mark the attempt as broadcast here because
+	// if it were not successfully broadcast how could it possibly have a
+	// receipt?
+	//
+	// This state is reachable for example if the eth node errors so the
+	// attempt was left in_progress but the transaction was actually accepted
+	// and mined.
+	//
+	// # EthTxes update
+	// Should be self-explanatory. If we got a receipt, the eth_tx is confirmed.
+	//
+	var valueStrs []string
+	var valueArgs []interface{}
+	i := 1
+	for _, r := range receipts {
+		var receiptJSON []byte
+		receiptJSON, err = json.Marshal(r)
 		if err != nil {
-			return errors.Wrap(err, "saveReceipt failed")
+			return errors.Wrap(err, "saveFetchedReceipts failed to marshal JSON")
 		}
-		// Conflict here shouldn't be possible because there should only ever
-		// be one receipt for an eth_tx, and if it exists then the transaction
-		// is marked confirmed which means we can never get here.
-		// However, even so, it still shouldn't be an error to re-insert a receipt we already have.
-		err = tx.Set("gorm:insert_option", "ON CONFLICT (tx_hash, block_hash) DO NOTHING").
-			Create(&models.EthReceipt{
-				Receipt:          receiptJSON,
-				TxHash:           receipt.TxHash,
-				BlockHash:        receipt.BlockHash,
-				BlockNumber:      receipt.BlockNumber.Int64(),
-				TransactionIndex: receipt.TransactionIndex,
-			}).Error
-		if err == nil || err.Error() == "sql: no rows in result set" {
-			err = multierr.Combine(
-				errors.Wrap(tx.Exec(`UPDATE eth_txes SET state = 'confirmed' WHERE id = ?`, ethTxID).Error, "saveReceipt failed to update eth_txes"),
-				// NOTE: It should always be safe to mark the attempt as
-				// broadcast here because if it were not successfully broadcast
-				// how could it possibly have a receipt?
-				//
-				// This state is reachable for example if the eth node errors
-				// so the attempt was left in_progress but the transaction was
-				// actually accepted.
-				errors.Wrap(tx.Exec(`UPDATE eth_tx_attempts SET state = 'broadcast', broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, ?) WHERE hash = ?`, receipt.BlockNumber.Int64(), receipt.TxHash).Error, "saveReceipt failed to update eth_tx_attempts"),
-			)
-		}
+		valueStrs = append(valueStrs, fmt.Sprintf("($%v,$%v,$%v,$%v,$%v,NOW())", i, i+1, i+2, i+3, i+4))
+		valueArgs = append(valueArgs, r.TxHash, r.BlockHash, r.BlockNumber.Int64(), r.TransactionIndex, receiptJSON)
+		i += 5
+	}
 
-		return errors.Wrap(err, "saveReceipt failed to save receipt")
-	})
+	/* #nosec G201 */
+	sql := `
+	WITH inserted_receipts AS (
+		INSERT INTO eth_receipts (tx_hash, block_hash, block_number, transaction_index, receipt, created_at)
+		VALUES %s
+		ON CONFLICT (tx_hash, block_hash) DO UPDATE SET
+			block_number = EXCLUDED.block_number,
+			transaction_index = EXCLUDED.transaction_index,
+			receipt = EXCLUDED.receipt
+		RETURNING eth_receipts.tx_hash, eth_receipts.block_number
+	),
+	updated_eth_tx_attempts AS (
+		UPDATE eth_tx_attempts
+		SET
+			state = 'broadcast',
+			broadcast_before_block_num = COALESCE(eth_tx_attempts.broadcast_before_block_num, inserted_receipts.block_number)
+		FROM inserted_receipts
+		WHERE inserted_receipts.tx_hash = eth_tx_attempts.hash
+		RETURNING eth_tx_attempts.eth_tx_id
+	)
+	UPDATE eth_txes
+	SET state = 'confirmed'
+	FROM updated_eth_tx_attempts
+	WHERE updated_eth_tx_attempts.eth_tx_id = eth_txes.id
+	`
+
+	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+	_, err = ec.store.DB.DB().ExecContext(ctx, stmt, valueArgs...)
+	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 
 // markConfirmedMissingReceipt

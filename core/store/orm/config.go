@@ -335,6 +335,10 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
+func (c Config) EthReceiptFetchBatchSize() uint32 {
+	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
+}
+
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
@@ -850,13 +854,6 @@ func (c Config) TLSKeyPath() string {
 // TLSPort represents the port Chainlink should listen on for encrypted client requests.
 func (c Config) TLSPort() uint16 {
 	return c.getWithFallback("TLSPort", parseUint16).(uint16)
-}
-
-// TxAttemptLimit is the maximum number of transaction attempts (gas bumps)
-// that will occur before giving a transaction up as errored
-// NOTE: That initial transactions are retried forever until they succeed
-func (c Config) TxAttemptLimit() uint16 {
-	return c.getWithFallback("TxAttemptLimit", parseUint16).(uint16)
 }
 
 // TLSRedirect forces TLS redirect for unencrypted connections
