@@ -316,6 +316,7 @@ func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 	if _, err := writer.Write(message); err != nil {
 		return err
 	}
+	logger.Debugf("websocketStatsPusher successfully wrote message type %v", messageType)
 
 	return writer.Close()
 }
