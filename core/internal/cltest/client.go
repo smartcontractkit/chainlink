@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -345,4 +346,20 @@ func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.
 
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	for i, elem := range b {
+		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
+			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
+		}
+		hash, is := elem.Args[0].(common.Hash)
+		if !is {
+			return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
+		}
+		receipt, err := c.b.TransactionReceipt(ctx, hash)
+		b[i].Result = receipt
+		b[i].Error = err
+	}
+	return nil
 }
