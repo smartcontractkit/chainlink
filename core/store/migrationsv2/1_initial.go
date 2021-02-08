@@ -3054,7 +3054,7 @@ DROP TYPE eth_tx_attempts_state, eth_txes_state, run_status CASCADE;
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "1_initial",
+		ID: "1612225637",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up1).Error
 		},

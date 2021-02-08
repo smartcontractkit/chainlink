@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix a case where archiving jobs could try to delete it from the external initiator even if the job was not an EI job.
+
 ## [0.9.10] - 2021-01-30
 
 ### Fixed
