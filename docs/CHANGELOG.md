@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - A new env var `JOB_PIPELINE_MAX_RUN_DURATION` has been added which controls maximum duration of the total run.
+- A new Operator UI feature that visualize JSON and TOML job spec tasks on a 'New Job' page.
 
 ## [0.9.9] - 2021-01-18
 

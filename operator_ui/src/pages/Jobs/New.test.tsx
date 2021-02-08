@@ -9,10 +9,17 @@ import { Route } from 'react-router-dom'
 import * as storage from 'utils/local-storage'
 import New, { validate, SELECTED_FORMAT, PERSIST_SPEC } from './New'
 import { ReactWrapper } from 'enzyme'
+import { act } from 'react-dom/test-utils'
 
 const switchTo = (component: ReactWrapper, format: JobSpecFormats) => {
   component.find(`input[value="${format}"]`).simulate('change', {
     target: { value: format },
+  })
+}
+
+const fillTextarea = (component: ReactWrapper, jobSpec: string) => {
+  return component.find(`textarea[name="jobSpec"]`).simulate('change', {
+    target: { value: jobSpec, name: 'jobSpec' },
   })
 }
 
@@ -22,6 +29,7 @@ describe('pages/Jobs/New', () => {
     storage.remove(`${PERSIST_SPEC}${JobSpecFormats.TOML}`)
     storage.remove(SELECTED_FORMAT)
   })
+
   it('submits JSON job spec form', async () => {
     const expectedSubmit = '{"foo":"bar"}'
     const submit = global.fetch.postOnce(globPath(JSON_CREATE_ENDPOINT), {})
@@ -32,11 +40,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expectedSubmit, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expectedSubmit)
     wrapper
       .find('[data-testid="new-job-spec-submit"]')
       .first()
@@ -57,11 +61,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new?format=${JobSpecFormats.TOML}`],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expectedSubmit, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expectedSubmit)
     wrapper
       .find('[data-testid="new-job-spec-submit"]')
       .first()
@@ -74,7 +74,7 @@ describe('pages/Jobs/New', () => {
     )
   })
 
-  it('loads and indents JSON spec definition from search param', async () => {
+  it('loads and indents JSON spec definition from search param', () => {
     const expected = { foo: 'bar' }
 
     const wrapper = mountWithProviders(
@@ -89,7 +89,7 @@ describe('pages/Jobs/New', () => {
     expect(wrapper.text()).toContain(JSON.stringify(expected))
   })
 
-  it('loads TOML spec definition from search param', async () => {
+  it('loads TOML spec definition from search param', () => {
     const expected = '"foo"="bar"'
 
     const wrapper = mountWithProviders(
@@ -103,7 +103,7 @@ describe('pages/Jobs/New', () => {
     expect(wrapper.text()).toContain(`${JobSpecFormats.TOML} blob`)
   })
 
-  it('saves spec definition in storage', async () => {
+  it('saves spec definition in storage', () => {
     const expected = '"foo"="bar"'
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
@@ -111,17 +111,13 @@ describe('pages/Jobs/New', () => {
         initialEntries: ['/jobs/new'],
       },
     )
-
-    wrapper.find('textarea[name="jobSpec"]').simulate('change', {
-      target: { value: expected, name: 'jobSpec' },
-    })
-
+    fillTextarea(wrapper, expected)
     expect(storage.get(`${PERSIST_SPEC}${JobSpecFormats.JSON}`)).toContain(
       expected,
     )
   })
 
-  it('persists spec definitions when switch the format', async () => {
+  it('persists spec definitions when switch the format', () => {
     const expectedJson = '{"foo":"bar"}'
     const expectedToml = '"foo":"bar"'
 
@@ -131,12 +127,7 @@ describe('pages/Jobs/New', () => {
         initialEntries: [`/jobs/new`],
       },
     )
-
-    const textArea = wrapper.find('textarea[name="jobSpec"]')
-
-    textArea.simulate('change', {
-      target: { value: expectedJson, name: 'jobSpec' },
-    })
+    const textArea = fillTextarea(wrapper, expectedJson)
 
     switchTo(wrapper, JobSpecFormats.TOML)
     expect(textArea.text()).not.toContain(expectedJson)
@@ -150,7 +141,7 @@ describe('pages/Jobs/New', () => {
     expect(textArea.text()).toContain(expectedJson)
   })
 
-  it('saves last selected spec format in a storage', async () => {
+  it('saves last selected spec format in a storage', () => {
     const wrapper = mountWithProviders(
       <Route path="/jobs/new" component={New} />,
       {
@@ -216,5 +207,127 @@ describe('pages/Jobs/New', () => {
         }),
       ).toEqual(false)
     })
+  })
+
+  it('updates json preview task list', () => {
+    const jobSpec1 = '{"tasks":[{ "type": "Httpget"}, { "type": "Jsonparse"}]}'
+    const jobSpec2 =
+      '{"tasks":[{ "type": "Multiply"}, { "type": "Jsonparse"}, { "type": "Httpget"}]}'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    jest.useFakeTimers()
+    fillTextarea(wrapper, jobSpec1)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+    const taskList = wrapper.find('[data-testid="task-list-item"]')
+    expect(taskList.map((task: ReactWrapper) => task.text())).toEqual([
+      'Httpget',
+      'Jsonparse',
+    ])
+
+    jest.runAllTimers()
+    fillTextarea(wrapper, jobSpec2)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+
+    const taskList2 = wrapper.find('[data-testid="task-list-item"]')
+    expect(taskList2.map((task: ReactWrapper) => task.text())).toEqual([
+      'Multiply',
+      'Jsonparse',
+      'Httpget',
+    ])
+  })
+
+  it('updates toml preview task list', () => {
+    const jobSpec1 =
+      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """'
+    const jobSpec2 =
+      'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse]; ds_multiply [type=ds_multiply]; """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    jest.useFakeTimers()
+    fillTextarea(wrapper, jobSpec1)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+
+    const taskList = wrapper.find('[data-testid^="task-list-id-"]')
+    expect(
+      taskList.map((task: ReactWrapper) => task.prop('data-testid')),
+    ).toEqual(['task-list-id-ds_parse', 'task-list-id-ds'])
+
+    fillTextarea(wrapper, jobSpec2)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+
+    const taskList2 = wrapper.find('[data-testid^="task-list-id-"]')
+    expect(
+      taskList2.map((task: ReactWrapper) => task.prop('data-testid')),
+    ).toEqual([
+      'task-list-id-ds_multiply',
+      'task-list-id-ds_parse',
+      'task-list-id-ds',
+    ])
+  })
+
+  it('shows "Tasks not found" on job spec errors', () => {
+    const jsonSpec = '{"tasks":[{ "type": Httpget}, { "type": "Jsonparse"}]}'
+    const tomlSpec =
+      'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    jest.useFakeTimers()
+    fillTextarea(wrapper, jsonSpec)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+    expect(wrapper.text()).toContain('Tasks not found')
+
+    fillTextarea(wrapper, tomlSpec)
+    act(() => {
+      jest.runAllTimers()
+    })
+    wrapper.update()
+    expect(wrapper.text()).toContain('Tasks not found')
+  })
+
+  it('shows "Tasks not found" on empty job spec', () => {
+    const jsonSpec = '{"tasks":[]}'
+    const tomlSpec = 'observationSource = ""  """'
+
+    const wrapper = mountWithProviders(
+      <Route path="/jobs/new" component={New} />,
+      {
+        initialEntries: [`/jobs/new`],
+      },
+    )
+    fillTextarea(wrapper, jsonSpec)
+    expect(wrapper.text()).toContain('Tasks not found')
+
+    fillTextarea(wrapper, tomlSpec)
+    expect(wrapper.text()).toContain('Tasks not found')
   })
 })
