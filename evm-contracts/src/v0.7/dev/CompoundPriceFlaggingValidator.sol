@@ -14,7 +14,15 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   struct CompoundAssetDetails {
     string symbol;
     uint8 decimals;
-    uint256 deviationPercentageThreshold;
+    // 1        = 100%
+    // 10       = 10%
+    // 20       = 5%
+    // 50       = 2%
+    // 100      = 1%
+    // 200      = 0.5%
+    // 500      = 0.2%
+    // 1000     = 0.1%
+    uint256 deviationThresholdDenominator;
   }
 
   FlagsInterface private s_flags;
@@ -29,11 +37,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address indexed from,
     address indexed to
   );
-  event FlaggingComparisonUpdated(
+  event ComparisonUpdated(
     address indexed aggregator,
-    address indexed compoundOracle,
+    string indexed symbol,
     uint8 decimals,
-    uint256 deviationPercentageThreshold
+    uint256 deviationThresholdDenominator
   );
   
   constructor(address flagsAddress, address compoundOracleAddress)
@@ -73,7 +81,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address aggregator,
     string calldata compoundSymbol,
     uint8 compoundDecimals,
-    uint256 compoundPercentageDeviationThreshold
+    uint256 compoundDeviationThresholdDenominator
   ) 
     public 
     onlyOwner() 
@@ -81,8 +89,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     CompoundAssetDetails memory compDetails = s_comparisons[aggregator];
     compDetails.symbol = compoundSymbol;
     compDetails.decimals = compoundDecimals;
-    compDetails.deviationPercentageThreshold = compoundPercentageDeviationThreshold;
+    compDetails.deviationThresholdDenominator = compoundDeviationThresholdDenominator;
     s_comparisons[aggregator] = compDetails;
+    emit ComparisonUpdated(
+      aggregator,
+      compoundSymbol,
+      compoundDecimals,
+      compoundDeviationThresholdDenominator
+    );
   }
 
   function check(address[] memory aggregators) public view returns (address[] memory) {
@@ -90,7 +104,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     uint256 invalidCount = 0;
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
-      if (!isValid(aggregator)) {
+      if (isInvalid(aggregator)) {
         invalidAggregators[invalidCount] = aggregator;
         invalidCount++;
       }
@@ -120,11 +134,40 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     update(abi.decode(data, (address[])));
   }
 
-  function isValid(address aggregator) private view returns (bool valid) {
-    // get aggregator price
-    // get the open oracle price
-    // convert the open oracle decimals to aggregator decimals
-    // check if the difference if within the threshold
-      // return true if is / false if not
+
+  function isInvalid(address aggregator) private view returns (bool invalid) {
+    CompoundAssetDetails memory compDetails = s_comparisons[aggregator];
+    // Get aggregator price & decimals
+    AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
+    (,int256 unsignedPrice,,,) = priceFeed.latestRoundData();
+    uint256 aggregatorPrice = uint256(unsignedPrice);
+    uint8 decimals = priceFeed.decimals();
+    // Get compound price
+    uint256 compPrice = s_openOracle.price(compDetails.symbol);
+
+    // Convert prices so they match decimals
+    if (decimals > compDetails.decimals) {
+      uint8 diff = decimals - compDetails.decimals;
+      uint256 multiplier = 10**uint256(diff);
+      compPrice = compPrice * multiplier;
+    }
+    else if (decimals < compDetails.decimals) {
+      uint8 diff = compDetails.decimals - decimals;
+      uint256 multiplier = 10**uint256(diff);
+      aggregatorPrice = aggregatorPrice * multiplier;
+    }
+
+    // Deviation amount threshold from the aggregator price
+    uint256 deviationAmountThreshold = aggregatorPrice.div(compDetails.deviationThresholdDenominator);
+
+    // Calculate deviation
+    uint256 deviation;
+    if (aggregatorPrice > compPrice) {
+      deviation = aggregatorPrice.sub(compPrice);
+    }
+    else if (aggregatorPrice < compPrice) {
+      deviation = compPrice.sub(aggregatorPrice);
+    }
+    invalid = (deviation >= deviationAmountThreshold);
   }
 }
