@@ -37,10 +37,12 @@ describe('CompoundPriceFlaggingVlidator', () => {
 
   const compoundSymbol = "ETH"
   const compoundDecimals = 6
-  // 1200 (20% deviation from aggregator price)
-  const initialCompoundPrice = ethers.utils.bigNumberify("1200000000")
+  // 1100 (10% deviation from aggregator price)
+  const initialCompoundPrice = ethers.utils.bigNumberify("1100000000")
 
-  const initialDeviationDenominator = 10
+  // (1 / initialDeviationDenominator)
+  // (1 / 20) = 0.05 = 5% deviation threshold
+  const initialDeviationDenominator = 20
 
   const deployment = setup.snapshot(provider, async () => {
     ac = await acFactory.connect(personas.Carol).deploy()
@@ -71,12 +73,38 @@ describe('CompoundPriceFlaggingVlidator', () => {
   })
 
   describe('#check', () => {
-    it('returns deviated aggregator', async () => {
-      const aggregators = [aggregator.address]
-      const response = await validator.check(aggregators)
-      assert.equal(response.length, 1)
-      assert.equal(response[0], aggregator.address)
-    })
+    describe('when called by the owner', () => {
+      describe('with a single aggregator', () => {
+        describe('with a deviated price exceding threshold', () => {
+          it('returns the deviated aggregator', async () => {
+            const aggregators = [aggregator.address]
+            const response = await validator.check(aggregators)
+            assert.equal(response.length, 1)
+            assert.equal(response[0], aggregator.address)
+          })
+        })
+  
+        describe('with a price within the threshold', () => {
+          const newCompoundPrice = ethers.utils.bigNumberify("1000000000")
+          beforeEach(async () => {
+            await compoundOracle.setPrice(
+              'ETH',
+              newCompoundPrice,
+              compoundDecimals
+            )
+          })
+  
+          it('returns an empty array', async () => {
+            const aggregators = [aggregator.address]
+            const response = await validator.check(aggregators)
+            assert.equal(response.length, 0)
+          })
+        })
+      })
 
+      describe('with multiple aggregators, some within and some exceeding threshold', () => {
+        // TODO
+      })
+    })
   })
 })
