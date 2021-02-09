@@ -158,6 +158,9 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(ctx, keys, head), "EnsureConfirmedTransactionsInLongestChain failed")
 }
 
+// SetBroadcastBeforeBlockNum updates already broadcast attempts with the
+// current block number. This is safe no matter how old the head is because if
+// the attempt is already broadcast it _must_ have been before this head.
 func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	return ec.store.DB.Exec(
 		`UPDATE eth_tx_attempts SET broadcast_before_block_num = ? WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
