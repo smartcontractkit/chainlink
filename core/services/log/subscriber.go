@@ -16,11 +16,11 @@ import (
 )
 
 type subscriber struct {
-	orm           ORM
-	ethClient     eth.Client
-	relayer       *relayer
-	backfillDepth uint64
-	connected     *abool.AtomicBool
+	orm       ORM
+	ethClient eth.Client
+	config    Config
+	relayer   *relayer
+	connected *abool.AtomicBool
 
 	contracts   map[common.Address]uint64
 	addContract *utils.Mailbox
@@ -35,15 +35,15 @@ type subscriber struct {
 func newSubscriber(
 	orm ORM,
 	ethClient eth.Client,
+	config Config,
 	relayer *relayer,
-	backfillDepth uint64,
 	dependentAwaiter utils.DependentAwaiter,
 ) *subscriber {
 	return &subscriber{
 		orm:              orm,
 		ethClient:        ethClient,
+		config:           config,
 		relayer:          relayer,
-		backfillDepth:    backfillDepth,
 		connected:        abool.New(),
 		contracts:        make(map[common.Address]uint64),
 		addContract:      utils.NewMailbox(0),
@@ -178,7 +178,7 @@ func (s *subscriber) backfillLogs() (chBackfilledLogs chan types.Log, abort bool
 
 		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
 		// filter out logs they've already dealt with.
-		fromBlock := currentHeight - s.backfillDepth
+		fromBlock := currentHeight - s.config.BlockBackfillDepth()
 		if fromBlock > currentHeight {
 			fromBlock = 0 // Overflow protection
 		}
@@ -231,7 +231,6 @@ func (s *subscriber) upsertOrDeleteLogs(logs ...types.Log) {
 		}
 
 		if _, exists := s.contracts[log.Address]; !exists {
-			// logger.Warnw("Log subscriber got log from unknown contract", loggerFields...)
 			continue
 		}
 

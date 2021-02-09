@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -43,16 +44,21 @@ type (
 		JobIDV2() int32
 		IsV2Job() bool
 	}
+
+	Config interface {
+		BlockBackfillDepth() uint64
+		TriggerFallbackDBPollInterval() time.Duration
+	}
 )
 
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, backfillDepth uint64) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 	var (
 		dependentAwaiter = utils.NewDependentAwaiter()
-		relayer          = newRelayer(orm, dependentAwaiter)
-		subscriber       = newSubscriber(orm, ethClient, relayer, backfillDepth, dependentAwaiter)
+		relayer          = newRelayer(orm, config, dependentAwaiter)
+		subscriber       = newSubscriber(orm, ethClient, config, relayer, dependentAwaiter)
 	)
 	return &broadcaster{
 		subscriber:       subscriber,

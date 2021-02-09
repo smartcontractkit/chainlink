@@ -12,12 +12,12 @@ func (lb *broadcaster) ExportedAppendLogChannel(ch1, ch2 <-chan types.Log) chan 
 	return lb.subscriber.appendLogChannel(ch1, ch2)
 }
 
-func ExportedNewSubscriber(orm ORM, ethClient eth.Client, relayer *relayer, backfillDepth uint64, dependentAwaiter utils.DependentAwaiter) *subscriber {
-	return newSubscriber(orm, ethClient, relayer, backfillDepth, dependentAwaiter)
+func ExportedNewSubscriber(orm ORM, ethClient eth.Client, config Config, relayer *relayer, dependentAwaiter utils.DependentAwaiter) *subscriber {
+	return newSubscriber(orm, ethClient, config, relayer, dependentAwaiter)
 }
 
-func ExportedNewRelayer(orm ORM, dependentAwaiter utils.DependentAwaiter) *relayer {
-	return newRelayer(orm, dependentAwaiter)
+func ExportedNewRelayer(orm ORM, config Config, dependentAwaiter utils.DependentAwaiter) *relayer {
+	return newRelayer(orm, config, dependentAwaiter)
 }
 
 func (s *subscriber) ExportedContracts() map[common.Address]uint64 {
