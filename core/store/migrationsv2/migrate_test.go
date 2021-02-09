@@ -42,7 +42,7 @@ func TestMigrate_Migrations(t *testing.T) {
 		"job_specs",
 		"jobs",
 		"keys",
-		"log_consumptions",
+		"log_broadcasts",
 		"offchainreporting_contract_configs",
 		"offchainreporting_oracle_specs",
 		"offchainreporting_pending_transmissions",
