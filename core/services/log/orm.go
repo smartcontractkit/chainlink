@@ -45,7 +45,7 @@ func (o *orm) UpsertLog(log types.Log) error {
 		topics[i] = x
 	}
 	err := o.db.Exec(`
-        INSERT INTO logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
         ON CONFLICT (block_hash, index) DO UPDATE SET (
             block_hash,
             block_number,
@@ -72,7 +72,7 @@ func (o *orm) UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV
 func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error {
 	ctx := context.TODO() // TODO: change this once our gormv2 migration lands
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		logs, err := FetchLogs(tx, `SELECT * FROM logs WHERE logs.block_number >= ? AND address = ?`, blockNumber, address)
+		logs, err := FetchLogs(tx, `SELECT * FROM eth_logs WHERE eth_logs.block_number >= ? AND address = ?`, blockNumber, address)
 		if err != nil {
 			return err
 		}
@@ -176,12 +176,12 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID 
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
-        SELECT logs.*, bool_and(log_broadcasts.consumed) as consumed FROM logs
-        LEFT JOIN log_broadcasts ON logs.block_hash = log_broadcasts.block_hash AND logs.index = log_broadcasts.log_index
-        WHERE logs.block_number < ?
-        GROUP BY logs.block_hash, logs.index, log_broadcasts.consumed
+        SELECT eth_logs.*, bool_and(log_broadcasts.consumed) as consumed FROM eth_logs
+        LEFT JOIN log_broadcasts ON eth_logs.block_hash = log_broadcasts.block_hash AND eth_logs.index = log_broadcasts.log_index
+        WHERE eth_logs.block_number < ?
+        GROUP BY eth_logs.block_hash, eth_logs.index, log_broadcasts.consumed
         HAVING consumed = false
-        ORDER BY logs.order_received, logs.block_number, logs.index ASC
+        ORDER BY eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC
     `, blockNumber)
 	if err != nil {
 		logger.Errorw("could not fetch logs to broadcast", "error", err)
@@ -191,7 +191,7 @@ func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error
 }
 
 func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error {
-	return o.db.Exec(`DELETE FROM logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
+	return o.db.Exec(`DELETE FROM eth_logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
 }
 
 func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {

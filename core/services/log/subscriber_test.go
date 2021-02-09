@@ -126,7 +126,7 @@ func TestSubscriber(t *testing.T) {
 	})
 
 	t.Run("does not save logs to the DB for which there are no subscribers", func(t *testing.T) {
-		defer store.DB.Exec(`DELETE FROM logs`)
+		defer store.DB.Exec(`DELETE FROM eth_logs`)
 
 		require.NotNil(t, chRawLogs, "failed to subscribe in previous test")
 
@@ -134,7 +134,7 @@ func TestSubscriber(t *testing.T) {
 		time.Sleep(5 * time.Second)
 
 		var dbLogs []types.Log
-		err := store.DB.Raw(`SELECT * FROM logs`).Scan(&dbLogs).Error
+		err := store.DB.Raw(`SELECT * FROM eth_logs`).Scan(&dbLogs).Error
 		require.NoError(t, err)
 		require.Len(t, dbLogs, 0)
 	})
@@ -174,7 +174,7 @@ func TestSubscriber(t *testing.T) {
 			var dbLogs []types.Log
 			var err error
 			g.Eventually(func() []types.Log {
-				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM logs ORDER BY block_number, address ASC`)
+				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_number, address ASC`)
 				require.NoError(t, err)
 				return dbLogs
 			}).Should(HaveLen(len(expected)))
@@ -229,7 +229,7 @@ func TestSubscriber(t *testing.T) {
 			var dbLogs []types.Log
 			var err error
 			g.Eventually(func() []types.Log {
-				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM logs ORDER BY block_number, address ASC`)
+				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_number, address ASC`)
 				require.NoError(t, err)
 				return dbLogs
 			}).Should(HaveLen(len(expected)))

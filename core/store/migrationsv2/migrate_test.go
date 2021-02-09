@@ -26,6 +26,7 @@ func TestMigrate_Migrations(t *testing.T) {
 		"encrypted_p2p_keys",
 		"encrypted_vrf_keys",
 		"encumbrances",
+		"eth_logs",
 		"eth_receipts",
 		"eth_task_run_txes",
 		"eth_tx_attempts",
