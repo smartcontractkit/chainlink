@@ -1030,14 +1030,20 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil)
 
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(int64(11)),
+	}), nil)
+
 	logs <- log
+
+	newHeads := <-newHeadsCh
+	newHeads <- cltest.Head(log.BlockNumber)
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	newHeads := <-newHeadsCh
 	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, gethClient)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
@@ -1414,7 +1420,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `, ocrContractAddress))
 	require.NoError(t, err)
 	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
@@ -1440,7 +1446,7 @@ p2pBootstrapPeers  = [
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "20s"
-contractConfigConfirmations = 1 
+contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1
