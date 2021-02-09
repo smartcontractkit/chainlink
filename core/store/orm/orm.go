@@ -855,6 +855,10 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 			return err
 		}
 
+		if err := dbtx.Delete(models.Session{}, "true").Error; err != nil {
+			return err
+		}
+
 		return nil
 	})
 }
@@ -913,7 +917,8 @@ func (orm *ORM) ClearSessions() error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Exec(`truncate sessions`).Error
+	// Where conditions required.
+	return orm.DB.Delete(models.Session{}, "true").Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.

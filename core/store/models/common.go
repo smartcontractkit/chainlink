@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
 	"github.com/pelletier/go-toml"
+	"gorm.io/gorm"
 
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
