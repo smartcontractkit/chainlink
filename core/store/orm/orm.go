@@ -8,7 +8,6 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -113,19 +112,7 @@ func displayTimeout(timeout models.Duration) string {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
-	var lvl gormlogger.LogLevel
-	if enabled {
-		lvl = gormlogger.Info
-	} else {
-		lvl = gormlogger.Silent
-	}
-	orm.DB.Logger = gormlogger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags),
-		gormlogger.Config{
-			LogLevel:      lvl,
-			Colorful:      true,
-		},
-	)
+	orm.DB.Logger = newOrmLogWrapper(logger.Default, enabled, time.Second)
 }
 
 // Close closes the underlying database connection.
@@ -1589,13 +1576,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = models.NewID().String()
 	}
 
-	newLogger := gormlogger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags),
-		gormlogger.Config{
-			LogLevel:      gormlogger.Silent,
-			Colorful:      true,
-		},
-	)
+	newLogger := newOrmLogWrapper(logger.Default, gormlogger.Silent, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)
