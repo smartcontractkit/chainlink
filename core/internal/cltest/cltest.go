@@ -1775,9 +1775,9 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 
 	chTimeout := time.After(timeout)
 	for {
-		var fakeT fakeT
-		mock.AssertExpectations(fakeT)
-		if !fakeT.didFail {
+		var ft fakeT
+		mock.AssertExpectations(ft)
+		if !ft.didFail {
 			return
 		}
 		select {

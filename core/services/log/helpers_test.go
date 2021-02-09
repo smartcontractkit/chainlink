@@ -2,7 +2,6 @@ package log_test
 
 import (
 	"math/big"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -25,31 +24,9 @@ type LogNewRound struct {
 type simpleLogListener struct {
 	handler    func(lb log.Broadcast, err error)
 	consumerID *models.ID
-	recvd      []log.Broadcast
-	recvdMu    sync.Mutex
-}
-
-func (listener simpleLogListener) receivedBroadcasts() []log.Broadcast {
-	listener.recvdMu.Lock()
-	defer listener.recvdMu.Unlock()
-	cp := make([]log.Broadcast, len(listener.recvd))
-	copy(cp, listener.recvd)
-	return cp
-}
-
-func (listener simpleLogListener) receivedLogs() []types.Log {
-	broadcasts := listener.receivedBroadcasts()
-	var logs []types.Log
-	for _, b := range broadcasts {
-		logs = append(logs, b.RawLog())
-	}
-	return logs
 }
 
 func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
-	listener.recvdMu.Lock()
-	defer listener.recvdMu.Unlock()
-	listener.recvd = append(listener.recvd, lb)
 	listener.handler(lb, err)
 }
 func (listener simpleLogListener) OnConnect()    {}

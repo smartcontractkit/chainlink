@@ -161,7 +161,11 @@ func (r *relayer) onAddListeners() {
 		if x == nil {
 			break
 		}
-		reg := x.(registration)
+		reg, ok := x.(registration)
+		if !ok {
+			logger.Errorf("expected `registration`, got %T", x)
+			continue
+		}
 		_, knownAddress := r.listeners[reg.address]
 		if !knownAddress {
 			r.listeners[reg.address] = make(map[Listener]struct{})
@@ -190,7 +194,11 @@ func (r *relayer) onRmListeners() {
 		if x == nil {
 			break
 		}
-		reg := x.(registration)
+		reg, ok := x.(registration)
+		if !ok {
+			logger.Errorf("expected `registration`, got %T", x)
+			continue
+		}
 		reg.listener.OnDisconnect()
 		delete(r.listeners[reg.address], reg.listener)
 		if len(r.listeners[reg.address]) == 0 {
@@ -210,7 +218,11 @@ func (r *relayer) onNewLogs() {
 		if x == nil {
 			break
 		}
-		log := x.(types.Log)
+		log, ok := x.(types.Log)
+		if !ok {
+			logger.Errorf("expected `types.Log`, got %T", x)
+			continue
+		}
 		for listener := range r.listeners[log.Address] {
 			err := r.orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
 			if err != nil {
@@ -237,7 +249,11 @@ func (r *relayer) onNewHeads() {
 		if x == nil {
 			break
 		}
-		head := x.(models.Head)
+		head, ok := x.(models.Head)
+		if !ok {
+			logger.Errorf("expected `models.Head`, got %T", x)
+			continue
+		}
 		r.latestBlock = uint64(head.Number)
 	}
 	r.broadcastAllUnconsumed()
@@ -308,7 +324,11 @@ func (r *relayer) onConnectionEvents() {
 		if x == nil {
 			break
 		}
-		evt := x.(connectionEvent)
+		evt, ok := x.(connectionEvent)
+		if !ok {
+			logger.Errorf("expected `connectedEvent`, got %T", x)
+			continue
+		}
 		if evt == connected {
 			for _, listeners := range r.listeners {
 				for listener := range listeners {

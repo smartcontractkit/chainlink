@@ -293,7 +293,11 @@ func (s *subscriber) onAddContracts() (needsResubscribe bool) {
 		if x == nil {
 			break
 		}
-		addr := x.(common.Address)
+		addr, ok := x.(common.Address)
+		if !ok {
+			logger.Errorf("expected `common.Address`, got %T", x)
+			continue
+		}
 		needsResubscribe = s.contracts[addr] == 0 || needsResubscribe
 		s.contracts[addr]++
 	}
@@ -306,7 +310,11 @@ func (s *subscriber) onRmContracts() (needsResubscribe bool) {
 		if x == nil {
 			break
 		}
-		addr := x.(common.Address)
+		addr, ok := x.(common.Address)
+		if !ok {
+			logger.Errorf("expected `common.Address`, got %T", x)
+			continue
+		}
 		if s.contracts[addr] == 0 {
 			panic("cannot unsubscribe")
 		}

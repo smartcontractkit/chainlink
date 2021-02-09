@@ -337,12 +337,10 @@ func TestORM_UnconsumedLogsPriorToBlock(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		var js []int
 		for j := 0; j < len(listeners); j++ {
 			if j < i%(len(listeners)+1) {
 				err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, listeners[j].JobID(), listeners[j].JobIDV2())
 				require.NoError(t, err)
-				js = append(js, j)
 			}
 		}
 	}
