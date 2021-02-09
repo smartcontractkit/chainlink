@@ -19,10 +19,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/ethereum/go-ethereum/common"
-	gormpostgres "gorm.io/driver/postgres"
-	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
-
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -35,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/multierr"
+	gormpostgres "gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 var (
@@ -1576,7 +1574,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = models.NewID().String()
 	}
 
-	newLogger := newOrmLogWrapper(logger.Default, gormlogger.Silent, time.Second)
+	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
 	d, err := sql.Open(string(ct.dialect), ct.uri)
