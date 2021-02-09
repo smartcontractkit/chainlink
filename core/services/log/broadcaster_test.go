@@ -57,7 +57,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 	lb.AddDependents(2)
 	lb.Start()
 	defer lb.Stop()
@@ -107,7 +107,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 	lb.Start()
 	defer lb.Stop()
 
@@ -182,7 +182,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	sub.On("Unsubscribe").Return()
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 	lb.Start()
 	defer lb.Stop()
 
@@ -351,7 +351,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	listener2.On("OnDisconnect").Return().Maybe()
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, ethClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, ethClient, store.Config)
 	lb.AddDependents(1)
 	lb.Start() // Subscribe #0
 	defer lb.Stop()
@@ -505,7 +505,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			sub.On("Unsubscribe").Return()
 
 			orm := log.NewORM(store.DB)
-			lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+			lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 			lb.Start()
 			defer lb.Stop()
 
@@ -651,7 +651,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 	ch2 := make(chan types.Log)
 	ch3 := make(chan types.Log)
 
-	lb := log.NewBroadcaster(nil, nil, 0)
+	lb := log.NewBroadcaster(nil, nil, nil)
 	chCombined := lb.ExportedAppendLogChannel(ch1, ch2)
 	chCombined = lb.ExportedAppendLogChannel(chCombined, ch3)
 
@@ -711,7 +711,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	sub.On("Unsubscribe").Return()
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 
 	lb.Start()
 	defer lb.Stop()
@@ -775,7 +775,7 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 	lb.Start()
 	defer lb.Stop()
 
@@ -861,7 +861,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	sub.On("Err").Return(nil)
 
 	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config.BlockBackfillDepth())
+	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
 	lb.Start()
 	defer lb.Stop()
 }

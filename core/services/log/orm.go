@@ -1,8 +1,6 @@
 package log
 
 import (
-	"context"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
@@ -10,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
@@ -70,21 +67,40 @@ func (o *orm) UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV
 }
 
 func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error {
-	ctx := context.TODO() // TODO: change this once our gormv2 migration lands
-	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		logs, err := FetchLogs(tx, `SELECT * FROM eth_logs WHERE eth_logs.block_number >= ? AND address = ?`, blockNumber, address)
-		if err != nil {
-			return err
-		}
-
-		for _, log := range logs {
-			err := o.upsertBroadcastForListener(tx, log, jobID, jobIDV2)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	if jobID == nil {
+		return o.db.Exec(`
+            INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
+            SELECT block_hash, block_number, index, ?, false, NOW() FROM eth_logs
+                WHERE eth_logs.block_number >= ? AND address = ?
+            ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
+                block_hash,
+                block_number,
+                log_index,
+                job_id_v2
+            ) = (
+                EXCLUDED.block_hash,
+                EXCLUDED.block_number,
+                EXCLUDED.log_index,
+                EXCLUDED.job_id_v2
+            )
+        `, jobIDV2, blockNumber, address).Error
+	}
+	return o.db.Exec(`
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
+        SELECT block_hash, block_number, index, ?, false, NOW() FROM eth_logs
+            WHERE eth_logs.block_number >= ? AND address = ?
+        ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
+            block_hash,
+            block_number,
+            log_index,
+            job_id_v2
+        ) = (
+            EXCLUDED.block_hash,
+            EXCLUDED.block_number,
+            EXCLUDED.log_index,
+            EXCLUDED.job_id_v2
+        )
+    `, jobIDV2, blockNumber, address).Error
 }
 
 func (o *orm) upsertBroadcastForListener(db *gorm.DB, log types.Log, jobID *models.ID, jobIDV2 int32) error {
@@ -166,7 +182,7 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID 
         `, blockHash, logIndex, jobID)
 	}
 	if query.Error != nil {
-		return query.Error
+		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {
 		return errors.Errorf("cannot mark log broadcast as consumed: does not exist")
 	}

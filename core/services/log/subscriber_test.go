@@ -26,8 +26,14 @@ func TestSubscriber(t *testing.T) {
 
 	g := NewGomegaWithT(t)
 
+	const (
+		backfillDepth uint64 = 5
+	)
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
+	store.Config.Set("BLOCK_BACKFILL_DEPTH", backfillDepth)
 
 	var (
 		ethClient = new(mocks.Client)
@@ -39,15 +45,14 @@ func TestSubscriber(t *testing.T) {
 			3: cltest.NewAddress(), // `addr3` exists to simulate geth misbehaving by sending some logs that weren't requested
 		}
 		currentBlockNumber uint64 = 12
-		backfillDepth      uint64 = 5
 		firstBlock         uint64 = currentBlockNumber - backfillDepth + 1
 		lastBlock          uint64 = firstBlock * 6
 		logs               []types.Log
 
 		dependentAwaiter = utils.NewDependentAwaiter()
 		orm              = log.NewORM(store.DB)
-		relayer          = log.ExportedNewRelayer(orm, dependentAwaiter)
-		subscriber       = log.ExportedNewSubscriber(orm, ethClient, relayer, backfillDepth, dependentAwaiter)
+		relayer          = log.ExportedNewRelayer(orm, store.Config, dependentAwaiter)
+		subscriber       = log.ExportedNewSubscriber(orm, ethClient, store.Config, relayer, dependentAwaiter)
 
 		chRawLogs   chan<- types.Log
 		chchRawLogs = make(chan chan<- types.Log, 1)

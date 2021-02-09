@@ -15,6 +15,7 @@ import (
 
 type relayer struct {
 	orm       ORM
+	config    Config
 	listeners map[common.Address]map[Listener]struct{}
 
 	latestBlock                  uint64
@@ -46,9 +47,10 @@ const (
 	connected
 )
 
-func newRelayer(orm ORM, dependentAwaiter utils.DependentAwaiter) *relayer {
+func newRelayer(orm ORM, config Config, dependentAwaiter utils.DependentAwaiter) *relayer {
 	return &relayer{
 		orm:              orm,
+		config:           config,
 		listeners:        make(map[common.Address]map[Listener]struct{}),
 		addListener:      utils.NewMailbox(0),
 		rmListener:       utils.NewMailbox(0),
@@ -123,10 +125,9 @@ func (r *relayer) NotifyDisconnected() {
 func (r *relayer) runLoop() {
 	defer close(r.chDone)
 
-	// DB polling is an absolute worst-case fallback. It should not be relied
-	// upon to guarantee 100% log delivery. As a result, we set the poll to be
-	// fairly infrequent to try to mitigate load on the DB.
-	dbPoll := time.NewTicker(15 * time.Second)
+	// DB polling is an absolute worst-case fallback. It should
+	// not be relied upon to guarantee 100% log delivery.
+	dbPoll := time.NewTicker(r.config.TriggerFallbackDBPollInterval())
 	defer dbPoll.Stop()
 
 	for {
