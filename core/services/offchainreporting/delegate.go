@@ -125,9 +125,9 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
-	db, err := d.db.DB()
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to open sql db")
+	db, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
 	}
 
 	if concreteSpec.IsBootstrapPeer {

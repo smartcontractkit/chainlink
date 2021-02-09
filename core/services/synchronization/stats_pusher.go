@@ -128,8 +128,14 @@ func (sp *statsPusher) Close() error {
 	}
 
 	gormCallbacksMutex.Lock()
-	sp.DB.Callback().Create().Remove(createCallbackName)
-	sp.DB.Callback().Update().Remove(updateCallbackName)
+	err := sp.DB.Callback().Create().Remove(createCallbackName)
+	if err != nil {
+		return err
+	}
+	err = sp.DB.Callback().Update().Remove(updateCallbackName)
+	if err != nil {
+		return err
+	}
 	gormCallbacksMutex.Unlock()
 
 	return nil
@@ -262,7 +268,11 @@ func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.DB) {
 			return
 		}
 
-		run := db.Statement.ReflectValue.Interface().(models.JobRun)
+		run, ok := db.Statement.ReflectValue.Interface().(models.JobRun)
+		if !ok {
+			db.Error = errors.Errorf("expected models.JobRun")
+			return
+		}
 		presenter := SyncJobRunPresenter{&run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
