@@ -23,7 +23,7 @@
     "chai": "^4.2.0",
     "chalk": "^4.0.0",
     "dockerode": "^3.1.0",
-    "ethers": "^4.0.44",
+    "ethers": "^5.0.0",
     "execa": "^4.0.0",
     "isomorphic-unfetch": "^3.0.0",
     "jest": "^25.1.0",
