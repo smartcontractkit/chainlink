@@ -15,6 +15,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     string symbol;
     uint8 decimals;
     // 1        = 100%
+    // 5        = 20%
     // 10       = 10%
     // 20       = 5%
     // 50       = 2%
