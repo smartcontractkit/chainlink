@@ -113,11 +113,19 @@ func displayTimeout(timeout models.Duration) string {
 
 // SetLogging turns on SQL statement logging
 func (orm *ORM) SetLogging(enabled bool) {
+	var lvl gormlogger.LogLevel
 	if enabled {
-		orm.DB.Logger.LogMode(gormlogger.Info)
-		return
+		lvl = gormlogger.Info
+	} else {
+		lvl = gormlogger.Silent
 	}
-	orm.DB.Logger.LogMode(gormlogger.Silent)
+	orm.DB.Logger = gormlogger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		gormlogger.Config{
+			LogLevel:      lvl,
+			Colorful:      true,
+		},
+	)
 }
 
 // Close closes the underlying database connection.
@@ -1581,13 +1589,11 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		ct.uri = models.NewID().String()
 	}
 
-	// TODO: ensure logs similar to what we had before
 	newLogger := gormlogger.New(
-		log.New(os.Stdout, "\r\n", log.LstdFlags), // io writer
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
 		gormlogger.Config{
-			SlowThreshold: time.Second,       // Slow SQL threshold
-			LogLevel:      gormlogger.Silent, // Log level
-			Colorful:      false,             // Disable color
+			LogLevel:      gormlogger.Silent,
+			Colorful:      true,
 		},
 	)
 
