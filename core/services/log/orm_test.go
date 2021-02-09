@@ -34,7 +34,7 @@ func TestORM_UpsertLog(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	dbLogs, err := log.FetchLogs(store.DB, `SELECT * FROM logs ORDER BY block_hash, index ASC`)
+	dbLogs, err := log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_hash, index ASC`)
 	require.NoError(t, err)
 	require.Len(t, dbLogs, len(logs))
 

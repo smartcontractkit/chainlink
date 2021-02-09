@@ -834,7 +834,7 @@ func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
 	}
 
 	err := store.DB.Exec(`
-        INSERT INTO logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
     `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
 	require.NoError(t, err)
 }
