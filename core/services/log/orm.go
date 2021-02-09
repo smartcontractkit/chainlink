@@ -104,23 +104,22 @@ func (o *orm) upsertBroadcastForListener(db *gorm.DB, log types.Log, jobID *mode
                 EXCLUDED.job_id_v2
             )
         `, log.BlockHash, log.BlockNumber, log.Index, jobIDV2).Error
-	} else {
-		return db.Exec(`
-            INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, consumed, created_at)
-            VALUES (?, ?, ?, ?, false, NOW())
-            ON CONFLICT (job_id, block_hash, log_index) DO UPDATE SET (
-                block_hash,
-                block_number,
-                log_index,
-                job_id
-            ) = (
-                EXCLUDED.block_hash,
-                EXCLUDED.block_number,
-                EXCLUDED.log_index,
-                EXCLUDED.job_id
-            )
-        `, log.BlockHash, log.BlockNumber, log.Index, jobID).Error
 	}
+	return db.Exec(`
+        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, consumed, created_at)
+        VALUES (?, ?, ?, ?, false, NOW())
+        ON CONFLICT (job_id, block_hash, log_index) DO UPDATE SET (
+            block_hash,
+            block_number,
+            log_index,
+            job_id
+        ) = (
+            EXCLUDED.block_hash,
+            EXCLUDED.block_number,
+            EXCLUDED.log_index,
+            EXCLUDED.job_id
+        )
+    `, log.BlockHash, log.BlockNumber, log.Index, jobID).Error
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error) {
@@ -197,9 +196,8 @@ func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error
 func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
 	if jobID == nil {
 		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id IS NULL AND job_id_v2 = ? AND consumed = false`, jobIDV2).Error
-	} else {
-		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
 	}
+	return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
 }
 
 type logRow struct {

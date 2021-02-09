@@ -568,7 +568,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			expectedA := received{
 				logs: pickLogs(t, logsA, test.batch1),
 			}
-			requireAllReceived(t, expectedA, &recvdA)
+			requireAllReceived(t, &expectedA, &recvdA)
 			requireBroadcastCount(t, store, len(test.batch1))
 
 			cleanup()
@@ -611,8 +611,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			expectedB := received{
 				logs: pickLogs(t, logsB, test.expectedFilteredB),
 			}
-			requireAllReceived(t, expectedA, &recvdA)
-			requireAllReceived(t, expectedB, &recvdB)
+			requireAllReceived(t, &expectedA, &recvdA)
+			requireAllReceived(t, &expectedB, &recvdB)
 			requireBroadcastCount(t, store, len(test.expectedFilteredA)+len(test.expectedFilteredB))
 
 			ethClient.AssertExpectations(t)
@@ -879,7 +879,7 @@ type received struct {
 	sync.Mutex
 }
 
-func requireAllReceived(t *testing.T, expectedState received, state *received) {
+func requireAllReceived(t *testing.T, expectedState, state *received) {
 	require.Eventually(t, func() bool {
 		state.Lock()
 		defer state.Unlock()

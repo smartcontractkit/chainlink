@@ -30,12 +30,8 @@ const up2 = `
 `
 
 const down2 = `
-    ALTER TABLE log_broadcasts DROP COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE;
-
-    ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey"
-        FOREIGN KEY (block_hash, log_index) REFERENCES eth_logs (block_hash, index)
-        ON DELETE CASCADE;
-
+    ALTER TABLE log_broadcasts DROP COLUMN "consumed";
+    ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey";
     ALTER TABLE log_broadcasts RENAME TO log_consumptions;
     ALTER TABLE log_consumptions RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
     ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
