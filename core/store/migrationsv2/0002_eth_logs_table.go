@@ -30,18 +30,18 @@ const up2 = `
 `
 
 const down2 = `
-    ALTER TABLE log_broadcasts DROP COLUMN "consumed";
+    -- ALTER TABLE log_broadcasts DROP COLUMN "consumed";
     ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey";
+    -- ALTER TABLE log_broadcasts RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
+    -- ALTER TABLE log_broadcasts RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
     ALTER TABLE log_broadcasts RENAME TO log_consumptions;
-    ALTER TABLE log_consumptions RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
-    ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
 
     DROP TABLE eth_logs;
 `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "1611777185",
+		ID: "0002_eth_logs_table",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up2).Error
 		},

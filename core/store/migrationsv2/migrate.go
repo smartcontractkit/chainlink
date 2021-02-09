@@ -31,5 +31,12 @@ func MigrateDown(db *gorm.DB) error {
 		UseTransaction:            true,
 		ValidateUnknownMigrations: false,
 	}, Migrations)
-	return g.RollbackLast()
+
+	for i := len(Migrations) - 1; i >= 0; i-- {
+		err := g.RollbackMigration(Migrations[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
