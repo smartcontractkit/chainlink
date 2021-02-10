@@ -128,12 +128,10 @@ func (sp *statsPusher) Close() error {
 	}
 
 	gormCallbacksMutex.Lock()
-	err := sp.DB.Callback().Create().Remove(createCallbackName)
-	if err != nil {
+	if err := sp.DB.Callback().Create().Remove(createCallbackName); err != nil {
 		return err
 	}
-	err = sp.DB.Callback().Update().Remove(updateCallbackName)
-	if err != nil {
+	if err := sp.DB.Callback().Update().Remove(updateCallbackName); err != nil {
 		return err
 	}
 	gormCallbacksMutex.Unlock()

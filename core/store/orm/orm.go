@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -299,9 +298,6 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			Omit("deleted_at").
 			Save(run)
 		if result.Error != nil {
-			if strings.Contains(result.Error.Error(), "duplicate key value violates unique constraint") {
-				return ErrOptimisticUpdateConflict
-			}
 			return result.Error
 		}
 		if result.RowsAffected == 0 {

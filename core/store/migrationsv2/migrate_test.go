@@ -15,7 +15,7 @@ func TestMigrate_Migrations(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2", false)
 	defer cleanup()
 
-	err := migrationsv2.MigrateUp(orm.DB, "")
+	err := migrationsv2.MigrateUp(orm.DB, "1612225637")
 	require.NoError(t, err)
 	tables := []string{
 		"bridge_types",
