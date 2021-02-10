@@ -284,11 +284,7 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []geth
 	`
 
 	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
-	d, err := ec.store.DB.DB()
-	if err != nil {
-		return err
-	}
-	_, err = d.ExecContext(ctx, stmt, valueArgs...)
+	_, err = ec.store.MustSQLDB().ExecContext(ctx, stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 

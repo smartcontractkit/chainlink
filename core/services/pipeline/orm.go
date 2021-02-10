@@ -468,10 +468,13 @@ func (o *orm) RunFinished(runID int64) (bool, error) {
         WHERE pipeline_task_runs.pipeline_run_id = ? AND pipeline_task_specs.successor_id IS NULL
 		LIMIT 1
     `, runID).Scan(&tr).Error
-	if tr.ID == 0 {
-		return false, errors.Errorf("could not determine if run is finished (run ID: %v)", runID)
+	if err != nil {
+		return false, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
 	}
-	return tr.FinishedAt != nil, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
+	if tr.ID == 0 {
+		return false, errors.Errorf("run not found - could not determine if run is finished (run ID: %v)", runID)
+	}
+	return tr.FinishedAt != nil, nil
 }
 
 func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {

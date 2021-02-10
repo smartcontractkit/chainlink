@@ -118,7 +118,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := p.db.Raw(`SELECT id, addr FROM p2p_peers WHERE peer_id = ?`, p.peerID).Rows()
+	rows, err := p.db.WithContext(p.ctx).Raw(`SELECT id, addr FROM p2p_peers WHERE peer_id = ?`, p.peerID).Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}

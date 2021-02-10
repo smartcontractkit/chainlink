@@ -89,6 +89,14 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 	return orm, nil
 }
 
+func (orm *ORM) MustSQLDB() *sql.DB {
+	d, err := orm.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	return d
+}
+
 // MustEnsureAdvisoryLock sends a shutdown signal to the ORM if it an advisory
 // lock cannot be acquired.
 func (orm *ORM) MustEnsureAdvisoryLock() error {
@@ -178,6 +186,13 @@ func (orm *ORM) FindJobSpec(id *models.ID) (job models.JobSpec, err error) {
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
+func (orm *ORM) FindJobSpecUnscoped(id *models.ID) (job models.JobSpec, err error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return job, err
+	}
+	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
+}
+
 // FindJobWithErrors looks up a Job by its ID and preloads JobSpecErrors.
 func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
 	var job models.JobSpec
@@ -259,30 +274,8 @@ func (orm *ORM) FindJobRunIncludingArchived(id *models.ID) (jr models.JobRun, er
 	return jr, err
 }
 
-// NOTE: Copied verbatim from gorm master
-// Transaction start a transaction as a block,
-// return error will rollback, otherwise to commit.
 func (orm *ORM) Transaction(fc func(tx *gorm.DB) error) (err error) {
-	tx := orm.DB.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("%s", r)
-			tx.Rollback()
-			return
-		}
-	}()
-
-	err = fc(tx)
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit().Error)
-	}
-
-	// Makesure rollback when Block error or Commit error
-	if err != nil {
-		tx.Rollback()
-	}
-	return
+	return orm.convenientTransaction(fc)
 }
 
 // convenientTransaction handles setup and teardown for a gorm database
@@ -336,11 +329,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 		Joins("JOIN job_specs ON job_runs.job_spec_id = job_specs.id").
 		Where("job_specs.id = ? AND job_runs.status = ? AND job_runs.finished_at IS NOT NULL", spec.ID, models.RunStatusCompleted)
 
-	if dbutil.IsPostgresV2(orm.DB) {
-		query = query.Select("SUM(payment)")
-	} else {
-		query = query.Select("CAST(SUM(CAST(SUBSTR(payment, 1, 10) as BIGINT)) as varchar(255))")
-	}
+	query = query.Select("SUM(payment)")
 
 	err := query.Row().Scan(&earned)
 	if err != nil {
@@ -446,11 +435,7 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
-			if dbutil.IsPostgresV2(orm.DB) {
-				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
-			} else {
-				scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id")
-			}
+			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
 		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
@@ -646,7 +631,7 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, errors.Wrapf(err, "error looking for job of type %s", taskTypeName)
 	}
 	return true, nil
 }

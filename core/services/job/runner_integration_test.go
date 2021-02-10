@@ -343,9 +343,9 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb = job.SpecDB{IDEmbed: job.IDEmbed{os.ID}}
+		var jb job.SpecDB
 		err = db.Preload("OffchainreportingOracleSpec").
-			Find(&jb).Error
+			First(&jb, "id = ?", os.ID).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
@@ -385,9 +385,9 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb = job.SpecDB{IDEmbed: job.IDEmbed{os.ID}}
+		var jb job.SpecDB
 		err = db.Preload("OffchainreportingOracleSpec").
-			Find(&jb).Error
+			First(&jb, "id = ?", os.ID).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 
@@ -442,9 +442,9 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb = job.SpecDB{IDEmbed: job.IDEmbed{os.ID}}
+		var jb job.SpecDB
 		err = db.Preload("OffchainreportingOracleSpec").
-			Find(&jb).Error
+			First(&jb, "id = ?", os.ID).Error
 		require.NoError(t, err)
 		// Assert the override
 		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
@@ -488,9 +488,9 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb = job.SpecDB{IDEmbed: job.IDEmbed{os.ID}}
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+		var jb job.SpecDB
+		err = db.Preload("OffchainreportingOracleSpec").
+			First(&jb, "id = ?", os.ID).Error
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -526,9 +526,9 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb = job.SpecDB{IDEmbed: job.IDEmbed{os.ID}}
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+		var jb job.SpecDB
+		err = db.Preload("OffchainreportingOracleSpec").
+			First(&jb, "id = ?", os.ID).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -564,7 +564,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb = job.SpecDB{IDEmbed: job.IDEmbed{dbSpec.ID}}
 		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -659,7 +659,7 @@ ds1 -> ds1_parse;
 		defer cancel()
 
 		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v)", runID))
+		require.EqualError(t, err, fmt.Sprintf("run not found - could not determine if run is finished (run ID: %v)", runID))
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
