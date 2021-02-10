@@ -18,7 +18,7 @@ import "./UpkeepCompatible.sol";
 contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   using SafeMathChainlink for uint256;
 
-  struct CompoundAssetDetails {
+  struct CompoundFeedDetails {
     // Used to call the Compound Open Oracle
     string symbol;
     // Used to convert price to match aggregator decimals
@@ -37,7 +37,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
 
   FlagsInterface private s_flags;
   UniswapAnchoredView private s_compOpenOracle;
-  mapping(address => CompoundAssetDetails) private s_thresholds;
+  mapping(address => CompoundFeedDetails) private s_thresholds;
 
   event CompoundOpenOracleAddressUpdated(
     address indexed from,
@@ -118,7 +118,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     public 
     onlyOwner() 
   {
-    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
+    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
     compDetails.symbol = compoundSymbol;
     compDetails.decimals = compoundDecimals;
     compDetails.deviationThresholdDenominator = compoundDeviationThresholdDenominator;
@@ -206,7 +206,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     view
     returns (string memory, uint8, uint256)
   {
-    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
+    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
     return(
       compDetails.symbol,
       compDetails.decimals,
@@ -237,7 +237,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return invalid bool. True if the deviation exceeds threshold.
    */
   function isInvalid(address aggregator) private view returns (bool invalid) {
-    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
+    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
     if (bytes(compDetails.symbol).length == 0) {
       return false;
     }
