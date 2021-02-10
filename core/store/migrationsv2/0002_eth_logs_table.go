@@ -18,18 +18,24 @@ const up2 = `
         PRIMARY KEY (block_hash, index)
     );
 
+    CREATE INDEX IF NOT EXISTS idx_eth_logs_block_number ON eth_logs (block_number);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_address_block_number ON eth_logs (address, block_number);
 
     ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_consumptions_exactly_one_job_id TO chk_log_broadcasts_exactly_one_job_id;
     ALTER TABLE log_consumptions RENAME CONSTRAINT log_consumptions_job_id_fkey TO log_broadcasts_job_id_fkey;
     ALTER TABLE log_consumptions RENAME TO log_broadcasts;
-    CREATE INDEX IF NOT EXISTS idx_log_broadcasts_blockhash_logindex_jobid_jobidv2 ON log_broadcasts (block_hash, log_index, job_id, job_id_v2);
+
+    ALTER TABLE log_broadcasts ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE;
+
+    CREATE INDEX idx_log_broadcasts_unconsumed ON log_broadcasts (block_hash, block_number) WHERE consumed = false;
+
+    CREATE INDEX IF NOT EXISTS idx_log_broadcasts_blockhash_logindex_jobid_jobid ON log_broadcasts (block_hash, log_index, job_id) WHERE job_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS idx_log_broadcasts_blockhash_logindex_jobid_jobidv2 ON log_broadcasts (block_hash, log_index, job_id_v2) WHERE job_id_v2 IS NOT NULL;
 
     ALTER TABLE log_broadcasts ADD CONSTRAINT "log_broadcasts_eth_logs_fkey"
         FOREIGN KEY (block_hash, log_index) REFERENCES eth_logs (block_hash, index)
         ON DELETE CASCADE;
 
-    ALTER TABLE log_broadcasts ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE;
 `
 
 const down2 = `

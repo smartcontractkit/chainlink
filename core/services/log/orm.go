@@ -191,12 +191,10 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID 
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
-        SELECT eth_logs.*, bool_and(log_broadcasts.consumed) as consumed FROM eth_logs
-        LEFT JOIN log_broadcasts ON eth_logs.block_hash = log_broadcasts.block_hash AND eth_logs.index = log_broadcasts.log_index
-        WHERE eth_logs.block_number < ?
-        GROUP BY eth_logs.block_hash, eth_logs.index, log_broadcasts.consumed
-        HAVING consumed = false
-        ORDER BY eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC
+        SELECT DISTINCT eth_logs.* FROM eth_logs
+        INNER JOIN log_broadcasts ON eth_logs.block_hash = log_broadcasts.block_hash AND eth_logs.index = log_broadcasts.log_index
+        WHERE eth_logs.block_number < ? AND log_broadcasts.consumed = false
+        ORDER BY eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC;
     `, blockNumber)
 	if err != nil {
 		logger.Errorw("could not fetch logs to broadcast", "error", err)
