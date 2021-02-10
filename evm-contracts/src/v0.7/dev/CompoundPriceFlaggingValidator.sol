@@ -164,8 +164,8 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
     // Get aggregator price & decimals
     AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
-    (,int256 unsignedPrice,,,) = priceFeed.latestRoundData();
-    uint256 aggregatorPrice = uint256(unsignedPrice);
+    (,int256 signedPrice,,,) = priceFeed.latestRoundData();
+    uint256 aggregatorPrice = uint256(signedPrice);
     uint8 decimals = priceFeed.decimals();
     // Get compound price
     uint256 compPrice = s_compOpenOracle.price(compDetails.symbol);
