@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -38,7 +39,7 @@ func deployVRFContract(t *testing.T) (contract, common.Address) {
 		PublicKey: ecdsa.PublicKey{Curve: crypto.S256(), X: x, Y: y},
 		D:         big.NewInt(1),
 	}
-	auth := bind.NewKeyedTransactor(&key)
+	auth := cltest.MustNewSimulatedBackendKeyedTransactor(t, &key)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
 	gasLimit := eth.DefaultConfig.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)

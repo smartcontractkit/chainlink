@@ -38,33 +38,33 @@ func (c *Compare) Perform(input models.RunInput, _ *store.Store) models.RunOutpu
 
 	switch c.Operator {
 	case "eq":
-		return models.NewRunOutputCompleteWithResult(c.Value == prevResult)
+		return models.NewRunOutputCompleteWithResult(c.Value == prevResult, input.ResultCollection())
 	case "neq":
-		return models.NewRunOutputCompleteWithResult(c.Value != prevResult)
+		return models.NewRunOutputCompleteWithResult(c.Value != prevResult, input.ResultCollection())
 	case "gt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired < value)
+		return models.NewRunOutputCompleteWithResult(desired < value, input.ResultCollection())
 	case "gte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired <= value)
+		return models.NewRunOutputCompleteWithResult(desired <= value, input.ResultCollection())
 	case "lt":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired > value)
+		return models.NewRunOutputCompleteWithResult(desired > value, input.ResultCollection())
 	case "lte":
 		value, desired, err := getValues(prevResult, c.Value)
 		if err != nil {
 			return models.NewRunOutputError(err)
 		}
-		return models.NewRunOutputCompleteWithResult(desired >= value)
+		return models.NewRunOutputCompleteWithResult(desired >= value, input.ResultCollection())
 	default:
 		return models.NewRunOutputError(ErrOperatorNotSpecified)
 	}

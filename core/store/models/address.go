@@ -32,6 +32,10 @@ func NewEIP55Address(s string) (EIP55Address, error) {
 	return EIP55Address(s), nil
 }
 
+func EIP55AddressFromAddress(a common.Address) (EIP55Address, error) {
+	return NewEIP55Address(a.Hex())
+}
+
 // Bytes returns the raw bytes
 func (a EIP55Address) Bytes() []byte { return a.Address().Bytes() }
 

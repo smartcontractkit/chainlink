@@ -66,7 +66,7 @@ describe('pages/Dashboards/Index', () => {
         linkBalance: '7467870000000000000000',
       },
     ])
-    global.fetch.getOnce(globPath('/v2/user/balances'), accountBalanceResponse)
+    global.fetch.getOnce(globPath('/v2/keys/eth'), accountBalanceResponse)
 
     const wrapper = mountIndex()
 

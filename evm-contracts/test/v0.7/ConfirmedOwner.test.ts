@@ -6,9 +6,9 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers } from 'ethers'
-import { ConfirmedOwnerTestHelperFactory } from '../../ethers/v0.7/ConfirmedOwnerTestHelperFactory'
+import { ConfirmedOwnerTestHelper__factory } from '../../ethers/v0.7/factories/ConfirmedOwnerTestHelper__factory'
 
-const confirmedOwnerTestHelperFactory = new ConfirmedOwnerTestHelperFactory()
+const confirmedOwnerTestHelperFactory = new ConfirmedOwnerTestHelper__factory()
 const provider = setup.provider()
 
 let personas: setup.Personas
@@ -25,7 +25,7 @@ beforeAll(async () => {
 })
 
 describe('ConfirmedOwner', () => {
-  let confirmedOwner: contract.Instance<ConfirmedOwnerTestHelperFactory>
+  let confirmedOwner: contract.Instance<ConfirmedOwnerTestHelper__factory>
   const confirmedOwnerEvents = confirmedOwnerTestHelperFactory.interface.events
 
   beforeEach(async () => {

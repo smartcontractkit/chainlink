@@ -19,6 +19,7 @@
   },
   "scripts": {
     "lint": "eslint --ext js,jsx,ts,tsx .",
+    "lint:evm": "eslint --ext js,jsx,ts,tsx evm-contracts/ evm-test-helpers/",
     "prettier:check": "yarn prettier '**/*' --check --ignore-unknown",
     "prettier:run": "yarn prettier '**/*' --check --ignore-unknown --write",
     "setup": "wsrun -me -t setup",
@@ -33,7 +34,7 @@
     "@typescript-eslint/parser": "^2.34.0",
     "eslint": "^6.8.0",
     "eslint-config-prettier": "^6.15.0",
-    "eslint-plugin-prettier": "^3.1.4",
+    "eslint-plugin-prettier": "^3.3.1",
     "eslint-plugin-react": "^7.19.0",
     "eslint-plugin-react-hooks": "^4.0.0",
     "patch-package": "^6.2.1",
@@ -54,7 +55,8 @@
     "**/sha3": "^2.0.7",
     "**/solc": "^0.6.4",
     "**/source-map-support": "0.5.16",
-    "**/yargs-parser": "^15.0.1"
+    "**/yargs-parser": "^15.0.1",
+    "**/bl": "^3.0.1"
   },
   "dependencies": {
     "tslib": "^1.11.1"

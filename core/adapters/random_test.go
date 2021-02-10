@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
@@ -40,7 +42,8 @@ func TestRandom_Perform(t *testing.T) {
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
 	var wireProof []byte
-	err = models.VRFFulfillMethod().Inputs.Unpack(&wireProof, proofArg)
+	out, err := models.VRFFulfillMethod().Inputs.Unpack(proofArg)
+	wireProof = abi.ConvertType(out[0], []byte{}).([]byte)
 	require.NoError(t, err, "failed to unpack VRF proof from random adapter")
 	var onChainResponse vrf.MarshaledOnChainResponse
 	require.Equal(t, copy(onChainResponse[:], wireProof),

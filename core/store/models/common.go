@@ -256,6 +256,16 @@ func (j JSON) Add(insertKey string, insertValue interface{}) (JSON, error) {
 	return j.MultiAdd(KV{insertKey: insertValue})
 }
 
+func (j JSON) PrependAtArrayKey(insertKey string, insertValue interface{}) (JSON, error) {
+	curr := j.Get(insertKey).Array()
+	updated := make([]interface{}, 0)
+	updated = append(updated, insertValue)
+	for _, c := range curr {
+		updated = append(updated, c.Value())
+	}
+	return j.Add(insertKey, updated)
+}
+
 // KV represents a key/value pair to be added to a JSON object
 type KV map[string]interface{}
 
@@ -594,6 +604,10 @@ func (i Interval) Value() (driver.Value, error) {
 	return time.Duration(i).Nanoseconds(), nil
 }
 
+func (i Interval) IsZero() bool {
+	return time.Duration(i) == time.Duration(0)
+}
+
 // WithdrawalRequest request to withdraw LINK.
 type WithdrawalRequest struct {
 	DestinationAddress common.Address `json:"address"`
@@ -608,12 +622,7 @@ type SendEtherRequest struct {
 	Amount             assets.Eth     `json:"amount"`
 }
 
-// CreateKeyRequest represents a request to add an ethereum key.
-type CreateKeyRequest struct {
-	CurrentPassword string `json:"current_password"`
-}
-
-// CreateJobSpecRequest represents a request to create and start a job spec.
+// CreateJobSpecRequest represents a request to create and start and OCR job spec.
 type CreateJobSpecRequest struct {
 	TOML string `json:"toml"`
 }

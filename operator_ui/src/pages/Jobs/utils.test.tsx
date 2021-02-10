@@ -1,4 +1,9 @@
-import { JobSpecFormats, getJobSpecFormat, stringifyJobSpec } from './utils'
+import {
+  JobSpecFormats,
+  getJobSpecFormat,
+  stringifyJobSpec,
+  getTaskList,
+} from './utils'
 
 describe('pages/jobs/utils', () => {
   describe('getJobSpecFormat', () => {
@@ -36,7 +41,7 @@ describe('pages/jobs/utils', () => {
   })
 
   describe('stringifyJobSpec', () => {
-    it('stringify and indent JSON job spec', async () => {
+    it('stringify and indent JSON job spec', () => {
       expect(
         stringifyJobSpec({
           value: { foo: 'bar' },
@@ -49,7 +54,7 @@ describe('pages/jobs/utils', () => {
       )
     })
 
-    it('stringify TOML spec', async () => {
+    it('stringify TOML spec', () => {
       expect(
         stringifyJobSpec({
           value: { foo: 'bar' },
@@ -57,6 +62,80 @@ describe('pages/jobs/utils', () => {
         }),
       ).toEqual(`foo = "bar"
 `)
+    })
+  })
+
+  describe('getTaskList', () => {
+    it('parse string to Json TaskSpec list', () => {
+      expect(
+        getTaskList({
+          value: '{"tasks":[{ "type": "HTTPGet"}, { "type": "JSONParse"}]}',
+        }),
+      ).toEqual({
+        format: 'json',
+        list: [{ type: 'HTTPGet' }, { type: 'JSONParse' }],
+      })
+    })
+
+    it('return false on bad json format', () => {
+      expect(
+        getTaskList({
+          value: '{"tasks":[{ "type": HTTPGet}, { "type": JSONParse}]}',
+        }),
+      ).toEqual({
+        format: false,
+        list: false,
+      })
+    })
+
+    it('parse string to Toml Stratify list', () => {
+      expect(
+        getTaskList({
+          value:
+            'observationSource = """ ds [type=ds]; ds_parse [type=ds_parse];  """',
+        }),
+      ).toEqual({
+        format: 'toml',
+        list: [
+          {
+            attributes: {
+              type: 'ds',
+            },
+            id: 'ds',
+            parentIds: [],
+          },
+          {
+            attributes: {
+              type: 'ds_parse',
+            },
+            id: 'ds_parse',
+            parentIds: [],
+          },
+        ],
+      })
+    })
+
+    it('return false on bad toml format', () => {
+      expect(
+        getTaskList({
+          value:
+            'observationSource = "" ds [type=ds]; ds_parse [type=ds_parse];  """',
+        }),
+      ).toEqual({
+        format: false,
+        list: false,
+      })
+    })
+
+    it('return false on circular dependency', () => {
+      expect(
+        getTaskList({
+          value: 'observationSource = """ ds -> ds_parse -> ds  """',
+        }),
+      ).toEqual({
+        format: JobSpecFormats.TOML,
+        list: false,
+      })
     })
   })
 })

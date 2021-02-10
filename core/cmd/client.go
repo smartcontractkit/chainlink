@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -81,7 +82,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 	}
 
 	advisoryLock := postgres.NewAdvisoryLock(config.DatabaseURL())
-	return chainlink.NewApplication(config, ethClient, advisoryLock, onConnectCallbacks...)
+	return chainlink.NewApplication(config, ethClient, advisoryLock, store.StandardKeyStoreGen, services.NewExternalInitiatorManager(), onConnectCallbacks...)
 }
 
 // Runner implements the Run method.
@@ -105,7 +106,7 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 	}
 
 	if config.Port() != 0 {
-		g.Go(func() error { return runServer(handler, config.Port()) })
+		g.Go(func() error { return runServer(handler, config.Port(), config.HTTPServerWriteTimeout()) })
 	}
 
 	if config.TLSPort() != 0 {
@@ -114,36 +115,37 @@ func (n ChainlinkRunner) Run(app chainlink.Application) error {
 				handler,
 				config.TLSPort(),
 				config.CertFile(),
-				config.KeyFile())
+				config.KeyFile(),
+				config.HTTPServerWriteTimeout())
 		})
 	}
 
 	return g.Wait()
 }
 
-func runServer(handler *gin.Engine, port uint16) error {
+func runServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) error {
 	logger.Infof("Listening and serving HTTP on port %d", port)
-	server := createServer(handler, port)
+	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServe()
 	logger.ErrorIf(err)
 	return err
 }
 
-func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string) error {
+func runServerTLS(handler *gin.Engine, port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
 	logger.Infof("Listening and serving HTTPS on port %d", port)
-	server := createServer(handler, port)
+	server := createServer(handler, port, writeTimeout)
 	err := server.ListenAndServeTLS(certFile, keyFile)
 	logger.ErrorIf(err)
 	return err
 }
 
-func createServer(handler *gin.Engine, port uint16) *http.Server {
+func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
 	url := fmt.Sprintf(":%d", port)
 	s := &http.Server{
 		Addr:           url,
 		Handler:        handler,
 		ReadTimeout:    5 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		WriteTimeout:   writeTimeout,
 		IdleTimeout:    60 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
@@ -529,7 +531,7 @@ func confirmAction(c *clipkg.Context) bool {
 	prompt := NewTerminalPrompter()
 	var answer string
 	for {
-		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no)")
+		answer = prompt.Prompt("Are you sure? This action is irreversible! (yes/no) ")
 		if answer == "yes" {
 			return true
 		} else if answer == "no" {

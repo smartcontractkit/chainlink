@@ -5,6 +5,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -12,7 +16,6 @@ import (
 
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,29 +117,25 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			defer assertMocksCalled()
 			app, cleanup := cltest.NewApplicationWithKey(t,
-				cltest.LenientEthMock,
-				cltest.EthMockRegisterChainID,
-				cltest.EthMockRegisterGetBalance,
+				eth.NewClientWith(rpcClient, gethClient),
 			)
 			defer cleanup()
 
 			js := test.job
 			log := test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
 
-			ethMock := app.EthMock
-			logs := make(chan models.Log, 1)
-			ethMock.Context("app.Start()", func(meth *cltest.EthMock) {
-				meth.RegisterSubscription("logs", logs)
-				meth.RegisterOptional("eth_getTransactionReceipt", &types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash})
-			})
+			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
+			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
 			assert.NoError(t, app.StartAndConnect())
 
 			js.Initiators[0].Requesters = []common.Address{requester}
 			require.NoError(t, app.AddJob(js))
 
+			logs := <-logsCh
 			logs <- log
-			ethMock.EventuallyAllCalled(t)
 
 			gomega.NewGomegaWithT(t).Eventually(func() []models.JobRun {
 				runs, err := app.Store.JobRunsFor(js.ID)

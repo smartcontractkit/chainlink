@@ -1,6 +1,8 @@
 package cltest
 
-import "encoding/hex"
+import (
+	"encoding/hex"
+)
 
 func MustHexDecodeString(s string) []byte {
 	a, err := hex.DecodeString(s)

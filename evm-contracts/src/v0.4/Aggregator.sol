@@ -4,6 +4,7 @@ import "./ChainlinkClient.sol";
 import "./interfaces/AggregatorInterface.sol";
 import "./vendor/SignedSafeMath.sol";
 import "./vendor/Ownable.sol";
+import "./vendor/SafeMathChainlink.sol";
 
 /**
  * @title An example Chainlink contract with aggregation
@@ -12,6 +13,7 @@ import "./vendor/Ownable.sol";
  * as the contract receives answers.
  */
 contract Aggregator is AggregatorInterface, ChainlinkClient, Ownable {
+  using SafeMathChainlink for uint256;
   using SignedSafeMath for int256;
 
   struct Answer {

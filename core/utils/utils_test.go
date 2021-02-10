@@ -2,7 +2,6 @@ package utils_test
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -101,66 +100,6 @@ func TestUtils_DurationFromNow(t *testing.T) {
 	future := time.Now().Add(time.Second)
 	duration := utils.DurationFromNow(future)
 	assert.True(t, 0 < duration)
-}
-
-func TestCoerceInterfaceMapToStringMap(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name      string
-		input     interface{}
-		want      interface{}
-		wantError bool
-	}{
-		{"empty map", map[interface{}]interface{}{}, map[string]interface{}{}, false},
-		{"simple map", map[interface{}]interface{}{"key": "value"}, map[string]interface{}{"key": "value"}, false},
-		{"int map", map[int]interface{}{1: "value"}, map[int]interface{}{1: "value"}, false},
-		{"error map", map[interface{}]interface{}{1: "value"}, map[int]interface{}{}, true},
-		{
-			"nested string map map",
-			map[string]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
-			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
-		},
-		{
-			"nested map map",
-			map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}},
-			map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}},
-			false,
-		},
-		{
-			"nested map array",
-			map[interface{}]interface{}{"key": []interface{}{1, "value"}},
-			map[string]interface{}{"key": []interface{}{1, "value"}},
-			false,
-		},
-		{"empty array", []interface{}{}, []interface{}{}, false},
-		{"simple array", []interface{}{1, "value"}, []interface{}{1, "value"}, false},
-		{
-			"error array",
-			[]interface{}{map[interface{}]interface{}{1: "value"}},
-			[]interface{}{},
-			true,
-		},
-		{
-			"nested array map",
-			[]interface{}{map[interface{}]interface{}{"key": map[interface{}]interface{}{"nk": "nv"}}},
-			[]interface{}{map[string]interface{}{"key": map[string]interface{}{"nk": "nv"}}},
-			false,
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			decoded, err := utils.CoerceInterfaceMapToStringMap(test.input)
-			if test.wantError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.True(t, reflect.DeepEqual(test.want, decoded))
-			}
-		})
-	}
 }
 
 func TestKeccak256(t *testing.T) {

@@ -2,19 +2,20 @@ package p2pkey
 
 import (
 	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	keystore "github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -27,11 +28,11 @@ type Key struct {
 type PublicKeyBytes []byte
 
 func (pkb PublicKeyBytes) String() string {
-	return hexutil.Encode(pkb)
+	return hex.EncodeToString(pkb)
 }
 
 func (pkb PublicKeyBytes) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hexutil.Encode(pkb))
+	return json.Marshal(hex.EncodeToString(pkb))
 }
 
 func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
@@ -40,7 +41,7 @@ func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
 		return err
 	}
 
-	result, err := hexutil.Decode(hexString)
+	result, err := hex.DecodeString(hexString)
 	if err != nil {
 		return err
 	}

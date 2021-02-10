@@ -1,0 +1,21 @@
+name: Cleanup Selfhosted Runners
+on:
+  workflow_dispatch:
+    inputs:
+      githubToken:
+        description: 'This token should have access for modifying and listing github runners respective github repository'
+        required: true
+      dummyRunner:
+        description: 'A "dummy runner" in the context of https://github.com/philips-labs/terraform-aws-github-runner#usages Specifically, "This offline runner will ensure your builds will not fail immediately and stay queued until there is a runner to pick it up."'
+        required: false
+jobs:
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run GHA self hosted runner cleanup
+        uses: smartcontractkit/gha-cleanup@v0.0.1
+        with:
+          githubRepository: smartcontractkit/chainlink
+          githubToken: ${{ github.event.inputs.githubToken }}
+          dummyRunner: ${{ github.event.inputs.dummyRunner }}

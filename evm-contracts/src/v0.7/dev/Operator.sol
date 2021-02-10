@@ -1,10 +1,10 @@
-pragma solidity 0.7.0;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
-import "../interfaces/OracleInterface.sol";
-import "../interfaces/OracleInterface2.sol";
+import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/WithdrawalInterface.sol";
 import "../vendor/SafeMathChainlink.sol";
@@ -17,8 +17,7 @@ contract Operator is
   LinkTokenReceiver,
   ConfirmedOwner,
   ChainlinkRequestInterface,
-  OracleInterface,
-  OracleInterface2,
+  OperatorInterface,
   WithdrawalInterface
 {
   using SafeMathChainlink for uint256;
@@ -38,7 +37,13 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_authorizedSenders;
-  uint256 private s_withdrawableTokens = ONE_FOR_CONSISTENT_GAS_COST;
+  address[] private s_authorizedSenderList;
+  // Tokens sent for requests that have not been fulfilled yet
+  uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
+
+  event AuthorizedSendersChanged(
+    address[] senders
+  );
 
   event OracleRequest(
     bytes32 indexed specId,
@@ -213,29 +218,48 @@ contract Operator is
 
   /**
    * @notice Use this to check if a node is authorized for fulfilling requests
-   * @param node The address of the Chainlink node
+   * @param sender The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function isAuthorizedSender(address node)
+  function isAuthorizedSender(address sender)
     external
     view
     override
     returns (bool)
   {
-    return s_authorizedSenders[node];
+    return s_authorizedSenders[sender];
   }
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
-   * @param node The address of the Chainlink node
-   * @param allowed Bool value to determine if the node can fulfill requests
+   * @param senders The addresses of the authorized Chainlink node
    */
-  function setAuthorizedSender(address node, bool allowed)
+  function setAuthorizedSenders(address[] calldata senders)
     external
     override
     onlyOwner()
   {
-    s_authorizedSenders[node] = allowed;
+    require(senders.length > 0, "Must have at least 1 authorized sender");
+    // Set previous authorized senders to false
+    uint256 authorizedSendersLength = s_authorizedSenderList.length;
+    for (uint256 i = 0; i < authorizedSendersLength; i++) {
+      s_authorizedSenders[s_authorizedSenderList[i]] = false;
+    }
+    // Set new to true
+    for (uint256 i = 0; i < senders.length; i++) {
+      s_authorizedSenders[senders[i]] = true;
+    }
+    // Replace list
+    s_authorizedSenderList = senders;
+    emit AuthorizedSendersChanged(senders);
+  }
+
+  /**
+   * @notice Retrieve a list of authorized senders
+   * @return array of addresses
+   */
+  function getAuthorizedSenders() external view override returns (address[] memory) {
+    return s_authorizedSenderList;
   }
 
   /**
@@ -250,7 +274,6 @@ contract Operator is
     onlyOwner()
     hasAvailableFunds(amount)
   {
-    s_withdrawableTokens = s_withdrawableTokens.sub(amount);
     assert(linkToken.transfer(recipient, amount));
   }
 
@@ -265,7 +288,53 @@ contract Operator is
     override(OracleInterface, WithdrawalInterface)
     returns (uint256)
   {
-    return s_withdrawableTokens.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return fundsAvailable();
+  }
+
+  /**
+   * @notice Interact with other LinkTokenReceiver contracts by calling transferAndCall
+   * @param to The address to transfer to.
+   * @param value The amount to be transferred.
+   * @param data The extra data to be passed to the receiving contract.
+   * @return success bool
+   */
+  function operatorTransferAndCall(
+    address to,
+    uint256 value,
+    bytes calldata data
+  )
+    external
+    override
+    onlyOwner()
+    hasAvailableFunds(value)
+    returns (bool success)
+  {
+    return linkToken.transferAndCall(to, value, data);
+  }
+
+  /**
+   * @notice Distribute funds to multiple addresses using ETH send
+   * to this payable function.
+   * @dev Array length must be equal, ETH sent must equal the sum of amounts.
+   * @param receivers list of addresses
+   * @param amounts list of amounts
+   */
+  function distributeFunds(
+    address payable[] calldata receivers,
+    uint[] calldata amounts
+  )
+    external
+    override
+    payable
+  {
+    require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
+    uint256 valueRemaining = msg.value;
+    for (uint256 i = 0; i < receivers.length; i++) {
+      uint256 sendAmount = amounts[i];
+      valueRemaining = valueRemaining.sub(sendAmount);
+      receivers[i].transfer(sendAmount);
+    }
+    require(valueRemaining == 0, "Too much ETH sent");
   }
 
   /**
@@ -345,6 +414,7 @@ contract Operator is
     expiration = block.timestamp.add(EXPIRY_TIME);
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, safeCastToUint8(dataVersion));
+    s_tokensInEscrow = s_tokensInEscrow.add(payment);
     return (requestId, expiration);
   }
 
@@ -369,7 +439,7 @@ contract Operator is
     bytes31 paramsHash = buildFunctionHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
     require(s_commitments[requestId].dataVersion <= safeCastToUint8(dataVersion), "Data versions must match");
-    s_withdrawableTokens = s_withdrawableTokens.add(payment);
+    s_tokensInEscrow = s_tokensInEscrow.sub(payment);
     delete s_commitments[requestId];
   }
 
@@ -388,6 +458,7 @@ contract Operator is
     uint256 expiration
   )
   internal
+  pure
   returns (bytes31)
   {
     return bytes31(keccak256(
@@ -401,11 +472,20 @@ contract Operator is
   }
 
   /**
+   * @notice Returns the LINK available in this contract, not locked in escrow
+   * @return uint256 LINK tokens available
+   */
+  function fundsAvailable() private view returns (uint256) {
+    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return linkToken.balanceOf(address(this)).sub(inEscrow);
+  }
+
+  /**
    * @notice Safely cast uint256 to uint8
    * @param number uint256
    * @return uint8 number
    */
-  function safeCastToUint8(uint256 number) internal returns (uint8) {
+  function safeCastToUint8(uint256 number) internal pure returns (uint8) {
     require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
     return uint8(number);
   }
@@ -426,13 +506,12 @@ contract Operator is
     _;
   }
 
-
   /**
    * @dev Reverts if amount requested is greater than withdrawable balance
    * @param amount The given amount to compare to `s_withdrawableTokens`
    */
   modifier hasAvailableFunds(uint256 amount) {
-    require(s_withdrawableTokens >= amount.add(ONE_FOR_CONSISTENT_GAS_COST), "Amount requested is greater than withdrawable balance");
+    require(fundsAvailable() >= amount, "Amount requested is greater than withdrawable balance");
     _;
   }
 

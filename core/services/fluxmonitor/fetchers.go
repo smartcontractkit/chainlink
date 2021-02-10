@@ -2,6 +2,7 @@ package fluxmonitor
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,7 +26,7 @@ import (
 // Fetcher is the interface encapsulating all functionality needed to retrieve
 // a price.
 type Fetcher interface {
-	Fetch(map[string]interface{}) (decimal.Decimal, error)
+	Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error)
 }
 
 // httpFetcher retrieves data via HTTP from an external price adapter source.
@@ -54,29 +55,35 @@ func newHTTPFetcher(
 	}
 }
 
-func (p *httpFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
+func (p *httpFetcher) Fetch(ctx context.Context, meta map[string]interface{}) (decimal.Decimal, error) {
 	request := withIDAndMeta(p.requestData, meta)
 	body, err := json.Marshal(request)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, "error encoding request body as JSON")
 	}
 
-	r, err := p.client.Post(p.url.String(), "application/json", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", p.url.String(), bytes.NewReader(body))
+	if err != nil {
+		return decimal.Decimal{}, errors.Wrap(err, "unable to create request")
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	response, err := p.client.Do(req)
 	if err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to fetch price from %s with payload '%s'", p.url.String(), p.requestData))
 	}
 
-	defer logger.ErrorIfCalling(r.Body.Close)
+	defer logger.ErrorIfCalling(response.Body.Close)
 	target := adapterResponse{}
-	responseReader := utils.NewMaxBytesReader(r.Body, p.sizeLimit)
+	responseReader := utils.NewMaxBytesReader(response.Body, p.sizeLimit)
 	if err = json.NewDecoder(responseReader).Decode(&target); err != nil {
 		return decimal.Decimal{}, errors.Wrap(err, fmt.Sprintf("unable to decode price from %s", p.url.String()))
 	}
 	if target.ErrorMessage.Valid {
 		return decimal.Decimal{}, errors.Wrap(errors.New(target.ErrorMessage.String), fmt.Sprintf("price fetcher %s returned error", p.url.String()))
 	}
-	if r.StatusCode >= 400 {
-		return decimal.Decimal{}, fmt.Errorf("status code: %d, no error message; unable to retrieve price from %s", r.StatusCode, p.url.String())
+	if response.StatusCode >= 400 {
+		return decimal.Decimal{}, fmt.Errorf("status code: %d, no error message; unable to retrieve price from %s", response.StatusCode, p.url.String())
 	}
 
 	result := target.Result()
@@ -160,7 +167,7 @@ func newMedianFetcher(fetchers ...Fetcher) (Fetcher, error) {
 	}, nil
 }
 
-func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, error) {
+func (m *medianFetcher) Fetch(ctx context.Context, meta map[string]interface{}) (decimal.Decimal, error) {
 	prices := []decimal.Decimal{}
 	fetchErrors := []error{}
 
@@ -173,7 +180,7 @@ func (m *medianFetcher) Fetch(meta map[string]interface{}) (decimal.Decimal, err
 	for _, fetcher := range m.fetchers {
 		fetcher := fetcher
 		go func() {
-			price, err := fetcher.Fetch(meta)
+			price, err := fetcher.Fetch(ctx, meta)
 			if err != nil {
 				logger.Warn(err)
 				chResults <- result{err: err}

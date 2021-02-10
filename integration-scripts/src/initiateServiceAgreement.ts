@@ -1,4 +1,4 @@
-import { CoordinatorFactory } from '@chainlink/contracts/ethers/v0.5/CoordinatorFactory'
+import { Coordinator__factory } from '@chainlink/contracts/ethers/v0.5/factories/Coordinator__factory'
 import * as t from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
 import {
@@ -83,7 +83,7 @@ async function initiateServiceAgreement({
 }: Args) {
   const provider = createProvider()
   const signer = provider.getSigner(DEVNET_ADDRESS)
-  const coordinatorFactory = new CoordinatorFactory(signer)
+  const coordinatorFactory = new Coordinator__factory(signer)
   const coordinator = coordinatorFactory.attach(coordinatorAddress)
 
   console.log('Creating service agreement to initiate with...')

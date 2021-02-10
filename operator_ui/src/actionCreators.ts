@@ -1,4 +1,4 @@
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import * as presenters from 'core/store/presenters'
 import normalize from 'json-api-normalizer'
 import { Action, Dispatch } from 'redux'
@@ -109,7 +109,6 @@ export const receiveSignoutSuccess = () => ({
 })
 
 function sendSignOut(dispatch: Dispatch) {
-  dispatch({ type: AuthActionType.REQUEST_SIGNOUT })
   return api.sessions
     .destroySession()
     .then(() => dispatch(receiveSignoutSuccess()))
@@ -242,7 +241,7 @@ export const updateBridge = (
 // The calls above will be converted gradually.
 const handleError = (dispatch: Dispatch) => (error: Error) => {
   if (error instanceof jsonapi.AuthenticationError) {
-    sendSignOut(dispatch)
+    dispatch(receiveSignoutSuccess())
   } else {
     dispatch(notifyError(({ msg }: any) => msg, error))
   }

@@ -2,6 +2,7 @@ package cltest
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/json"
 	"flag"
@@ -12,25 +13,33 @@ import (
 	"testing"
 	"time"
 
-	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/adapters"
+
+	"github.com/smartcontractkit/chainlink/core/services/job"
+
+	"github.com/jinzhu/gorm"
+	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
+	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
+	"gopkg.in/guregu/null.v4"
 )
 
 // NewJob return new NoOp JobSpec
@@ -472,7 +481,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 		},
 	}
 	lb := new(mocks.LogBroadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {})
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {}, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
 }
@@ -489,31 +498,9 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	return *taskRunID
 }
 
-// MustInsertKey inserts a key
-// WARNING: Be extremely cautious using this, inserting keys with the same
-// address in multiple parallel tests can and will lead to deadlocks.
-// Only use this if you know what you are doing.
-func MustInsertKey(t *testing.T, store *strpkg.Store, address common.Address) models.Key {
-	a, err := models.NewEIP55Address(address.Hex())
-	require.NoError(t, err)
-	key := models.Key{
-		Address: a,
-		JSON:    JSONFromString(t, "{}"),
-	}
-	require.NoError(t, store.DB.Save(&key).Error)
-	return key
-}
-
-func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) models.EthTx {
-	var address common.Address
-	if len(fromAddress) > 0 {
-		address = fromAddress[0]
-	} else {
-		address = DefaultKeyAddress
-	}
-
+func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
 	return models.EthTx{
-		FromAddress:    address,
+		FromAddress:    fromAddress,
 		ToAddress:      NewAddress(),
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
@@ -521,9 +508,9 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress ...common.Address) 
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress...)
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	n := nonce
@@ -544,9 +531,32 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress ...common.Address) models.EthTx {
+func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
 	timeNow := time.Now()
-	etx := NewEthTx(t, store, fromAddress...)
+	etx := NewEthTx(t, store, fromAddress)
+
+	etx.BroadcastAt = &timeNow
+	n := nonce
+	etx.Nonce = &n
+	etx.State = models.EthTxUnconfirmed
+	require.NoError(t, store.DB.Save(&etx).Error)
+	attempt := NewEthTxAttempt(t, etx.ID)
+
+	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+	rlp := new(bytes.Buffer)
+	require.NoError(t, tx.EncodeRLP(rlp))
+	attempt.SignedRawTx = rlp.Bytes()
+
+	attempt.State = models.EthTxAttemptInsufficientEth
+	require.NoError(t, store.DB.Save(&attempt).Error)
+	etx, err := store.FindEthTxWithAttempts(etx.ID)
+	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) models.EthTx {
+	timeNow := time.Now()
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = &timeNow
 	etx.Nonce = &nonce
@@ -560,8 +570,8 @@ func MustInsertConfirmedEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonc
 	return etx
 }
 
-func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress ...common.Address) models.EthTx {
-	etx := NewEthTx(t, store)
+func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
 
 	etx.BroadcastAt = nil
 	etx.Nonce = &nonce
@@ -577,18 +587,6 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
 	return etx
-}
-
-func MustGetFixtureKey(t *testing.T, store *strpkg.Store) models.Key {
-	key, err := store.KeyByAddress(common.HexToAddress(DefaultKey))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return key
-}
-
-func GetDefaultFromAddress(t *testing.T, store *strpkg.Store) common.Address {
-	return MustGetFixtureKey(t, store).Address.Address()
 }
 
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
@@ -623,8 +621,8 @@ func MustInsertEthReceipt(t *testing.T, s *strpkg.Store, blockNumber int64, bloc
 	return r
 }
 
-func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
-	etx := NewEthTx(t, store)
+func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
 	errStr := "something exploded"
 	etx.Error = &errStr
 	etx.State = models.EthTxFatalError
@@ -633,22 +631,90 @@ func MustInsertFatalErrorEthTx(t *testing.T, store *strpkg.Store) models.EthTx {
 	return etx
 }
 
-func MustInsertRandomKey(t *testing.T, store *strpkg.Store) models.Key {
-	k := models.Key{Address: models.EIP55Address(NewAddress().Hex()), JSON: JSONFromString(t, `{"key": "factory"}`)}
-	require.NoError(t, store.CreateKeyIfNotExists(k))
-	return k
-}
-
-func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, dependencies ...interface{}) models.OffchainReportingOracleSpec {
+func MustAddRandomKeyToKeystore(t testing.TB, store *strpkg.Store, opts ...interface{}) (models.Key, common.Address) {
 	t.Helper()
 
-	spec := models.OffchainReportingOracleSpec{
+	k := MustGenerateRandomKey(t, opts...)
+	err := store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
+	MustAddKeyToKeystore(t, &k, store)
+	return k, k.Address.Address()
+}
+
+func MustAddKeyToKeystore(t testing.TB, key *models.Key, store *strpkg.Store) {
+	t.Helper()
+
+	err := store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
+	_, err = store.KeyStore.Import(key.JSON.Bytes(), Password)
+	require.NoError(t, err)
+	require.NoError(t, store.DB.Create(key).Error)
+}
+
+// MustInsertRandomKey inserts a randomly generated (not cryptographically
+// secure) key for testing
+// If using this with the keystore, it should be called before the keystore loads keys from the database
+func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.Key {
+	t.Helper()
+
+	key := MustGenerateRandomKey(t, opts...)
+
+	require.NoError(t, db.Create(&key).Error)
+	return key
+}
+
+func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
+	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
+	require.NoError(t, err)
+	id := pbormanuuid.NewRandom()
+	k := &keystore.Key{
+		Id:         id,
+		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
+		PrivateKey: privateKeyECDSA,
+	}
+	keyjsonbytes, err := keystore.EncryptKey(k, Password, utils.FastScryptParams.N, utils.FastScryptParams.P)
+	require.NoError(t, err)
+	keyjson, err := models.ParseJSON(keyjsonbytes)
+	require.NoError(t, err)
+	eip, err := models.EIP55AddressFromAddress(k.Address)
+	require.NoError(t, err)
+
+	var nextNonce *int64
+	var funding bool
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case int:
+			i := int64(v)
+			nextNonce = &i
+		case int64:
+			nextNonce = &v
+		case bool:
+			funding = v
+		default:
+			t.Fatalf("unrecognised option type: %T", v)
+		}
+	}
+
+	key := models.Key{
+		Address:   eip,
+		JSON:      keyjson,
+		NextNonce: nextNonce,
+		IsFunding: funding,
+	}
+	return key
+}
+
+func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
+	t.Helper()
+
+	pid := models.PeerID(DefaultP2PPeerID)
+	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
-		P2PPeerID:                              models.PeerID(DefaultP2PPeerID),
+		P2PPeerID:                              &pid,
 		P2PBootstrapPeers:                      []string{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
-		TransmitterAddress:                     &DefaultKeyAddressEIP55,
+		TransmitterAddress:                     &transmitterAddress,
 		ObservationTimeout:                     0,
 		BlockchainTimeout:                      0,
 		ContractConfigTrackerSubscribeInterval: 0,
@@ -665,18 +731,55 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestAnswer *big.Int) contracts.FluxAggregatorRoundState {
-	return contracts.FluxAggregatorRoundState{
-		ReportableRoundID: roundID,
-		EligibleToSubmit:  true,
-		LatestAnswer:      latestAnswer,
-		AvailableFunds:    store.Config.MinimumContractPayment().ToInt(),
-		PaymentAmount:     store.Config.MinimumContractPayment().ToInt(),
+func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
+	return flux_aggregator_wrapper.OracleRoundState{
+		RoundId:          roundID,
+		EligibleToSubmit: true,
+		LatestSubmission: latestSubmission,
+		AvailableFunds:   store.Config.MinimumContractPayment().ToInt(),
+		PaymentAmount:    store.Config.MinimumContractPayment().ToInt(),
 	}
+}
+
+func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
+	run := pipeline.Run{
+		Outputs:    pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.JSONSerializable{Null: true},
+		FinishedAt: nil,
+	}
+	require.NoError(t, db.Create(&run).Error)
+	return run
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
 	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
+}
+
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+	t.Helper()
+
+	pspec := pipeline.Spec{}
+	require.NoError(t, db.Create(&pspec).Error)
+
+	finalTspec := pipeline.TaskSpec{PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&finalTspec).Error)
+
+	tspecPath1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath1).Error)
+
+	tspecPath2_2 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
+	require.NoError(t, db.Create(&tspecPath2_2).Error)
+
+	tspecPath2_1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(tspecPath2_2.ID))}
+	require.NoError(t, db.Create(&tspecPath2_1).Error)
+
+	drspec := job.DirectRequestSpec{}
+	require.NoError(t, db.Create(&drspec).Error)
+
+	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	require.NoError(t, db.Create(&job).Error)
+
+	return job
 }

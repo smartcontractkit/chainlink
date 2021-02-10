@@ -1,4 +1,4 @@
-import { Api } from '@chainlink/json-api-client'
+import { Api } from 'utils/json-api-client'
 import { BridgeTypes } from './bridgeTypes'
 import { BulkDeleteRuns } from './bulkDeleteRuns'
 import { Config } from './config'

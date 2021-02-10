@@ -35,10 +35,12 @@ type Client interface {
 
 	GetERC20Balance(address common.Address, contractAddress common.Address) (*big.Int, error)
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
+	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
 	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
 	// These methods are reimplemented due to a difference in how block header hashes are
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
@@ -187,6 +189,14 @@ func (client *client) GetLINKBalance(linkAddress common.Address, address common.
 		return assets.NewLink(0), err
 	}
 	return (*assets.Link)(balance), nil
+}
+
+func (client *client) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	balance, err := client.BalanceAt(ctx, account, blockNumber)
+	if err != nil {
+		return assets.NewEth(0), err
+	}
+	return (*assets.Eth)(balance), nil
 }
 
 // SendRawTx sends a signed transaction to the transaction pool.
@@ -352,4 +362,11 @@ func (client *client) CallContext(ctx context.Context, result interface{}, metho
 		"args", args,
 	)
 	return client.RPCClient.CallContext(ctx, result, method, args...)
+}
+
+func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	logger.Debugw("eth.Client#BatchCall(...)",
+		"batchElems", b,
+	)
+	return client.RPCClient.BatchCallContext(ctx, b)
 }

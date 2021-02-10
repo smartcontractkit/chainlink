@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+
 	"go.uber.org/multierr"
 
 	"github.com/pkg/errors"
@@ -24,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/static"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -248,11 +249,11 @@ func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*model
 		return &key, balance, ethErr
 	}
 	// Key record not found so create one.
-	ethAccount, err := str.KeyStore.NewAccount(pwd)
+	ethAccount, err := str.KeyStore.NewAccount()
 	if err != nil {
 		return nil, nil, err
 	}
-	exportedJSON, err := str.KeyStore.Export(ethAccount, pwd, pwd)
+	exportedJSON, err := str.KeyStore.Export(ethAccount.Address, pwd)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -340,7 +341,9 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 	// Ensure that the CL node is down by trying to acquire the global advisory lock.
 	// This method will panic if it can't get the lock.
 	logger.Info("Make sure the Chainlink node is not running")
-	ormInstance.MustEnsureAdvisoryLock()
+	if err := ormInstance.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
 
 	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
 		logger.Errorw("failed to remove unstarted transactions", "error", err)
@@ -426,13 +429,13 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func migrateTestDB(config *orm.Config) error {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault())
+	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrations.GORMMigrate(db)
+		return migrationsv2.Migrate(db)
 	})
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)

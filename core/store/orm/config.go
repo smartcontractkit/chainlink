@@ -15,6 +15,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/multiformats/go-multiaddr"
+
+	ocr "github.com/smartcontractkit/libocr/offchainreporting"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -33,6 +38,11 @@ import (
 
 // this permission grants read / write accccess to file owners only
 const readWritePerms = os.FileMode(0600)
+
+var (
+	ErrUnset   = errors.New("env var unset")
+	ErrInvalid = errors.New("env var invalid")
+)
 
 // Config holds parameters used by the application which can be overridden by
 // setting environment variables.
@@ -110,6 +120,41 @@ func (c *Config) Validate() error {
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
 	}
+
+	var override time.Duration
+	lc := ocrtypes.LocalConfig{
+		BlockchainTimeout:                      c.OCRBlockchainTimeout(override),
+		ContractConfigConfirmations:            c.OCRContractConfirmations(0),
+		ContractConfigTrackerPollInterval:      c.OCRContractPollInterval(override),
+		ContractConfigTrackerSubscribeInterval: c.OCRContractSubscribeInterval(override),
+		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
+		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
+		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+	}
+	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
+		return err
+	}
+	if _, err := c.P2PPeerID(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRKeyBundleID(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if _, err := c.OCRTransmitterAddress(nil); errors.Cause(err) == ErrInvalid {
+		return err
+	}
+	if peers, err := c.P2PBootstrapPeers(nil); err == nil {
+		for i := range peers {
+			if _, err := multiaddr.NewMultiaddr(peers[i]); err != nil {
+				return errors.Errorf("p2p bootstrap peer %d is invalid: err %v", i, err)
+			}
+		}
+	}
+	if me := c.OCRMonitoringEndpoint(""); me != "" {
+		if _, err := url.Parse(me); err != nil {
+			return errors.Wrapf(err, "invalid monitoring url: %s", me)
+		}
+	}
 	return nil
 }
 
@@ -154,6 +199,16 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
+func (c Config) AuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
+}
+
+// AuthenticatedRateLimitPeriod defines the period to which authenticated requests get limited
+func (c Config) AuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("AuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
+}
+
 // BalanceMonitorEnabled enables the balance monitor
 func (c Config) BalanceMonitorEnabled() bool {
 	return c.viper.GetBool(EnvVarName("BalanceMonitorEnabled"))
@@ -162,7 +217,7 @@ func (c Config) BalanceMonitorEnabled() bool {
 // BlockBackfillDepth specifies the number of blocks before the current HEAD that the
 // log broadcaster will try to re-consume logs from
 func (c Config) BlockBackfillDepth() uint64 {
-	return c.viper.GetUint64(EnvVarName("BlockBackfillDepth"))
+	return c.getWithFallback("BlockBackfillDepth", parseUint64).(uint64)
 }
 
 // BridgeResponseURL represents the URL for bridges to send a response to.
@@ -180,29 +235,26 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
-func (c Config) getDuration(s string) models.Duration {
-	rv, err := models.MakeDuration(c.viper.GetDuration(EnvVarName(s)))
-	if err != nil {
-		panic(errors.Wrapf(err, "bad duration for config value %s: %s", s, rv))
-	}
-	return rv
-}
-
 func (c Config) DatabaseListenerMinReconnectInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseListenerMinReconnectInterval"))
+	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parseDuration).(time.Duration)
 }
 
 func (c Config) DatabaseListenerMaxReconnectDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseListenerMaxReconnectDuration"))
+	return c.getWithFallback("DatabaseListenerMaxReconnectDuration", parseDuration).(time.Duration)
 }
 
 func (c Config) DatabaseMaximumTxDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("DatabaseMaximumTxDuration"))
+	return c.getWithFallback("DatabaseMaximumTxDuration", parseDuration).(time.Duration)
 }
 
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
-	return c.getDuration("DatabaseTimeout")
+	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
+}
+
+// GlobalLockRetryInterval represents how long to wait before trying again to get the global advisory lock.
+func (c Config) GlobalLockRetryInterval() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("GlobalLockRetryInterval", parseDuration).(time.Duration))
 }
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
@@ -219,7 +271,7 @@ func (c Config) MigrateDatabase() bool {
 
 // DefaultMaxHTTPAttempts defines the limit for HTTP requests.
 func (c Config) DefaultMaxHTTPAttempts() uint {
-	return c.viper.GetUint(EnvVarName("DefaultMaxHTTPAttempts"))
+	return uint(c.getWithFallback("DefaultMaxHTTPAttempts", parseUint64).(uint64))
 }
 
 // DefaultHTTPLimit defines the size limit for HTTP requests and responses
@@ -229,7 +281,7 @@ func (c Config) DefaultHTTPLimit() int64 {
 
 // DefaultHTTPTimeout defines the default timeout for http requests
 func (c Config) DefaultHTTPTimeout() models.Duration {
-	return c.getDuration("DefaultHTTPTimeout")
+	return models.MustMakeDuration(c.getWithFallback("DefaultHTTPTimeout", parseDuration).(time.Duration))
 }
 
 // DefaultHTTPAllowUnrestrictedNetworkAccess controls whether http requests are unrestricted by default
@@ -266,13 +318,13 @@ func (c Config) FeatureOffchainReporting() bool {
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() models.Duration {
-	return c.getDuration("MaximumServiceDuration")
+	return models.MustMakeDuration(c.getWithFallback("MaximumServiceDuration", parseDuration).(time.Duration))
 }
 
 // MinimumServiceDuration is the shortest duration from now that a service is
 // allowed to run.
 func (c Config) MinimumServiceDuration() models.Duration {
-	return c.getDuration("MinimumServiceDuration")
+	return models.MustMakeDuration(c.getWithFallback("MinimumServiceDuration", parseDuration).(time.Duration))
 }
 
 // EthBalanceMonitorBlockDelay is the number of blocks that the balance monitor
@@ -283,9 +335,13 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
+func (c Config) EthReceiptFetchBatchSize() uint32 {
+	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
+}
+
 // EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
 func (c Config) EthGasBumpThreshold() uint64 {
-	return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
+	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
 }
 
 // EthGasBumpTxDepth is the number of transactions to gas bump starting from oldest.
@@ -313,7 +369,7 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
-	return c.viper.GetUint64(EnvVarName("EthGasLimitDefault"))
+	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
 }
 
 // EthGasPriceDefault is the starting gas price for every transaction
@@ -344,14 +400,14 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 func (c Config) EthFinalityDepth() uint {
-	return c.viper.GetUint(EnvVarName("EthFinalityDepth"))
+	return uint(c.getWithFallback("EthFinalityDepth", parseUint64).(uint64))
 }
 
 // EthHeadTrackerHistoryDepth is the number of heads to keep in the `heads` database table.
 // This number should be at least as large as `EthFinalityDepth`.
 // There may be a small performance penalty to setting this to something very large (10,000+)
 func (c Config) EthHeadTrackerHistoryDepth() uint {
-	return c.viper.GetUint(EnvVarName("EthHeadTrackerHistoryDepth"))
+	return uint(c.getWithFallback("EthHeadTrackerHistoryDepth", parseUint64).(uint64))
 }
 
 // EthHeadTrackerMaxBufferSize is the maximum number of heads that may be
@@ -359,7 +415,7 @@ func (c Config) EthHeadTrackerHistoryDepth() uint {
 // dropped. You may think of it as something like the maximum permittable "lag"
 // for the head tracker before we start dropping heads to keep up.
 func (c Config) EthHeadTrackerMaxBufferSize() uint {
-	return c.viper.GetUint(EnvVarName("EthHeadTrackerMaxBufferSize"))
+	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
@@ -444,25 +500,31 @@ func (c Config) InsecureFastScrypt() bool {
 }
 
 func (c Config) TriggerFallbackDBPollInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("TriggerFallbackDBPollInterval"))
+	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
+// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
 func (c Config) JobPipelineMaxTaskDuration() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineMaxTaskDuration"))
+	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
+}
+
+// JobPipelineMaxRunDuration is the maximum time that a job run may take
+func (c Config) JobPipelineMaxRunDuration() time.Duration {
+	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
 }
 
 // JobPipelineParallelism controls how many workers the pipeline.Runner
-// uses in parallel
+// uses in parallel (how many pipeline runs may simultaneously be executing)
 func (c Config) JobPipelineParallelism() uint8 {
 	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
 }
 
 func (c Config) JobPipelineReaperInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineReaperInterval"))
+	return c.getWithFallback("JobPipelineReaperInterval", parseDuration).(time.Duration)
 }
 
 func (c Config) JobPipelineReaperThreshold() time.Duration {
-	return c.viper.GetDuration(EnvVarName("JobPipelineReaperThreshold"))
+	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
 }
 
 // JSONConsole enables the JSON console.
@@ -501,37 +563,112 @@ func (c Config) ExplorerSecret() string {
 
 // FIXME: Add comments to all of these
 func (c Config) OCRBootstrapCheckInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRBootstrapCheckInterval"))
+	return c.getWithFallback("OCRBootstrapCheckInterval", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRContractTransmitterTransmitTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRContractTransmitterTransmitTimeout"))
+	return c.getWithFallback("OCRContractTransmitterTransmitTimeout", parseDuration).(time.Duration)
+}
+
+func (c Config) getDurationWithOverride(override time.Duration, field string) time.Duration {
+	if override != time.Duration(0) {
+		return override
+	}
+	return c.getWithFallback(field, parseDuration).(time.Duration)
+}
+
+func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRBlockchainTimeout")
+}
+
+func (c Config) OCRContractSubscribeInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractSubscribeInterval")
+}
+
+func (c Config) OCRContractPollInterval(override time.Duration) time.Duration {
+	return c.getDurationWithOverride(override, "OCRContractPollInterval")
+}
+
+func (c Config) OCRContractConfirmations(override uint16) uint16 {
+	if override != uint16(0) {
+		return override
+	}
+	return c.getWithFallback("OCRContractConfirmations", parseUint16).(uint16)
 }
 
 func (c Config) OCRDatabaseTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRDatabaseTimeout"))
+	return c.getWithFallback("OCRDatabaseTimeout", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRDHTLookupInterval() int {
-	return c.viper.GetInt(EnvVarName("OCRDHTLookupInterval"))
+	return int(c.getWithFallback("OCRDHTLookupInterval", parseUint16).(uint16))
 }
 
 func (c Config) OCRIncomingMessageBufferSize() int {
-	return c.viper.GetInt(EnvVarName("OCRIncomingMessageBufferSize"))
+	return int(c.getWithFallback("OCRIncomingMessageBufferSize", parseUint16).(uint16))
 }
 
 func (c Config) OCRNewStreamTimeout() time.Duration {
-	return c.viper.GetDuration(EnvVarName("OCRNewStreamTimeout"))
+	return c.getWithFallback("OCRNewStreamTimeout", parseDuration).(time.Duration)
 }
 
 func (c Config) OCROutgoingMessageBufferSize() int {
-	return c.viper.GetInt(EnvVarName("OCROutgoingMessageBufferSize"))
+	return int(c.getWithFallback("OCRIncomingMessageBufferSize", parseUint16).(uint16))
 }
 
 // OCRTraceLogging determines whether OCR logs at TRACE level are enabled. The
 // option to turn them off is given because they can be very verbose
 func (c Config) OCRTraceLogging() bool {
 	return c.viper.GetBool(EnvVarName("OCRTraceLogging"))
+}
+
+func (c Config) OCRMonitoringEndpoint(override string) string {
+	if override != "" {
+		return override
+	}
+	return c.viper.GetString(EnvVarName("OCRMonitoringEndpoint"))
+}
+
+func (c Config) OCRTransmitterAddress(override *models.EIP55Address) (models.EIP55Address, error) {
+	if override != nil {
+		return *override, nil
+	}
+	taStr := c.viper.GetString(EnvVarName("OCRTransmitterAddress"))
+	if taStr != "" {
+		ta, err := models.NewEIP55Address(taStr)
+		if err != nil {
+			return "", errors.Wrapf(ErrInvalid, "OCR_TRANSMITTER_ADDRESS is invalid EIP55 %v", err)
+		}
+		return ta, nil
+	}
+	return "", errors.Wrap(ErrUnset, "OCR_TRANSMITTER_ADDRESS")
+}
+
+func (c Config) OCRKeyBundleID(override *models.Sha256Hash) (models.Sha256Hash, error) {
+	if override != nil {
+		return *override, nil
+	}
+	kbStr := c.viper.GetString(EnvVarName("OCRKeyBundleID"))
+	if kbStr != "" {
+		kb, err := models.Sha256HashFromHex(kbStr)
+		if err != nil {
+			return models.Sha256Hash{}, errors.Wrapf(ErrInvalid, "OCR_KEY_BUNDLE_ID is an invalid sha256 hash hex string %v", err)
+		}
+		return kb, nil
+	}
+	return models.Sha256Hash{}, errors.Wrap(ErrUnset, "OCR_KEY_BUNDLE_ID")
+}
+
+func (c Config) ORMMaxOpenConns() int {
+	return int(c.getWithFallback("ORMMaxOpenConns", parseUint16).(uint16))
+}
+
+func (c Config) ORMMaxIdleConns() int {
+	return int(c.getWithFallback("ORMMaxIdleConns", parseUint16).(uint16))
 }
 
 // OperatorContractAddress represents the address where the Operator.sol
@@ -571,14 +708,14 @@ func (c Config) LogSQLMigrations() bool {
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint32 {
-	return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
+	return c.getWithFallback("MinIncomingConfirmations", parseUint32).(uint32)
 }
 
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
+	return c.getWithFallback("MinRequiredOutgoingConfirmations", parseUint64).(uint64)
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
@@ -589,7 +726,7 @@ func (c Config) MinimumContractPayment() *assets.Link {
 
 // MinimumRequestExpiration is the minimum allowed request expiration for a Service Agreement.
 func (c Config) MinimumRequestExpiration() uint64 {
-	return c.viper.GetUint64(EnvVarName("MinimumRequestExpiration"))
+	return c.getWithFallback("MinimumRequestExpiration", parseUint64).(uint64)
 }
 
 // P2PListenIP is the ip that libp2p willl bind to and listen on
@@ -617,8 +754,49 @@ func (c Config) P2PAnnouncePort() uint16 {
 	return uint16(c.viper.GetUint32(EnvVarName("P2PAnnouncePort")))
 }
 
+// P2PDHTAnnouncementCounterUserPrefix can be used to restore the node's
+// ability to announce its IP/port on the P2P network after a database
+// rollback. Make sure to only increase this value, and *never* decrease it.
+// Don't use this variable unless you really know what you're doing, since you
+// could semi-permanently exclude your node from the P2P network by
+// misconfiguring it.
+func (c Config) P2PDHTAnnouncementCounterUserPrefix() uint32 {
+	return c.viper.GetUint32(EnvVarName("P2PDHTAnnouncementCounterUserPrefix"))
+}
+
 func (c Config) P2PPeerstoreWriteInterval() time.Duration {
-	return c.viper.GetDuration(EnvVarName("P2PPeerstoreWriteInterval"))
+	return c.getWithFallback("P2PPeerstoreWriteInterval", parseDuration).(time.Duration)
+}
+
+func (c Config) P2PPeerID(override *models.PeerID) (models.PeerID, error) {
+	if override != nil {
+		return *override, nil
+	}
+	pidStr := c.viper.GetString(EnvVarName("P2PPeerID"))
+	if pidStr != "" {
+		var pid models.PeerID
+		err := pid.UnmarshalText([]byte(pidStr))
+		if err != nil {
+			return "", errors.Wrapf(ErrInvalid, "P2P_PEER_ID is invalid %v", err)
+		}
+		return pid, nil
+	}
+	return "", errors.Wrap(ErrUnset, "P2P_PEER_ID")
+}
+
+func (c Config) P2PPeerIDIsSet() bool {
+	return c.viper.GetString(EnvVarName("P2PPeerID")) != ""
+}
+
+func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
+	if override != nil {
+		return override, nil
+	}
+	bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
+	if bps != nil {
+		return bps, nil
+	}
+	return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -626,9 +804,13 @@ func (c Config) Port() uint16 {
 	return c.getWithFallback("Port", parseUint16).(uint16)
 }
 
+func (c Config) HTTPServerWriteTimeout() time.Duration {
+	return c.getWithFallback("HTTPServerWriteTimeout", parseDuration).(time.Duration)
+}
+
 // ReaperExpiration represents
 func (c Config) ReaperExpiration() models.Duration {
-	return c.getDuration("ReaperExpiration")
+	return models.MustMakeDuration(c.getWithFallback("ReaperExpiration", parseDuration).(time.Duration))
 }
 
 func (c Config) ReplayFromBlock() int64 {
@@ -648,7 +830,7 @@ func (c Config) SecureCookies() bool {
 
 // SessionTimeout is the maximum duration that a user session can persist without any activity.
 func (c Config) SessionTimeout() models.Duration {
-	return c.getDuration("SessionTimeout")
+	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parseDuration).(time.Duration))
 }
 
 // TLSCertPath represents the file system location of the TLS certificate
@@ -674,16 +856,19 @@ func (c Config) TLSPort() uint16 {
 	return c.getWithFallback("TLSPort", parseUint16).(uint16)
 }
 
-// TxAttemptLimit is the maximum number of transaction attempts (gas bumps)
-// that will occur before giving a transaction up as errored
-// NOTE: That initial transactions are retried forever until they succeed
-func (c Config) TxAttemptLimit() uint16 {
-	return c.getWithFallback("TxAttemptLimit", parseUint16).(uint16)
-}
-
 // TLSRedirect forces TLS redirect for unencrypted connections
 func (c Config) TLSRedirect() bool {
 	return c.viper.GetBool(EnvVarName("TLSRedirect"))
+}
+
+// UnAuthenticatedRateLimit defines the threshold to which requests unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimit() int64 {
+	return c.viper.GetInt64(EnvVarName("UnAuthenticatedRateLimit"))
+}
+
+// UnAuthenticatedRateLimitPeriod defines the period to which unauthenticated requests get limited
+func (c Config) UnAuthenticatedRateLimitPeriod() models.Duration {
+	return models.MustMakeDuration(c.getWithFallback("UnAuthenticatedRateLimitPeriod", parseDuration).(time.Duration))
 }
 
 // KeysDir returns the path of the keys directory (used for keystore files).
@@ -811,14 +996,24 @@ func parseLogLevel(str string) (interface{}, error) {
 	return lvl, err
 }
 
-func parseUint16(str string) (interface{}, error) {
-	d, err := strconv.ParseUint(str, 10, 16)
-	return uint16(d), err
+func parseUint8(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 8)
+	return uint8(v), err
 }
 
-func parseUint8(str string) (interface{}, error) {
-	d, err := strconv.ParseUint(str, 10, 8)
-	return uint8(d), err
+func parseUint16(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 16)
+	return uint16(v), err
+}
+
+func parseUint32(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 32)
+	return uint32(v), err
+}
+
+func parseUint64(s string) (interface{}, error) {
+	v, err := strconv.ParseUint(s, 10, 64)
+	return v, err
 }
 
 func parseURL(s string) (interface{}, error) {
@@ -827,6 +1022,10 @@ func parseURL(s string) (interface{}, error) {
 
 func parseIP(s string) (interface{}, error) {
 	return net.ParseIP(s), nil
+}
+
+func parseDuration(s string) (interface{}, error) {
+	return time.ParseDuration(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

@@ -5,7 +5,7 @@ import {
   withStyles,
   WithStyles,
 } from '@material-ui/core/styles'
-import * as storage from '@chainlink/local-storage'
+import * as storage from 'utils/local-storage'
 import { withFormik, FormikProps, Form as FormikForm } from 'formik'
 import normalizeUrl from 'normalize-url'
 import React from 'react'

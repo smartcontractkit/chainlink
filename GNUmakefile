@@ -2,6 +2,7 @@
 
 ENVIRONMENT ?= release
 
+GOPATH ?= $(HOME)/go
 BUILDER ?= smartcontract/builder
 REPO := smartcontract/chainlink
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
@@ -42,6 +43,7 @@ yarndep: ## Ensure all yarn dependencies are installed
 
 .PHONY: install-chainlink
 install-chainlink: chainlink ## Install the chainlink binary.
+	mkdir -p $(GOBIN)
 	cp $< $(GOBIN)/chainlink
 
 chainlink: operator-ui ## Build the chainlink binary.

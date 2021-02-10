@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"sort"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -27,9 +28,9 @@ import (
 func TestClient_RunNodeShowsEnv(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+	_, err := store.KeyStore.NewAccount()
+	require.NoError(t, err)
 
 	store.Config.Set("LINK_CONTRACT_ADDRESS", "0x514910771AF9Ca656af840dff83E8264EcF986CA")
 	store.Config.Set("FLAGS_CONTRACT_ADDRESS", "0x4A5b9B4aD08616D11F3A402FF7cBEAcB732a76C6")
@@ -118,9 +119,9 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			// Clear out fixture
 			store.DeleteUser()
 			defer cleanup()
-			_, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+			_, err := store.KeyStore.NewAccount()
+			require.NoError(t, err)
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
@@ -132,7 +133,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil)
 			store.EthClient = ethClient
 
-			_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
+			_, err = store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			var unlocked bool
@@ -175,9 +176,9 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	// Clear out fixture
 	defer cleanup()
-	_, err := store.KeyStore.NewAccount(cltest.Password)
-	require.NoError(t, err)
 	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+	_, err := store.KeyStore.NewAccount()
+	require.NoError(t, err)
 
 	app := new(mocks.Application)
 	app.On("GetStore").Return(store)
@@ -188,7 +189,7 @@ func TestClient_RunNode_CreateFundingKeyIfNotExists(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	store.EthClient = ethClient
 
-	_, err = store.KeyStore.NewAccount("password") // matches correct_password.txt
+	_, err = store.KeyStore.NewAccount()
 	require.NoError(t, err)
 
 	callback := func(store *strpkg.Store, phrase string) (string, error) {
@@ -241,9 +242,9 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 			// Clear out fixture
 			store.DeleteUser()
 			defer cleanup()
-			_, err := store.KeyStore.NewAccount(cltest.Password)
-			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+			_, err := store.KeyStore.NewAccount()
+			require.NoError(t, err)
 
 			app := new(mocks.Application)
 			app.On("GetStore").Return(store)
@@ -285,11 +286,10 @@ func TestClient_RunNodeWithAPICredentialsFile(t *testing.T) {
 func TestClient_ImportKey(t *testing.T) {
 	t.Parallel()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.AllowUnstarted,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 
@@ -306,18 +306,8 @@ func TestClient_ImportKey(t *testing.T) {
 	keys, err := app.GetStore().SendKeys()
 	require.NoError(t, err)
 
-	require.Len(t, keys, 2)
-	require.Equal(t, int32(1), keys[0].ID)
-	require.Greater(t, keys[1].ID, int32(1))
-
-	addresses := []string{}
-	for _, k := range keys {
-		addresses = append(addresses, k.Address.String())
-	}
-
-	sort.Strings(addresses)
-	expectation := []string{cltest.DefaultKey, "0x7fc66c61f88A61DFB670627cA715Fe808057123e"}
-	require.Equal(t, expectation, addresses)
+	require.Len(t, keys, 1)
+	require.Equal(t, "0x7fc66c61f88A61DFB670627cA715Fe808057123e", keys[0].Address.String())
 }
 
 func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
@@ -349,6 +339,16 @@ func TestClient_LogToDiskOptionDisablesAsExpected(t *testing.T) {
 }
 
 func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
+	// Use the a non-transactional db for this test because we need to
+	// test multiple connections to the database, and changes made within
+	// the transaction cannot be seen from another connection.
+	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
+	defer cleanup()
+	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+	defer connectedCleanup()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
+
 	beginningNonce := uint(7)
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
@@ -359,19 +359,10 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	set.Uint("endingNonce", endingNonce, "")
 	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
 	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", cltest.DefaultKey, "")
+	set.String("address", fromAddress.Hex(), "")
 	c := cli.NewContext(nil, set, nil)
 
-	// Use the a non-transactional db for this test because we need to
-	// test multiple connections to the database, and changes made within
-	// the transaction cannot be seen from another connection.
-	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
-	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgres
-	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
-	defer connectedCleanup()
-
-	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, 7, 42)
+	cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, 7, 42, fromAddress)
 
 	// Use the same config as the connectedStore so that the advisory
 	// lock ID is the same. We set the config to be Postgres Without
@@ -423,14 +414,6 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 	endingNonce := uint(10)
 	gasPrice := big.NewInt(100000000000)
 	gasLimit := uint64(3000000)
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("debug", true, "")
-	set.Uint("beginningNonce", beginningNonce, "")
-	set.Uint("endingNonce", endingNonce, "")
-	set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
-	set.Uint64("gasLimit", gasLimit, "")
-	set.String("address", cltest.DefaultKey, "")
-	c := cli.NewContext(nil, set, nil)
 
 	tests := []struct {
 		name  string
@@ -451,7 +434,18 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
 
-			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, int64(test.nonce), 42)
+			_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
+
+			set := flag.NewFlagSet("test", 0)
+			set.Bool("debug", true, "")
+			set.Uint("beginningNonce", beginningNonce, "")
+			set.Uint("endingNonce", endingNonce, "")
+			set.Uint64("gasPriceWei", gasPrice.Uint64(), "")
+			set.Uint64("gasLimit", gasLimit, "")
+			set.String("address", fromAddress.Hex(), "")
+			c := cli.NewContext(nil, set, nil)
+
+			cltest.MustInsertConfirmedEthTxWithAttempt(t, connectedStore, int64(test.nonce), 42, fromAddress)
 
 			// Use the same config as the connectedStore so that the advisory
 			// lock ID is the same. We set the config to be Postgres Without
@@ -517,8 +511,8 @@ func TestClient_SetNextNonce(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("debug", true, "")
 	set.Uint("nextNonce", 42, "")
-	defaultFromAddress := cltest.GetDefaultFromAddress(t, store)
-	set.String("address", defaultFromAddress.Hex(), "")
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+	set.String("address", fromAddress.Hex(), "")
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.SetNextNonce(c))

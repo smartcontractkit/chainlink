@@ -85,7 +85,7 @@ func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunO
 				"VRFCoordinator.fulfillRandomnessRequest", solidityProof))
 	}
 	return models.NewRunOutputCompleteWithResult(fmt.Sprintf("0x%x",
-		vrfCoordinatorArgs))
+		vrfCoordinatorArgs), input.ResultCollection())
 }
 
 // getInputs parses the JSON input for the values needed by the random adapter,

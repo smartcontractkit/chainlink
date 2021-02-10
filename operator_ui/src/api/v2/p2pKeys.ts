@@ -1,24 +1,24 @@
-import * as jsonapi from '@chainlink/json-api-client'
+import * as jsonapi from 'utils/json-api-client'
 import { boundMethod } from 'autobind-decorator'
 import * as models from 'core/store/models'
 /**
  * Create adds validates, saves a new P2P key.
  *
- * @example "POST <application>/p2p_keys"
+ * @example "POST <application>/keys/p2p"
  */
-export const ENDPOINT = '/v2/p2p_keys'
+export const ENDPOINT = '/v2/keys/p2p'
 
 /**
  * Index lists P2P Keys.
  *
- * @example "GET <application>/p2p_keys"
+ * @example "GET <application>/keys/p2p"
  */
 export const INDEX_ENDPOINT = ENDPOINT
 
 /**
  * Destroy deletes a P2P Keys.
  *
- * @example "DELETE <application>/p2p_keys/:keyId"
+ * @example "DELETE <application>/keys/p2p/:keyId"
  */
 interface DestroyPathParams {
   keyId: string
