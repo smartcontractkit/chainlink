@@ -27,10 +27,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   }
 
   FlagsInterface private s_flags;
-  UniswapAnchoredView private s_openOracle;
-  mapping(address => CompoundAssetDetails) private s_comparisons;
+  UniswapAnchoredView private s_compOpenOracle;
+  mapping(address => CompoundAssetDetails) private s_thresholds;
 
-  event OpenOracleAddressUpdated(
+  event CompoundOpenOracleAddressUpdated(
     address indexed from,
     address indexed to
   );
@@ -38,9 +38,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address indexed from,
     address indexed to
   );
-  event ComparisonUpdated(
+  event ThresholdUpdated(
     address indexed aggregator,
-    string indexed symbol,
+    string symbol,
     uint8 decimals,
     uint256 deviationThresholdDenominator
   );
@@ -49,17 +49,17 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
-    setOpenOracleAddress(compoundOracleAddress);
+    setCompoundOpenOracleAddress(compoundOracleAddress);
   }
 
-  function setOpenOracleAddress(address oracleAddress)
+  function setCompoundOpenOracleAddress(address oracleAddress)
     public
     onlyOwner()
   {
-    address previous = address(s_openOracle);
+    address previous = address(s_compOpenOracle);
     if (previous != oracleAddress) {
-      s_openOracle = UniswapAnchoredView(oracleAddress);
-      emit OpenOracleAddressUpdated(previous, oracleAddress);
+      s_compOpenOracle = UniswapAnchoredView(oracleAddress);
+      emit CompoundOpenOracleAddressUpdated(previous, oracleAddress);
     }
   }
 
@@ -87,12 +87,12 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     public 
     onlyOwner() 
   {
-    CompoundAssetDetails memory compDetails = s_comparisons[aggregator];
+    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
     compDetails.symbol = compoundSymbol;
     compDetails.decimals = compoundDecimals;
     compDetails.deviationThresholdDenominator = compoundDeviationThresholdDenominator;
-    s_comparisons[aggregator] = compDetails;
-    emit ComparisonUpdated(
+    s_thresholds[aggregator] = compDetails;
+    emit ThresholdUpdated(
       aggregator,
       compoundSymbol,
       compoundDecimals,
@@ -135,16 +135,40 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     update(abi.decode(data, (address[])));
   }
 
+  function threshold(address aggregator)
+    public
+    view
+    returns (string memory, uint8, uint256)
+  {
+    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
+    return(
+      compDetails.symbol,
+      compDetails.decimals,
+      compDetails.deviationThresholdDenominator
+    );
+  }
+
+  /**
+   * @notice Get the flags address
+   * @return address
+   */
+  function flags() external view returns (address) {
+    return address(s_flags);
+  }
+
+  function compoundOpenOracle() external view returns (address) {
+    return address(s_compOpenOracle);
+  }
 
   function isInvalid(address aggregator) private view returns (bool invalid) {
-    CompoundAssetDetails memory compDetails = s_comparisons[aggregator];
+    CompoundAssetDetails memory compDetails = s_thresholds[aggregator];
     // Get aggregator price & decimals
     AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
     (,int256 unsignedPrice,,,) = priceFeed.latestRoundData();
     uint256 aggregatorPrice = uint256(unsignedPrice);
     uint8 decimals = priceFeed.decimals();
     // Get compound price
-    uint256 compPrice = s_openOracle.price(compDetails.symbol);
+    uint256 compPrice = s_compOpenOracle.price(compDetails.symbol);
 
     // Convert prices so they match decimals
     if (decimals > compDetails.decimals) {

@@ -1,7 +1,7 @@
 import {
   contract,
-  // matchers,
-  // helpers as h,
+  matchers,
+  helpers as h,
   setup,
 } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
@@ -11,6 +11,7 @@ import { MockV3Aggregator__factory } from '../../ethers/v0.6/factories/MockV3Agg
 import { MockCompoundOracle__factory } from '../../ethers/v0.7/factories/MockCompoundOracle__factory'
 import { SimpleWriteAccessController__factory } from '../../ethers/v0.6/factories/SimpleWriteAccessController__factory'
 import { CompoundPriceFlaggingValidator__factory } from '../../ethers/v0.7/factories/CompoundPriceFlaggingValidator__factory'
+import { ContractReceipt } from 'ethers/contract'
 
 let personas: setup.Personas
 const provider = setup.provider()
@@ -33,12 +34,14 @@ describe('CompoundPriceFlaggingVlidator', () => {
 
   const aggregatorDecimals = 18
   // 1000
-  const initialAggregatorPrice = ethers.utils.bigNumberify("1000000000000000000000")
+  const initialAggregatorPrice = ethers.utils.bigNumberify(
+    '1000000000000000000000',
+  )
 
-  const compoundSymbol = "ETH"
+  const compoundSymbol = 'ETH'
   const compoundDecimals = 6
   // 1100 (10% deviation from aggregator price)
-  const initialCompoundPrice = ethers.utils.bigNumberify("1100000000")
+  const initialCompoundPrice = ethers.utils.bigNumberify('1100000000')
 
   // (1 / initialDeviationDenominator)
   // (1 / 20) = 0.05 = 5% deviation threshold
@@ -53,17 +56,21 @@ describe('CompoundPriceFlaggingVlidator', () => {
     compoundOracle = await compoundOracleFactory
       .connect(personas.Carol)
       .deploy()
-    await compoundOracle
-      .setPrice(compoundSymbol, initialCompoundPrice, compoundDecimals)
+    await compoundOracle.setPrice(
+      compoundSymbol,
+      initialCompoundPrice,
+      compoundDecimals,
+    )
     validator = await validatorFactory
       .connect(personas.Carol)
       .deploy(flags.address, compoundOracle.address)
-    await validator.connect(personas.Carol)
+    await validator
+      .connect(personas.Carol)
       .setThreshold(
         aggregator.address,
         compoundSymbol,
         compoundDecimals,
-        initialDeviationDenominator
+        initialDeviationDenominator,
       )
     await ac.connect(personas.Carol).addAccess(validator.address)
   })
@@ -72,39 +79,236 @@ describe('CompoundPriceFlaggingVlidator', () => {
     await deployment()
   })
 
+  it('has a limited public interface', () => {
+    matchers.publicAbi(validatorFactory, [
+      'update',
+      'check',
+      'setThreshold',
+      'setFlagsAddress',
+      'setCompoundOpenOracleAddress',
+      'threshold',
+      'flags',
+      'compoundOpenOracle',
+      // Upkeep methods:
+      'checkForUpkeep',
+      'performUpkeep',
+      // Owned methods:
+      'acceptOwnership',
+      'owner',
+      'transferOwnership',
+    ])
+  })
+
+  describe('#constructor', () => {
+    it('sets the owner', async () => {
+      assert.equal(await validator.owner(), personas.Carol.address)
+    })
+
+    it('sets the arguments passed in', async () => {
+      assert.equal(await validator.flags(), flags.address)
+      assert.equal(await validator.compoundOpenOracle(), compoundOracle.address)
+    })
+  })
+
+  describe('#setOpenOracleAddress', () => {
+    let newCompoundOracle: contract.Instance<MockCompoundOracle__factory>
+    let receipt: ContractReceipt
+
+    beforeEach(async () => {
+      newCompoundOracle = await compoundOracleFactory
+        .connect(personas.Carol)
+        .deploy()
+      const tx = await validator
+        .connect(personas.Carol)
+        .setCompoundOpenOracleAddress(newCompoundOracle.address)
+      receipt = await tx.wait()
+    })
+
+    it('changes the compound oracke address', async () => {
+      assert.equal(
+        await validator.compoundOpenOracle(),
+        newCompoundOracle.address,
+      )
+    })
+
+    it('emits a log event', async () => {
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.CompoundOpenOracleAddressUpdated,
+      )
+
+      assert.equal(h.eventArgs(eventLog).from, compoundOracle.address)
+      assert.equal(h.eventArgs(eventLog).to, newCompoundOracle.address)
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          validator
+            .connect(personas.Neil)
+            .setCompoundOpenOracleAddress(newCompoundOracle.address),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('#setFlagsAddress', () => {
+    let newFlagsContract: contract.Instance<Flags__factory>
+    let receipt: ContractReceipt
+
+    beforeEach(async () => {
+      newFlagsContract = await flagsFactory
+        .connect(personas.Carol)
+        .deploy(ac.address)
+      const tx = await validator
+        .connect(personas.Carol)
+        .setFlagsAddress(newFlagsContract.address)
+      receipt = await tx.wait()
+    })
+
+    it('changes the flags address', async () => {
+      assert.equal(await validator.flags(), newFlagsContract.address)
+    })
+
+    it('emits a log event', async () => {
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.FlagsAddressUpdated,
+      )
+
+      assert.equal(h.eventArgs(eventLog).from, flags.address)
+      assert.equal(h.eventArgs(eventLog).to, newFlagsContract.address)
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          validator
+            .connect(personas.Neil)
+            .setFlagsAddress(newFlagsContract.address),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
+  describe('#setThreshold', () => {
+    let mockAggregator: contract.Instance<MockV3Aggregator__factory>
+    let receipt: ContractReceipt
+    const symbol = 'BTC'
+    const decimals = 8
+    const deviationDenominator = 20 // 5%
+
+    beforeEach(async () => {
+      mockAggregator = await aggregatorFactory
+        .connect(personas.Carol)
+        .deploy(decimals, 4000000000000)
+      const tx = await validator
+        .connect(personas.Carol)
+        .setThreshold(
+          mockAggregator.address,
+          symbol,
+          decimals,
+          deviationDenominator,
+        )
+      receipt = await tx.wait()
+    })
+
+    it('sets the correct state', async () => {
+      const response = await validator
+        .connect(personas.Carol)
+        .threshold(mockAggregator.address)
+
+      assert.equal(response[0], symbol)
+      assert.equal(response[1], decimals)
+      assert.equal(response[2].toString(), deviationDenominator.toString())
+    })
+
+    it('emits an event', async () => {
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.ThresholdUpdated,
+      )
+
+      const eventArgs = h.eventArgs(eventLog)
+      assert.equal(eventArgs.aggregator, mockAggregator.address)
+      assert.equal(eventArgs.symbol, symbol)
+      assert.equal(eventArgs.decimals, decimals)
+      assert.equal(
+        eventArgs.deviationThresholdDenominator.toString(),
+        deviationDenominator.toString(),
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          validator
+            .connect(personas.Neil)
+            .setThreshold(
+              mockAggregator.address,
+              symbol,
+              decimals,
+              deviationDenominator,
+            ),
+          'Only callable by owner',
+        )
+      })
+    })
+  })
+
   describe('#check', () => {
-    describe('when called by the owner', () => {
-      describe('with a single aggregator', () => {
-        describe('with a deviated price exceding threshold', () => {
-          it('returns the deviated aggregator', async () => {
-            const aggregators = [aggregator.address]
-            const response = await validator.check(aggregators)
-            assert.equal(response.length, 1)
-            assert.equal(response[0], aggregator.address)
-          })
-        })
-  
-        describe('with a price within the threshold', () => {
-          const newCompoundPrice = ethers.utils.bigNumberify("1000000000")
-          beforeEach(async () => {
-            await compoundOracle.setPrice(
-              'ETH',
-              newCompoundPrice,
-              compoundDecimals
-            )
-          })
-  
-          it('returns an empty array', async () => {
-            const aggregators = [aggregator.address]
-            const response = await validator.check(aggregators)
-            assert.equal(response.length, 0)
-          })
+    describe('with a single aggregator', () => {
+      describe('with a deviated price exceding threshold', () => {
+        it('returns the deviated aggregator', async () => {
+          const aggregators = [aggregator.address]
+          const response = await validator.check(aggregators)
+          assert.equal(response.length, 1)
+          assert.equal(response[0], aggregator.address)
         })
       })
 
-      describe('with multiple aggregators, some within and some exceeding threshold', () => {
-        // TODO
+      describe('with a price within the threshold', () => {
+        const newCompoundPrice = ethers.utils.bigNumberify('1000000000')
+        beforeEach(async () => {
+          await compoundOracle.setPrice(
+            'ETH',
+            newCompoundPrice,
+            compoundDecimals,
+          )
+        })
+
+        it('returns an empty array', async () => {
+          const aggregators = [aggregator.address]
+          const response = await validator.check(aggregators)
+          assert.equal(response.length, 0)
+        })
       })
     })
+  })
+
+  describe('#update', () => {
+    describe('with a single aggregator', () => {
+      describe('with a deviated price exceding threshold', () => {
+        it('raises a flag on the flags contract', async () => {
+          const aggregators = [aggregator.address]
+          const tx = await validator
+            .connect(personas.Carol)
+            .update(aggregators)
+          const logs = await h.getLogs(tx)
+          assert.equal(logs.length, 1)
+          assert.equal(h.evmWordToAddress(logs[0].topics[1]), aggregator.address)
+        })
+      })
+    })
+  })
+
+  describe('#checkForUpkeep', () => {
+    // TODO
+  })
+
+  describe('#performUpkeep', () => {
+    // TODO
   })
 })
