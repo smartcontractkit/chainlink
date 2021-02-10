@@ -1713,7 +1713,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 		args.Timeout = 60 * time.Second
 	}
 	if args.Interval == 0 {
-		args.Interval = 500 * time.Millisecond
+		args.Interval = 250 * time.Millisecond
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), args.Timeout)
 	defer cancel()
