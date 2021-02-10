@@ -32,7 +32,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     // 200      = 0.5%
     // 500      = 0.2%
     // 1000     = 0.1%
-    uint256 deviationThresholdDenominator;
+    uint32 deviationThresholdDenominator;
   }
 
   FlagsInterface private s_flags;
@@ -51,7 +51,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address indexed aggregator,
     string symbol,
     uint8 decimals,
-    uint256 deviationThresholdDenominator
+    uint32 deviationThresholdDenominator
   );
   
   /**
@@ -113,7 +113,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address aggregator,
     string calldata compoundSymbol,
     uint8 compoundDecimals,
-    uint256 compoundDeviationThresholdDenominator
+    uint32 compoundDeviationThresholdDenominator
   ) 
     public 
     onlyOwner() 
@@ -199,12 +199,12 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregator address
    * @return string Compound Oracle Symbol
    * @return uint8 Compound Oracle Decimals
-   * @return uint256 Deviation Threshold Denominator
+   * @return uint32 Deviation Threshold Denominator
    */
   function threshold(address aggregator)
     public
     view
-    returns (string memory, uint8, uint256)
+    returns (string memory, uint8, uint32)
   {
     CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
     return(
@@ -262,7 +262,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     }
 
     // Deviation amount threshold from the aggregator price
-    uint256 deviationAmountThreshold = aggregatorPrice.div(compDetails.deviationThresholdDenominator);
+    uint256 deviationAmountThreshold = aggregatorPrice.div(uint256(compDetails.deviationThresholdDenominator));
 
     // Calculate deviation
     uint256 deviation;
