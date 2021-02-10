@@ -106,11 +106,16 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 
 	delay := store.Config.DatabaseTimeout()
 
+	// NewStore no longer takes a lock on opening, so do something that does...
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+	})
+
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
+	err = store.ORM.RawDB(func(db *gorm.DB) error {
 		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
@@ -129,6 +134,11 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	store, cleanup := cltest.NewStoreWithConfig(tc)
 	defer cleanup()
+
+	// NewStore no longer takes a lock on opening, so do something that does...
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+	})
 
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
@@ -155,6 +165,11 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	defer cleanup()
 
 	delay := store.Config.DatabaseTimeout()
+
+	// NewStore no longer takes a lock on opening, so do something that does...
+	err := store.ORM.RawDB(func(db *gorm.DB) error {
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
+	})
 
 	connErr, dbErr := store.ORM.LockingStrategyHelperSimulateDisconnect()
 	require.NoError(t, connErr)
