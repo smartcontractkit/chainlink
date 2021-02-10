@@ -115,9 +115,14 @@ func (ec *ethConfirmer) runLoop() {
 				if head == nil {
 					break
 				}
-				h := head.(models.Head)
+				h, is := head.(models.Head)
+				if !is {
+					logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", models.Head{}, head)
+					continue
+				}
 				if err := ec.ProcessHead(ec.ctx, h); err != nil {
 					logger.Errorw("EthConfirmer error", "err", err)
+					continue
 				}
 			}
 		case <-ec.ctx.Done():
