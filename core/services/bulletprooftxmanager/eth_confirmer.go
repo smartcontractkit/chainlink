@@ -16,10 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -39,16 +39,28 @@ var (
 // Step 4: Check confirmed transactions to make sure they are still in the longest chain (reorg protection)
 
 type ethConfirmer struct {
+	utils.StartStopOnce
+
 	store     *store.Store
 	ethClient eth.Client
 	config    orm.ConfigReader
+	mb        *utils.Mailbox
+	ctx       context.Context
+	ctxCancel context.CancelFunc
+	chDone    chan struct{}
 }
 
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
+	context, cancel := context.WithCancel(context.Background())
 	return &ethConfirmer{
-		store:     store,
-		ethClient: store.EthClient,
-		config:    config,
+		utils.StartStopOnce{},
+		store,
+		store.EthClient,
+		config,
+		utils.NewMailbox(1),
+		context,
+		cancel,
+		make(chan struct{}),
 	}
 }
 
@@ -61,9 +73,61 @@ func (ec *ethConfirmer) Disconnect() {
 	// pass
 }
 
+// OnNewLongestChain uses a mailbox with capacity 1 to deliver the latest head to the runLoop.
+// This is because it may take longer than the intervals between heads to process, but we don't want to interrupt the loop.
+// e.g.
+// - We’re still processing head 41
+// - Head 42 comes in
+// - Now heads 43, 44, 45 come in
+// - Now we finish head 41
+// - We move straight on to processing head 45
 func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	if err := ec.ProcessHead(ctx, head); err != nil {
-		logger.Errorw("EthConfirmer error", "err", err)
+	ec.mb.Deliver(head)
+}
+
+func (ec *ethConfirmer) Start() error {
+	if !ec.OkayToStart() {
+		return errors.New("Pipeline runner has already been started")
+	}
+	go ec.runLoop()
+	return nil
+}
+
+func (ec *ethConfirmer) Close() error {
+	if !ec.OkayToStop() {
+		return errors.New("Pipeline runner has already been stopped")
+	}
+	ec.ctxCancel()
+	<-ec.chDone
+	return nil
+}
+
+func (ec *ethConfirmer) runLoop() {
+	defer close(ec.chDone)
+	for {
+		select {
+		case <-ec.mb.Notify():
+			for {
+				if ec.ctx.Err() != nil {
+					return
+				}
+				head := ec.mb.Retrieve()
+				if head == nil {
+					break
+				}
+				h, is := head.(models.Head)
+				if !is {
+					logger.Errorf("EthConfirmer: invariant violation, expected %T but got %T", models.Head{}, head)
+					continue
+				}
+				if err := ec.ProcessHead(ec.ctx, h); err != nil {
+					logger.Errorw("EthConfirmer error", "err", err)
+					continue
+				}
+			}
+		case <-ec.ctx.Done():
+			return
+		}
 	}
 }
 
@@ -107,6 +171,9 @@ func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error
 	return errors.Wrap(ec.EnsureConfirmedTransactionsInLongestChain(ctx, keys, head), "EnsureConfirmedTransactionsInLongestChain failed")
 }
 
+// SetBroadcastBeforeBlockNum updates already broadcast attempts with the
+// current block number. This is safe no matter how old the head is because if
+// the attempt is already broadcast it _must_ have been before this head.
 func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 	return ec.store.DB.Exec(
 		`UPDATE eth_tx_attempts SET broadcast_before_block_num = ? WHERE broadcast_before_block_num IS NULL AND state = 'broadcast'`,
@@ -166,13 +233,13 @@ func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []mod
 	return
 }
 
-func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []gethTypes.Receipt, err error) {
+func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		req := rpc.BatchElem{
 			Method: "eth_getTransactionReceipt",
 			Args:   []interface{}{attempt.Hash},
-			Result: &gethTypes.Receipt{},
+			Result: &Receipt{},
 		}
 		reqs = append(reqs, req)
 	}
@@ -186,39 +253,56 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		attempt := attempts[i]
 		result, err := req.Result, req.Error
 
-		receipt, is := result.(*gethTypes.Receipt)
+		receipt, is := result.(*Receipt)
 		if !is {
-			return nil, errors.Errorf("expected result to be a *types.Receipt, got %T", receipt)
+			return nil, errors.Errorf("expected result to be a %T, got %T", (*Receipt)(nil), result)
 		}
 
 		l := logger.Default.With(
-			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID,
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "receipt", receipt, "err", err,
 		)
 
-		if eth.IsParityQueriedReceiptTooEarly(err) || (receipt != nil && receipt.BlockNumber == nil) {
+		if err != nil {
+			l.Errorw("EthConfirmer#batchFetchReceipts: fetchReceipt failed")
+			continue
+		}
+
+		if receipt == nil {
+			// NOTE: This should never possibly happen, but it seems safer to
+			// check regardless to avoid a potential panic
+			l.Errorw("EthConfirmer#batchFetchReceipts: invariant violation, got nil receipt")
+			continue
+		}
+
+		if receipt.IsZero() {
+			l.Debugw("EthConfirmer#batchFetchReceipts: still waiting for receipt")
+			continue
+		}
+
+		if receipt.IsUnmined() {
 			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
 			continue
-		} else if err != nil && err.Error() != "not found" {
-			l.Errorw("EthConfirmer#batchFetchReceipts: fetchReceipt failed", "err", err)
+		}
+
+		l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
+
+		if receipt.TxHash != attempt.Hash {
+			l.Errorf("EthConfirmer#batchFetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
 			continue
 		}
-		if receipt != nil {
-			l.Debugw("EthConfirmer#fetchReceipts: got receipt for transaction", "blockNumber", receipt.BlockNumber)
-			if receipt.TxHash != attempt.Hash {
-				l.Errorf("EthConfirmer#batchFetchReceipts: invariant violation, expected receipt with hash %s to have same hash as attempt with hash %s", receipt.TxHash.Hex(), attempt.Hash.Hex())
-				continue
-			}
 
-			receipts = append(receipts, *receipt)
-		} else {
-			l.Debugw("EthConfirmer#batchFetchReceipts: still waiting for receipt")
+		if receipt.BlockNumber == nil {
+			l.Error("EthConfirmer#batchFetchReceipts: invariant violation, receipt was missing block number")
+			continue
 		}
+
+		receipts = append(receipts, *receipt)
 	}
 
 	return
 }
 
-func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []gethTypes.Receipt) (err error) {
+func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Receipt) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -417,6 +501,8 @@ func (ec *ethConfirmer) bumpGasWhereNecessary(ctx context.Context, address gethC
 		if err != nil {
 			return errors.Wrap(err, "newAttemptWithGasBump failed")
 		}
+
+		logger.Debugw("EthConfirmer: Bumping gas for transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice)
 
 		if err := ec.saveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
