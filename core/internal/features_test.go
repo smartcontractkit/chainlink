@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/pborman/uuid"
@@ -137,7 +138,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -859,7 +860,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1017,7 +1018,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
 			})
 		}).
 		Return(nil).Once()
@@ -1088,7 +1089,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
 			})).Return(nil).Run(func(args mock.Arguments) {
 				elems := args.Get(1).([]rpc.BatchElem)
-				elems[0].Result = &types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
 			}).Maybe()
 		}).
 		Return(nil).Once()
