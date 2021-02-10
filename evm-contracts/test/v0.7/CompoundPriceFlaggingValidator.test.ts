@@ -293,22 +293,130 @@ describe('CompoundPriceFlaggingVlidator', () => {
       describe('with a deviated price exceding threshold', () => {
         it('raises a flag on the flags contract', async () => {
           const aggregators = [aggregator.address]
-          const tx = await validator
-            .connect(personas.Carol)
-            .update(aggregators)
+          const tx = await validator.connect(personas.Carol).update(aggregators)
           const logs = await h.getLogs(tx)
           assert.equal(logs.length, 1)
-          assert.equal(h.evmWordToAddress(logs[0].topics[1]), aggregator.address)
+          assert.equal(
+            h.evmWordToAddress(logs[0].topics[1]),
+            aggregator.address,
+          )
+        })
+      })
+
+      describe('with a price within the threshold', () => {
+        const newCompoundPrice = ethers.utils.bigNumberify('1000000000')
+        beforeEach(async () => {
+          await compoundOracle.setPrice(
+            'ETH',
+            newCompoundPrice,
+            compoundDecimals,
+          )
+        })
+
+        it('does nothing', async () => {
+          const aggregators = [aggregator.address]
+          const tx = await validator.connect(personas.Carol).update(aggregators)
+          const logs = await h.getLogs(tx)
+          assert.equal(logs.length, 0)
         })
       })
     })
   })
 
   describe('#checkForUpkeep', () => {
-    // TODO
+    describe('with a single aggregator', () => {
+      describe('with a deviated price exceding threshold', () => {
+        it('returns the deviated aggregator', async () => {
+          const aggregators = [aggregator.address]
+          const encodedAggregators = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [aggregators],
+          )
+          const response = await validator
+            .connect(personas.Carol)
+            .checkForUpkeep(encodedAggregators)
+
+          const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+            ['address[]'],
+            response?.[1],
+          )
+          assert.equal(decodedResponse?.[0]?.[0], aggregators[0])
+        })
+      })
+
+      describe('with a price within the threshold', () => {
+        const newCompoundPrice = ethers.utils.bigNumberify('1000000000')
+        beforeEach(async () => {
+          await compoundOracle.setPrice(
+            'ETH',
+            newCompoundPrice,
+            compoundDecimals,
+          )
+        })
+
+        it('returns an empty array', async () => {
+          const aggregators = [aggregator.address]
+          const encodedAggregators = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [aggregators],
+          )
+          const response = await validator
+            .connect(personas.Carol)
+            .checkForUpkeep(encodedAggregators)
+          const decodedResponse = ethers.utils.defaultAbiCoder.decode(
+            ['address[]'],
+            response?.[1],
+          )
+          assert.equal(decodedResponse?.[0]?.length, 0)
+        })
+      })
+    })
   })
 
   describe('#performUpkeep', () => {
-    // TODO
+    describe('with a single aggregator', () => {
+      describe('with a deviated price exceding threshold', () => {
+        it('raises a flag on the flags contract', async () => {
+          const aggregators = [aggregator.address]
+          const encodedAggregators = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [aggregators],
+          )
+          const tx = await validator
+            .connect(personas.Carol)
+            .performUpkeep(encodedAggregators)
+          const logs = await h.getLogs(tx)
+          assert.equal(logs.length, 1)
+          assert.equal(
+            h.evmWordToAddress(logs[0].topics[1]),
+            aggregator.address,
+          )
+        })
+      })
+
+      describe('with a price within the threshold', () => {
+        const newCompoundPrice = ethers.utils.bigNumberify('1000000000')
+        beforeEach(async () => {
+          await compoundOracle.setPrice(
+            'ETH',
+            newCompoundPrice,
+            compoundDecimals,
+          )
+        })
+
+        it('does nothing', async () => {
+          const aggregators = [aggregator.address]
+          const encodedAggregators = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [aggregators],
+          )
+          const tx = await validator
+            .connect(personas.Carol)
+            .performUpkeep(encodedAggregators)
+          const logs = await h.getLogs(tx)
+          assert.equal(logs.length, 0)
+        })
+      })
+    })
   })
 })
