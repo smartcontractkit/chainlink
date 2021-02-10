@@ -558,7 +558,12 @@ func NewApp(client *Client) *cli.App {
 							Usage:  "Drop, create and migrate database. Useful for setting up the database in order to run tests or resetting the dev database. WARNING: This will ERASE ALL DATA for the specified DATABASE_URL.",
 							Hidden: !client.Config.Dev(),
 							Action: client.ResetDatabase,
-							Flags:  []cli.Flag{},
+							Flags: []cli.Flag{
+								cli.BoolFlag{
+									Name:  "dangerWillRobinson",
+									Usage: "set to true to enable dropping non-test databases",
+								},
+							},
 						},
 						{
 							Name:   "preparetest",
