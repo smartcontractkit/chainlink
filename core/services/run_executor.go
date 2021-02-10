@@ -98,7 +98,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 		validated = true
 
-		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
+		if err := re.store.ORM.SaveJobRun(&run); err == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -298,6 +299,9 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 			Omit("deleted_at").
 			Save(run)
 		if result.Error != nil {
+			if strings.Contains(result.Error.Error(), "duplicate key value violates unique constraint") {
+				return ErrOptimisticUpdateConflict
+			}
 			return result.Error
 		}
 		if result.RowsAffected == 0 {
@@ -386,7 +390,7 @@ func (orm *ORM) DeleteExternalInitiator(name string) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	err := orm.DB.Delete(&models.ExternalInitiator{}, "name = ?", name).Error
+	err := orm.DB.Exec("DELETE FROM external_initiators WHERE name = ?", name).Error
 	return err
 }
 
@@ -829,7 +833,7 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 			return err
 		}
 
-		if err := dbtx.Delete(models.Session{}, "true").Error; err != nil {
+		if err := dbtx.Exec("TRUNCATE sessions").Error; err != nil {
 			return err
 		}
 
@@ -891,8 +895,7 @@ func (orm *ORM) ClearSessions() error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	// Where conditions required.
-	return orm.DB.Delete(models.Session{}, "true").Error
+	return orm.DB.Exec("TRUNCATE sessions").Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
@@ -1113,7 +1116,7 @@ func (orm *ORM) DeleteStaleSessions(before time.Time) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Where("last_used < ?", before).Delete(&models.Session{}).Error
+	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
 // BulkDeleteRuns removes JobRuns and their related records: TaskRuns and
@@ -1570,12 +1573,11 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
 	}
 
-	d.SetMaxOpenConns(ct.maxOpenConns)
-	d.SetMaxIdleConns(ct.maxIdleConns)
-
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
 	}
+	d.SetMaxOpenConns(ct.maxOpenConns)
+	d.SetMaxIdleConns(ct.maxIdleConns)
 
 	return db, nil
 }

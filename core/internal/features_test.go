@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-
 	"github.com/pborman/uuid"
+
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/onsi/gomega"
 
