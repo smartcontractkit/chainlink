@@ -259,7 +259,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		}
 
 		l := logger.Default.With(
-			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "receipt", receipt, "err", err,
+			"txHash", attempt.Hash.Hex(), "ethTxAttemptID", attempt.ID, "ethTxID", attempt.EthTxID, "err", err,
 		)
 
 		if err != nil {
@@ -278,6 +278,8 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 			l.Debugw("EthConfirmer#batchFetchReceipts: still waiting for receipt")
 			continue
 		}
+
+		l = l.With("receipt", receipt)
 
 		if receipt.IsUnmined() {
 			l.Debugw("EthConfirmer#batchFetchReceipts: got receipt for transaction but it's still in the mempool and not included in a block yet")
