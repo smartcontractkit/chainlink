@@ -366,7 +366,7 @@ func (client *client) CallContext(ctx context.Context, result interface{}, metho
 
 func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	logger.Debugw("eth.Client#BatchCall(...)",
-		"batchElems", b,
+		"nBatchElems", len(b),
 	)
 	return client.RPCClient.BatchCallContext(ctx, b)
 }

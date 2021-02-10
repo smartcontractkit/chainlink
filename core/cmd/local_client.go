@@ -376,9 +376,11 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
+	dangerMode := c.Bool("dangerWillRobinson")
+
 	dbname := parsed.Path[1:]
-	if !strings.HasSuffix(dbname, "_test") {
-		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss", dbname))
+	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
 	logger.Infof("Resetting database: %#v", config.DatabaseURL())
 	if err := dropAndCreateDB(*parsed); err != nil {
@@ -417,11 +419,11 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 		}
 	}()
 
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}
