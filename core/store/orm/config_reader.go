@@ -43,6 +43,7 @@ type ConfigReader interface {
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
 	EthFinalityDepth() uint
+	EthReceiptFetchBatchSize() uint32
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
 	SetEthGasPriceDefault(value *big.Int) error
@@ -76,7 +77,6 @@ type ConfigReader interface {
 	TLSKeyPath() string
 	TLSPort() uint16
 	TLSRedirect() bool
-	TxAttemptLimit() uint16
 	KeysDir() string
 	tlsDir() string
 	KeyFile() string

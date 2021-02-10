@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,16 +22,24 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/static"
+
+	"github.com/stretchr/testify/mock"
+
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -42,10 +51,15 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
@@ -75,8 +89,6 @@ const (
 	Password = "password"
 	// SessionSecret is the hardcoded secret solely used for test
 	SessionSecret = "clsession_test_secret"
-	// DefaultKey is the address of the fixture key
-	DefaultKey = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
 	// DefaultKeyFixtureFileName is the filename of the fixture key
 	DefaultKeyFixtureFileName = "testkey-27548a32b9aD5D64c5945EaE9Da5337bc3169D15.json"
 	// AllowUnstarted enable an application that can be used in tests without being started
@@ -87,23 +99,19 @@ const (
 	NonExistentPeerID = "12D3KooWAdCzaesXyezatDzgGvCngqsBqoUqnV9PnVc46jsVt2i9"
 	// DefaultOCRKeyBundleID is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleID = "54f02f2756952ee42874182c8a03d51f048b7fc245c05196af50f9266f8e444a"
-	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password'
+	// DefaultKeyJSON is the JSON for the default key encrypted with fast scrypt and password 'password' (used for fixture file)
 	DefaultKeyJSON = `{"id": "1ccf542e-8f4d-48a0-ad1d-b4e6a86d4c6d", "crypto": {"kdf": "scrypt", "mac": "7f31bd05768a184278c4e9f077bcfba7b2003fed585b99301374a1a4a9adff25", "cipher": "aes-128-ctr", "kdfparams": {"n": 2, "p": 1, "r": 8, "salt": "99e83bf0fdeba39bd29c343db9c52d9e0eae536fdaee472d3181eac1968aa1f9", "dklen": 32}, "ciphertext": "ac22fa788b53a5f62abda03cd432c7aee1f70053b97633e78f93709c383b2a46", "cipherparams": {"iv": "6699ba30f953728787e51a754d6f9566"}}, "address": "27548a32b9ad5d64c5945eae9da5337bc3169d15", "version": 3}`
 )
 
 var (
-	// DefaultKeyAddress is the address of the fixture key
-	DefaultKeyAddress      = common.HexToAddress(DefaultKey)
-	DefaultKeyAddressEIP55 models.EIP55Address
-	DefaultP2PPeerID       p2ppeer.ID
-	NonExistentP2PPeerID   p2ppeer.ID
+	DefaultP2PPeerID     models.PeerID
+	NonExistentP2PPeerID models.PeerID
 	// DefaultOCRKeyBundleIDSha256 is the ID of the fixture ocr key bundle
 	DefaultOCRKeyBundleIDSha256 models.Sha256Hash
+	FluxAggAddress              = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	storeCounter                uint64
+	minimumContractPayment      = assets.NewLink(100)
 )
-
-var storeCounter uint64
-
-var minimumContractPayment = assets.NewLink(100)
 
 func init() {
 	gin.SetMode(gin.TestMode)
@@ -138,20 +146,17 @@ func init() {
 	logger.Debugf("Using seed: %v", seed)
 	rand.Seed(seed)
 
-	DefaultP2PPeerID, err = p2ppeer.Decode(DefaultPeerID)
+	defaultP2PPeerID, err := p2ppeer.Decode(DefaultPeerID)
 	if err != nil {
 		panic(err)
 	}
-	NonExistentP2PPeerID, err = p2ppeer.Decode(NonExistentPeerID)
+	DefaultP2PPeerID = models.PeerID(defaultP2PPeerID)
+	nonExistentP2PPeerID, err := p2ppeer.Decode(NonExistentPeerID)
 	if err != nil {
 		panic(err)
 	}
+	NonExistentP2PPeerID = models.PeerID(nonExistentP2PPeerID)
 	DefaultOCRKeyBundleIDSha256, err = models.Sha256HashFromHex(DefaultOCRKeyBundleID)
-	if err != nil {
-		panic(err)
-	}
-
-	DefaultKeyAddressEIP55, err = models.NewEIP55Address(DefaultKey)
 	if err != nil {
 		panic(err)
 	}
@@ -188,6 +193,18 @@ func NewRandomInt64() int64 {
 	return id
 }
 
+func MustRandomBytes(t *testing.T, l int) (b []byte) {
+	t.Helper()
+
+	b = make([]byte, l)
+	/* #nosec G404 */
+	_, err := rand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
 // NewTestConfig returns a test configuration
 func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	t.Helper()
@@ -220,6 +237,12 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rawConfig.Set("SESSION_TIMEOUT", "2m")
 	rawConfig.Set("INSECURE_FAST_SCRYPT", "true")
 	rawConfig.Set("BALANCE_MONITOR_ENABLED", "false")
+	rawConfig.Set("P2P_LISTEN_PORT", "12345")
+	rawConfig.Set("P2P_PEER_ID", DefaultP2PPeerID.String())
+	rawConfig.Set("DATABASE_TIMEOUT", "5s")
+	rawConfig.Set("GLOBAL_LOCK_RETRY_INTERVAL", "10ms")
+	rawConfig.Set("ORM_MAX_OPEN_CONNS", "5")
+	rawConfig.Set("ORM_MAX_IDLE_CONNS", "2")
 	rawConfig.SecretGenerator = mockSecretGenerator{}
 	config := TestConfig{t: t, Config: rawConfig}
 	return &config
@@ -262,8 +285,8 @@ type TestApplication struct {
 	wsServer         *httptest.Server
 	connectedChannel chan struct{}
 	Started          bool
-	EthMock          *EthMock
 	Backend          *backends.SimulatedBackend
+	Key              models.Key
 	allowUnstarted   bool
 }
 
@@ -344,6 +367,16 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	t.Helper()
 
 	app, cleanup := NewApplicationWithConfig(t, tc, flagsAndDeps...)
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case models.Key:
+			MustAddKeyToKeystore(t, &v, app.Store)
+			app.Key = v
+		}
+	}
+	if app.Key.Address.Address() == utils.ZeroAddress {
+		app.Key, _ = MustAddRandomKeyToKeystore(t, app.Store, 0)
+	}
 	require.NoError(t, app.Store.KeyStore.Unlock(Password))
 
 	return app, cleanup
@@ -355,23 +388,28 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 
 	var ethClient eth.Client = &eth.NullClient{}
 	var advisoryLocker postgres.AdvisoryLocker = &postgres.NullAdvisoryLocker{}
+	var externalInitiatorManager chainlink.ExternalInitiatorManager = &services.NullExternalInitiatorManager{}
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case eth.Client:
 			ethClient = dep
 		case postgres.AdvisoryLocker:
 			advisoryLocker = dep
+		case chainlink.ExternalInitiatorManager:
+			externalInitiatorManager = dep
 		}
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, func(app chainlink.Application) {
+
+	app := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
 		ta.connectedChannel <- struct{}{}
 	}).(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
-	ta.EthMock = MockEthOnStore(t, app.Store, flagsAndDeps...)
 	server := newServer(ta)
+
 	tc.Config.Set("CLIENT_NODE_URL", server.URL)
+
 	app.Store.Config = tc.Config
 
 	for _, flag := range flagsAndDeps {
@@ -384,8 +422,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		require.NoError(t, ta.Stop())
-		require.True(t, ta.EthMock.AllCalled(), ta.EthMock.Remaining())
+		assert.NoError(t, ta.StopIfStarted())
 	}
 }
 
@@ -402,11 +439,37 @@ func NewApplicationWithConfigAndKeyOnSimulatedBlockchain(
 	flagsAndDeps = append(flagsAndDeps, client)
 
 	app, appCleanup := NewApplicationWithConfigAndKey(t, tc, flagsAndDeps...)
+	err := app.Store.KeyStore.Unlock(Password)
+	require.NoError(t, err)
 
-	// Clean out the mock registrations, since we don't need those...
-	app.EthMock.Responses = app.EthMock.Responses[:0]
-	app.EthMock.Subscriptions = app.EthMock.Subscriptions[:0]
 	return app, func() { appCleanup(); client.Close() }
+}
+
+func NewEthMocks(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r := new(mocks.RPCClient)
+	g := new(mocks.GethClient)
+	s := new(mocks.Subscription)
+	var assertMocksCalled func()
+	switch tt := t.(type) {
+	case *testing.T:
+		assertMocksCalled = func() {
+			r.AssertExpectations(tt)
+			g.AssertExpectations(tt)
+			s.AssertExpectations(tt)
+		}
+	case *testing.B:
+		assertMocksCalled = func() {}
+	}
+	return r, g, s, assertMocksCalled
+}
+
+func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
+	r, g, s, assertMocksCalled := NewEthMocks(t)
+	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
+	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
+	s.On("Err").Return(nil).Maybe()
+	s.On("Unsubscribe").Return(nil).Maybe()
+	return r, g, s, assertMocksCalled
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -463,7 +526,7 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	require.NoError(ta.t, ta.ChainlinkApplication.Stop())
+	require.NoError(ta.t, ta.ChainlinkApplication.StopIfStarted())
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
@@ -482,15 +545,8 @@ func (ta *TestApplication) MustSeedNewSession() string {
 
 // ImportKey adds private key to the application disk keystore, not database.
 func (ta *TestApplication) ImportKey(content string) {
-	_, err := ta.Store.KeyStore.Import([]byte(content), Password, Password)
+	_, err := ta.Store.KeyStore.Import([]byte(content), Password)
 	require.NoError(ta.t, err)
-	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
-}
-
-func (ta *TestApplication) AddUnlockedKey() {
-	acct, err := ta.Store.KeyStore.NewAccount(Password)
-	require.NoError(ta.t, err)
-	fmt.Println("Account", acct.Address.Hex())
 	require.NoError(ta.t, ta.Store.KeyStore.Unlock(Password))
 }
 
@@ -752,6 +808,20 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusOK)
+
+	var createdJob job.SpecDB
+	err := ParseJSONAPIResponse(t, resp, &createdJob)
+	require.NoError(t, err)
+	return createdJob
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
@@ -782,8 +852,8 @@ func CreateJobRunViaExternalInitiator(
 	t.Helper()
 
 	headers := make(map[string]string)
-	headers[web.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
-	headers[web.ExternalInitiatorSecretHeader] = eia.Secret
+	headers[static.ExternalInitiatorAccessKeyHeader] = eia.AccessKey
+	headers[static.ExternalInitiatorSecretHeader] = eia.Secret
 
 	url := app.Config.ClientNodeURL() + "/v2/specs/" + j.ID.String() + "/runs"
 	bodyBuf := bytes.NewBufferString(body)
@@ -929,12 +999,40 @@ func WaitForJobRunToPendOutgoingConfirmations(
 	return WaitForJobRunStatus(t, store, jr, models.RunStatusPendingOutgoingConfirmations)
 }
 
+func SendBlocksUntilComplete(
+	t testing.TB,
+	store *strpkg.Store,
+	jr models.JobRun,
+	blockCh chan<- *models.Head,
+	start int64,
+	gethClient *mocks.GethClient,
+) models.JobRun {
+	t.Helper()
+
+	var err error
+	block := start
+	gomega.NewGomegaWithT(t).Eventually(func() models.RunStatus {
+		h := models.NewHead(big.NewInt(block), NewHash(), NewHash(), 0)
+		blockCh <- &h
+		gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+			Number: big.NewInt(block),
+		}), nil)
+		block++
+		jr, err = store.Unscoped().FindJobRun(jr.ID)
+		assert.NoError(t, err)
+		st := jr.GetStatus()
+		return st
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(models.RunStatusCompleted))
+	return jr
+}
+
 // WaitForJobRunStatus waits for a JobRun to reach given status
 func WaitForJobRunStatus(
 	t testing.TB,
 	store *strpkg.Store,
 	jr models.JobRun,
 	status models.RunStatus,
+
 ) models.JobRun {
 	t.Helper()
 
@@ -983,6 +1081,22 @@ func JobRunStaysPendingIncomingConfirmations(
 	return JobRunStays(t, store, jr, models.RunStatusPendingIncomingConfirmations)
 }
 
+// Polls until the passed in jobID has count number
+// of job spec errors.
+func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.ID, count int) []models.JobSpecError {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var jse []models.JobSpecError
+	g.Eventually(func() []models.JobSpecError {
+		err := store.DB.
+			Where("job_spec_id = ?", jobID.String()).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1004,6 +1118,29 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	}
 	return jrs
+}
+
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) pipeline.Run {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	var pr pipeline.Run
+	g.Eventually(func() *pipeline.Run {
+		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
+		assert.NoError(t, err)
+		for i := range prs {
+			if !prs[i].Outputs.Null {
+				errs, err := prs[i].Errors.MarshalJSON()
+				assert.NoError(t, err)
+				if string(errs) != "[null]" {
+					return nil
+				}
+				pr = prs[i]
+				return &prs[i]
+			}
+		}
+		return nil
+	}, timeout, poll).ShouldNot(gomega.BeNil(), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+	return pr
 }
 
 // AssertRunsStays asserts that the number of job runs for a particular job remains at the provided values
@@ -1383,6 +1520,39 @@ func MustResultString(t *testing.T, input models.RunResult) string {
 	return result.String()
 }
 
+// GenericEncode eth encodes values based on the provided types
+func GenericEncode(types []string, values ...interface{}) ([]byte, error) {
+	if len(values) != len(types) {
+		return nil, errors.New("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func MustGenericEncode(types []string, values ...interface{}) []byte {
+	if len(values) != len(types) {
+		panic("must include same number of values as types")
+	}
+	var args abi.Arguments
+	for _, t := range types {
+		ty, _ := abi.NewType(t, "", nil)
+		args = append(args, abi.Argument{Type: ty})
+	}
+	out, err := args.PackValues(values)
+	if err != nil {
+		panic(err)
+	}
+	return out
+}
+
 func MakeRoundStateReturnData(
 	roundID uint64,
 	eligible bool,
@@ -1402,6 +1572,23 @@ func MakeRoundStateReturnData(
 	data = append(data, utils.EVMWordUint64(oracleCount)...)
 	data = append(data, utils.EVMWordUint64(paymentAmount)...)
 	return data
+}
+
+var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+
+func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
+	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
+	if len(funcSig) != 10 {
+		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
+	}
+	return client.On(
+		"CallContract",
+		mock.Anything,
+		mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+			return *callArgs.To == address &&
+				hexutil.Encode(callArgs.Data)[0:10] == funcSig
+		}),
+		mock.Anything)
 }
 
 // EthereumLogIterator is the interface provided by gethwrapper representations of EVM
@@ -1433,19 +1620,6 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 	return irv
 }
 
-func MustDefaultKey(t *testing.T, s *strpkg.Store) models.Key {
-	k, err := s.KeyByAddress(common.HexToAddress(DefaultKey))
-	require.NoError(t, err)
-	return k
-}
-
-func RandomizeNonce(t *testing.T, s *strpkg.Store) {
-	t.Helper()
-	n := rand.Intn(32767) + 100
-	err := s.DB.Exec(`UPDATE keys SET next_nonce = ?`, n).Error
-	require.NoError(t, err)
-}
-
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
@@ -1464,4 +1638,65 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 		t.Fatal(err)
 	}
 	return configDigest
+}
+
+// MockApplicationEthCalls mocks all calls made by the chainlink application as
+// standard when starting and stopping
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mocks.Client) (verify func()) {
+	t.Helper()
+
+	// Start
+	ethClient.On("Dial", mock.Anything).Return(nil)
+	sub := new(mocks.Subscription)
+	sub.On("Err").Return(nil)
+	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
+	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+
+	// Stop
+	sub.On("Unsubscribe").Return(nil)
+
+	return func() {
+		ethClient.AssertExpectations(t)
+	}
+}
+
+func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- models.Log {
+	logsCh := make(chan chan<- models.Log, 1)
+	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+		Return(sub, nil).
+		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
+			logsCh <- args.Get(2).(chan<- types.Log)
+		})
+	return logsCh
+}
+
+func MustNewSimulatedBackendKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey) *bind.TransactOpts {
+	t.Helper()
+
+	return MustNewKeyedTransactor(t, key, 1337)
+}
+
+func MustNewKeyedTransactor(t *testing.T, key *ecdsa.PrivateKey, chainID int64) *bind.TransactOpts {
+	t.Helper()
+
+	transactor, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(chainID))
+	require.NoError(t, err)
+
+	return transactor
+}
+
+func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
+	t.Helper()
+
+	js := new(pipeline.JSONSerializable)
+	err := js.UnmarshalJSON([]byte(s))
+	require.NoError(t, err)
+	return *js
+}
+
+var NilReceipt *types.Receipt
+
+func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
+	return req.Method == "eth_getTransactionReceipt" &&
+		len(req.Args) == 1 && req.Args[0] == hash
 }

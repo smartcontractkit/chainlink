@@ -237,13 +237,6 @@ declare module 'core/store/models' {
   }
 
   /**
-   * CreateKeyRequest represents a request to add an ethereum key.
-   */
-  export interface CreateKeyRequest {
-    current_password: string // FIXME -- camelcase
-  }
-
-  /**
    * Big stores large integers and can deserialize a variety of inputs.
    */
   type Big = big.Int
@@ -492,6 +485,7 @@ declare module 'core/store/models' {
       createdAt: time.Time
       updatedAt: time.Time
     }
+    maxTaskDuration: string
     pipelineSpec: {
       dotDagSource: string
     }
@@ -506,7 +500,7 @@ declare module 'core/store/models' {
     pipelineSpec: {
       ID: number
       CreatedAt: time.Time
-      DotDagSource: string
+      dotDagSource: string
     }
   }
 }

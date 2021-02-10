@@ -6,6 +6,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -15,13 +17,13 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-	app, appCleanUp := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
-	)
-	defer appCleanUp()
 
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
 	completed := abool.New()
 	app.Exiter = func(code int) {
 		completed.Set()
@@ -36,10 +38,10 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 	store := app.Store
@@ -54,10 +56,10 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		cltest.LenientEthMock,
-		cltest.EthMockRegisterChainID,
-		cltest.EthMockRegisterGetBalance,
+		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
 	store := app.Store

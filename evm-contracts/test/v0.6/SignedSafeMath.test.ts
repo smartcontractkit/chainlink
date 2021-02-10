@@ -1,8 +1,8 @@
 import { contract, matchers, setup, wallet as w } from '@chainlink/test-helpers'
 import { ethers } from 'ethers'
-import { ConcreteSignedSafeMathFactory } from '../../ethers/v0.6/ConcreteSignedSafeMathFactory'
+import { ConcreteSignedSafeMath__factory } from '../../ethers/v0.6/factories/ConcreteSignedSafeMath__factory'
 
-const concreteSignedSafeMathFactory = new ConcreteSignedSafeMathFactory()
+const concreteSignedSafeMathFactory = new ConcreteSignedSafeMath__factory()
 const provider = setup.provider()
 
 let defaultAccount: ethers.Wallet
@@ -15,7 +15,7 @@ beforeAll(async () => {
 describe('SignedSafeMath', () => {
   // a version of the adder contract where we make all ABI exposed functions constant
   // TODO: submit upstream PR to support constant contract type generation
-  let adder: contract.Instance<ConcreteSignedSafeMathFactory>
+  let adder: contract.Instance<ConcreteSignedSafeMath__factory>
   let response: ethers.utils.BigNumber
   const INT256_MAX = ethers.utils.bigNumberify(
     '57896044618658097711785492504343953926634992332820282019728792003956564819967',

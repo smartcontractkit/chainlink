@@ -3,13 +3,16 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gopkg.in/guregu/null.v4"
@@ -24,7 +27,7 @@ type JobsController struct {
 // Example:
 // "GET <application>/jobs"
 func (jc *JobsController) Index(c *gin.Context) {
-	jobs, err := jc.App.GetStore().ORM.JobsV2()
+	jobs, err := jc.App.GetJobORM().JobsV2()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -37,14 +40,14 @@ func (jc *JobsController) Index(c *gin.Context) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	jobSpec, err = jc.App.GetStore().ORM.FindJob(jobSpec.ID)
+	jobSpec, err = jc.App.GetJobORM().FindJob(jobSpec.ID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("job not found"))
 		return
@@ -59,7 +62,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 }
 
 type GenericJobSpec struct {
-	Type          string      `toml:"type"`
+	Type          job.Type    `toml:"type"`
 	SchemaVersion uint32      `toml:"schemaVersion"`
 	Name          null.String `toml:"name"`
 }
@@ -80,30 +83,28 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
+	var js job.SpecDB
+	config := jc.App.GetStore().Config
 	switch genericJS.Type {
-	case string(offchainreporting.JobType):
-		jc.createOCR(c, request.TOML)
-	case string(models.EthRequestEventJobType):
-		jc.createEthRequestEvent(c, request.TOML)
+	case job.OffchainReporting:
+		js, err = offchainreporting.ValidatedOracleSpecToml(jc.App.GetStore().Config, request.TOML)
+		if !config.Dev() && !config.FeatureOffchainReporting() {
+			jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
+			return
+		}
+	case job.DirectRequest:
+		js, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
+	case job.FluxMonitor:
+		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
-
-}
-
-func (jc *JobsController) createOCR(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedOracleSpecToml(toml)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-	config := jc.App.GetStore().Config
-	if jobSpec.JobType() == offchainreporting.JobType && !config.Dev() && !config.FeatureOffchainReporting() {
-		jsonAPIError(c, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration"))
-		return
-	}
 
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
+	jobID, err := jc.App.AddJobV2(c.Request.Context(), js, js.Name)
 	if err != nil {
 		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -113,45 +114,21 @@ func (jc *JobsController) createOCR(c *gin.Context, toml string) {
 		return
 	}
 
-	job, err := jc.App.GetStore().ORM.FindJob(jobID)
+	job, err := jc.App.GetJobORM().FindJob(jobID)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
 
-	jsonAPIResponse(c, job, "offChainReportingJobSpec")
-}
+	jsonAPIResponse(c, job, job.Type.String())
 
-func (jc *JobsController) createEthRequestEvent(c *gin.Context, toml string) {
-	jobSpec, err := services.ValidatedEthRequestEventSpec(toml)
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, err)
-		return
-	}
-	jobID, err := jc.App.AddJobV2(c.Request.Context(), jobSpec, jobSpec.Name)
-	if err != nil {
-		if errors.Cause(err) == job.ErrNoSuchKeyBundle || errors.Cause(err) == job.ErrNoSuchPeerID || errors.Cause(err) == job.ErrNoSuchTransmitterAddress {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return
-		}
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	job, err := jc.App.GetStore().ORM.FindJob(jobID)
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	jsonAPIResponse(c, job, "ethRequestEventSpec")
 }
 
 // Delete soft deletes an OCR job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := models.JobSpecV2{}
+	jobSpec := job.SpecDB{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

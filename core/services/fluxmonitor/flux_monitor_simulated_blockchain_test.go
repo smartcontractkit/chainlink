@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -60,18 +61,22 @@ type fluxAggregatorUniverse struct {
 func newIdentity(t *testing.T) *bind.TransactOpts {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err, "failed to generate ethereum identity")
-	return bind.NewKeyedTransactor(key)
+	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
 }
 
 // setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
-func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
+func setupFluxAggregatorUniverse(t *testing.T, key models.Key) fluxAggregatorUniverse {
+	k, err := keystore.DecryptKey(key.JSON.Bytes(), cltest.Password)
+	require.NoError(t, err)
+	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
+
 	var f fluxAggregatorUniverse
 	f.sergey = newIdentity(t)
 	f.neil = newIdentity(t)
 	f.ned = newIdentity(t)
-	f.nallory = cltest.OracleTransactor
+	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: oneEth},
 		f.neil.From:    {Balance: oneEth},
@@ -80,7 +85,7 @@ func setupFluxAggregatorUniverse(t *testing.T) fluxAggregatorUniverse {
 	}
 	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
 	f.backend = backends.NewSimulatedBackend(genesisData, gasLimit)
-	var err error
+
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
 	require.NoError(t, err, "could not parse FluxAggregator ABI")
 
@@ -293,9 +298,10 @@ type maliciousFluxMonitor interface {
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	// Comments starting with "-" describe the steps this test executes.
+	key := cltest.MustGenerateRandomKey(t)
 
 	// - deploy a brand new FM contract
-	fa := setupFluxAggregatorUniverse(t)
+	fa := setupFluxAggregatorUniverse(t, key)
 
 	// - add oracles
 	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
@@ -309,8 +315,9 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
 	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
 	defer cfgCleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
 	defer cleanup()
+
 	require.NoError(t, app.StartAndConnect())
 	minFee := app.Store.Config.MinimumContractPayment().ToInt().Int64()
 	require.Equal(t, fee, minFee, "fee paid by FluxAggregator (%d) must at "+
@@ -461,7 +468,18 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 }
 
 func TestFluxMonitor_HibernationMode(t *testing.T) {
-	fa := setupFluxAggregatorUniverse(t)
+	key := cltest.MustGenerateRandomKey(t)
+
+	fa := setupFluxAggregatorUniverse(t, key)
+
+	// Set up chainlink app
+	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
+	defer cleanup()
 
 	// - add oracles
 	oracleList := []common.Address{fa.nallory.From}
@@ -470,14 +488,6 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 	fa.backend.Commit()
 	checkOraclesAdded(t, fa, oracleList)
 
-	// Set up chainlink app
-	config, cfgCleanup := cltest.NewConfig(t)
-	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
-	config.Config.Set("FLAGS_CONTRACT_ADDRESS", fa.flagsContractAddress.Hex())
-	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
-	defer cfgCleanup()
-	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend)
-	defer cleanup()
 	require.NoError(t, app.StartAndConnect(), "failed to start chainlink")
 
 	// // create mock server
@@ -558,4 +568,53 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 		t.Fatalf("should not trigger a new run, while flag is raised")
 	case <-time.After(5 * time.Second):
 	}
+}
+
+func TestFluxMonitor_InvalidSubmission(t *testing.T) {
+	// Comments starting with "-" describe the steps this test executes.
+	key := cltest.MustGenerateRandomKey(t)
+	fa := setupFluxAggregatorUniverse(t, key)
+	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
+	_, err := fa.aggregatorContract.ChangeOracles(fa.sergey, emptyList, oracleList, oracleList, 1, 3, 2)
+	assert.NoError(t, err, "failed to add oracles to aggregator")
+	fa.backend.Commit()
+
+	// Set up chainlink app
+	config, cfgCleanup := cltest.NewConfig(t)
+	config.Config.Set("DEFAULT_HTTP_TIMEOUT", "100ms")
+	config.Config.Set("TRIGGER_FALLBACK_DB_POLL_INTERVAL", "1s")
+	config.Config.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
+	config.Config.Set("MIN_OUTGOING_CONFIRMATIONS", "2")
+	config.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", "100")
+	defer cfgCleanup()
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, fa.backend, key)
+	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
+
+	// Report a price that is above the maximum allowed value,
+	// causing it to revert.
+	reportPrice := int64(1000000000000)
+	priceResponse := func() string {
+		return fmt.Sprintf(`{"data":{"result": %d}}`, atomic.LoadInt64(&reportPrice))
+	}
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
+	defer mockServer.Close()
+	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	var job models.JobSpec
+	require.NoError(t, json.Unmarshal(buffer, &job))
+	initr := &job.Initiators[0]
+	initr.InitiatorParams.Feeds = cltest.JSONFromString(t, fmt.Sprintf(`["%s"]`, mockServer.URL))
+	initr.InitiatorParams.PollTimer.Period = models.MustMakeDuration(100 * time.Millisecond)
+	initr.InitiatorParams.Address = fa.aggregatorContractAddress
+
+	j := cltest.CreateJobSpecViaWeb(t, app, job)
+	go func() {
+		for {
+			fa.backend.Commit()
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+	// We should see a spec error because the value is too large to submit on-chain.
+	jse := cltest.WaitForSpecError(t, app.Store, *j.ID, 1)
+	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
 }

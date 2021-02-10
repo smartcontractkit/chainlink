@@ -195,7 +195,6 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	if err := eb.handleAnyInProgressEthTx(fromAddress); err != nil {
 		return errors.Wrap(err, "processUnstartedEthTxs failed")
 	}
-
 	for {
 		etx, err := eb.nextUnstartedTransactionWithNonce(fromAddress)
 		if err != nil {
@@ -209,6 +208,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
+
 		if err := eb.saveInProgressTransaction(etx, &a); err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -383,7 +383,7 @@ func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTx
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", attempt.Hash.Hex())
+	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
 	etx.State = models.EthTxUnconfirmed
 	attempt.State = models.EthTxAttemptBroadcast
 	return store.Transaction(func(tx *gorm.DB) error {

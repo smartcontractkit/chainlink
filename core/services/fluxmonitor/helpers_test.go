@@ -1,6 +1,7 @@
 package fluxmonitor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -28,11 +29,11 @@ func (p *PollingDeviationChecker) ExportedPollIfEligible(threshold, absoluteThre
 	p.pollIfEligible(DeviationThresholds{Rel: threshold, Abs: absoluteThreshold})
 }
 
-func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *contracts.LogNewRound) {
+func (p *PollingDeviationChecker) ExportedRespondToNewRoundLog(log *flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	p.respondToNewRoundLog(*log)
 }
 
-func (p *PollingDeviationChecker) ExportedSufficientFunds(state contracts.FluxAggregatorRoundState) bool {
+func (p *PollingDeviationChecker) ExportedSufficientFunds(state flux_aggregator_wrapper.OracleRoundState) bool {
 	return p.sufficientFunds(state)
 }
 
@@ -48,7 +49,7 @@ func (p *PollingDeviationChecker) ExportedBacklog() *utils.BoundedPriorityQueue 
 	return p.backlog
 }
 
-func (p *PollingDeviationChecker) ExportedFluxAggregator() contracts.FluxAggregator {
+func (p *PollingDeviationChecker) ExportedFluxAggregator() flux_aggregator_wrapper.FluxAggregatorInterface {
 	return p.fluxAggregator
 }
 
@@ -56,7 +57,7 @@ func (p *PollingDeviationChecker) ExportedRoundState() {
 	p.roundState(0)
 }
 
-func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa contracts.FluxAggregator) {
+func (p *PollingDeviationChecker) ExportedSetFluxAggregator(fa flux_aggregator_wrapper.FluxAggregatorInterface) {
 	p.fluxAggregator = fa
 }
 
@@ -76,7 +77,7 @@ func newFixedPricedFetcher(price decimal.Decimal) *fixedFetcher {
 	return &fixedFetcher{price: price}
 }
 
-func (ps *fixedFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (ps *fixedFetcher) Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error) {
 	return ps.price, nil
 }
 
@@ -86,7 +87,7 @@ func newErroringPricedFetcher() *erroringFetcher {
 	return &erroringFetcher{}
 }
 
-func (*erroringFetcher) Fetch(map[string]interface{}) (decimal.Decimal, error) {
+func (*erroringFetcher) Fetch(context.Context, map[string]interface{}) (decimal.Decimal, error) {
 	return decimal.NewFromInt(0), errors.New("failed to fetch; I always error")
 }
 

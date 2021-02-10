@@ -5,10 +5,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
-var flagsABI = mustGetABI(flags_wrapper.FlagsABI)
+var flagsABI = MustGetABI(flags_wrapper.FlagsABI)
 
 type Flags struct {
 	Address common.Address
@@ -28,24 +28,24 @@ func NewFlagsContract(address common.Address, backend bind.ContractBackend) (*Fl
 
 type flagsDecodingLogListener struct {
 	contract *Flags
-	eth.LogListener
+	log.Listener
 }
 
-var _ eth.LogListener = (*flagsDecodingLogListener)(nil)
+var _ log.Listener = (*flagsDecodingLogListener)(nil)
 
 func NewFlagsDecodingLogListener(
 	contract *Flags,
-	innerListener eth.LogListener,
-) eth.LogListener {
+	innerListener log.Listener,
+) log.Listener {
 	return flagsDecodingLogListener{
-		contract:    contract,
-		LogListener: innerListener,
+		contract: contract,
+		Listener: innerListener,
 	}
 }
 
-func (ll flagsDecodingLogListener) HandleLog(lb eth.LogBroadcast, err error) {
+func (ll flagsDecodingLogListener) HandleLog(lb log.Broadcast, err error) {
 	if err != nil {
-		ll.LogListener.HandleLog(lb, err)
+		ll.Listener.HandleLog(lb, err)
 		return
 	}
 
@@ -63,9 +63,9 @@ func (ll flagsDecodingLogListener) HandleLog(lb eth.LogBroadcast, err error) {
 		decodedLog, err = ll.contract.ParseFlagLowered(rawLog)
 	default:
 		logger.Warnf("Unknown topic for Flags contract: %s", eventID.Hex())
-		return // don't pass on unknown/unexpectred events
+		return // don't pass on unknown/unexpected events
 	}
 
 	lb.SetDecodedLog(decodedLog)
-	ll.LogListener.HandleLog(lb, err)
+	ll.Listener.HandleLog(lb, err)
 }

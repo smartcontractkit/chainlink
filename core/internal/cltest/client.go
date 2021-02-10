@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -108,6 +109,10 @@ func (c *SimulatedBackendClient) SubscribeFilterLogs(ctx context.Context, q ethe
 	return c.b.SubscribeFilterLogs(ctx, q, channel)
 }
 
+func (c *SimulatedBackendClient) GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error) {
+	panic("not implemented")
+}
+
 // currentBlockNumber returns index of *pending* block in simulated blockchain
 func (c *SimulatedBackendClient) currentBlockNumber() *big.Int {
 	return c.b.Blockchain().CurrentBlock().Number()
@@ -160,8 +165,11 @@ func (c *SimulatedBackendClient) GetERC20Balance(address common.Address, contrac
 		return nil, errors.Wrapf(err, "while calling ERC20 balanceOf method on %s "+
 			"for balance of %s", contractAddress, address)
 	}
-	balance = new(big.Int)
-	return balance, balanceOfABI.Unpack(balance, "balanceOf", b)
+	err = balanceOfABI.UnpackIntoInterface(balance, "balanceOf", b)
+	if err != nil {
+		return nil, errors.New("unable to unpack balance")
+	}
+	return balance, nil
 }
 
 func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
@@ -325,17 +333,33 @@ func (c *SimulatedBackendClient) CallContract(ctx context.Context, msg ethereum.
 }
 
 func (c *SimulatedBackendClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.CodeAt(ctx, account, blockNumber)
 }
 
 func (c *SimulatedBackendClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	panic("unimplemented")
+	return c.b.PendingCodeAt(ctx, account)
 }
 
 func (c *SimulatedBackendClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {
-	panic("unimplemented")
+	return c.b.EstimateGas(ctx, call)
 }
 
 func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	panic("unimplemented")
+}
+
+func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	for i, elem := range b {
+		if elem.Method != "eth_getTransactionReceipt" || len(elem.Args) != 1 {
+			return errors.New("SimulatedBackendClient BatchCallContext only supports eth_getTransactionReceipt")
+		}
+		hash, is := elem.Args[0].(common.Hash)
+		if !is {
+			return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
+		}
+		receipt, err := c.b.TransactionReceipt(ctx, hash)
+		b[i].Result = receipt
+		b[i].Error = err
+	}
+	return nil
 }

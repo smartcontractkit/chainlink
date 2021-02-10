@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,7 +30,77 @@ var (
 	emptyMeta     = utils.MustUnmarshalToMap("{}")
 )
 
+type adapterRequest struct {
+	ID   string                   `json:"id"`
+	Data pipeline.HttpRequestData `json:"data"`
+	Meta pipeline.HttpRequestData `json:"meta"`
+}
+
+type adapterResponseData struct {
+	Result *decimal.Decimal `json:"result"`
+}
+
+// adapterResponse is the HTTP response as defined by the external adapter:
+// https://github.com/smartcontractkit/bnc-adapter
+type adapterResponse struct {
+	Data         adapterResponseData `json:"data"`
+	ErrorMessage null.String         `json:"errorMessage"`
+}
+
+func (pr adapterResponse) Result() *decimal.Decimal {
+	return pr.Data.Result
+}
+
+func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
+	t.Helper()
+	var data adapterResponseData
+	body := []byte(fmt.Sprintf(`{"result":%v}`, result))
+	require.NoError(t, json.Unmarshal(body, &data))
+	return data
+}
+
+func mustReadFile(t testing.TB, file string) string {
+	t.Helper()
+
+	content, err := ioutil.ReadFile(file)
+	require.NoError(t, err)
+	return string(content)
+}
+
+func fakePriceResponder(t *testing.T, requestData map[string]interface{}, result decimal.Decimal) http.Handler {
+	t.Helper()
+
+	body, err := json.Marshal(requestData)
+	require.NoError(t, err)
+	var expectedRequest adapterRequest
+	err = json.Unmarshal(body, &expectedRequest)
+	require.NoError(t, err)
+	response := adapterResponse{Data: dataWithResult(t, result)}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody adapterRequest
+		payload, err := ioutil.ReadAll(r.Body)
+		require.NoError(t, err)
+		defer r.Body.Close()
+		err = json.Unmarshal(payload, &reqBody)
+		require.NoError(t, err)
+		require.Equal(t, expectedRequest.Data, reqBody.Data)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(response))
+	})
+}
+
+func fakeStringResponder(t *testing.T, s string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, err := w.Write([]byte(s))
+		require.NoError(t, err)
+	})
+}
+
 func TestBridgeTask_Happy(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -59,7 +130,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.NoError(t, result.Error)
@@ -69,11 +140,13 @@ func TestBridgeTask_Happy(t *testing.T) {
 			Result decimal.Decimal `json:"result"`
 		} `json:"data"`
 	}
-	json.Unmarshal(result.Value.([]byte), &x)
+	json.Unmarshal([]byte(result.Value.(string)), &x)
 	require.Equal(t, decimal.NewFromInt(9700), x.Data.Result)
 }
 
 func TestBridgeTask_Meta(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -93,7 +166,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := contracts.FluxAggregatorRoundState{ReportableRoundID: 7, Timeout: 11}
+	roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 7, Timeout: 11}
 	request, err := models.MarshalToMap(&roundState)
 	require.NoError(t, err)
 
@@ -115,12 +188,14 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{request},
+			Meta: pipeline.JSONSerializable{request, false},
 		},
 	}, nil)
 }
 
 func TestBridgeTask_ErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -156,6 +231,8 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 }
 
 func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -189,6 +266,8 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 }
 
 func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -205,7 +284,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 
 	result := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.Nil(t, result.Value)
@@ -216,6 +295,8 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 // Sample input taken from
 // https://github.com/smartcontractkit/price-adapters#chainlink-price-request-adapters
 func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name, content string
 		expect        decimal.Decimal
@@ -238,6 +319,8 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 }
 
 func TestBridgeTask_AddsID(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -274,7 +357,7 @@ func TestBridgeTask_AddsID(t *testing.T) {
 
 	r := task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta},
+			Meta: pipeline.JSONSerializable{emptyMeta, false},
 		},
 	}, nil)
 	require.NoError(t, r.Error)

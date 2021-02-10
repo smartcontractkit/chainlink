@@ -7,26 +7,27 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { ethers, utils } from 'ethers'
-import { BasicConsumerFactory } from '../../ethers/v0.6/BasicConsumerFactory'
-import { MultiWordConsumerFactory } from '../../ethers/v0.6/MultiWordConsumerFactory'
-import { GetterSetterFactory } from '../../ethers/v0.4/GetterSetterFactory'
-import { MaliciousConsumerFactory } from '../../ethers/v0.4/MaliciousConsumerFactory'
-import { MaliciousMultiWordConsumerFactory } from '../../ethers/v0.6/MaliciousMultiWordConsumerFactory'
-import { MaliciousRequesterFactory } from '../../ethers/v0.4/MaliciousRequesterFactory'
-import { OperatorFactory } from '../../ethers/v0.7/OperatorFactory'
-import { ConsumerFactory } from '../../ethers/v0.7/ConsumerFactory'
-import { GasGuzzlingConsumerFactory } from '../../ethers/v0.6/GasGuzzlingConsumerFactory'
+import { BasicConsumer__factory } from '../../ethers/v0.6/factories/BasicConsumer__factory'
+import { MultiWordConsumer__factory } from '../../ethers/v0.6/factories/MultiWordConsumer__factory'
+import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
+import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/MaliciousConsumer__factory'
+import { MaliciousMultiWordConsumer__factory } from '../../ethers/v0.6/factories/MaliciousMultiWordConsumer__factory'
+import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
+import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
+import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
+import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
+import { ContractReceipt } from 'ethers/contract'
 
-const v7ConsumerFactory = new ConsumerFactory()
-const basicConsumerFactory = new BasicConsumerFactory()
-const multiWordConsumerFactory = new MultiWordConsumerFactory()
-const gasGuzzlingConsumerFactory = new GasGuzzlingConsumerFactory()
-const getterSetterFactory = new GetterSetterFactory()
-const maliciousRequesterFactory = new MaliciousRequesterFactory()
-const maliciousConsumerFactory = new MaliciousConsumerFactory()
-const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumerFactory()
-const operatorFactory = new OperatorFactory()
-const linkTokenFactory = new contract.LinkTokenFactory()
+const v7ConsumerFactory = new Consumer__factory()
+const basicConsumerFactory = new BasicConsumer__factory()
+const multiWordConsumerFactory = new MultiWordConsumer__factory()
+const gasGuzzlingConsumerFactory = new GasGuzzlingConsumer__factory()
+const getterSetterFactory = new GetterSetter__factory()
+const maliciousRequesterFactory = new MaliciousRequester__factory()
+const maliciousConsumerFactory = new MaliciousConsumer__factory()
+const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
+const operatorFactory = new Operator__factory()
+const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
 const provider = setup.provider()
@@ -42,14 +43,14 @@ describe('Operator', () => {
   const specId =
     '0x4c7b7ffb66b344fbaa64995af81e355a00000000000000000000000000000000'
   const to = '0x80e29acb842498fe6591f020bd82766dce619d43'
-  let link: contract.Instance<contract.LinkTokenFactory>
-  let operator: contract.Instance<OperatorFactory>
+  let link: contract.Instance<contract.LinkToken__factory>
+  let operator: contract.Instance<Operator__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
     operator = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator.setAuthorizedSender(roles.oracleNode.address, true)
+    await operator.setAuthorizedSenders([roles.oracleNode.address])
   })
 
   beforeEach(async () => {
@@ -67,9 +68,12 @@ describe('Operator', () => {
       'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
-      'setAuthorizedSender',
+      'setAuthorizedSenders',
+      'getAuthorizedSenders',
       'withdraw',
       'withdrawable',
+      'operatorTransferAndCall',
+      'distributeFunds',
       // Ownable methods:
       'acceptOwnership',
       'owner',
@@ -77,29 +81,152 @@ describe('Operator', () => {
     ])
   })
 
-  describe('#setAuthorizedSender', () => {
+  describe('#distributeFunds', () => {
+    describe('when called with empty arrays', () => {
+      it('reverts with invalid array message', async () => {
+        await matchers.evmRevert(async () => {
+          await operator.connect(roles.defaultAccount).distributeFunds([], []),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with unequal array lengths', () => {
+      it('reverts with invalid array message', async () => {
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const amounts = [1, 2, 3]
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds(receivers, amounts),
+            'Invalid array length(s)'
+        })
+      })
+    })
+
+    describe('when called with not enough ETH', () => {
+      it('reverts with subtraction overflow message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('1')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'SafeMath: subtraction overflow'
+        })
+      })
+    })
+
+    describe('when called with too much ETH', () => {
+      it('reverts with too much ETH message', async () => {
+        const amountToSend = h.toWei('2')
+        const ethSent = h.toWei('3')
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .distributeFunds([roles.oracleNode2.address], [amountToSend], {
+              value: ethSent,
+            }),
+            'Too much ETH sent'
+        })
+      })
+    })
+
+    describe('when called with correct values', () => {
+      it('updates the balances', async () => {
+        const node2BalanceBefore = await roles.oracleNode2.getBalance()
+        const node3BalanceBefore = await roles.oracleNode3.getBalance()
+        const receivers = [roles.oracleNode2.address, roles.oracleNode3.address]
+        const sendNode2 = h.toWei('2')
+        const sendNode3 = h.toWei('3')
+        const totalAmount = h.toWei('5')
+        const amounts = [sendNode2, sendNode3]
+
+        await operator
+          .connect(roles.defaultAccount)
+          .distributeFunds(receivers, amounts, { value: totalAmount })
+
+        const node2BalanceAfter = await roles.oracleNode2.getBalance()
+        const node3BalanceAfter = await roles.oracleNode3.getBalance()
+
+        assert.equal(
+          node2BalanceAfter.sub(node2BalanceBefore).toString(),
+          sendNode2.toString(),
+        )
+
+        assert.equal(
+          node3BalanceAfter.sub(node3BalanceBefore).toString(),
+          sendNode3.toString(),
+        )
+      })
+    })
+  })
+
+  describe('#setAuthorizedSenders', () => {
+    let newSenders: string[]
+    let receipt: ContractReceipt
     describe('when called by the owner', () => {
-      beforeEach(async () => {
-        await operator
-          .connect(roles.defaultAccount)
-          .setAuthorizedSender(roles.stranger.address, true)
+      describe('setting 3 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = [
+            roles.oracleNode1.address,
+            roles.oracleNode2.address,
+            roles.oracleNode3.address,
+          ]
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+          receipt = await tx.wait()
+        })
+
+        it('adds the authorized nodes', async () => {
+          const authorizedSenders = await operator.getAuthorizedSenders()
+          assert.equal(newSenders.length, authorizedSenders.length)
+          for (let i = 0; i < authorizedSenders.length; i++) {
+            assert.equal(authorizedSenders[i], newSenders[i])
+          }
+        })
+
+        it('emits an event', async () => {
+          assert.equal(receipt.events?.length, 1)
+          const responseEvent = receipt.events?.[0]
+          assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
+          const encodedSenders = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [newSenders],
+          )
+          assert.equal(responseEvent?.data, encodedSenders)
+        })
+
+        it('replaces the authorized nodes', async () => {
+          const originalAuthorization = await operator
+            .connect(roles.defaultAccount)
+            .isAuthorizedSender(roles.oracleNode.address)
+          assert.isFalse(originalAuthorization)
+        })
+
+        afterAll(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([roles.oracleNode.address])
+        })
       })
 
-      it('adds an authorized node', async () => {
-        const authorized = await operator.isAuthorizedSender(
-          roles.stranger.address,
-        )
-        assert.equal(true, authorized)
-      })
+      describe('setting 0 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = []
+        })
 
-      it('removes an authorized node', async () => {
-        await operator
-          .connect(roles.defaultAccount)
-          .setAuthorizedSender(roles.stranger.address, false)
-        const authorized = await operator.isAuthorizedSender(
-          roles.stranger.address,
-        )
-        assert.equal(false, authorized)
+        it('reverts with a minimum senders message', async () => {
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
+              'Must have at least 1 authorized sender'
+          })
+        })
       })
     })
 
@@ -108,7 +235,8 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .setAuthorizedSender(roles.stranger.address, true)
+            .setAuthorizedSenders([roles.stranger.address])
+          ;('Only callable by owner')
         })
       })
     })
@@ -153,8 +281,8 @@ describe('Operator', () => {
     })
 
     describe('malicious requester', () => {
-      let mock: contract.Instance<MaliciousRequesterFactory>
-      let requester: contract.Instance<BasicConsumerFactory>
+      let mock: contract.Instance<MaliciousRequester__factory>
+      let requester: contract.Instance<BasicConsumer__factory>
       const paymentAmount = h.toWei('1')
 
       beforeEach(async () => {
@@ -328,10 +456,10 @@ describe('Operator', () => {
 
   describe('#fulfillOracleRequest', () => {
     const response = 'Hi Mom!'
-    let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-    let basicConsumer: contract.Instance<BasicConsumerFactory>
-    let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
-    let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+    let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+    let basicConsumer: contract.Instance<BasicConsumer__factory>
+    let maliciousConsumer: contract.Instance<MaliciousConsumer__factory>
+    let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
     let request: ReturnType<typeof oracle.decodeRunRequest>
 
     describe('gas guzzling consumer', () => {
@@ -757,10 +885,10 @@ describe('Operator', () => {
       const response = 'Hi mom!'
       const responseTypes = ['bytes32']
       const responseValues = [h.toBytes32String(response)]
-      let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-      let basicConsumer: contract.Instance<BasicConsumerFactory>
-      let maliciousConsumer: contract.Instance<MaliciousConsumerFactory>
-      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+      let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+      let basicConsumer: contract.Instance<BasicConsumer__factory>
+      let maliciousConsumer: contract.Instance<MaliciousConsumer__factory>
+      let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
       let request: ReturnType<typeof oracle.decodeRunRequest>
 
       describe('gas guzzling consumer', () => {
@@ -1002,7 +1130,7 @@ describe('Operator', () => {
         const paymentAmount = h.toWei('1')
 
         beforeEach(async () => {
-          maliciousConsumer = await maliciousMultiWordConsumerFactory
+          maliciousConsumer = await maliciousConsumerFactory
             .connect(roles.defaultAccount)
             .deploy(link.address, operator.address)
           await link.transfer(maliciousConsumer.address, paymentAmount)
@@ -1247,10 +1375,10 @@ describe('Operator', () => {
           Fusce euismod malesuada ligula, eget semper metus ultrices sit amet.'
         const responseTypes = ['bytes']
         const responseValues = [h.stringToBytes(response)]
-        let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-        let multiConsumer: contract.Instance<MultiWordConsumerFactory>
-        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+        let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+        let multiConsumer: contract.Instance<MultiWordConsumer__factory>
+        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumer__factory>
+        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
         let request: ReturnType<typeof oracle.decodeRunRequest>
 
         describe('gas guzzling consumer', () => {
@@ -1737,10 +1865,10 @@ describe('Operator', () => {
           h.toBytes32String(response1),
           h.toBytes32String(response2),
         ]
-        let maliciousRequester: contract.Instance<MaliciousRequesterFactory>
-        let multiConsumer: contract.Instance<MultiWordConsumerFactory>
-        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumerFactory>
-        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumerFactory>
+        let maliciousRequester: contract.Instance<MaliciousRequester__factory>
+        let multiConsumer: contract.Instance<MultiWordConsumer__factory>
+        let maliciousConsumer: contract.Instance<MaliciousMultiWordConsumer__factory>
+        let gasGuzzlingConsumer: contract.Instance<GasGuzzlingConsumer__factory>
         let request: ReturnType<typeof oracle.decodeRunRequest>
 
         describe('gas guzzling consumer', () => {
@@ -2259,6 +2387,39 @@ describe('Operator', () => {
         balance = await link.balanceOf(roles.oracleNode.address)
         assert.equal(0, balance.toNumber())
       })
+
+      describe('recovering funds that were mistakenly sent', () => {
+        const paid = 1
+        beforeEach(async () => {
+          await link.transfer(operator.address, paid)
+        })
+
+        it('withdraws funds', async () => {
+          const operatorBalanceBefore = await link.balanceOf(operator.address)
+          const accountBalanceBefore = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          await operator
+            .connect(roles.defaultAccount)
+            .withdraw(roles.defaultAccount.address, paid)
+
+          const operatorBalanceAfter = await link.balanceOf(operator.address)
+          const accountBalanceAfter = await link.balanceOf(
+            roles.defaultAccount.address,
+          )
+
+          const accountDifference = accountBalanceAfter.sub(
+            accountBalanceBefore,
+          )
+          const operatorDifference = operatorBalanceBefore.sub(
+            operatorBalanceAfter,
+          )
+
+          matchers.bigNum(operatorDifference, paid)
+          matchers.bigNum(accountDifference, paid)
+        })
+      })
     })
 
     describe('reserving funds via oracleRequest', () => {
@@ -2291,6 +2452,39 @@ describe('Operator', () => {
           })
           const balance = await link.balanceOf(roles.oracleNode.address)
           assert.equal(0, balance.toNumber())
+        })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
         })
       })
 
@@ -2361,15 +2555,48 @@ describe('Operator', () => {
           const balance = await link.balanceOf(roles.stranger.address)
           assert.isTrue(ethers.constants.Zero.eq(balance))
         })
+
+        describe('recovering funds that were mistakenly sent', () => {
+          const paid = 1
+          beforeEach(async () => {
+            await link.transfer(operator.address, paid)
+          })
+
+          it('withdraws funds', async () => {
+            const operatorBalanceBefore = await link.balanceOf(operator.address)
+            const accountBalanceBefore = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            await operator
+              .connect(roles.defaultAccount)
+              .withdraw(roles.defaultAccount.address, paid)
+
+            const operatorBalanceAfter = await link.balanceOf(operator.address)
+            const accountBalanceAfter = await link.balanceOf(
+              roles.defaultAccount.address,
+            )
+
+            const accountDifference = accountBalanceAfter.sub(
+              accountBalanceBefore,
+            )
+            const operatorDifference = operatorBalanceBefore.sub(
+              operatorBalanceAfter,
+            )
+
+            matchers.bigNum(operatorDifference, paid)
+            matchers.bigNum(accountDifference, paid)
+          })
+        })
       })
     })
   })
 
   describe('#withdrawable', () => {
     let request: ReturnType<typeof oracle.decodeRunRequest>
+    const amount = h.toWei('1')
 
     beforeEach(async () => {
-      const amount = h.toWei('1')
       const mock = await getterSetterFactory
         .connect(roles.defaultAccount)
         .deploy()
@@ -2394,6 +2621,108 @@ describe('Operator', () => {
     it('returns the correct value', async () => {
       const withdrawAmount = await operator.withdrawable()
       matchers.bigNum(withdrawAmount, request.payment)
+    })
+
+    describe('funds that were mistakenly sent', () => {
+      const paid = 1
+      beforeEach(async () => {
+        await link.transfer(operator.address, paid)
+      })
+
+      it('returns the correct value', async () => {
+        const withdrawAmount = await operator.withdrawable()
+
+        const expectedAmount = amount.add(paid)
+        matchers.bigNum(withdrawAmount, expectedAmount)
+      })
+    })
+  })
+
+  describe('#operatorTransferAndCall', () => {
+    let operator2: contract.Instance<Operator__factory>
+    let args: string
+    let to: string
+    const startingBalance = 1000
+    const payment = 20
+
+    beforeEach(async () => {
+      operator2 = await operatorFactory
+        .connect(roles.oracleNode2)
+        .deploy(link.address, roles.oracleNode2.address)
+      to = operator2.address
+      args = oracle.encodeOracleRequest(
+        specId,
+        operator.address,
+        operatorFactory.interface.functions.fulfillOracleRequest.sighash,
+        1,
+        '0x0',
+      )
+    })
+
+    describe('when called by a non-owner', () => {
+      it('reverts with owner error message', async () => {
+        await link.transfer(operator.address, startingBalance)
+        await matchers.evmRevert(async () => {
+          await operator
+            .connect(roles.stranger)
+            .operatorTransferAndCall(to, payment, args),
+            'Only callable by owner'
+        })
+      })
+    })
+
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        await link.transfer(operator.address, startingBalance)
+      })
+
+      describe('without sufficient funds in contract', () => {
+        it('reverts with funds message', async () => {
+          const tooMuch = startingBalance * 2
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.stranger)
+              .operatorTransferAndCall(to, tooMuch, args),
+              'Amount requested is greater than withdrawable balance'
+          })
+        })
+      })
+
+      describe('with sufficient funds', () => {
+        let receipt: ContractReceipt
+        let requesterBalanceBefore: utils.BigNumber
+        let requesterBalanceAfter: utils.BigNumber
+        let receiverBalanceBefore: utils.BigNumber
+        let receiverBalanceAfter: utils.BigNumber
+
+        beforeAll(async () => {
+          requesterBalanceBefore = await link.balanceOf(operator.address)
+          receiverBalanceBefore = await link.balanceOf(operator2.address)
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .operatorTransferAndCall(to, payment, args)
+          receipt = await tx.wait()
+          requesterBalanceAfter = await link.balanceOf(operator.address)
+          receiverBalanceAfter = await link.balanceOf(operator2.address)
+        })
+
+        it('emits an event', async () => {
+          assert.equal(3, receipt.logs?.length)
+          const request = oracle.decodeRunRequest(receipt.logs?.[2])
+          assert.equal(request.requester, operator.address)
+        })
+
+        it('transfers the tokens', async () => {
+          matchers.bigNum(
+            requesterBalanceBefore.sub(requesterBalanceAfter),
+            payment,
+          )
+          matchers.bigNum(
+            receiverBalanceAfter.sub(receiverBalanceBefore),
+            payment,
+          )
+        })
+      })
     })
   })
 
@@ -2514,7 +2843,7 @@ describe('Operator', () => {
     const payload = getterSetterFactory.interface.functions.setBytes.encode([
       bytes,
     ])
-    let mock: contract.Instance<GetterSetterFactory>
+    let mock: contract.Instance<GetterSetter__factory>
 
     beforeEach(async () => {
       mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()

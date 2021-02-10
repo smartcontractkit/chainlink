@@ -19,6 +19,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
 	toAddress := cltest.NewAddress()
 	gasLimit := uint64(42)
@@ -30,7 +31,8 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 			ToAddress:        toAddress,
 			GasLimit:         gasLimit,
 			FunctionSelector: functionSelector,
-			ABIEncoding:      []string{"uint256", "bool", "bytes"},
+			DataPrefix:       hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000001"),
+			ABIEncoding:      []string{"bytes32", "uint256", "bool", "bytes"},
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
@@ -48,9 +50,13 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		assert.Nil(t, etrt.EthTx.Nonce)
 		assert.Equal(t, toAddress, etrt.EthTx.ToAddress)
 		assert.Equal(t, "70a08231"+ // function selector
+			"0000000000000000000000000000000000000000000000000000000000000001"+ // requestID == 1
+			"00000000000000000000000000000000000000000000000000000000000000c0"+ // normal offset for other args
+			"00000000000000000000000000000000000000000000000000000000000000c0"+ // length of nested txdata
+			"0000000000000000000000000000000000000000000000000000000000000001"+ // requestID == 1
 			"000000000000000000000000000000000000000000000000000000000000000c"+ // 12
 			"0000000000000000000000000000000000000000000000000000000000000000"+ // false
-			"0000000000000000000000000000000000000000000000000000000000000060"+ // location of array
+			"0000000000000000000000000000000000000000000000000000000000000080"+ // location of array = 32 * 4
 			"0000000000000000000000000000000000000000000000000000000000000002"+ // length
 			"1234000000000000000000000000000000000000000000000000000000000000", // contents
 			hex.EncodeToString(etrt.EthTx.EncodedPayload))
@@ -157,7 +163,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0)
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
 		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
@@ -177,7 +183,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 1, 1, fromAddress)
 		store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID)
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)
 
@@ -198,7 +204,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 1)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 2, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
@@ -227,7 +233,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 1)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 3, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
@@ -262,7 +268,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 1)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 4, 1, fromAddress)
 
 		confirmedAttemptHash := etx.EthTxAttempts[0].Hash
 
@@ -291,7 +297,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 5, 1)
+		etx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 5, 1, fromAddress)
 		attempt2 := cltest.MustInsertBroadcastEthTxAttempt(t, etx.ID, store, 2)
 
 		confirmedAttemptHash := attempt2.Hash
@@ -321,7 +327,7 @@ func TestEthTxAdapter_Perform_BPTXM(t *testing.T) {
 		}
 		jobRunID := models.NewID()
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		etx := cltest.MustInsertFatalErrorEthTx(t, store)
+		etx := cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		require.NoError(t, store.DB.Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID.UUID(), etx.ID).Error)
 
 		input := models.NewRunInputWithResult(jobRunID, taskRunID, "0x9786856756", models.RunStatusUnstarted)

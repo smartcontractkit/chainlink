@@ -6,20 +6,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/require"
 )
 
 func TestConfigController_Show(t *testing.T) {
 	t.Parallel()
 
-	app, cleanup := cltest.NewApplicationWithKey(t, cltest.LenientEthMock)
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
 	defer cleanup()
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
@@ -49,5 +54,5 @@ func TestConfigController_Show(t *testing.T) {
 	assert.Equal(t, orm.NewConfig().BlockBackfillDepth(), cp.BlockBackfillDepth)
 	assert.Equal(t, assets.NewLink(100), cp.MinimumContractPayment)
 	assert.Equal(t, common.Address{}, cp.OperatorContractAddress)
-	assert.Equal(t, time.Millisecond*500, cp.DatabaseTimeout.Duration())
+	assert.Equal(t, time.Second*5, cp.DatabaseTimeout.Duration())
 }

@@ -1,4 +1,4 @@
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { OcrJobSpec } from 'core/store/models'
 import { jobSpecV2 } from './jobSpecV2'
 
@@ -19,7 +19,7 @@ export const jsonApiOcrJobSpecs = (
       const id = config.id || getRandomInt(1_000_000).toString()
 
       return {
-        type: 'jobSpecV2s',
+        type: 'specDBs',
         id,
         attributes: jobSpecV2(config),
       }

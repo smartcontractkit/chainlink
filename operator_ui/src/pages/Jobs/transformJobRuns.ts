@@ -1,4 +1,4 @@
-import { ApiResponse } from '@chainlink/json-api-client'
+import { ApiResponse } from 'utils/json-api-client'
 import { JobRun, OcrJobRun } from 'core/store/models'
 import { parseDot, Stratify } from './parseDot'
 import {
@@ -63,7 +63,7 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
   jobRun: ApiResponse<OcrJobRun>['data'],
 ): PipelineJobRun => {
   const stratify = parseDot(
-    `digraph {${jobRun.attributes.pipelineSpec.DotDagSource}}`,
+    `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
   )
 
   return {

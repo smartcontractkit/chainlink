@@ -10,6 +10,12 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
+func mustDecimal(t *testing.T, arg string) *decimal.Decimal {
+	ret, err := decimal.NewFromString(arg)
+	require.NoError(t, err)
+	return &ret
+}
+
 func TestMultiplyTask_Happy(t *testing.T) {
 	t.Parallel()
 
@@ -110,6 +116,8 @@ func TestMultiplyTask_Happy(t *testing.T) {
 }
 
 func TestMultiplyTask_Unhappy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		times decimal.Decimal

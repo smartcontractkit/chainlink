@@ -132,14 +132,10 @@ func TestEthTx_GetID(t *testing.T) {
 func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	// Use the real KeyStore loaded from database fixtures
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 	store.KeyStore.Unlock(cltest.Password)
 	tx := gethTypes.NewTransaction(uint64(42), cltest.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
 
-	keys, err := store.SendKeys()
-	require.NoError(t, err)
-	key := keys[0]
-	fromAddress := key.Address.Address()
 	account, err := store.KeyStore.GetAccountByAddress(fromAddress)
 	require.NoError(t, err)
 

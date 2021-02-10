@@ -7,6 +7,7 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -34,8 +35,13 @@ func (nc *NullClient) GetERC20Balance(address common.Address, contractAddress co
 }
 
 func (nc *NullClient) GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error) {
-	logger.Debug("NullClient#GetLINKBalancelinkAddress")
+	logger.Debug("NullClient#GetLINKBalance")
 	return assets.NewLink(0), nil
+}
+
+func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (*assets.Eth, error) {
+	logger.Debug("NullClient#GetEthBalance")
+	return assets.NewEth(0), nil
 }
 
 func (nc *NullClient) SendRawTx(bytes []byte) (common.Hash, error) {
@@ -141,4 +147,8 @@ func (nc *NullClient) CallContract(ctx context.Context, msg ethereum.CallMsg, bl
 func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	logger.Debug("NullClient#CodeAt")
 	return nil, nil
+}
+
+func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	return nil
 }
