@@ -143,12 +143,3 @@ func isParityFatal(s string) bool {
 			parInvalidSignature.MatchString(s) ||
 			parInvalidRlp.MatchString(s))
 }
-
-// Parity can return partially hydrated Log entries if you query a receipt
-// while the transaction is still in the mempool. Go-ethereum's built-in
-// client raises an error since this is a required field. There is no easy way
-// to ignore the error or pass in a custom struct, so we use this hack to
-// detect it instead.
-func IsParityQueriedReceiptTooEarly(e error) bool {
-	return e != nil && e.Error() == "missing required field 'transactionHash' for Log"
-}
