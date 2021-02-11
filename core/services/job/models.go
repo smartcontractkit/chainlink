@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -52,7 +54,7 @@ type SpecDB struct {
 	SchemaVersion                 uint32                       `json:"schemaVersion"`
 	Name                          null.String                  `json:"name"`
 	MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
-	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource"`
+	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource" gorm:"-"`
 }
 
 func (SpecDB) TableName() string {
@@ -103,7 +105,7 @@ type OffchainReportingOracleSpec struct {
 	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
 	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
 	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
-	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations" toml:"contractConfigConfirmations" gorm:"default:null"`
+	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations" toml:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt" toml:"-"`
 	UpdatedAt                              time.Time            `json:"updatedAt" toml:"-"`
 }
@@ -121,13 +123,13 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 	return nil
 }
 
-func (s *OffchainReportingOracleSpec) BeforeCreate() error {
+func (s *OffchainReportingOracleSpec) BeforeCreate(db *gorm.DB) error {
 	s.CreatedAt = time.Now()
 	s.UpdatedAt = time.Now()
 	return nil
 }
 
-func (s *OffchainReportingOracleSpec) BeforeSave() error {
+func (s *OffchainReportingOracleSpec) BeforeSave(db *gorm.DB) error {
 	s.UpdatedAt = time.Now()
 	return nil
 }

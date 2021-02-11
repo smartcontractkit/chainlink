@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -51,7 +53,7 @@ type JobSpec struct {
 	Tasks      []TaskSpec     `json:"tasks"`
 	StartAt    null.Time      `json:"startAt" gorm:"index"`
 	EndAt      null.Time      `json:"endAt" gorm:"index"`
-	DeletedAt  null.Time      `json:"-" gorm:"index"`
+	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 	UpdatedAt  time.Time      `json:"-"`
 	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
 }
@@ -203,8 +205,8 @@ type Initiator struct {
 	Type            string    `json:"type" gorm:"index;not null"`
 	CreatedAt       time.Time `json:"createdAt" gorm:"index"`
 	InitiatorParams `json:"params,omitempty"`
-	DeletedAt       null.Time `json:"-" gorm:"index"`
-	UpdatedAt       time.Time `json:"-"`
+	DeletedAt       gorm.DeletedAt `json:"-" gorm:"index"`
+	UpdatedAt       time.Time      `json:"-"`
 }
 
 // InitiatorParams is a collection of the possible parameters that different
@@ -365,7 +367,7 @@ type TaskSpec struct {
 	Params                           JSON          `json:"params" gorm:"type:text"`
 	CreatedAt                        time.Time
 	UpdatedAt                        time.Time
-	DeletedAt                        *time.Time
+	DeletedAt                        gorm.DeletedAt
 }
 
 // TaskType defines what Adapter a TaskSpec will use.

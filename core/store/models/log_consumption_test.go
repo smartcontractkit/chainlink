@@ -54,7 +54,8 @@ func TestMarkLogConsumed_Happy(t *testing.T) {
 			require.NoError(t, err)
 
 			var blockNumber uint64
-			require.NoError(t, store.ORM.DB.DB().QueryRow(queryFindBlockNumberForLogConsumption, test.BlockHash, test.LogIndex, test.JobID).Scan(&blockNumber))
+			d, _ := store.ORM.DB.DB()
+			require.NoError(t, d.QueryRow(queryFindBlockNumberForLogConsumption, test.BlockHash, test.LogIndex, test.JobID).Scan(&blockNumber))
 			require.Equal(t, blockNumber, test.blockNumber)
 		})
 	}

@@ -7,13 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"gorm.io/gorm/clause"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
-	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -180,7 +182,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 
 	err := o.db.Exec(`
             WITH deleted_jobs AS (
-            	DELETE FROM jobs WHERE id = $1 RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
+            	DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
             ),
             deleted_oracle_specs AS (
 				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
@@ -203,7 +205,7 @@ func (o *orm) CheckForDeletedJobs(ctx context.Context) (deletedJobIDs []int32, e
 	defer o.claimedJobsMu.RUnlock()
 	var claimedJobIDs []int32 = o.claimedJobIDs()
 
-	rows, err := o.db.DB().QueryContext(ctx, `SELECT id FROM jobs WHERE id = ANY($1)`, pq.Array(claimedJobIDs))
+	rows, err := o.db.Raw(`SELECT id FROM jobs WHERE id = ANY(?)`, pq.Array(claimedJobIDs)).Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "could not query for jobs")
 	}
@@ -246,11 +248,13 @@ func (o *orm) unclaimJob(ctx context.Context, id int32) error {
 func (o *orm) RecordError(ctx context.Context, jobID int32, description string) {
 	pse := SpecError{JobID: jobID, Description: description, Occurrences: 1}
 	err := o.db.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (job_id, description)
-			DO UPDATE SET occurrences = job_spec_errors_v2.occurrences + 1, updated_at = excluded.updated_at`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "job_id"}, {Name: "description"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"occurrences": gorm.Expr("job_spec_errors_v2.occurrences + 1"),
+				"updated_at":  gorm.Expr("excluded.updated_at"),
+			}),
+		}).
 		Create(&pse).
 		Error
 	// Noop if the job has been deleted.
@@ -319,7 +323,7 @@ func (o *orm) FindJob(id int32) (SpecDB, error) {
 // PipelineRunsByJobID returns pipeline runs for a job
 func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run, int, error) {
 	var pipelineRuns []pipeline.Run
-	var count int
+	var count int64
 	err := o.db.
 		Model(pipeline.Run{}).
 		Joins("INNER JOIN jobs ON pipeline_runs.pipeline_spec_id = jobs.pipeline_spec_id").
@@ -347,5 +351,5 @@ func (o *orm) PipelineRunsByJobID(jobID int32, offset, size int) ([]pipeline.Run
 		Find(&pipelineRuns).
 		Error
 
-	return pipelineRuns, count, err
+	return pipelineRuns, int(count), err
 }
