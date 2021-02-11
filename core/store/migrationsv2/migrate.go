@@ -40,3 +40,12 @@ func MigrateDown(db *gorm.DB) error {
 	}
 	return nil
 }
+
+func Rollback(db *gorm.DB, m *gormigrate.Migration) error {
+	g := gormigrate.New(db, &gormigrate.Options{
+		UseTransaction:            true,
+		ValidateUnknownMigrations: false,
+	}, Migrations)
+
+	return g.RollbackMigration(m)
+}
