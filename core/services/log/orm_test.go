@@ -2,6 +2,7 @@ package log_test
 
 import (
 	"bytes"
+	"fmt"
 	"sort"
 	"testing"
 
@@ -252,6 +253,8 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				log := cltest.RandomLog(t)
 				cltest.MustInsertLog(t, log, store)
 
+				fmt.Println("BALLS jobID", listener.JobID())
+				fmt.Println("BALLS jobIDV2", listener.JobIDV2())
 				err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
 				require.NoError(t, err)
 
@@ -264,6 +267,9 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 				was, err = orm.WasBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
 				require.NoError(t, err)
+				if !was {
+					panic("BALLS")
+				}
 				require.True(t, was)
 			})
 		}

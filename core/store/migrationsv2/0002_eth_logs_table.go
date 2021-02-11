@@ -7,6 +7,7 @@ import (
 
 const up2 = `
     CREATE TABLE "eth_logs" (
+        "id" BIGSERIAL PRIMARY KEY,
         "block_hash" bytea NOT NULL,
         "block_number" bigint NOT NULL,
         "index" bigint NOT NULL,
@@ -14,30 +15,37 @@ const up2 = `
         "topics" bytea[] NOT NULL,
         "data" bytea NOT NULL,
         "order_received" serial NOT NULL,
-        "created_at" timestamp without time zone NOT NULL,
-        PRIMARY KEY (block_hash, index)
+        "created_at" timestamp without time zone NOT NULL
     );
 
+    CREATE UNIQUE INDEX idx_eth_logs_unique ON eth_logs (block_hash, index);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_block_number ON eth_logs (block_number);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_address_block_number ON eth_logs (address, block_number);
 
-    ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_consumptions_exactly_one_job_id TO chk_log_broadcasts_exactly_one_job_id;
-    ALTER TABLE log_consumptions RENAME CONSTRAINT log_consumptions_job_id_fkey TO log_broadcasts_job_id_fkey;
-    ALTER TABLE log_consumptions RENAME TO log_broadcasts;
+    -- TODO: IS THIS SAFE????????????????????????????????????????????
+    DELETE FROM log_consumptions;
 
-    ALTER TABLE log_broadcasts ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_consumptions_exactly_one_job_id TO chk_log_broadcasts_exactly_one_job_id;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT log_consumptions_job_id_fkey TO log_broadcasts_job_id_fkey;
+	ALTER TABLE log_consumptions RENAME TO log_broadcasts;
 
-    CREATE INDEX idx_log_broadcasts_unconsumed ON log_broadcasts (block_hash, block_number) WHERE consumed = false;
+    ALTER TABLE log_broadcasts
+        ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE,
+        ADD COLUMN "eth_log_id" BIGINT NOT NULL,
+		ADD CONSTRAINT log_broadcasts_eth_log_id_fkey FOREIGN KEY (eth_log_id) REFERENCES eth_logs (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 
-    CREATE INDEX IF NOT EXISTS idx_log_broadcasts_blockhash_logindex_jobid_jobid ON log_broadcasts (block_hash, log_index, job_id) WHERE job_id IS NOT NULL;
-    CREATE INDEX IF NOT EXISTS idx_log_broadcasts_blockhash_logindex_jobid_jobidv2 ON log_broadcasts (block_hash, log_index, job_id_v2) WHERE job_id_v2 IS NOT NULL;
+    CREATE INDEX idx_log_broadcasts_unconsumed_eth_log_id ON log_broadcasts (eth_log_id) WHERE consumed = false;
+    CREATE INDEX idx_log_broadcasts_unconsumed_job_id ON log_broadcasts (job_id) WHERE consumed = false AND job_id IS NOT NULL;
+    CREATE INDEX idx_log_broadcasts_unconsumed_job_id_v2 ON log_broadcasts (job_id_v2) WHERE consumed = false AND job_id_v2 IS NOT NULL;
 
-    ALTER TABLE log_broadcasts ADD CONSTRAINT "log_broadcasts_eth_logs_fkey"
-        FOREIGN KEY (block_hash, log_index) REFERENCES eth_logs (block_hash, index)
-        ON DELETE CASCADE;
+	DROP INDEX IF EXISTS log_consumptions_unique_v1_idx;
+	DROP INDEX IF EXISTS log_consumptions_unique_v2_idx;
 
+	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON log_broadcasts(job_id, block_hash, log_index) WHERE job_id IS NOT NULL;
+	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) WHERE job_id_v2 IS NOT NULL;
 `
 
+// TODO: Finalise down2
 const down2 = `
     -- ALTER TABLE log_broadcasts DROP COLUMN "consumed";
     ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey";
