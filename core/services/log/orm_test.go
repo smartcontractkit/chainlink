@@ -35,7 +35,7 @@ func TestORM_UpsertLog(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	dbLogs, err := log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_hash, index ASC`)
+	dbLogs, err := log.FetchLogs(store.DB, `SELECT eth_logs.block_hash, eth_logs.block_number, eth_logs.index, eth_logs.address, eth_logs.topics, eth_logs.data FROM eth_logs ORDER BY block_hash, index ASC`)
 	require.NoError(t, err)
 	require.Len(t, dbLogs, len(logs))
 
@@ -267,9 +267,6 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 				was, err = orm.WasBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
 				require.NoError(t, err)
-				if !was {
-					panic("BALLS")
-				}
 				require.True(t, was)
 			})
 		}
