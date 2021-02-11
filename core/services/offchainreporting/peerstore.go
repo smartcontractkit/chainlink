@@ -2,8 +2,6 @@ package offchainreporting
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -155,21 +153,7 @@ func (p *Pstorewrapper) WriteToDB() error {
 				peers = append(peers, p)
 			}
 		}
-		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
-		// manually construct it ourselves
-		valueStrings := []string{}
-		valueArgs := []interface{}{}
-		for _, p := range peers {
-			valueStrings = append(valueStrings, "(?, ?, ?, NOW(), NOW())")
-			valueArgs = append(valueArgs, p.ID)
-			valueArgs = append(valueArgs, p.Addr)
-			valueArgs = append(valueArgs, p.PeerID)
-		}
-
-		// TODO: Replace this with a bulk insert when we upgrade to gormv2
-		/* #nosec G201 */
-		stmt := fmt.Sprintf("INSERT INTO p2p_peers (id, addr, peer_id, created_at, updated_at) VALUES %s", strings.Join(valueStrings, ","))
-		return tx.Exec(stmt, valueArgs...).Error
+		return tx.Create(&peers).Error
 	})
 	return errors.Wrap(err, "could not write peers to DB")
 }
