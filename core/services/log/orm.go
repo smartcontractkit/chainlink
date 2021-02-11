@@ -1,6 +1,8 @@
 package log
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jinzhu/gorm"
@@ -42,22 +44,22 @@ func (o *orm) UpsertLog(log types.Log) error {
 		topics[i] = x
 	}
 	err := o.db.Exec(`
-        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-        ON CONFLICT (block_hash, index) DO UPDATE SET (
-            block_hash,
-            block_number,
-            index,
-            address,
-            topics,
-            data
-        ) = (
-            EXCLUDED.block_hash,
-            EXCLUDED.block_number,
-            EXCLUDED.index,
-            EXCLUDED.address,
-            EXCLUDED.topics,
-            EXCLUDED.data
-        )
+INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+ON CONFLICT (block_hash, index) DO UPDATE SET (
+	block_hash,
+	block_number,
+	index,
+	address,
+	topics,
+	data
+) = (
+	EXCLUDED.block_hash,
+	EXCLUDED.block_number,
+	EXCLUDED.index,
+	EXCLUDED.address,
+	EXCLUDED.topics,
+	EXCLUDED.data
+)
     `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
 	return err
 }
@@ -67,120 +69,151 @@ func (o *orm) UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV
 }
 
 func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error {
-	if jobID == nil {
-		return o.db.Exec(`
-            INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
-            SELECT block_hash, block_number, index, ?, false, NOW() FROM eth_logs
-                WHERE eth_logs.block_number >= ? AND address = ?
-            ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
-                block_hash,
-                block_number,
-                log_index,
-                job_id_v2
-            ) = (
-                EXCLUDED.block_hash,
-                EXCLUDED.block_number,
-                EXCLUDED.log_index,
-                EXCLUDED.job_id_v2
-            )
-        `, jobIDV2, blockNumber, address).Error
+	var jobIDVal interface{}
+	var jobIDName string
+	if jobID != nil {
+		jobIDName = "job_id"
+		jobIDVal = jobID
+	} else {
+		jobIDName = "job_id_v2"
+		jobIDVal = jobIDV2
 	}
-	return o.db.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
-        SELECT block_hash, block_number, index, ?, false, NOW() FROM eth_logs
-            WHERE eth_logs.block_number >= ? AND address = ?
-        ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
-            block_hash,
-            block_number,
-            log_index,
-            job_id_v2
-        ) = (
-            EXCLUDED.block_hash,
-            EXCLUDED.block_number,
-            EXCLUDED.log_index,
-            EXCLUDED.job_id_v2
-        )
-    `, jobIDV2, blockNumber, address).Error
+	q := `
+INSERT INTO log_broadcasts (eth_log_id, block_hash, block_number, log_index, %[1]s, consumed, created_at)
+SELECT id, block_hash, block_number, index, ?, false, NOW() FROM eth_logs
+	WHERE eth_logs.block_number >= ? AND address = ?
+ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET (
+	eth_log_id,
+	block_hash,
+	block_number,
+	log_index,
+	%[1]s
+) = (
+	EXCLUDED.eth_log_id,
+	EXCLUDED.block_hash,
+	EXCLUDED.block_number,
+	EXCLUDED.log_index,
+	EXCLUDED.%[1]s
+)`
+
+	args := []interface{}{
+		jobIDVal,
+		blockNumber,
+		address,
+	}
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	return o.db.Exec(stmt, args...).Error
 }
 
 func (o *orm) upsertBroadcastForListener(db *gorm.DB, log types.Log, jobID *models.ID, jobIDV2 int32) error {
-	if jobID == nil {
-		return db.Exec(`
-            INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id_v2, consumed, created_at)
-            VALUES (?, ?, ?, ?, false, NOW())
-            ON CONFLICT (job_id_v2, block_hash, log_index) DO UPDATE SET (
-                block_hash,
-                block_number,
-                log_index,
-                job_id_v2
-            ) = (
-                EXCLUDED.block_hash,
-                EXCLUDED.block_number,
-                EXCLUDED.log_index,
-                EXCLUDED.job_id_v2
-            )
-        `, log.BlockHash, log.BlockNumber, log.Index, jobIDV2).Error
+	var jobIDVal interface{}
+	var jobIDName string
+	if jobID != nil {
+		jobIDName = "job_id"
+		jobIDVal = jobID
+	} else {
+		jobIDName = "job_id_v2"
+		jobIDVal = jobIDV2
 	}
-	return db.Exec(`
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, job_id, consumed, created_at)
-        VALUES (?, ?, ?, ?, false, NOW())
-        ON CONFLICT (job_id, block_hash, log_index) DO UPDATE SET (
-            block_hash,
-            block_number,
-            log_index,
-            job_id
-        ) = (
-            EXCLUDED.block_hash,
-            EXCLUDED.block_number,
-            EXCLUDED.log_index,
-            EXCLUDED.job_id
-        )
-    `, log.BlockHash, log.BlockNumber, log.Index, jobID).Error
+
+	q := `
+INSERT INTO log_broadcasts (eth_log_id, block_hash, block_number, log_index, %[1]s, consumed, created_at)
+SELECT eth_logs.id, ?, ?, ?, ?, false, NOW() FROM eth_logs
+	WHERE eth_logs.block_hash = ? AND eth_logs.index = ?
+ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET (
+	eth_log_id,
+	block_hash,
+	block_number,
+	log_index,
+	%[1]s
+) = (
+	EXCLUDED.eth_log_id,
+	EXCLUDED.block_hash,
+	EXCLUDED.block_number,
+	EXCLUDED.log_index,
+	EXCLUDED.%[1]s
+)
+`
+	args := []interface{}{
+		log.BlockHash,
+		log.BlockNumber,
+		log.Index,
+		jobIDVal,
+		log.BlockHash,
+		log.Index,
+	}
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	query := o.db.Exec(stmt, args...)
+
+	if query.Error != nil {
+		return errors.Wrap(query.Error, "while upserting broadcast for listener")
+	} else if query.RowsAffected == 0 {
+		return errors.Errorf("no eth_log was found with block_hash %s and index %v", log.BlockHash, log.Index)
+	}
+
+	return nil
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error) {
 	var consumed struct{ Consumed bool }
 	var err error
-	if jobID == nil {
-		err = o.db.Raw(`
-            SELECT consumed FROM log_broadcasts
-            WHERE block_hash = ?
-            AND log_index = ?
-            AND job_id IS NULL
-            AND job_id_v2 = ?
-        `, blockHash, logIndex, jobIDV2).Scan(&consumed).Error
+	var jobIDVal interface{}
+	var jobIDName string
+	if jobID != nil {
+		jobIDName = "job_id"
+		jobIDVal = jobID
 	} else {
-		err = o.db.Raw(`
-            SELECT consumed FROM log_broadcasts
-            WHERE block_hash = ?
-            AND log_index = ?
-            AND job_id = ?
-            AND job_id_v2 IS NULL
-        `, blockHash, logIndex, jobID).Scan(&consumed).Error
+		jobIDName = "job_id_v2"
+		jobIDVal = jobIDV2
 	}
+
+	q := `
+SELECT consumed FROM log_broadcasts
+WHERE block_hash = ?
+AND log_index = ?
+AND %s = ?
+`
+
+	args := []interface{}{
+		blockHash,
+		logIndex,
+		jobIDVal,
+	}
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	err = o.db.Exec(stmt, args...).Error
 
 	return consumed.Consumed, err
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error {
-	var query *gorm.DB
-	if jobID == nil {
-		query = o.db.Exec(`
-            UPDATE log_broadcasts SET consumed = true
-            WHERE block_hash = ?
-            AND log_index = ?
-            AND job_id IS NULL
-            AND job_id_v2 = ?
-        `, blockHash, logIndex, jobIDV2)
+	var jobIDVal interface{}
+	var jobIDName string
+	if jobID != nil {
+		jobIDName = "job_id"
+		jobIDVal = jobID
 	} else {
-		query = o.db.Exec(`
-            UPDATE log_broadcasts SET consumed = true
-            WHERE block_hash = ?
-            AND log_index = ?
-            AND job_id = ?
-            AND job_id_v2 IS NULL
-        `, blockHash, logIndex, jobID)
+		jobIDName = "job_id_v2"
+		jobIDVal = jobIDV2
 	}
+
+	q := `
+UPDATE log_broadcasts SET consumed = true
+WHERE block_hash = ?
+AND log_index = ?
+AND %s = ?
+`
+	args := []interface{}{
+		blockHash,
+		logIndex,
+		jobIDVal,
+	}
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	query := o.db.Exec(stmt, args...)
+
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {
@@ -192,7 +225,7 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
         SELECT DISTINCT eth_logs.* FROM eth_logs
-        INNER JOIN log_broadcasts ON eth_logs.block_hash = log_broadcasts.block_hash AND eth_logs.index = log_broadcasts.log_index
+        INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
         WHERE eth_logs.block_number < ? AND log_broadcasts.consumed = false
         ORDER BY eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC;
     `, blockNumber)
@@ -208,10 +241,20 @@ func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error
 }
 
 func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
-	if jobID == nil {
-		return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id IS NULL AND job_id_v2 = ? AND consumed = false`, jobIDV2).Error
+	var jobIDName string
+	var jobIDVal interface{}
+	if jobID != nil {
+		jobIDName = "job_id"
+		jobIDVal = jobID
+	} else {
+		jobIDName = "job_id_v2"
+		jobIDVal = jobIDV2
 	}
-	return o.db.Exec(`DELETE FROM log_broadcasts WHERE job_id = ? AND job_id_v2 IS NULL AND consumed = false`, jobID).Error
+
+	q := `DELETE FROM log_broadcasts WHERE %s = ? AND consumed = false`
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	return o.db.Exec(stmt, jobIDVal).Error
 }
 
 type logRow struct {
