@@ -6,6 +6,7 @@ COPY yarn.lock package.json .yarnrc tsconfig.cjs.json ./
 COPY .yarn .yarn
 COPY tools/external-adapter/package.json tools/external-adapter/
 
+RUN apk add git
 # install deps for our integration scripts
 RUN yarn
 

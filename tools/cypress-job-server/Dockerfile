@@ -6,6 +6,7 @@ COPY yarn.lock .yarnrc package.json tsconfig.cjs.json ./
 COPY .yarn .yarn
 COPY tools/cypress-job-server/package.json tools/cypress-job-server/
 
+RUN apk add git
 # install deps for our integration scripts
 RUN yarn
 

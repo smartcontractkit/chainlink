@@ -7,6 +7,8 @@ COPY .yarn .yarn
 
 COPY tools/echo-server/package.json tools/echo-server/
 
+RUN apk add git
+
 # install deps for our integration scripts
 RUN yarn
 
