@@ -346,7 +346,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
@@ -388,7 +389,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
@@ -445,7 +447,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 		// Assert the override
@@ -491,7 +494,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
@@ -529,7 +533,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 
@@ -565,7 +570,8 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec", "id = ?", dbSpec.ID).
 			Find(&jb).Error
 		require.NoError(t, err)
 
