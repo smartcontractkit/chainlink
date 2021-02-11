@@ -2,7 +2,6 @@ package log_test
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 	"testing"
 
@@ -14,6 +13,8 @@ import (
 )
 
 func TestORM_UpsertLog(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -50,6 +51,8 @@ func TestORM_UpsertLog(t *testing.T) {
 }
 
 func TestORM_UpsertBroadcastForListener(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -152,6 +155,8 @@ func TestORM_UpsertBroadcastForListener(t *testing.T) {
 }
 
 func TestORM_MarkBroadcastConsumed(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -227,6 +232,8 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 }
 
 func TestORM_WasBroadcastConsumed(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -253,8 +260,6 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				log := cltest.RandomLog(t)
 				cltest.MustInsertLog(t, log, store)
 
-				fmt.Println("BALLS jobID", listener.JobID())
-				fmt.Println("BALLS jobIDV2", listener.JobIDV2())
 				err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
 				require.NoError(t, err)
 
@@ -301,6 +306,8 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 }
 
 func TestORM_UnconsumedLogsPriorToBlock(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -363,6 +370,8 @@ func TestORM_UnconsumedLogsPriorToBlock(t *testing.T) {
 }
 
 func TestORM_DeleteLogAndBroadcasts(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -406,6 +415,8 @@ func TestORM_DeleteLogAndBroadcasts(t *testing.T) {
 }
 
 func TestORM_DeleteUnconsumedBroadcastsForListener(t *testing.T) {
+	t.Parallel()
+
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
