@@ -222,7 +222,7 @@ AND %s = ?
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
-        SELECT d.block_hash, d.block_number, d.index, d.address, d.topics, d.data FROM 
+        SELECT d.block_hash, d.block_number, d.index, d.address, d.topics, d.data FROM
 		(
 			SELECT DISTINCT ON (eth_logs.id) eth_logs.* FROM eth_logs
 			INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
@@ -277,7 +277,7 @@ func FetchLogs(db *gorm.DB, query string, args ...interface{}) (logs []types.Log
 	if err != nil {
 		return nil, errors.Wrap(err, "FetchLogs query failed")
 	}
-	defer rows.Close()
+	defer logger.ErrorIfCalling(rows.Close)
 	for rows.Next() {
 		var lr logRow
 		err := rows.Scan(&lr.BlockHash, &lr.BlockNumber, &lr.Index, &lr.Address, &lr.Topics, &lr.Data)
