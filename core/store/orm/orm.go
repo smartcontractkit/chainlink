@@ -933,13 +933,13 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limit int) ([]models.JobRun, int, int, int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
 
 	var runs []models.JobRun
@@ -949,7 +949,16 @@ func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limi
 		Limit(limit).
 		Offset(offset).
 		Find(&runs).Error
-	return runs, count, err
+	var completedCount = 0
+	var erroredCount = 0
+	for _, r := range runs {
+		if r.Status.Completed() {
+			completedCount++
+		} else if r.Status.Errored() {
+			erroredCount++
+		}
+	}
+	return runs, count, completedCount, erroredCount, err
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the

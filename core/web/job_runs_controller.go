@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -34,6 +35,8 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	store := jrc.App.GetStore()
 	var runs []models.JobRun
 	var count int
+	var completedCount int
+	var erroredCount int
 	var err error
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
@@ -45,10 +48,12 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 			return
 		}
 
-		runs, count, err = store.JobRunsSortedFor(runID, order, offset, size)
+		runs, count, completedCount, erroredCount, err = store.JobRunsSortedFor(runID, order, offset, size)
 	}
-
-	paginatedResponse(c, "JobRuns", size, page, runs, count, err)
+	meta := make(map[string]string)
+	meta["completed"] = strconv.Itoa(completedCount)
+	meta["errored"] = strconv.Itoa(erroredCount)
+	paginatedResponseWithMeta(c, "JobRuns", size, page, runs, count, err, meta)
 }
 
 // Create starts a new Run for the requested JobSpec.
