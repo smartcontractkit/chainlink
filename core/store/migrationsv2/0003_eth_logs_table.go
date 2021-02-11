@@ -18,7 +18,7 @@ const up3 = `
         "created_at" timestamp without time zone NOT NULL
     );
 
-    CREATE UNIQUE INDEX idx_eth_logs_unique ON eth_logs (block_hash, index);
+    CREATE UNIQUE INDEX idx_eth_logs_unique ON eth_logs (block_hash, index) INCLUDE (id);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_block_number ON eth_logs (block_number);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_address_block_number ON eth_logs (address, block_number);
 
@@ -41,8 +41,8 @@ const up3 = `
 	DROP INDEX IF EXISTS log_consumptions_unique_v1_idx;
 	DROP INDEX IF EXISTS log_consumptions_unique_v2_idx;
 
-	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON log_broadcasts(job_id, block_hash, log_index) WHERE job_id IS NOT NULL;
-	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) WHERE job_id_v2 IS NOT NULL;
+	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON log_broadcasts(job_id, block_hash, log_index) INCLUDE (consumed) WHERE job_id IS NOT NULL;
+	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) INCLUDE (consumed) WHERE job_id_v2 IS NOT NULL;
 `
 
 // TODO: Finalise down3
