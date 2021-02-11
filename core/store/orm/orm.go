@@ -803,18 +803,18 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 }
 
 // DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() (models.User, error) {
-	user, err := orm.FindUser()
-	if err != nil {
-		return user, err
-	}
-
-	return user, orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Delete(&user).Error; err != nil {
+func (orm *ORM) DeleteUser() error {
+	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+		user, err := orm.FindUser()
+		if err != nil {
 			return err
 		}
 
-		if err := dbtx.Exec("DELETE FROM sessions").Error; err != nil {
+		if err = dbtx.Delete(&user).Error; err != nil {
+			return err
+		}
+
+		if err = dbtx.Exec("DELETE FROM sessions").Error; err != nil {
 			return err
 		}
 

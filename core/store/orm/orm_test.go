@@ -761,7 +761,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	_, err := store.FindUser()
 	require.NoError(t, err)
 
-	_, err = store.DeleteUser()
+	err = store.DeleteUser()
 	require.NoError(t, err)
 
 	_, err = store.FindUser()
