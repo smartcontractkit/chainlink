@@ -1,8 +1,8 @@
 package migrationsv2
 
 import (
-	"github.com/jinzhu/gorm"
-	"gopkg.in/gormigrate.v1"
+	"github.com/go-gormigrate/gormigrate/v2"
+	"gorm.io/gorm"
 )
 
 var (

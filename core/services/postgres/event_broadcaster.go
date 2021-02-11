@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"

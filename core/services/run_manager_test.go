@@ -3,6 +3,8 @@ package services_test
 import (
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"math/big"
 	"testing"
 	"time"
@@ -23,7 +25,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSpec) models.JobRun {
@@ -753,7 +754,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)
@@ -830,7 +831,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)

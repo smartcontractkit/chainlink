@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -29,6 +28,7 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"

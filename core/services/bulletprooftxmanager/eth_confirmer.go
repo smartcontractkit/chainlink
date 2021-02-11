@@ -21,9 +21,9 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 var (
@@ -368,7 +368,7 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 	`
 
 	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
-	_, err = ec.store.DB.DB().ExecContext(ctx, stmt, valueArgs...)
+	_, err = ec.store.MustSQLDB().ExecContext(ctx, stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
 
@@ -387,7 +387,11 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
 func (ec *ethConfirmer) markConfirmedMissingReceipt(ctx context.Context) (err error) {
-	_, err = ec.store.DB.DB().ExecContext(ctx, `
+	d, err := ec.store.DB.DB()
+	if err != nil {
+		return err
+	}
+	_, err = d.ExecContext(ctx, `
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
 WHERE state = 'unconfirmed'
@@ -414,7 +418,11 @@ func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, 
 	if cutoff <= 0 {
 		return nil
 	}
-	rows, err := ec.store.DB.DB().QueryContext(ctx, `
+	d, err := ec.store.DB.DB()
+	if err != nil {
+		return err
+	}
+	rows, err := d.QueryContext(ctx, `
 UPDATE eth_txes
 SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
 WHERE id IN (
@@ -916,7 +924,7 @@ func findEthTxWithNonce(db *gorm.DB, fromAddress gethCommon.Address, nonce uint)
 		}).
 		First(&etx, "from_address = ? AND nonce = ? AND state IN ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')", fromAddress, nonce).
 		Error
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	return &etx, errors.Wrap(err, "findEthTxsWithNonce failed")

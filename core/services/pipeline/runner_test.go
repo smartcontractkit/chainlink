@@ -128,7 +128,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 				ID:           51,
 				DotID:        `ds3`,
 				Type:         "http",
-				JSON:         cltest.MustNewJSONSerializable(t, `{"method": "GET", "url": "http://test.invalid", "requestData": {"data": {"coin": "BTC", "market": "USD"}}}`),
+				JSON:         cltest.MustNewJSONSerializable(t, `{"method": "GET", "url": "blah://test.invalid", "requestData": {"data": {"coin": "BTC", "market": "USD"}}}`),
 				SuccessorID:  null.IntFrom(52),
 				PipelineSpec: spec,
 			},
