@@ -227,7 +227,7 @@ func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error
 			SELECT DISTINCT ON (eth_logs.id) eth_logs.* FROM eth_logs
 			INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
 			WHERE eth_logs.block_number < $1 AND log_broadcasts.consumed = false
-			ORDER BY id
+			ORDER BY eth_logs.id
 		) d
         ORDER BY d.order_received, d.block_number, d.index ASC;
     `, blockNumber)
