@@ -26,8 +26,8 @@ type (
 		Start() error
 		Close() error
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
-		ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, err error)
-		ExecuteAndInsertNewRun(ctx context.Context, spec Spec) (finalResult FinalResult, err error)
+		ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
+		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (finalResult FinalResult, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	}
@@ -243,12 +243,12 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, run Run) (trrs TaskRunResults, err error) {
-	return r.executeRun(ctx, r.orm.DB(), run)
+func (r *runner) ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
+	return r.executeRun(ctx, r.orm.DB(), run, l)
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs TaskRunResults, err error) {
-	logger.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
+	l.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
 	startRun := time.Now()
 
 	if run.PipelineSpec.ID == 0 {
@@ -333,7 +333,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 				startTaskRun := time.Now()
 
 				taskCtx, cancel := utils.CombinedContext(ctx, r.config.JobPipelineMaxTaskDuration())
-				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex)
+				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex, l)
 				cancel()
 
 				finishedAt := time.Now()
@@ -378,12 +378,12 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run) (trrs T
 	wg.Wait()
 
 	runTime := time.Since(startRun)
-	logger.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
+	l.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
 	return trrs, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex) Result {
+func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex, l logger.Logger) Result {
 	loggerFields := []interface{}{
 		"taskName", taskRun.PipelineTaskSpec.DotID,
 		"taskID", taskRun.PipelineTaskSpecID,
@@ -400,7 +400,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 		txdbMutex,
 	)
 	if err != nil {
-		logger.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
+		l.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
 		return Result{Error: err}
 	}
 
@@ -422,7 +422,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 	result := task.Run(ctx, taskRun, inputs)
 	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
 		f := append(loggerFields, "error", result.Error)
-		logger.Warnw("Pipeline task run errored", f...)
+		l.Warnw("Pipeline task run errored", f...)
 	} else {
 		f := append(loggerFields, "result", result.Value)
 		switch v := result.Value.(type) {
@@ -430,7 +430,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 			f = append(f, "resultString", fmt.Sprintf("%q", v))
 			f = append(f, "resultHex", fmt.Sprintf("%x", v))
 		}
-		logger.Debugw("Pipeline task completed", f...)
+		l.Debugw("Pipeline task completed", f...)
 	}
 
 	return result
@@ -438,7 +438,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 
 // ExecuteAndInsertNewRun bypasses the job pipeline entirely.
 // It executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec) (result FinalResult, err error) {
+func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (result FinalResult, err error) {
 	start := time.Now()
 
 	run, err := newRun(spec, start)
@@ -446,7 +446,7 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec) (result 
 		return result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
 	}
 
-	trrs, err := r.ExecuteRun(ctx, run)
+	trrs, err := r.ExecuteRun(ctx, run, l)
 	if err != nil {
 		return result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
