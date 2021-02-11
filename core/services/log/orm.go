@@ -222,10 +222,14 @@ AND %s = ?
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
-        SELECT DISTINCT ON (eth_logs.id) eth_logs.block_hash, eth_logs.block_number, eth_logs.index, eth_logs.address, eth_logs.topics, eth_logs.data FROM eth_logs
-        INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
-        WHERE eth_logs.block_number < $1 AND log_broadcasts.consumed = false
-        ORDER BY eth_logs.id, eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC;
+        SELECT d.block_hash, d.block_number, d.index, d.address, d.topics, d.data FROM 
+		(
+			SELECT DISTINCT ON (eth_logs.id) eth_logs.* FROM eth_logs
+			INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
+			WHERE eth_logs.block_number < $1 AND log_broadcasts.consumed = false
+			ORDER BY id
+		) d
+        ORDER BY d.order_received, d.block_number, d.index ASC;
     `, blockNumber)
 	if err != nil {
 		logger.Errorw("could not fetch logs to broadcast", "error", err)
