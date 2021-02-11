@@ -1298,6 +1298,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		min, // -2**191
 		max, // 2**191 - 1
 		accessAddress,
+		accessAddress,
 		0,
 		"TEST")
 	require.NoError(t, err)

@@ -10,9 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
-	"github.com/jinzhu/gorm"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/stretchr/testify/require"
 )

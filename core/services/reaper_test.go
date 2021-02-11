@@ -36,7 +36,10 @@ func TestStoreReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer store.ORM.ClearSessions()
+			defer func() {
+				err := store.ORM.ClearSessions()
+				require.NoError(t, err)
+			}()
 
 			session := cltest.NewSession(test.name)
 			session.LastUsed = test.lastUsed

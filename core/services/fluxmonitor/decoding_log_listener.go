@@ -4,7 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
@@ -49,7 +48,6 @@ func (ll fluxAggregatorDecodingLogListener) HandleLog(lb log.Broadcast, err erro
 	case fluxAggregatorABI.Events["AnswerUpdated"].ID:
 		decodedLog, err = ll.wrapper.ParseAnswerUpdated(rawLog)
 	default:
-		logger.Warnf("Unknown topic for FluxAggregator contract: %s", eventID.Hex())
 		return // don't pass on unknown/unexpected events
 	}
 

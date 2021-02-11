@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -97,7 +98,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 		validated = true
 
-		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
+		if err := re.store.ORM.SaveJobRun(&run); err == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
