@@ -186,7 +186,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
