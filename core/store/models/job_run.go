@@ -5,6 +5,8 @@ import (
 	"math/big"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -27,23 +29,23 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID          `json:"id" gorm:"primary_key;not null"`
-	JobSpecID      *ID          `json:"jobId"`
-	Result         RunResult    `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
-	ResultID       clnull.Int64 `json:"-"`
-	RunRequest     RunRequest   `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
-	RunRequestID   clnull.Int64 `json:"-"`
-	Status         RunStatus    `json:"status" gorm:"default:'unstarted'"`
-	TaskRuns       []TaskRun    `json:"taskRuns"`
-	CreatedAt      time.Time    `json:"createdAt"`
-	FinishedAt     null.Time    `json:"finishedAt"`
-	UpdatedAt      time.Time    `json:"updatedAt"`
-	Initiator      Initiator    `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
-	InitiatorID    int64        `json:"-"`
-	CreationHeight *utils.Big   `json:"creationHeight"`
-	ObservedHeight *utils.Big   `json:"observedHeight"`
-	DeletedAt      null.Time    `json:"-"`
-	Payment        *assets.Link `json:"payment,omitempty"`
+	ID             *ID            `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobSpecID      *ID            `json:"jobId" gorm:"type:uuid"`
+	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
+	ResultID       clnull.Int64   `json:"-"`
+	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
+	RunRequestID   clnull.Int64   `json:"-"`
+	Status         RunStatus      `json:"status" gorm:"default:'unstarted'"`
+	TaskRuns       []TaskRun      `json:"taskRuns" gorm:"foreignKey:JobRunID"`
+	CreatedAt      time.Time      `json:"createdAt"`
+	FinishedAt     null.Time      `json:"finishedAt"`
+	UpdatedAt      time.Time      `json:"updatedAt"`
+	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
+	InitiatorID    int64          `json:"-"`
+	CreationHeight *utils.Big     `json:"creationHeight"`
+	ObservedHeight *utils.Big     `json:"observedHeight"`
+	DeletedAt      gorm.DeletedAt `json:"-"`
+	Payment        *assets.Link   `json:"payment,omitempty"`
 }
 
 // MakeJobRun returns a new JobRun copy
@@ -228,7 +230,7 @@ type RunRequest struct {
 	Requester     *common.Address
 	CreatedAt     time.Time
 	Payment       *assets.Link
-	RequestParams JSON `gorm:"default: '{}';not null"`
+	RequestParams JSON `gorm:"type:jsonb;default:'{}'"`
 }
 
 // NewRunRequest returns a new RunRequest instance.
@@ -239,8 +241,8 @@ func NewRunRequest(requestParams JSON) *RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                               *ID           `json:"id" gorm:"primary_key;not null"`
-	JobRunID                         *ID           `json:"-"`
+	ID                               *ID           `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobRunID                         *ID           `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`

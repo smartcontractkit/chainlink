@@ -10,8 +10,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -125,12 +125,17 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
+	db, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
+	}
+
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			Bootstrappers:         bootstrapPeers,
 			ContractConfigTracker: ocrContract,
-			Database:              NewDB(d.db.DB(), concreteSpec.ID),
+			Database:              NewDB(db, concreteSpec.ID),
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
 		})
@@ -160,14 +165,14 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			return nil, err
 		}
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
-			NewTransmitter(d.db.DB(), ta.Address(), d.config.EthGasLimitDefault()))
+			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault()))
 
 		ds, err := newDatasource(d.db, jobSpec.ID, d.pipelineRunner)
 		if err != nil {
 			return nil, errors.Wrap(err, "error instantiating data source")
 		}
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			Database:                     NewDB(d.db.DB(), concreteSpec.ID),
+			Database:                     NewDB(db, concreteSpec.ID),
 			Datasource:                   ds,
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,

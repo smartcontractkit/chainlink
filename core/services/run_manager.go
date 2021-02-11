@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 )
@@ -285,7 +285,7 @@ RETURNING id;`
 		if result.Error != nil {
 			return result.Error
 		}
-		return result.Pluck("id", &runIDs).Error
+		return result.Scan(&runIDs).Error
 	})
 
 	if err != nil {

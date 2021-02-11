@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	gorm "github.com/jinzhu/gorm"
+	gorm "gorm.io/gorm"
 
 	mock "github.com/stretchr/testify/mock"
 

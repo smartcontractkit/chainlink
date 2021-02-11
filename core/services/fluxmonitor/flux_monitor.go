@@ -24,10 +24,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/tevino/abool"
+	"gorm.io/gorm"
 )
 
 const hibernationPollPeriod = 24 * time.Hour

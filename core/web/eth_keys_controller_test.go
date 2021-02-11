@@ -72,7 +72,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	err := app.Store.ORM.DB.Delete(models.Key{}).Error
+	err := app.Store.ORM.DB.Delete(&models.Key{}, "id = ?", app.Key.ID).Error
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient()

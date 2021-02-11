@@ -65,7 +65,6 @@ import (
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
-	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -74,6 +73,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 const (
@@ -1462,7 +1462,7 @@ func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt 
 	t.Helper()
 
 	var txa models.EthTxAttempt
-	var count int
+	var count int64
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})

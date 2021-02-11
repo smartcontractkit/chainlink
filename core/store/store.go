@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 const (
@@ -169,7 +169,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 // DeleteKey hard-deletes a key whose address matches the supplied address.
 func (s *Store) DeleteKey(address common.Address) error {
 	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
-		err := tx.Where("address = ?", address).Delete(models.Key{}).Error
+		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
 		if err != nil {
 			return errors.Wrap(err, "while deleting ETH key from DB")
 		}
@@ -179,7 +179,7 @@ func (s *Store) DeleteKey(address common.Address) error {
 
 // ArchiveKey soft-deletes a key whose address matches the supplied address.
 func (s *Store) ArchiveKey(address common.Address) error {
-	err := s.ORM.DB.Where("address = ?", address).Delete(models.Key{}).Error
+	err := s.ORM.DB.Where("address = ?", address).Delete(&models.Key{}).Error
 	if err != nil {
 		return err
 	}
