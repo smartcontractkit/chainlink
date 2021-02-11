@@ -1292,6 +1292,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		min, // -2**191
 		max, // 2**191 - 1
 		accessAddress,
+		accessAddress,
 		0,
 		"TEST")
 	require.NoError(t, err)
@@ -1412,7 +1413,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `, ocrContractAddress))
 	require.NoError(t, err)
 	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
@@ -1438,7 +1439,7 @@ p2pBootstrapPeers  = [
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "20s"
-contractConfigConfirmations = 1 
+contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1
