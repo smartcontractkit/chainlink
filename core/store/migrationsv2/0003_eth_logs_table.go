@@ -1,11 +1,11 @@
 package migrationsv2
 
 import (
-	"github.com/jinzhu/gorm"
-	"gopkg.in/gormigrate.v1"
+	"github.com/go-gormigrate/gormigrate/v2"
+	"gorm.io/gorm"
 )
 
-const up2 = `
+const up3 = `
     CREATE TABLE "eth_logs" (
         "id" BIGSERIAL PRIMARY KEY,
         "block_hash" bytea NOT NULL,
@@ -45,8 +45,8 @@ const up2 = `
 	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) WHERE job_id_v2 IS NOT NULL;
 `
 
-// TODO: Finalise down2
-const down2 = `
+// TODO: Finalise down3
+const down3 = `
     -- ALTER TABLE log_broadcasts DROP COLUMN "consumed";
     ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey";
     -- ALTER TABLE log_broadcasts RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
@@ -58,12 +58,12 @@ const down2 = `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0002_eth_logs_table",
+		ID: "0003_eth_logs_table",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up2).Error
+			return db.Exec(up3).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down2).Error
+			return db.Exec(down3).Error
 		},
 	})
 }

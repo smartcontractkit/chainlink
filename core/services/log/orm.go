@@ -5,9 +5,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -44,7 +44,7 @@ func (o *orm) UpsertLog(log types.Log) error {
 		topics[i] = x
 	}
 	err := o.db.Exec(`
-INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())
+INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES (?,?,?,?,?,?,NOW())
 ON CONFLICT (block_hash, index) DO UPDATE SET (
 	block_hash,
 	block_number,
@@ -156,9 +156,7 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	return nil
 }
 
-func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error) {
-	var consumed struct{ Consumed bool }
-	var err error
+func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (consumed bool, err error) {
 	var jobIDVal interface{}
 	var jobIDName string
 	if jobID != nil {
@@ -183,9 +181,9 @@ AND %s = ?
 	}
 
 	stmt := fmt.Sprintf(q, jobIDName)
-	err = o.db.Exec(stmt, args...).Error
+	err = o.db.Raw(stmt, args...).Row().Scan(&consumed)
 
-	return consumed.Consumed, err
+	return consumed, err
 }
 
 func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error {
@@ -224,10 +222,10 @@ AND %s = ?
 
 func (o *orm) UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error) {
 	logs, err := FetchLogs(o.db, `
-        SELECT DISTINCT eth_logs.* FROM eth_logs
+        SELECT DISTINCT ON (eth_logs.id) eth_logs.block_hash, eth_logs.block_number, eth_logs.index, eth_logs.address, eth_logs.topics, eth_logs.data FROM eth_logs
         INNER JOIN log_broadcasts ON eth_logs.id = log_broadcasts.eth_log_id
-        WHERE eth_logs.block_number < ? AND log_broadcasts.consumed = false
-        ORDER BY eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC;
+        WHERE eth_logs.block_number < $1 AND log_broadcasts.consumed = false
+        ORDER BY eth_logs.id, eth_logs.order_received, eth_logs.block_number, eth_logs.index ASC;
     `, blockNumber)
 	if err != nil {
 		logger.Errorw("could not fetch logs to broadcast", "error", err)
@@ -258,37 +256,45 @@ func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 in
 }
 
 type logRow struct {
+	BlockHash   common.Hash
+	BlockNumber uint64
+	Index       uint
 	Address     common.Address
 	Topics      pq.ByteaArray
 	Data        []byte
-	BlockNumber uint64
-	BlockHash   common.Hash
-	Index       uint
-	Removed     bool
 }
 
-func FetchLogs(db *gorm.DB, query string, args ...interface{}) ([]types.Log, error) {
-	var logRows []logRow
-	err := db.Raw(query, args...).Scan(&logRows).Error
+func FetchLogs(db *gorm.DB, query string, args ...interface{}) (logs []types.Log, err error) {
+	d, err := db.DB()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FetchLogs failed")
 	}
-	logs := make([]types.Log, len(logRows))
-	for i, log := range logRows {
-		topics := make([]common.Hash, len(log.Topics))
-		bytesTopics := [][]byte(log.Topics)
+	rows, err := d.Query(query, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "FetchLogs query failed")
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var lr logRow
+		err := rows.Scan(&lr.BlockHash, &lr.BlockNumber, &lr.Index, &lr.Address, &lr.Topics, &lr.Data)
+		if err != nil {
+			return nil, errors.Wrap(err, "FetchLogs scan failed")
+		}
+
+		topics := make([]common.Hash, len(lr.Topics))
+		bytesTopics := [][]byte(lr.Topics)
 		for j, topic := range bytesTopics {
 			topics[j] = common.BytesToHash(topic)
 		}
-		logs[i] = types.Log{
-			Address:     log.Address,
+		log := types.Log{
+			Address:     lr.Address,
 			Topics:      topics,
-			Data:        log.Data,
-			BlockNumber: log.BlockNumber,
-			BlockHash:   log.BlockHash,
-			Index:       log.Index,
-			Removed:     log.Removed,
+			Data:        lr.Data,
+			BlockNumber: lr.BlockNumber,
+			BlockHash:   lr.BlockHash,
+			Index:       lr.Index,
 		}
+		logs = append(logs, log)
 	}
 	return logs, nil
 }

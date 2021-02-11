@@ -147,7 +147,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
 	promReporter := services.NewPromReporter(store.MustSQLDB())
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.MustSQLDB()), ethClient, store.Config)
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)

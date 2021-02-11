@@ -179,7 +179,7 @@ func TestSubscriber(t *testing.T) {
 			var dbLogs []types.Log
 			var err error
 			g.Eventually(func() []types.Log {
-				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_number, address ASC`)
+				dbLogs, err = log.FetchLogs(store.DB, `SELECT eth_logs.block_hash, eth_logs.block_number, eth_logs.index, eth_logs.address, eth_logs.topics, eth_logs.data FROM eth_logs ORDER BY block_number, address ASC`)
 				require.NoError(t, err)
 				return dbLogs
 			}).Should(HaveLen(len(expected)))
@@ -234,7 +234,7 @@ func TestSubscriber(t *testing.T) {
 			var dbLogs []types.Log
 			var err error
 			g.Eventually(func() []types.Log {
-				dbLogs, err = log.FetchLogs(store.DB, `SELECT * FROM eth_logs ORDER BY block_number, address ASC`)
+				dbLogs, err = log.FetchLogs(store.DB, `SELECT eth_logs.block_hash, eth_logs.block_number, eth_logs.index, eth_logs.address, eth_logs.topics, eth_logs.data FROM eth_logs ORDER BY block_number, address ASC`)
 				require.NoError(t, err)
 				return dbLogs
 			}).Should(HaveLen(len(expected)))

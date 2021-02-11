@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/subtle"
+	"database/sql"
 	"encoding"
 	"encoding/hex"
 	"fmt"
@@ -1256,62 +1257,6 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 		return address, err
 	}
 	return address, nil
-}
-
-// HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=? " +
-		"AND log_index=? " +
-		"AND job_id=?" +
-		")"
-
-	var exists bool
-	err := orm.DB.
-		Raw(query, blockHash, logIndex, jobID).
-		Scan(&exists).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, err
-	}
-	return exists, nil
-}
-
-// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=? " +
-		"AND log_index=? " +
-		"AND job_id_v2=? " +
-		")"
-
-	var exists bool
-	err := orm.DB.
-		Raw(query, blockHash, logIndex, jobID).
-		Scan(&exists).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, err
-	}
-	return exists, nil
-}
-
-// MarkLogConsumed creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
-	return orm.DB.Create(&lc).Error
-}
-
-// MarkLogConsumedV2 creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
-	return orm.DB.Create(&lc).Error
 }
 
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
