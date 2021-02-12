@@ -144,7 +144,7 @@ jobs:
             ${{ runner.os }}-
       - run: yarn install --frozen-lockfile
       - run: ./tools/bin/restore-solc-cache
-      - name: Run tests
+      - name: Run solhint
         run: ./tools/ci/solhint
 
   solidity:
