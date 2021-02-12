@@ -331,6 +331,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 func (cli *Client) HardReset(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 
+	fmt.Print("/// WARNING WARNING WARNING ///\n\n\n")
+	fmt.Print("Do not run this while a Chainlink node is currently using the DB as it could cause undefined behavior.\n\n")
 	if !confirmAction(c) {
 		return nil
 	}
@@ -339,13 +341,6 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 	defer cleanupFn()
 	storeInstance := app.GetStore()
 	ormInstance := storeInstance.ORM
-
-	// Ensure that the CL node is down by trying to acquire the global advisory lock.
-	// This method will panic if it can't get the lock.
-	logger.Info("Make sure the Chainlink node is not running")
-	if err := ormInstance.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 
 	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
 		logger.Errorw("failed to remove unstarted transactions", "error", err)
@@ -438,9 +433,7 @@ func migrateTestDB(config *orm.Config) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrationsv2.Migrate(db)
-	})
+	err = migrationsv2.Migrate(orm.DB)
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)
 	}
