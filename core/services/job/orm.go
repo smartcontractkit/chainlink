@@ -123,6 +123,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]SpecDB, error) {
 	err := o.db.
 		Joins(join, args...).
 		Preload("OffchainreportingOracleSpec").
+		Preload("PipelineSpec.PipelineTaskSpecs").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
