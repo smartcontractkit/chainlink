@@ -2,9 +2,10 @@ package job_test
 
 import (
 	"context"
-	"github.com/jackc/pgtype"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgtype"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
