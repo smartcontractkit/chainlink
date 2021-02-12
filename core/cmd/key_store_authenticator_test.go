@@ -48,7 +48,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 	store, cleanup := cltest.NewStore(t)
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccounts").Return(false)
-	kst.On("Unlock", "somepassword").Return(nil)
+	kst.On("Unlock", cltest.Password).Return(nil)
 	kst.On("NewAccount").Return(accounts.Account{}, nil)
 	kst.On("Accounts").Return([]accounts.Account{})
 	store.KeyStore = kst
@@ -57,7 +57,7 @@ func TestTerminalKeyStoreAuthenticator_WithNoAcctWithInitialPwdCreatesAcct(t *te
 	auth := cmd.TerminalKeyStoreAuthenticator{Prompter: &cltest.MockCountingPrompter{T: t}}
 
 	assert.Len(t, store.KeyStore.Accounts(), 0)
-	_, err := auth.Authenticate(store, "somepassword")
+	_, err := auth.Authenticate(store, cltest.Password)
 	assert.NoError(t, err)
 
 	kst.AssertExpectations(t)
