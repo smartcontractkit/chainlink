@@ -289,7 +289,7 @@ func (_%v *%v) ParseLog(log types.Log) (interface{}, error) {
         return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
     }
 }
-`, contractName, contractName, contractName, logSwitchBody))...)
+`, contractName, contractName, contractName, logSwitchBody, contractName))...)
 	}
 
 	// Write the the Address method to the bottom of the file

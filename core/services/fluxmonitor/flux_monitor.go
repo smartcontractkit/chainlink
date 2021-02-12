@@ -422,12 +422,11 @@ func NewPollingDeviationChecker(
 	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
-	return &PollingDeviationChecker{
+	pdc := &PollingDeviationChecker{
 		readyForLogs:     readyForLogs,
 		store:            store,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
-		flags:            flags,
 		initr:            initr,
 		minJobPayment:    minJobPayment,
 		requestData:      initr.RequestData,
@@ -452,7 +451,15 @@ func NewPollingDeviationChecker(
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
-	}, nil
+	}
+	// This is necessary due to the unfortunate fact that assigning `nil` to an
+	// interface variable causes `x == nil` checks to always return false. If we
+	// do this here, in the constructor, we can avoid using reflection when we
+	// check `p.flags == nil` later in the code.
+	if flags != nil && !reflect.ValueOf(flags).IsNil() {
+		pdc.flags = flags
+	}
+	return pdc, nil
 }
 
 const (
@@ -579,7 +586,10 @@ func (p *PollingDeviationChecker) consume() {
 	isConnected := p.logBroadcaster.Register(p.fluxAggregator, p)
 	defer p.logBroadcaster.Unregister(p.fluxAggregator, p)
 
+	logger.Warnf("FLAGS ~> %T %v", p.flags, p.flags)
+
 	if p.flags != nil {
+		logger.Warnf("FLAGS PROCEEDING ~> %T %v", p.flags, p.flags)
 		flagsConnected := p.logBroadcaster.Register(p.flags, p)
 		isConnected = isConnected && flagsConnected
 		defer p.logBroadcaster.Unregister(p.flags, p)
@@ -1073,11 +1083,7 @@ func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polled
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (flux_aggregator_wrapper.OracleRoundState, error) {
-	roundState, err := p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
-	if err != nil {
-		return flux_aggregator_wrapper.OracleRoundState{}, err
-	}
-	return roundState, nil
+	return p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
 }
 
 // initialRoundState fetches the round information that the fluxmonitor should use when starting

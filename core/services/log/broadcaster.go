@@ -24,8 +24,8 @@ type (
 		utils.DependentAwaiter
 		Start() error
 		Stop() error
-		Register(contract abigenContract, listener Listener) (connected bool)
-		Unregister(contract abigenContract, listener Listener)
+		Register(contract AbigenContract, listener Listener) (connected bool)
+		Unregister(contract AbigenContract, listener Listener)
 	}
 
 	broadcaster struct {
@@ -46,7 +46,7 @@ type (
 		IsV2Job() bool
 	}
 
-	abigenContract interface {
+	AbigenContract interface {
 		Address() common.Address
 		ParseLog(log types.Log) (interface{}, error)
 	}
@@ -93,13 +93,13 @@ func (b *broadcaster) Stop() error {
 	})
 }
 
-func (b *broadcaster) Register(contract abigenContract, listener Listener) (connected bool) {
+func (b *broadcaster) Register(contract AbigenContract, listener Listener) (connected bool) {
 	b.subscriber.NotifyAddContract(contract.Address())
 	b.relayer.NotifyAddListener(contract, listener)
 	return b.subscriber.IsConnected()
 }
 
-func (b *broadcaster) Unregister(contract abigenContract, listener Listener) {
+func (b *broadcaster) Unregister(contract AbigenContract, listener Listener) {
 	b.subscriber.NotifyRemoveContract(contract.Address())
 	b.relayer.NotifyRemoveListener(contract, listener)
 }
