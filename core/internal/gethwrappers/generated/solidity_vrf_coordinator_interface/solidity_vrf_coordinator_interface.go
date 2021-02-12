@@ -227,6 +227,9 @@ func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0
 	err := _VRFCoordinator.contract.Call(opts, &out, "callbacks", arg0)
 
 	outstruct := new(Callbacks)
+	if err != nil {
+		return *outstruct, err
+	}
 
 	outstruct.CallbackContract = out[0].(common.Address)
 	outstruct.RandomnessFee = out[1].(*big.Int)
@@ -277,6 +280,9 @@ func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOp
 	err := _VRFCoordinator.contract.Call(opts, &out, "serviceAgreements", arg0)
 
 	outstruct := new(ServiceAgreements)
+	if err != nil {
+		return *outstruct, err
+	}
 
 	outstruct.VRFOracle = out[0].(common.Address)
 	outstruct.Fee = out[1].(*big.Int)
