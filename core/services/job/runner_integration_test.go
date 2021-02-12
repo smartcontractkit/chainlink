@@ -345,7 +345,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
@@ -388,7 +388,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec").
+			Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
@@ -446,7 +447,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 		// Assert the override
@@ -493,7 +494,8 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec").
+			Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
@@ -532,7 +534,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 
@@ -569,7 +571,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", dbSpec.ID).
+			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 
