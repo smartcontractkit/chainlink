@@ -21,10 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 func TestORM_AllNotFound(t *testing.T) {
@@ -155,9 +155,9 @@ func TestORM_ArchiveJob(t *testing.T) {
 	require.Error(t, utils.JustError(store.FindJobSpec(job.ID)))
 	require.Error(t, utils.JustError(store.FindJobRun(run.ID)))
 
-	orm := store.ORM.Unscoped()
-	require.NoError(t, utils.JustError(orm.FindJobSpec(job.ID)))
-	require.NoError(t, utils.JustError(orm.FindJobRun(run.ID)))
+	store.ORM.DB = store.DB.Unscoped().Session(&gorm.Session{})
+	require.NoError(t, utils.JustError(store.FindJobSpec(job.ID)))
+	require.NoError(t, utils.JustError(store.FindJobRun(run.ID)))
 }
 
 func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
@@ -870,9 +870,9 @@ func TestBulkDeleteRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	var resultCount int
-	var taskCount int
-	var runCount int
+	var resultCount int64
+	var taskCount int64
+	var runCount int64
 	orm := store.ORM
 
 	err := orm.RawDB(func(db *gorm.DB) error {
@@ -922,15 +922,15 @@ func TestBulkDeleteRuns(t *testing.T) {
 
 		err = db.Model(&models.JobRun{}).Count(&runCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, runCount)
+		assert.Equal(t, 3, int(runCount))
 
 		err = db.Model(&models.TaskRun{}).Count(&taskCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, taskCount)
+		assert.Equal(t, 3, int(taskCount))
 
 		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, resultCount)
+		assert.Equal(t, 3, int(resultCount))
 
 		return nil
 	})
@@ -1008,7 +1008,7 @@ func TestORM_SyncDbKeyStoreToDisk(t *testing.T) {
 }
 
 const linkEthTxWithTaskRunQuery = `
-INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)
+INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES (?, ?)
 `
 
 func TestORM_RemoveUnstartedTransaction(t *testing.T) {
@@ -1224,7 +1224,7 @@ func TestJobs_SQLiteBatchSizeIntegrity(t *testing.T) {
 	defer cleanup()
 
 	archivedJob := cltest.NewJobWithFluxMonitorInitiator()
-	archivedJob.DeletedAt = cltest.NullableTime(time.Now())
+	archivedJob.DeletedAt = gorm.DeletedAt{Valid: true, Time: time.Now()}
 	require.NoError(t, store.CreateJob(&archivedJob))
 
 	jobs := []models.JobSpec{}
@@ -1386,9 +1386,9 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 
 		// Ensure it didn't leave a stray EthTx hanging around
 		store.RawDB(func(db *gorm.DB) error {
-			var count int
+			var count int64
 			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
-			assert.Equal(t, 1, count)
+			assert.Equal(t, 1, int(count))
 			return nil
 		})
 	})
@@ -1712,24 +1712,4 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
-}
-
-func TestORM_MarkLogConsumed(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := store.ORM
-
-	blockHash := cltest.NewHash()
-	logIndex := uint(42)
-	job := cltest.MustInsertJobSpec(t, store)
-	blockNumber := uint64(142)
-
-	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
-
-	res, err := orm.DB.DB().Exec(`SELECT * FROM log_consumptions;`)
-	require.NoError(t, err)
-	rowsaffected, err := res.RowsAffected()
-	require.NoError(t, err)
-	require.Equal(t, int64(1), rowsaffected)
 }

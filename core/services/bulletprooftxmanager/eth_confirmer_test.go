@@ -594,7 +594,8 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	require.Len(t, attempt3_1.EthReceipts, 0)
 
-	_, err := store.ORM.DB.DB().Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
+	d, _ := store.ORM.DB.DB()
+	_, err := d.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
 	require.NoError(t, err)
 
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {

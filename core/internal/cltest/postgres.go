@@ -13,11 +13,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {

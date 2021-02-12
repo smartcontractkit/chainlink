@@ -244,7 +244,7 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 		} else {
 			createdAt = specificKey.CreatedAt.String()
 			updatedAt = specificKey.CreatedAt.String()
-			if !specificKey.DeletedAt.IsZero() {
+			if specificKey.DeletedAt.Valid {
 				deletedAt = specificKey.DeletedAt.Time.String()
 			}
 		}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
@@ -17,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 )
 
 type (
@@ -118,7 +118,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := p.db.DB().QueryContext(p.ctx, `SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
+	rows, err := p.db.WithContext(p.ctx).Raw(`SELECT id, addr FROM p2p_peers WHERE peer_id = ?`, p.peerID).Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}

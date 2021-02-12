@@ -8,19 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/pelletier/go-toml"
-
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
@@ -348,7 +346,7 @@ ds1 -> ds1_parse;
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
@@ -391,7 +389,7 @@ ds1 -> ds1_parse;
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 
@@ -449,7 +447,7 @@ ds1 -> ds1_parse;
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 		// Assert the override
 		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
@@ -496,7 +494,7 @@ ds1 -> ds1_parse;
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -535,7 +533,7 @@ ds1 -> ds1_parse;
 		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+			First(&jb).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -569,10 +567,9 @@ ds1 -> ds1_parse;
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", dbSpec.ID).
-			Find(&jb).Error
+			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -656,7 +653,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, "4242", results[0].Value)
 
 		// Delete the job
-		err = jobORM.DeleteJob(ctx, dbSpec.ID)
+		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
 		require.NoError(t, err)
 
 		// Create another run
@@ -667,7 +664,7 @@ ds1 -> ds1_parse;
 		defer cancel()
 
 		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v): record not found", runID))
+		require.EqualError(t, err, fmt.Sprintf("run not found - could not determine if run is finished (run ID: %v)", runID))
 	})
 
 	t.Run("timeouts", func(t *testing.T) {

@@ -9,13 +9,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 )
 
 type (

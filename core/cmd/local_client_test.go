@@ -116,11 +116,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
-			// Clear out fixture
-			store.DeleteUser()
 			defer cleanup()
+			// Clear out fixture
+			_, err := store.DeleteUser()
+			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-			_, err := store.KeyStore.NewAccount()
+			_, err = store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)

@@ -10,10 +10,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -146,8 +146,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	promReporter := services.NewPromReporter(store.DB.DB())
-	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	promReporter := services.NewPromReporter(store.MustSQLDB())
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -228,6 +228,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer,
 		balanceMonitor,
 		promReporter,
+		logBroadcaster,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
