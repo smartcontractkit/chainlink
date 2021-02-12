@@ -100,7 +100,7 @@ func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(store *store.
 	}
 
 	if merr != nil {
-		merr = fmt.Errorf("Password does not meet the requirements.\n%+v", merr)
+		merr = fmt.Errorf("password does not meet the requirements.\n%+v", merr)
 	}
 	return merr
 }
