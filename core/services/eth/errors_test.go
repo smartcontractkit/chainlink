@@ -14,9 +14,11 @@ func Test_Eth_Errors(t *testing.T) {
 
 	// IsNonceTooLowError
 	assert.False(t, randomError.IsNonceTooLowError())
-
+	// Arbitrum
+	err := eth.NewSendErrorS("transaction rejected: nonce too low")
+	assert.True(t, err.IsNonceTooLowError())
 	// Geth
-	err := eth.NewSendErrorS("nonce too low")
+	err = eth.NewSendErrorS("nonce too low")
 	assert.True(t, err.IsNonceTooLowError())
 	// Parity
 	err = eth.NewSendErrorS("Transaction nonce is too low. Try incrementing the nonce.")

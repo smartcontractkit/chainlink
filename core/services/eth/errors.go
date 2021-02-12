@@ -58,7 +58,7 @@ func (s *SendError) IsReplacementUnderpriced() bool {
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	return s != nil && s.err != nil && ((s.Error() == "nonce too low") || s.Error() == parOld)
+	return s != nil && s.err != nil && ((strings.Contains(s.Error(), "nonce too low")) || s.Error() == parOld)
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
