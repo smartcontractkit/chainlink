@@ -9,7 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm/schema"
+
 	"github.com/pelletier/go-toml"
+	"gorm.io/gorm"
 
 	"github.com/araddon/dateparse"
 	"github.com/ethereum/go-ethereum/common"
@@ -149,6 +152,19 @@ type JSON struct {
 	gjson.Result
 }
 
+func (JSON) GormDataType() string {
+	return "json"
+}
+
+// GormDBDataType gorm db data type
+func (JSON) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "JSONB"
+	}
+	return ""
+}
+
 // Value returns this instance serialized for database storage.
 func (j JSON) Value() (driver.Value, error) {
 	s := j.Bytes()
@@ -224,6 +240,9 @@ func (j *JSON) UnmarshalTOML(val interface{}) error {
 
 // Bytes returns the raw JSON.
 func (j JSON) Bytes() []byte {
+	if len(j.String()) == 0 {
+		return nil
+	}
 	return []byte(j.String())
 }
 
@@ -592,6 +611,10 @@ func (i *Interval) UnmarshalText(input []byte) error {
 }
 
 func (i *Interval) Scan(v interface{}) error {
+	if v == nil {
+		*i = Interval(time.Duration(0))
+		return nil
+	}
 	asInt64, is := v.(int64)
 	if !is {
 		return errors.Errorf("models.Interval#Scan() wanted int64, got %T", v)
@@ -674,7 +697,7 @@ type Configuration struct {
 	Value     string `gorm:"not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	DeletedAt *time.Time
+	DeletedAt *gorm.DeletedAt
 }
 
 // Merge returns a new map with all keys merged from right to left

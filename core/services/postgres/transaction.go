@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // NOTE: In an ideal world the timeouts below would be set to something sane in
@@ -32,29 +32,11 @@ func GormTransaction(ctx context.Context, db *gorm.DB, fc func(tx *gorm.DB) erro
 	} else {
 		txOpts = DefaultSqlTxOptions
 	}
-	tx := db.BeginTx(ctx, &txOpts)
-	err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
-	if err != nil {
-		return errors.Wrap(err, "error setting transaction timeouts")
-	}
-	defer func() {
-		if r := recover(); r != nil {
-			err = errors.Errorf("%+v", r)
-			tx.Rollback()
-			// Rethrow the panic in case the calling code finds that desirable
-			panic(r)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		err = tx.Exec(fmt.Sprintf(`SET LOCAL lock_timeout = %v; SET LOCAL idle_in_transaction_session_timeout = %v;`, LockTimeout.Milliseconds(), IdleInTxSessionTimeout.Milliseconds())).Error
+		if err != nil {
+			return errors.Wrap(err, "error setting transaction timeouts")
 		}
-	}()
-
-	err = fc(tx)
-
-	if err == nil {
-		err = errors.WithStack(tx.Commit().Error)
-	}
-
-	// Make sure to rollback in case of a Block error or Commit error
-	if err != nil {
-		tx.Rollback()
-	}
-	return
+		return fc(tx)
+	}, &txOpts)
 }

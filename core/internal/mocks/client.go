@@ -17,6 +17,8 @@ import (
 
 	models "github.com/smartcontractkit/chainlink/core/store/models"
 
+	rpc "github.com/ethereum/go-ethereum/rpc"
+
 	types "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -46,6 +48,20 @@ func (_m *Client) BalanceAt(ctx context.Context, account common.Address, blockNu
 	}
 
 	return r0, r1
+}
+
+// BatchCallContext provides a mock function with given fields: ctx, b
+func (_m *Client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	ret := _m.Called(ctx, b)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
+		r0 = rf(ctx, b)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
 }
 
 // BlockByNumber provides a mock function with given fields: ctx, number

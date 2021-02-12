@@ -157,7 +157,6 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 //  "<application>/runs/:RunID"
 func (jrc *JobRunsController) Update(c *gin.Context) {
 	authToken := utils.StripBearer(c.Request.Header.Get("Authorization"))
-	unscoped := jrc.App.GetStore().Unscoped()
 
 	runID, err := models.NewIDFromString(c.Param("RunID"))
 	if err != nil {
@@ -165,7 +164,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	jr, err := unscoped.FindJobRun(runID)
+	jr, err := jrc.App.GetStore().FindJobRunIncludingArchived(runID)
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
@@ -185,7 +184,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	bt, err := unscoped.PendingBridgeType(jr)
+	bt, err := jrc.App.GetStore().PendingBridgeType(jr)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

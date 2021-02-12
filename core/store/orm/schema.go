@@ -50,6 +50,7 @@ type ConfigSchema struct {
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH" default:"100"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY" default:"1"`
+	EthReceiptFetchBatchSize                  uint32          `env:"ETH_RECEIPT_FETCH_BATCH_SIZE" default:"100"`
 	EthereumURL                               string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumSecondaryURL                      string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`
@@ -120,7 +121,6 @@ type ConfigSchema struct {
 	TLSPort                                   uint16          `env:"CHAINLINK_TLS_PORT" default:"6689"`
 	TLSRedirect                               bool            `env:"CHAINLINK_TLS_REDIRECT" default:"false"`
 	HTTPServerWriteTimeout                    time.Duration   `env:"HTTP_SERVER_WRITE_TIMEOUT" default:"10s"`
-	TxAttemptLimit                            uint16          `env:"CHAINLINK_TX_ATTEMPT_LIMIT" default:"10"`
 	UnAuthenticatedRateLimit                  int64           `env:"UNAUTHENTICATED_RATE_LIMIT" default:"5"`
 	UnAuthenticatedRateLimitPeriod            time.Duration   `env:"UNAUTHENTICATED_RATE_LIMIT_PERIOD" default:"20s"`
 }

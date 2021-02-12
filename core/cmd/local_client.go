@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 
+	gormpostgres "gorm.io/driver/postgres"
+
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"go.uber.org/multierr"
@@ -33,9 +35,9 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
@@ -240,7 +242,7 @@ func logConfigVariables(store *strpkg.Store) error {
 func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*models.Key, *big.Int, error) {
 	key := models.Key{}
 	err := str.DB.Where("is_funding = TRUE").First(&key).Error
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil, err
 	}
 	if err == nil && key.ID != 0 {
@@ -376,9 +378,11 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 		return cli.errorOut(err)
 	}
 
+	dangerMode := c.Bool("dangerWillRobinson")
+
 	dbname := parsed.Path[1:]
-	if !strings.HasSuffix(dbname, "_test") {
-		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss", dbname))
+	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
+		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
 	logger.Infof("Resetting database: %#v", config.DatabaseURL())
 	if err := dropAndCreateDB(*parsed); err != nil {
@@ -417,11 +421,11 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 		}
 	}()
 
-	_, err = db.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbname))
+	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to drop postgres database: %v", err)
 	}
-	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE %s", dbname))
+	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
 	if err != nil {
 		return fmt.Errorf("unable to create postgres database: %v", err)
 	}
@@ -491,7 +495,9 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: cli.Config.DatabaseURL(),
+	}), &gorm.Config{})
 	if err != nil {
 		return cli.errorOut(err)
 	}

@@ -19,10 +19,12 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
+	github.com/go-gormigrate/gormigrate/v2 v2.0.0
 	github.com/gobuffalo/packr v1.30.1
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
+	github.com/jackc/pgconn v1.8.0
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.8.0
@@ -41,7 +43,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20210114170344-699624b8b9fa
+	github.com/smartcontractkit/libocr v0.0.0-20210211115835-afc9c01fedfd
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
@@ -62,4 +64,9 @@ require (
 	gonum.org/v1/gonum v0.8.2
 	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
+	gorm.io/driver/mysql v1.0.3 // indirect
+	gorm.io/driver/postgres v1.0.8
+	gorm.io/driver/sqlite v1.1.3 // indirect
+	gorm.io/driver/sqlserver v1.0.5 // indirect
+	gorm.io/gorm v1.20.12
 )

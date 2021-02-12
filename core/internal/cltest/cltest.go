@@ -59,13 +59,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
 	"github.com/gorilla/websocket"
-	"github.com/jinzhu/gorm"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
@@ -73,6 +73,7 @@ import (
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zapcore"
 	null "gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 const (
@@ -1461,7 +1462,7 @@ func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt 
 	t.Helper()
 
 	var txa models.EthTxAttempt
-	var count int
+	var count int64
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})
@@ -1691,4 +1692,9 @@ func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
 	err := js.UnmarshalJSON([]byte(s))
 	require.NoError(t, err)
 	return *js
+}
+
+func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
+	return req.Method == "eth_getTransactionReceipt" &&
+		len(req.Args) == 1 && req.Args[0] == hash
 }

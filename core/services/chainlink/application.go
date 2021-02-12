@@ -10,10 +10,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -146,7 +146,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	promReporter := services.NewPromReporter(store.DB.DB())
+	db, err := store.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	promReporter := services.NewPromReporter(db)
 	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
@@ -186,7 +190,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
 
 	store.NotifyNewEthTx = ethBroadcaster
 

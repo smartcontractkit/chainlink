@@ -21,6 +21,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -156,11 +157,14 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	attempt1_1 := etx1.EthTxAttempts[0]
 	require.Len(t, attempt1_1.EthReceipts, 0)
 
-	t.Run("fetches receipt for an unconfirmed eth_tx", func(t *testing.T) {
+	t.Run("fetches receipt for one unconfirmed eth_tx", func(t *testing.T) {
 		// Transaction not confirmed yet, receipt is nil
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -176,7 +180,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	})
 
 	t.Run("saves nothing if returned receipt does not match the attempt", func(t *testing.T) {
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           cltest.NewHash(),
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
@@ -184,19 +188,47 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		}
 
 		// First transaction confirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(&gethReceipt, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &bptxmReceipt
+		}).Once()
 
-		// Do the thing
 		// No error because it is merely logged
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
 
 		etx, err := store.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
-		assert.Len(t, etx.EthTxAttempts, 1)
-		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 0)
+		require.Len(t, etx.EthTxAttempts, 1)
 
+		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 0)
+	})
+
+	t.Run("saves nothing if query returns error", func(t *testing.T) {
+		bptxmReceipt := bulletprooftxmanager.Receipt{
+			TxHash:           attempt1_1.Hash,
+			BlockHash:        cltest.NewHash(),
+			BlockNumber:      big.NewInt(42),
+			TransactionIndex: uint(1),
+		}
+
+		// First transaction confirmed
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &bptxmReceipt
+			elems[0].Error = errors.New("foo")
+		}).Once()
+
+		// No error because it is merely logged
+		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+
+		etx, err := store.FindEthTxWithAttempts(etx1.ID)
+		require.NoError(t, err)
+		require.Len(t, etx.EthTxAttempts, 1)
+		require.Len(t, etx.EthTxAttempts[0].EthReceipts, 0)
 	})
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress)
@@ -206,21 +238,25 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	require.Len(t, attempt2_1.EthReceipts, 0)
 
 	t.Run("saves eth_receipt and marks eth_tx as confirmed when geth client returns valid receipt", func(t *testing.T) {
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt1_1.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
 
-		// First transaction confirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(&gethReceipt, nil).Once()
-		// Second transaction still unconfirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt2_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt2_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First transaction confirmed
+			elems[0].Result = &bptxmReceipt
+			// Second transaction still unconfirmed
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -236,12 +272,12 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		ethReceipt := attempt1_1.EthReceipts[0]
 
-		assert.Equal(t, gethReceipt.TxHash, ethReceipt.TxHash)
-		assert.Equal(t, gethReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, gethReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
-		assert.Equal(t, gethReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+		assert.Equal(t, bptxmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
+		assert.Equal(t, bptxmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, bptxmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
-		receiptJSON, err := json.Marshal(gethReceipt)
+		receiptJSON, err := json.Marshal(bptxmReceipt)
 		require.NoError(t, err)
 
 		assert.JSONEq(t, string(receiptJSON), string(ethReceipt.Receipt))
@@ -260,21 +296,28 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.NoError(t, store.DB.Create(&attempt2_3).Error)
 		require.NoError(t, store.DB.Create(&attempt2_2).Error)
 
-		// Most expensive attempt still unconfirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt2_3.Hash
-		})).Return(nil, errors.New("not found")).Once()
-
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt2_2.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		// Second most expensive attempt is confirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt2_2.Hash
-		})).Return(&gethReceipt, nil).Once()
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt2_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[0], attempt2_3.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// Most expensive attempt still unconfirmed
+			elems[2].Result = &bulletprooftxmanager.Receipt{}
+			// Second most expensive attempt is confirmed
+			elems[1].Result = &bptxmReceipt
+			// Cheapest attempt still unconfirmed
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -293,10 +336,16 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	nonce++
 
-	t.Run("ignores error that comes from querying parity too early", func(t *testing.T) {
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt3_1.Hash
-		})).Return(nil, errors.New("missing required field 'transactionHash' for Log")).Once()
+	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
+		receipt := bulletprooftxmanager.Receipt{
+			TxHash: attempt3_1.Hash,
+		}
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &receipt
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -311,13 +360,18 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Len(t, attempt3_1.EthReceipts, 0)
 	})
 
-	t.Run("ignores partially hydrated receipt that comes from querying parity too early", func(t *testing.T) {
-		receipt := gethTypes.Receipt{
-			TxHash: attempt3_1.Hash,
+	t.Run("does not panic if receipt has BlockHash but is missing some other fields somehow", func(t *testing.T) {
+		// NOTE: This should never happen, but we shouldn't panic regardless
+		receipt := bulletprooftxmanager.Receipt{
+			TxHash:    attempt3_1.Hash,
+			BlockHash: cltest.NewHash(),
 		}
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt3_1.Hash
-		})).Return(&receipt, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &receipt
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -335,15 +389,18 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Run("handles case where eth_receipt already exists somehow", func(t *testing.T) {
 		ethReceipt := cltest.MustInsertEthReceipt(t, store, 42, cltest.NewHash(), attempt3_1.Hash)
 
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt3_1.Hash,
 			BlockHash:        ethReceipt.BlockHash,
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
 			TransactionIndex: ethReceipt.TransactionIndex,
 		}
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt3_1.Hash
-		})).Return(&gethReceipt, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &bptxmReceipt
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -359,15 +416,16 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		ethReceipt = attempt3_1.EthReceipts[0]
 
-		assert.Equal(t, gethReceipt.TxHash, ethReceipt.TxHash)
-		assert.Equal(t, gethReceipt.BlockHash, ethReceipt.BlockHash)
-		assert.Equal(t, gethReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
-		assert.Equal(t, gethReceipt.TransactionIndex, ethReceipt.TransactionIndex)
+		assert.Equal(t, bptxmReceipt.TxHash, ethReceipt.TxHash)
+		assert.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
+		assert.Equal(t, bptxmReceipt.BlockNumber.Int64(), ethReceipt.BlockNumber)
+		assert.Equal(t, bptxmReceipt.TransactionIndex, ethReceipt.TransactionIndex)
 
 		ethClient.AssertExpectations(t)
 	})
 
 	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress)
+	attempt4_1 := etx4.EthTxAttempts[0]
 	nonce++
 
 	t.Run("on receipt fetch marks in_progress eth_tx_attempt as broadcast", func(t *testing.T) {
@@ -376,16 +434,24 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 		require.NoError(t, store.DB.Create(&attempt4_2).Error)
 
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt4_2.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
 		// Second attempt is confirmed
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt4_2.Hash
-		})).Return(&gethReceipt, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				cltest.BatchElemMatchesHash(b[0], attempt4_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt4_1.Hash)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First attempt still unconfirmed
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+			// Second attempt is confirmed
+			elems[0].Result = &bptxmReceipt
+		}).Once()
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -397,12 +463,81 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		etx4, err = store.FindEthTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
 
+		attempt4_1 = etx4.EthTxAttempts[0]
 		attempt4_2 = etx4.EthTxAttempts[1]
 
 		// And the attempts
+		require.Equal(t, models.EthTxAttemptBroadcast, attempt4_1.State)
+		require.Nil(t, attempt4_1.BroadcastBeforeBlockNum)
 		require.Equal(t, models.EthTxAttemptBroadcast, attempt4_2.State)
 		require.Equal(t, int64(42), *attempt4_2.BroadcastBeforeBlockNum)
+
+		// Check receipts
+		require.Len(t, attempt4_1.EthReceipts, 0)
+		require.Len(t, attempt4_2.EthReceipts, 1)
 	})
+}
+
+func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ETH_RECEIPT_FETCH_BATCH_SIZE", 2)
+	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	ctx := context.Background()
+
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
+
+	var attempts []models.EthTxAttempt
+	attempts = append(attempts, etx.EthTxAttempts[0])
+
+	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
+	for i := 0; i < 4; i++ {
+		attempt := newBroadcastEthTxAttempt(t, etx.ID, store)
+		attempt.GasPrice = *utils.NewBig(big.NewInt(0).Add(attempt.GasPrice.ToInt(), big.NewInt(int64(i+1))))
+		require.NoError(t, store.DB.Create(&attempt).Error)
+		attempts = append(attempts, attempt)
+	}
+
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 2 &&
+			cltest.BatchElemMatchesHash(b[0], attempts[4].Hash) &&
+			cltest.BatchElemMatchesHash(b[1], attempts[3].Hash)
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &bulletprooftxmanager.Receipt{}
+		elems[1].Result = &bulletprooftxmanager.Receipt{}
+	}).Once()
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 2 &&
+			cltest.BatchElemMatchesHash(b[0], attempts[2].Hash) &&
+			cltest.BatchElemMatchesHash(b[1], attempts[1].Hash)
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &bulletprooftxmanager.Receipt{}
+		elems[1].Result = &bulletprooftxmanager.Receipt{}
+	}).Once()
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 1 &&
+			cltest.BatchElemMatchesHash(b[0], attempts[0].Hash)
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		elems[0].Result = &bulletprooftxmanager.Receipt{}
+	}).Once()
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+
+	ethClient.AssertExpectations(t)
 }
 
 func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
@@ -436,8 +571,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	attempt0_1 := etx0.EthTxAttempts[0]
 	require.Len(t, attempt0_1.EthReceipts, 0)
 	attempt0_2 := newBroadcastEthTxAttempt(t, etx0.ID, store)
-	// Of course it didn't confirm... we didn't pay anything for gas!
-	attempt0_2.GasPrice = *utils.NewBig(big.NewInt(0))
+	attempt0_2.GasPrice = *utils.NewBig(big.NewInt(0).Add(attempt0_1.GasPrice.ToInt(), big.NewInt(1)))
 	attempt0_2.BroadcastBeforeBlockNum = &b
 	require.NoError(t, store.DB.Create(&attempt0_2).Error)
 
@@ -446,8 +580,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	attempt1_1 := etx1.EthTxAttempts[0]
 	require.Len(t, attempt1_1.EthReceipts, 0)
 	attempt1_2 := newBroadcastEthTxAttempt(t, etx1.ID, store)
-	// Of course it didn't confirm... we didn't pay anything for gas!
-	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(0))
+	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(0).Add(attempt1_1.GasPrice.ToInt(), big.NewInt(1)))
 	attempt1_2.BroadcastBeforeBlockNum = &b
 	require.NoError(t, store.DB.Create(&attempt1_2).Error)
 
@@ -461,37 +594,45 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	attempt3_1 := etx3.EthTxAttempts[0]
 	require.Len(t, attempt3_1.EthReceipts, 0)
 
-	_, err := store.ORM.DB.DB().Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
+	d, _ := store.ORM.DB.DB()
+	_, err := d.Exec(`UPDATE eth_tx_attempts SET broadcast_before_block_num = 41 WHERE broadcast_before_block_num IS NULL`)
 	require.NoError(t, err)
 
 	t.Run("marks buried eth_txes as 'confirmed_missing_receipt'", func(t *testing.T) {
-		gethReceipt0 := gethTypes.Receipt{
-			TxHash:           attempt0_1.Hash,
+		bptxmReceipt0 := bulletprooftxmanager.Receipt{
+			TxHash:           attempt0_2.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		gethReceipt3 := gethTypes.Receipt{
+		bptxmReceipt3 := bulletprooftxmanager.Receipt{
 			TxHash:           attempt3_1.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt3_1.Hash
-		})).Return(&gethReceipt3, nil).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt2_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_2.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt0_1.Hash
-		})).Return(&gethReceipt0, nil).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 6 &&
+				cltest.BatchElemMatchesHash(b[0], attempt0_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt0_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[2], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[3], attempt1_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[4], attempt2_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[5], attempt3_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First transaction confirmed
+			elems[0].Result = &bptxmReceipt0
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+			// Second transaction stil unconfirmed
+			elems[2].Result = &bulletprooftxmanager.Receipt{}
+			elems[3].Result = &bulletprooftxmanager.Receipt{}
+			// Third transaction still unconfirmed
+			elems[4].Result = &bulletprooftxmanager.Receipt{}
+			// Fourth transaction is confirmed
+			elems[5].Result = &bptxmReceipt3
+		}).Once()
 
 		// PERFORM
 		// Block num of 43 is one higher than the receipt (as would generally be expected)
@@ -506,7 +647,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, models.EthTxConfirmed, etx3.State)
 
 		ethReceipt := etx3.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, gethReceipt3.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, bptxmReceipt3.BlockHash, ethReceipt.BlockHash)
 
 		etx2, err = store.FindEthTxWithAttempts(etx2.ID)
 		require.NoError(t, err)
@@ -520,7 +661,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, models.EthTxConfirmed, etx0.State)
 
 		ethReceipt = etx0.EthTxAttempts[1].EthReceipts[0]
-		require.Equal(t, gethReceipt0.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, bptxmReceipt0.BlockHash, ethReceipt.BlockHash)
 	})
 
 	// STATE
@@ -530,21 +671,26 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("marks eth_txes with state 'confirmed_missing_receipt' as 'confirmed' if a receipt finally shows up", func(t *testing.T) {
-		gethReceipt := gethTypes.Receipt{
+		bptxmReceipt := bulletprooftxmanager.Receipt{
 			TxHash:           attempt2_1.Hash,
 			BlockHash:        cltest.NewHash(),
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt2_1.Hash
-		})).Return(&gethReceipt, nil).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_2.Hash
-		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 3 &&
+				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt1_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// First transaction still unconfirmed
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+			// Second transaction confirmed
+			elems[2].Result = &bptxmReceipt
+		}).Once()
 
 		// PERFORM
 		// Block num of 44 is one higher than the receipt (as would generally be expected)
@@ -562,7 +708,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		require.Equal(t, models.EthTxConfirmed, etx2.State)
 
 		ethReceipt := etx2.EthTxAttempts[0].EthReceipts[0]
-		require.Equal(t, gethReceipt.BlockHash, ethReceipt.BlockHash)
+		require.Equal(t, bptxmReceipt.BlockHash, ethReceipt.BlockHash)
 
 		etx1, err = store.FindEthTxWithAttempts(etx1.ID)
 		require.NoError(t, err)
@@ -579,12 +725,17 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_2.Hash
-		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt1_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// Both attempts still unconfirmed
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+		}).Once()
 
 		// PERFORM
 		// Block num of 80 puts the first attempt (21) below threshold but second attempt (41) still above
@@ -615,12 +766,17 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_1.Hash
-		})).Return(nil, errors.New("not found")).Once()
-		ethClient.On("TransactionReceipt", mock.Anything, mock.MatchedBy(func(txHash gethCommon.Hash) bool {
-			return txHash == attempt1_2.Hash
-		})).Return(nil, errors.New("not found")).Once()
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 2 &&
+				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt1_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// Both attempts still unconfirmed
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+		}).Once()
 
 		// PERFORM
 		// Block num of 100 puts the first attempt (21) and second attempt (41) below threshold
@@ -1040,7 +1196,7 @@ func TestEthConfirmer_BumpGasWhereNecessary(t *testing.T) {
 		require.Greater(t, expectedBumpedGasPrice.Int64(), attempt1_2.GasPrice.ToInt().Int64())
 
 		ethTx := gethTypes.Transaction{}
-		receipt := gethTypes.Receipt{BlockNumber: big.NewInt(40)}
+		receipt := bulletprooftxmanager.Receipt{BlockNumber: big.NewInt(40)}
 		kst.On("SignTx",
 			mock.AnythingOfType("accounts.Account"),
 			mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
