@@ -3,10 +3,6 @@ package offchainreporting
 import (
 	"context"
 
-	"gorm.io/gorm"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"

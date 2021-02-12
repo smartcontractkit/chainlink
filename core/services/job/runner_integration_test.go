@@ -567,8 +567,9 @@ ds1 -> ds1_parse;
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
+		var jb job.SpecDB
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
-			Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
+			Preload("OffchainreportingOracleSpec", "id = ?", dbSpec.ID).
 			First(&jb).Error
 		require.NoError(t, err)
 

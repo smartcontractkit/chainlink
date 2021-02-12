@@ -168,8 +168,8 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault()))
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			Database:                     NewDB(db, concreteSpec.ID),	
-      Datasource: dataSource{
+			Database: NewDB(db, concreteSpec.ID),
+			Datasource: dataSource{
 				pipelineRunner: d.pipelineRunner,
 				jobID:          jobSpec.ID,
 				ocrLogger:      *loggerWith,
