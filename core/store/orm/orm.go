@@ -771,12 +771,12 @@ func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 }
 
 // FindUser will return the one API user, or an error.
-func (orm *ORM) FindUser() (user models.User, err error) {
-	err = orm.DB.
-		Preload(clause.Associations).
-		Order("created_at desc").
-		First(&user).Error
-	return user, err
+func (orm *ORM) FindUser() (models.User, error) {
+	return findUser(orm.DB)
+}
+
+func findUser(db *gorm.DB) (user models.User, err error) {
+	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
@@ -805,7 +805,7 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 // DeleteUser will delete the API User in the db.
 func (orm *ORM) DeleteUser() error {
 	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
-		user, err := orm.FindUser()
+		user, err := findUser(dbtx)
 		if err != nil {
 			return err
 		}
