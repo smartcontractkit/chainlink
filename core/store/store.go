@@ -227,6 +227,10 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	currentVersion := semver.New(static.Version)
 	lastV1Migration := "1612225637"
 	if squashVersionMinus1.LessThan(*currentVersion) {
+		// Completely empty database is fine to run squashed migrations on
+		if !db.Migrator().HasTable("migrations") {
+			return nil
+		}
 		// Running code later than S - 1. Ensure that we see
 		// the last v1 migration.
 		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
