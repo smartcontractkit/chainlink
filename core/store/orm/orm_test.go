@@ -112,7 +112,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 
 	exi2, err := models.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
-	require.Equal(t, `pq: duplicate key value violates unique constraint "external_initiators_name_key"`, store.CreateExternalInitiator(exi2).Error())
+	require.Equal(t, `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`, store.CreateExternalInitiator(exi2).Error())
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
@@ -190,7 +190,7 @@ func TestORM_SaveJobRun_OnConstraintViolationOtherThanOptimisticLockFailureRetur
 	jr.InitiatorID = 0
 	jr.Initiator = models.Initiator{}
 	err := store.SaveJobRun(&jr)
-	assert.EqualError(t, err, "pq: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\"")
+	assert.EqualError(t, err, "ERROR: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\" (SQLSTATE 23503)")
 }
 
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {

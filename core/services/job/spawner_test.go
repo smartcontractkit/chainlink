@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"github.com/jackc/pgtype"
 	"testing"
 	"time"
 
@@ -228,7 +229,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lock := struct{ Count int }{}
 		// Wait for the claim lock to be taken
 		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) AS count FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, advisoryLockClassID, jobSpecIDA).Scan(&lock).Error)
+			require.NoError(t, db.Raw(`SELECT count(*) AS count FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
 			return lock.Count
 		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
 
@@ -246,7 +247,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		// Wait for the claim lock to be released
 		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, advisoryLockClassID, jobSpecIDA).Scan(&lock).Error)
+			require.NoError(t, db.Raw(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
 			return lock.Count
 		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
 
