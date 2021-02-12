@@ -3054,7 +3054,7 @@ DROP TYPE eth_tx_attempts_state, eth_txes_state, run_status CASCADE;
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "1612225637",
+		ID: "1612225637", // Note this must be the same as the last v1 migration, thats why it follows the v1 timestamp format.
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up1).Error
 		},
