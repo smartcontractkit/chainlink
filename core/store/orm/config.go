@@ -191,7 +191,7 @@ func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 
 func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
 	if c.Dialect == "" {
-		return DialectPgx
+		return DialectPostgres
 	}
 	return c.Dialect
 }
