@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -711,7 +713,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
-		P2PBootstrapPeers:                      []string{},
+		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
 		TransmitterAddress:                     &transmitterAddress,
