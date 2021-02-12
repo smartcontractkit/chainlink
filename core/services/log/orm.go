@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/lib/pq"
@@ -43,6 +42,8 @@ func (o *orm) UpsertLog(log types.Log) error {
 		copy(x, topic[:])
 		topics[i] = x
 	}
+	data := []byte{}
+	data = append(data, log.Data...)
 	err := o.db.Exec(`
 INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES (?,?,?,?,?,?,NOW())
 ON CONFLICT (block_hash, index) DO UPDATE SET (
@@ -60,7 +61,7 @@ ON CONFLICT (block_hash, index) DO UPDATE SET (
 	EXCLUDED.topics,
 	EXCLUDED.data
 )
-    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
+    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), data).Error
 	return err
 }
 
