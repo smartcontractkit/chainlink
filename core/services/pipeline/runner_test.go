@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -214,7 +216,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 		PipelineTaskRuns: taskRuns,
 	}
 
-	trrs, err := r.ExecuteRun(context.Background(), run)
+	trrs, err := r.ExecuteRun(context.Background(), run, *logger.Default)
 	require.NoError(t, err)
 
 	require.Len(t, trrs, len(taskRuns))
