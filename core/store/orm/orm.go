@@ -1469,7 +1469,7 @@ type DialectName string
 
 const (
 	// DialectPostgres represents the postgres dialect.
-	DialectPostgres DialectName = "postgres"
+	DialectPostgres DialectName = "pgx"
 	// DialectTransactionWrappedPostgres is useful for tests.
 	// When the connection is opened, it starts a transaction and all
 	// operations performed on the DB will be within that transaction.
@@ -1487,8 +1487,6 @@ const (
 	// DialectPostgresWithoutLock represents the postgres dialect but it does not
 	// wait for a lock to connect. Intended to be used for read only access.
 	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
-	// DialectPgx represents the pgx driver
-	DialectPgx DialectName = "pgx"
 )
 
 // Connection manages all of the possible database connection setup and config.
@@ -1508,18 +1506,6 @@ type Connection struct {
 // necessary for managing the database connection.
 func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
 	switch dialect {
-	case DialectPgx:
-		return Connection{
-			advisoryLockID:     advisoryLockID,
-			dialect:            DialectPgx,
-			locking:            true,
-			name:               dialect,
-			transactionWrapped: false,
-			uri:                uri,
-			lockRetryInterval:  lockRetryInterval,
-			maxOpenConns:       maxOpenConns,
-			maxIdleConns:       maxIdleConns,
-		}, nil
 	case DialectPostgres:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
