@@ -36,9 +36,6 @@ func TestStore_SquashMigrationUpgrade(t *testing.T) {
 	require.NoError(t, err)
 	err = store.CheckSquashUpgrade(db)
 	require.NoError(t, err)
-	migrationsv2.Rollback(orm.DB, migrationsv2.Migrations[0])
-	require.NoError(t, err)
-
 	static.Version = "unset"
 }
 
