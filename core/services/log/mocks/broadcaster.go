@@ -39,11 +39,11 @@ func (_m *Broadcaster) DependentReady() {
 }
 
 // Register provides a mock function with given fields: contract, listener
-func (_m *Broadcaster) Register(contract log.abigenContract, listener log.Listener) bool {
+func (_m *Broadcaster) Register(contract log.AbigenContract, listener log.Listener) bool {
 	ret := _m.Called(contract, listener)
 
 	var r0 bool
-	if rf, ok := ret.Get(0).(func(log.abigenContract, log.Listener) bool); ok {
+	if rf, ok := ret.Get(0).(func(log.AbigenContract, log.Listener) bool); ok {
 		r0 = rf(contract, listener)
 	} else {
 		r0 = ret.Get(0).(bool)
@@ -81,6 +81,6 @@ func (_m *Broadcaster) Stop() error {
 }
 
 // Unregister provides a mock function with given fields: contract, listener
-func (_m *Broadcaster) Unregister(contract log.abigenContract, listener log.Listener) {
+func (_m *Broadcaster) Unregister(contract log.AbigenContract, listener log.Listener) {
 	_m.Called(contract, listener)
 }

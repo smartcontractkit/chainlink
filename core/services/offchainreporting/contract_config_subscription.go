@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -32,7 +33,7 @@ const OCRContractConfigSubscriptionHandleLogTimeout = 5 * time.Second
 
 type OCRContractConfigSubscription struct {
 	logger            logger.Logger
-	contractAddress   gethCommon.Address
+	contract          *offchain_aggregator_wrapper.OffchainAggregator
 	ch                chan ocrtypes.ContractConfig
 	chIncoming        chan ocrtypes.ContractConfig
 	processLogsWorker utils.SleeperTask
@@ -96,8 +97,8 @@ func (sub *OCRContractConfigSubscription) HandleLog(lb log.Broadcast, err error)
 	switch topics[0] {
 	case OCRContractConfigSet:
 		raw := lb.RawLog()
-		if raw.Address != sub.contractAddress {
-			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contractAddress)
+		if raw.Address != sub.contract.Address() {
+			sub.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, sub.contract.Address())
 			return
 		}
 		configSet, err2 := sub.oc.contractFilterer.ParseConfigSet(raw)
@@ -146,7 +147,7 @@ func (sub *OCRContractConfigSubscription) Configs() <-chan ocrtypes.ContractConf
 func (sub *OCRContractConfigSubscription) Close() {
 	sub.closer.Do(func() {
 		close(sub.chStop)
-		sub.oc.logBroadcaster.Unregister(sub.oc.contractAddress, sub)
+		sub.oc.logBroadcaster.Unregister(sub.oc.contract, sub)
 		err := sub.processLogsWorker.Stop()
 		if err != nil {
 			sub.logger.Error(err)

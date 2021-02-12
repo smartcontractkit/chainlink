@@ -17,7 +17,7 @@ type relayer struct {
 	orm       ORM
 	config    Config
 	listeners map[common.Address]map[Listener]struct{}
-	decoders  map[common.Address]abigenContract
+	decoders  map[common.Address]AbigenContract
 
 	latestBlock                  uint64
 	fewestRequestedConfirmations uint64
@@ -37,7 +37,7 @@ type relayer struct {
 // A `registration` represents a Listener's subscription to the logs of a
 // particular contract.
 type registration struct {
-	contract abigenContract
+	contract AbigenContract
 	listener Listener
 }
 
@@ -53,7 +53,7 @@ func newRelayer(orm ORM, config Config, dependentAwaiter utils.DependentAwaiter)
 		orm:              orm,
 		config:           config,
 		listeners:        make(map[common.Address]map[Listener]struct{}),
-		decoders:         make(map[common.Address]abigenContract),
+		decoders:         make(map[common.Address]AbigenContract),
 		addListener:      utils.NewMailbox(0),
 		rmListener:       utils.NewMailbox(0),
 		newHeads:         utils.NewMailbox(1),
@@ -100,11 +100,11 @@ func (r *relayer) Stop() error {
 	})
 }
 
-func (r *relayer) NotifyAddListener(contract abigenContract, listener Listener) {
+func (r *relayer) NotifyAddListener(contract AbigenContract, listener Listener) {
 	r.addListener.Deliver(registration{contract, listener})
 }
 
-func (r *relayer) NotifyRemoveListener(contract abigenContract, listener Listener) {
+func (r *relayer) NotifyRemoveListener(contract AbigenContract, listener Listener) {
 	r.rmListener.Deliver(registration{contract, listener})
 }
 
