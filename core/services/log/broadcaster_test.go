@@ -41,8 +41,9 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	)
 	store.EthClient = ethClient
 
-	listener.On("JobID").Return(models.NewID())
+	listener.On("JobID").Return(models.NewJobID())
 	listener.On("JobIDV2").Return(int32(123))
+	listener.On("IsV2Job").Return(true)
 	listener.On("OnConnect").Return()
 	listener.On("OnDisconnect").Return()
 
@@ -120,8 +121,9 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		listener := new(logmocks.Listener)
 		listener.On("OnConnect").Return()
 		listener.On("OnDisconnect").Return()
-		listener.On("JobID").Return(models.NewID())
+		listener.On("JobID").Return(models.NewJobID())
 		listener.On("JobIDV2").Return(int32(i))
+		listener.On("IsV2Job").Return(i%2 == 0)
 		registrations[i] = registration{cltest.NewAddress(), listener}
 		lb.Register(registrations[i].Address, registrations[i].Listener)
 	}
@@ -337,12 +339,15 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
 
-	listener0.On("JobID").Return(models.NewID()).Maybe()
+	listener0.On("JobID").Return(models.NewJobID()).Maybe()
 	listener0.On("JobIDV2").Return(int32(123)).Maybe()
-	listener1.On("JobID").Return(models.NewID()).Maybe()
+	listener0.On("IsV2Job").Return(true).Maybe()
+	listener1.On("JobID").Return(models.NewJobID()).Maybe()
 	listener1.On("JobIDV2").Return(int32(456)).Maybe()
-	listener2.On("JobID").Return(models.NewID()).Maybe()
+	listener1.On("IsV2Job").Return(true).Maybe()
+	listener2.On("JobID").Return(models.NewJobID()).Maybe()
 	listener2.On("JobIDV2").Return(int32(789)).Maybe()
+	listener2.On("IsV2Job").Return(true).Maybe()
 	listener0.On("OnConnect").Return().Maybe()
 	listener1.On("OnConnect").Return().Maybe()
 	listener2.On("OnConnect").Return().Maybe()

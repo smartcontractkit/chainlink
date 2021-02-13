@@ -175,7 +175,7 @@ func (r *relayer) onAddListeners() {
 			panic("registration already exists")
 		}
 		r.listeners[reg.address][reg.listener] = struct{}{}
-		err := r.orm.UpsertBroadcastsForListenerSinceBlock(r.latestBlock, reg.address, reg.listener.JobID(), reg.listener.JobIDV2())
+		err := r.orm.UpsertBroadcastsForListenerSinceBlock(r.latestBlock, reg.address, ListenerJobID(reg.listener))
 		if err != nil {
 			logger.Errorw("error upserting log broadcast",
 				"error", err,
@@ -206,7 +206,7 @@ func (r *relayer) onRmListeners() {
 			delete(r.listeners, reg.address)
 		}
 
-		err := r.orm.DeleteUnconsumedBroadcastsForListener(reg.listener.JobID(), reg.listener.JobIDV2())
+		err := r.orm.DeleteUnconsumedBroadcastsForListener(ListenerJobID(reg.listener))
 		if err != nil {
 			logger.Errorw("could not delete unconsumed log broadcasts for unregistering listener", "error", err)
 		}
@@ -225,7 +225,7 @@ func (r *relayer) onNewLogs() {
 			continue
 		}
 		for listener := range r.listeners[log.Address] {
-			err := r.orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+			err := r.orm.UpsertBroadcastForListener(log, ListenerJobID(listener))
 			if err != nil {
 				logger.Errorw("could not upsert log consumption record",
 					"contract", log.Address,

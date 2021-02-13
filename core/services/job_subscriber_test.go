@@ -133,7 +133,7 @@ func TestJobSubscriber_RemoveJob_NotFoundError(t *testing.T) {
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	defer jobSubscriber.Stop()
 
-	err := jobSubscriber.RemoveJob(models.NewID())
+	err := jobSubscriber.RemoveJob(models.NewJobID())
 	require.Error(t, err)
 }
 

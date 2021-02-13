@@ -57,7 +57,7 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
 		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
 		logger.Error(err)

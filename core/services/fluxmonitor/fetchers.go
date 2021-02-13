@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -110,7 +111,7 @@ func withIDAndMeta(request, meta map[string]interface{}) map[string]interface{} 
 	for k, v := range request {
 		output[k] = v
 	}
-	output["id"] = models.NewID()
+	output["id"] = uuid.NewV4()
 	output["meta"] = meta
 	return output
 }

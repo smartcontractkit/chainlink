@@ -334,11 +334,11 @@ func TestValidateServiceAgreement(t *testing.T) {
 		{"more than one initiator should fail",
 			cltest.MustJSONSet(t, basic, "initiators",
 				[]models.Initiator{{
-					JobSpecID:       models.NewID(),
+					JobSpecID:       models.NewJobID(),
 					Type:            models.InitiatorServiceAgreementExecutionLog,
 					InitiatorParams: models.InitiatorParams{},
 				}, {
-					JobSpecID:       models.NewID(),
+					JobSpecID:       models.NewJobID(),
 					Type:            models.InitiatorWeb,
 					InitiatorParams: models.InitiatorParams{},
 				},

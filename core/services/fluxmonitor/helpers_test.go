@@ -131,7 +131,7 @@ func dataWithResult(t *testing.T, result decimal.Decimal) adapterResponseData {
 // CreateJob is used in TestFluxMonitorAntiSpamLogic to create a
 // job with a specific answer and round, for testing nodes with malicious
 // behavior
-func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error {
+func (fm *concreteFluxMonitor) CreateJob(t *testing.T, jobSpecId models.JobID, polledAnswer decimal.Decimal, nextRound *big.Int) error {
 	jobSpec, err := fm.store.ORM.FindJobSpec(jobSpecId)
 	require.NoError(t, err, "could not find job spec with that ID")
 
