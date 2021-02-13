@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -259,18 +260,18 @@ func TestORM_JobRunsFor(t *testing.T) {
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
-	actual := []*models.ID{runs[0].ID, runs[1].ID, runs[2].ID}
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID, jr3.ID}, actual)
+	actual := []uuid.UUID{runs[0].ID, runs[1].ID, runs[2].ID}
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID, jr3.ID}, actual)
 
 	limRuns, limErr := store.JobRunsFor(job.ID, 2)
 	assert.NoError(t, limErr)
-	limActual := []*models.ID{limRuns[0].ID, limRuns[1].ID}
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, limActual)
+	limActual := []uuid.UUID{limRuns[0].ID, limRuns[1].ID}
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, limActual)
 
 	_, limZeroErr := store.JobRunsFor(job.ID, 0)
 	assert.NoError(t, limZeroErr)
-	limZeroActual := []*models.ID{}
-	assert.Equal(t, []*models.ID{}, limZeroActual)
+	limZeroActual := []uuid.UUID{}
+	assert.Equal(t, []uuid.UUID{}, limZeroActual)
 }
 
 func TestORM_LinkEarnedFor(t *testing.T) {
@@ -344,8 +345,8 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	runs, count, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
 	assert.NoError(t, err)
 	require.Equal(t, 2, count)
-	actual := []*models.ID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, actual)
+	actual := []uuid.UUID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, actual)
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
@@ -364,7 +365,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusCompleted}
 
-	var seedIds []*models.ID
+	var seedIds []uuid.UUID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
 		run.SetStatus(status)
@@ -375,17 +376,17 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []*models.ID
+		expected []uuid.UUID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]*models.ID{seedIds[0]},
+			[]uuid.UUID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingIncomingConfirmations, models.RunStatusPendingOutgoingConfirmations},
-			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
+			[]uuid.UUID{seedIds[0], seedIds[1], seedIds[2]},
 		},
 	}
 
@@ -394,7 +395,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []*models.ID{}
+			pendingIDs := []uuid.UUID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -420,7 +421,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		models.RunStatusPendingConnection,
 		models.RunStatusCompleted}
 
-	var seedIds []*models.ID
+	var seedIds []uuid.UUID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
 		run.SetStatus(status)
@@ -433,12 +434,12 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []*models.ID
+		expected []uuid.UUID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]*models.ID{seedIds[0]},
+			[]uuid.UUID{seedIds[0]},
 		},
 		{
 			"multiple status'",
@@ -447,7 +448,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 				models.RunStatusPendingOutgoingConfirmations,
 				models.RunStatusPendingIncomingConfirmations,
 				models.RunStatusPendingConnection},
-			[]*models.ID{seedIds[0], seedIds[1], seedIds[2], seedIds[3]},
+			[]uuid.UUID{seedIds[0], seedIds[1], seedIds[2], seedIds[3]},
 		},
 	}
 
@@ -456,7 +457,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []*models.ID{}
+			pendingIDs := []uuid.UUID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -1027,7 +1028,7 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 		jobRun.Status = status
 		jobRun.TaskRuns = []models.TaskRun{
 			{
-				ID:         models.NewID(),
+				ID:         uuid.NewV4(),
 				Status:     models.RunStatusUnstarted,
 				TaskSpecID: jobSpec.Tasks[0].ID,
 			},
@@ -1050,7 +1051,7 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 		ethTxAttempt.State = models.EthTxAttemptInProgress
 		require.NoError(t, storeInstance.DB.Save(&ethTxAttempt).Error)
 
-		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID.UUID(), ethTx.ID).Error)
+		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID, ethTx.ID).Error)
 	}
 
 	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
@@ -1368,10 +1369,10 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
 		require.NoError(t, err)
 
-		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID.UUID())
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID)
 		require.NoError(t, err)
 
-		assert.Equal(t, sharedTaskRunID.UUID(), etrt.TaskRunID)
+		assert.Equal(t, sharedTaskRunID, etrt.TaskRunID)
 		require.NotNil(t, etrt.EthTx)
 		assert.Nil(t, etrt.EthTx.Nonce)
 		assert.Equal(t, fromAddress, etrt.EthTx.FromAddress)
@@ -1419,7 +1420,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		err = store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, secondGasLimit)
 		require.NoError(t, err)
 
-		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID)
 		require.NoError(t, err)
 
 		// But the second insert did not change the gas limit
@@ -1471,7 +1472,7 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 	store.UpsertErrorFor(job1.ID, description1)
 
 	tests := []struct {
-		jobID               *models.ID
+		jobID               models.JobID
 		description         string
 		expectedOccurrences uint
 	}{
@@ -1527,12 +1528,12 @@ func TestORM_UpsertErrorFor_Error(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		jobID       *models.ID
+		jobID       models.JobID
 		description string
 	}{
 		{
 			"missing job",
-			models.NewID(),
+			models.NewJobID(),
 			description,
 		},
 		{
@@ -1655,7 +1656,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, fmrs.NumSubmissions)
-		require.Equal(t, jobRun.ID, fmrs.JobRunID)
+		require.True(t, fmrs.JobRunID.Valid)
+		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
 }
 

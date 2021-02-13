@@ -69,11 +69,11 @@ func (_m *JobSubscriber) OnNewLongestChain(ctx context.Context, head models.Head
 }
 
 // RemoveJob provides a mock function with given fields: ID
-func (_m *JobSubscriber) RemoveJob(ID *models.ID) error {
+func (_m *JobSubscriber) RemoveJob(ID models.JobID) error {
 	ret := _m.Called(ID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*models.ID) error); ok {
+	if rf, ok := ret.Get(0).(func(models.JobID) error); ok {
 		r0 = rf(ID)
 	} else {
 		r0 = ret.Error(0)

@@ -293,7 +293,7 @@ func awaitSubmission(t *testing.T, submissionReceived chan *faw.FluxAggregatorSu
 }
 
 type maliciousFluxMonitor interface {
-	CreateJob(t *testing.T, jobSpecId *models.ID, polledAnswer decimal.Decimal, nextRound *big.Int) error
+	CreateJob(t *testing.T, jobSpecId models.JobID, polledAnswer decimal.Decimal, nextRound *big.Int) error
 }
 
 func TestFluxMonitorAntiSpamLogic(t *testing.T) {
@@ -615,6 +615,6 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 		}
 	}()
 	// We should see a spec error because the value is too large to submit on-chain.
-	jse := cltest.WaitForSpecError(t, app.Store, *j.ID, 1)
+	jse := cltest.WaitForSpecError(t, app.Store, j.ID, 1)
 	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
 }
