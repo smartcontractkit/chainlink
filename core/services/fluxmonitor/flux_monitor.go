@@ -891,6 +891,10 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 		return
 	}
 
+	if !p.isValidSubmission(logger.Default.SugaredLogger, polledAnswer) {
+		return
+	}
+
 	var payment assets.Link
 	if roundState.PaymentAmount == nil {
 		logger.Error("roundState.PaymentAmount shouldn't be nil")
@@ -1062,11 +1066,11 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 // If the polledAnswer is outside the allowable range, log an error and don't submit.
 // to avoid an onchain reversion.
 func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polledAnswer decimal.Decimal) bool {
-	polledAnswerInt := new(big.Int)
-	polledAnswerInt.SetString(polledAnswer.String(), 10)
+	max := decimal.NewFromBigInt(p.maxSubmission, -p.precision)
+	min := decimal.NewFromBigInt(p.minSubmission, -p.precision)
 
-	if polledAnswerInt.Cmp(p.minSubmission) < 0 || polledAnswerInt.Cmp(p.maxSubmission) > 0 {
-		l.Errorw("polled value is outside acceptable range", "min", p.minSubmission, "max", p.maxSubmission, "polled value", polledAnswerInt)
+	if polledAnswer.GreaterThan(max) || polledAnswer.LessThan(min) {
+		l.Errorw("polled value is outside acceptable range", "min", min, "max", max, "polled value", polledAnswer)
 		p.store.UpsertErrorFor(p.JobID(), "Polled value is outside acceptable range")
 		return false
 	}
