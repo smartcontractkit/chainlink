@@ -17,13 +17,13 @@ import (
 
 type ORM interface {
 	UpsertLog(log types.Log) error
-	UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error
-	UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error
-	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (bool, error)
-	MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error
+	UpsertBroadcastForListener(log types.Log, jobID interface{}) error
+	UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID interface{}) error
+	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
+	MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) error
 	UnconsumedLogsPriorToBlock(blockNumber uint64) ([]types.Log, error)
 	DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error
-	DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error
+	DeleteUnconsumedBroadcastsForListener(jobID interface{}) error
 }
 
 type orm struct {
@@ -64,57 +64,15 @@ ON CONFLICT (block_hash, index) DO UPDATE SET (
 	return err
 }
 
-func (o *orm) UpsertBroadcastForListener(log types.Log, jobID *models.ID, jobIDV2 int32) error {
-	return o.upsertBroadcastForListener(o.db, log, jobID, jobIDV2)
-}
-
-func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID *models.ID, jobIDV2 int32) error {
-	var jobIDVal interface{}
+func (o *orm) UpsertBroadcastForListener(log types.Log, jobID interface{}) error {
 	var jobIDName string
-	if jobID != nil {
+	switch v := jobID.(type) {
+	case models.JobID:
 		jobIDName = "job_id"
-		jobIDVal = jobID
-	} else {
+	case int32:
 		jobIDName = "job_id_v2"
-		jobIDVal = jobIDV2
-	}
-	q := `
-INSERT INTO log_broadcasts (eth_log_id, block_hash, block_number, log_index, %[1]s, consumed, created_at)
-SELECT id, block_hash, block_number, index, ?, false, NOW() FROM eth_logs
-	WHERE eth_logs.block_number >= ? AND address = ?
-ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET (
-	eth_log_id,
-	block_hash,
-	block_number,
-	log_index,
-	%[1]s
-) = (
-	EXCLUDED.eth_log_id,
-	EXCLUDED.block_hash,
-	EXCLUDED.block_number,
-	EXCLUDED.log_index,
-	EXCLUDED.%[1]s
-)`
-
-	args := []interface{}{
-		jobIDVal,
-		blockNumber,
-		address,
-	}
-
-	stmt := fmt.Sprintf(q, jobIDName)
-	return o.db.Exec(stmt, args...).Error
-}
-
-func (o *orm) upsertBroadcastForListener(db *gorm.DB, log types.Log, jobID *models.ID, jobIDV2 int32) error {
-	var jobIDVal interface{}
-	var jobIDName string
-	if jobID != nil {
-		jobIDName = "job_id"
-		jobIDVal = jobID
-	} else {
-		jobIDName = "job_id_v2"
-		jobIDVal = jobIDV2
+	default:
+		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
 	q := `
@@ -139,7 +97,7 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 		log.BlockHash,
 		log.BlockNumber,
 		log.Index,
-		jobIDVal,
+		jobID,
 		log.BlockHash,
 		log.Index,
 	}
@@ -156,15 +114,54 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	return nil
 }
 
-func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) (consumed bool, err error) {
-	var jobIDVal interface{}
+func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID interface{}) error {
 	var jobIDName string
-	if jobID != nil {
+	switch v := jobID.(type) {
+	case models.JobID:
 		jobIDName = "job_id"
-		jobIDVal = jobID
-	} else {
+	case int32:
 		jobIDName = "job_id_v2"
-		jobIDVal = jobIDV2
+	default:
+		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
+	}
+
+	q := `
+INSERT INTO log_broadcasts (eth_log_id, block_hash, block_number, log_index, %[1]s, consumed, created_at)
+SELECT id, block_hash, block_number, index, ?, false, NOW() FROM eth_logs
+	WHERE eth_logs.block_number >= ? AND address = ?
+ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET (
+	eth_log_id,
+	block_hash,
+	block_number,
+	log_index,
+	%[1]s
+) = (
+	EXCLUDED.eth_log_id,
+	EXCLUDED.block_hash,
+	EXCLUDED.block_number,
+	EXCLUDED.log_index,
+	EXCLUDED.%[1]s
+)`
+
+	args := []interface{}{
+		jobID,
+		blockNumber,
+		address,
+	}
+
+	stmt := fmt.Sprintf(q, jobIDName)
+	return o.db.Exec(stmt, args...).Error
+}
+
+func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (consumed bool, err error) {
+	var jobIDName string
+	switch v := jobID.(type) {
+	case models.JobID:
+		jobIDName = "job_id"
+	case int32:
+		jobIDName = "job_id_v2"
+	default:
+		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
 	q := `
@@ -177,7 +174,7 @@ AND %s = ?
 	args := []interface{}{
 		blockHash,
 		logIndex,
-		jobIDVal,
+		jobID,
 	}
 
 	stmt := fmt.Sprintf(q, jobIDName)
@@ -186,15 +183,15 @@ AND %s = ?
 	return consumed, err
 }
 
-func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, jobIDV2 int32) error {
-	var jobIDVal interface{}
+func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) error {
 	var jobIDName string
-	if jobID != nil {
+	switch v := jobID.(type) {
+	case models.JobID:
 		jobIDName = "job_id"
-		jobIDVal = jobID
-	} else {
+	case int32:
 		jobIDName = "job_id_v2"
-		jobIDVal = jobIDV2
+	default:
+		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
 	q := `
@@ -206,7 +203,7 @@ AND %s = ?
 	args := []interface{}{
 		blockHash,
 		logIndex,
-		jobIDVal,
+		jobID,
 	}
 
 	stmt := fmt.Sprintf(q, jobIDName)
@@ -242,21 +239,21 @@ func (o *orm) DeleteLogAndBroadcasts(blockHash common.Hash, logIndex uint) error
 	return o.db.Exec(`DELETE FROM eth_logs WHERE block_hash = ? AND index = ?`, blockHash, logIndex).Error
 }
 
-func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID *models.ID, jobIDV2 int32) error {
+func (o *orm) DeleteUnconsumedBroadcastsForListener(jobID interface{}) error {
 	var jobIDName string
-	var jobIDVal interface{}
-	if jobID != nil {
+	switch v := jobID.(type) {
+	case models.JobID:
 		jobIDName = "job_id"
-		jobIDVal = jobID
-	} else {
+	case int32:
 		jobIDName = "job_id_v2"
-		jobIDVal = jobIDV2
+	default:
+		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
 	q := `DELETE FROM log_broadcasts WHERE %s = ? AND consumed = false`
 
 	stmt := fmt.Sprintf(q, jobIDName)
-	return o.db.Exec(stmt, jobIDVal).Error
+	return o.db.Exec(stmt, jobID).Error
 }
 
 type logRow struct {

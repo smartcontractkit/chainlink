@@ -133,8 +133,8 @@ func (sub *OCRContractConfigSubscription) JobIDV2() int32 {
 }
 
 // JobID complies with LogListener interface
-func (sub *OCRContractConfigSubscription) JobID() *models.ID {
-	return nil
+func (sub *OCRContractConfigSubscription) JobID() models.JobID {
+	return models.NilJobID
 }
 
 // Configs complies with ContractConfigSubscription interface

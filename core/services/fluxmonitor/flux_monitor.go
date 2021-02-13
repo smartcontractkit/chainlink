@@ -40,7 +40,7 @@ var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggrega
 
 type RunManager interface {
 	Create(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator *models.Initiator,
 		creationHeight *big.Int,
 		runRequest *models.RunRequest,
@@ -51,7 +51,7 @@ type RunManager interface {
 // needed to listen to price deviations and new round requests.
 type Service interface {
 	AddJob(models.JobSpec) error
-	RemoveJob(*models.ID)
+	RemoveJob(models.JobID)
 	Start() error
 	Stop()
 }
@@ -62,7 +62,7 @@ type concreteFluxMonitor struct {
 	logBroadcaster log.Broadcaster
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
-	chRemove       chan models.ID
+	chRemove       chan models.JobID
 	chConnect      chan *models.Head
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
@@ -71,7 +71,7 @@ type concreteFluxMonitor struct {
 }
 
 type addEntry struct {
-	jobID    models.ID
+	jobID    models.JobID
 	checkers []DeviationChecker
 }
 
@@ -91,7 +91,7 @@ func New(
 			logBroadcaster: logBroadcaster,
 		},
 		chAdd:        make(chan addEntry),
-		chRemove:     make(chan models.ID),
+		chRemove:     make(chan models.JobID),
 		chConnect:    make(chan *models.Head),
 		chDisconnect: make(chan struct{}),
 		chStop:       make(chan struct{}),
@@ -144,7 +144,7 @@ func (fm *concreteFluxMonitor) Stop() {
 func (fm *concreteFluxMonitor) serveInternalRequests() {
 	defer close(fm.chDone)
 
-	jobMap := map[models.ID][]DeviationChecker{}
+	jobMap := map[models.JobID][]DeviationChecker{}
 
 	for {
 		select {
@@ -195,8 +195,8 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	if job.ID == nil {
-		err := errors.New("received job with nil ID")
+	if job.ID.IsZero() {
+		err := errors.New("received job with zero ID")
 		logger.Error(err)
 		return err
 	}
@@ -226,18 +226,18 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		return nil
 	}
 
-	fm.chAdd <- addEntry{*job.ID, validCheckers}
+	fm.chAdd <- addEntry{job.ID, validCheckers}
 	return nil
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
-func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
-	if id == nil {
+func (fm *concreteFluxMonitor) RemoveJob(id models.JobID) {
+	if id.IsZero() {
 		logger.Warn("nil job ID passed to FluxMonitor#RemoveJob")
 		return
 	}
-	fm.chRemove <- *id
+	fm.chRemove <- id
 }
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
@@ -521,9 +521,11 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	p.connected.UnSet()
 }
 
-func (p *PollingDeviationChecker) JobID() *models.ID { return p.initr.JobSpecID }
-func (p *PollingDeviationChecker) JobIDV2() int32    { return 0 }
-func (p *PollingDeviationChecker) IsV2Job() bool     { return false }
+func (p *PollingDeviationChecker) JobID() models.JobID {
+	return p.initr.JobSpecID
+}
+func (p *PollingDeviationChecker) JobIDV2() int32 { return 0 }
+func (p *PollingDeviationChecker) IsV2Job() bool  { return false }
 
 func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast, err error) {
 	if err != nil {
@@ -1362,8 +1364,8 @@ func (p *PollingDeviationChecker) statsAndStatusForRound(roundID uint32) (
 	}
 	// JobRun will not exist if this is the first time responding to this round
 	var jobRun models.JobRun
-	if roundStats.JobRunID != nil {
-		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
+	if roundStats.JobRunID.Valid {
+		jobRun, err = p.store.FindJobRun(roundStats.JobRunID.UUID)
 		if err != nil {
 			return models.FluxMonitorRoundStats{}, "", err
 		}

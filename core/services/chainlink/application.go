@@ -54,7 +54,7 @@ type (
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
-		DeleteJob(db *gorm.DB, jobID *models.ID) error
+		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
 
@@ -79,7 +79,7 @@ type Application interface {
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
 	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
-	ArchiveJob(*models.ID) error
+	ArchiveJob(models.JobID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
@@ -451,7 +451,7 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 // It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	err := app.JobSubscriber.RemoveJob(ID)
 	if err != nil {
 		logger.Warnw("Error removing job from JobSubscriber", "error", err)

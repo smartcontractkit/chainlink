@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -29,8 +30,8 @@ var (
 // JobRun tracks the status of a job by holding its TaskRuns and the
 // Result of each Run.
 type JobRun struct {
-	ID             *ID            `json:"id" gorm:"type:uuid;primary_key;not null"`
-	JobSpecID      *ID            `json:"jobId" gorm:"type:uuid"`
+	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobSpecID      JobID          `json:"jobId" gorm:"type:uuid"`
 	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
 	ResultID       clnull.Int64   `json:"-"`
 	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
@@ -51,7 +52,7 @@ type JobRun struct {
 // MakeJobRun returns a new JobRun copy
 func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight *big.Int, runRequest *RunRequest) JobRun {
 	run := JobRun{
-		ID:          NewID(),
+		ID:          uuid.NewV4(),
 		JobSpecID:   job.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -67,7 +68,7 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 	}
 	for i, task := range job.Tasks {
 		run.TaskRuns[i] = TaskRun{
-			ID:       NewID(),
+			ID:       uuid.NewV4(),
 			JobRunID: run.ID,
 			TaskSpec: task,
 			Status:   RunStatusUnstarted,
@@ -241,8 +242,8 @@ func NewRunRequest(requestParams JSON) *RunRequest {
 // TaskRun stores the Task and represents the status of the
 // Task to be ran.
 type TaskRun struct {
-	ID                               *ID           `json:"id" gorm:"type:uuid;primary_key;not null"`
-	JobRunID                         *ID           `json:"-" gorm:"type:uuid"`
+	ID                               uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;not null"`
+	JobRunID                         uuid.UUID     `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
