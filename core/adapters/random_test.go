@@ -15,6 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,8 +37,7 @@ func TestRandom_Perform(t *testing.T) {
 		"blockNum":  blockNum,
 	})
 	require.NoError(t, err) // Can't fail
-	input := models.NewRunInput(&models.ID{}, models.ID{}, jsonInput,
-		models.RunStatusUnstarted)
+	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result := adapter.Perform(*input, store)
 	require.NoError(t, result.Error(), "while running random adapter")
 	proofArg := hexutil.MustDecode(result.Result().String())
@@ -59,7 +59,7 @@ func TestRandom_Perform(t *testing.T) {
 			"in RandomValueFromVRFProof has changed?")
 	jsonInput, err = jsonInput.Add("keyHash", common.Hash{})
 	require.NoError(t, err)
-	input = models.NewRunInput(&models.ID{}, models.ID{}, jsonInput, models.RunStatusUnstarted)
+	input = models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
 }

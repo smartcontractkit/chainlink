@@ -38,7 +38,7 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 	if id == "" {
 		runs, count, err = store.JobRunsSorted(order, offset, size)
 	} else {
-		var runID *models.ID
+		var runID models.JobID
 		runID, err = models.NewIDFromString(id)
 		if err != nil {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -133,7 +133,7 @@ func (jrc *JobRunsController) Show(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.GetStore().FindJobRun(id)
+	jr, err := jrc.App.GetStore().FindJobRun(id.UUID())
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
 		return
@@ -159,7 +159,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.GetStore().FindJobRunIncludingArchived(runID)
+	jr, err := jrc.App.GetStore().FindJobRunIncludingArchived(runID.UUID())
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
@@ -195,7 +195,7 @@ func (jrc *JobRunsController) Update(c *gin.Context) {
 		return
 	}
 
-	if err = jrc.App.ResumePendingBridge(runID, brr); errors.Cause(err) == orm.ErrorNotFound {
+	if err = jrc.App.ResumePendingBridge(runID.UUID(), brr); errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job Run not found"))
 		return
 	}
@@ -217,7 +217,7 @@ func (jrc *JobRunsController) Cancel(c *gin.Context) {
 		return
 	}
 
-	jr, err := jrc.App.Cancel(id)
+	jr, err := jrc.App.Cancel(id.UUID())
 	if errors.Cause(err) == orm.ErrorNotFound {
 		jsonAPIError(c, http.StatusNotFound, errors.New("Job run not found"))
 		return

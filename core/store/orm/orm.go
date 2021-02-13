@@ -179,14 +179,14 @@ func (orm *ORM) PendingBridgeType(jr models.JobRun) (bt models.BridgeType, err e
 }
 
 // FindJob looks up a JobSpec by its ID.
-func (orm *ORM) FindJobSpec(id *models.ID) (job models.JobSpec, err error) {
+func (orm *ORM) FindJobSpec(id models.JobID) (job models.JobSpec, err error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return job, err
 	}
 	return job, orm.preloadJobs().First(&job, "id = ?", id).Error
 }
 
-func (orm *ORM) FindJobSpecUnscoped(id *models.ID) (job models.JobSpec, err error) {
+func (orm *ORM) FindJobSpecUnscoped(id models.JobID) (job models.JobSpec, err error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return job, err
 	}
@@ -194,7 +194,7 @@ func (orm *ORM) FindJobSpecUnscoped(id *models.ID) (job models.JobSpec, err erro
 }
 
 // FindJobWithErrors looks up a Job by its ID and preloads JobSpecErrors.
-func (orm *ORM) FindJobWithErrors(id *models.ID) (models.JobSpec, error) {
+func (orm *ORM) FindJobWithErrors(id models.JobID) (models.JobSpec, error) {
 	var job models.JobSpec
 	err := orm.
 		preloadJobs().
@@ -258,7 +258,7 @@ func (orm *ORM) preloadJobRunsUnscoped() *gorm.DB {
 }
 
 // FindJobRun looks up a JobRun by its ID.
-func (orm *ORM) FindJobRun(id *models.ID) (jr models.JobRun, err error) {
+func (orm *ORM) FindJobRun(id uuid.UUID) (jr models.JobRun, err error) {
 	if err = orm.MustEnsureAdvisoryLock(); err != nil {
 		return jr, err
 	}
@@ -266,7 +266,7 @@ func (orm *ORM) FindJobRun(id *models.ID) (jr models.JobRun, err error) {
 	return jr, err
 }
 
-func (orm *ORM) FindJobRunIncludingArchived(id *models.ID) (jr models.JobRun, err error) {
+func (orm *ORM) FindJobRunIncludingArchived(id uuid.UUID) (jr models.JobRun, err error) {
 	if err = orm.MustEnsureAdvisoryLock(); err != nil {
 		return jr, err
 	}
@@ -340,7 +340,7 @@ func (orm *ORM) LinkEarnedFor(spec *models.JobSpec) (*assets.Link, error) {
 
 // UpsertErrorFor upserts a JobSpecError record, incrementing the occurrences counter by 1
 // if the record is found
-func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
+func (orm *ORM) UpsertErrorFor(jobID models.JobID, description string) {
 	jse := models.NewJobSpecError(jobID, description)
 	err := orm.DB.
 		Clauses(clause.OnConflict{
@@ -357,7 +357,7 @@ func (orm *ORM) UpsertErrorFor(jobID *models.ID, description string) {
 }
 
 // FindJobSpecError looks for a JobSpecError record with the given jobID and description
-func (orm *ORM) FindJobSpecError(jobID *models.ID, description string) (*models.JobSpecError, error) {
+func (orm *ORM) FindJobSpecError(jobID models.JobID, description string) (*models.JobSpecError, error) {
 	jobSpecErr := &models.JobSpecError{}
 	err := orm.DB.
 		Where("job_spec_id = ? AND description = ?", jobID, description).
@@ -468,7 +468,7 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 
 // JobRunsFor fetches all JobRuns with a given Job ID,
 // sorted by their created at time.
-func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun, error) {
+func (orm *ORM) JobRunsFor(jobSpecID models.JobID, limit ...int) ([]models.JobRun, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func (orm *ORM) JobRunsFor(jobSpecID *models.ID, limit ...int) ([]models.JobRun,
 }
 
 // JobRunsCountFor returns the current number of runs for the job
-func (orm *ORM) JobRunsCountFor(jobSpecID *models.ID) (int, error) {
+func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return 0, err
 	}
@@ -559,7 +559,7 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
 // It is idempotent, subsequent runs will do nothing and return no error
-func (orm *ORM) ArchiveJob(ID *models.ID) error {
+func (orm *ORM) ArchiveJob(ID models.JobID) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		return multierr.Combine(
 			dbtx.Exec("UPDATE initiators SET deleted_at = NOW() WHERE job_spec_id = ? AND deleted_at IS NULL", ID).Error,
@@ -638,7 +638,7 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
-func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
+func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
 	etx := models.EthTx{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
@@ -648,7 +648,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 		State:          models.EthTxUnstarted,
 	}
 	ethTaskRunTransaction := models.EthTaskRunTx{
-		TaskRunID: taskRunID.UUID(),
+		TaskRunID: taskRunID,
 	}
 	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
 		if err := dbtx.Save(&etx).Error; err != nil {
@@ -663,7 +663,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID models.ID, fromAddress co
 	switch v := err.(type) {
 	case *pq.Error:
 		if v.Constraint == "idx_eth_task_run_txes_task_run_id" {
-			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
 			if e != nil {
 				return e
 			}
@@ -941,7 +941,7 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id *models.ID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return nil, 0, err
 	}
@@ -1015,13 +1015,6 @@ func (orm *ORM) UpdateBridgeType(bt *models.BridgeType, btr *models.BridgeTypeRe
 func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
-	}
-	if initr.JobSpecID == nil {
-		// NOTE: This hangs forever if we don't check this here and the
-		// supplied initiator does not have a JobSpecID set.
-		// I do not know why. Seems to be something going wrong inside gorm
-		logger.Error("cannot create initiator without job spec ID")
-		return errors.New("requires job spec ID")
 	}
 	return orm.DB.Create(initr).Error
 }
@@ -1298,7 +1291,7 @@ func (orm *ORM) MostRecentFluxMonitorRoundID(aggregator common.Address) (uint32,
 
 // UpdateFluxMonitorRoundStats trys to create a RoundStat record for the given oracle
 // at the given round. If one already exists, it increments the num_submissions column.
-func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID *models.ID) error {
+func (orm *ORM) UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, jobRunID uuid.UUID) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
@@ -1499,7 +1492,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		ct.uri = models.NewID().String()
+		ct.uri = uuid.NewV4().String()
 	}
 
 	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)

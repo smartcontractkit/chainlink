@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -106,7 +107,7 @@ func TestRunExecutor_Execute_RunNotFoundError(t *testing.T) {
 
 	runExecutor := services.NewRunExecutor(store, pusher)
 
-	err := runExecutor.Execute(models.NewID())
+	err := runExecutor.Execute(uuid.NewV4())
 	require.Error(t, err)
 }
 

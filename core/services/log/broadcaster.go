@@ -40,7 +40,7 @@ type (
 		OnConnect()
 		OnDisconnect()
 		HandleLog(lb Broadcast, err error)
-		JobID() *models.ID
+		JobID() models.JobID
 		JobIDV2() int32
 		IsV2Job() bool
 	}
@@ -104,3 +104,11 @@ func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
 
 func (b *broadcaster) Connect(head *models.Head) error { return nil }
 func (b *broadcaster) Disconnect()                     {}
+
+// ListenerJobID returns the appropriate job ID for a listener
+func ListenerJobID(listener Listener) interface{} {
+	if listener.IsV2Job() {
+		return listener.JobIDV2()
+	}
+	return listener.JobID()
+}
