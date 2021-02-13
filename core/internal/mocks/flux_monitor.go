@@ -52,7 +52,7 @@ func (_m *FluxMonitor) OnNewLongestChain(_a0 *models.Head) {
 }
 
 // RemoveJob provides a mock function with given fields: _a0
-func (_m *FluxMonitor) RemoveJob(_a0 *models.ID) {
+func (_m *FluxMonitor) RemoveJob(_a0 models.JobID) {
 	_m.Called(_a0)
 }
 

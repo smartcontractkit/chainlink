@@ -696,7 +696,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	assert.Equal(t, expected, exInitr.Body)
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
@@ -733,7 +733,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }

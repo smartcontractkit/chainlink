@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func TestORM_UpsertLog(t *testing.T) {
@@ -82,25 +83,25 @@ func TestORM_UpsertBroadcastForListener(t *testing.T) {
 		&mockListener{specV1_3.ID, 0},
 		&mockListener{specV1_4.ID, 0},
 		&mockListener{specV1_5.ID, 0},
-		&mockListener{nil, specV2_1.ID},
-		&mockListener{nil, specV2_2.ID},
-		&mockListener{nil, specV2_3.ID},
-		&mockListener{nil, specV2_4.ID},
-		&mockListener{nil, specV2_5.ID},
+		&mockListener{models.NilJobID, specV2_1.ID},
+		&mockListener{models.NilJobID, specV2_2.ID},
+		&mockListener{models.NilJobID, specV2_3.ID},
+		&mockListener{models.NilJobID, specV2_4.ID},
+		&mockListener{models.NilJobID, specV2_5.ID},
 	}
 
 	sort.Slice(listeners[:5], func(i, j int) bool {
-		return bytes.Compare((*listeners[i].JobID())[:], (*listeners[j].JobID())[:]) < 0
+		return bytes.Compare(listeners[i].JobID().UUID().Bytes(), listeners[j].JobID().UUID().Bytes()) < 0
 	})
 
 	t.Run("does not error when upserting the same entry more than once", func(t *testing.T) {
 		// Upsert twice
 		for _, listener := range listeners {
-			err := orm.UpsertBroadcastForListener(rawLog, listener.JobID(), listener.JobIDV2())
+			err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 			require.NoError(t, err)
 		}
 		for _, listener := range listeners {
-			err := orm.UpsertBroadcastForListener(rawLog, listener.JobID(), listener.JobIDV2())
+			err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 			require.NoError(t, err)
 		}
 	})
@@ -143,7 +144,7 @@ func TestORM_UpsertBroadcastForListener(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, consumed.Consumed)
 
-		err = orm.UpsertBroadcastForListener(rawLog, listeners[0].JobID(), listeners[0].JobIDV2())
+		err = orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listeners[0]))
 		require.NoError(t, err)
 
 		err = store.DB.Raw(`
@@ -172,7 +173,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			listener log.Listener
 		}{
 			{"v1", &mockListener{specV1.ID, 0}},
-			{"v2", &mockListener{nil, specV2.ID}},
+			{"v2", &mockListener{models.NilJobID, specV2.ID}},
 		}
 
 		for _, test := range tests {
@@ -180,13 +181,13 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				listener := test.listener
 
-				log := cltest.RandomLog(t)
-				cltest.MustInsertLog(t, log, store)
+				rawLog := cltest.RandomLog(t)
+				cltest.MustInsertLog(t, rawLog, store)
 
-				err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+				err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 				require.NoError(t, err)
 
-				err = orm.MarkBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
+				err = orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.NoError(t, err)
 
 				var consumed struct{ Consumed bool }
@@ -194,12 +195,12 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 					err = store.DB.Raw(`
                         SELECT consumed FROM log_broadcasts
                         WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id_v2 = ?
-                    `, log.BlockHash, log.BlockNumber, log.Index, listener.JobIDV2()).Scan(&consumed).Error
+                    `, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2()).Scan(&consumed).Error
 				} else {
 					err = store.DB.Raw(`
                         SELECT consumed FROM log_broadcasts
                         WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
-                    `, log.BlockHash, log.BlockNumber, log.Index, listener.JobID()).Scan(&consumed).Error
+                    `, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
 				}
 				require.NoError(t, err)
 				require.True(t, consumed.Consumed)
@@ -214,7 +215,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			log := cltest.RandomLog(t)
 			cltest.MustInsertLog(t, log, store)
 
-			err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, specV1.ID, 0)
+			err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, specV1.ID)
 			require.Error(t, err)
 		})
 
@@ -225,7 +226,7 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 			log := cltest.RandomLog(t)
 			cltest.MustInsertLog(t, log, store)
 
-			err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, nil, specV2.ID)
+			err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, specV2.ID)
 			require.Error(t, err)
 		})
 	})
@@ -249,7 +250,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			listener log.Listener
 		}{
 			{"v1", &mockListener{specV1.ID, 0}},
-			{"v2", &mockListener{nil, specV2.ID}},
+			{"v2", &mockListener{models.NilJobID, specV2.ID}},
 		}
 
 		for _, test := range tests {
@@ -257,20 +258,20 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				listener := test.listener
 
-				log := cltest.RandomLog(t)
-				cltest.MustInsertLog(t, log, store)
+				rawLog := cltest.RandomLog(t)
+				cltest.MustInsertLog(t, rawLog, store)
 
-				err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+				err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 				require.NoError(t, err)
 
-				was, err := orm.WasBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
+				was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.NoError(t, err)
 				require.False(t, was)
 
-				err = orm.MarkBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
+				err = orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.NoError(t, err)
 
-				was, err = orm.WasBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
+				was, err = orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.NoError(t, err)
 				require.True(t, was)
 			})
@@ -287,7 +288,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			listener log.Listener
 		}{
 			{"v1", &mockListener{specV1.ID, 0}},
-			{"v2", &mockListener{nil, specV2.ID}},
+			{"v2", &mockListener{models.NilJobID, specV2.ID}},
 		}
 
 		for _, test := range tests {
@@ -295,10 +296,10 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				listener := test.listener
 
-				log := cltest.RandomLog(t)
-				cltest.MustInsertLog(t, log, store)
+				rawLog := cltest.RandomLog(t)
+				cltest.MustInsertLog(t, rawLog, store)
 
-				_, err := orm.WasBroadcastConsumed(log.BlockHash, log.Index, listener.JobID(), listener.JobIDV2())
+				_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.Error(t, err)
 			})
 		}
@@ -335,21 +336,21 @@ func TestORM_UnconsumedLogsPriorToBlock(t *testing.T) {
 
 	listeners := []log.Listener{
 		&mockListener{specV1.ID, 0},
-		&mockListener{nil, specV2.ID},
+		&mockListener{models.NilJobID, specV2.ID},
 	}
 
-	for i, log := range logs {
-		err := orm.UpsertLog(log)
+	for i, rawLog := range logs {
+		err := orm.UpsertLog(rawLog)
 		require.NoError(t, err)
 
 		for _, listener := range listeners {
-			err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+			err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 			require.NoError(t, err)
 		}
 
 		for j := 0; j < len(listeners); j++ {
 			if j < i%(len(listeners)+1) {
-				err := orm.MarkBroadcastConsumed(log.BlockHash, log.Index, listeners[j].JobID(), listeners[j].JobIDV2())
+				err := orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listeners[j]))
 				require.NoError(t, err)
 			}
 		}
@@ -383,15 +384,15 @@ func TestORM_DeleteLogAndBroadcasts(t *testing.T) {
 
 	listeners := []log.Listener{
 		&mockListener{specV1.ID, 0},
-		&mockListener{nil, specV2.ID},
+		&mockListener{models.NilJobID, specV2.ID},
 	}
 
 	t.Run("correctly deletes a log and all of its associated broadcasts", func(t *testing.T) {
-		log := cltest.RandomLog(t)
-		cltest.MustInsertLog(t, log, store)
+		rawLog := cltest.RandomLog(t)
+		cltest.MustInsertLog(t, rawLog, store)
 
 		for _, listener := range listeners {
-			err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+			err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 			require.NoError(t, err)
 		}
 
@@ -400,7 +401,7 @@ func TestORM_DeleteLogAndBroadcasts(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, len(listeners), count.Count)
 
-		err = orm.DeleteLogAndBroadcasts(log.BlockHash, log.Index)
+		err = orm.DeleteLogAndBroadcasts(rawLog.BlockHash, rawLog.Index)
 		require.NoError(t, err)
 
 		err = store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
@@ -428,14 +429,14 @@ func TestORM_DeleteUnconsumedBroadcastsForListener(t *testing.T) {
 
 	listeners := []log.Listener{
 		&mockListener{specV1.ID, 0},
-		&mockListener{nil, specV2.ID},
+		&mockListener{models.NilJobID, specV2.ID},
 	}
 
 	logs := []types.Log{cltest.RandomLog(t), cltest.RandomLog(t), cltest.RandomLog(t), cltest.RandomLog(t), cltest.RandomLog(t)}
-	for _, log := range logs {
-		cltest.MustInsertLog(t, log, store)
+	for _, rawLog := range logs {
+		cltest.MustInsertLog(t, rawLog, store)
 		for _, listener := range listeners {
-			err := orm.UpsertBroadcastForListener(log, listener.JobID(), listener.JobIDV2())
+			err := orm.UpsertBroadcastForListener(rawLog, log.ListenerJobID(listener))
 			require.NoError(t, err)
 		}
 	}
@@ -445,14 +446,14 @@ func TestORM_DeleteUnconsumedBroadcastsForListener(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, len(logs)*len(listeners), count.Count)
 
-	err = orm.DeleteUnconsumedBroadcastsForListener(listeners[0].JobID(), listeners[0].JobIDV2())
+	err = orm.DeleteUnconsumedBroadcastsForListener(log.ListenerJobID(listeners[0]))
 	require.NoError(t, err)
 
 	err = store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
 	require.NoError(t, err)
 	require.Equal(t, len(logs), count.Count)
 
-	err = orm.DeleteUnconsumedBroadcastsForListener(listeners[1].JobID(), listeners[1].JobIDV2())
+	err = orm.DeleteUnconsumedBroadcastsForListener(log.ListenerJobID(listeners[1]))
 	require.NoError(t, err)
 
 	err = store.DB.Raw(`SELECT count(*) FROM log_broadcasts`).Scan(&count).Error
