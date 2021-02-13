@@ -23,7 +23,7 @@ type LogNewRound struct {
 
 type simpleLogListener struct {
 	handler    func(lb log.Broadcast, err error)
-	consumerID *models.ID
+	consumerID models.JobID
 }
 
 func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
@@ -31,7 +31,7 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
 }
 func (listener simpleLogListener) OnConnect()    {}
 func (listener simpleLogListener) OnDisconnect() {}
-func (listener simpleLogListener) JobID() *models.ID {
+func (listener simpleLogListener) JobID() models.JobID {
 	return listener.consumerID
 }
 func (listener simpleLogListener) IsV2Job() bool {
@@ -45,19 +45,19 @@ type logBroadcastRow struct {
 	BlockHash   common.Hash
 	BlockNumber uint64
 	LogIndex    uint
-	JobID       *models.ID
+	JobID       models.JobID
 	JobIDV2     int32
 	Consumed    bool
 }
 
 type mockListener struct {
-	jobID   *models.ID
+	jobID   models.JobID
 	jobIDV2 int32
 }
 
-func (l *mockListener) JobID() *models.ID              { return l.jobID }
+func (l *mockListener) JobID() models.JobID            { return l.jobID }
 func (l *mockListener) JobIDV2() int32                 { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool                  { return l.jobID == nil }
+func (l *mockListener) IsV2Job() bool                  { return l.jobID.IsZero() }
 func (l *mockListener) OnConnect()                     {}
 func (l *mockListener) OnDisconnect()                  {}
 func (l *mockListener) HandleLog(log.Broadcast, error) {}

@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -31,7 +32,7 @@ var (
 
 // RunExecutor handles the actual running of the job tasks
 type RunExecutor interface {
-	Execute(*models.ID) error
+	Execute(uuid.UUID) error
 }
 
 type runExecutor struct {
@@ -48,7 +49,7 @@ func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher)
 }
 
 // Execute performs the work associate with a job run
-func (re *runExecutor) Execute(runID *models.ID) error {
+func (re *runExecutor) Execute(runID uuid.UUID) error {
 	logger.Debugw("runExecutor woke up", "runID", runID.String())
 	run, err := re.store.Unscoped().FindJobRun(runID)
 	if err != nil {
@@ -151,7 +152,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, *taskRun.ID, data, taskRun.Status)
+	input := *models.NewRunInput(run.ID, taskRun.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 

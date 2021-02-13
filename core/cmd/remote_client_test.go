@@ -457,7 +457,7 @@ func TestClient_ArchiveJobSpec(t *testing.T) {
 	set.Parse([]string{job.ID.String()})
 	c := cli.NewContext(nil, set, nil)
 
-	eim.On("DeleteJob", mock.Anything, mock.MatchedBy(func(id *models.ID) bool {
+	eim.On("DeleteJob", mock.Anything, mock.MatchedBy(func(id models.JobID) bool {
 		return id.String() == job.ID.String()
 	})).Once().Return(nil)
 

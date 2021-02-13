@@ -107,8 +107,8 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 }
 
 // JobID complies with log.Listener
-func (listener) JobID() *models.ID {
-	return nil
+func (listener) JobID() models.JobID {
+	return models.NilJobID
 }
 
 // SpecDB complies with log.Listener

@@ -30,7 +30,7 @@ var (
 type JobSubscriber interface {
 	store.HeadTrackable
 	AddJob(job models.JobSpec, bn *models.Head) error
-	RemoveJob(ID *models.ID) error
+	RemoveJob(ID models.JobID) error
 	Jobs() []models.JobSpec
 	Stop() error
 }
@@ -106,7 +106,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 }
 
 // RemoveJob unsubscribes the job from a log subscription to trigger runs.
-func (js *jobSubscriber) RemoveJob(ID *models.ID) error {
+func (js *jobSubscriber) RemoveJob(ID models.JobID) error {
 	js.jobsMutex.Lock()
 	sub, ok := js.jobSubscriptions[ID.String()]
 	delete(js.jobSubscriptions, ID.String())

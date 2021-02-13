@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -45,7 +46,7 @@ func (ba *Bridge) Perform(input models.RunInput, store *store.Store) models.RunO
 	return ba.handleNewRun(input, meta, store)
 }
 
-func getMeta(store *store.Store, jobRunID *models.ID) *models.JSON {
+func getMeta(store *store.Store, jobRunID uuid.UUID) *models.JSON {
 	jobRun, err := store.ORM.FindJobRun(jobRunID)
 	if err != nil {
 		return nil
