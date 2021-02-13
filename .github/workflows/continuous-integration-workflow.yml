@@ -117,6 +117,36 @@ jobs:
           name: logs
           path: ./tools/docker/logs
 
+  solidity-lint:
+    name: Solidity Linting
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    container:
+      image: smartcontract/builder:1.0.37
+      credentials:
+        username: ${{ secrets.DOCKER_READONLY_USERNAME }}
+        password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+      - name: Yarn cache
+        uses: actions/cache@v2
+        env:
+          cache-name: yarn-cache
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+            **/node_modules
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+      - run: yarn install --frozen-lockfile
+      - run: ./tools/bin/restore-solc-cache
+      - name: Run solhint
+        run: ./tools/ci/solhint
+
   solidity:
     name: Solidity
     runs-on: [self-hosted, sdlc-ghr-prod]
