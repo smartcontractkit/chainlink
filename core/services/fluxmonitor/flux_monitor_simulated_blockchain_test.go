@@ -573,7 +573,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 
 	// 8 decimals places used for prices.
-	minSubmissionValue := big.NewInt(100000000) // 1 * 10^8
+	minSubmissionValue := big.NewInt(100000000)     // 1 * 10^8
 	maxSubmissionValue := big.NewInt(1000000000000) // 10000 * 10^8
 	fa := setupFluxAggregatorUniverse(t, key, minSubmissionValue, maxSubmissionValue)
 	oracleList := []common.Address{fa.neil.From, fa.ned.From, fa.nallory.From}
