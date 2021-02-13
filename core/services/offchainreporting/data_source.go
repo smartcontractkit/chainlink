@@ -3,11 +3,8 @@ package offchainreporting
 import (
 	"context"
 
-	"gorm.io/gorm"
-
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
@@ -20,24 +17,16 @@ type dataSource struct {
 	pipelineRunner pipeline.Runner
 	jobID          int32
 	spec           pipeline.Spec
+	ocrLogger      logger.Logger
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
-
-func newDatasource(db *gorm.DB, jobID int32, pipelineRunner pipeline.Runner) (*dataSource, error) {
-	var j job.SpecDB
-	err := db.Preload("PipelineSpec.PipelineTaskSpecs").Find(&j, "id = ?", jobID).Error
-	if err != nil {
-		return nil, errors.Wrapf(err, "could not load pipeline_spec for job ID %v", jobID)
-	}
-	return &dataSource{jobID: jobID, spec: *j.PipelineSpec, pipelineRunner: pipelineRunner}, nil
-}
 
 // The context passed in here has a timeout of observationTimeout.
 // Gorm/pgx doesn't return a helpful error upon cancellation, so we manually check for cancellation and return a
 // appropriate error (FIXME: How does this work after the current refactoring?)
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	results, err := ds.pipelineRunner.ExecuteAndInsertNewRun(ctx, ds.spec)
+	results, err := ds.pipelineRunner.ExecuteAndInsertNewRun(ctx, ds.spec, ds.ocrLogger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error executing new run for job ID %v", ds.jobID)
 	}
