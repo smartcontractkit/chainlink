@@ -246,7 +246,7 @@ func TestJobRunsController_Create_Archived(t *testing.T) {
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Post("/v2/specs/"+j.ID.String()+"/runs", bytes.NewBufferString(`{"result":"100"}`))
 	defer cleanup()
-	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+	cltest.AssertServerResponse(t, resp, http.StatusGone)
 }
 
 func TestJobRunsController_Create_EmptyBody(t *testing.T) {
