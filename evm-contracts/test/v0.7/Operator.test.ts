@@ -14,6 +14,7 @@ import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/Maliciou
 import { MaliciousMultiWordConsumer__factory } from '../../ethers/v0.6/factories/MaliciousMultiWordConsumer__factory'
 import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
+import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
 import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
 import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
 import { ContractReceipt } from 'ethers/contract'
@@ -27,6 +28,7 @@ const maliciousRequesterFactory = new MaliciousRequester__factory()
 const maliciousConsumerFactory = new MaliciousConsumer__factory()
 const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
 const operatorFactory = new Operator__factory()
+const operatorForwarderFactory = new OperatorForwarder__factory()
 const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
@@ -74,11 +76,64 @@ describe('Operator', () => {
       'withdrawable',
       'operatorTransferAndCall',
       'distributeFunds',
+      'createForwarder',
+      'getForwarders',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#generateForwarderAddress', () => {
+    const salt = h.numToBytes32(1)
+    let receipt: ContractReceipt
+    let operatorForwarder: contract.Instance<OperatorForwarder__factory>
+    let newSenders: Array<string>
+    describe('when called by the owner', () => {
+      beforeEach(async () => {
+        newSenders = [
+          roles.oracleNode1.address,
+          roles.oracleNode2.address,
+          roles.oracleNode3.address,
+        ]
+        await operator
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders(newSenders)
+
+        const tx = await operator
+          .connect(roles.defaultAccount)
+          .createForwarder(salt)
+        receipt = await tx.wait()
+      })
+
+      it('Emits a ForwarderCreated event', async () => {
+        const eventFound = h.findEventIn(
+          receipt,
+          operatorFactory.interface.events.ForwarderCreated,
+        )
+        assert.exists(eventFound)
+      })
+
+      it('adds a forwarder to storage', async () => {
+        const forwarders = await operator
+          .connect(roles.defaultAccount)
+          .getForwarders()
+        assert.equal(forwarders.length, 1)
+      })
+
+      it('sets the correct authorized senders on the forwarder', async () => {
+        const forwarders = await operator
+          .connect(roles.defaultAccount)
+          .getForwarders()
+        operatorForwarder = await operatorForwarderFactory
+          .connect(roles.defaultAccount)
+          .attach(forwarders[0])
+        assert.equal(await operatorForwarder.authorizedSender1(), newSenders[0])
+        assert.equal(await operatorForwarder.authorizedSender2(), newSenders[1])
+        assert.equal(await operatorForwarder.authorizedSender3(), newSenders[2])
+      })
+    })
   })
 
   describe('#distributeFunds', () => {
