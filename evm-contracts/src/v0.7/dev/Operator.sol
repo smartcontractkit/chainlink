@@ -83,22 +83,7 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
-    createForwarder();
-  }
-
-  function createForwarder() public {
-    uint256 salt = 1;
-    bytes memory code = type(OperatorForwarder).creationCode;
-    address addr;
-    assembly {
-      addr := create2(0, add(code, 0x20), mload(code), salt)
-      if iszero(extcodesize(addr)) { revert(0, 0) }
-    }
-    if (!s_forwarders[addr]) {
-      s_forwarders[addr] = true;
-      s_forwardersList.push(addr);
-    }
-    emit ForwarderCreated(addr);
+    // createForwarder();
   }
 
   // EXTERNAL FUNCTIONS
@@ -287,6 +272,14 @@ contract Operator is
   }
 
   /**
+   * @notice Retrive a list of forwarders
+   * @return array of addresses
+   */
+  function getForwarders() external view override returns (address[] memory) {
+    return s_forwardersList;
+  }
+
+  /**
    * @notice Allows the node operator to withdraw earned LINK to a given address
    * @dev The owner of the contract can be another wallet and does not have to be a Chainlink node
    * @param recipient The address to send the LINK token to
@@ -389,6 +382,26 @@ contract Operator is
     emit CancelOracleRequest(requestId);
 
     assert(linkToken.transfer(msg.sender, payment));
+  }
+
+  // PUBLIC FUNCTIONS
+
+  /**
+   * @notice Create a new forwarder contract
+   * @dev This function uses create2 to deploy at a predetermined address.
+   * @param salt bytes32 salt for using create2
+   * @return addr deployed address
+   */
+  function createForwarder(bytes32 salt) public onlyOwner() returns (address addr) {
+    require(s_authorizedSenderList.length != 0, "Must have authorized senders");
+    OperatorForwarder forwarder = new OperatorForwarder{salt: salt}();
+    addr = address(forwarder);
+    require(addr != address(0), "Create2: Failed deployment");
+    if (!s_forwarders[addr]) {
+      s_forwarders[addr] = true;
+      s_forwardersList.push(addr);
+    }
+    emit ForwarderCreated(addr);
   }
 
   /**
@@ -496,15 +509,6 @@ contract Operator is
   }
 
   /**
-   * @notice Returns the LINK available in this contract, not locked in escrow
-   * @return uint256 LINK tokens available
-   */
-  function fundsAvailable() private view returns (uint256) {
-    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
-    return linkToken.balanceOf(address(this)).sub(inEscrow);
-  }
-
-  /**
    * @notice Safely cast uint256 to uint8
    * @param number uint256
    * @return uint8 number
@@ -512,6 +516,17 @@ contract Operator is
   function safeCastToUint8(uint256 number) internal pure returns (uint8) {
     require(number < MAXIMUM_DATA_VERSION, "number too big to cast");
     return uint8(number);
+  }
+
+  // PRIVATE FUNCTIONS
+
+  /**
+   * @notice Returns the LINK available in this contract, not locked in escrow
+   * @return uint256 LINK tokens available
+   */
+  function fundsAvailable() private view returns (uint256) {
+    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
+    return linkToken.balanceOf(address(this)).sub(inEscrow);
   }
 
   // MODIFIERS
