@@ -3,6 +3,7 @@ pragma solidity ^0.7.0;
 
 import "./LinkTokenReceiver.sol";
 import "./ConfirmedOwner.sol";
+import "./OperatorForwarder.sol";
 import "../interfaces/ChainlinkRequestInterface.sol";
 import "../interfaces/OperatorInterface.sol";
 import "../interfaces/LinkTokenInterface.sol";
@@ -40,6 +41,9 @@ contract Operator is
   address[] private s_authorizedSenderList;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
+  // Forwarders
+  mapping(address => bool) private s_forwarders;
+  address[] private s_forwardersList;
 
   event AuthorizedSendersChanged(
     address[] senders
@@ -65,6 +69,10 @@ contract Operator is
     bytes32 indexed requestId
   );
 
+  event ForwarderCreated(
+    address indexed addr
+  );
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -75,6 +83,22 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    createForwarder();
+  }
+
+  function createForwarder() public {
+    uint256 salt = 1;
+    bytes memory code = type(OperatorForwarder).creationCode;
+    address addr;
+    assembly {
+      addr := create2(0, add(code, 0x20), mload(code), salt)
+      if iszero(extcodesize(addr)) { revert(0, 0) }
+    }
+    if (!s_forwarders[addr]) {
+      s_forwarders[addr] = true;
+      s_forwardersList.push(addr);
+    }
+    emit ForwarderCreated(addr);
   }
 
   // EXTERNAL FUNCTIONS
