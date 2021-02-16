@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -140,7 +142,7 @@ func init() {
 	// If you MUST test BEGIN/ROLLBACK behaviour, you will have to configure your
 	// store to use the raw DialectPostgres dialect and setup a one-use database.
 	// See BootstrapThrowawayORM() as a convenience function to help you do this.
-	txdb.Register("cloudsqlpostgres", "postgres", config.DatabaseURL(), txdb.SavePointOption(nil))
+	txdb.Register(string(dialects.TransactionWrappedPostgres), string(dialects.Postgres), config.DatabaseURL(), txdb.SavePointOption(nil))
 
 	// Seed the random number generator, otherwise separate modules will take
 	// the same advisory locks when tested with `go test -p N` for N > 1
@@ -215,10 +217,10 @@ func NewTestConfig(t testing.TB, options ...interface{}) *TestConfig {
 	rootdir := filepath.Join(RootDir, fmt.Sprintf("%d-%d", time.Now().UnixNano(), count))
 	rawConfig := orm.NewConfig()
 
-	rawConfig.Dialect = orm.DialectTransactionWrappedPostgres
+	rawConfig.Dialect = dialects.TransactionWrappedPostgres
 	for _, opt := range options {
 		switch v := opt.(type) {
-		case orm.DialectName:
+		case dialects.DialectName:
 			rawConfig.Dialect = v
 		}
 	}
