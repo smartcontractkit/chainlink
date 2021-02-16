@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
+
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -12,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	null "gopkg.in/guregu/null.v4"
 )
 
