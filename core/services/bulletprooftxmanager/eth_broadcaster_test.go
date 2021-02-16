@@ -728,8 +728,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth client call fails with an unexpected random error (e.g. insufficient funds)", func(t *testing.T) {
-		retryableErrorExample := "insufficient funds for transfer"
+	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
+		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
 		etx := models.EthTx{
@@ -749,7 +749,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		err = eb.ProcessUnstartedEthTxs(key)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: insufficient funds for transfer", etx.ID))
+		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: %s", etx.ID, retryableErrorExample))
 
 		// Check it was saved correctly with its attempt
 		etx, err = store.FindEthTxWithAttempts(etx.ID)
@@ -933,6 +933,45 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		err := eb.ProcessUnstartedEthTxs(key)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20000000000 is equal to original gas price of 20000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
+
+		// TEARDOWN: Clear out the unsent tx before the next test
+		require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE nonce = ?`, localNextNonce).Error)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("eth node returns insufficient eth", func(t *testing.T) {
+		insufficientEthError := "insufficient funds for transfer"
+		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		etx := models.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          models.EthTxUnstarted,
+		}
+		require.NoError(t, store.DB.Save(&etx).Error)
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(insufficientEthError)).Once()
+
+		err := eb.ProcessUnstartedEthTxs(key)
+		require.NoError(t, err)
+
+		// Check it was saved correctly with its attempt
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.Nil(t, etx.Error)
+		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, models.EthTxAttemptInsufficientEth, attempt.State)
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
 		ethClient.AssertExpectations(t)
 	})
