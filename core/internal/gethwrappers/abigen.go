@@ -3,17 +3,18 @@ package gethwrappers
 import (
 	"bytes"
 	"fmt"
-	gethParams "github.com/ethereum/go-ethereum/params"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
-	"golang.org/x/tools/go/ast/astutil"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+
+	gethParams "github.com/ethereum/go-ethereum/params"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 const headerComment = `// Code generated - DO NOT EDIT.
