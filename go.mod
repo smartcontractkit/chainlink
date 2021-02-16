@@ -71,3 +71,6 @@ require (
 	gorm.io/driver/sqlserver v1.0.5 // indirect
 	gorm.io/gorm v1.20.12
 )
+
+// TODO: Once geth 1.10 is out with this fix use that.
+replace github.com/ethereum/go-ethereum => github.com/connorwstein/go-ethereum v1.9.26-0.20201211175038-9aa606358e06
