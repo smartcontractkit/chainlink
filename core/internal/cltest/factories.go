@@ -38,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -293,7 +294,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID *models.ID,
+	jobID models.JobID,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -448,27 +449,27 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 }
 
 func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInput(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
@@ -476,7 +477,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	initr := models.Initiator{
-		JobSpecID: models.NewID(),
+		JobSpecID: models.NewJobID(),
 		InitiatorParams: models.InitiatorParams{
 			PollTimer: models.PollTimerConfig{
 				Period: models.MustMakeDuration(time.Second),
@@ -489,8 +490,8 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
-	taskRunID := models.NewID()
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -498,7 +499,7 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return *taskRunID
+	return taskRunID
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {

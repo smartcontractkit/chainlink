@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -28,7 +28,7 @@ var (
 type RunQueue interface {
 	Start() error
 	Stop()
-	Run(*models.ID)
+	Run(uuid.UUID)
 
 	WorkerCount() int
 }
@@ -89,7 +89,7 @@ func (rq *runQueue) decrementQueue(runID string) bool {
 }
 
 // Run tells the job runner to start executing a job
-func (rq *runQueue) Run(runID *models.ID) {
+func (rq *runQueue) Run(runID uuid.UUID) {
 	rq.workersMutex.Lock()
 	if rq.stopRequested {
 		rq.workersMutex.Unlock()

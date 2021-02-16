@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/static"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -116,17 +117,17 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	now := time.Now()
 
 	runA := cltest.NewJobRun(j1)
-	runA.ID = models.NewID()
+	runA.ID = uuid.NewV4()
 	runA.CreatedAt = now.Add(-2 * time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runA))
 
 	runB := cltest.NewJobRun(j1)
-	runB.ID = models.NewID()
+	runB.ID = uuid.NewV4()
 	runB.CreatedAt = now.Add(-time.Second)
 	assert.Nil(t, app.Store.CreateJobRun(&runB))
 
 	runC := cltest.NewJobRun(j2)
-	runC.ID = models.NewID()
+	runC.ID = uuid.NewV4()
 	runC.CreatedAt = now
 	assert.Nil(t, app.Store.CreateJobRun(&runC))
 

@@ -1085,7 +1085,7 @@ func JobRunStaysPendingIncomingConfirmations(
 
 // Polls until the passed in jobID has count number
 // of job spec errors.
-func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.ID, count int) []models.JobSpecError {
+func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.JobID, count int) []models.JobSpecError {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var jse []models.JobSpecError

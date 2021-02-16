@@ -23,7 +23,7 @@ type (
 		orm        ORM
 		decodedLog interface{}
 		rawLog     types.Log
-		jobID      *models.ID
+		jobID      models.JobID
 		jobIDV2    int32
 		isV2       bool
 	}
@@ -43,10 +43,17 @@ func (b *broadcast) SetDecodedLog(newLog interface{}) {
 
 // WasAlreadyConsumed reports whether the given consumer had already consumed the given log
 func (b *broadcast) WasAlreadyConsumed() (bool, error) {
-	return b.orm.WasBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.jobID, b.jobIDV2)
+	return b.orm.WasBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.JobID())
 }
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
 func (b *broadcast) MarkConsumed() error {
-	return b.orm.MarkBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.jobID, b.jobIDV2)
+	return b.orm.MarkBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.JobID())
+}
+
+func (b broadcast) JobID() interface{} {
+	if b.isV2 {
+		return b.jobIDV2
+	}
+	return b.jobID
 }

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 
 	"go.uber.org/zap"
@@ -43,6 +45,12 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 	elapsed := time.Since(begin)
 	switch {
 	case err != nil:
+		// NOTE: Silence "record not found" errors since it is the one type of
+		// error that we expect/handle and otherwise it fills our logs with
+		// noise
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return
+		}
 		sql, rows := fc()
 		if rows == -1 {
 			o.SugaredLogger.Errorw("", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)

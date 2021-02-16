@@ -111,7 +111,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	require.NoError(t, dbErr)
 
 	err := store.ORM.RawDB(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewID()}).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
@@ -140,7 +140,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	defer orm2.Close()
 
 	err = orm2.RawDB(func(db *gorm.DB) error {
-		return db.Save(&models.JobSpec{ID: models.NewID()}).Error
+		return db.Save(&models.JobSpec{ID: models.NewJobID()}).Error
 	})
 	require.NoError(t, err)
 
