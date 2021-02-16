@@ -3,18 +3,17 @@ package gethwrappers
 import (
 	"bytes"
 	"fmt"
+	gethParams "github.com/ethereum/go-ethereum/params"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
+	"golang.org/x/tools/go/ast/astutil"
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-
-	gethParams "github.com/ethereum/go-ethereum/params"
-	"github.com/smartcontractkit/chainlink/core/utils"
-	"golang.org/x/tools/go/ast/astutil"
 )
 
 const headerComment = `// Code generated - DO NOT EDIT.
@@ -46,7 +45,11 @@ func Abigen(a AbigenArgs) {
 	}
 	version := string(regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+`).Find(
 		versionResponse.Bytes()))
-	if version != gethParams.Version {
+	// TODO: Re-enable once geth 1.10 is released with the abigen patch included.
+	// We do this to avoid running un-released code in geth which is also present in the abigen bug fix patch.
+	// This way we _only_ use the patched abigen for code generation.
+	// if version != gethParams.Version {
+	if version != "1.9.26" {
 		Exit(fmt.Sprintf("wrong version (%s) of abigen; install the correct one "+
 			"(%s) with `make abigen` in the chainlink root dir", version,
 			gethParams.Version),
