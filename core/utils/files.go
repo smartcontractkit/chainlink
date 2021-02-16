@@ -95,8 +95,8 @@ func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	return errors.Wrap(err, "could not copy file contents")
 }
 
-// Ensures that the given file has permissions that are no more
-// permissive than the given ones.
+// EnsureFileMaxPerms ensures that the given file has permissions
+// that are no more permissive than the given ones.
 func EnsureFileMaxPerms(file *os.File, perms os.FileMode) error {
 	stat, err := file.Stat()
 	if err != nil {
@@ -108,8 +108,8 @@ func EnsureFileMaxPerms(file *os.File, perms os.FileMode) error {
 	return file.Chmod(stat.Mode() & perms)
 }
 
-// Ensures that the file at the given filepath has permissions that are
-// no more permissive than the given ones.
+// EnsureFilepathMaxPerms ensures that the file at the given filepath
+// has permissions that are no more permissive than the given ones.
 func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) error {
 	dst, err := os.OpenFile(filepath, os.O_RDWR, perms)
 	if err != nil {
