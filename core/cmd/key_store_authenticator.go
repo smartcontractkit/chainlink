@@ -122,6 +122,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 			"`chainlink local vrf` subcommands")
 }
 
+// AuthenticateOCRKey authenticates OCR keypairs
 func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
 	if password == "" {
 		return fmt.Errorf("OCR password must be non-trivial")
