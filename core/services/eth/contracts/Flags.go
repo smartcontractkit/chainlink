@@ -4,7 +4,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 )
 
@@ -62,7 +61,6 @@ func (ll flagsDecodingLogListener) HandleLog(lb log.Broadcast, err error) {
 	case flagsABI.Events["FlagLowered"].ID:
 		decodedLog, err = ll.contract.ParseFlagLowered(rawLog)
 	default:
-		logger.Warnf("Unknown topic for Flags contract: %s", eventID.Hex())
 		return // don't pass on unknown/unexpected events
 	}
 

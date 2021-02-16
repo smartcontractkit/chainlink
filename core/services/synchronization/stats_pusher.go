@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"reflect"
 	"sync"
 	"time"
 
@@ -11,11 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
-	"github.com/jinzhu/gorm"
 	"github.com/jpillora/backoff"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gorm.io/gorm"
 )
 
 var (
@@ -104,8 +105,14 @@ func (sp *statsPusher) GetStatus() ConnectionStatus {
 // Start starts the stats pusher
 func (sp *statsPusher) Start() error {
 	gormCallbacksMutex.Lock()
-	sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
-	sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+	err := sp.DB.Callback().Create().Register(createCallbackName, createSyncEventWithStatsPusher(sp))
+	if err != nil {
+		return err
+	}
+	err = sp.DB.Callback().Update().Register(updateCallbackName, createSyncEventWithStatsPusher(sp))
+	if err != nil {
+		return err
+	}
 	gormCallbacksMutex.Unlock()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -121,8 +128,12 @@ func (sp *statsPusher) Close() error {
 	}
 
 	gormCallbacksMutex.Lock()
-	sp.DB.Callback().Create().Remove(createCallbackName)
-	sp.DB.Callback().Update().Remove(updateCallbackName)
+	if err := sp.DB.Callback().Create().Remove(createCallbackName); err != nil {
+		return err
+	}
+	if err := sp.DB.Callback().Update().Remove(updateCallbackName); err != nil {
+		return err
+	}
 	gormCallbacksMutex.Unlock()
 
 	return nil
@@ -240,35 +251,42 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 	return nil
 }
 
-func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.Scope) {
-	return func(scope *gorm.Scope) {
-		if scope.HasError() {
+func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.DB) {
+	return func(db *gorm.DB) {
+		if db.Error != nil {
 			return
 		}
 
-		if scope.TableName() != "job_runs" {
+		if db.Statement.Table != "job_runs" {
 			return
 		}
 
-		run, ok := scope.Value.(*models.JobRun)
+		if db.Statement.ReflectValue.Type() != reflect.TypeOf(models.JobRun{}) {
+			logger.Errorf("Invariant violated scope.Value %T is not type models.JobRun, but TableName was job_runs", db.Statement.ReflectValue.Type())
+			return
+		}
+
+		run, ok := db.Statement.ReflectValue.Interface().(models.JobRun)
 		if !ok {
-			logger.Error("Invariant violated scope.Value is not type *models.JobRun, but TableName was job_runes")
+			db.Error = errors.Errorf("expected models.JobRun")
 			return
 		}
-
-		presenter := SyncJobRunPresenter{run}
+		presenter := SyncJobRunPresenter{&run}
 		bodyBytes, err := json.Marshal(presenter)
 		if err != nil {
-			_ = scope.Err(errors.Wrap(err, "createSyncEvent#json.Marshal failed"))
+			db.Error = errors.Wrap(err, "createSyncEvent#json.Marshal failed")
 			return
 		}
 
 		event := models.SyncEvent{
 			Body: string(bodyBytes),
 		}
-		err = scope.DB().Create(&event).Error
+
+		// Note we have to use a separate db instance here
+		// as the argument is part of a chain already targeting the job_runs table.
+		err = sp.(*statsPusher).DB.Create(&event).Error
 		if err != nil {
-			_ = scope.Err(errors.Wrap(err, "createSyncEvent#Create failed"))
+			db.Error = errors.Wrap(err, "createSyncEvent#Create failed")
 			return
 		}
 	}

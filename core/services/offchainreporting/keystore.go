@@ -4,11 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 
-	"github.com/jinzhu/gorm"
+	"gorm.io/gorm/clause"
+
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -50,7 +53,13 @@ func (ks *KeyStore) Unlock(password string) error {
 	for _, ek := range p2pkeys {
 		k, err := ek.Decrypt(password)
 		errs = multierr.Append(errs, err)
+		if err != nil {
+			continue
+		}
 		peerID, err := k.GetPeerID()
+		if err != nil {
+			continue
+		}
 		errs = multierr.Append(errs, err)
 		ks.p2pkeys[models.PeerID(peerID)] = k
 		logger.Debugw("Unlocked P2P key", "peerID", peerID)
@@ -113,13 +122,14 @@ func (ks KeyStore) GenerateEncryptedP2PKey() (p2pkey.Key, p2pkey.EncryptedP2PKey
 
 func (ks KeyStore) UpsertEncryptedP2PKey(k *p2pkey.EncryptedP2PKey) error {
 	err := ks.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (pub_key) DO UPDATE SET
-				encrypted_priv_key=EXCLUDED.encrypted_priv_key,
-				updated_at=NOW(),
-				deleted_at=null`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "pub_key"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"encrypted_priv_key": gorm.Expr("excluded.encrypted_priv_key"),
+				"updated_at":         time.Now(),
+				"deleted_at":         gorm.Expr("null"),
+			}),
+		}).
 		Create(k).
 		Error
 	if err != nil {
@@ -188,13 +198,14 @@ func (ks KeyStore) CreateEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKey
 func (ks KeyStore) UpsertEncryptedOCRKeyBundle(encryptedKey *ocrkey.EncryptedKeyBundle) error {
 	fmt.Println("encryptedKey.ID", encryptedKey.ID)
 	err := ks.
-		Set(
-			"gorm:insert_option",
-			`ON CONFLICT (id) DO UPDATE SET
-				encrypted_private_keys=EXCLUDED.encrypted_private_keys,
-				updated_at=NOW(),
-				deleted_at=null`,
-		).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "id"}},
+			DoUpdates: clause.Assignments(map[string]interface{}{
+				"encrypted_private_keys": gorm.Expr("excluded.encrypted_private_keys"),
+				"updated_at":             time.Now(),
+				"deleted_at":             gorm.Expr("null"),
+			}),
+		}).
 		Create(encryptedKey).
 		Error
 	if err != nil {

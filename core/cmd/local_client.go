@@ -13,6 +13,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	gormpostgres "gorm.io/driver/postgres"
+
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"go.uber.org/multierr"
@@ -33,9 +37,9 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/jinzhu/gorm"
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/zap/zapcore"
+	"gorm.io/gorm"
 )
 
 // ownerPermsMask are the file permission bits reserved for owner.
@@ -240,7 +244,7 @@ func logConfigVariables(store *strpkg.Store) error {
 func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*models.Key, *big.Int, error) {
 	key := models.Key{}
 	err := str.DB.Where("is_funding = TRUE").First(&key).Error
-	if err != nil && !gorm.IsRecordNotFoundError(err) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil, err
 	}
 	if err == nil && key.ID != 0 {
@@ -290,7 +294,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	cli.Config.Dialect = dialects.PostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer func() {
 		if serr := app.Stop(); serr != nil {
@@ -329,6 +333,8 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 func (cli *Client) HardReset(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 
+	fmt.Print("/// WARNING WARNING WARNING ///\n\n\n")
+	fmt.Print("Do not run this while a Chainlink node is currently using the DB as it could cause undefined behavior.\n\n")
 	if !confirmAction(c) {
 		return nil
 	}
@@ -337,13 +343,6 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 	defer cleanupFn()
 	storeInstance := app.GetStore()
 	ormInstance := storeInstance.ORM
-
-	// Ensure that the CL node is down by trying to acquire the global advisory lock.
-	// This method will panic if it can't get the lock.
-	logger.Info("Make sure the Chainlink node is not running")
-	if err := ormInstance.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 
 	if err := ormInstance.RemoveUnstartedTransactions(); err != nil {
 		logger.Errorw("failed to remove unstarted transactions", "error", err)
@@ -409,7 +408,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
-	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
+	db, err := sql.Open(string(dialects.Postgres), parsed.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -436,9 +435,7 @@ func migrateTestDB(config *orm.Config) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = orm.RawDB(func(db *gorm.DB) error {
-		return migrationsv2.Migrate(db)
-	})
+	err = migrationsv2.Migrate(orm.DB)
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)
 	}
@@ -447,7 +444,7 @@ func migrateTestDB(config *orm.Config) error {
 }
 
 func insertFixtures(config *orm.Config) (err error) {
-	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
+	db, err := sql.Open(string(dialects.Postgres), config.DatabaseURL())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -493,7 +490,9 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	nextNonce := c.Uint64("nextNonce")
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	db, err := gorm.Open(string(orm.DialectPostgres), cli.Config.DatabaseURL())
+	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: cli.Config.DatabaseURL(),
+	}), &gorm.Config{})
 	if err != nil {
 		return cli.errorOut(err)
 	}

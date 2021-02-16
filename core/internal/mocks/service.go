@@ -27,7 +27,7 @@ func (_m *Service) AddJob(_a0 models.JobSpec) error {
 }
 
 // RemoveJob provides a mock function with given fields: _a0
-func (_m *Service) RemoveJob(_a0 *models.ID) {
+func (_m *Service) RemoveJob(_a0 models.JobID) {
 	_m.Called(_a0)
 }
 

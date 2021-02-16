@@ -16,10 +16,10 @@ import (
 // Initiators will have their own unique ID, but will be associated
 // to a parent JobID.
 type Initiator struct {
-	ID         uint       `gorm:"primary_key;auto_increment"`
-	JobSpecID  *models.ID `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
-	Type       string     `gorm:"index;not null"`
-	CreatedAt  time.Time  `gorm:"index"`
+	ID         uint         `gorm:"primary_key;auto_increment"`
+	JobSpecID  models.JobID `gorm:"index;type:varchar(36) REFERENCES job_specs(id)"`
+	Type       string       `gorm:"index;not null"`
+	CreatedAt  time.Time    `gorm:"index"`
 	Schedule   models.Cron
 	Time       models.AnyTime
 	Ran        bool

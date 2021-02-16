@@ -5,12 +5,12 @@ import (
 	"io/ioutil"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 	"go.uber.org/multierr"
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Key holds the private key metadata for a given address that is used to unlock
@@ -21,9 +21,9 @@ type Key struct {
 	ID        int32 `gorm:"primary_key"`
 	Address   EIP55Address
 	JSON      JSON
-	CreatedAt time.Time `json:"-"`
-	UpdatedAt time.Time `json:"-"`
-	DeletedAt null.Time `json:"-"`
+	CreatedAt time.Time      `json:"-"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions

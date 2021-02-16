@@ -16,8 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 const (
@@ -57,7 +57,7 @@ func (e *EthTx) TaskType() models.TaskType {
 // is not currently pending. Then it confirms the transaction was confirmed on
 // the blockchain.
 func (e *EthTx) Perform(input models.RunInput, store *strpkg.Store) models.RunOutput {
-	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID().UUID())
+	trtx, err := store.FindEthTaskRunTxByTaskRunID(input.TaskRunID())
 	if err != nil {
 		err = errors.Wrap(err, "FindEthTaskRunTxByTaskRunID failed")
 		logger.Error(err)
@@ -217,7 +217,7 @@ func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirma
 		return &receipt, nil
 	}
 
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 

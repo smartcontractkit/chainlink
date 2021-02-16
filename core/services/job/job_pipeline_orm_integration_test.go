@@ -6,10 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 func clearJobsDb(t *testing.T, db *gorm.DB) {
@@ -306,7 +308,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				// Process the run
 				{
 					var anyRemaining bool
-					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) (trrs pipeline.TaskRunResults, err error) {
+					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run, l logger.Logger) (trrs pipeline.TaskRunResults, err error) {
 						for dotID, result := range test.answers {
 							var tr pipeline.TaskRun
 							require.NoError(t, db.
@@ -329,7 +331,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run) (pipeline.TaskRunResults, error) {
+					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run, l logger.Logger) (pipeline.TaskRunResults, error) {
 						t.Fatal("this callback should never be reached")
 						return nil, nil
 					})
