@@ -409,7 +409,7 @@ func JustError(_ interface{}, err error) error {
 
 var zero = big.NewInt(0)
 
-// CheckUint256(n) returns an error if n is out of bounds for a uint256
+// CheckUint256 returns an error if n is out of bounds for a uint256
 func CheckUint256(n *big.Int) error {
 	if n.Cmp(zero) < 0 || n.Cmp(maxUint256) >= 0 {
 		return fmt.Errorf("number out of range for uint256")
@@ -439,6 +439,7 @@ func Uint256ToHex(n *big.Int) (string, error) {
 	return common.BigToHash(n).Hex(), nil
 }
 
+// ToDecimal converts an input to a decimal
 func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	switch v := input.(type) {
 	case string:
@@ -546,6 +547,7 @@ func CombinedContext(signals ...interface{}) (context.Context, context.CancelFun
 	return ctx, cancel
 }
 
+// DependentAwaiter contains Dependent funcs
 type DependentAwaiter interface {
 	AwaitDependents() <-chan struct{}
 	AddDependents(n int)
@@ -557,6 +559,7 @@ type dependentAwaiter struct {
 	ch <-chan struct{}
 }
 
+// NewDependentAwaiter creates a new DependentAwaiter
 func NewDependentAwaiter() DependentAwaiter {
 	return &dependentAwaiter{
 		wg: &sync.WaitGroup{},
@@ -747,6 +750,7 @@ func NewPausableTicker(duration time.Duration) PausableTicker {
 	}
 }
 
+// Ticks retrieves the ticks from a PausableTicker
 func (t PausableTicker) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -756,6 +760,7 @@ func (t PausableTicker) Ticks() <-chan time.Time {
 	return t.ticker.C
 }
 
+// Pause pauses a PausableTicker
 func (t *PausableTicker) Pause() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -765,6 +770,8 @@ func (t *PausableTicker) Pause() {
 	}
 }
 
+// Resume resumes a Ticker
+// using a PausibleTicker's duration
 func (t *PausableTicker) Resume() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -773,21 +780,25 @@ func (t *PausableTicker) Resume() {
 	}
 }
 
+// Destroy pauses the PausibleTicker
 func (t *PausableTicker) Destroy() {
 	t.Pause()
 }
 
+// ResettableTimer stores a timer
 type ResettableTimer struct {
 	timer *time.Timer
 	mu    *sync.RWMutex
 }
 
+// NewResettableTimer creates a new ResettableTimer
 func NewResettableTimer() ResettableTimer {
 	return ResettableTimer{
 		mu: &sync.RWMutex{},
 	}
 }
 
+// Ticks retrieves the ticks from a ResettableTimer
 func (t ResettableTimer) Ticks() <-chan time.Time {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -797,6 +808,7 @@ func (t ResettableTimer) Ticks() <-chan time.Time {
 	return t.timer.C
 }
 
+// Stop stops a ResettableTimer
 func (t *ResettableTimer) Stop() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -806,6 +818,8 @@ func (t *ResettableTimer) Stop() {
 	}
 }
 
+// Reset stops a ResettableTimer
+// and resets it with a new duration
 func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -815,6 +829,8 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 	t.timer = time.NewTimer(duration)
 }
 
+// EVMBytesToUint64 converts
+// a bytebuffer to uint64
 func EVMBytesToUint64(buf []byte) uint64 {
 	var result uint64
 	for _, b := range buf {
