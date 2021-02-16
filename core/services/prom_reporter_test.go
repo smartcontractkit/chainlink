@@ -17,7 +17,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer cleanup()
 
 		backend := new(mocks.PrometheusBackend)
-		reporter := services.NewPromReporter(store.DB.DB(), backend)
+		d, _ := store.DB.DB()
+		reporter := services.NewPromReporter(d, backend)
 
 		backend.On("SetUnconfirmedTransactions", int64(0)).Return()
 		backend.On("SetMaxUnconfirmedBlocks", int64(0)).Return()
@@ -36,7 +37,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
 
 		backend := new(mocks.PrometheusBackend)
-		reporter := services.NewPromReporter(store.DB.DB(), backend)
+		d, _ := store.DB.DB()
+		reporter := services.NewPromReporter(d, backend)
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
@@ -62,7 +64,8 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		require.NoError(t, store.DB.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_task_spec_id_fkey DEFERRED`).Error)
 
 		backend := new(mocks.PrometheusBackend)
-		reporter := services.NewPromReporter(store.DB.DB(), backend)
+		d, _ := store.DB.DB()
+		reporter := services.NewPromReporter(d, backend)
 
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)
 		cltest.MustInsertUnfinishedPipelineTaskRun(t, store, 1)

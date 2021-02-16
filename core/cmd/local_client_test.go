@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
@@ -116,11 +118,12 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
-			// Clear out fixture
-			store.DeleteUser()
 			defer cleanup()
+			// Clear out fixture
+			_, err := store.DeleteUser()
+			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
-			_, err := store.KeyStore.NewAccount()
+			_, err = store.KeyStore.NewAccount()
 			require.NoError(t, err)
 
 			app := new(mocks.Application)
@@ -344,7 +347,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// the transaction cannot be seen from another connection.
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	config.Config.Dialect = dialects.PostgresWithoutLock
 	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 	defer connectedCleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
@@ -368,7 +371,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// lock ID is the same. We set the config to be Postgres Without
 	// Lock, because the db locking strategy is decided when we
 	// initialize the store/ORM.
-	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	config.Config.Dialect = dialects.PostgresWithoutLock
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	store.KeyStore.Unlock(cltest.Password)
@@ -390,7 +393,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 		Runner:                 cltest.EmptyRunner{},
 	}
 
-	config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+	config.Config.Dialect = dialects.TransactionWrappedPostgres
 
 	for i := beginningNonce; i <= endingNonce; i++ {
 		n := i
@@ -403,7 +406,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// that it was set back to WithoutLock at the end of the test.
 	assert.NoError(t, client.RebroadcastTransactions(c))
 	// Check that the Dialect was set back when the command was run.
-	assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+	assert.Equal(t, dialects.PostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
 
 	app.AssertExpectations(t)
 	ethClient.AssertExpectations(t)
@@ -430,7 +433,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// the transaction cannot be seen from another connection.
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
-			config.Config.Dialect = orm.DialectPostgres
+			config.Config.Dialect = dialects.Postgres
 			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
 			defer connectedCleanup()
 
@@ -451,7 +454,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// lock ID is the same. We set the config to be Postgres Without
 			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
-			config.Config.Dialect = orm.DialectPostgresWithoutLock
+			config.Config.Dialect = dialects.PostgresWithoutLock
 			store, cleanup := cltest.NewStoreWithConfig(config)
 			defer cleanup()
 			store.KeyStore.Unlock(cltest.Password)
@@ -473,7 +476,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 				Runner:                 cltest.EmptyRunner{},
 			}
 
-			config.Config.Dialect = orm.DialectTransactionWrappedPostgres
+			config.Config.Dialect = dialects.TransactionWrappedPostgres
 
 			for i := beginningNonce; i <= endingNonce; i++ {
 				n := i
@@ -486,7 +489,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// that it was set back to WithoutLock at the end of the test.
 			assert.NoError(t, client.RebroadcastTransactions(c))
 			// Check that the Dialect was set back when the command was run.
-			assert.Equal(t, orm.DialectPostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
+			assert.Equal(t, dialects.PostgresWithoutLock, config.Config.GetDatabaseDialectConfiguredOrDefault())
 
 			cltest.AssertEthTxAttemptCountStays(t, store, 1)
 			app.AssertExpectations(t)
@@ -499,7 +502,7 @@ func TestClient_SetNextNonce(t *testing.T) {
 	// Need to use separate database
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
 	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgres
+	config.Config.Dialect = dialects.Postgres
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 

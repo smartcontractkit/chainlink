@@ -7,7 +7,7 @@ import (
 // JobSpecError represents an asynchronous error caused by a JobSpec
 type JobSpecError struct {
 	ID          int64     `json:"id"`
-	JobSpecID   *ID       `json:"-"`
+	JobSpecID   JobID     `json:"-"`
 	Description string    `json:"description"`
 	Occurrences uint      `json:"occurrences"`
 	CreatedAt   time.Time `json:"createdAt"`
@@ -15,7 +15,7 @@ type JobSpecError struct {
 }
 
 // NewJobSpecError creates a new JobSpecError struct
-func NewJobSpecError(jobSpecID *ID, description string) JobSpecError {
+func NewJobSpecError(jobSpecID JobID, description string) JobSpecError {
 	return JobSpecError{
 		JobSpecID:   jobSpecID,
 		Description: description,

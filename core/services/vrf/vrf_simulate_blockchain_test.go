@@ -23,7 +23,7 @@ func registerExistingProvingKey(
 	t *testing.T,
 	coordinator coordinatorUniverse,
 	provingKey *vrfkey.PrivateKey,
-	jobID *models.ID,
+	jobID models.JobID,
 	vrfFee *big.Int,
 ) {
 	var rawJobID [32]byte

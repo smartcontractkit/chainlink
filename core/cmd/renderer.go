@@ -398,7 +398,7 @@ func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
 			lastUsed = key.LastUsed.String()
 		}
 		var deletedAt string
-		if !key.DeletedAt.IsZero() {
+		if key.DeletedAt.Valid {
 			deletedAt = key.DeletedAt.Time.String()
 		}
 		rows = append(rows, []string{
@@ -421,7 +421,7 @@ func (rt RendererTable) renderP2PKeys(p2pKeys []p2pkey.EncryptedP2PKey) error {
 	var rows [][]string
 	for _, key := range p2pKeys {
 		var deletedAt string
-		if !key.DeletedAt.IsZero() {
+		if key.DeletedAt.Valid {
 			deletedAt = key.DeletedAt.Time.String()
 		}
 		rows = append(rows, []string{
@@ -442,7 +442,7 @@ func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error
 	var rows [][]string
 	for _, key := range ocrKeys {
 		var deletedAt string
-		if !key.DeletedAt.IsZero() {
+		if key.DeletedAt.Valid {
 			deletedAt = key.DeletedAt.Time.String()
 		}
 		rows = append(rows, []string{

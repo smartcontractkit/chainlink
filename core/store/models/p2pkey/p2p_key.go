@@ -2,11 +2,16 @@ package p2pkey
 
 import (
 	"crypto/rand"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
+
+	"gorm.io/gorm/schema"
+
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -14,8 +19,6 @@ import (
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -50,6 +53,34 @@ func (pkb *PublicKeyBytes) UnmarshalJSON(input []byte) error {
 	return nil
 }
 
+func (pkb *PublicKeyBytes) Scan(value interface{}) error {
+	switch v := value.(type) {
+	case []byte:
+		*pkb = v
+		return nil
+	default:
+		return errors.Errorf("invalid public key bytes got %T wanted []byte", v)
+	}
+}
+
+func (pkb PublicKeyBytes) Value() (driver.Value, error) {
+	return []byte(pkb), nil
+}
+
+// GormDataType gorm common data type
+func (PublicKeyBytes) GormDataType() string {
+	return "bytea"
+}
+
+// GormDBDataType gorm db data type
+func (PublicKeyBytes) GormDBDataType(db *gorm.DB, field *schema.Field) string {
+	switch db.Dialector.Name() {
+	case "postgres":
+		return "BYTEA"
+	}
+	return ""
+}
+
 func (k Key) GetPeerID() (models.PeerID, error) {
 	peerID, err := peer.IDFromPrivateKey(k)
 	if err != nil {
@@ -69,11 +100,11 @@ func (k Key) MustGetPeerID() models.PeerID {
 type EncryptedP2PKey struct {
 	ID               int32          `json:"id" gorm:"primary_key"`
 	PeerID           models.PeerID  `json:"peerId"`
-	PubKey           PublicKeyBytes `json:"publicKey"`
+	PubKey           PublicKeyBytes `json:"publicKey" gorm:"type:bytea"`
 	EncryptedPrivKey []byte         `json:"-"`
 	CreatedAt        time.Time      `json:"createdAt"`
 	UpdatedAt        time.Time      `json:"updatedAt,omitempty"`
-	DeletedAt        null.Time      `json:"deletedAt,omitempty"`
+	DeletedAt        gorm.DeletedAt `json:"deletedAt,omitempty"`
 }
 
 func (EncryptedP2PKey) TableName() string {

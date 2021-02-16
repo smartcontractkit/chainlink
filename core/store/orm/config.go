@@ -15,6 +15,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	"gorm.io/gorm"
+
 	"github.com/multiformats/go-multiaddr"
 
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -53,7 +57,7 @@ type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
 	runtimeStore    *ORM
-	Dialect         DialectName
+	Dialect         dialects.DialectName
 	AdvisoryLockID  int64
 }
 
@@ -187,9 +191,9 @@ func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	return c.AdvisoryLockID
 }
 
-func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
+func (c Config) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
 	if c.Dialect == "" {
-		return DialectPostgres
+		return dialects.Postgres
 	}
 	return c.Dialect
 }
@@ -376,7 +380,7 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Cause(err) != ErrorNotFound {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
