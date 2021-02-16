@@ -31,8 +31,8 @@ func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
 	return int(stat.Uid) == os.Getuid(), nil
 }
 
-// Ensures that the given path exists, that it's a directory, and that it has
-// permissions that are no more permissive than the given ones.
+// EnsureDirAndMaxPerms ensures that the given path exists, that it's a directory,
+// and that it has permissions that are no more permissive than the given ones.
 //
 // - If the path does not exist, it is created
 // - If the path exists, but is not a directory, an error is returned
@@ -55,8 +55,8 @@ func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 	return nil
 }
 
-// Writes `data` to `path` and ensures that the file has permissions that
-// are no more permissive than the given ones.
+// WriteFileWithMaxPerms writes `data` to `path` and ensures that
+// the file has permissions that are no more permissive than the given ones.
 func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, perms)
 	if err != nil {
@@ -71,8 +71,8 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) error {
 	return err
 }
 
-// Copies the file at `srcPath` to `dstPath` and ensures that it has
-// permissions that are no more permissive than the given ones.
+// CopyFileWithMaxPerms copies the file at `srcPath` to `dstPath`
+// and ensures that it has permissions that are no more permissive than the given ones.
 func CopyFileWithMaxPerms(srcPath, dstPath string, perms os.FileMode) error {
 	src, err := os.Open(srcPath)
 	if err != nil {
