@@ -664,7 +664,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 	switch v := err.(type) {
 	case *pgconn.PgError:
 		if v.ConstraintName == "idx_eth_task_run_txes_task_run_id" {
-      savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
+			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
 			if e != nil {
 				return e
 			}
