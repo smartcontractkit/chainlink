@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"gorm.io/gorm"
 
 	"github.com/multiformats/go-multiaddr"
@@ -55,7 +57,7 @@ type Config struct {
 	viper           *viper.Viper
 	SecretGenerator SecretGenerator
 	runtimeStore    *ORM
-	Dialect         DialectName
+	Dialect         dialects.DialectName
 	AdvisoryLockID  int64
 }
 
@@ -189,9 +191,9 @@ func (c Config) GetAdvisoryLockIDConfiguredOrDefault() int64 {
 	return c.AdvisoryLockID
 }
 
-func (c Config) GetDatabaseDialectConfiguredOrDefault() DialectName {
+func (c Config) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
 	if c.Dialect == "" {
-		return DialectPostgres
+		return dialects.Postgres
 	}
 	return c.Dialect
 }

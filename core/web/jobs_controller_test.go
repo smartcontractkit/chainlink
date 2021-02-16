@@ -93,7 +93,7 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	defer cleanup()
 
 	toml := string(cltest.MustReadFile(t, "testdata/oracle-spec.toml"))
-	toml = strings.Replace(toml, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", app.Key.Address.Hex(), 1)
+	toml = strings.Replace(toml, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", app.Key.Address.Hex(), 1)
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: toml,
 	})
