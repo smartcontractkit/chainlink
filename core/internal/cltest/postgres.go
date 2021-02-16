@@ -73,7 +73,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
-		require.NoError(t, orm.RawDB(func(db *gorm.DB) error { return migrationsv2.Migrate(db) }))
+		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrationsv2.Migrate(db) }))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
 		_, filename, _, ok := runtime.Caller(0)
@@ -83,7 +83,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 		filepath := path.Join(path.Dir(filename), "../../store/testdata/fixtures.sql")
 		fixturesSQL, err := ioutil.ReadFile(filepath)
 		require.NoError(t, err)
-		err = orm.RawDB(func(db *gorm.DB) error {
+		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			return db.Exec(string(fixturesSQL)).Error
 		})
 		require.NoError(t, err)
