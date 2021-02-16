@@ -53,7 +53,13 @@ func (ks *KeyStore) Unlock(password string) error {
 	for _, ek := range p2pkeys {
 		k, err := ek.Decrypt(password)
 		errs = multierr.Append(errs, err)
+		if err != nil {
+			continue
+		}
 		peerID, err := k.GetPeerID()
+		if err != nil {
+			continue
+		}
 		errs = multierr.Append(errs, err)
 		ks.p2pkeys[models.PeerID(peerID)] = k
 		logger.Debugw("Unlocked P2P key", "peerID", peerID)
