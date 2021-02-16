@@ -1356,7 +1356,7 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Find(collection).Error
 }
 
-func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
+func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
