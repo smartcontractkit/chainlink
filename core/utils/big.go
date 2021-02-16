@@ -53,6 +53,7 @@ func NewBig(i *big.Int) *Big {
 	return nil
 }
 
+// NewBigI constructs a Big from int64.
 func NewBigI(i int64) *Big {
 	return NewBig(big.NewInt(i))
 }
