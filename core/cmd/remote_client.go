@@ -70,12 +70,12 @@ func (cli *Client) CreateExternalInitiator(c *clipkg.Context) (err error) {
 
 	// process optional URL
 	if c.NArg() == 2 {
-		var reqUrl *url.URL
-		reqUrl, err = url.ParseRequestURI(c.Args().Get(1))
+		var reqURL *url.URL
+		reqURL, err = url.ParseRequestURI(c.Args().Get(1))
 		if err != nil {
 			return cli.errorOut(err)
 		}
-		request.URL = (*models.WebURL)(reqUrl)
+		request.URL = (*models.WebURL)(reqURL)
 	}
 
 	requestData, err := json.Marshal(request)
@@ -213,7 +213,7 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 	return nil
 }
 
-// CreateV2JobSpec creates a V2 job
+// CreateJobV2 creates a V2 job
 // Valid input is a TOML string or a path to TOML file
 func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
@@ -266,6 +266,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 	return nil
 }
 
+// DeleteJobV2 deletes a V2 job
 func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the job id to be archived"))
@@ -673,7 +674,8 @@ func (cli *Client) GetConfiguration(c *clipkg.Context) (err error) {
 	return err
 }
 
-// CancelJob cancels a running job
+// CancelJobRun cancels a running job,
+// Run ID must be passed
 func (cli *Client) CancelJobRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the run id to be cancelled"))
@@ -732,6 +734,8 @@ func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &keys)
 }
 
+// DeleteETHKey deletes an Etherium key,
+// address of key must be passed
 func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to be deleted"))
@@ -772,6 +776,8 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ImportETHKey imports an Etherium key,
+// file path must be passed
 func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -811,6 +817,8 @@ func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ExportETHKey exports an ETH key,
+// address must be passed
 func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the address of the key to export"))
@@ -860,6 +868,7 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 	return nil
 }
 
+// CreateP2PKey stores a P2P keypair
 func (cli *Client) CreateP2PKey(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Post("/v2/keys/p2p", nil)
 	if err != nil {
@@ -878,6 +887,7 @@ func (cli *Client) CreateP2PKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ListP2PKeys retrieves a list of all P2P keys
 func (cli *Client) ListP2PKeys(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/keys/p2p", nil)
 	if err != nil {
@@ -893,6 +903,8 @@ func (cli *Client) ListP2PKeys(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &keys)
 }
 
+// DeleteP2PKey deletes a P2P key,
+// key ID must be passed
 func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
@@ -928,6 +940,8 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ImportP2PKey imports and stores a P2P key,
+// path to key must be passed
 func (cli *Client) ImportP2PKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -968,6 +982,8 @@ func (cli *Client) ImportP2PKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ExportP2PKey exports a P2P key,
+// key ID must be passed
 func (cli *Client) ExportP2PKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
@@ -1091,6 +1107,8 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ImportOCRKey imports OCR key bundle,
+// file path must be passed
 func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
@@ -1131,6 +1149,8 @@ func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
 	return cli.renderAPIResponse(resp, &key)
 }
 
+// ExportOCRKey exports OCR key bundles by ID
+// ID of the key must be passed
 func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
