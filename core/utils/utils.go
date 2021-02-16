@@ -68,7 +68,7 @@ func Uint64ToHex(i uint64) string {
 
 var maxUint256 = common.HexToHash("0x" + strings.Repeat("f", 64)).Big()
 
-// Uint256ToBytes(x) is x represented as the bytes of a uint256
+// Uint256ToBytes is x represented as the bytes of a uint256
 func Uint256ToBytes(x *big.Int) (uint256 []byte, err error) {
 	if x.Cmp(maxUint256) > 0 {
 		return nil, fmt.Errorf("too large to convert to uint256")
@@ -228,6 +228,7 @@ func (bs *BackoffSleeper) Reset() {
 	bs.Backoff.Reset()
 }
 
+// RetryWithBackoff retries the sleeper and backs off if not Done
 func RetryWithBackoff(ctx context.Context, fn func() (retry bool)) {
 	sleeper := NewBackoffSleeper()
 	sleeper.Reset()
@@ -839,11 +840,13 @@ func EVMBytesToUint64(buf []byte) uint64 {
 	return result
 }
 
+// StartStopOnce contains a StartStopOnceState integer
 type StartStopOnce struct {
 	state StartStopOnceState
 	sync.RWMutex
 }
 
+// StartStopOnceState manages the state for StartStopOnce
 type StartStopOnceState int
 
 const (
@@ -852,6 +855,7 @@ const (
 	StartStopOnce_Stopped
 )
 
+// StartOnce sets the state to Started
 func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
@@ -864,6 +868,7 @@ func (once *StartStopOnce) StartOnce(name string, fn func() error) error {
 	return fn()
 }
 
+// StopOnce sets the state to Stopped
 func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	once.Lock()
 	defer once.Unlock()
@@ -876,6 +881,7 @@ func (once *StartStopOnce) StopOnce(name string, fn func() error) error {
 	return fn()
 }
 
+// OkayToStart checks if the state may be started
 func (once *StartStopOnce) OkayToStart() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
@@ -887,6 +893,7 @@ func (once *StartStopOnce) OkayToStart() (ok bool) {
 	return true
 }
 
+// OkayToStop checks if the state may be stopped
 func (once *StartStopOnce) OkayToStop() (ok bool) {
 	once.Lock()
 	defer once.Unlock()
@@ -898,6 +905,7 @@ func (once *StartStopOnce) OkayToStop() (ok bool) {
 	return true
 }
 
+// State retrieves the current state
 func (once *StartStopOnce) State() StartStopOnceState {
 	once.RLock()
 	defer once.RUnlock()
