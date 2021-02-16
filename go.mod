@@ -25,6 +25,7 @@ require (
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
 	github.com/jackc/pgconn v1.8.0
+	github.com/jackc/pgtype v1.6.2
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.8.0

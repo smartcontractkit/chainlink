@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -37,7 +39,7 @@ func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, e
 	// Cannot drop test database if we are connected to it, so we must connect
 	// to a different one. 'postgres' should be present on all postgres installations
 	parsed.Path = "/postgres"
-	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
+	db, err := sql.Open(string(dialects.Postgres), parsed.String())
 	if err != nil {
 		return "", fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -66,7 +68,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	require.NoError(t, os.MkdirAll(config.RootDir(), 0700))
 	migrationTestDBURL, err := dropAndCreateThrowawayTestDB(tc.DatabaseURL(), name)
 	require.NoError(t, err)
-	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), orm.DialectPostgresWithoutLock, 0, config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	orm, err := orm.NewORM(migrationTestDBURL, config.DatabaseTimeout(), gracefulpanic.NewSignal(), dialects.PostgresWithoutLock, 0, config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	require.NoError(t, err)
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)

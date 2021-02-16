@@ -14,7 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgconn"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm/clause"
 
@@ -58,7 +59,7 @@ type ORM struct {
 }
 
 // NewORM initializes the orm with the configured uri
-func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (*ORM, error) {
+func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Signal, dialect dialects.DialectName, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (*ORM, error) {
 	ct, err := NewConnection(dialect, uri, advisoryLockID, lockRetryInterval, maxOpenConns, maxIdleConns)
 	if err != nil {
 		return nil, err
@@ -661,8 +662,8 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 		return nil
 	})
 	switch v := err.(type) {
-	case *pq.Error:
-		if v.Constraint == "idx_eth_task_run_txes_task_run_id" {
+	case *pgconn.PgError:
+		if v.ConstraintName == "idx_eth_task_run_txes_task_run_id" {
 			savedRecord, e := orm.FindEthTaskRunTxByTaskRunID(taskRunID)
 			if e != nil {
 				return e
@@ -1400,37 +1401,11 @@ func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
 	return fn(orm.DB)
 }
 
-// DialectName is a compiler enforced type used that maps to gorm's dialect
-// names.
-type DialectName string
-
-const (
-	// DialectPostgres represents the postgres dialect.
-	DialectPostgres DialectName = "postgres"
-	// DialectTransactionWrappedPostgres is useful for tests.
-	// When the connection is opened, it starts a transaction and all
-	// operations performed on the DB will be within that transaction.
-	//
-	// HACK: This must be the string 'cloudsqlpostgres' because of an absolutely
-	// horrible design in gorm. We need gorm to enable postgres-specific
-	// features for the txdb driver, but it can only do that if the dialect is
-	// called "postgres" or "cloudsqlpostgres".
-	//
-	// Since "postgres" is already taken, "cloudsqlpostgres" is our only
-	// remaining option
-	//
-	// See: https://github.com/jinzhu/gorm/blob/master/dialect_postgres.go#L15
-	DialectTransactionWrappedPostgres DialectName = "cloudsqlpostgres"
-	// DialectPostgresWithoutLock represents the postgres dialect but it does not
-	// wait for a lock to connect. Intended to be used for read only access.
-	DialectPostgresWithoutLock DialectName = "postgresWithoutLock"
-)
-
 // Connection manages all of the possible database connection setup and config.
 type Connection struct {
-	name               DialectName
+	name               dialects.DialectName
 	uri                string
-	dialect            DialectName
+	dialect            dialects.DialectName
 	locking            bool
 	advisoryLockID     int64
 	lockRetryInterval  time.Duration
@@ -1441,12 +1416,12 @@ type Connection struct {
 
 // NewConnection returns a Connection which holds all of the configuration
 // necessary for managing the database connection.
-func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
+func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int64, lockRetryInterval time.Duration, maxOpenConns, maxIdleConns int) (Connection, error) {
 	switch dialect {
-	case DialectPostgres:
+	case dialects.Postgres:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectPostgres,
+			dialect:            dialects.Postgres,
 			locking:            true,
 			name:               dialect,
 			transactionWrapped: false,
@@ -1455,10 +1430,10 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			maxOpenConns:       maxOpenConns,
 			maxIdleConns:       maxIdleConns,
 		}, nil
-	case DialectPostgresWithoutLock:
+	case dialects.PostgresWithoutLock:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectPostgres,
+			dialect:            dialects.Postgres,
 			locking:            false,
 			name:               dialect,
 			transactionWrapped: false,
@@ -1466,10 +1441,10 @@ func NewConnection(dialect DialectName, uri string, advisoryLockID int64, lockRe
 			maxOpenConns:       maxOpenConns,
 			maxIdleConns:       maxIdleConns,
 		}, nil
-	case DialectTransactionWrappedPostgres:
+	case dialects.TransactionWrappedPostgres:
 		return Connection{
 			advisoryLockID:     advisoryLockID,
-			dialect:            DialectTransactionWrappedPostgres,
+			dialect:            dialects.TransactionWrappedPostgres,
 			locking:            true,
 			name:               dialect,
 			transactionWrapped: true,

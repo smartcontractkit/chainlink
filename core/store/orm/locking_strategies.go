@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -17,7 +19,7 @@ import (
 // to ensure exlusive access to the orm.
 func NewLockingStrategy(ct Connection) (LockingStrategy, error) {
 	switch ct.name {
-	case DialectPostgres, DialectPostgresWithoutLock, DialectTransactionWrappedPostgres:
+	case dialects.Postgres, dialects.PostgresWithoutLock, dialects.TransactionWrappedPostgres:
 		return NewPostgresLockingStrategy(ct)
 	}
 
@@ -62,7 +64,7 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.conn == nil {
-		db, err := sql.Open(string(DialectPostgres), s.config.uri)
+		db, err := sql.Open(string(dialects.Postgres), s.config.uri)
 		if err != nil {
 			return err
 		}
