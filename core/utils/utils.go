@@ -578,13 +578,14 @@ func (da *dependentAwaiter) DependentReady() {
 	da.wg.Done()
 }
 
-// FIFO queue that discards older items when it reaches its capacity.
+// BoundedQueue is a FIFO queue that discards older items when it reaches its capacity.
 type BoundedQueue struct {
 	capacity uint
 	items    []interface{}
 	mu       *sync.RWMutex
 }
 
+// NewBoundedQueue creates a new BoundedQueue instance
 func NewBoundedQueue(capacity uint) *BoundedQueue {
 	return &BoundedQueue{
 		capacity: capacity,
@@ -592,6 +593,7 @@ func NewBoundedQueue(capacity uint) *BoundedQueue {
 	}
 }
 
+// Add appends items to a BoundedQueue
 func (q *BoundedQueue) Add(x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -602,6 +604,7 @@ func (q *BoundedQueue) Add(x interface{}) {
 	}
 }
 
+// Take pulls the first item from the array and removes it
 func (q *BoundedQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -613,18 +616,22 @@ func (q *BoundedQueue) Take() interface{} {
 	return x
 }
 
+// Empty check is a BoundedQueue is empty
 func (q *BoundedQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return len(q.items) == 0
 }
 
+// Full checks if a BoundedQueue is over capacity.
 func (q *BoundedQueue) Full() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
 	return uint(len(q.items)) >= q.capacity
 }
 
+// BoundedPriorityQueue stores a series of BoundedQueues
+// with associated priorities and capacities
 type BoundedPriorityQueue struct {
 	queues     map[uint]*BoundedQueue
 	priorities []uint
@@ -632,6 +639,7 @@ type BoundedPriorityQueue struct {
 	mu         *sync.RWMutex
 }
 
+// NewBoundedPriorityQueue creates a new BoundedPriorityQueue
 func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	queues := make(map[uint]*BoundedQueue)
 	var priorities []uint
@@ -648,6 +656,7 @@ func NewBoundedPriorityQueue(capacities map[uint]uint) *BoundedPriorityQueue {
 	}
 }
 
+// Add pushes an item into a subque within a BoundedPriorityQueue
 func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -660,6 +669,7 @@ func (q *BoundedPriorityQueue) Add(priority uint, x interface{}) {
 	subqueue.Add(x)
 }
 
+// Take takes from the BoundedPriorityQueue's subque
 func (q *BoundedPriorityQueue) Take() interface{} {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -674,6 +684,8 @@ func (q *BoundedPriorityQueue) Take() interface{} {
 	return nil
 }
 
+// Empty checks the BoundedPriorityQueue
+// if all subqueues are empty
 func (q *BoundedPriorityQueue) Empty() bool {
 	q.mu.RLock()
 	defer q.mu.RUnlock()
@@ -701,12 +713,14 @@ func WrapIfError(err *error, msg string) {
 	}
 }
 
+// LogIfError logs an error if not nil
 func LogIfError(err *error, msg string) {
 	if *err != nil {
 		logger.Errorf(msg+": %+v", *err)
 	}
 }
 
+// DebugPanic logs a panic exception being called
 func DebugPanic() {
 	if err := recover(); err != nil {
 		pc := make([]uintptr, 10) // at least 1 entry needed
@@ -718,12 +732,14 @@ func DebugPanic() {
 	}
 }
 
+// PausableTicker stores a ticker with a duration
 type PausableTicker struct {
 	ticker   *time.Ticker
 	duration time.Duration
 	mu       *sync.RWMutex
 }
 
+// NewPausableTicker creates a new PausableTicker
 func NewPausableTicker(duration time.Duration) PausableTicker {
 	return PausableTicker{
 		duration: duration,
