@@ -118,11 +118,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     public 
     onlyOwner() 
   {
-    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
-    compDetails.symbol = compoundSymbol;
-    compDetails.decimals = compoundDecimals;
-    compDetails.deviationThresholdDenominator = compoundDeviationThresholdDenominator;
-    s_thresholds[aggregator] = compDetails;
+    s_thresholds[aggregator] = CompoundFeedDetails({
+      symbol: compoundSymbol,
+      decimals: compoundDecimals,
+      deviationThresholdDenominator: compoundDeviationThresholdDenominator
+    });
     emit ThresholdUpdated(
       aggregator,
       compoundSymbol,
