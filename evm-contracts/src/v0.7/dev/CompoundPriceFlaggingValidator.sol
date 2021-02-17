@@ -37,7 +37,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
 
   FlagsInterface private s_flags;
   UniswapAnchoredView private s_compOpenOracle;
-  mapping(address => CompoundFeedDetails) private s_thresholds;
+  mapping(address => CompoundFeedDetails) private s_feedDetails;
 
   event CompoundOpenOracleAddressUpdated(
     address indexed from,
@@ -47,7 +47,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     address indexed from,
     address indexed to
   );
-  event ThresholdUpdated(
+  event FeedDetailsSet(
     address indexed aggregator,
     string symbol,
     uint8 decimals,
@@ -120,12 +120,12 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   {
     require(compoundDeviationThresholdDenominator != 0, "Invalid deviation threshold denominator");
     require(compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
-    s_thresholds[aggregator] = CompoundFeedDetails({
+    s_feedDetails[aggregator] = CompoundFeedDetails({
       symbol: compoundSymbol,
       decimals: compoundDecimals,
       deviationThresholdDenominator: compoundDeviationThresholdDenominator
     });
-    emit ThresholdUpdated(
+    emit FeedDetailsSet(
       aggregator,
       compoundSymbol,
       compoundDecimals,
@@ -223,7 +223,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     view
     returns (string memory, uint8, uint32)
   {
-    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
+    CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
     return(
       compDetails.symbol,
       compDetails.decimals,
@@ -281,7 +281,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     view
     returns (bool invalid)
   {
-    CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
+    CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
     if (compDetails.deviationThresholdDenominator == 0) {
       return false;
     }

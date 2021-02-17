@@ -229,7 +229,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     it('emits an event', async () => {
       const eventLog = matchers.eventExists(
         receipt,
-        validator.interface.events.ThresholdUpdated,
+        validator.interface.events.FeedDetailsSet,
       )
 
       const eventArgs = h.eventArgs(eventLog)
