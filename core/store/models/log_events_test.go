@@ -96,7 +96,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, *models.ID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, models.JobID, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{

@@ -3,10 +3,9 @@
 package mocks
 
 import (
-	gorm "github.com/jinzhu/gorm"
-	mock "github.com/stretchr/testify/mock"
-
 	models "github.com/smartcontractkit/chainlink/core/store/models"
+	mock "github.com/stretchr/testify/mock"
+	gorm "gorm.io/gorm"
 
 	store "github.com/smartcontractkit/chainlink/core/store"
 )
@@ -17,11 +16,11 @@ type ExternalInitiatorManager struct {
 }
 
 // DeleteJob provides a mock function with given fields: db, jobID
-func (_m *ExternalInitiatorManager) DeleteJob(db *gorm.DB, jobID *models.ID) error {
+func (_m *ExternalInitiatorManager) DeleteJob(db *gorm.DB, jobID models.JobID) error {
 	ret := _m.Called(db, jobID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*gorm.DB, *models.ID) error); ok {
+	if rf, ok := ret.Get(0).(func(*gorm.DB, models.JobID) error); ok {
 		r0 = rf(db, jobID)
 	} else {
 		r0 = ret.Error(0)

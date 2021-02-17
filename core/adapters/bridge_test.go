@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
@@ -47,7 +48,7 @@ func TestBridge_PerformEmbedsParamsInData(t *testing.T) {
 	assert.Equal(t, "Bearer "+bt.OutgoingToken, token)
 }
 
-func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, *models.ID, func()) {
+func setupJobRunAndStore(t *testing.T, txHash []byte, blockHash []byte) (*store.Store, uuid.UUID, func()) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
@@ -99,8 +100,8 @@ func TestBridge_PerformAcceptsNonJsonObjectResponses(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", cltest.WebURL(t, ""))
-	jobRunID := models.NewID()
-	taskRunID := *models.NewID()
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
 
 	mock, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", fmt.Sprintf(`{"jobRunID": "%s", "data": 251990120, "statusCode": 200}`, jobRunID.String()),
 		func(h http.Header, b string) {},
@@ -140,7 +141,7 @@ func TestBridge_Perform_transitionsTo(t *testing.T) {
 			_, bt := cltest.NewBridgeType(t, "auctionBidding", mock.URL)
 			ba := &adapters.Bridge{BridgeType: *bt}
 
-			input := *models.NewRunInputWithResult(models.NewID(), *models.NewID(), "100", test.status)
+			input := *models.NewRunInputWithResult(uuid.NewV4(), uuid.NewV4(), "100", test.status)
 			result := ba.Perform(input, store)
 
 			assert.Equal(t, test.result, result.Data().String())
@@ -171,8 +172,8 @@ func TestBridge_Perform_startANewRun(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	store.Config.Set("BRIDGE_RESPONSE_URL", "")
-	runID := models.NewID()
-	taskRunID := *models.NewID()
+	runID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
 	wantedBody := fmt.Sprintf(`{"id":"%v","data":{"result":"lot 49"}}`, runID)
 
 	for _, test := range cases {

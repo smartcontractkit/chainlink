@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -15,9 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -354,7 +354,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, store.DB.Create(&firstInProgress).Error)
 		err := store.DB.Create(&secondInProgress).Error
 		require.Error(t, err)
-		assert.EqualError(t, err, "pq: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\"")
+		assert.EqualError(t, err, "ERROR: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\" (SQLSTATE 23505)")
 	})
 
 	t.Run("previous run assigned nonce but never broadcast", func(t *testing.T) {
@@ -652,11 +652,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}
 		require.NoError(t, store.DB.Save(&etx).Error)
 		taskRunID := cltest.MustInsertTaskRun(t, store)
-		ethTaskRunTx := models.EthTaskRunTx{
-			EthTxID:   etx.ID,
-			TaskRunID: taskRunID.UUID(),
-		}
-		require.NoError(t, store.DB.Save(&ethTaskRunTx).Error)
+		_, err = store.MustSQLDB().Exec(`INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES ($1, $2)`, taskRunID, etx.ID)
+		require.NoError(t, err)
 
 		// First send, replacement underpriced
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
@@ -731,8 +728,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("eth client call fails with an unexpected random error (e.g. insufficient funds)", func(t *testing.T) {
-		retryableErrorExample := "insufficient funds for transfer"
+	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
+		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)
 
 		etx := models.EthTx{
@@ -752,7 +749,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		err = eb.ProcessUnstartedEthTxs(key)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: insufficient funds for transfer", etx.ID))
+		require.Contains(t, err.Error(), fmt.Sprintf("error while sending transaction %v: %s", etx.ID, retryableErrorExample))
 
 		// Check it was saved correctly with its attempt
 		etx, err = store.FindEthTxWithAttempts(etx.ID)
@@ -937,6 +934,45 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "bumped gas price of 20000000000 is equal to original gas price of 20000000000. ACTION REQUIRED: This is a configuration error, you must increase either ETH_GAS_BUMP_PERCENT or ETH_GAS_BUMP_WEI")
 
+		// TEARDOWN: Clear out the unsent tx before the next test
+		require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes WHERE nonce = ?`, localNextNonce).Error)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("eth node returns insufficient eth", func(t *testing.T) {
+		insufficientEthError := "insufficient funds for transfer"
+		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+		etx := models.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          models.EthTxUnstarted,
+		}
+		require.NoError(t, store.DB.Save(&etx).Error)
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(insufficientEthError)).Once()
+
+		err := eb.ProcessUnstartedEthTxs(key)
+		require.NoError(t, err)
+
+		// Check it was saved correctly with its attempt
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.NotNil(t, etx.BroadcastAt)
+		require.NotNil(t, etx.Nonce)
+		assert.Nil(t, etx.Error)
+		assert.Equal(t, models.EthTxUnconfirmed, etx.State)
+		require.Len(t, etx.EthTxAttempts, 1)
+		attempt := etx.EthTxAttempts[0]
+		assert.Equal(t, models.EthTxAttemptInsufficientEth, attempt.State)
+		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
+
 		ethClient.AssertExpectations(t)
 	})
 }
@@ -1114,7 +1150,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "eth_tx_triggers", true, true)
 	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	config.Config.Dialect = dialects.PostgresWithoutLock
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)

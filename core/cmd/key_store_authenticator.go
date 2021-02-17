@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
 
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
@@ -46,6 +48,63 @@ func (auth TerminalKeyStoreAuthenticator) Authenticate(store *store.Store, passw
 	}
 }
 
+func (auth TerminalKeyStoreAuthenticator) validatePasswordStrength(store *store.Store, password string) error {
+	// Password policy:
+	//
+	// Must be longer than 12 characters
+	// Must comprise at least 3 of:
+	//     lowercase characters
+	//     uppercase characters
+	//     numbers
+	//     symbols
+	// Must not comprise:
+	//     A user's API email
+	//     More than three identical consecutive characters
+
+	var (
+		lowercase = regexp.MustCompile("[a-z]")
+		uppercase = regexp.MustCompile("[A-Z]")
+		numbers   = regexp.MustCompile("[0-9]")
+		symbols   = regexp.MustCompile(`[!@#$%^&*()-=_+\[\]\\|;:'",<.>/?~` + "`]")
+	)
+
+	var merr error
+	if len(password) <= 12 {
+		merr = multierr.Append(merr, fmt.Errorf("must be longer than 12 characters"))
+	}
+	if len(lowercase.FindAllString(password, -1)) < 3 {
+		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 lowercase characters"))
+	}
+	if len(uppercase.FindAllString(password, -1)) < 3 {
+		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 uppercase characters"))
+	}
+	if len(numbers.FindAllString(password, -1)) < 3 {
+		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 numbers"))
+	}
+	if len(symbols.FindAllString(password, -1)) < 3 {
+		merr = multierr.Append(merr, fmt.Errorf("must contain at least 3 symbols"))
+	}
+	var c byte
+	var instances int
+	for i := 0; i < len(password); i++ {
+		if password[i] == c {
+			instances += 1
+		} else {
+			instances = 1
+		}
+		if instances > 3 {
+			merr = multierr.Append(merr, fmt.Errorf("must not contain more than 3 identical consecutive characters"))
+			break
+		}
+		c = password[i]
+	}
+
+	if merr != nil {
+		merr = fmt.Errorf("password does not meet the requirements.\n%+v", merr)
+	}
+	return merr
+}
+
 func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.Store) (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("Enter key store password:")
@@ -58,6 +117,11 @@ func (auth TerminalKeyStoreAuthenticator) promptExistingPassword(store *store.St
 func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) (string, error) {
 	for {
 		password := auth.Prompter.PasswordPrompt("New key store password: ")
+		err := auth.validatePasswordStrength(store, password)
+		if err != nil {
+			return password, err
+		}
+
 		clearLine()
 		passwordConfirmation := auth.Prompter.PasswordPrompt("Confirm password: ")
 		clearLine()
@@ -65,7 +129,7 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 			fmt.Printf("Passwords don't match. Please try again... ")
 			continue
 		}
-		err := store.KeyStore.Unlock(password)
+		err = store.KeyStore.Unlock(password)
 		if err != nil {
 			return password, errors.Wrap(err, "unexpectedly failed to unlock KeyStore")
 		}
@@ -79,7 +143,11 @@ func (auth TerminalKeyStoreAuthenticator) promptNewPassword(store *store.Store) 
 }
 
 func (auth TerminalKeyStoreAuthenticator) unlockNewWithPassword(store *store.Store, password string) (string, error) {
-	err := store.KeyStore.Unlock(password)
+	err := auth.validatePasswordStrength(store, password)
+	if err != nil {
+		return password, err
+	}
+	err = store.KeyStore.Unlock(password)
 	if err != nil {
 		return "", errors.Wrap(err, "Error unlocking key store")
 	}
@@ -102,9 +170,6 @@ func (auth TerminalKeyStoreAuthenticator) unlockExistingWithPassword(store *stor
 // with given password, or returns an error. password must be non-trivial, as an
 // empty password signifies that the VRF oracle functionality is disabled.
 func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store, password string) error {
-	if password == "" {
-		return fmt.Errorf("VRF password must be non-trivial")
-	}
 	keys, err := store.VRFKeyStore.Get()
 	if err != nil {
 		return errors.Wrapf(err, "while checking for extant VRF keys")
@@ -123,10 +188,6 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 }
 
 func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
-	if password == "" {
-		return fmt.Errorf("OCR password must be non-trivial")
-	}
-
 	err := store.OCRKeyStore.Unlock(password)
 	if err != nil {
 		return errors.Wrapf(err,

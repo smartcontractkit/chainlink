@@ -2,13 +2,10 @@ package offchainreporting
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	p2ppeerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/libp2p/go-libp2p-peerstore/pstoremem"
@@ -17,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 )
 
 type (
@@ -118,7 +116,7 @@ func (p *Pstorewrapper) readFromDB() error {
 }
 
 func (p *Pstorewrapper) getPeers() (peers []P2PPeer, err error) {
-	rows, err := p.db.DB().QueryContext(p.ctx, `SELECT id, addr FROM p2p_peers WHERE peer_id = $1`, p.peerID)
+	rows, err := p.db.WithContext(p.ctx).Raw(`SELECT id, addr FROM p2p_peers WHERE peer_id = ?`, p.peerID).Rows()
 	if err != nil {
 		return nil, errors.Wrap(err, "error querying peers")
 	}
@@ -155,21 +153,7 @@ func (p *Pstorewrapper) WriteToDB() error {
 				peers = append(peers, p)
 			}
 		}
-		// NOTE: Annoyingly, gormv1 does not support bulk inserts so we have to
-		// manually construct it ourselves
-		valueStrings := []string{}
-		valueArgs := []interface{}{}
-		for _, p := range peers {
-			valueStrings = append(valueStrings, "(?, ?, ?, NOW(), NOW())")
-			valueArgs = append(valueArgs, p.ID)
-			valueArgs = append(valueArgs, p.Addr)
-			valueArgs = append(valueArgs, p.PeerID)
-		}
-
-		// TODO: Replace this with a bulk insert when we upgrade to gormv2
-		/* #nosec G201 */
-		stmt := fmt.Sprintf("INSERT INTO p2p_peers (id, addr, peer_id, created_at, updated_at) VALUES %s", strings.Join(valueStrings, ","))
-		return tx.Exec(stmt, valueArgs...).Error
+		return tx.Create(&peers).Error
 	})
 	return errors.Wrap(err, "could not write peers to DB")
 }

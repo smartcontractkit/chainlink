@@ -6,9 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/onsi/gomega"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -30,7 +30,7 @@ func TestRunQueue(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(models.NewID())
+	runQueue.Run(uuid.NewV4())
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
@@ -65,8 +65,8 @@ func TestRunQueue_OneWorkerPerRun(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	runQueue.Run(models.NewID())
-	runQueue.Run(models.NewID())
+	runQueue.Run(uuid.NewV4())
+	runQueue.Run(uuid.NewV4())
 
 	g.Eventually(func() int {
 		return runQueue.WorkerCount()
@@ -102,7 +102,7 @@ func TestRunQueue_OneWorkerForSameRunTriggeredMultipleTimes(t *testing.T) {
 			executeJobChannel <- struct{}{}
 		})
 
-	id := models.NewID()
+	id := uuid.NewV4()
 	runQueue.Run(id)
 	runQueue.Run(id)
 
