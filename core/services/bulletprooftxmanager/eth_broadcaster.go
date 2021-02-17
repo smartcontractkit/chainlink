@@ -453,8 +453,7 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		// Omit the EthTxAttempts (we just deleted them) or gorm v2 will try to save them.
-		return errors.Wrap(tx.Omit("EthTxAttempts").Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 
