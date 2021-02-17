@@ -148,9 +148,9 @@ func (r *runner) runLoop() {
 	}
 }
 
-// newRun creates an in-memory Run along with its TaskRuns for the provided job
+// NewRun creates an in-memory Run along with its TaskRuns for the provided job
 // It does not interact with the database
-func newRun(spec Spec, startedAt time.Time) (run Run, err error) {
+func NewRun(spec Spec, startedAt time.Time) (run Run, err error) {
 	if len(spec.PipelineTaskSpecs) == 0 {
 		return run, errors.New("spec.PipelineTaskSpecs was empty")
 	}
@@ -332,9 +332,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 
 				startTaskRun := time.Now()
 
-				taskCtx, cancel := utils.CombinedContext(ctx, r.config.JobPipelineMaxTaskDuration())
-				result := r.executeTaskRun(taskCtx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex, l)
-				cancel()
+				result := r.executeTaskRun(ctx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex, l)
 
 				finishedAt := time.Now()
 
@@ -441,7 +439,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (result FinalResult, err error) {
 	start := time.Now()
 
-	run, err := newRun(spec, start)
+	run, err := NewRun(spec, start)
 	if err != nil {
 		return result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
 	}
@@ -458,8 +456,11 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	run.Outputs = finalResult.OutputsDB()
 	run.Errors = finalResult.ErrorsDB()
 
-	// TODO: Might wanna add some logging with runID
-	if _, err := r.orm.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
+	// In the case that our run gets cancelled via ctx cancellation,
+	// we still want to save the results and so we need a fresh context.
+	dbCtx, cancel := context.WithTimeout(context.Background(), r.config.DatabaseMaximumTxDuration())
+	defer cancel()
+	if _, err := r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs); err != nil {
 		return result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 

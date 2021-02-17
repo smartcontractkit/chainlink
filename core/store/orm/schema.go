@@ -62,7 +62,6 @@ type ConfigSchema struct {
 	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
 	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
 	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
-	JobPipelineMaxTaskDuration                time.Duration   `env:"JOB_PIPELINE_MAX_TASK_DURATION" default:"11s"`
 	JobPipelineParallelism                    uint8           `env:"JOB_PIPELINE_PARALLELISM" default:"4"`
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
 	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"168h"`
@@ -82,6 +81,7 @@ type ConfigSchema struct {
 	MinimumContractPayment                    assets.Link     `env:"MINIMUM_CONTRACT_PAYMENT" default:"1000000000000000000"`
 	MinimumRequestExpiration                  uint64          `env:"MINIMUM_REQUEST_EXPIRATION" default:"300"`
 	OCRObservationTimeout                     time.Duration   `env:"OCR_OBSERVATION_TIMEOUT" default:"13s"`
+	OCRObservationGracePeriod                 time.Duration   `env:"OCR_OBSERVATION_GRACE_PERIOD" default:"2s"`
 	OCRBlockchainTimeout                      time.Duration   `env:"OCR_BLOCKCHAIN_TIMEOUT" default:"20s"`
 	OCRContractSubscribeInterval              time.Duration   `env:"OCR_CONTRACT_SUBSCRIBE_INTERVAL" default:"2m"`
 	OCRContractPollInterval                   time.Duration   `env:"OCR_CONTRACT_POLL_INTERVAL" default:"1m"`

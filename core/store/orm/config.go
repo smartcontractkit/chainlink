@@ -507,11 +507,6 @@ func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
-// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
-func (c Config) JobPipelineMaxTaskDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
-}
-
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c Config) JobPipelineMaxRunDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
@@ -583,6 +578,10 @@ func (c Config) getDurationWithOverride(override time.Duration, field string) ti
 
 func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
 	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRObservationGracePeriod() time.Duration {
+	return c.getWithFallback("OCRObservationGracePeriod", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {

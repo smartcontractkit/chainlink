@@ -114,6 +114,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
+		DataSourceGracePeriod:                  d.config.OCRObservationGracePeriod(),
 	}
 	if d.config.Dev() {
 		// Skips config validation so we can use any config parameters we want.

@@ -44,7 +44,6 @@ type (
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration

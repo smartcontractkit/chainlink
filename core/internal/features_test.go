@@ -1433,8 +1433,20 @@ isBootstrapPeer    = true
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
-		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
-		defer cleanupHTTP()
+		var mockHTTP *httptest.Server
+		if i == 3 {
+			// We should give up on this super slow API.
+			mockHTTP = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+				time.Sleep(11 * time.Second)
+				res.WriteHeader(http.StatusOK)
+				res.Write([]byte(`{"data":10}`))
+			}))
+		} else {
+			mockHTTP = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+				res.WriteHeader(http.StatusOK)
+				res.Write([]byte(`{"data":10}`))
+			}))
+		}
 		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1446,7 +1458,7 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
-observationTimeout = "20s"
+observationTimeout = "10s"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
@@ -1484,5 +1496,5 @@ observationSource = """
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("10"))
 }
