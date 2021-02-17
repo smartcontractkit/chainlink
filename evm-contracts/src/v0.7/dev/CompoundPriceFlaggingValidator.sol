@@ -201,7 +201,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return uint8 Compound Oracle Decimals
    * @return uint32 Deviation Threshold Denominator
    */
-  function threshold(address aggregator)
+  function getFeedDetails(address aggregator)
     public
     view
     returns (string memory, uint8, uint32)
