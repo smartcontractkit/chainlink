@@ -109,7 +109,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * If the prices are valid within a 5% threshold, and 1 / denominator, this denominator
    * = 20, since 1/20 = 5.
    */
-  function setThreshold(
+  function setFeedDetails(
     address aggregator,
     string calldata compoundSymbol,
     uint8 compoundDecimals,

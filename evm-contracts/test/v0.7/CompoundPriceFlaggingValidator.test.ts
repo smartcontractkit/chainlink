@@ -66,7 +66,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
       .deploy(flags.address, compoundOracle.address)
     await validator
       .connect(personas.Carol)
-      .setThreshold(
+      .setFeedDetails(
         aggregator.address,
         compoundSymbol,
         compoundDecimals,
@@ -83,10 +83,10 @@ describe('CompoundPriceFlaggingVlidator', () => {
     matchers.publicAbi(validatorFactory, [
       'update',
       'check',
-      'setThreshold',
+      'setFeedDetails',
       'setFlagsAddress',
       'setCompoundOpenOracleAddress',
-      'threshold',
+      'getFeedDetails',
       'flags',
       'compoundOpenOracle',
       // Upkeep methods:
@@ -193,7 +193,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     })
   })
 
-  describe('#setThreshold', () => {
+  describe('#setFeedDetails', () => {
     let mockAggregator: contract.Instance<MockV3Aggregator__factory>
     let receipt: ContractReceipt
     const symbol = 'BTC'
@@ -206,7 +206,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
         .deploy(decimals, 4000000000000)
       const tx = await validator
         .connect(personas.Carol)
-        .setThreshold(
+        .setFeedDetails(
           mockAggregator.address,
           symbol,
           decimals,
@@ -218,7 +218,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     it('sets the correct state', async () => {
       const response = await validator
         .connect(personas.Carol)
-        .threshold(mockAggregator.address)
+        .getFeedDetails(mockAggregator.address)
 
       assert.equal(response[0], symbol)
       assert.equal(response[1], decimals)
@@ -246,7 +246,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
         await matchers.evmRevert(
           validator
             .connect(personas.Neil)
-            .setThreshold(
+            .setFeedDetails(
               mockAggregator.address,
               symbol,
               decimals,
