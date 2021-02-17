@@ -55,7 +55,7 @@ type ServiceAgreement struct {
 	RequestBody   string      `json:"requestBody"`
 	Signature     Signature   `json:"signature" gorm:"type:varchar(255)"`
 	JobSpec       JobSpec     `gorm:"foreignkey:JobSpecID"`
-	JobSpecID     *ID         `json:"jobSpecId"`
+	JobSpecID     JobID       `json:"jobSpecId"`
 	UpdatedAt     time.Time   `json:"-"`
 }
 

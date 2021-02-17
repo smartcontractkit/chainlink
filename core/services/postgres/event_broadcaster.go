@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -67,12 +67,13 @@ func NewEventBroadcaster(uri string, minReconnectInterval time.Duration, maxReco
 
 func (b *eventBroadcaster) Start() error {
 	return b.StartOnce("Postgres event broadcaster", func() (err error) {
+		// Explicitly using the lib/pq for notifications so we use the postgres driverName
+		// and NOT pgx.
 		db, err := sql.Open("postgres", b.uri)
 		if err != nil {
 			return err
 		}
 		b.db = db
-
 		b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
 			// These are always connection-related events, and the pq library
 			// automatically handles reconnecting to the DB. Therefore, we do not

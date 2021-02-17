@@ -5,18 +5,19 @@ import (
 	"testing"
 	"time"
 
+	gormpostgres "gorm.io/driver/postgres"
+
 	"github.com/stretchr/testify/assert"
 
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 func TestORM(t *testing.T) {
@@ -47,9 +48,13 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
 	})
 
-	db2, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
+	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: config.DatabaseURL(),
+	}), &gorm.Config{})
 	require.NoError(t, err)
-	defer db2.Close()
+	d, err := db2.DB()
+	require.NoError(t, err)
+	defer d.Close()
 
 	orm2 := job.NewORM(db2, config.Config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm2.Close()

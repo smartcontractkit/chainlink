@@ -3,10 +3,13 @@ package services_test
 import (
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"math/big"
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -23,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func makeJobRunWithInitiator(t *testing.T, store *strpkg.Store, job models.JobSpec) models.JobRun {
@@ -186,7 +188,7 @@ func TestRunManager_ResumeAllPendingConnection(t *testing.T) {
 
 		job, err := store.FindJobSpec(run.JobSpecID)
 		require.NoError(t, err)
-		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: models.NewID(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
+		run.TaskRuns = []models.TaskRun{models.TaskRun{ID: uuid.NewV4(), TaskSpecID: job.Tasks[0].ID, Status: models.RunStatusUnstarted}}
 
 		require.NoError(t, store.CreateJobRun(&run))
 		err = runManager.ResumeAllPendingConnection()
@@ -753,7 +755,7 @@ func TestRunManager_ResumeAllInProgress_Archived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)
@@ -830,7 +832,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 			require.NoError(t, store.CreateJob(&job))
 			run := cltest.NewJobRun(job)
 			run.SetStatus(test.status)
-			run.DeletedAt = null.TimeFrom(time.Now())
+			run.DeletedAt = gorm.DeletedAt{Time: time.Now(), Valid: true}
 			require.NoError(t, store.CreateJobRun(&run))
 
 			pusher := new(mocks.StatsPusher)
@@ -848,7 +850,7 @@ func TestRunManager_ResumeAllInProgress_NotInProgressAndArchived(t *testing.T) {
 
 func TestRunManager_ValidateRun_PaymentAboveThreshold(t *testing.T) {
 	jobSpecID := cltest.NewJob().ID
-	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(2)}
+	run := &models.JobRun{ID: uuid.NewV4(), JobSpecID: jobSpecID, Payment: assets.NewLink(2)}
 	contractCost := assets.NewLink(1)
 
 	services.ValidateRun(run, contractCost)
@@ -858,7 +860,7 @@ func TestRunManager_ValidateRun_PaymentAboveThreshold(t *testing.T) {
 
 func TestRunManager_ValidateRun_PaymentBelowThreshold(t *testing.T) {
 	jobSpecID := cltest.NewJob().ID
-	run := &models.JobRun{ID: models.NewID(), JobSpecID: jobSpecID, Payment: assets.NewLink(1)}
+	run := &models.JobRun{ID: uuid.NewV4(), JobSpecID: jobSpecID, Payment: assets.NewLink(1)}
 	contractCost := assets.NewLink(2)
 
 	services.ValidateRun(run, contractCost)

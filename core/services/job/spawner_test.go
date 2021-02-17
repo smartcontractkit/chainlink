@@ -5,14 +5,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgtype"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	"github.com/jinzhu/gorm"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -228,7 +230,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lock := struct{ Count int }{}
 		// Wait for the claim lock to be taken
 		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) AS count FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, advisoryLockClassID, jobSpecIDA).Scan(&lock).Error)
+			require.NoError(t, db.Raw(`SELECT count(*) AS count FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
 			return lock.Count
 		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
 
@@ -246,7 +248,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		// Wait for the claim lock to be released
 		gomega.NewGomegaWithT(t).Eventually(func() int {
-			require.NoError(t, db.Raw(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, advisoryLockClassID, jobSpecIDA).Scan(&lock).Error)
+			require.NoError(t, db.Raw(`SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND classid = ? AND objid = ?`, pgtype.OID(advisoryLockClassID), pgtype.OID(jobSpecIDA)).Scan(&lock).Error)
 			return lock.Count
 		}, cltest.DBWaitTimeout, cltest.DBPollingInterval).Should(gomega.Equal(1))
 

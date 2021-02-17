@@ -4,17 +4,19 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	uuid "github.com/satori/go.uuid"
 )
 
 var (
@@ -30,7 +32,7 @@ var (
 
 // RunExecutor handles the actual running of the job tasks
 type RunExecutor interface {
-	Execute(*models.ID) error
+	Execute(uuid.UUID) error
 }
 
 type runExecutor struct {
@@ -47,7 +49,7 @@ func NewRunExecutor(store *store.Store, statsPusher synchronization.StatsPusher)
 }
 
 // Execute performs the work associate with a job run
-func (re *runExecutor) Execute(runID *models.ID) error {
+func (re *runExecutor) Execute(runID uuid.UUID) error {
 	logger.Debugw("runExecutor woke up", "runID", runID.String())
 	run, err := re.store.Unscoped().FindJobRun(runID)
 	if err != nil {
@@ -97,7 +99,7 @@ func (re *runExecutor) Execute(runID *models.ID) error {
 
 		validated = true
 
-		if err := re.store.ORM.SaveJobRun(&run); errors.Cause(err) == orm.ErrOptimisticUpdateConflict {
+		if err := re.store.ORM.SaveJobRun(&run); err == orm.ErrOptimisticUpdateConflict {
 			logger.Debugw("Optimistic update conflict while updating run", run.ForLogger()...)
 			return nil
 		} else if err != nil {
@@ -150,7 +152,7 @@ func (re *runExecutor) executeTask(run *models.JobRun, taskRun models.TaskRun) m
 		return models.NewRunOutputError(err)
 	}
 
-	input := *models.NewRunInput(run.ID, *taskRun.ID, data, taskRun.Status)
+	input := *models.NewRunInput(run.ID, taskRun.ID, data, taskRun.Status)
 	result := adapter.Perform(input, re.store)
 	promAdapterCallsVec.WithLabelValues(run.JobSpecID.String(), string(adapter.TaskType()), string(result.Status())).Inc()
 

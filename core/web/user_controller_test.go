@@ -3,6 +3,7 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -48,7 +49,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 	// Success
 	resp, cleanup = client.Patch(
 		"/v2/user/password",
-		bytes.NewBufferString(`{"newPassword": "password", "oldPassword": "password"}`))
+		bytes.NewBufferString(fmt.Sprintf(`{"newPassword": "%v", "oldPassword": "%v"}`, cltest.Password, cltest.Password)))
 	defer cleanup()
 	errors = cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Len(t, errors.Errors, 0)

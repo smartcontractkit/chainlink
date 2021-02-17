@@ -7,10 +7,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestJobSpecErrorsController_Delete(t *testing.T) {

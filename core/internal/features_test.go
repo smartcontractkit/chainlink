@@ -18,10 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
-
-	"github.com/pborman/uuid"
 
 	"github.com/onsi/gomega"
 
@@ -698,7 +698,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	assert.Equal(t, expected, exInitr.Body)
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
@@ -735,7 +735,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
@@ -1030,14 +1030,20 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		}).
 		Return(nil)
 
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(int64(11)),
+	}), nil)
+
 	logs <- log
+
+	newHeads := <-newHeadsCh
+	newHeads <- cltest.Head(log.BlockNumber)
 
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	_ = cltest.WaitForJobRunToPendOutgoingConfirmations(t, app.Store, jrs[0])
 	app.EthBroadcaster.Trigger()
 	cltest.WaitForEthTxAttemptCount(t, app.Store, 1)
 
-	newHeads := <-newHeadsCh
 	_ = cltest.SendBlocksUntilComplete(t, app.Store, jrs[0], newHeads, safe, gethClient)
 	linkEarned, err := app.GetStore().LinkEarnedFor(&j)
 	require.NoError(t, err)
@@ -1294,6 +1300,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		min, // -2**191
 		max, // 2**191 - 1
 		accessAddress,
+		accessAddress,
 		0,
 		"TEST")
 	require.NoError(t, err)
@@ -1304,8 +1311,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
-	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%s", dbName, strings.Replace(uuid.New(), "-", "", -1)), true)
-	config.Dialect = orm.DialectPostgresWithoutLock
+	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%d", dbName, port), true)
+	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
 	require.NoError(t, err)
@@ -1414,7 +1421,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `, ocrContractAddress))
 	require.NoError(t, err)
 	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
@@ -1440,7 +1447,7 @@ p2pBootstrapPeers  = [
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "20s"
-contractConfigConfirmations = 1 
+contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1

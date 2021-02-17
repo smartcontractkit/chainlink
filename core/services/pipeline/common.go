@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name Config --output ./mocks/ --case=underscore

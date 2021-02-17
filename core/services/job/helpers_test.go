@@ -5,14 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/jinzhu/gorm"
-	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
