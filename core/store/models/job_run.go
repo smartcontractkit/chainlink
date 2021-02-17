@@ -32,9 +32,9 @@ var (
 type JobRun struct {
 	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;not null"`
 	JobSpecID      JobID          `json:"jobId" gorm:"type:uuid"`
-	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
+	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID"`
 	ResultID       clnull.Int64   `json:"-"`
-	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
+	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID"`
 	RunRequestID   clnull.Int64   `json:"-"`
 	Status         RunStatus      `json:"status" gorm:"default:'unstarted'"`
 	TaskRuns       []TaskRun      `json:"taskRuns" gorm:"foreignKey:JobRunID"`
