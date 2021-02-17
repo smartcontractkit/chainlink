@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -79,7 +81,7 @@ func (lock *postgresAdvisoryLock) tryLock(ctx context.Context, classID int32, ob
 	defer utils.WrapIfError(&err, "TryAdvisoryLock failed")
 
 	if lock.conn == nil {
-		db, err2 := sql.Open("postgres", lock.URI)
+		db, err2 := sql.Open(string(dialects.Postgres), lock.URI)
 		if err2 != nil {
 			return err2
 		}

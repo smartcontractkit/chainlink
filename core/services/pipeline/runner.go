@@ -389,6 +389,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 		"taskID", taskRun.PipelineTaskSpecID,
 		"runID", taskRun.PipelineRunID,
 		"taskRunID", taskRun.ID,
+		"specID", taskRun.PipelineTaskSpec.PipelineSpecID,
 	}
 
 	task, err := UnmarshalTaskFromMap(

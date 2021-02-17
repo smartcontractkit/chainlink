@@ -1,15 +1,9 @@
 package dbutil
 
 import (
-	"strings"
-
 	gormv1 "github.com/jinzhu/gorm"
 	"gorm.io/gorm"
 )
-
-func IsPostgresURL(url string) bool {
-	return strings.HasPrefix(strings.ToLower(url), "postgres")
-}
 
 // IsPostgres returns true if the underlying database is postgres.
 func IsPostgres(db *gormv1.DB) bool {

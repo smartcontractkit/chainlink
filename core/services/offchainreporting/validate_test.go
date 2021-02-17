@@ -57,7 +57,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = false
 keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
@@ -102,7 +102,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = true
 keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
@@ -230,7 +230,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = false
 keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
@@ -268,7 +268,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = false
 keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationTimeout = "10s"
 observationSource = """
 ds1          [type=bridge name=voter_turnout timeout="30s"];
@@ -299,7 +299,7 @@ p2pBootstrapPeers  = [
 isBootstrapPeer    = false
 keyBundleID        = "73e8966a78ca09bb912e9565cfb79fbe8a6048fab1f0cf49b18047c3895e0447"
 monitoringEndpoint = "chain.link:4321"
-transmitterAddress = "0xaA07d525B4006a2f927D79CA78a23A8ee680A32A"
+transmitterAddress = "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 observationSource = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];
