@@ -321,7 +321,15 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     adjustedCompoundPrice = compoundPrice;
   }
 
-
+  /**
+   * @notice Check whether the compound price deviates from the aggregator price
+   * beyond the given threshold
+   * @dev Prices must be adjusted to match decimals prior to calling this function
+   * @param aggregatorPrice uint256
+   * @param compPrice uint256
+   * @param deviationThresholdDenominator uint32
+   * @return beyondThreshold boolean. Returns true if deviation is beyond threshold.
+   */
   function deviatesBeyondThreshold(
     uint256 aggregatorPrice,
     uint256 compPrice,

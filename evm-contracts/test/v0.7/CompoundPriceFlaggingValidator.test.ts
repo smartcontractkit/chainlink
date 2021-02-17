@@ -242,6 +242,29 @@ describe('CompoundPriceFlaggingVlidator', () => {
       )
     })
 
+    it('fails when given a 0 denominator', async () => {
+      await matchers.evmRevert(
+        validator
+          .connect(personas.Carol)
+          .setFeedDetails(mockAggregator.address, symbol, decimals, 0),
+        'Invalid deviation threshold denominator',
+      )
+    })
+
+    it('fails when the compound price is invalid', async () => {
+      await matchers.evmRevert(
+        validator
+          .connect(personas.Carol)
+          .setFeedDetails(
+            mockAggregator.address,
+            'TEST',
+            decimals,
+            deviationDenominator,
+          ),
+        'Invalid Compound price',
+      )
+    })
+
     describe('when called by a non-owner', () => {
       it('reverts', async () => {
         await matchers.evmRevert(
