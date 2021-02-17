@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -317,7 +316,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		if err = tx.Omit(clause.Associations).Create(&run).Error; err != nil {
+		if err = tx.Create(&run).Error; err != nil {
 			return errors.Wrap(err, "error inserting finished pipeline_run")
 		}
 
