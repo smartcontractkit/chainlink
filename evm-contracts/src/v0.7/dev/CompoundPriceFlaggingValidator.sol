@@ -118,6 +118,8 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     public 
     onlyOwner() 
   {
+    require(compoundDeviationThresholdDenominator != 0, "Invalid deviation threshold denominator");
+    require(compoundPrice(compoundSymbol) != 0, "Invalid Compound price");
     s_thresholds[aggregator] = CompoundFeedDetails({
       symbol: compoundSymbol,
       decimals: compoundDecimals,
@@ -247,7 +249,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     uint256 aggregatorPrice = uint256(signedPrice);
     uint8 decimals = priceFeed.decimals();
     // Get compound price
-    uint256 compPrice = s_compOpenOracle.price(compDetails.symbol);
+    uint256 compPrice = compoundPrice(compDetails.symbol);
 
     // Convert prices so they match decimals
     if (decimals > compDetails.decimals) {
@@ -273,5 +275,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
       deviation = compPrice.sub(aggregatorPrice);
     }
     invalid = (deviation >= deviationAmountThreshold);
+  }
+
+  function compoundPrice(string memory symbol) private view returns (uint256) {
+    return s_compOpenOracle.price(symbol);
   }
 }

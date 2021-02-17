@@ -201,6 +201,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     const deviationDenominator = 20 // 5%
 
     beforeEach(async () => {
+      await compoundOracle.connect(personas.Carol).setPrice('BTC', 1500000, 2)
       mockAggregator = await aggregatorFactory
         .connect(personas.Carol)
         .deploy(decimals, 4000000000000)
