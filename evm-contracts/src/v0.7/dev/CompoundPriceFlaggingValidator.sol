@@ -119,7 +119,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     onlyOwner() 
   {
     require(compoundDeviationThresholdDenominator != 0, "Invalid deviation threshold denominator");
-    require(compoundPrice(compoundSymbol) != 0, "Invalid Compound price");
+    require(compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
     s_thresholds[aggregator] = CompoundFeedDetails({
       symbol: compoundSymbol,
       decimals: compoundDecimals,
@@ -233,6 +233,17 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   }
 
   /**
+   * @notice Return the Compound oracle price of an asset using its symbol
+   * @param symbol string
+   * @return price uint256
+   */
+  function compoundPriceOf(string memory symbol) private view returns (uint256) {
+    return s_compOpenOracle.price(symbol);
+  }
+
+  // VALIDATION FUNCTIONS
+
+  /**
    * @notice Check if an aggregator has an equivalent Compound Oracle feed
    * that's price is deviated more than the threshold.
    * @param aggregator address of the Chainlink aggregator
@@ -240,31 +251,88 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    */
   function isInvalid(address aggregator) private view returns (bool invalid) {
     CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
-    if (bytes(compDetails.symbol).length == 0) {
+    if (compDetails.deviationThresholdDenominator == 0) {
       return false;
     }
-    // Get aggregator price & decimals
+    // Get both oracle price details
+    uint256 compPrice = compoundPriceOf(compDetails.symbol);
+    (uint256 aggregatorPrice, uint8 aggregatorDecimals) = aggregatorValues(aggregator);
+
+    // Adjust the prices so the number of decimals in each align
+    (aggregatorPrice, compPrice) = adjustPriceDecimals(
+      aggregatorPrice,
+      aggregatorDecimals,
+      compPrice,
+      compDetails.decimals
+    );
+
+    // Check whether the prices deviate beyond the threshold.
+    return deviatesBeyondThreshold(aggregatorPrice, compPrice, compDetails.deviationThresholdDenominator);
+  }
+
+  /**
+   * @notice Retrieve the price and the decimals from an Aggregator
+   * @param aggregator address
+   * @return price uint256
+   * @return decimals uint8
+   */
+  function aggregatorValues(address aggregator)
+    private
+    view
+    returns (uint256 price, uint8 decimals)
+  {
     AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
     (,int256 signedPrice,,,) = priceFeed.latestRoundData();
-    uint256 aggregatorPrice = uint256(signedPrice);
-    uint8 decimals = priceFeed.decimals();
-    // Get compound price
-    uint256 compPrice = compoundPrice(compDetails.symbol);
+    price = uint256(signedPrice);
+    decimals = priceFeed.decimals();
+  }
 
-    // Convert prices so they match decimals
-    if (decimals > compDetails.decimals) {
-      uint8 diff = decimals - compDetails.decimals;
+  /**
+   * @notice Adjust the price values of the Aggregator and Compound feeds so that
+   * their decimal places align. This enables deviation to be calculated.
+   * @param aggregatorPrice uint256
+   * @param aggregatorDecimals uint8 - decimal places included in the aggregator price
+   * @param compoundPrice uint256
+   * @param compoundDecimals uint8 - decimal places included in the compound price
+   * @return adjustedAggregatorPrice uint256
+   * @return adjustedCompoundPrice uint256
+   */
+  function adjustPriceDecimals(
+    uint256 aggregatorPrice,
+    uint8 aggregatorDecimals,
+    uint256 compoundPrice,
+    uint8 compoundDecimals
+  )
+    private
+    pure
+    returns (uint256 adjustedAggregatorPrice, uint256 adjustedCompoundPrice)
+  {
+    if (aggregatorDecimals > compoundDecimals) {
+      uint8 diff = aggregatorDecimals - compoundDecimals;
       uint256 multiplier = 10**uint256(diff);
-      compPrice = compPrice * multiplier;
+      compoundPrice = compoundPrice * multiplier;
     }
-    else if (decimals < compDetails.decimals) {
-      uint8 diff = compDetails.decimals - decimals;
+    else if (aggregatorDecimals < compoundDecimals) {
+      uint8 diff = compoundDecimals - aggregatorDecimals;
       uint256 multiplier = 10**uint256(diff);
       aggregatorPrice = aggregatorPrice * multiplier;
     }
+    adjustedAggregatorPrice = aggregatorPrice;
+    adjustedCompoundPrice = compoundPrice;
+  }
 
+
+  function deviatesBeyondThreshold(
+    uint256 aggregatorPrice,
+    uint256 compPrice,
+    uint32 deviationThresholdDenominator
+  )
+    private
+    pure
+    returns (bool beyondThreshold)
+  {
     // Deviation amount threshold from the aggregator price
-    uint256 deviationAmountThreshold = aggregatorPrice.div(uint256(compDetails.deviationThresholdDenominator));
+    uint256 deviationAmountThreshold = aggregatorPrice.div(uint256(deviationThresholdDenominator));
 
     // Calculate deviation
     uint256 deviation;
@@ -274,10 +342,6 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     else if (aggregatorPrice < compPrice) {
       deviation = compPrice.sub(aggregatorPrice);
     }
-    invalid = (deviation >= deviationAmountThreshold);
-  }
-
-  function compoundPrice(string memory symbol) private view returns (uint256) {
-    return s_compOpenOracle.price(symbol);
+    beyondThreshold = (deviation >= deviationAmountThreshold);
   }
 }
