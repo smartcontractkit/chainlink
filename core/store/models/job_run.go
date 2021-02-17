@@ -41,7 +41,7 @@ type JobRun struct {
 	CreatedAt      time.Time      `json:"createdAt"`
 	FinishedAt     null.Time      `json:"finishedAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
-	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
+	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;->"`
 	InitiatorID    int64          `json:"-"`
 	CreationHeight *utils.Big     `json:"creationHeight"`
 	ObservedHeight *utils.Big     `json:"observedHeight"`
@@ -247,7 +247,7 @@ type TaskRun struct {
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
+	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
 	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
