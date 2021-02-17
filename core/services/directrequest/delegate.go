@@ -130,7 +130,7 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 	}
 }
 
-func (d *directRequestListener) handleOracleRequest(req contracts.OracleRequest) {
+func (d *listener) handleOracleRequest(req contracts.OracleRequest) {
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = req.ToMap()
 	panic("HERE")
@@ -143,9 +143,9 @@ func (d *directRequestListener) handleOracleRequest(req contracts.OracleRequest)
 
 // Cancels runs that haven't been started yet, with the given request ID
 // TODO: Boy does this ever need testing
-func (d *directRequestListener) handleCancelOracleRequest(requestID [32]byte) {
+func (d *listener) handleCancelOracleRequest(requestID [32]byte) {
 	d.db.Exec(`
-	DELETE FROM pipeline_runs 
+	DELETE FROM pipeline_runs
 	WHERE id IN (
 		SELECT id FROM pipeline_runs FOR UPDATE OF pipeline_task_runs SKIP LOCKED
 		INNER JOIN pipeline_task_runs WHERE pipeline_task_runs.pipeline_run_id = pipeline_runs.id
@@ -156,8 +156,8 @@ func (d *directRequestListener) handleCancelOracleRequest(requestID [32]byte) {
 	`)
 }
 
-// JobID complies with eth.LogListener
-func (directRequestListener) JobID() models.ID {
+// JobID complies with log.Listener
+func (listener) JobID() models.JobID {
 	return models.NilJobID
 }
 
