@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	gormpostgres "gorm.io/driver/postgres"
 
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
@@ -292,7 +294,7 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 	address := gethCommon.BytesToAddress(addressBytes)
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	cli.Config.Dialect = dialects.PostgresWithoutLock
 	app := cli.AppFactory.NewApplication(cli.Config)
 	defer func() {
 		if serr := app.Stop(); serr != nil {
@@ -406,7 +408,7 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 	// to a different one. template1 should be present on all postgres installations
 	dbname := parsed.Path[1:]
 	parsed.Path = "/template1"
-	db, err := sql.Open(string(orm.DialectPostgres), parsed.String())
+	db, err := sql.Open(string(dialects.Postgres), parsed.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -442,7 +444,7 @@ func migrateTestDB(config *orm.Config) error {
 }
 
 func insertFixtures(config *orm.Config) (err error) {
-	db, err := sql.Open(string(orm.DialectPostgres), config.DatabaseURL())
+	db, err := sql.Open(string(dialects.Postgres), config.DatabaseURL())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}

@@ -144,6 +144,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
 		"url", t.URL.String(),
+		"pipelineTaskSpecID", taskRun.PipelineTaskSpecID,
 	)
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter
