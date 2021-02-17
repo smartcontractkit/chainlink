@@ -247,7 +247,7 @@ type TaskRun struct {
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
+	TaskSpec                         TaskSpec      `json:"task"`
 	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
