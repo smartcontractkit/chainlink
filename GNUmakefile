@@ -68,12 +68,11 @@ contracts-operator-ui-build: # only compiles tsc and builds contracts and operat
 	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 
-.PHONY: abigen
-abigen:
+tools/bin/abigen:
 	./tools/bin/build_abigen
 
 .PHONY: go-solidity-wrappers
-go-solidity-wrappers: abigen ## Recompiles solidity contracts and their go wrappers
+go-solidity-wrappers: tools/bin/abigen ## Recompiles solidity contracts and their go wrappers
 	yarn workspace @chainlink/contracts compile:clean
 	go generate ./core/internal/gethwrappers
 	go run ./packr/main.go ./core/services/eth/
