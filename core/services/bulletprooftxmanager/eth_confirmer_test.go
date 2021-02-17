@@ -137,11 +137,13 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	ctx := context.Background()
 	blockNum := int64(0)
 
-	t.Run("only finds eth_txes in unconfirmed state", func(t *testing.T) {
+	t.Run("only finds eth_txes in unconfirmed state with at least one broadcast attempt", func(t *testing.T) {
 		cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		mustInsertInProgressEthTx(t, store, nonce, fromAddress)
 		nonce++
 		cltest.MustInsertConfirmedEthTxWithAttempt(t, store, nonce, 1, fromAddress)
+		nonce++
+		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, store, nonce, fromAddress)
 		nonce++
 		mustInsertUnstartedEthTx(t, store, fromAddress)
 
