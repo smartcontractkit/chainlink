@@ -140,7 +140,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregators address[] memory
    * @return address[] invalid feeds
    */
-  function check(address[] memory aggregators) public view returns (address[] memory) {
+  function check(address[] memory aggregators)
+    public
+    view
+    returns (address[] memory)
+  {
     address[] memory invalidAggregators = new address[](aggregators.length);
     uint256 invalidCount = 0;
     for (uint256 i = 0; i < aggregators.length; i++) {
@@ -166,7 +170,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregators address[] memory
    * @return address[] memory invalid aggregators
    */
-  function update(address[] memory aggregators) public returns (address[] memory){
+  function update(address[] memory aggregators)
+    public
+    returns (address[] memory)
+  {
     address[] memory invalidAggregators = check(aggregators);
     s_flags.raiseFlags(invalidAggregators);
     return invalidAggregators;
@@ -180,7 +187,12 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return invalid aggregators - bytes encoded address array of invalid aggregator addresses
    */
-  function checkForUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
+  function checkForUpkeep(bytes calldata data)
+    external
+    view
+    override
+    returns (bool, bytes memory)
+  {
     address[] memory invalidAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (invalidAggregators.length > 0);
     return (needsUpkeep, abi.encode(invalidAggregators));
@@ -192,7 +204,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @dev This contract must have write permissions on the Flags contract
    * @param data bytes encoded address array
    */
-  function performUpkeep(bytes calldata data) external override {
+  function performUpkeep(bytes calldata data)
+    external
+    override
+  {
     update(abi.decode(data, (address[])));
   }
 
@@ -220,7 +235,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @notice Get the flags address
    * @return address
    */
-  function flags() external view returns (address) {
+  function flags()
+    external
+    view
+    returns (address)
+  {
     return address(s_flags);
   }
 
@@ -228,7 +247,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @notice Get the Compound Open Oracle address
    * @return address
    */
-  function compoundOpenOracle() external view returns (address) {
+  function compoundOpenOracle()
+    external
+    view
+    returns (address)
+  {
     return address(s_compOpenOracle);
   }
 
@@ -237,7 +260,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param symbol string
    * @return price uint256
    */
-  function compoundPriceOf(string memory symbol) private view returns (uint256) {
+  function compoundPriceOf(string memory symbol)
+    private
+    view
+    returns (uint256)
+  {
     return s_compOpenOracle.price(symbol);
   }
 
@@ -249,7 +276,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregator address of the Chainlink aggregator
    * @return invalid bool. True if the deviation exceeds threshold.
    */
-  function isInvalid(address aggregator) private view returns (bool invalid) {
+  function isInvalid(address aggregator)
+    private
+    view
+    returns (bool invalid)
+  {
     CompoundFeedDetails memory compDetails = s_thresholds[aggregator];
     if (compDetails.deviationThresholdDenominator == 0) {
       return false;
