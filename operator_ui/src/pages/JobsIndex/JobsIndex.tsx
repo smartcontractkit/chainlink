@@ -26,13 +26,13 @@ import {
   WithStyles,
   Theme,
 } from '@material-ui/core/styles'
-import { DirectRequestRow } from './DirectRequestRow'
-import { OcrJobRow } from './OcrJobRow'
+import DirectRequestRow from './DirectRequestRow'
+import JobV2Row from './JobV2Row'
 import SearchIcon from '@material-ui/icons/Search'
 
 enum JobSpecTypes {
-  jobSpec = 'specs',
-  ocrJobSpec = 'specDBs',
+  v1 = 'specs',
+  v2 = 'jobs',
 }
 
 interface Job<T> {
@@ -42,22 +42,38 @@ interface Job<T> {
 }
 
 export type DirectRequest = Job<models.JobSpec>
-export type OffChainReporting = Job<models.OcrJobSpec>
-export type CombinedJobs = DirectRequest | OffChainReporting
+export type JobSpecV2 = Job<models.JobSpecV2>
+export type CombinedJobs = DirectRequest | JobSpecV2
 
-function isDirectRequest(job: CombinedJobs): job is DirectRequest {
-  return job.type === JobSpecTypes.jobSpec
+function isJobSpecV1(job: CombinedJobs): job is DirectRequest {
+  return job.type === JobSpecTypes.v1
 }
 
-function isOffChainReporting(job: CombinedJobs): job is OffChainReporting {
-  return job.type === JobSpecTypes.ocrJobSpec
+function isJobSpecV2(job: CombinedJobs): job is JobSpecV2 {
+  return job.type === JobSpecTypes.v2
+}
+
+function isFluxMonitorJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'fluxmonitor'
+}
+
+function isOCRJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'offchainreporting'
 }
 
 function getCreatedAt(job: CombinedJobs) {
-  if (isDirectRequest(job)) {
+  if (isJobSpecV1(job)) {
     return job.attributes.createdAt
-  } else if (isOffChainReporting(job)) {
-    return job.attributes.offChainReportingOracleSpec.createdAt
+  } else if (isJobSpecV2(job)) {
+    const { fluxMonitorSpec, offChainReportingOracleSpec } = job.attributes
+
+    if (isFluxMonitorJobSpecV2(job)) {
+      return fluxMonitorSpec ? fluxMonitorSpec.createdAt : new Date().toString()
+    } else {
+      return offChainReportingOracleSpec
+        ? offChainReportingOracleSpec.createdAt
+        : new Date().toString()
+    }
   } else {
     return new Date().toString()
   }
@@ -68,9 +84,9 @@ const PAGE_SIZE = 1000 // We intentionally set this to a very high number to avo
 async function getJobs() {
   return Promise.all([
     v2.specs.getJobSpecs(1, PAGE_SIZE),
-    v2.ocrSpecs.getJobSpecs(),
-  ]).then(([jobs, ocrJobs]) => {
-    const combinedJobs = [...jobs.data, ...ocrJobs.data]
+    v2.jobs.getJobSpecs(),
+  ]).then(([v1Jobs, v2Jobs]) => {
+    const combinedJobs = [...v1Jobs.data, ...v2Jobs.data]
     const jobsByDate = combinedJobs.sort((a, b) => {
       const jobA = new Date(getCreatedAt(a)).getTime()
       const jobB = new Date(getCreatedAt(b)).getTime()
@@ -90,35 +106,93 @@ const searchIncludes = (searchParam: string) => {
 }
 
 export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
-  const test = searchIncludes(search)
-
-  if (isDirectRequest(job)) {
-    return (
-      test(job.id) ||
-      test(job.attributes.name) ||
-      job.attributes.initiators.some((initiator) => test(initiator.type)) ||
-      test('direct request')
-    )
+  if (isJobSpecV1(job)) {
+    return matchV1Job(job, search)
   }
 
-  if (isOffChainReporting(job)) {
-    return (
-      test(job.id) ||
-      ([
-        'contractAddress',
-        'keyBundleID',
-        'p2pPeerID',
-        'transmitterAddress',
-      ] as Array<
-        keyof models.OcrJobSpec['offChainReportingOracleSpec']
-      >).some((property) =>
-        test(String(job.attributes.offChainReportingOracleSpec[property])),
-      ) ||
-      test('off-chain reporting')
-    )
+  if (isJobSpecV2(job)) {
+    if (isFluxMonitorJobSpecV2(job)) {
+      return matchFluxMonitor(job, search)
+    }
+
+    if (isOCRJobSpecV2(job)) {
+      return matchOCR(job, search)
+    }
   }
 
   return false
+}
+
+/**
+ * matchV1Job determines whether the V1 job matches the search term
+ *
+ * @param job {DirectRequest} The V1 Job Spec
+ * @param term {string}
+ */
+function matchV1Job(job: DirectRequest, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name,
+    ...job.attributes.initiators.map((i) => i.type), // Match any of the initiators
+    'direct request',
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchFluxMonitor determines whether the Flux Monitor job matches the search
+ * terms.
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchFluxMonitor(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'direct request', // Hardcoded to match the type column
+    'fluxmonitor', // Hardcoded to match initiator column
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchOCR dettermines whether the OCR job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchOCR(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const { offChainReportingOracleSpec } = job.attributes
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'off-chain reporting',
+  ]
+
+  const searchableProperties = [
+    'contractAddress',
+    'keyBundleID',
+    'p2pPeerID',
+    'transmitterAddress',
+  ] as Array<keyof models.JobSpecV2['offChainReportingOracleSpec']>
+
+  if (offChainReportingOracleSpec) {
+    searchableProperties.forEach((property) => {
+      dataset.push(String(offChainReportingOracleSpec[property]))
+    })
+  }
+
+  return dataset.some(match)
 }
 
 const styles = (theme: Theme) =>
@@ -233,10 +307,10 @@ export const JobsIndex = ({
                     )}
                     {jobs &&
                       jobs.filter(jobFilter).map((job: CombinedJobs) => {
-                        if (isDirectRequest(job)) {
+                        if (isJobSpecV1(job)) {
                           return <DirectRequestRow key={job.id} job={job} />
-                        } else if (isOffChainReporting(job)) {
-                          return <OcrJobRow key={job.id} job={job} />
+                        } else if (isJobSpecV2(job)) {
+                          return <JobV2Row key={job.id} job={job} />
                         } else {
                           return <TableRow>Unknown Job Type</TableRow>
                         }

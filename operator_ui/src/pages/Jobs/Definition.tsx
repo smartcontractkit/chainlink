@@ -2,14 +2,14 @@ import React from 'react'
 import {
   createStyles,
   CardContent,
-  Divider,
   Card,
-  Grid,
   Theme,
   Typography,
   withStyles,
   WithStyles,
 } from '@material-ui/core'
+
+import { CardTitle } from 'components/CardTitle'
 import Content from 'components/Content'
 import PrettyJson from 'components/PrettyJson'
 import { JobData } from './sharedTypes'
@@ -26,14 +26,19 @@ const definitionStyles = (theme: Theme) =>
     },
   })
 
-const Definition: React.FC<
-  {
-    error: unknown
-    ErrorComponent: React.FC
-    LoadingPlaceholder: React.FC
-    job?: JobData['job']
-  } & WithStyles<typeof definitionStyles>
-> = ({ classes, error, ErrorComponent, LoadingPlaceholder, job }) => {
+type Props = {
+  error: unknown
+  ErrorComponent: React.FC
+  LoadingPlaceholder: React.FC
+  job?: JobData['job']
+} & WithStyles<typeof definitionStyles>
+
+const Definition: React.FC<Props> = ({
+  error,
+  ErrorComponent,
+  LoadingPlaceholder,
+  job,
+}) => {
   React.useEffect(() => {
     document.title = job?.name
       ? `${job.name} | Job definition`
@@ -42,41 +47,25 @@ const Definition: React.FC<
 
   return (
     <Content>
-      <Card>
-        <ErrorComponent />
-        <LoadingPlaceholder />
-        {!error && job && (
+      <ErrorComponent />
+      <LoadingPlaceholder />
+      {!error && job && (
+        <Card>
+          <CardTitle divider>Definition</CardTitle>
           <CardContent>
-            <Grid container spacing={0}>
-              <Grid item xs={12}>
-                <Typography variant="h5" className={classes.definitionTitle}>
-                  Definition
-                </Typography>
-              </Grid>
-              <Grid item xs={12}>
-                <Divider light className={classes.divider} />
-              </Grid>
-              <Grid item xs={12}>
-                {job.type === 'Direct request' && (
-                  <PrettyJson object={JSON.parse(job.definition)} />
-                )}
-                {job.type === 'Off-chain reporting' && (
-                  <Typography
-                    style={{ margin: 0 }}
-                    variant="body1"
-                    component="pre"
-                  >
-                    {job.definition}
-                  </Typography>
-                )}
-              </Grid>
-            </Grid>
+            {job.type === 'Direct request' && (
+              <PrettyJson object={JSON.parse(job.definition)} />
+            )}
+            {job.type === 'v2' && (
+              <Typography style={{ margin: 0 }} variant="body1" component="pre">
+                {job.definition}
+              </Typography>
+            )}
           </CardContent>
-        )}
-      </Card>
+        </Card>
+      )}
     </Content>
   )
 }
 
-export const JobsDefinition = withStyles(definitionStyles)(Definition)
-export default JobsDefinition
+export default withStyles(definitionStyles)(Definition)

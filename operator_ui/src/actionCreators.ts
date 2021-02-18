@@ -13,9 +13,9 @@ import {
   ResourceActionType,
 } from './reducers/actions'
 
-export type GetNormalizedData<T extends AnyFunc> = ReturnType<
-  T
-> extends ThunkAction<any, any, any, UpsertAction<infer A>>
+export type GetNormalizedData<
+  T extends AnyFunc
+> = ReturnType<T> extends ThunkAction<any, any, any, UpsertAction<infer A>>
   ? A
   : never
 
@@ -142,8 +142,7 @@ export const deleteJobSpec = (
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint =
-      jobType === 'Direct request' ? api.v2.specs : api.v2.ocrSpecs
+    const endpoint = jobType === 'Direct request' ? api.v2.specs : api.v2.jobs
 
     return endpoint
       .destroyJobSpec(id)
