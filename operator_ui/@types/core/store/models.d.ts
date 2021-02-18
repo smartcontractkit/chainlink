@@ -457,17 +457,34 @@ declare module 'core/store/models' {
   //#endregion p2pKey/p2p_key.go
 
   /**
-   * OcrJobSpecRequest represents a schema for the incoming ocr job spec request as used by the API.
+   * JobSpecV2Request represents a schema for the incoming job spec v2 request as used by the API.
    */
-  export interface OcrJobSpecRequest {
+  export interface JobSpecV2Request {
     toml: string
   }
 
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
-  export interface OcrJobSpec {
+  export type FluxMonitorSpec = {
+    contractAddress: common.Address
+    precision: number;
+    threshold: number;
+    absoluteThreshold: number;
+    idleTimerDisabled: false;
+    idleTimerPeriod: string;
+    pollTimerDisabled: false;
+    pollTimerPeriod: string;
+    createdAt: time.Time
+  }
+
+  export type DirectRequestSpec = {
+    createdAt: time.Time
+  }
+
+  export interface JobSpecV2 {
     name: string | null
+    type: string
     errors: JobSpecError[]
     offChainReportingOracleSpec: {
       contractAddress: common.Address
@@ -484,11 +501,14 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-    }
+    } | null
+    directRequestSpec: DirectRequestSpec | null
+    fluxMonitorSpec: FluxMonitorSpec | null
     maxTaskDuration: string
     pipelineSpec: {
       dotDagSource: string
     }
+    schemaVersion: number;
   }
 
   export interface OcrJobRun {

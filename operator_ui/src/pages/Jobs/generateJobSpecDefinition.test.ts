@@ -1,4 +1,4 @@
-import { InitiatorType } from 'core/store/models'
+import { InitiatorType, JobSpecV2 } from 'core/store/models'
 import {
   generateJSONDefinition,
   generateTOMLDefinition,
@@ -174,9 +174,13 @@ describe('generateJSONDefinition', () => {
 })
 
 describe('generateTOMLDefinition', () => {
-  it('generates valid definition', () => {
+  it('generates a valid OCR definition', () => {
     const jobSpecAttributesInput = {
       name: 'Job spec v2',
+      type: 'offchainreporting',
+      fluxMonitorSpec: null,
+      directRequestSpec: null,
+      schemaVersion: 1,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
         p2pPeerID: '12D3KooWL4zx7Tu92wNuK14LT2BV4mXxNoNK3zuxE7iKNgiazJFm',
@@ -228,6 +232,59 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 maxTaskDuration = "10s"
+`
+    /* eslint-enable no-useless-escape */
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid Flux Monitor definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'FM Job Spec',
+      schemaVersion: 1,
+      type: 'fluxmonitor',
+      fluxMonitorSpec: {
+        absoluteThreshold: 1,
+        contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        createdAt: '2021-02-19T16:00:01.115227+08:00',
+        idleTimerDisabled: false,
+        idleTimerPeriod: '1s',
+        pollTimerDisabled: false,
+        pollTimerPeriod: '1m0s',
+        precision: 2,
+        threshold: 0.5,
+        updatedAt: '2021-02-19T16:00:01.115227+08:00',
+      },
+      directRequestSpec: null,
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    /* eslint-disable no-useless-escape */
+    const expectedOutput = `type = "fluxmonitor"
+schemaVersion = 1
+name = "FM Job Spec"
+contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+precision = 2
+threshold = 0.5
+absoluteThreshold = 1
+idleTimerPeriod = "1s"
+idleTimerDisabled = false
+pollTimerPeriod = "1m0s"
+pollTimerDisabled = false
+maxTaskDuration = "10s"
+observationSource = """
+    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
+    parse    [type=jsonparse path="data,result"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+"""
 `
     /* eslint-enable no-useless-escape */
 
