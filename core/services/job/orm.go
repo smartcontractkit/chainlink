@@ -274,6 +274,7 @@ func (o *orm) JobsV2() ([]SpecDB, error) {
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("DirectRequestSpec").
+		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
 		Find(&jobs).
 		Error
@@ -313,6 +314,7 @@ func (o *orm) FindJob(id int32) (SpecDB, error) {
 	err := o.db.
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("JobSpecErrors").
 		First(&job, "jobs.id = ?", id).
