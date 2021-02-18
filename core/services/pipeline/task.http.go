@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/utils"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type (
@@ -127,9 +128,6 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	start := time.Now()
 	responseBytes, statusCode, err := httpRequest.SendRequest(ctx)
 	if err != nil {
-		if ctx.Err() != nil {
-			return Result{Error: errors.New("http request timed out or interrupted")}
-		}
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)

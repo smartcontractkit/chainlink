@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
+replace github.com/smartcontractkit/libocr => /Users/connorstein/go/src/github.com/smartcontractkit/libocr
+
 require (
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
