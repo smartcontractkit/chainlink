@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 import { JobsShow } from 'pages/Jobs/Show'
-import { jsonApiOcrJobSpec } from 'factories/jsonApiOcrJobSpec'
+import { jsonApiOcrJobSpec } from 'support/factories/jsonApiJob'
 import { jsonApiOcrJobRuns } from 'factories/jsonApiOcrJobRuns'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import { syncFetch } from 'test-helpers/syncFetch'

@@ -1,5 +1,5 @@
 import { ApiResponse } from 'utils/json-api-client'
-import { JobSpec, OcrJobSpec } from 'core/store/models'
+import { JobSpec, JobSpecV2 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
 type DIRECT_REQUEST_DEFINITION_VALID_KEYS =
@@ -90,21 +90,83 @@ export const generateJSONDefinition = (
 }
 
 export const generateTOMLDefinition = (
-  jobSpecAttributes: ApiResponse<OcrJobSpec>['data']['attributes'],
+  jobSpecAttributes: ApiResponse<JobSpecV2>['data']['attributes'],
 ): string => {
+  if (jobSpecAttributes.type === 'fluxmonitor') {
+    return generateFluxMonitorDefinition(jobSpecAttributes)
+  }
+
+  if (jobSpecAttributes.type === 'offchainreporting') {
+    return generateOCRDefinition(jobSpecAttributes)
+  }
+
+  return ''
+}
+
+function generateOCRDefinition(
+  attrs: ApiResponse<JobSpecV2>['data']['attributes'],
+) {
   const ocrSpecWithoutDates = {
-    ...jobSpecAttributes.offChainReportingOracleSpec,
+    ...attrs.offChainReportingOracleSpec,
     createdAt: undefined,
     updatedAt: undefined,
   }
 
   return stringifyJobSpec({
     value: {
-      type: 'offchainreporting',
-      schemaVersion: 1,
+      type: attrs.type,
+      schemaVersion: attrs.schemaVersion,
       ...ocrSpecWithoutDates,
-      observationSource: jobSpecAttributes.pipelineSpec.dotDagSource,
-      maxTaskDuration: jobSpecAttributes.maxTaskDuration,
+      observationSource: attrs.pipelineSpec.dotDagSource,
+      maxTaskDuration: attrs.maxTaskDuration,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateFluxMonitorDefinition(
+  attrs: ApiResponse<JobSpecV2>['data']['attributes'],
+) {
+  const {
+    fluxMonitorSpec,
+    name,
+    pipelineSpec,
+    schemaVersion,
+    type,
+    maxTaskDuration,
+  } = attrs
+
+  // There should always be a flux monitor spec but safeguarding due to type
+  // constraints
+  if (!fluxMonitorSpec) {
+    return ''
+  }
+  const {
+    contractAddress,
+    precision,
+    threshold,
+    absoluteThreshold,
+    idleTimerPeriod,
+    idleTimerDisabled,
+    pollTimerPeriod,
+    pollTimerDisabled,
+  } = fluxMonitorSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      contractAddress,
+      precision,
+      threshold,
+      absoluteThreshold,
+      idleTimerPeriod,
+      idleTimerDisabled,
+      pollTimerPeriod,
+      pollTimerDisabled,
+      maxTaskDuration,
+      observationSource: pipelineSpec.dotDagSource,
     },
     format: JobSpecFormats.TOML,
   })
