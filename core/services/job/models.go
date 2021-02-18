@@ -156,11 +156,11 @@ type FluxMonitorSpec struct {
 	IDEmbed
 	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
 	Precision       int32               `json:"precision,omitempty" gorm:"type:smallint"`
-	Threshold       float32             `json:"threshold,omitempty"`
+	Threshold       float32             `json:"threshold,omitempty" toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold float32       `json:"absoluteThreshold" gorm:"type:float;not null"`
+	AbsoluteThreshold float32       `json:"absoluteThreshold" toml:"absoluteThreshold,float" gorm:"type:float;not null"`
 	PollTimerPeriod   time.Duration `json:"pollTimerPeriod,omitempty" gorm:"type:jsonb"`
 	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
