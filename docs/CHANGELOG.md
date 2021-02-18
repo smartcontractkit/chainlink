@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   version so that the migrations are run.
 
 ### Added
+
 - A new Operator UI feature that visualize JSON and TOML job spec tasks on a 'New Job' page.
 
 ## [0.9.10] - 2021-01-30
