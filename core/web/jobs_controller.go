@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 
@@ -33,7 +34,7 @@ func (jc *JobsController) Index(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, jobs, "jobs")
+	jsonAPIResponse(c, presenters.NewJobResources(jobs), "jobs")
 }
 
 // Show returns the details of a job
@@ -58,7 +59,7 @@ func (jc *JobsController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, jobSpec, "offChainReportingJobSpec")
+	jsonAPIResponse(c, presenters.NewJobResource(jobSpec), "jobs")
 }
 
 type GenericJobSpec struct {
@@ -120,7 +121,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, job, job.Type.String())
+	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
 
 }
 
