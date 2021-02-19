@@ -1523,10 +1523,9 @@ observationSource = """
 }
 
 func TestIntegration_DirectRequest(t *testing.T) {
-	t.Fatal("TODO: Write some tests")
-
 	triggeringBlockHash := cltest.NewHash()
 	otherBlockHash := cltest.NewHash()
+	receiptBlockHash := cltest.NewHash()
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
@@ -1556,7 +1555,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	j := cltest.FixtureCreateJobSpecV2ViaWeb(t, app, "fixtures/web/direct-request-spec.toml")
 
 	// FIXME: Waiting for Ryan's work so that log broadcaster supports waiting for confirmations
-	// requiredConfs := int64(100)
+	requiredConfs := int64(100)
 
 	creationHeight := int64(1)
 	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
@@ -1583,7 +1582,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	newHeads <- cltest.Head(safeNumber)
 	confirmedReceipt := &types.Receipt{
 		TxHash:      runlog.TxHash,
-		BlockHash:   test.receiptBlockHash,
+		BlockHash:   receiptBlockHash,
 		BlockNumber: big.NewInt(creationHeight),
 	}
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil)
