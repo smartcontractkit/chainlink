@@ -267,7 +267,7 @@ func (s *subscriber) process(chRawLogs <-chan types.Log, chErr <-chan error) (sh
 			s.upsertOrDeleteLogs(rawLog)
 
 		case err := <-chErr:
-			// Note we'll get message on this channel
+			// Note we'll get a message on this channel
 			// if the eth node terminates the connection.
 			return true, err
 
