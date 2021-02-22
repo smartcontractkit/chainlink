@@ -1,0 +1,5 @@
+type            = "keeper"
+schemaVersion   = 1
+name            = "example keeper spec"
+contractAddress = "0x0000000000000000000000000000000000123ABC"
+from            = "0x0000000000000000000000000000000000654321"
