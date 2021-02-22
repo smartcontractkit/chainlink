@@ -1,0 +1,13 @@
+name: acceptance
+on:
+    pull_request_target:
+         types: [opened, labeled, unlabeled, synchronize]
+jobs:
+  Label:
+    steps:
+      - name: require acceptance acknowledgement
+        uses: jesusvasquez333/verify-pr-label-action@48e247b0670c6bc6e41d671776ba67c5bc804eeb
+        with:
+            github-token: '${{ secrets.LABEL_BOT_TOKEN }}'
+            valid-labels: 'accepted, no acceptance'
+            pull-request-number: '${{ github.event.pull_request.number }}'
