@@ -83,7 +83,6 @@ contract Operator is
     ConfirmedOwner(owner)
   {
     linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
-    // createForwarder();
   }
 
   // EXTERNAL FUNCTIONS
