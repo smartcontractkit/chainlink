@@ -257,7 +257,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 			}
 		case err, ok := <-sub.ethSubscription.Err():
 			if ok {
-				logger.Warnw(fmt.Sprintf("Error in log subscription. Attempting to reconnect."), "err", err)
+				logger.Warnw("Error in log subscription. Attempting to reconnect.", "err", err)
 				b := &backoff.Backoff{
 					Min:    100 * time.Millisecond,
 					Max:    10 * time.Second,
