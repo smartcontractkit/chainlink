@@ -32,16 +32,16 @@ var (
 type JobRun struct {
 	ID             uuid.UUID      `json:"id" gorm:"type:uuid;primary_key;not null"`
 	JobSpecID      JobID          `json:"jobId" gorm:"type:uuid"`
-	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID;association_autoupdate:true;association_autocreate:true"`
+	Result         RunResult      `json:"result" gorm:"foreignkey:ResultID"`
 	ResultID       clnull.Int64   `json:"-"`
-	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID;association_autoupdate:true;association_autocreate:true"`
+	RunRequest     RunRequest     `json:"-" gorm:"foreignkey:RunRequestID"`
 	RunRequestID   clnull.Int64   `json:"-"`
 	Status         RunStatus      `json:"status" gorm:"default:'unstarted'"`
 	TaskRuns       []TaskRun      `json:"taskRuns" gorm:"foreignKey:JobRunID"`
 	CreatedAt      time.Time      `json:"createdAt"`
 	FinishedAt     null.Time      `json:"finishedAt"`
 	UpdatedAt      time.Time      `json:"updatedAt"`
-	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;association_autoupdate:false;association_autocreate:false"`
+	Initiator      Initiator      `json:"initiator" gorm:"foreignkey:InitiatorID;->"`
 	InitiatorID    int64          `json:"-"`
 	CreationHeight *utils.Big     `json:"creationHeight"`
 	ObservedHeight *utils.Big     `json:"observedHeight"`
@@ -247,7 +247,7 @@ type TaskRun struct {
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec                         TaskSpec      `json:"task" gorm:"association_autoupdate:false;association_autocreate:false"`
+	TaskSpec                         TaskSpec      `json:"task"`
 	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
