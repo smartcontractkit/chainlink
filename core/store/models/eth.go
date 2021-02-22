@@ -55,7 +55,7 @@ type EthTx struct {
 	BroadcastAt    *time.Time
 	CreatedAt      time.Time
 	State          EthTxState
-	EthTxAttempts  []EthTxAttempt `gorm:"association_autoupdate:false;association_autocreate:false"`
+	EthTxAttempts  []EthTxAttempt `gorm:"->"`
 }
 
 func (e EthTx) GetError() error {
@@ -80,7 +80,7 @@ type EthTxAttempt struct {
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   EthTxAttemptState
-	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;association_autoupdate:false;association_autocreate:false"`
+	EthReceipts             []EthReceipt `gorm:"foreignKey:TxHash;references:Hash;association_foreignkey:Hash;->"`
 }
 
 type EthReceipt struct {
