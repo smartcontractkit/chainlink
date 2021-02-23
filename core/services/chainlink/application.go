@@ -172,11 +172,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				logBroadcaster,
 				pipelineRunner,
 				store.DB,
-            ),
+			),
 			job.FluxMonitor: fluxmonitorv2.NewDelegate(
 				pipelineRunner,
 				store.DB,
-            ),
+			),
 		}
 	)
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
