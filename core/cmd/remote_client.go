@@ -213,7 +213,12 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 	return nil
 }
 
-// CreateV2JobSpec creates a V2 job
+// ListJobsV2 lists all v2 jobs
+func (cli *Client) ListJobsV2(c *clipkg.Context) (err error) {
+	return cli.getPage("/v2/jobs", c.Int("page"), &[]Job{})
+}
+
+// CreateJobV2 creates a V2 job
 // Valid input is a TOML string or a path to TOML file
 func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
