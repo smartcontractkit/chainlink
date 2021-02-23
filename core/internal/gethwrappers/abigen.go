@@ -195,7 +195,7 @@ func addAddressField(contractName string, fileNode *ast.File) *ast.File {
 
 func getLogNames(fileNode *ast.File) []string {
 	var logNames []string
-	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+	astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
 		x, is := cursor.Node().(*ast.FuncDecl)
 		if !is {
 			return true
@@ -204,7 +204,7 @@ func getLogNames(fileNode *ast.File) []string {
 		}
 		logNames = append(logNames, x.Name.Name[len("Parse"):])
 		return false
-	}, nil).(*ast.File)
+	}, nil)
 	return logNames
 }
 
@@ -286,10 +286,10 @@ func (_%v *%v) ParseLog(log types.Log) (interface{}, error) {
     switch log.Topics[0] {
     %v
     default:
-        return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+        return nil, fmt.Errorf("abigen wrapper received unknown log topic: %%v", log.Topics[0])
     }
 }
-`, contractName, contractName, contractName, logSwitchBody, contractName))...)
+`, contractName, contractName, contractName, logSwitchBody))...)
 	}
 
 	// Write the the Address method to the bottom of the file

@@ -1035,7 +1035,7 @@ func (_MultiWordConsumer *MultiWordConsumer) ParseLog(log types.Log) (interface{
 		return _MultiWordConsumer.ParseRequestMultipleFulfilled(log)
 
 	default:
-		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %!v(MISSING)", log.Topics[0])
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 
