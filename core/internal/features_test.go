@@ -1357,7 +1357,7 @@ func TestIntegration_OCR(t *testing.T) {
 	defer cleanup()
 
 	var (
-		oracles      []confighelper.OracleIdentity
+		oracles      []confighelper.OracleIdentityExtra
 		transmitters []common.Address
 		kbs          []ocrkey.EncryptedKeyBundle
 		apps         []*cltest.TestApplication
@@ -1374,11 +1374,13 @@ func TestIntegration_OCR(t *testing.T) {
 		apps = append(apps, app)
 		transmitters = append(transmitters, transmitter)
 
-		oracles = append(oracles, confighelper.OracleIdentity{
-			OnChainSigningAddress:           ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
-			TransmitAddress:                 transmitter,
-			OffchainPublicKey:               ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
-			PeerID:                          peerID,
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnChainSigningAddress: ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
+				TransmitAddress:       transmitter,
+				OffchainPublicKey:     ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
+				PeerID:                peerID,
+			},
 			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(kb.ConfigPublicKey),
 		})
 	}
