@@ -182,15 +182,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 	err = app.Store.OCRKeyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
-	p2pkeys, err := app.Store.OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-	decp2pkeys := app.Store.OCRKeyStore.DecryptedP2PKeys()
-	for _, k := range p2pkeys {
-		fmt.Println("- p2p", k.GetID())
-	}
-	for _, k := range decp2pkeys {
-		fmt.Println("- p2p", k.MustGetPeerID())
-	}
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)
