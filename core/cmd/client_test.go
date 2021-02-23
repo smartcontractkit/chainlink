@@ -143,7 +143,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Remove fixture user
-			_, err := store.DeleteUser()
+			err := store.DeleteUser()
 			require.NoError(t, err)
 
 			user, err := tai.Initialize(store)

@@ -292,7 +292,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			assert.NoError(t, err)
 
 			var exi models.ExternalInitiator
-			err = app.Store.RawDB(func(db *gorm.DB) error {
+			err = app.Store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 				return db.Where("name = ?", test.args[0]).Find(&exi).Error
 			})
 			require.NoError(t, err)
