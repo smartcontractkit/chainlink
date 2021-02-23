@@ -13,14 +13,14 @@ type LogConsumption struct {
 	ID          uint
 	BlockHash   common.Hash
 	LogIndex    uint
-	JobID       JobID
+	JobID       *JobID
 	JobIDV2     *int32 `gorm:"column:job_id_v2"`
 	BlockNumber uint64
 	CreatedAt   time.Time
 }
 
 // NewLogConsumption creates a new LogConsumption
-func NewLogConsumption(blockHash common.Hash, logIndex uint, jobID JobID, jobIDV2 *int32, blockNumber uint64) LogConsumption {
+func NewLogConsumption(blockHash common.Hash, logIndex uint, jobID *JobID, jobIDV2 *int32, blockNumber uint64) LogConsumption {
 	return LogConsumption{
 		BlockHash:   blockHash,
 		LogIndex:    logIndex,
