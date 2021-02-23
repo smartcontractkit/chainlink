@@ -120,7 +120,7 @@ func TestClient_RunNodeWithPasswords(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 			// Clear out fixture
-			_, err := store.DeleteUser()
+			err := store.DeleteUser()
 			require.NoError(t, err)
 			require.NoError(t, store.KeyStore.Unlock(cltest.Password))
 			_, err = store.KeyStore.NewAccount()

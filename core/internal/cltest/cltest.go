@@ -1433,7 +1433,7 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	t.Helper()
 
 	var all []models.ExternalInitiator
-	err := store.RawDB(func(db *gorm.DB) error {
+	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Find(&all).Error
 	})
 	require.NoError(t, err)
@@ -1444,7 +1444,7 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
 	var all []models.JobSpec
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Find(&all).Error
 	})
 	require.NoError(t, err)
@@ -1467,7 +1467,7 @@ func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt 
 
 	var txa models.EthTxAttempt
 	var count int64
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})
 	require.NoError(t, err)
