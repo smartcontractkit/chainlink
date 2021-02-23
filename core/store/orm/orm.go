@@ -1296,7 +1296,7 @@ func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID mode
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	lc := models.NewLogConsumption(blockHash, logIndex, jobID, nil, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, &jobID, nil, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
@@ -1305,7 +1305,7 @@ func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID in
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	lc := models.NewLogConsumption(blockHash, logIndex, models.NilJobID, &jobID, blockNumber)
+	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
 	return orm.DB.Create(&lc).Error
 }
 
