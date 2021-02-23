@@ -95,7 +95,6 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		sub              = new(mocks.Subscription)
 		subscribeCalls   int32
 		unsubscribeCalls int32
-		contracts        []log.AbigenContract
 	)
 	store.EthClient = ethClient
 
@@ -123,7 +122,6 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	registrations := make([]registration, numContracts)
 	for i := 0; i < numContracts; i++ {
 		contract := new(logmocks.AbigenContract)
-		contracts = append(contracts, contract)
 		contract.On("Address").Return(cltest.NewAddress())
 
 		listener := new(logmocks.Listener)
