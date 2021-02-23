@@ -2810,7 +2810,7 @@ func (_OffchainAggregator *OffchainAggregator) ParseLog(log types.Log) (interfac
 		return _OffchainAggregator.ParseValidatorUpdated(log)
 
 	default:
-		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %!v(MISSING)", log.Topics[0])
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 

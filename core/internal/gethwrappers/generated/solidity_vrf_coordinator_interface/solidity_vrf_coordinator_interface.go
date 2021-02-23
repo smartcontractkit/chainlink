@@ -771,7 +771,7 @@ func (_VRFCoordinator *VRFCoordinator) ParseLog(log types.Log) (interface{}, err
 		return _VRFCoordinator.ParseRandomnessRequestFulfilled(log)
 
 	default:
-		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %!v(MISSING)", log.Topics[0])
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 
