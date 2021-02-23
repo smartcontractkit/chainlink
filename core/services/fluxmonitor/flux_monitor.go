@@ -33,7 +33,6 @@ import (
 const hibernationPollPeriod = 24 * time.Hour
 
 var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
-var flagsABI = eth.MustGetABI(flags_wrapper.FlagsABI)
 
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
