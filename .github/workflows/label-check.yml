@@ -1,12 +1,17 @@
 name: acceptance
 on:
-    pull_request_target:
-         types: [opened, labeled, unlabeled, synchronize]
+  pull_request_target:
+    types: [opened, labeled, unlabeled, synchronize]
 jobs:
-  Label:
+  check_pr_labels:
+    runs-on: ubuntu-latest
+    name: Verify that the PR has a valid label
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: require acceptance acknowledgement
         uses: jesusvasquez333/verify-pr-label-action@48e247b0670c6bc6e41d671776ba67c5bc804eeb
+        id: verify-pr-label
         with:
             github-token: '${{ secrets.LABEL_BOT_TOKEN }}'
             valid-labels: 'accepted, no acceptance'
