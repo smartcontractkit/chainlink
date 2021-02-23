@@ -257,7 +257,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 			}
 		case err, ok := <-sub.ethSubscription.Err():
 			if ok {
-				logger.Warnw("Error in log subscription. Attempting to reconnect.", "err", err)
+				logger.Warnw("Error in log subscription. Attempting to reconnect to eth node", "err", err)
 				b := &backoff.Backoff{
 					Min:    100 * time.Millisecond,
 					Max:    10 * time.Second,
@@ -268,13 +268,13 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					newLogs := make(chan models.Log)
 					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), q, newLogs)
 					if err != nil {
-						logger.Warnw(fmt.Sprintf("Failed to reconnect. Trying again in %v", b.Duration()), "err", err.Error())
+						logger.Warnw(fmt.Sprintf("Failed to reconnect to eth node. Trying again in %v", b.Duration()), "err", err.Error())
 						time.Sleep(b.Duration())
 						continue
 					}
 					sub.ethSubscription = newSub
 					sub.logs = newLogs
-					logger.Infow("Successfully reconnected.")
+					logger.Infow("Successfully reconnected to eth node.")
 					break
 				}
 			}
