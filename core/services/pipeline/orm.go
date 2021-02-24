@@ -159,7 +159,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		err = tx.Raw(`
             INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
             SELECT pipeline_spec_id, ?, NOW()
-            FROM jobs WHERE id = ? 
+            FROM jobs WHERE id = ?
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 		if run.ID == 0 {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
@@ -172,7 +172,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		// Create the task runs
 		err = tx.Exec(`
             INSERT INTO pipeline_task_runs (
-            	pipeline_run_id, pipeline_task_spec_id, type, index, created_at
+              pipeline_run_id, pipeline_task_spec_id, type, index, created_at
             )
             SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
             FROM pipeline_task_specs

@@ -69,7 +69,7 @@ type listener struct {
 
 // Start complies with job.Service
 func (d listener) Start() error {
-	connected := d.logBroadcaster.Register(nil, d)
+	connected := d.logBroadcaster.Register(d.contractAddress, d)
 	if !connected {
 		return errors.New("Failed to register listener with logBroadcaster")
 	}
@@ -134,7 +134,6 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 func (d *listener) handleOracleRequest(req contracts.OracleRequest) {
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = req.ToMap()
-	panic("HERE")
 	ctx := context.TODO()
 	_, err := d.pipelineRunner.CreateRun(ctx, d.jobID, meta)
 	if err != nil {
@@ -145,16 +144,22 @@ func (d *listener) handleOracleRequest(req contracts.OracleRequest) {
 // Cancels runs that haven't been started yet, with the given request ID
 // TODO: Boy does this ever need testing
 func (d *listener) handleCancelOracleRequest(requestID [32]byte) {
-	d.db.Exec(`
-	DELETE FROM pipeline_runs
-	WHERE id IN (
-		SELECT id FROM pipeline_runs FOR UPDATE OF pipeline_task_runs SKIP LOCKED
-		INNER JOIN pipeline_task_runs WHERE pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-		WHERE pipeline_spec_id = ?
-		AND pipeline_runs.meta->'oracleRequest'->'requestId' = ?
-		HAVING bool_and(pipeline_task_runs.finished_at IS NULL)
-	)
-	`)
+	err := d.db.Exec(`
+DELETE FROM pipeline_runs
+WHERE id IN (
+	SELECT pipeline_runs.id
+	FROM pipeline_runs
+	INNER JOIN pipeline_task_runs
+	ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
+	WHERE pipeline_spec_id = ?
+		AND pipeline_runs.meta->'oracleRequest'->>'requestId' = ?
+		AND pipeline_task_runs.finished_at IS NULL
+	FOR UPDATE OF pipeline_task_runs
+	SKIP LOCKED
+)`, d.jobID, fmt.Sprintf("%x", requestID)).Error
+	if err != nil {
+		logger.Errorw("Error while deleting pipeline_runs", "error", err)
+	}
 }
 
 // JobID complies with log.Listener
