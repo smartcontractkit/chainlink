@@ -119,7 +119,7 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 			logger.Errorf("Error marking log as consumed: %v", err)
 		}
 	case *contracts.LogCancelOracleRequest:
-		d.handleCancelOracleRequest(log.RequestId)
+		d.handleCancelOracleRequest(log.RequestID)
 		// TODO: Transactional/atomic log consumption would be nice
 		err = lb.MarkConsumed()
 		if err != nil {

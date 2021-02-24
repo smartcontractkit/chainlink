@@ -117,7 +117,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
 		logCancelOracleRequest := contracts.LogCancelOracleRequest{
-			RequestId: request.RequestID,
+			RequestID: request.RequestID,
 		}
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("MarkConsumed").Return(nil)
