@@ -15,7 +15,7 @@ type ocrLogger struct {
 }
 
 func NewLogger(l *logger.Logger, trace bool, saveError func(string)) ocrtypes.Logger {
-	internal := logger.CreateLogger(l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(2)).Sugar())
+	internal := logger.CreateLogger(l.SugaredLogger.Desugar().WithOptions(zap.AddCallerSkip(1)).Sugar())
 	return &ocrLogger{
 		internal:  internal,
 		trace:     trace,
