@@ -247,7 +247,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
         validator
           .connect(personas.Carol)
           .setFeedDetails(mockAggregator.address, symbol, decimals, 0),
-        'Invalid deviation threshold denominator',
+        'Invalid threshold denominator',
       )
     })
 

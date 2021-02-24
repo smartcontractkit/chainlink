@@ -61,7 +61,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param flagsAddress Address of the flag contract
    * @param compoundOracleAddress Address of the Compound Open Oracle UniswapAnchoredView contract
    */
-  constructor(address flagsAddress, address compoundOracleAddress)
+  constructor(
+    address flagsAddress,
+    address compoundOracleAddress
+  )
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
@@ -72,7 +75,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @notice Set the address of the Compound Open Oracle UniswapAnchoredView contract
    * @param oracleAddress Compound Open Oracle UniswapAnchoredView address
    */
-  function setCompoundOpenOracleAddress(address oracleAddress)
+  function setCompoundOpenOracleAddress(
+    address oracleAddress
+  )
     public
     onlyOwner()
   {
@@ -87,7 +92,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @notice Updates the flagging contract address for raising flags
    * @param flagsAddress sets the address of the flags contract
    */
-  function setFlagsAddress(address flagsAddress)
+  function setFlagsAddress(
+    address flagsAddress
+  )
     public
     onlyOwner()
   {
@@ -118,7 +125,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
     public 
     onlyOwner() 
   {
-    require(compoundDeviationThresholdDenominator != 0, "Invalid deviation threshold denominator");
+    require(compoundDeviationThresholdDenominator != 0, "Invalid threshold denominator");
     require(compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
     s_feedDetails[aggregator] = CompoundFeedDetails({
       symbol: compoundSymbol,
@@ -140,10 +147,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregators address[] memory
    * @return address[] invalid feeds
    */
-  function check(address[] memory aggregators)
+  function check(
+    address[] memory aggregators
+  )
     public
     view
-    returns (address[] memory)
+    returns (
+      address[] memory
+    )
   {
     address[] memory invalidAggregators = new address[](aggregators.length);
     uint256 invalidCount = 0;
@@ -170,9 +181,13 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregators address[] memory
    * @return address[] memory invalid aggregators
    */
-  function update(address[] memory aggregators)
+  function update(
+    address[] memory aggregators
+  )
     public
-    returns (address[] memory)
+    returns (
+      address[] memory
+    )
   {
     address[] memory invalidAggregators = check(aggregators);
     s_flags.raiseFlags(invalidAggregators);
@@ -187,11 +202,16 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return invalid aggregators - bytes encoded address array of invalid aggregator addresses
    */
-  function checkForUpkeep(bytes calldata data)
+  function checkForUpkeep(
+    bytes calldata data
+  )
     external
     view
     override
-    returns (bool, bytes memory)
+    returns (
+      bool,
+      bytes memory
+    )
   {
     address[] memory invalidAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (invalidAggregators.length > 0);
@@ -204,7 +224,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @dev This contract must have write permissions on the Flags contract
    * @param data bytes encoded address array
    */
-  function performUpkeep(bytes calldata data)
+  function performUpkeep(
+    bytes calldata data
+  )
     external
     override
   {
@@ -218,10 +240,16 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return uint8 Compound Oracle Decimals
    * @return uint32 Deviation Threshold Denominator
    */
-  function getFeedDetails(address aggregator)
+  function getFeedDetails(
+    address aggregator
+  )
     public
     view
-    returns (string memory, uint8, uint32)
+    returns (
+      string memory,
+      uint8,
+      uint32
+    )
   {
     CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
     return(
@@ -238,7 +266,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   function flags()
     external
     view
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(s_flags);
   }
@@ -250,7 +280,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   function compoundOpenOracle()
     external
     view
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(s_compOpenOracle);
   }
@@ -260,10 +292,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param symbol string
    * @return price uint256
    */
-  function compoundPriceOf(string memory symbol)
+  function compoundPriceOf(
+    string memory symbol
+  )
     private
     view
-    returns (uint256)
+    returns (
+      uint256
+    )
   {
     return s_compOpenOracle.price(symbol);
   }
@@ -276,10 +312,14 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @param aggregator address of the Chainlink aggregator
    * @return invalid bool. True if the deviation exceeds threshold.
    */
-  function isInvalid(address aggregator)
+  function isInvalid(
+    address aggregator
+  )
     private
     view
-    returns (bool invalid)
+    returns (
+      bool invalid
+    )
   {
     CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
     if (compDetails.deviationThresholdDenominator == 0) {
@@ -307,10 +347,15 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return price uint256
    * @return decimals uint8
    */
-  function aggregatorValues(address aggregator)
+  function aggregatorValues(
+    address aggregator
+  )
     private
     view
-    returns (uint256 price, uint8 decimals)
+    returns (
+      uint256 price,
+      uint8 decimals
+    )
   {
     AggregatorV3Interface priceFeed = AggregatorV3Interface(aggregator);
     (,int256 signedPrice,,,) = priceFeed.latestRoundData();
@@ -336,7 +381,10 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   )
     private
     pure
-    returns (uint256 adjustedAggregatorPrice, uint256 adjustedCompoundPrice)
+    returns (
+      uint256 adjustedAggregatorPrice,
+      uint256 adjustedCompoundPrice
+    )
   {
     if (aggregatorDecimals > compoundDecimals) {
       uint8 diff = aggregatorDecimals - compoundDecimals;
@@ -368,7 +416,9 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
   )
     private
     pure
-    returns (bool beyondThreshold)
+    returns (
+      bool beyondThreshold
+    )
   {
     // Deviation amount threshold from the aggregator price
     uint256 deviationAmountThreshold = aggregatorPrice.div(uint256(deviationThresholdDenominator));
