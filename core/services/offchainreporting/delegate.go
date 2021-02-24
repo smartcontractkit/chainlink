@@ -6,17 +6,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -59,6 +58,11 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 	concreteSpec := jobSpec.OffchainreportingOracleSpec
 
+	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(concreteSpec.ContractAddress.Address(), d.ethClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregator")
+	}
+
 	contractFilterer, err := offchainaggregator.NewOffchainAggregatorFilterer(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorFilterer")
@@ -70,7 +74,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 
 	ocrContract, err := NewOCRContractConfigTracker(
-		concreteSpec.ContractAddress.Address(),
+		contract,
 		contractFilterer,
 		contractCaller,
 		d.ethClient,
