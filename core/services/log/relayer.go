@@ -17,6 +17,7 @@ type relayer struct {
 	orm       ORM
 	config    Config
 	listeners map[common.Address]map[Listener]struct{}
+	decoders  map[common.Address]AbigenContract
 
 	latestBlock                  uint64
 	fewestRequestedConfirmations uint64
@@ -36,7 +37,7 @@ type relayer struct {
 // A `registration` represents a Listener's subscription to the logs of a
 // particular contract.
 type registration struct {
-	address  common.Address
+	contract AbigenContract
 	listener Listener
 }
 
@@ -52,6 +53,7 @@ func newRelayer(orm ORM, config Config, dependentAwaiter utils.DependentAwaiter)
 		orm:              orm,
 		config:           config,
 		listeners:        make(map[common.Address]map[Listener]struct{}),
+		decoders:         make(map[common.Address]AbigenContract),
 		addListener:      utils.NewMailbox(0),
 		rmListener:       utils.NewMailbox(0),
 		newHeads:         utils.NewMailbox(1),
@@ -98,12 +100,12 @@ func (r *relayer) Stop() error {
 	})
 }
 
-func (r *relayer) NotifyAddListener(contractAddr common.Address, listener Listener) {
-	r.addListener.Deliver(registration{contractAddr, listener})
+func (r *relayer) NotifyAddListener(contract AbigenContract, listener Listener) {
+	r.addListener.Deliver(registration{contract, listener})
 }
 
-func (r *relayer) NotifyRemoveListener(contractAddr common.Address, listener Listener) {
-	r.rmListener.Deliver(registration{contractAddr, listener})
+func (r *relayer) NotifyRemoveListener(contract AbigenContract, listener Listener) {
+	r.rmListener.Deliver(registration{contract, listener})
 }
 
 func (r *relayer) NotifyNewLog(log types.Log) {
@@ -167,19 +169,21 @@ func (r *relayer) onAddListeners() {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		_, knownAddress := r.listeners[reg.address]
+		_, knownAddress := r.listeners[reg.contract.Address()]
 		if !knownAddress {
-			r.listeners[reg.address] = make(map[Listener]struct{})
+			r.listeners[reg.contract.Address()] = make(map[Listener]struct{})
 		}
-		if _, exists := r.listeners[reg.address][reg.listener]; exists {
+		if _, exists := r.listeners[reg.contract.Address()][reg.listener]; exists {
 			panic("registration already exists")
 		}
-		r.listeners[reg.address][reg.listener] = struct{}{}
-		err := r.orm.UpsertBroadcastsForListenerSinceBlock(r.latestBlock, reg.address, ListenerJobID(reg.listener))
+		r.listeners[reg.contract.Address()][reg.listener] = struct{}{}
+		r.decoders[reg.contract.Address()] = reg.contract
+
+		err := r.orm.UpsertBroadcastsForListenerSinceBlock(r.latestBlock, reg.contract.Address(), ListenerJobID(reg.listener))
 		if err != nil {
 			logger.Errorw("error upserting log broadcast",
 				"error", err,
-				"contract", reg.address,
+				"contract", reg.contract.Address(),
 				"latestBlock", r.latestBlock,
 				"jobID", reg.listener.JobID(),
 				"jobIDV2", reg.listener.JobIDV2(),
@@ -201,9 +205,9 @@ func (r *relayer) onRmListeners() {
 			continue
 		}
 		reg.listener.OnDisconnect()
-		delete(r.listeners[reg.address], reg.listener)
-		if len(r.listeners[reg.address]) == 0 {
-			delete(r.listeners, reg.address)
+		delete(r.listeners[reg.contract.Address()], reg.listener)
+		if len(r.listeners[reg.contract.Address()]) == 0 {
+			delete(r.listeners, reg.contract.Address())
 		}
 
 		err := r.orm.DeleteUnconsumedBroadcastsForListener(ListenerJobID(reg.listener))
@@ -286,12 +290,26 @@ func (r *relayer) broadcast(log types.Log) {
 
 			// Deep copy the log so that subscribers aren't sharing any state
 			logCopy := copyLog(log)
+
+			// Decode the log
+			decoder, exists := r.decoders[log.Address]
+			if !exists || decoder == nil {
+				logger.Errorw("log decoder for contract is not registered", "contract", log.Address)
+				return
+			}
+			decodedLog, err := decoder.ParseLog(logCopy)
+			if err != nil {
+				logger.Errorw("could not decode log", "contract", log.Address, "topic", log.Topics[0])
+				return
+			}
+
 			lb := &broadcast{
-				orm:     r.orm,
-				rawLog:  logCopy,
-				jobID:   listener.JobID(),
-				jobIDV2: listener.JobIDV2(),
-				isV2:    listener.IsV2Job(),
+				orm:        r.orm,
+				rawLog:     logCopy,
+				decodedLog: decodedLog,
+				jobID:      listener.JobID(),
+				jobIDV2:    listener.JobIDV2(),
+				isV2:       listener.IsV2Job(),
 			}
 			listener.HandleLog(lb, nil)
 		}()
