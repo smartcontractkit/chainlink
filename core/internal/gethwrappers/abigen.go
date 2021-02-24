@@ -57,14 +57,16 @@ func Abigen(a AbigenArgs) {
 			gethParams.Version),
 			nil)
 	}
-	buildCommand := exec.Command(
-		abigenExecutablePath,
-		"-bin", a.Bin,
+	args := []string{
 		"-abi", a.ABI,
 		"-out", a.Out,
 		"-type", a.Type,
 		"-pkg", a.Pkg,
-	)
+	}
+	if a.Bin != "" {
+		args = append(args, "-bin", a.Bin)
+	}
+	buildCommand := exec.Command(abigenExecutablePath, args...)
 	var buildResponse bytes.Buffer
 	buildCommand.Stderr = &buildResponse
 	if err := buildCommand.Run(); err != nil {
