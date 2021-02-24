@@ -43,9 +43,8 @@ describe('CompoundPriceFlaggingVlidator', () => {
   // 1100 (10% deviation from aggregator price)
   const initialCompoundPrice = ethers.utils.bigNumberify('1100000000')
 
-  // (1 / initialDeviationDenominator)
-  // (1 / 20) = 0.05 = 5% deviation threshold
-  const initialDeviationDenominator = 20
+  // (50,000,000 / 1,000,000,000) = 0.05 = 5% deviation threshold
+  const initialDeviationNumerator = 50_000_000
 
   const deployment = setup.snapshot(provider, async () => {
     ac = await acFactory.connect(personas.Carol).deploy()
@@ -70,7 +69,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
         aggregator.address,
         compoundSymbol,
         compoundDecimals,
-        initialDeviationDenominator,
+        initialDeviationNumerator,
       )
     await ac.connect(personas.Carol).addAccess(validator.address)
   })
@@ -198,7 +197,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     let receipt: ContractReceipt
     const symbol = 'BTC'
     const decimals = 8
-    const deviationDenominator = 20 // 5%
+    const deviationNumerator = 50_000_000 // 5%
 
     beforeEach(async () => {
       await compoundOracle.connect(personas.Carol).setPrice('BTC', 1500000, 2)
@@ -211,7 +210,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
           mockAggregator.address,
           symbol,
           decimals,
-          deviationDenominator,
+          deviationNumerator,
         )
       receipt = await tx.wait()
     })
@@ -223,7 +222,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
 
       assert.equal(response[0], symbol)
       assert.equal(response[1], decimals)
-      assert.equal(response[2].toString(), deviationDenominator.toString())
+      assert.equal(response[2].toString(), deviationNumerator.toString())
     })
 
     it('emits an event', async () => {
@@ -237,17 +236,31 @@ describe('CompoundPriceFlaggingVlidator', () => {
       assert.equal(eventArgs.symbol, symbol)
       assert.equal(eventArgs.decimals, decimals)
       assert.equal(
-        eventArgs.deviationThresholdDenominator.toString(),
-        deviationDenominator.toString(),
+        eventArgs.deviationThresholdNumerator.toString(),
+        deviationNumerator.toString(),
       )
     })
 
-    it('fails when given a 0 denominator', async () => {
+    it('fails when given a 0 numerator', async () => {
       await matchers.evmRevert(
         validator
           .connect(personas.Carol)
           .setFeedDetails(mockAggregator.address, symbol, decimals, 0),
-        'Invalid threshold denominator',
+        'Invalid threshold numerator',
+      )
+    })
+
+    it('fails when given a numerator above 1 billion', async () => {
+      await matchers.evmRevert(
+        validator
+          .connect(personas.Carol)
+          .setFeedDetails(
+            mockAggregator.address,
+            symbol,
+            decimals,
+            1_200_000_000,
+          ),
+        'Invalid threshold numerator',
       )
     })
 
@@ -259,7 +272,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
             mockAggregator.address,
             'TEST',
             decimals,
-            deviationDenominator,
+            deviationNumerator,
           ),
         'Invalid Compound price',
       )
@@ -274,7 +287,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
               mockAggregator.address,
               symbol,
               decimals,
-              deviationDenominator,
+              deviationNumerator,
             ),
           'Only callable by owner',
         )
