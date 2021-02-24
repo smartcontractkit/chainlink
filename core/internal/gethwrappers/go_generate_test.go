@@ -78,13 +78,21 @@ func TestArtifactCompilerVersionMatchesConfig(t *testing.T) {
 		beltArtifact, err := ioutil.ReadFile(beltArtifactPath)
 		require.NoError(t, err)
 		metadata := gjson.Get(string(beltArtifact), "compilerOutput.metadata").String()
-		fullVersion := gjson.Get(metadata, "compiler.version").String()                    // eg 0.6.6+commit.6c089d02
-		patchVersionInArtifact := patchVersionRegex.FindString(fullVersion)                // eg 0.6.6
-		minorVersion := minorVersionRegex.FindString(artifact)                             // eg v0.6
-		escapedMinorVersion := strings.ReplaceAll(minorVersion, ".", `\.`)                 // eg v0\.6
-		patchVersionInConfig := gjson.Get(versionConfigJSON, escapedMinorVersion).String() // eg 0.6.6
+		fullVersion := gjson.Get(metadata, "compiler.version").String() // eg 0.6.6+commit.6c089d02
+		// fmt.Println(fullVersion)
+		fmt.Println(artifact, fmt.Sprintf("%[1]sOCR%[1]s", string(filepath.Separator)))
+		patchVersionInArtifact := patchVersionRegex.FindString(fullVersion)             // eg 0.6.6
+		if minorVersion := minorVersionRegex.FindString(artifact); minorVersion != "" { // eg v0.6
+			escapedMinorVersion := strings.ReplaceAll(minorVersion, ".", `\.`)                 // eg v0\.6
+			patchVersionInConfig := gjson.Get(versionConfigJSON, escapedMinorVersion).String() // eg 0.6.6
+			assert.Equal(t, patchVersionInArtifact, patchVersionInConfig)
 
-		assert.Equal(t, patchVersionInArtifact, patchVersionInConfig)
+		} else if strings.Contains(artifact, fmt.Sprintf("%[1]sOCR%[1]s", string(filepath.Separator))) {
+			// OCR contracts' solc version is defined in libocr. This assertion must be kept in sync.
+			assert.Equal(t, patchVersionInArtifact, "0.7.6")
+		} else {
+			t.Fatalf("directory layout has changed: could not assert that the contract '%v' was compiled with the right version of solc", artifact)
+		}
 	}
 
 	require.NoError(t, scanner.Err())
