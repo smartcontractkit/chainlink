@@ -30,6 +30,7 @@ type (
 		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (finalResult FinalResult, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
+		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
 	}
 
 	runner struct {
@@ -465,6 +466,12 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	}
 
 	return finalResult, nil
+}
+
+func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error){
+	dbCtx, cancel := context.WithTimeout(ctx, r.config.DatabaseMaximumTxDuration())
+	defer cancel()
+	return r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs)
 }
 
 func (r *runner) runReaper() {
