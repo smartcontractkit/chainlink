@@ -37,8 +37,13 @@ contract Operator is
   LinkTokenInterface internal immutable linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_authorizedSenders;
+  address[] private s_authorizedSenderList;
   // Tokens sent for requests that have not been fulfilled yet
   uint256 private s_tokensInEscrow = ONE_FOR_CONSISTENT_GAS_COST;
+
+  event AuthorizedSendersChanged(
+    address[] senders
+  );
 
   event OracleRequest(
     bytes32 indexed specId,
@@ -213,29 +218,48 @@ contract Operator is
 
   /**
    * @notice Use this to check if a node is authorized for fulfilling requests
-   * @param node The address of the Chainlink node
+   * @param sender The address of the Chainlink node
    * @return The authorization status of the node
    */
-  function isAuthorizedSender(address node)
+  function isAuthorizedSender(address sender)
     external
     view
     override
     returns (bool)
   {
-    return s_authorizedSenders[node];
+    return s_authorizedSenders[sender];
   }
 
   /**
    * @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
-   * @param node The address of the Chainlink node
-   * @param allowed Bool value to determine if the node can fulfill requests
+   * @param senders The addresses of the authorized Chainlink node
    */
-  function setAuthorizedSender(address node, bool allowed)
+  function setAuthorizedSenders(address[] calldata senders)
     external
     override
     onlyOwner()
   {
-    s_authorizedSenders[node] = allowed;
+    require(senders.length > 0, "Must have at least 1 authorized sender");
+    // Set previous authorized senders to false
+    uint256 authorizedSendersLength = s_authorizedSenderList.length;
+    for (uint256 i = 0; i < authorizedSendersLength; i++) {
+      s_authorizedSenders[s_authorizedSenderList[i]] = false;
+    }
+    // Set new to true
+    for (uint256 i = 0; i < senders.length; i++) {
+      s_authorizedSenders[senders[i]] = true;
+    }
+    // Replace list
+    s_authorizedSenderList = senders;
+    emit AuthorizedSendersChanged(senders);
+  }
+
+  /**
+   * @notice Retrieve a list of authorized senders
+   * @return array of addresses
+   */
+  function getAuthorizedSenders() external view override returns (address[] memory) {
+    return s_authorizedSenderList;
   }
 
   /**

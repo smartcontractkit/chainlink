@@ -50,7 +50,7 @@ describe('Operator', () => {
     operator = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator.setAuthorizedSender(roles.oracleNode.address, true)
+    await operator.setAuthorizedSenders([roles.oracleNode.address])
   })
 
   beforeEach(async () => {
@@ -68,7 +68,8 @@ describe('Operator', () => {
       'getChainlinkToken',
       'onTokenTransfer',
       'oracleRequest',
-      'setAuthorizedSender',
+      'setAuthorizedSenders',
+      'getAuthorizedSenders',
       'withdraw',
       'withdrawable',
       'operatorTransferAndCall',
@@ -163,29 +164,69 @@ describe('Operator', () => {
     })
   })
 
-  describe('#setAuthorizedSender', () => {
+  describe('#setAuthorizedSenders', () => {
+    let newSenders: string[]
+    let receipt: ContractReceipt
     describe('when called by the owner', () => {
-      beforeEach(async () => {
-        await operator
-          .connect(roles.defaultAccount)
-          .setAuthorizedSender(roles.stranger.address, true)
+      describe('setting 3 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = [
+            roles.oracleNode1.address,
+            roles.oracleNode2.address,
+            roles.oracleNode3.address,
+          ]
+          const tx = await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+          receipt = await tx.wait()
+        })
+
+        it('adds the authorized nodes', async () => {
+          const authorizedSenders = await operator.getAuthorizedSenders()
+          assert.equal(newSenders.length, authorizedSenders.length)
+          for (let i = 0; i < authorizedSenders.length; i++) {
+            assert.equal(authorizedSenders[i], newSenders[i])
+          }
+        })
+
+        it('emits an event', async () => {
+          assert.equal(receipt.events?.length, 1)
+          const responseEvent = receipt.events?.[0]
+          assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
+          const encodedSenders = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [newSenders],
+          )
+          assert.equal(responseEvent?.data, encodedSenders)
+        })
+
+        it('replaces the authorized nodes', async () => {
+          const originalAuthorization = await operator
+            .connect(roles.defaultAccount)
+            .isAuthorizedSender(roles.oracleNode.address)
+          assert.isFalse(originalAuthorization)
+        })
+
+        afterAll(async () => {
+          await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([roles.oracleNode.address])
+        })
       })
 
-      it('adds an authorized node', async () => {
-        const authorized = await operator.isAuthorizedSender(
-          roles.stranger.address,
-        )
-        assert.equal(true, authorized)
-      })
+      describe('setting 0 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = []
+        })
 
-      it('removes an authorized node', async () => {
-        await operator
-          .connect(roles.defaultAccount)
-          .setAuthorizedSender(roles.stranger.address, false)
-        const authorized = await operator.isAuthorizedSender(
-          roles.stranger.address,
-        )
-        assert.equal(false, authorized)
+        it('reverts with a minimum senders message', async () => {
+          await matchers.evmRevert(async () => {
+            await operator
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
+              'Must have at least 1 authorized sender'
+          })
+        })
       })
     })
 
@@ -194,7 +235,8 @@ describe('Operator', () => {
         await matchers.evmRevert(async () => {
           await operator
             .connect(roles.stranger)
-            .setAuthorizedSender(roles.stranger.address, true)
+            .setAuthorizedSenders([roles.stranger.address])
+          ;('Only callable by owner')
         })
       })
     })

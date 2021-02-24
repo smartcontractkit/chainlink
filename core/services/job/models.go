@@ -5,12 +5,15 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
+
+	"gorm.io/gorm"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	null "gopkg.in/guregu/null.v4"
 )
 
@@ -40,11 +43,11 @@ func (id *IDEmbed) SetID(value string) error {
 type SpecDB struct {
 	IDEmbed
 	OffchainreportingOracleSpecID *int32                       `json:"-"`
-	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
 	DirectRequestSpecID           *int32                       `json:"-"`
-	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
-	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
 	PipelineSpecID                int32                        `json:"-"`
 	PipelineSpec                  *pipeline.Spec               `json:"pipelineSpec"`
 	JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
@@ -52,7 +55,7 @@ type SpecDB struct {
 	SchemaVersion                 uint32                       `json:"schemaVersion"`
 	Name                          null.String                  `json:"name"`
 	MaxTaskDuration               models.Interval              `json:"maxTaskDuration"`
-	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource"`
+	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource" gorm:"-"`
 }
 
 func (SpecDB) TableName() string {
@@ -103,7 +106,7 @@ type OffchainReportingOracleSpec struct {
 	BlockchainTimeout                      models.Interval      `json:"blockchainTimeout" toml:"blockchainTimeout" gorm:"type:bigint;default:null"`
 	ContractConfigTrackerSubscribeInterval models.Interval      `json:"contractConfigTrackerSubscribeInterval" toml:"contractConfigTrackerSubscribeInterval" gorm:"default:null"`
 	ContractConfigTrackerPollInterval      models.Interval      `json:"contractConfigTrackerPollInterval" toml:"contractConfigTrackerPollInterval" gorm:"type:bigint;default:null"`
-	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations" toml:"contractConfigConfirmations" gorm:"default:null"`
+	ContractConfigConfirmations            uint16               `json:"contractConfigConfirmations" toml:"contractConfigConfirmations"`
 	CreatedAt                              time.Time            `json:"createdAt" toml:"-"`
 	UpdatedAt                              time.Time            `json:"updatedAt" toml:"-"`
 }
@@ -121,13 +124,13 @@ func (s *OffchainReportingOracleSpec) SetID(value string) error {
 	return nil
 }
 
-func (s *OffchainReportingOracleSpec) BeforeCreate() error {
+func (s *OffchainReportingOracleSpec) BeforeCreate(db *gorm.DB) error {
 	s.CreatedAt = time.Now()
 	s.UpdatedAt = time.Now()
 	return nil
 }
 
-func (s *OffchainReportingOracleSpec) BeforeSave() error {
+func (s *OffchainReportingOracleSpec) BeforeSave(db *gorm.DB) error {
 	s.UpdatedAt = time.Now()
 	return nil
 }

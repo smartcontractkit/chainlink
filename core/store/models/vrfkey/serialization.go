@@ -7,10 +7,10 @@ import (
 	"os"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/pkg/errors"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -19,11 +19,11 @@ import (
 // We could re-use geth's key handling, here, but this makes it much harder to
 // misuse VRF proving keys as ethereum keys or vice versa.
 type EncryptedVRFKey struct {
-	PublicKey PublicKey     `gorm:"primary_key"`
-	VRFKey    gethKeyStruct `json:"vrf_key"`
-	CreatedAt time.Time     `json:"-"`
-	UpdatedAt time.Time     `json:"-"`
-	DeletedAt null.Time     `json:"-"`
+	PublicKey PublicKey      `gorm:"primary_key"`
+	VRFKey    gethKeyStruct  `json:"vrf_key"`
+	CreatedAt time.Time      `json:"-"`
+	UpdatedAt time.Time      `json:"-"`
+	DeletedAt gorm.DeletedAt `json:"-"`
 }
 
 // passwordPrefix is added to the beginning of the passwords for

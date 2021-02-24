@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2021-02-22
+
+### Fixed
+
+- Fix a case where archiving jobs could try to delete it from the external initiator even if the job was not an EI job.
+- Improved performance of the transaction manager by fetching receipts in
+  batches. This should help prevent the node from getting stuck when processing
+  large numbers of OCR jobs.
+- Fixed a fluxmonitor job bug where submitting a value outside the acceptable range would stall the job
+  permanently. Now a job spec error will be thrown if the polled answer is outside the
+  acceptable range and no ethtx will be submitted. As additional protection, we also now
+  check the receipts of the ethtx's and if they were reverted, we mark the ethtx task as failed.
+
+### Breaking
+
+- Squashed migrations into a single 1_initial migration. If you were running a version
+  older than 0.9.10, you need to upgrade to 0.9.10 first before upgrading to the next
+  version so that the migrations are run.
+
+### Added
+
+- A new Operator UI feature that visualize JSON and TOML job spec tasks on a 'New Job' page.
+
 ## [0.9.10] - 2021-01-30
 
 ### Fixed

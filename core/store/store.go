@@ -7,20 +7,24 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/coreos/go-semver/semver"
+	"github.com/smartcontractkit/chainlink/core/static"
+
+	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gorm.io/gorm"
 )
 
 const (
@@ -165,7 +169,7 @@ func (s *Store) SyncDiskKeyStoreToDB() error {
 // DeleteKey hard-deletes a key whose address matches the supplied address.
 func (s *Store) DeleteKey(address common.Address) error {
 	return postgres.GormTransaction(context.Background(), s.ORM.DB, func(tx *gorm.DB) error {
-		err := tx.Where("address = ?", address).Delete(models.Key{}).Error
+		err := tx.Where("address = ?", address).Delete(&models.Key{}).Error
 		if err != nil {
 			return errors.Wrap(err, "while deleting ETH key from DB")
 		}
@@ -175,7 +179,7 @@ func (s *Store) DeleteKey(address common.Address) error {
 
 // ArchiveKey soft-deletes a key whose address matches the supplied address.
 func (s *Store) ArchiveKey(address common.Address) error {
-	err := s.ORM.DB.Where("address = ?", address).Delete(models.Key{}).Error
+	err := s.ORM.DB.Where("address = ?", address).Delete(&models.Key{}).Error
 	if err != nil {
 		return err
 	}
@@ -211,16 +215,49 @@ func (s *Store) ImportKey(keyJSON []byte, oldPassword string) error {
 	})
 }
 
+func CheckSquashUpgrade(db *gorm.DB) error {
+	// Ensure that we don't try to run a node version later than the
+	// squashed database versions without first migrating up to just before the squash.
+	// If we don't see the latest migration and node version >= S, error and recommend
+	// first running version S - 1 (S = version in which migrations are squashed).
+	if static.Version == "unset" {
+		return nil
+	}
+	squashVersionMinus1 := semver.New("0.9.10")
+	currentVersion := semver.New(static.Version)
+	lastV1Migration := "1611847145"
+	if squashVersionMinus1.LessThan(*currentVersion) {
+		// Completely empty database is fine to run squashed migrations on
+		if !db.Migrator().HasTable("migrations") {
+			return nil
+		}
+		// Running code later than S - 1. Ensure that we see
+		// the last v1 migration.
+		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
+		if q.Error != nil {
+			return q.Error
+		}
+		if q.RowsAffected == 0 {
+			// Do not have the S-1 migration.
+			return errors.Errorf("Need to upgrade to chainlink version %v first before upgrading to version %v in order to run migrations", squashVersionMinus1, currentVersion)
+		}
+	}
+	return nil
+}
+
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
+	if err = CheckSquashUpgrade(orm.DB); err != nil {
+		panic(err)
+	}
 	if config.MigrateDatabase() {
 		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
 		err = orm.RawDB(func(db *gorm.DB) error {
-			return migrations.Migrate(db)
+			return migrationsv2.Migrate(db)
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")

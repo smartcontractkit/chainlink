@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/jinzhu/gorm"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 )
@@ -34,18 +35,18 @@ func (err RecurringScheduleJobError) Error() string {
 // the RunQueue
 type RunManager interface {
 	Create(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator *models.Initiator,
 		creationHeight *big.Int,
 		runRequest *models.RunRequest) (*models.JobRun, error)
 	CreateErrored(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator models.Initiator,
 		err error) (*models.JobRun, error)
 	ResumePendingBridge(
-		runID *models.ID,
+		runID uuid.UUID,
 		input models.BridgeRunResult) error
-	Cancel(runID *models.ID) (*models.JobRun, error)
+	Cancel(runID uuid.UUID) (*models.JobRun, error)
 
 	ResumeAllInProgress() error
 	ResumeAllPendingNextBlock(currentBlockHeight *big.Int) error
@@ -155,7 +156,7 @@ func NewRunManager(
 // special case where this job cannot run but we want to create the run record
 // so the error is more visible to the node operator.
 func (rm *runManager) CreateErrored(
-	jobSpecID *models.ID,
+	jobSpecID models.JobID,
 	initiator models.Initiator,
 	runErr error) (*models.JobRun, error) {
 	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
@@ -165,7 +166,7 @@ func (rm *runManager) CreateErrored(
 
 	now := time.Now()
 	run := models.JobRun{
-		ID:          models.NewID(),
+		ID:          uuid.NewV4(),
 		JobSpecID:   job.ID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -180,7 +181,7 @@ func (rm *runManager) CreateErrored(
 // Create immediately persists a JobRun and sends it to the RunQueue for
 // execution.
 func (rm *runManager) Create(
-	jobSpecID *models.ID,
+	jobSpecID models.JobID,
 	initiator *models.Initiator,
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
@@ -254,7 +255,7 @@ func (rm *runManager) ResumeAllPendingNextBlock(currentBlockHeight *big.Int) err
 		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusPendingIncomingConfirmations,
 	}
-	runIDs := []*models.ID{}
+	runIDs := []uuid.UUID{}
 
 	err := rm.orm.Transaction(func(tx *gorm.DB) error {
 		updateTaskRunsQuery := `
@@ -285,7 +286,7 @@ RETURNING id;`
 		if result.Error != nil {
 			return result.Error
 		}
-		return result.Pluck("id", &runIDs).Error
+		return result.Scan(&runIDs).Error
 	})
 
 	if err != nil {
@@ -324,7 +325,7 @@ func (rm *runManager) ResumeAllPendingConnection() error {
 
 // ResumePendingBridgeTask wakes up a task that required a response from a bridge adapter.
 func (rm *runManager) ResumePendingBridge(
-	runID *models.ID,
+	runID uuid.UUID,
 	input models.BridgeRunResult,
 ) error {
 	run, err := rm.orm.Unscoped().FindJobRun(runID)
@@ -370,7 +371,7 @@ func (rm *runManager) ResumeAllInProgress() error {
 }
 
 // Cancel suspends a running task.
-func (rm *runManager) Cancel(runID *models.ID) (*models.JobRun, error) {
+func (rm *runManager) Cancel(runID uuid.UUID) (*models.JobRun, error) {
 	run, err := rm.orm.FindJobRun(runID)
 	if err != nil {
 		return nil, err

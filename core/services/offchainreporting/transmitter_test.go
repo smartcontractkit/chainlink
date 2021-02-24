@@ -16,7 +16,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	db := store.DB.DB()
+	db, _ := store.DB.DB()
 
 	key := cltest.MustInsertRandomKey(t, store.DB, 0)
 
@@ -43,7 +43,7 @@ func Test_Transmitter_CreateEthTransaction_OutOfEth(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
-	db := store.DB.DB()
+	db, _ := store.DB.DB()
 
 	thisKey := cltest.MustInsertRandomKey(t, store.DB, 1)
 	otherKey := cltest.MustInsertRandomKey(t, store.DB, 1)

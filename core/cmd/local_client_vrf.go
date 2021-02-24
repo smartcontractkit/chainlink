@@ -6,13 +6,14 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/pkg/errors"
 	clipkg "github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -23,7 +24,7 @@ func vRFKeyStore(cli *Client) *store.VRFKeyStore {
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
 func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
-	cli.Config.Dialect = orm.DialectPostgresWithoutLock
+	cli.Config.Dialect = dialects.PostgresWithoutLock
 	password, err := getPassword(c)
 	if err != nil {
 		return err
@@ -244,7 +245,7 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 		} else {
 			createdAt = specificKey.CreatedAt.String()
 			updatedAt = specificKey.CreatedAt.String()
-			if !specificKey.DeletedAt.IsZero() {
+			if specificKey.DeletedAt.Valid {
 				deletedAt = specificKey.DeletedAt.Time.String()
 			}
 		}

@@ -41,7 +41,7 @@ func TestMarkLogConsumed_Happy(t *testing.T) {
 		description string
 		BlockHash   common.Hash
 		LogIndex    uint
-		JobID       *models.ID
+		JobID       models.JobID
 		blockNumber uint64
 	}{
 		{"different blockhash", cltest.NewHash(), logIndex1, jobID1, 2},
@@ -54,7 +54,8 @@ func TestMarkLogConsumed_Happy(t *testing.T) {
 			require.NoError(t, err)
 
 			var blockNumber uint64
-			require.NoError(t, store.ORM.DB.DB().QueryRow(queryFindBlockNumberForLogConsumption, test.BlockHash, test.LogIndex, test.JobID).Scan(&blockNumber))
+			d, _ := store.ORM.DB.DB()
+			require.NoError(t, d.QueryRow(queryFindBlockNumberForLogConsumption, test.BlockHash, test.LogIndex, test.JobID).Scan(&blockNumber))
 			require.Equal(t, blockNumber, test.blockNumber)
 		})
 	}
@@ -85,9 +86,9 @@ func TestMarkLogConsumed_Errors(t *testing.T) {
 		description string
 		BlockHash   common.Hash
 		LogIndex    uint
-		JobID       *models.ID
+		JobID       models.JobID
 	}{
-		{"non existent job", cltest.NewHash(), 0, models.NewID()},
+		{"non existent job", cltest.NewHash(), 0, models.NewJobID()},
 		{"duplicate record", blockHash1, logIndex1, jobID1},
 	}
 	for _, test := range tests {

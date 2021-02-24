@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
+	"gorm.io/gorm"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -241,7 +241,7 @@ func (eb *ethBroadcaster) handleAnyInProgressEthTx(fromAddress gethCommon.Addres
 func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
 	err := store.DB.Preload("EthTxAttempts").First(etx, "from_address = ? AND state = 'in_progress'", fromAddress.Bytes()).Error
-	if gorm.IsRecordNotFoundError(err) {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if len(etx.EthTxAttempts) != 1 || etx.EthTxAttempts[0].State != models.EthTxAttemptInProgress {
@@ -321,14 +321,23 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		sendError = nil
 	}
 
-	if sendError != nil {
-		// Any other type of error is considered temporary or resolvable by the
-		// node operator, but will likely prevent other transactions from working.
-		// Safest thing to do is bail out and wait for the next poll.
-		return errors.Wrapf(sendError, "error while sending transaction %v", etx.ID)
+	if sendError.IsInsufficientEth() {
+		logger.Errorw(fmt.Sprintf("EthBroadcaster: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+			"The eth node returned %s. "+
+			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
+			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
+		), "ethTxID", etx.ID, "err", sendError)
+		return saveAttempt(eb.store, &etx, attempt, models.EthTxAttemptInsufficientEth)
 	}
 
-	return saveUnconfirmed(eb.store, &etx, attempt)
+	if sendError == nil {
+		return saveAttempt(eb.store, &etx, attempt, models.EthTxAttemptBroadcast)
+	}
+
+	// Any other type of error is considered temporary or resolvable by the
+	// node operator, but will likely prevent other transactions from working.
+	// Safest thing to do is bail out and wait for the next poll.
+	return errors.Wrapf(sendError, "error while sending transaction %v", etx.ID)
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
@@ -336,7 +345,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 func (eb *ethBroadcaster) nextUnstartedTransactionWithNonce(fromAddress gethCommon.Address) (*models.EthTx, error) {
 	etx := &models.EthTx{}
 	if err := findNextUnstartedTransactionFromAddress(eb.store.DB, etx, fromAddress); err != nil {
-		if gorm.IsRecordNotFoundError(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// Finish. No more transactions left to process. Hoorah!
 			return nil, nil
 		}
@@ -376,16 +385,18 @@ func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fro
 		Error
 }
 
-func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTxAttempt, callbacks ...func(tx *gorm.DB) error) error {
+func saveAttempt(store *store.Store, etx *models.EthTx, attempt models.EthTxAttempt, newAttemptState models.EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "txHash", attempt.Hash.Hex())
+	if !(newAttemptState == models.EthTxAttemptBroadcast || newAttemptState == models.EthTxAttemptInsufficientEth) {
+		return errors.Errorf("new attempt state must be broadcast or insufficient_eth, got: %s", newAttemptState)
+	}
 	etx.State = models.EthTxUnconfirmed
-	attempt.State = models.EthTxAttemptBroadcast
+	attempt.State = newAttemptState
 	return store.Transaction(func(tx *gorm.DB) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")

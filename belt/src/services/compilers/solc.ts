@@ -46,6 +46,7 @@ function compiler(
   const compilerSettingCopy: config.App['compilerSettings'] = JSON.parse(
     JSON.stringify(compilerSettings),
   )
+  // @ts-expect-error
   delete compilerSettingCopy.versions
 
   const settings: CompilerOptions = {

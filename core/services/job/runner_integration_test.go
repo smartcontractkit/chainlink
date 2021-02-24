@@ -8,16 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/stretchr/testify/mock"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 
-	"gopkg.in/guregu/null.v4"
-
-	"github.com/pelletier/go-toml"
-
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/stretchr/testify/assert"
@@ -41,7 +42,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, config, eventBroadcaster)
 	runner := pipeline.NewRunner(pipelineORM, config)
-	jobORM := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	jobORM := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
 	runner.Start()
@@ -49,6 +50,14 @@ func TestRunner(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
+
+	rpc, geth, _, _ := cltest.NewEthMocks(t)
+	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -335,8 +344,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 		sd := offchainreporting.NewDelegate(
@@ -345,7 +355,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			nil,
 			monitoringEndpoint)
@@ -377,8 +387,10 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").
+			Where("id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 		config.Config.Set("P2P_LISTEN_PORT", 2000) // Required to create job spawner delegate.
 
@@ -390,7 +402,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -434,8 +446,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "id = ?", os.ID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 		// Assert the override
 		assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, models.Interval(cltest.MustParseDuration(t, "15s")))
@@ -452,7 +465,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -480,8 +493,10 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").
+			Where("id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, models.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -495,7 +510,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -518,8 +533,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -532,7 +548,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -554,8 +570,9 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 		var jb job.SpecDB
-		err = db.Preload("OffchainreportingOracleSpec", "p2p_peer_id = ?", ek.PeerID).
-			Find(&jb).Error
+		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
+			First(&jb).Error
 		require.NoError(t, err)
 
 		config.Config.Set("P2P_LISTEN_PORT", 2000)           // Required to create job spawner delegate.
@@ -568,7 +585,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			nil,
+			eth.NewClientWith(rpc, geth),
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -639,7 +656,7 @@ ds1 -> ds1_parse;
 		assert.Equal(t, "4242", results[0].Value)
 
 		// Delete the job
-		err = jobORM.DeleteJob(ctx, dbSpec.ID)
+		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
 		require.NoError(t, err)
 
 		// Create another run
@@ -650,7 +667,7 @@ ds1 -> ds1_parse;
 		defer cancel()
 
 		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("could not determine if run is finished (run ID: %v): record not found", runID))
+		require.EqualError(t, err, fmt.Sprintf("run not found - could not determine if run is finished (run ID: %v)", runID))
 	})
 
 	t.Run("timeouts", func(t *testing.T) {

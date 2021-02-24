@@ -8,16 +8,18 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	mathrand "math/rand"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
-	"github.com/jinzhu/gorm"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -29,12 +31,14 @@ import (
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -290,7 +294,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID *models.ID,
+	jobID models.JobID,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -445,27 +449,27 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 }
 
 func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInput(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
@@ -473,7 +477,7 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	initr := models.Initiator{
-		JobSpecID: models.NewID(),
+		JobSpecID: models.NewJobID(),
 		InitiatorParams: models.InitiatorParams{
 			PollTimer: models.PollTimerConfig{
 				Period: models.MustMakeDuration(time.Second),
@@ -481,13 +485,13 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 		},
 	}
 	lb := new(mocks.LogBroadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {})
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {}, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
-	taskRunID := models.NewID()
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -495,7 +499,7 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return *taskRunID
+	return taskRunID
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
@@ -711,7 +715,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
-		P2PBootstrapPeers:                      []string{},
+		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
 		TransmitterAddress:                     &transmitterAddress,
@@ -752,7 +756,7 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
-	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
+	p := pipeline.TaskRun{PipelineTaskSpecID: mathrand.Int31(), PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
 }

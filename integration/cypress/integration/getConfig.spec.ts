@@ -7,7 +7,6 @@ const CONFIG_KEYS = [
   'LOG_SQL_STATEMENTS',
   'MINIMUM_CONTRACT_PAYMENT',
   'REAPER_EXPIRATION',
-  'TX_ATTEMPT_LIMIT',
 ]
 
 context('End to end', function () {

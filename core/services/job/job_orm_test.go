@@ -5,18 +5,19 @@ import (
 	"testing"
 	"time"
 
+	gormpostgres "gorm.io/driver/postgres"
+
 	"github.com/stretchr/testify/assert"
 
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	ormpkg "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 func TestORM(t *testing.T) {
@@ -28,7 +29,7 @@ func TestORM(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	key := cltest.MustInsertRandomKey(t, db)
@@ -47,11 +48,15 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
 	})
 
-	db2, err := gorm.Open(string(ormpkg.DialectPostgres), config.DatabaseURL())
+	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
+		DSN: config.DatabaseURL(),
+	}), &gorm.Config{})
 	require.NoError(t, err)
-	defer db2.Close()
+	d, err := db2.DB()
+	require.NoError(t, err)
+	defer d.Close()
 
-	orm2 := job.NewORM(db2, config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm2 := job.NewORM(db2, config.Config, pipeline.NewORM(db2, config, eventBroadcaster), eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm2.Close()
 
 	t.Run("it correctly returns the unclaimed jobs in the DB", func(t *testing.T) {
@@ -185,7 +190,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
 	defer cleanupORM()
 
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
 	claimedJobs := make([]job.SpecDB, 3)
@@ -223,7 +228,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 	defer cleanupORM()
 
 	advisoryLocker := new(mocks.AdvisoryLocker)
-	orm := job.NewORM(db, config, pipelineORM, eventBroadcaster, advisoryLocker)
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	defer orm.Close()
 
 	require.NoError(t, orm.UnclaimJob(context.Background(), 42))

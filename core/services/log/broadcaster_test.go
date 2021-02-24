@@ -164,7 +164,7 @@ func TestLogBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 
 type simpleLogListener struct {
 	handler    func(lb log.Broadcast, err error)
-	consumerID *models.ID
+	consumerID models.JobID
 }
 
 func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
@@ -172,7 +172,7 @@ func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
 }
 func (listener simpleLogListener) OnConnect()    {}
 func (listener simpleLogListener) OnDisconnect() {}
-func (listener simpleLogListener) JobID() *models.ID {
+func (listener simpleLogListener) JobID() models.JobID {
 	return listener.consumerID
 }
 func (listener simpleLogListener) IsV2Job() bool {

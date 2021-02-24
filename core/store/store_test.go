@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -20,6 +24,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func TestStore_SquashMigrationUpgrade(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationssquash", false)
+	defer cleanup()
+	db := orm.DB
+
+	// Latest migrations should work fine.
+	static.Version = "0.9.11"
+	err := migrationsv2.MigrateUp(db, "")
+	require.NoError(t, err)
+	err = store.CheckSquashUpgrade(db)
+	require.NoError(t, err)
+	static.Version = "unset"
+}
 
 func TestStore_Start(t *testing.T) {
 	t.Parallel()
@@ -256,7 +274,7 @@ func TestStore_ImportKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 0)
 
-	err = store.ImportKey([]byte(`{"address":"3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}`), cltest.Password)
+	err = store.ImportKey([]byte(`{"address":"72f4f206d41339921570e47409cfef89ad528605","crypto":{"cipher":"aes-128-ctr","ciphertext":"d55d1cf27b464a7262e947fc6b09161c9c56b2efb1a2e6aef8b1ed0c22e02143","cipherparams":{"iv":"ff9effce7ce8318f54029c30e5e60c3a"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":2,"p":2,"r":8,"salt":"bdec27593d039aca0fe87047bf425bd603a6eb134b8f04ee993ef090086300f7"},"mac":"5e06e90baef19112fcc301fb708d20577af9220e8b1f72329f9f06a70aade18e"},"id":"ec04d5fc-49ce-4d98-bdce-13d1dfa89eb9","version":3}`), cltest.Password)
 	require.NoError(t, err)
 
 	keys, err = store.AllKeys()
@@ -267,7 +285,7 @@ func TestStore_ImportKey(t *testing.T) {
 	for _, key := range keys {
 		addrs = append(addrs, key.Address.Address())
 	}
-	require.Contains(t, addrs, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"))
+	require.Contains(t, addrs, common.HexToAddress("0x72f4f206d41339921570e47409cfef89ad528605"))
 }
 
 func TestStore_ExportKey(t *testing.T) {
@@ -281,7 +299,7 @@ func TestStore_ExportKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 0)
 
-	keyJSON := []byte(`{"address":"3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea","crypto":{"cipher":"aes-128-ctr","ciphertext":"7515678239ccbeeaaaf0b103f0fba46a979bf6b2a52260015f35b9eb5fed5c17","cipherparams":{"iv":"87e5a5db334305e1e4fb8b3538ceea12"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"d89ac837b5dcdce5690af764762fe349d8162bb0086cea2bc3a4289c47853f96"},"mac":"57a7f4ada10d3d89644f541c91f89b5bde73e15e827ee40565e2d1f88bb0ac96"},"id":"c8cb9bc7-0a51-43bd-8348-8a67fd1ec52c","version":3}`)
+	keyJSON := cltest.MustReadFile(t, "../internal/fixtures/keys/"+cltest.DefaultKeyFixtureFileName)
 
 	err = store.ImportKey(keyJSON, cltest.Password)
 	require.NoError(t, err)
@@ -290,7 +308,7 @@ func TestStore_ExportKey(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 
-	bytes, err := store.KeyStore.Export(common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), cltest.Password)
+	bytes, err := store.KeyStore.Export(common.HexToAddress(cltest.DefaultKeyAddress), cltest.Password)
 	require.NoError(t, err)
 
 	var addr struct {
@@ -299,5 +317,5 @@ func TestStore_ExportKey(t *testing.T) {
 	err = json.Unmarshal(bytes, &addr)
 	require.NoError(t, err)
 
-	require.Equal(t, common.HexToAddress("0x3cb8e3FD9d27e39a5e9e6852b0e96160061fd4ea"), common.HexToAddress("0x"+addr.Address))
+	require.Equal(t, common.HexToAddress(cltest.DefaultKeyAddress), common.HexToAddress("0x"+addr.Address))
 }

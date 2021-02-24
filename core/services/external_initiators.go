@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jinzhu/gorm"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 )
 
 // JobSpecNotice is sent to the External Initiator when JobSpecs are created.
 type JobSpecNotice struct {
-	JobID  *models.ID  `json:"jobId"`
-	Type   string      `json:"type"`
-	Params models.JSON `json:"params,omitempty"`
+	JobID  models.JobID `json:"jobId"`
+	Type   string       `json:"type"`
+	Params models.JSON  `json:"params,omitempty"`
 }
 
 // NewJobSpecNotice returns a new JobSpec.
@@ -96,7 +96,7 @@ func (externalInitiatorManager) Notify(
 	return nil
 }
 
-func (externalInitiatorManager) DeleteJob(db *gorm.DB, jobID *models.ID) error {
+func (externalInitiatorManager) DeleteJob(db *gorm.DB, jobID models.JobID) error {
 	ei, err := findExternalInitiatorForJob(db, jobID)
 	if err != nil {
 		return errors.Wrapf(err, "error looking up external initiator for job with id %s", jobID)
@@ -122,7 +122,7 @@ func (externalInitiatorManager) DeleteJob(db *gorm.DB, jobID *models.ID) error {
 	return nil
 }
 
-func newDeleteJobFromExternalInitiatorHTTPRequest(ei models.ExternalInitiator, id *models.ID) (*http.Request, error) {
+func newDeleteJobFromExternalInitiatorHTTPRequest(ei models.ExternalInitiator, id models.JobID) (*http.Request, error) {
 	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/%s", ei.URL.String(), id), bytes.NewBuffer(nil))
 	if err != nil {
 		return nil, err
@@ -137,11 +137,11 @@ func setHeaders(req *http.Request, ei models.ExternalInitiator) {
 	req.Header.Set(static.ExternalInitiatorSecretHeader, ei.OutgoingSecret)
 }
 
-func findExternalInitiatorForJob(db *gorm.DB, id *models.ID) (exi *models.ExternalInitiator, err error) {
+func findExternalInitiatorForJob(db *gorm.DB, id models.JobID) (exi *models.ExternalInitiator, err error) {
 	exi = new(models.ExternalInitiator)
 	err = db.
 		Joins("INNER JOIN initiators ON initiators.name = external_initiators.name").
-		Joins("INNER JOIN job_specs ON job_specs.id = initiators.job_spec_id").
+		Where("initiators.job_spec_id = ?", id).
 		First(exi).
 		Error
 	if err == gorm.ErrRecordNotFound {
@@ -156,6 +156,6 @@ func (NullExternalInitiatorManager) Notify(models.JobSpec, *store.Store) error {
 	return nil
 }
 
-func (NullExternalInitiatorManager) DeleteJob(db *gorm.DB, jobID *models.ID) error {
+func (NullExternalInitiatorManager) DeleteJob(db *gorm.DB, jobID models.JobID) error {
 	return nil
 }
