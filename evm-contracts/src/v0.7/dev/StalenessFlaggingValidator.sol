@@ -29,7 +29,9 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @dev Ensure that this contract has sufficient write permissions
    * on the flag contract
    */
-  constructor(address flagsAddress)
+  constructor(
+    address flagsAddress
+  )
     ConfirmedOwner(msg.sender)
   {
     setFlagsAddress(flagsAddress);
@@ -39,7 +41,9 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @notice Updates the flagging contract address for raising flags
    * @param flagsAddress sets the address of the flags contract
    */
-  function setFlagsAddress(address flagsAddress)
+  function setFlagsAddress(
+    address flagsAddress
+  )
     public
     onlyOwner()
   {
@@ -56,7 +60,10 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregators address[] memory
    * @param flaggingThresholds uint256[] memory
    */
-  function setThresholds(address[] memory aggregators, uint256[] memory flaggingThresholds)
+  function setThresholds(
+    address[] memory aggregators,
+    uint256[] memory flaggingThresholds
+  )
     public 
     onlyOwner()
   {
@@ -79,7 +86,15 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function check(address[] memory aggregators) public view returns (address[] memory) {
+  function check(
+    address[] memory aggregators
+  )
+    public
+    view
+    returns (
+      address[] memory
+    )
+  {
     uint256 currentTimestamp = block.timestamp;
     address[] memory staleAggregators = new address[](aggregators.length);
     uint256 staleCount = 0;
@@ -106,7 +121,14 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregators address[] memory
    * @return address[] memory stale aggregators
    */
-  function update(address[] memory aggregators) public returns (address[] memory){
+  function update(
+    address[] memory aggregators
+  )
+    public
+    returns (
+      address[] memory
+    )
+  {
     address[] memory staleAggregators = check(aggregators);
     s_flags.raiseFlags(staleAggregators);
     return staleAggregators;
@@ -119,7 +141,17 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return staleAggregators bytes encoded address array of stale aggregator addresses
    */
-  function checkUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
+  function checkUpkeep(
+    bytes calldata data
+  )
+    external
+    view
+    override
+    returns (
+      bool,
+      bytes memory
+    )
+  {
     address[] memory staleAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (staleAggregators.length > 0);
     return (needsUpkeep, abi.encode(staleAggregators));
@@ -131,7 +163,12 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @dev Overriding KeeperInterface
    * @param data bytes encoded address array
    */
-  function performUpkeep(bytes calldata data) external override {
+  function performUpkeep(
+    bytes calldata data
+  )
+    external
+    override
+  {
     update(abi.decode(data, (address[])));
   }
 
@@ -140,7 +177,13 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregator address
    * @return uint256
    */
-  function threshold(address aggregator) external view returns (uint256) {
+  function threshold(
+    address aggregator
+  )
+    external
+    view
+    returns (uint256)
+  {
     return s_thresholdSeconds[aggregator];
   }
 
@@ -148,7 +191,13 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @notice Get the flags address
    * @return address
    */
-  function flags() external view returns (address) {
+  function flags()
+    external
+    view
+    returns (
+      address
+    )
+  {
     return address(s_flags);
   }
 
@@ -160,10 +209,15 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param currentTimestamp uint256
    * @return stale bool
    */
-  function isStale(address aggregator, uint256 currentTimestamp) 
+  function isStale(
+    address aggregator,
+    uint256 currentTimestamp
+  ) 
     private
     view
-    returns (bool stale)
+    returns (
+      bool stale
+    )
   {
     if (s_thresholdSeconds[aggregator] == 0) {
       return false;
