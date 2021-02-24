@@ -15,6 +15,9 @@ set -ex
 # to work with.
 #
 
+# Our registry, hosted on Public ECR.
+AWS_ECR_URL=public.ecr.aws/z0b1w9r9
+
 if [ -z "$DOCKERHUB_PASS" ]; then
   echo "Cannot push to dockerhub, credentials are missing."
   exit 1
