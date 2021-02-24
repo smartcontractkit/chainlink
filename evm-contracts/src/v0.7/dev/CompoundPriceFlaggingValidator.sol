@@ -23,17 +23,19 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     string symbol;
     // Used to convert price to match aggregator decimals
     uint8 decimals;
-    // 1        = 100%
-    // 5        = 20%
-    // 10       = 10%
-    // 20       = 5%
-    // 50       = 2%
-    // 100      = 1%
-    // 200      = 0.5%
-    // 500      = 0.2%
-    // 1000     = 0.1%
-    uint32 deviationThresholdDenominator;
+    // The numerator used to determine the threshold percentage
+    // as parts per billion.
+    // 1,000,000,000 = 100%
+    //   500,000,000 = 50%
+    //   100,000,000 = 10%
+    //    50,000,000 = 5%
+    //    10,000,000 = 1%
+    //     2,000,000 = 0.2%
+    //                 etc
+    uint32 deviationThresholdNumerator;
   }
+
+  uint256 private constant BILLION = 1_000_000_000;
 
   FlagsInterface private s_flags;
   UniswapAnchoredView private s_compOpenOracle;
@@ -51,7 +53,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     address indexed aggregator,
     string symbol,
     uint8 decimals,
-    uint32 deviationThresholdDenominator
+    uint32 deviationThresholdNumerator
   );
   
   /**
@@ -111,32 +113,35 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregator The Chainlink aggregator address
    * @param compoundSymbol The symbol used by Compound for this feed
    * @param compoundDecimals The number of decimals in the Compound feed
-   * @param compoundDeviationThresholdDenominator The threshold denominator use to determine
-   * the percentage with which the difference in prices must reside within. For example:
-   * If the prices are valid within a 5% threshold, and 1 / denominator, this denominator
-   * = 20, since 1/20 = 5.
+   * @param compoundDeviationThresholdNumerator The threshold numerator use to determine
+   * the percentage with which the difference in prices must reside within. Parts per billion.
+   *   For example:
+   *     If prices are valid within a 5% threshold, assuming x is the compoundDeviationThresholdNumerator:
+   *     x / 1,000,000,000 = 0.05
+   *     x = 50,000,000
    */
   function setFeedDetails(
     address aggregator,
     string calldata compoundSymbol,
     uint8 compoundDecimals,
-    uint32 compoundDeviationThresholdDenominator
+    uint32 compoundDeviationThresholdNumerator
   ) 
     public 
     onlyOwner() 
   {
-    require(compoundDeviationThresholdDenominator != 0, "Invalid threshold denominator");
+    require(compoundDeviationThresholdNumerator > 0
+      && compoundDeviationThresholdNumerator <= BILLION, "Invalid threshold numerator");
     require(compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
     s_feedDetails[aggregator] = CompoundFeedDetails({
       symbol: compoundSymbol,
       decimals: compoundDecimals,
-      deviationThresholdDenominator: compoundDeviationThresholdDenominator
+      deviationThresholdNumerator: compoundDeviationThresholdNumerator
     });
     emit FeedDetailsSet(
       aggregator,
       compoundSymbol,
       compoundDecimals,
-      compoundDeviationThresholdDenominator
+      compoundDeviationThresholdNumerator
     );
   }
 
@@ -238,7 +243,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregator address
    * @return string Compound Oracle Symbol
    * @return uint8 Compound Oracle Decimals
-   * @return uint32 Deviation Threshold Denominator
+   * @return uint32 Deviation Threshold Numerator
    */
   function getFeedDetails(
     address aggregator
@@ -255,7 +260,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     return(
       compDetails.symbol,
       compDetails.decimals,
-      compDetails.deviationThresholdDenominator
+      compDetails.deviationThresholdNumerator
     );
   }
 
@@ -322,7 +327,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     )
   {
     CompoundFeedDetails memory compDetails = s_feedDetails[aggregator];
-    if (compDetails.deviationThresholdDenominator == 0) {
+    if (compDetails.deviationThresholdNumerator == 0) {
       return false;
     }
     // Get both oracle price details
@@ -338,7 +343,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     );
 
     // Check whether the prices deviate beyond the threshold.
-    return deviatesBeyondThreshold(aggregatorPrice, compPrice, compDetails.deviationThresholdDenominator);
+    return deviatesBeyondThreshold(aggregatorPrice, compPrice, compDetails.deviationThresholdNumerator);
   }
 
   /**
@@ -406,13 +411,13 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @dev Prices must be adjusted to match decimals prior to calling this function
    * @param aggregatorPrice uint256
    * @param compPrice uint256
-   * @param deviationThresholdDenominator uint32
+   * @param deviationThresholdNumerator uint32
    * @return beyondThreshold boolean. Returns true if deviation is beyond threshold.
    */
   function deviatesBeyondThreshold(
     uint256 aggregatorPrice,
     uint256 compPrice,
-    uint32 deviationThresholdDenominator
+    uint32 deviationThresholdNumerator
   )
     private
     pure
@@ -421,7 +426,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     )
   {
     // Deviation amount threshold from the aggregator price
-    uint256 deviationAmountThreshold = aggregatorPrice.div(uint256(deviationThresholdDenominator));
+    uint256 deviationAmountThreshold = aggregatorPrice.mul(deviationThresholdNumerator).div(BILLION);
 
     // Calculate deviation
     uint256 deviation;
