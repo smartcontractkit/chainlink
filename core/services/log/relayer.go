@@ -292,9 +292,15 @@ func (r *relayer) broadcast(log types.Log) {
 			logCopy := copyLog(log)
 
 			// Decode the log
-			decodedLog, err := r.decoders[log.Address].ParseLog(logCopy)
+			decoder, exists := r.decoders[log.Address]
+			if !exists || decoder == nil {
+				logger.Errorw("log decoder for contract is not registered", "contract", log.Address)
+				return
+			}
+			decodedLog, err := decoder.ParseLog(logCopy)
 			if err != nil {
-				logger.Errorw("")
+				logger.Errorw("could not decode log", "contract", log.Address, "topic", log.Topics[0])
+				return
 			}
 
 			lb := &broadcast{

@@ -585,10 +585,7 @@ func (p *PollingDeviationChecker) consume() {
 	isConnected := p.logBroadcaster.Register(p.fluxAggregator, p)
 	defer p.logBroadcaster.Unregister(p.fluxAggregator, p)
 
-	logger.Warnf("FLAGS ~> %T %v", p.flags, p.flags)
-
 	if p.flags != nil {
-		logger.Warnf("FLAGS PROCEEDING ~> %T %v", p.flags, p.flags)
 		flagsConnected := p.logBroadcaster.Register(p.flags, p)
 		isConnected = isConnected && flagsConnected
 		defer p.logBroadcaster.Unregister(p.flags, p)
