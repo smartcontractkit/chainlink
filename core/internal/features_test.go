@@ -18,9 +18,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
-	"github.com/pborman/uuid"
+	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 
 	"github.com/onsi/gomega"
 
@@ -37,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/multiwordconsumer_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/operator_wrapper"
@@ -132,8 +134,12 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+			})
 		}).
 		Return(nil).Once()
 
@@ -292,6 +298,7 @@ func TestIntegration_RunLog(t *testing.T) {
 				BlockNumber: big.NewInt(creationHeight),
 			}
 			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Return(&types.Block{}, nil)
+
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(confirmedReceipt, nil)
 
@@ -691,7 +698,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	assert.Equal(t, expected, exInitr.Body)
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
@@ -728,7 +735,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
-	_, err = app.Store.JobRunsFor(jobRun.ID)
+	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
 	assert.NoError(t, err)
 	cltest.WaitForJobRunToComplete(t, app.Store, jobRun)
 }
@@ -802,6 +809,11 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	gethClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
 	availableFunds := minPayment * 100
@@ -844,8 +856,12 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+			})
 		}).
 		Return(nil).Once()
 
@@ -930,6 +946,11 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
 
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
 	require.NoError(t, err)
@@ -993,8 +1014,12 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Run(func(args mock.Arguments) {
 			tx, ok := args.Get(1).(*types.Transaction)
 			require.True(t, ok)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
-				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+			})
 		}).
 		Return(nil).Once()
 
@@ -1060,6 +1085,12 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 				tx.Data()[4:])
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 				Return(&types.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed)}, nil)
+			rpcClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], tx.Hash())
+			})).Return(nil).Run(func(args mock.Arguments) {
+				elems := args.Get(1).([]rpc.BatchElem)
+				elems[0].Result = &bulletprooftxmanager.Receipt{TxHash: tx.Hash(), BlockNumber: big.NewInt(confirmed), BlockHash: cltest.NewHash()}
+			}).Maybe()
 		}).
 		Return(nil).Once()
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
@@ -1155,7 +1186,8 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 	app.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)
 	app.Config.Set("MIN_OUTGOING_CONFIRMATIONS", 1)
 
-	_, err := operatorContract.SetAuthorizedSender(user, app.Store.KeyStore.Accounts()[0].Address, true)
+	authorizedSenders := []common.Address{app.Store.KeyStore.Accounts()[0].Address}
+	_, err := operatorContract.SetAuthorizedSenders(user, authorizedSenders)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -1262,6 +1294,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 		min, // -2**191
 		max, // 2**191 - 1
 		accessAddress,
+		accessAddress,
 		0,
 		"TEST")
 	require.NoError(t, err)
@@ -1272,8 +1305,8 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 }
 
 func setupNode(t *testing.T, owner *bind.TransactOpts, port int, dbName string, b *backends.SimulatedBackend) (*cltest.TestApplication, string, common.Address, ocrkey.EncryptedKeyBundle, func()) {
-	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%s", dbName, strings.Replace(uuid.New(), "-", "", -1)), true)
-	config.Dialect = orm.DialectPostgresWithoutLock
+	config, _, ormCleanup := cltest.BootstrapThrowawayORM(t, fmt.Sprintf("%s%d", dbName, port), true)
+	config.Dialect = dialects.PostgresWithoutLock
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, b)
 	_, _, err := app.Store.OCRKeyStore.GenerateEncryptedP2PKey()
 	require.NoError(t, err)
@@ -1382,7 +1415,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
-isBootstrapPeer    = true 
+isBootstrapPeer    = true
 `, ocrContractAddress))
 	require.NoError(t, err)
 	_, err = appBootstrap.AddJobV2(context.Background(), ocrJob, null.NewString("boot", true))
@@ -1408,7 +1441,7 @@ p2pBootstrapPeers  = [
 keyBundleID        = "%s"
 transmitterAddress = "%s"
 observationTimeout = "20s"
-contractConfigConfirmations = 1 
+contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1

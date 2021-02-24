@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 )
 
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
@@ -144,10 +144,10 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 
 		err = tx.Raw(`
             INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
-            SELECT pipeline_spec_id, $1, NOW()
-            FROM jobs WHERE id = $2
+            SELECT pipeline_spec_id, ?, NOW()
+            FROM jobs WHERE id = ? 
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
-		if gorm.IsRecordNotFoundError(err) {
+		if run.ID == 0 {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
 		} else if err != nil {
 			return errors.Wrap(err, "could not create pipeline run")
@@ -171,7 +171,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 // TODO: Remove generation of special "result" task
 // TODO: Remove the unique index on successor_id
 // https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run) (TaskRunResults, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run, l logger.Logger) (TaskRunResults, error)
 
 // ProcessNextUnfinishedRun pulls the next available unfinished run from the
 // database and passes it into the provided ProcessRunFunc for execution.
@@ -181,7 +181,7 @@ func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (
 		err = o.processNextUnfinishedRun(ctx, fn)
 		// "Record not found" errors mean that we're done with all unclaimed
 		// job runs.
-		if postgres.IsRecordNotFound(err) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			anyRemaining = false
 			retry = false
 			err = nil
@@ -231,7 +231,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs, err := fn(ctx, tx, pRun)
+		trrs, err := fn(ctx, tx, pRun, *logger.Default)
 		if err != nil {
 			return errors.Wrap(err, "error calling ProcessRunFunc")
 		}
@@ -250,10 +250,10 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		}
 
 		elapsed := time.Since(pRun.CreatedAt)
-		promPipelineRunTotalTimeToCompletion.WithLabelValues(string(pRun.PipelineSpecID)).Set(float64(elapsed))
+		promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Set(float64(elapsed))
 
 		if pRun.HasErrors() {
-			promPipelineRunErrors.WithLabelValues(string(pRun.PipelineSpecID)).Inc()
+			promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Inc()
 		}
 
 		return nil
@@ -458,17 +458,23 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 }
 
 func (o *orm) RunFinished(runID int64) (bool, error) {
-	var done struct{ Done bool }
 	// TODO: Since we denormalised this can be made more efficient
 	// https://www.pivotaltracker.com/story/show/176557536
+	var tr TaskRun
 	err := o.db.Raw(`
-        SELECT finished_at IS NOT NULL AS done
+        SELECT * 
         FROM pipeline_task_runs
         INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
         WHERE pipeline_task_runs.pipeline_run_id = ? AND pipeline_task_specs.successor_id IS NULL
 		LIMIT 1
-    `, runID).Scan(&done).Error
-	return done.Done, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
+    `, runID).Scan(&tr).Error
+	if err != nil {
+		return false, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
+	}
+	if tr.ID == 0 {
+		return false, errors.Errorf("run not found - could not determine if run is finished (run ID: %v)", runID)
+	}
+	return tr.FinishedAt != nil, nil
 }
 
 func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {

@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -40,15 +41,15 @@ type Listener interface {
 	OnConnect()
 	OnDisconnect()
 	HandleLog(lb Broadcast, err error)
-	JobID() *models.ID
+	JobID() models.JobID
 	JobIDV2() int32
 	IsV2Job() bool
 }
 
 type ormInterface interface {
-	HasConsumedLog(blockHash common.Hash, logIndex uint, jobID *models.ID) (bool, error)
+	HasConsumedLog(blockHash common.Hash, logIndex uint, jobID models.JobID) (bool, error)
 	HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error)
-	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID *models.ID, blockNumber uint64) error
+	MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID models.JobID, blockNumber uint64) error
 	MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error
 }
 
@@ -101,7 +102,7 @@ type broadcast struct {
 	orm        ormInterface
 	decodedLog interface{}
 	rawLog     types.Log
-	jobID      *models.ID
+	jobID      models.JobID
 	jobIDV2    int32
 	isV2       bool
 }

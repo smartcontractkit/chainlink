@@ -1,9 +1,9 @@
-import { createMuiTheme } from '@material-ui/core/styles'
-
 import { common, green, grey } from '@material-ui/core/colors'
+import { createMuiTheme } from '@material-ui/core/styles'
 import { darken } from '@material-ui/core/styles/colorManipulator'
 import { ThemeOptions } from '@material-ui/core/styles/createMuiTheme'
 import spacing from '@material-ui/core/styles/spacing'
+
 declare module '@material-ui/core/styles/createPalette' {
   interface ListStatus {
     background: string
@@ -37,20 +37,12 @@ declare module '@material-ui/core/styles/createTypography' {
     > {}
 }
 
-declare module '@material-ui/core/Grid' {
-  interface GridProps {
-    /**
-     * This should actually be either 0 | 8 | 16 | 24 | 32, but typescript cant infer that
-     * spacing.unit * 3 is within those bounds, so we have to type widen to just number.
-     */
-    spacing?: number
-  }
-}
-
 const mainTheme: ThemeOptions = {
   props: {
     MuiGrid: {
-      spacing: spacing.unit * 3,
+      spacing: ((spacing.unit * 3) as any) as Required<
+        Required<Required<ThemeOptions>['props']>['MuiGrid']
+      >['spacing'],
     },
   },
   palette: {

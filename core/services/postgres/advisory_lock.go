@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -35,7 +37,6 @@ type (
 	}
 
 	AdvisoryLocker interface {
-		TryLock(ctx context.Context, classID int32, objectID int32) (err error)
 		Unlock(ctx context.Context, classID int32, objectID int32) error
 		WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error
 		Close() error
@@ -74,13 +75,13 @@ func (lock *postgresAdvisoryLock) Close() error {
 	return multierr.Combine(connErr, dbErr)
 }
 
-func (lock *postgresAdvisoryLock) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
+func (lock *postgresAdvisoryLock) tryLock(ctx context.Context, classID int32, objectID int32) (err error) {
 	lock.mu.Lock()
 	defer lock.mu.Unlock()
 	defer utils.WrapIfError(&err, "TryAdvisoryLock failed")
 
 	if lock.conn == nil {
-		db, err2 := sql.Open("postgres", lock.URI)
+		db, err2 := sql.Open(string(dialects.Postgres), lock.URI)
 		if err2 != nil {
 			return err2
 		}
@@ -127,7 +128,7 @@ func (lock *postgresAdvisoryLock) Unlock(ctx context.Context, classID int32, obj
 }
 
 func (lock *postgresAdvisoryLock) WithAdvisoryLock(ctx context.Context, classID int32, objectID int32, f func() error) error {
-	err := lock.TryLock(ctx, classID, objectID)
+	err := lock.tryLock(ctx, classID, objectID)
 	if err != nil {
 		return errors.Wrapf(err, "could not get advisory lock for classID, objectID %v, %v", classID, objectID)
 	}
@@ -149,10 +150,6 @@ func (n *NullAdvisoryLocker) Close() error {
 		panic("already closed")
 	}
 	n.closed = true
-	return nil
-}
-
-func (*NullAdvisoryLocker) TryLock(ctx context.Context, classID int32, objectID int32) (err error) {
 	return nil
 }
 

@@ -34,15 +34,15 @@ func (_m *LogListener) IsV2Job() bool {
 }
 
 // JobID provides a mock function with given fields:
-func (_m *LogListener) JobID() *models.ID {
+func (_m *LogListener) JobID() models.JobID {
 	ret := _m.Called()
 
-	var r0 *models.ID
-	if rf, ok := ret.Get(0).(func() *models.ID); ok {
+	var r0 models.JobID
+	if rf, ok := ret.Get(0).(func() models.JobID); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*models.ID)
+			r0 = ret.Get(0).(models.JobID)
 		}
 	}
 

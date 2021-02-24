@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -132,8 +133,8 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(string(taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
+	promHTTPFetchTime.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(fmt.Sprintf("%d", taskRun.PipelineTaskSpecID)).Set(float64(len(responseBytes)))
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
@@ -143,6 +144,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
 		"url", t.URL.String(),
+		"pipelineTaskSpecID", taskRun.PipelineTaskSpecID,
 	)
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter

@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -128,7 +130,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 				ID:           51,
 				DotID:        `ds3`,
 				Type:         "http",
-				JSON:         cltest.MustNewJSONSerializable(t, `{"method": "GET", "url": "http://test.invalid", "requestData": {"data": {"coin": "BTC", "market": "USD"}}}`),
+				JSON:         cltest.MustNewJSONSerializable(t, `{"method": "GET", "url": "blah://test.invalid", "requestData": {"data": {"coin": "BTC", "market": "USD"}}}`),
 				SuccessorID:  null.IntFrom(52),
 				PipelineSpec: spec,
 			},
@@ -214,7 +216,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 		PipelineTaskRuns: taskRuns,
 	}
 
-	trrs, err := r.ExecuteRun(context.Background(), run)
+	trrs, err := r.ExecuteRun(context.Background(), run, *logger.Default)
 	require.NoError(t, err)
 
 	require.Len(t, trrs, len(taskRuns))

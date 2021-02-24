@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/ethereum/go-ethereum/common"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -23,10 +24,10 @@ func TestSyncJobRunPresenter_HappyPath(t *testing.T) {
 	requestID := common.HexToHash("0xcafe")
 	txHash := common.HexToHash("0xdeadbeef")
 
-	task0RunID := models.NewID()
-	task1RunID := models.NewID()
+	task0RunID := uuid.NewV4()
+	task1RunID := uuid.NewV4()
 
-	job := models.JobSpec{ID: models.NewID()}
+	job := models.JobSpec{ID: models.NewJobID()}
 	runRequest := models.RunRequest{
 		Payment:   assets.NewLink(2),
 		RequestID: &requestID,
@@ -121,8 +122,8 @@ func TestSyncJobRunPresenter_Initiators(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.initrType, func(t *testing.T) {
 			jobRun := models.JobRun{
-				ID:         models.NewID(),
-				JobSpecID:  models.NewID(),
+				ID:         uuid.NewV4(),
+				JobSpecID:  models.NewJobID(),
 				Initiator:  models.Initiator{Type: test.initrType},
 				RunRequest: test.rr,
 			}
@@ -173,7 +174,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			taskSpec := models.TaskSpec{
 				Type: "ethtx",
 			}
-			job := models.JobSpec{ID: models.NewID()}
+			job := models.JobSpec{ID: models.NewJobID()}
 			runRequest := models.RunRequest{
 				RequestID: &requestID,
 				TxHash:    &requestTxHash,
@@ -183,7 +184,7 @@ func TestSyncJobRunPresenter_EthTxTask(t *testing.T) {
 			run.SetStatus(models.RunStatusCompleted)
 			run.TaskRuns = []models.TaskRun{
 				models.TaskRun{
-					ID:       models.NewID(),
+					ID:       uuid.NewV4(),
 					TaskSpec: taskSpec,
 					Status:   models.RunStatusPendingIncomingConfirmations,
 					Result:   models.RunResult{Data: dataJSON},

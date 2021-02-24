@@ -6,6 +6,7 @@ import {
   getJobSpecFormat,
   isJson,
   isToml,
+  getTaskList,
 } from './utils'
 import { ApiResponse } from 'utils/json-api-client'
 import Button from 'components/Button'
@@ -34,6 +35,7 @@ import {
   Divider,
   CardHeader,
   CircularProgress,
+  Typography,
 } from '@material-ui/core'
 import {
   createStyles,
@@ -42,19 +44,26 @@ import {
   Theme,
 } from '@material-ui/core/styles'
 import { useLocation, useHistory } from 'react-router-dom'
-import { setPersistJobSpec, getPersistJobSpec } from 'utils/storage'
+import { TaskSpec } from 'core/store/models'
+import TaskListDag from './TaskListDag'
+import TaskList from 'components/Jobs/TaskList'
+import { Stratify } from './parseDot'
 
 const jobSpecFormatList = [JobSpecFormats.JSON, JobSpecFormats.TOML]
-export const SELECTED_FORMAT = 'persistSpecFormat'
+
+export const SELECTED_FORMAT = 'persistSpec.format'
+export const PERSIST_SPEC = 'persistSpec.'
 
 const styles = (theme: Theme) =>
   createStyles({
     card: {
-      padding: theme.spacing.unit,
       marginBottom: theme.spacing.unit * 3,
     },
     loader: {
       position: 'absolute',
+    },
+    emptyTasks: {
+      padding: theme.spacing.unit * 3,
     },
   })
 
@@ -111,19 +120,31 @@ function getInitialValues({
   query: string
 }): { jobSpec: string; format: JobSpecFormats } {
   const params = new URLSearchParams(query)
-  const jobSpec = (params.get('definition') as string) || getPersistJobSpec()
-
-  const format =
+  const queryJobSpec = params.get('definition') as string
+  const queryJobSpecFormat =
     getJobSpecFormat({
-      value: jobSpec,
-    }) ||
+      value: queryJobSpec,
+    }) || JobSpecFormats.JSON
+
+  if (queryJobSpec) {
+    storage.set(`${PERSIST_SPEC}${queryJobSpecFormat}`, queryJobSpec)
+    return {
+      jobSpec: queryJobSpec,
+      format: queryJobSpecFormat,
+    }
+  }
+
+  const lastOpenedFormat =
     JobSpecFormats[params.get('format')?.toUpperCase() as JobSpecFormat] ||
-    (storage.get(SELECTED_FORMAT) as JobSpecFormat) ||
+    storage.get(SELECTED_FORMAT) ||
     JobSpecFormats.JSON
 
+  const lastOpenedJobSpec =
+    storage.get(`${PERSIST_SPEC}${lastOpenedFormat}`) || ''
+
   return {
-    jobSpec,
-    format,
+    jobSpec: lastOpenedJobSpec,
+    format: lastOpenedFormat,
   }
 }
 
@@ -133,33 +154,43 @@ export const New = ({
   classes: WithStyles<typeof styles>['classes']
 }) => {
   const location = useLocation()
-  const [initialValues] = React.useState(
+  const [initialValues] = React.useState(() =>
     getInitialValues({
       query: location.search,
     }),
   )
-
   const [format, setFormat] = React.useState<JobSpecFormats>(
     initialValues.format,
   )
   const [value, setValue] = React.useState<string>(initialValues.jobSpec)
   const [valid, setValid] = React.useState<boolean>(true)
   const [loading, setLoading] = React.useState<boolean>(false)
+  const [tasks, setTasks] = React.useState(() =>
+    getTaskList({ value: initialValues.jobSpec }),
+  )
   const dispatch = useDispatch()
   const history = useHistory()
 
   React.useEffect(() => {
-    setPersistJobSpec(value)
-    setValid(true)
-  }, [value])
+    const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+    return () => clearTimeout(timeout)
+  }, [value, setTasks])
 
-  React.useEffect(() => {
+  function handleFormat(_event: React.ChangeEvent<{}>, format: string) {
+    setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
+    setFormat(format as JobSpecFormats)
     storage.set(SELECTED_FORMAT, format)
     setValid(true)
     history.replace({
       search: `?format=${format}`,
     })
-  }, [format, history])
+  }
+
+  function handleValue(event: React.ChangeEvent<HTMLTextAreaElement>) {
+    setValue(event.target.value)
+    storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
+    setValid(true)
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -189,7 +220,7 @@ export const New = ({
   return (
     <Content>
       <Grid container spacing={40}>
-        <Grid item xs={12} md={11} lg={9}>
+        <Grid item xs={12} lg={8}>
           <Card className={classes.card}>
             <CardHeader title="New Job" />
             <Divider />
@@ -202,9 +233,7 @@ export const New = ({
                       <RadioGroup
                         name="select-format"
                         value={format}
-                        onChange={(event: any) =>
-                          setFormat(event.target.value as JobSpecFormats)
-                        }
+                        onChange={handleFormat}
                         row
                       >
                         {jobSpecFormatList.map((format) => (
@@ -223,9 +252,7 @@ export const New = ({
                     <TextField
                       error={!valid}
                       value={value}
-                      onChange={(
-                        event: React.ChangeEvent<HTMLTextAreaElement>,
-                      ) => setValue(event.target.value)}
+                      onChange={handleValue}
                       helperText={!valid && `Invalid ${format}`}
                       autoComplete="off"
                       label={`${format} blob`}
@@ -261,6 +288,27 @@ export const New = ({
                 </Grid>
               </form>
             </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} lg={4}>
+          <Card style={{ overflow: 'visible' }} className={classes.card}>
+            <CardHeader title="Task list preview" />
+            <Divider />
+            {tasks.format === JobSpecFormats.JSON && tasks.list && (
+              <TaskList tasks={tasks.list as TaskSpec[]} />
+            )}
+            {tasks.format === JobSpecFormats.TOML && tasks.list && (
+              <TaskListDag stratify={tasks.list as Stratify[]} />
+            )}
+            {!tasks.list && (
+              <Typography
+                className={classes.emptyTasks}
+                variant="body1"
+                color="textSecondary"
+              >
+                Tasks not found
+              </Typography>
+            )}
           </Card>
         </Grid>
       </Grid>

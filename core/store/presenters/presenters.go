@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"gorm.io/gorm"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -26,20 +28,19 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
-	"gopkg.in/guregu/null.v4"
 )
 
 // ETHKey holds the hex representation of the address plus it's ETH & LINK balances
 type ETHKey struct {
-	Address     string       `json:"address"`
-	EthBalance  *assets.Eth  `json:"ethBalance"`
-	LinkBalance *assets.Link `json:"linkBalance"`
-	NextNonce   *int64       `json:"nextNonce"`
-	LastUsed    *time.Time   `json:"lastUsed"`
-	IsFunding   bool         `json:"isFunding"`
-	CreatedAt   time.Time    `json:"createdAt"`
-	UpdatedAt   time.Time    `json:"updatedAt"`
-	DeletedAt   null.Time    `json:"deletedAt"`
+	Address     string         `json:"address"`
+	EthBalance  *assets.Eth    `json:"ethBalance"`
+	LinkBalance *assets.Link   `json:"linkBalance"`
+	NextNonce   *int64         `json:"nextNonce"`
+	LastUsed    *time.Time     `json:"lastUsed"`
+	IsFunding   bool           `json:"isFunding"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
+	DeletedAt   gorm.DeletedAt `json:"deletedAt"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -135,7 +136,6 @@ type EnvPrinter struct {
 	TLSHost                               string          `json:"chainlinkTLSHost"`
 	TLSPort                               uint16          `json:"chainlinkTLSPort"`
 	TLSRedirect                           bool            `json:"chainlinkTLSRedirect"`
-	TxAttemptLimit                        uint16          `json:"txAttemptLimit"`
 }
 
 // NewConfigPrinter creates an instance of ConfigPrinter
@@ -220,7 +220,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			TLSHost:                               config.TLSHost(),
 			TLSPort:                               config.TLSPort(),
 			TLSRedirect:                           config.TLSRedirect(),
-			TxAttemptLimit:                        config.TxAttemptLimit(),
 		},
 	}, nil
 }

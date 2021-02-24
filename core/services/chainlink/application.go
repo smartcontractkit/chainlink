@@ -10,10 +10,10 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -54,7 +54,7 @@ type (
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
-		DeleteJob(db *gorm.DB, jobID *models.ID) error
+		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
 
@@ -79,7 +79,7 @@ type Application interface {
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
 	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
-	ArchiveJob(*models.ID) error
+	ArchiveJob(models.JobID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
@@ -146,7 +146,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	promReporter := services.NewPromReporter(store.DB.DB())
+	db, err := store.DB.DB()
+	if err != nil {
+		panic(err)
+	}
+	promReporter := services.NewPromReporter(db)
 	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
@@ -186,7 +190,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -450,8 +454,11 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 // It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) (err error) {
-	_ = app.JobSubscriber.RemoveJob(ID)
+func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
+	err := app.JobSubscriber.RemoveJob(ID)
+	if err != nil {
+		logger.Warnw("Error removing job from JobSubscriber", "error", err)
+	}
 	app.FluxMonitor.RemoveJob(ID)
 
 	if err = app.ExternalInitiatorManager.DeleteJob(app.Store.DB, ID); err != nil {
