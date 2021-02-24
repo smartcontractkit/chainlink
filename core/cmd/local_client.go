@@ -477,7 +477,12 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 		}
 	}()
 	store := app.GetStore()
-	user, err := store.DeleteUser()
+	user, err := store.FindUser()
+	if err == nil {
+		logger.Info("No such API user ", user.Email)
+		return err
+	}
+	err = store.DeleteUser()
 	if err == nil {
 		logger.Info("Deleted API user ", user.Email)
 	}
