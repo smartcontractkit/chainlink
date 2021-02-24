@@ -61,7 +61,7 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
+		{
 			Name:    "agreements",
 			Aliases: []string{"agree"},
 			Usage:   "Commands for handling service agreements",
@@ -75,7 +75,7 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
+		{
 			Name:    "attempts",
 			Aliases: []string{"txas"},
 			Usage:   "Commands for managing Ethereum Transaction Attempts",
@@ -187,6 +187,17 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for managing Jobs (V2)",
 			Subcommands: []cli.Command{
 				{
+					Name:   "list",
+					Usage:  "List all V2 jobs",
+					Action: client.ListJobsV2,
+					Flags: []cli.Flag{
+						cli.IntFlag{
+							Name:  "page",
+							Usage: "page of results to display",
+						},
+					},
+				},
+				{
 					Name:   "create",
 					Usage:  "Create a V2 job",
 					Action: client.CreateJobV2,
@@ -207,7 +218,7 @@ func NewApp(client *Client) *cli.App {
 			Name:  "keys",
 			Usage: "Commands for managing various types of keys used by the Chainlink node",
 			Subcommands: []cli.Command{
-				cli.Command{
+				{
 					Name:  "eth",
 					Usage: "Local commands for administering the node's Ethereum keys",
 					Subcommands: cli.Commands{
@@ -264,7 +275,8 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
-				cli.Command{
+
+				{
 					Name:  "p2p",
 					Usage: "Remote commands for administering the node's p2p keys",
 					Subcommands: cli.Commands{
@@ -323,7 +335,8 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
-				cli.Command{
+
+				{
 					Name:  "ocr",
 					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
@@ -382,7 +395,8 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
-				cli.Command{
+
+				{
 					Name: "vrf",
 					Usage: format(`Local commands for administering the database of VRF proof
            keys. These commands will not affect the extant in-memory keys of
@@ -577,7 +591,7 @@ func NewApp(client *Client) *cli.App {
 			},
 		},
 
-		cli.Command{
+		{
 			Name:   "initiators",
 			Usage:  "Commands for managing External Initiators",
 			Hidden: !client.Config.Dev() && !client.Config.FeatureExternalInitiators(),
