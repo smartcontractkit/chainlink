@@ -4,6 +4,7 @@
 package operator_wrapper
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -1211,6 +1212,30 @@ func (_Operator *Operator) UnpackLog(out interface{}, event string, log types.Lo
 	return _Operator.OperatorFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_Operator *Operator) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(OperatorABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["AuthorizedSendersChanged"].ID:
+		return _Operator.ParseAuthorizedSendersChanged(log)
+	case abi.Events["CancelOracleRequest"].ID:
+		return _Operator.ParseCancelOracleRequest(log)
+	case abi.Events["OracleRequest"].ID:
+		return _Operator.ParseOracleRequest(log)
+	case abi.Events["OracleResponse"].ID:
+		return _Operator.ParseOracleResponse(log)
+	case abi.Events["OwnershipTransferRequested"].ID:
+		return _Operator.ParseOwnershipTransferRequested(log)
+	case abi.Events["OwnershipTransferred"].ID:
+		return _Operator.ParseOwnershipTransferred(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_Operator *Operator) Address() common.Address {
 	return _Operator.address
 }
@@ -1289,6 +1314,8 @@ type OperatorInterface interface {
 	ParseOwnershipTransferred(log types.Log) (*OperatorOwnershipTransferred, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }

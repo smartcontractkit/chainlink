@@ -44,22 +44,27 @@ func ExtractContractDetails(beltArtifactPath string) (*ContractDetails, error) {
 		return nil, errors.Wrapf(err, "could not parse belt ABI JSON as JSON")
 	}
 
+	details := &ContractDetails{
+		ABI: contractABI,
+	}
+
 	binaryData, err := replaceMetadata(beltArtifact)
-	if err != nil {
+	if err != nil && err != errNoBinary {
 		return nil, err
 	}
+	if binaryData != nil {
+		details.Binary = binaryData.String()
+	}
+
 	var sources struct {
 		Sources map[string]string `json:"sourceCodes"`
 	}
-	if err := json.Unmarshal(beltArtifact, &sources); err != nil {
-		return nil, errors.Wrapf(err, "could not read source code from compiler artifact")
+	err = json.Unmarshal(beltArtifact, &sources)
+	if err == nil {
+		details.Sources = sources.Sources
 	}
 
-	return &ContractDetails{
-		Binary:  binaryData.String(),
-		ABI:     contractABI,
-		Sources: sources.Sources,
-	}, nil
+	return details, nil
 }
 
 // binaryContractSections represents an analysis of the contract binary produced
@@ -82,6 +87,8 @@ func (b *binaryContractSections) String() string {
 	return b.contractBinary + b.metadataHash + b.staticData
 }
 
+var errNoBinary = errors.New("contract has no binary")
+
 // extractSuffix returns the binary with the metadata replaced by a constant
 // value, and any stored code (such as interned strings at the end of the
 // deployed contract removed)
@@ -91,11 +98,9 @@ func (b *binaryContractSections) String() string {
 func replaceMetadata(beltArtifact []byte) (*binaryContractSections, error) {
 	// We want the bytecode here, not the deployedByteCode. The latter does not
 	// include the initialization code.
-	rawBinary := gjson.Get(string(beltArtifact),
-		"compilerOutput.evm.bytecode.object").String()
+	rawBinary := gjson.Get(string(beltArtifact), "compilerOutput.evm.bytecode.object").String()
 	if rawBinary == "" {
-		return nil, errors.Errorf(
-			"could not parse belt contract binary JSON as JSON")
+		return nil, errNoBinary
 	}
 	if _, err := hexutil.Decode(rawBinary); err != nil {
 		return nil, errors.Errorf("contract binary from belt artifact is not JSON")
@@ -147,18 +152,15 @@ func replaceMetadata(beltArtifact []byte) (*binaryContractSections, error) {
 // binary, as a naive reading of that documentation would imply. It can be
 // followed by static code sections.
 // https://gitter.im/ethereum/solidity?at=5f10a247d60398014655861f
-var metadata = regexp.MustCompile("a264697066735822[[:xdigit:]]{68}" +
-	"64736f6c6343[[:xdigit:]]{6}0033")
+var metadata = regexp.MustCompile("a264697066735822[[:xdigit:]]{68}64736f6c6343[[:xdigit:]]{6}0033")
 
-var reversedMetaData = regexp.MustCompile("(..)*(3300[[:xdigit:]]{6}" +
-	"3436c6f63746[[:xdigit:]]{68}228537660796462a)")
+var reversedMetaData = regexp.MustCompile("(..)*(3300[[:xdigit:]]{6}3436c6f63746[[:xdigit:]]{68}228537660796462a)")
 
 // constantBinaryMetadataHash is an arbitrary constant stand-in for the
 // metadata suffix which the EVM expects (and in some cases, it seems, requires)
 // to find at the end of the binary object representing a contract under
 // deployment. See metadata docstring.
-var constantBinaryMetadataHash = "a264697066735822" +
-	strings.Repeat("beef", 68/4) + "64736f6c6343" + "decafe" + "0033"
+var constantBinaryMetadataHash = "a264697066735822" + strings.Repeat("beef", 68/4) + "64736f6c6343" + "decafe" + "0033"
 
 func init() {
 	if !metadata.MatchString(constantBinaryMetadataHash) {
