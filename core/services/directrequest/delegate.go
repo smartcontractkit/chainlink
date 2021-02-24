@@ -156,7 +156,7 @@ WHERE id IN (
 		AND pipeline_task_runs.finished_at IS NULL
 	FOR UPDATE OF pipeline_task_runs
 	SKIP LOCKED
-)`, d.jobID, fmt.Sprintf("%x", requestID)).Error
+)`, d.jobID, fmt.Sprintf("0x%x", requestID)).Error
 	if err != nil {
 		logger.Errorw("Error while deleting pipeline_runs", "error", err)
 	}

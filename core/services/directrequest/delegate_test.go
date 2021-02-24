@@ -44,18 +44,23 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	broadcaster := new(mocks.Broadcaster)
 	runner := new(mocks.PipelineRunner)
-	config, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
-	defer cleanupDB()
-	db := orm.DB
 
-	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
-	eventBroadcaster.Start()
-	defer eventBroadcaster.Stop()
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
+	defer cleanupDB()
+	db := oldORM.DB
+
+	orm, eventBroadcaster, cleanup := cltest.NewPipelineORM(t, config, db)
+	defer cleanup()
+
+	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	defer jobORM.Close()
 
 	delegate := directrequest.NewDelegate(broadcaster, runner, db)
 
-	spec := job.SpecDB{DirectRequestSpec: &job.DirectRequestSpec{}}
-	services, err := delegate.ServicesForSpec(spec)
+	spec := factoryJobSpec(t)
+	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
+	require.NoError(t, err)
+	services, err := delegate.ServicesForSpec(*spec)
 	require.NoError(t, err)
 	assert.Len(t, services, 1)
 	service := services[0]
@@ -90,15 +95,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 
 	t.Run("Log is a CancelOracleRequest", func(t *testing.T) {
-		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
-		defer cleanup()
-
-		jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
-		defer jobORM.Close()
-
-		spec := factoryJobSpec(t)
-		err = jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
-		require.NoError(t, err)
 
 		// Create one run with a matching request ID ...
 		meta := make(map[string]interface{})
