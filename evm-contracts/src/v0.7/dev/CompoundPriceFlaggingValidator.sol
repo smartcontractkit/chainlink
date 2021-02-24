@@ -6,7 +6,7 @@ import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/UniswapAnchoredView.sol";
-import "./UpkeepCompatible.sol";
+import "../interfaces/UpkeepInterface.sol";
 
 /**
  * @notice This validator compares the price of Chainlink aggregators against
@@ -15,7 +15,7 @@ import "./UpkeepCompatible.sol";
  * An aggregator address is flagged when its corresponding Compound feed price deviates
  * by more than the configured threshold from the aggregator price.
  */
-contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
+contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
   using SafeMathChainlink for uint256;
 
   struct CompoundFeedDetails {
@@ -202,7 +202,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return invalid aggregators - bytes encoded address array of invalid aggregator addresses
    */
-  function checkForUpkeep(
+  function checkUpkeep(
     bytes calldata data
   )
     external

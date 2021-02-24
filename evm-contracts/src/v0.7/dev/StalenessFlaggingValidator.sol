@@ -5,9 +5,9 @@ import "./ConfirmedOwner.sol";
 import "../vendor/SafeMathChainlink.sol";
 import "../interfaces/FlagsInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "./UpkeepCompatible.sol";
+import "../interfaces/UpkeepInterface.sol";
 
-contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
+contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepInterface {
   using SafeMathChainlink for uint256;
 
   FlagsInterface private s_flags;
@@ -119,7 +119,7 @@ contract StalenessFlaggingValidator is ConfirmedOwner, UpkeepCompatible {
    * @return needsUpkeep bool indicating whether upkeep needs to be performed
    * @return staleAggregators bytes encoded address array of stale aggregator addresses
    */
-  function checkForUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
+  function checkUpkeep(bytes calldata data) external view override returns (bool, bytes memory) {
     address[] memory staleAggregators = check(abi.decode(data, (address[])));
     bool needsUpkeep = (staleAggregators.length > 0);
     return (needsUpkeep, abi.encode(staleAggregators));

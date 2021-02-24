@@ -90,7 +90,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
       'flags',
       'compoundOpenOracle',
       // Upkeep methods:
-      'checkForUpkeep',
+      'checkUpkeep',
       'performUpkeep',
       // Owned methods:
       'acceptOwnership',
@@ -347,7 +347,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
     })
   })
 
-  describe('#checkForUpkeep', () => {
+  describe('#checkUpkeep', () => {
     describe('with a single aggregator', () => {
       describe('with a deviated price exceding threshold', () => {
         it('returns the deviated aggregator', async () => {
@@ -358,7 +358,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
           )
           const response = await validator
             .connect(personas.Carol)
-            .checkForUpkeep(encodedAggregators)
+            .checkUpkeep(encodedAggregators)
 
           const decodedResponse = ethers.utils.defaultAbiCoder.decode(
             ['address[]'],
@@ -386,7 +386,7 @@ describe('CompoundPriceFlaggingVlidator', () => {
           )
           const response = await validator
             .connect(personas.Carol)
-            .checkForUpkeep(encodedAggregators)
+            .checkUpkeep(encodedAggregators)
           const decodedResponse = ethers.utils.defaultAbiCoder.decode(
             ['address[]'],
             response?.[1],
