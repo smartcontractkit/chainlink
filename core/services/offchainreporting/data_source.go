@@ -26,7 +26,7 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 // Gorm/pgx doesn't return a helpful error upon cancellation, so we manually check for cancellation and return a
 // appropriate error (FIXME: How does this work after the current refactoring?)
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
-	results, err := ds.pipelineRunner.ExecuteAndInsertNewRun(ctx, ds.spec, ds.ocrLogger)
+	_, results, err := ds.pipelineRunner.ExecuteAndInsertNewRun(ctx, ds.spec, ds.ocrLogger)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error executing new run for job ID %v", ds.jobID)
 	}
