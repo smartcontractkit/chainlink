@@ -224,7 +224,10 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 		return nil
 	}
 	squashVersionMinus1 := semver.New("0.9.10")
-	currentVersion := semver.New(static.Version)
+	currentVersion, err := semver.NewVersion(static.Version)
+	if err != nil {
+		return errors.Wrapf(err, "expected VERSION to be valid semver (for example 1.42.3). Got: %s", static.Version)
+	}
 	lastV1Migration := "1611847145"
 	if squashVersionMinus1.LessThan(*currentVersion) {
 		// Completely empty database is fine to run squashed migrations on
