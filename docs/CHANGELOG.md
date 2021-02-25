@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2021-02-23
+
+### Fixed
+
+- Prevent autosaving Task Spec on when Task Runs are saved to lower database load.
+
 ## [0.10.0] - 2021-02-22
 
 ### Fixed
