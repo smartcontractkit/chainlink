@@ -1694,11 +1694,3 @@ func (s SortType) String() string {
 	}
 	return orderStr
 }
-
-func MustRawDB(db *gorm.DB) *sql.DB {
-	sqlDB, err := db.DB()
-	if err != nil {
-		panic(err)
-	}
-	return sqlDB
-}
