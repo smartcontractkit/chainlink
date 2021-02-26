@@ -7,7 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.1] - 2021-02-23
+## [0.10.2] - 2021-02-26
+
+### Fixed
+
+- Add contexts so that database queries timeout when necessary.
+- Use manual updates instead of gorm update associations.
+
+## [0.10.1] - 2021-02-25
 
 ### Fixed
 
