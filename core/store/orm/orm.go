@@ -293,7 +293,13 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 
 // SaveJobRun updates UpdatedAt for a JobRun and saves it
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	// FIXME: Be neater about this context timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
 		result := dbtx.Unscoped().
 			Session(&gorm.Session{FullSaveAssociations: true}). // We want to save the RunResult and TaskRuns also.
 			Where("updated_at = ?", run.UpdatedAt).
