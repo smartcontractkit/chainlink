@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
@@ -751,6 +752,42 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	j := NewJob()
 	require.NoError(t, s.CreateJob(&j))
 	return j
+}
+
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store) job.SpecDB {
+	t.Helper()
+	keeperSpec := job.KeeperSpec{
+		ContractAddress: NewEIP55Address(),
+		FromAddress:     NewEIP55Address(),
+	}
+	err := store.DB.Create(&keeperSpec).Error
+	require.NoError(t, err)
+	specDB := job.SpecDB{
+		KeeperSpec:    &keeperSpec,
+		Type:          job.Keeper,
+		SchemaVersion: 1,
+		PipelineSpec:  &pipeline.Spec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry {
+	t.Helper()
+	job := MustInsertKeeperJob(t, store)
+	registry := keeper.Registry{
+		ContractAddress:   NewEIP55Address(),
+		BlockCountPerTurn: 20,
+		CheckGas:          10_000,
+		FromAddress:       NewEIP55Address(),
+		JobID:             job.ID,
+		KeeperIndex:       0,
+		NumKeepers:        1,
+	}
+	err := store.DB.Create(&registry).Error
+	require.NoError(t, err)
+	return registry
 }
 
 func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {

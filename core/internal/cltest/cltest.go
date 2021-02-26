@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -1808,4 +1809,10 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 			time.Sleep(interval)
 		}
 	}
+}
+
+func AssertCount(t *testing.T, store *store.Store, model interface{}, expected int64) {
+	var count int64
+	store.DB.Model(model).Count(&count)
+	require.Equal(t, expected, count)
 }
