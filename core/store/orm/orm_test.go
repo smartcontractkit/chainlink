@@ -1,6 +1,7 @@
 package orm_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/big"
@@ -1268,18 +1269,18 @@ func TestORM_Heads_Chain(t *testing.T) {
 		} else if idx == 7 {
 			longestChainHeadHash = h.Hash
 		}
-		assert.Nil(t, store.IdempotentInsertHead(h))
+		assert.Nil(t, store.IdempotentInsertHead(context.TODO(), h))
 	}
 
 	competingHead1 := *cltest.Head(3)
 	competingHead1.ParentHash = baseOfForkHash
-	assert.Nil(t, store.IdempotentInsertHead(competingHead1))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead1))
 	competingHead2 := *cltest.Head(4)
 	competingHead2.ParentHash = competingHead1.Hash
-	assert.Nil(t, store.IdempotentInsertHead(competingHead2))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead2))
 
 	// Query for the top of the longer chain does not include the competing chain
-	h, err := store.Chain(longestChainHeadHash, 12)
+	h, err := store.Chain(context.TODO(), longestChainHeadHash, 12)
 	require.NoError(t, err)
 	assert.Equal(t, longestChainHeadHash, h.Hash)
 	count := 1
@@ -1295,7 +1296,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.Equal(t, 8, count)
 
 	// If we set the limit lower we get fewer heads in chain
-	h, err = store.Chain(longestChainHeadHash, 2)
+	h, err = store.Chain(context.TODO(), longestChainHeadHash, 2)
 	require.NoError(t, err)
 	assert.Equal(t, longestChainHeadHash, h.Hash)
 	count = 1
@@ -1309,7 +1310,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.Equal(t, 2, count)
 
 	// If we query for the top of the competing chain we get its parents
-	head, err := store.Chain(competingHead2.Hash, 12)
+	head, err := store.Chain(context.TODO(), competingHead2.Hash, 12)
 	require.NoError(t, err)
 	assert.Equal(t, competingHead2.Hash, head.Hash)
 	require.NotNil(t, head.Parent)
@@ -1319,7 +1320,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
 
 	// Returns error if hash has no matches
-	_, err = store.Chain(cltest.NewHash(), 12)
+	_, err = store.Chain(context.TODO(), cltest.NewHash(), 12)
 	require.Error(t, err)
 }
 
@@ -1331,18 +1332,18 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 
 	// Returns nil when inserting first head
 	head := *cltest.Head(0)
-	require.NoError(t, store.IdempotentInsertHead(head))
+	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
 
 	// Head is inserted
-	foundHead, err := store.LastHead()
+	foundHead, err := store.LastHead(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 
 	// Returns nil when inserting same head again
-	require.NoError(t, store.IdempotentInsertHead(head))
+	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
 
 	// Head is still inserted
-	foundHead, err = store.LastHead()
+	foundHead, err = store.LastHead(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 }
