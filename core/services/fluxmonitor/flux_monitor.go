@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor/promfm"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -775,7 +776,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log flux_aggregator_
 func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
 
-	promSetBigInt(promFMSeenRound.WithLabelValues(p.initr.JobSpecID.String()), log.RoundId)
+	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(p.initr.JobSpecID.String()), log.RoundId)
 
 	//
 	// NewRound answer submission logic:
@@ -1031,7 +1032,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	jobSpecID := p.initr.JobSpecID.String()
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, -p.precision)
 
-	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
+	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobSpecID), polledAnswer)
 	l = l.With(
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
@@ -1060,8 +1061,8 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
-	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), polledAnswer)
-	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.RoundId)
+	promfm.SetDecimal(promfm.ReportedValue.WithLabelValues(jobSpecID), polledAnswer)
+	promfm.SetUint32(promfm.ReportedRound.WithLabelValues(jobSpecID), roundState.RoundId)
 }
 
 // If the polledAnswer is outside the allowable range, log an error and don't submit.

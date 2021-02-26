@@ -326,6 +326,11 @@ func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
 }
 
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+func (c Config) FeatureFluxMonitorV2() bool {
+	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
+}
+
 // FeatureOffchainReporting enables the Flux Monitor feature.
 func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
@@ -1052,6 +1057,10 @@ func parseIP(s string) (interface{}, error) {
 
 func parseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func parseBool(s string) (interface{}, error) {
+	return strconv.ParseBool(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

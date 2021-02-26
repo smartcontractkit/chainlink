@@ -7,10 +7,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.Job, error) {
+func ValidatedFluxMonitorSpec(config *coreorm.Config, ts string) (job.Job, error) {
 	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
@@ -55,8 +55,21 @@ func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.Job, error) {
 			minTimeout = timeout
 		}
 	}
-	if !spec.PollTimerDisabled && spec.PollTimerPeriod < minTimeout {
+
+	if !validatePollTimer(spec.PollTimerDisabled, minTimeout, spec.PollTimerPeriod) {
 		return jb, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, spec.PollTimerPeriod)
 	}
+
 	return jb, nil
+}
+
+// validatePollTime validates the period is greater than the min timeout for an
+// enabled poll timer.
+func validatePollTimer(disabled bool, minTimeout time.Duration, period time.Duration) bool {
+	// Disabled timers do not need to validate the period
+	if disabled {
+		return true
+	}
+
+	return period >= minTimeout
 }
