@@ -1022,8 +1022,9 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
-func (orm *ORM) IdempotentInsertHead(h models.Head) error {
+func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
 	err := orm.DB.
+		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "hash"}},
 			DoNothing: true,
@@ -1051,8 +1052,8 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 
 // Chain returns the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
-func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
-	rows, err := orm.DB.Raw(`
+func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (models.Head, error) {
+	rows, err := orm.DB.WithContext(ctx).Raw(`
 	WITH RECURSIVE chain AS (
 		SELECT * FROM heads WHERE hash = ?
 	UNION
@@ -1085,9 +1086,9 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 }
 
 // HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
+func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
 	head := &models.Head{}
-	err := orm.DB.Where("hash = ?", hash).First(head).Error
+	err := orm.DB.WithContext(ctx).Where("hash = ?", hash).First(head).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -1096,9 +1097,9 @@ func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
 
 // LastHead returns the head with the highest number. In the case of ties (e.g.
 // due to re-org) it returns the most recently seen head entry.
-func (orm *ORM) LastHead() (*models.Head, error) {
+func (orm *ORM) LastHead(ctx context.Context) (*models.Head, error) {
 	number := &models.Head{}
-	err := orm.DB.Order("number DESC, created_at DESC, id DESC").First(number).Error
+	err := orm.DB.WithContext(ctx).Order("number DESC, created_at DESC, id DESC").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

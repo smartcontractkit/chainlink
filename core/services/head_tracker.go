@@ -159,11 +159,11 @@ func (ht *HeadTracker) Start() error {
 		return nil
 	}
 
-	if err := ht.setHighestSeenHeadFromDB(); err != nil {
+	if err := ht.setHighestSeenHeadFromDB(context.Background()); err != nil {
 		return err
 	}
 	if ht.highestSeenHead != nil {
-		logger.Debug("Tracking logs from last block ", presenters.FriendlyBigInt(ht.highestSeenHead.ToInt()), " with hash ", ht.highestSeenHead.Hash.Hex())
+		logger.Debug("Headtracker: Tracking logs from last block ", presenters.FriendlyBigInt(ht.highestSeenHead.ToInt()), " with hash ", ht.highestSeenHead.Hash.Hex())
 	}
 
 	ht.done = make(chan struct{})
@@ -197,14 +197,14 @@ func (ht *HeadTracker) Stop() error {
 
 // Save updates the latest block number, if indeed the latest, and persists
 // this number in case of reboot. Thread safe.
-func (ht *HeadTracker) Save(h models.Head) error {
+func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	ht.headMutex.Lock()
 	if h.GreaterThan(ht.highestSeenHead) {
 		ht.highestSeenHead = &h
 	}
 	ht.headMutex.Unlock()
 
-	err := ht.store.IdempotentInsertHead(h)
+	err := ht.store.IdempotentInsertHead(ctx, h)
 	if err != nil {
 		return err
 	}
@@ -328,12 +328,12 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	}(time.Now(), int64(head.Number))
 	prevHead := ht.HighestSeenHead()
 
-	logger.Debugw(fmt.Sprintf("Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
+	logger.Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
 		"blockHash", head.Hash,
 	)
 
-	if err := ht.Save(head); err != nil {
+	if err := ht.Save(ctx, head); err != nil {
 		return err
 	}
 
@@ -411,7 +411,7 @@ func (ht *HeadTracker) GetChainWithBackfill(ctx context.Context, head models.Hea
 	ctx, cancel := context.WithTimeout(ctx, ht.backfillTimeBudget())
 	defer cancel()
 
-	head, err := ht.store.Chain(head.Hash, depth)
+	head, err := ht.store.Chain(ctx, head.Hash, depth)
 	if err != nil {
 		return head, errors.Wrap(err, "GetChainWithBackfill failed fetching chain")
 	}
@@ -426,7 +426,7 @@ func (ht *HeadTracker) GetChainWithBackfill(ctx context.Context, head models.Hea
 	if err := ht.backfill(ctx, head.EarliestInChain(), baseHeight); err != nil {
 		return head, errors.Wrap(err, "GetChainWithBackfill failed backfilling")
 	}
-	return ht.store.Chain(head.Hash, depth)
+	return ht.store.Chain(ctx, head.Hash, depth)
 }
 
 // backfill fetches all missing heads up until the base height
@@ -449,7 +449,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 
 	for i := head.Number - 1; i >= baseHeight; i-- {
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
-		existingHead, err := ht.store.HeadByHash(head.ParentHash)
+		existingHead, err := ht.store.HeadByHash(ctx, head.ParentHash)
 		if err != nil {
 			return errors.Wrap(err, "HeadByHash failed")
 		}
@@ -481,7 +481,7 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 	} else if head == nil {
 		return models.Head{}, errors.New("got nil head")
 	}
-	if err := ht.store.IdempotentInsertHead(*head); err != nil {
+	if err := ht.store.IdempotentInsertHead(ctx, *head); err != nil {
 		return models.Head{}, err
 	}
 	return *head, nil
@@ -560,8 +560,8 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	return nil
 }
 
-func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
-	head, err := ht.store.LastHead()
+func (ht *HeadTracker) setHighestSeenHeadFromDB(ctx context.Context) error {
+	head, err := ht.store.LastHead(ctx)
 	if err != nil {
 		return err
 	}
