@@ -301,7 +301,7 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 	defer cancel()
 	return postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
 		result := dbtx.Unscoped().
-			Session(&gorm.Session{FullSaveAssociations: true}). // We want to save the RunResult and TaskRuns also.
+			//Session(&gorm.Session{FullSaveAssociations: true}). // We want to save the RunResult and TaskRuns also.
 			Where("updated_at = ?", run.UpdatedAt).
 			Omit("deleted_at").
 			Save(run)
@@ -313,6 +313,14 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 		}
 		if result.RowsAffected == 0 {
 			return ErrOptimisticUpdateConflict
+		}
+		err := dbtx.Unscoped().Save(&run.Result).Error
+		if err != nil {
+			return err
+		}
+		err = dbtx.Unscoped().Save(&run.TaskRuns).Error
+		if err != nil {
+			return err
 		}
 		return nil
 	})
