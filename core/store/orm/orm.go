@@ -318,9 +318,11 @@ func (orm *ORM) SaveJobRun(run *models.JobRun) error {
 		if err != nil {
 			return err
 		}
-		err = dbtx.Unscoped().Save(&run.TaskRuns).Error
-		if err != nil {
-			return err
+		if len(run.TaskRuns) > 0 {
+			err = dbtx.Unscoped().Save(&run.TaskRuns).Error
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
