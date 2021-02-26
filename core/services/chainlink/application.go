@@ -186,12 +186,28 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
-			job.FluxMonitor: fluxmonitorv2.NewDelegate(
-				pipelineRunner,
-				store.DB,
-			),
 		}
 	)
+
+	if config.Dev() || config.FeatureFluxMonitorV2() {
+		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
+			store,
+			jobORM,
+			pipelineORM,
+			pipelineRunner,
+			store.DB,
+			ethClient,
+			logBroadcaster,
+			fluxmonitorv2.Config{
+				DefaultHTTPTimeout:         store.Config.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:       store.Config.FlagsContractAddress(),
+				MinContractPayment:         store.Config.MinimumContractPayment(),
+				EthGasLimit:                store.Config.EthGasLimitDefault(),
+				MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
+			},
+		)
+	}
+
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
