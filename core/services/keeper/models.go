@@ -4,9 +4,9 @@ import "github.com/smartcontractkit/chainlink/core/store/models"
 
 type Registry struct {
 	ID                int32 `gorm:"primary_key"`
-	ContractAddress   models.EIP55Address
 	BlockCountPerTurn int32
 	CheckGas          int32
+	ContractAddress   models.EIP55Address
 	FromAddress       models.EIP55Address
 	JobID             int32 `gorm:"default:null"`
 	KeeperIndex       int32
