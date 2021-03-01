@@ -275,7 +275,6 @@ func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.DB) {
 		// Note we have to use a separate db instance here
 		// as the argument is part of a chain already targeting the job_runs table.
 		db.Error = InsertSyncEventForJobRun(sp.(*statsPusher).DB, &run)
-		return
 	}
 }
 
