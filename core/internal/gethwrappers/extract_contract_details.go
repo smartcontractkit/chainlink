@@ -69,8 +69,8 @@ func ExtractContractDetails(beltArtifactPath string) (*ContractDetails, error) {
 	binaryData := gjson.Get(string(beltArtifact),
 		"compilerOutput.evm.bytecode.object").String()
 	if binaryData != "" {
-		if _, err := hexutil.Decode(binaryData); err != nil {
-			return nil, errors.Wrapf(err, "contract binary from belt artifact is not hex data")
+		if _, errr := hexutil.Decode(binaryData); errr != nil {
+			return nil, errors.Wrapf(errr, "contract binary from belt artifact is not hex data")
 		}
 		details.Binary = binaryData
 	}
