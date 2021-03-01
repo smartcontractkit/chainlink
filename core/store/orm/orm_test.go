@@ -254,8 +254,8 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 	})
 
 	t.Run("returns optimistic update failure if job run does not exist at all with that ID", func(t *testing.T) {
-		run := &models.JobRun{ID: uuid.NewV4(), Status: models.RunStatusUnstarted}
-		err := store.SaveJobRun(run)
+		run2 := &models.JobRun{ID: uuid.NewV4(), Status: models.RunStatusUnstarted}
+		err := store.SaveJobRun(run2)
 
 		require.Error(t, err)
 		require.Equal(t, orm.ErrOptimisticUpdateConflict, errors.Cause(err))
