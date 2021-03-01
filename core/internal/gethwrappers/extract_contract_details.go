@@ -59,26 +59,28 @@ func ExtractContractDetails(beltArtifactPath string) (*ContractDetails, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not parse belt ABI JSON as JSON")
 	}
+
+	details := &ContractDetails{
+		ABI: contractABI,
+	}
+
 	// We want the bytecode here, not the deployedByteCode. The latter does not
 	// include the initialization code.
 	binaryData := gjson.Get(string(beltArtifact),
 		"compilerOutput.evm.bytecode.object").String()
-	if binaryData == "" {
-		return nil, errors.Errorf(
-			"could not parse belt contract binary JSON as JSON")
+	if binaryData != "" {
+		if _, err := hexutil.Decode(binaryData); err != nil {
+			return nil, errors.Wrapf(err, "contract binary from belt artifact is not hex data")
+		}
+		details.Binary = binaryData
 	}
-	if _, err := hexutil.Decode(binaryData); err != nil {
-		return nil, errors.Wrapf(err, "contract binary from belt artifact is not hex data")
-	}
+
 	var sources struct {
 		Sources map[string]string `json:"sourceCodes"`
 	}
-	if err := json.Unmarshal(beltArtifact, &sources); err != nil {
-		return nil, errors.Wrapf(err, "could not read source code from compiler artifact")
+	err = json.Unmarshal(beltArtifact, &sources)
+	if err == nil {
+		details.Sources = sources.Sources
 	}
-	return &ContractDetails{
-		Binary:  binaryData,
-		ABI:     contractABI,
-		Sources: sources.Sources,
-	}, nil
+	return details, nil
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -24,9 +25,9 @@ var (
 type (
 	OCRContractConfigTracker struct {
 		ethClient        eth.Client
+		contract         *offchain_aggregator_wrapper.OffchainAggregator
 		contractFilterer *offchainaggregator.OffchainAggregatorFilterer
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
-		contractAddress  gethCommon.Address
 		logBroadcaster   log.Broadcaster
 		jobID            int32
 		logger           logger.Logger
@@ -34,7 +35,7 @@ type (
 )
 
 func NewOCRContractConfigTracker(
-	address gethCommon.Address,
+	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
 	contractCaller *offchainaggregator.OffchainAggregatorCaller,
 	ethClient eth.Client,
@@ -44,9 +45,9 @@ func NewOCRContractConfigTracker(
 ) (o *OCRContractConfigTracker, err error) {
 	return &OCRContractConfigTracker{
 		ethClient,
+		contract,
 		contractFilterer,
 		contractCaller,
-		address,
 		logBroadcaster,
 		jobID,
 		logger,
@@ -56,7 +57,7 @@ func NewOCRContractConfigTracker(
 func (oc *OCRContractConfigTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.ContractConfigSubscription, error) {
 	sub := &OCRContractConfigSubscription{
 		oc.logger,
-		oc.contractAddress,
+		oc.contract,
 		make(chan ocrtypes.ContractConfig),
 		make(chan ocrtypes.ContractConfig),
 		nil,
@@ -66,7 +67,7 @@ func (oc *OCRContractConfigTracker) SubscribeToNewConfigs(context.Context) (ocrt
 		sync.Once{},
 		make(chan struct{}),
 	}
-	connected := oc.logBroadcaster.Register(oc.contractAddress, sub)
+	connected := oc.logBroadcaster.Register(oc.contract, sub)
 	if !connected {
 		return nil, errors.New("Failed to register with logBroadcaster")
 	}
@@ -92,7 +93,7 @@ func (oc *OCRContractConfigTracker) ConfigFromLogs(ctx context.Context, changedI
 	q := ethereum.FilterQuery{
 		FromBlock: big.NewInt(int64(changedInBlock)),
 		ToBlock:   big.NewInt(int64(changedInBlock)),
-		Addresses: []gethCommon.Address{oc.contractAddress},
+		Addresses: []gethCommon.Address{oc.contract.Address()},
 		Topics: [][]gethCommon.Hash{
 			{OCRContractConfigSet},
 		},
@@ -103,7 +104,7 @@ func (oc *OCRContractConfigTracker) ConfigFromLogs(ctx context.Context, changedI
 		return c, err
 	}
 	if len(logs) == 0 {
-		return c, errors.Errorf("ConfigFromLogs: OCRContract with address 0x%x has no logs", oc.contractAddress)
+		return c, errors.Errorf("ConfigFromLogs: OCRContract with address 0x%x has no logs", oc.contract.Address())
 	}
 
 	latest, err := oc.contractFilterer.ParseConfigSet(logs[len(logs)-1])
@@ -111,8 +112,8 @@ func (oc *OCRContractConfigTracker) ConfigFromLogs(ctx context.Context, changedI
 		return c, errors.Wrap(err, "ConfigFromLogs failed to ParseConfigSet")
 	}
 	latest.Raw = logs[len(logs)-1]
-	if latest.Raw.Address != oc.contractAddress {
-		return c, errors.Errorf("log address of 0x%x does not match configured contract address of 0x%x", latest.Raw.Address, oc.contractAddress)
+	if latest.Raw.Address != oc.contract.Address() {
+		return c, errors.Errorf("log address of 0x%x does not match configured contract address of 0x%x", latest.Raw.Address, oc.contract.Address())
 	}
 	return confighelper.ContractConfigFromConfigSetEvent(*latest), err
 }

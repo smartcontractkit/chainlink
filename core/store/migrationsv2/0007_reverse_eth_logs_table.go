@@ -5,7 +5,24 @@ import (
 	"gorm.io/gorm"
 )
 
-const up3 = `
+const up7 = `
+	DELETE FROM eth_logs;
+
+    ALTER TABLE log_broadcasts
+        DROP COLUMN "eth_log_id",
+        DROP COLUMN "consumed";
+
+	ALTER TABLE log_broadcasts RENAME TO log_consumptions;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
+
+	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON public.log_consumptions USING btree (job_id, block_hash, log_index);
+	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON public.log_consumptions USING btree (job_id_v2, block_hash, log_index);
+
+    DROP TABLE "eth_logs";
+`
+
+const down7 = `
     CREATE TABLE "eth_logs" (
         "id" BIGSERIAL PRIMARY KEY,
         "block_hash" bytea NOT NULL,
@@ -28,7 +45,7 @@ const up3 = `
 
     ALTER TABLE log_broadcasts
         ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE,
-		ADD COLUMN "eth_log_id" BIGINT, -- NOTE: This ought to be not null in the final application of this migration
+		ADD COLUMN "eth_log_id" BIGINT, -- NOTE: This ought to be not null in the final application of this reversal
 		ADD CONSTRAINT log_broadcasts_eth_log_id_fkey FOREIGN KEY (eth_log_id) REFERENCES eth_logs (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 
     CREATE INDEX idx_log_broadcasts_unconsumed_eth_log_id ON log_broadcasts (eth_log_id) WHERE consumed = false;
@@ -42,31 +59,14 @@ const up3 = `
 	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) INCLUDE (consumed) WHERE job_id_v2 IS NOT NULL;
 `
 
-const down3 = `
-	DELETE FROM eth_logs;
-
-    ALTER TABLE log_broadcasts
-        DROP COLUMN "eth_log_id",
-        DROP COLUMN "consumed";
-
-	ALTER TABLE log_broadcasts RENAME TO log_consumptions;
-	ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
-	ALTER TABLE log_consumptions RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
-
-	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON public.log_consumptions USING btree (job_id, block_hash, log_index);
-	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON public.log_consumptions USING btree (job_id_v2, block_hash, log_index);
-
-    DROP TABLE "eth_logs";
-`
-
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0003_eth_logs_table",
+		ID: "0007_reverse_eth_logs_table",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up3).Error
+			return db.Exec(up7).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down3).Error
+			return db.Exec(down7).Error
 		},
 	})
 }

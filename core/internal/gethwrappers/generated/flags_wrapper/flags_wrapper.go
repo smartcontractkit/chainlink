@@ -4,6 +4,7 @@
 package flags_wrapper
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -1537,6 +1538,36 @@ func (_Flags *Flags) UnpackLog(out interface{}, event string, log types.Log) err
 	return _Flags.FlagsFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_Flags *Flags) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(FlagsABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["AddedAccess"].ID:
+		return _Flags.ParseAddedAccess(log)
+	case abi.Events["CheckAccessDisabled"].ID:
+		return _Flags.ParseCheckAccessDisabled(log)
+	case abi.Events["CheckAccessEnabled"].ID:
+		return _Flags.ParseCheckAccessEnabled(log)
+	case abi.Events["FlagLowered"].ID:
+		return _Flags.ParseFlagLowered(log)
+	case abi.Events["FlagRaised"].ID:
+		return _Flags.ParseFlagRaised(log)
+	case abi.Events["OwnershipTransferRequested"].ID:
+		return _Flags.ParseOwnershipTransferRequested(log)
+	case abi.Events["OwnershipTransferred"].ID:
+		return _Flags.ParseOwnershipTransferred(log)
+	case abi.Events["RaisingAccessControllerUpdated"].ID:
+		return _Flags.ParseRaisingAccessControllerUpdated(log)
+	case abi.Events["RemovedAccess"].ID:
+		return _Flags.ParseRemovedAccess(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_Flags *Flags) Address() common.Address {
 	return _Flags.address
 }
@@ -1629,6 +1660,8 @@ type FlagsInterface interface {
 	ParseRemovedAccess(log types.Log) (*FlagsRemovedAccess, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }
