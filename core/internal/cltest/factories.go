@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -27,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -708,6 +708,24 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
+func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.SpecDB {
+	t.Helper()
+
+	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
+	require.NoError(t, err)
+
+	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
+	specDB := job.SpecDB{
+		OffchainreportingOracleSpec: &oracleSpec,
+		Type:                        job.OffchainReporting,
+		SchemaVersion:               1,
+		PipelineSpec:                &pipeline.Spec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
@@ -786,4 +804,38 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	require.NoError(t, db.Create(&job).Error)
 
 	return job
+}
+
+func RandomLog(t *testing.T) types.Log {
+	t.Helper()
+
+	topics := make([]common.Hash, 4)
+	for i := range topics {
+		topics[i] = NewHash()
+	}
+
+	return types.Log{
+		Address:     NewAddress(),
+		BlockHash:   NewHash(),
+		BlockNumber: uint64(mathrand.Intn(9999999)),
+		Index:       uint(mathrand.Intn(9999999)),
+		Data:        MustRandomBytes(t, 512),
+		Topics:      []common.Hash{NewHash(), NewHash(), NewHash(), NewHash()},
+	}
+}
+
+func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
+	t.Helper()
+
+	topics := make([][]byte, len(log.Topics))
+	for i, topic := range log.Topics {
+		x := make([]byte, len(topic))
+		copy(x, topic[:])
+		topics[i] = x
+	}
+
+	err := store.DB.Exec(`
+        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES (?,?,?,?,?,?,NOW())
+    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
+	require.NoError(t, err)
 }
