@@ -24,19 +24,20 @@ const up14 = `
 
 		CREATE TABLE keeper_registries (
 			id BIGSERIAL PRIMARY KEY,
-			job_id INT UNIQUE NOT NULL REFERENCES jobs (id),
+			job_id BIGINT UNIQUE NOT NULL REFERENCES jobs (id),
 			keeper_index int NOT NULL,
 			contract_address bytea UNIQUE NOT NULL,
 			from_address bytea NOT NULL,
 			check_gas int NOT NULL,
 			block_count_per_turn int NOT NULL,
 			num_keepers int NOT NULL
-			CONSTRAINT eth_request_event_specs_contract_address_check CHECK ((octet_length(contract_address) = 20))
+			CONSTRAINT keeper_registries_contract_address_check CHECK ((octet_length(contract_address) = 20))
+			CONSTRAINT keeper_registries_from_address_check CHECK ((octet_length(from_address) = 20))
 		);
 
 		CREATE TABLE upkeep_registrations (
 			id BIGSERIAL PRIMARY KEY,
-			registry_id INT NOT NULL REFERENCES keeper_registries (id) ON DELETE CASCADE,
+			registry_id bigint NOT NULL REFERENCES keeper_registries(id) ON DELETE CASCADE,
 			execute_gas int NOT NULL,
 			check_data bytea NOT NULL,
 			upkeep_id bigint NOT NULL,
