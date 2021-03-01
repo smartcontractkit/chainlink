@@ -112,6 +112,11 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 		switch v := query.Error.(type) {
 		case *pgconn.PgError:
 			if v.Code == "23503" && v.ConstraintName == "log_broadcasts_eth_log_id_fkey" {
+				logger.Debugw(
+					"log.ORM.UpsertBroadcastForListener: tried to upsert log_broadcast but the referenced eth_log was already deleted",
+					"blockHash", log.BlockHash, "blockNum", log.BlockNumber, "index", log.Index, "address", log.Address, "jobID", jobID,
+					"log", log,
+				)
 				// NOTE: This rare case indicates that the eth_log was deleted
 				// simultaneously with this query. Return as if we inserted
 				// successfully and the delete operation came immediately
@@ -167,6 +172,10 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	switch v := err.(type) {
 	case *pgconn.PgError:
 		if v.Code == "23503" && v.ConstraintName == "log_broadcasts_eth_log_id_fkey" {
+			logger.Debugw(
+				"log.ORM.UpsertBroadcastsForListenerSinceBlock: tried to upsert log_broadcasts but the referenced eth_log was already deleted",
+				"blockNum", blockNumber, "address", address, "jobID", jobID,
+			)
 			// NOTE: This rare case indicates that the eth_log was deleted
 			// simultaneously with this query. Return as if we inserted
 			// successfully and the delete operation came immediately
