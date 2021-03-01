@@ -4,6 +4,7 @@
 package multiwordconsumer_wrapper
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -1016,6 +1017,28 @@ func (_MultiWordConsumer *MultiWordConsumer) UnpackLog(out interface{}, event st
 	return _MultiWordConsumer.MultiWordConsumerFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_MultiWordConsumer *MultiWordConsumer) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(MultiWordConsumerABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["ChainlinkCancelled"].ID:
+		return _MultiWordConsumer.ParseChainlinkCancelled(log)
+	case abi.Events["ChainlinkFulfilled"].ID:
+		return _MultiWordConsumer.ParseChainlinkFulfilled(log)
+	case abi.Events["ChainlinkRequested"].ID:
+		return _MultiWordConsumer.ParseChainlinkRequested(log)
+	case abi.Events["RequestFulfilled"].ID:
+		return _MultiWordConsumer.ParseRequestFulfilled(log)
+	case abi.Events["RequestMultipleFulfilled"].ID:
+		return _MultiWordConsumer.ParseRequestMultipleFulfilled(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_MultiWordConsumer *MultiWordConsumer) Address() common.Address {
 	return _MultiWordConsumer.address
 }
@@ -1078,6 +1101,8 @@ type MultiWordConsumerInterface interface {
 	ParseRequestMultipleFulfilled(log types.Log) (*MultiWordConsumerRequestMultipleFulfilled, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }
