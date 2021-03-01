@@ -404,8 +404,12 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(logmocks.Broadcaster)
-	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-	logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+	logBroadcaster.On("Register", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
+		return fa.Address() == initr.Address
+	}), mock.Anything).Return(true)
+	logBroadcaster.On("Unregister", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
+		return fa.Address() == initr.Address
+	}), mock.Anything)
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
