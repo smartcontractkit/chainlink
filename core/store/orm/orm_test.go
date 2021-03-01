@@ -253,6 +253,55 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 		require.Equal(t, *run, loadedRun)
 	})
 
+	t.Run("returns optimistic update failure if job run does not exist at all with that ID", func(t *testing.T) {
+		run := &models.JobRun{ID: uuid.NewV4(), Status: models.RunStatusUnstarted}
+		err := store.SaveJobRun(run)
+
+		require.Error(t, err)
+		require.Equal(t, orm.ErrOptimisticUpdateConflict, errors.Cause(err))
+	})
+
+	t.Run("returns error if one of the task runs has not been inserted", func(t *testing.T) {
+		ts := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: job.ID}
+		require.NoError(t, store.DB.Create(&ts).Error)
+
+		tr := models.TaskRun{ID: uuid.NewV4(), Status: models.RunStatusErrored, TaskSpecID: ts.ID, JobRunID: run.ID}
+		run.TaskRuns = append(run.TaskRuns, tr)
+
+		err := store.SaveJobRun(run)
+		require.Error(t, err)
+		require.EqualError(t, err, fmt.Sprintf("SaveJobRun failed: failed to insert run_result; task run with id %s was missing", tr.ID))
+	})
+
+	t.Run("if one task run result exists and one does not, does a mixture of inserts and updates", func(t *testing.T) {
+		tr := run.TaskRuns[1]
+		require.NoError(t, store.DB.Save(&tr).Error)
+
+		run.TaskRuns[0].Result.Data = cltest.JSONFromString(t, `{"baz": 100}`)
+		run.TaskRuns[0].Result.ErrorMessage = null.String{}
+		run.TaskRuns[1].Result.ErrorMessage = null.StringFrom(`oh dear`)
+
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.Len(t, run.TaskRuns, 2)
+
+		tr = run.TaskRuns[0]
+		assert.True(t, tr.ResultID.Valid)
+		assert.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		assert.Equal(t, cltest.JSONFromString(t, `{"baz": 100}`), tr.Result.Data)
+		assert.False(t, tr.Result.ErrorMessage.Valid)
+
+		tr = run.TaskRuns[1]
+		assert.True(t, tr.ResultID.Valid)
+		assert.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		assert.Equal(t, cltest.JSONFromString(t, ``), tr.Result.Data)
+		assert.Equal(t, "oh dear", tr.Result.ErrorMessage.String)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
 	t.Run("updates fields on the job run", func(t *testing.T) {
 		finishedAt := null.TimeFrom(time.Unix(42, 0))
 		status := models.RunStatusPendingSleep
@@ -291,6 +340,31 @@ func TestORM_SaveJobRun_JobRun(t *testing.T) {
 		loadedRun, err := store.FindJobRun(run.ID)
 		require.NoError(t, err)
 		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("inserted sync_event", func(t *testing.T) {
+		se := models.SyncEvent{}
+		err := store.DB.Order("id desc").First(&se).Error
+		require.NoError(t, err)
+
+		assert.Contains(t, se.Body, job.ID.String())
+		assert.Contains(t, se.Body, run.ID.String())
+	})
+
+	t.Run("returns error if task run result is not preloaded", func(t *testing.T) {
+		run.TaskRuns[1].Result = models.RunResult{}
+		err := store.SaveJobRun(run)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected TaskRun.Result to be preloaded")
+	})
+
+	t.Run("returns error if job run result is not preloaded", func(t *testing.T) {
+		run.Result = models.RunResult{}
+		err := store.SaveJobRun(run)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected JobRun.Result to be preloaded")
 	})
 }
 

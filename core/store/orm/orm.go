@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -322,6 +323,8 @@ WHERE updated_at = ? AND "id" = ?`,
 			return ErrOptimisticUpdateConflict
 		}
 
+		// NOTE: uRunResultStrs/uRunResultArgs handles updating the run_results
+		// for both the job_run and task_runs, if any
 		uRunResultStrs := []string{}
 		uRunResultArgs := []interface{}{}
 		if run.Result.ID > 0 {
@@ -329,7 +332,7 @@ WHERE updated_at = ? AND "id" = ?`,
 			uRunResultArgs = append(uRunResultArgs, run.ResultID, run.Result.Data, run.Result.ErrorMessage)
 		} else {
 			if run.ResultID.Valid {
-				return errors.Errorf("got valid ResultID %v for job run %s but Result.ID was 0", run.ResultID.Int64, run.ID)
+				return errors.Errorf("got valid ResultID %v for job run %s but Result.ID was 0; expected JobRun.Result to be preloaded", run.ResultID.Int64, run.ID)
 			}
 			// Insert the run result for the job run
 			err := dbtx.Exec(`
@@ -356,10 +359,10 @@ WHERE job_runs.id = ?
 				uRunResultArgs = append(uRunResultArgs, tr.ResultID, tr.Result.Data, tr.Result.ErrorMessage)
 			} else {
 				if tr.ResultID.Valid {
-					return errors.Errorf("got valid ResultID %v for task run %s but Result.ID was 0", tr.ResultID.Int64, tr.ID)
+					return errors.Errorf("got valid ResultID %v for task run %s but Result.ID was 0; expected TaskRun.Result to be preloaded", tr.ResultID.Int64, tr.ID)
 				}
 				// Insert the run result for the task run
-				err := dbtx.Exec(`
+				res := dbtx.Exec(`
 WITH run_result AS (
 	INSERT INTO run_results (data, error_message, created_at, updated_at) VALUES(?, ?, NOW(), NOW()) RETURNING id
 )
@@ -367,9 +370,12 @@ UPDATE task_runs
 SET result_id = run_result.id
 FROM run_result
 WHERE task_runs.id = ?
-`, tr.Result.Data, tr.Result.ErrorMessage, tr.ID).Error
-				if err != nil {
-					return errors.Wrap(err, "error inserting run result for job_run")
+`, tr.Result.Data, tr.Result.ErrorMessage, tr.ID)
+				if res.Error != nil {
+					return errors.Wrap(res.Error, "error inserting run result for job_run")
+				}
+				if res.RowsAffected == 0 {
+					return errors.Errorf("failed to insert run_result; task run with id %v was missing", tr.ID)
 				}
 			}
 		}
@@ -391,7 +397,7 @@ WHERE task_runs.id = updates.id
 		}
 
 		if len(uRunResultStrs) > 0 {
-			updateTaskRunResultsSQL := `
+			updateRunResultsSQL := `
 UPDATE run_results SET data=updates.data, error_message=updates.error_message, updated_at=NOW()
 FROM (VALUES
 %s
@@ -399,7 +405,7 @@ FROM (VALUES
 WHERE run_results.id = updates.id
 `
 			/* #nosec G201 */
-			stmt := fmt.Sprintf(updateTaskRunResultsSQL, strings.Join(uRunResultStrs, ","))
+			stmt := fmt.Sprintf(updateRunResultsSQL, strings.Join(uRunResultStrs, ","))
 			err := dbtx.Exec(stmt, uRunResultArgs...).Error
 			if err != nil {
 				return errors.Wrap(err, "failed to update task run results")
@@ -408,7 +414,13 @@ WHERE run_results.id = updates.id
 
 		// Preload the lot again, it's the easiest way to make sure our
 		// returned model is in sync with the database
-		return errors.Wrap(preloadJobRunsUnscoped(dbtx).First(run, "id = ?", run.ID).Error, "failed to reload job run after update")
+		err := preloadJobRunsUnscoped(dbtx).First(run, "id = ?", run.ID).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to reload job run after update")
+		}
+
+		// Insert sync_event
+		return errors.Wrap(synchronization.InsertSyncEventForJobRun(dbtx, run), "failed to insert sync_event for updated run")
 	})
 
 	return errors.Wrap(err, "SaveJobRun failed")
