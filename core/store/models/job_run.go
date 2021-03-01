@@ -68,10 +68,11 @@ func MakeJobRun(job *JobSpec, now time.Time, initiator *Initiator, currentHeight
 	}
 	for i, task := range job.Tasks {
 		run.TaskRuns[i] = TaskRun{
-			ID:       uuid.NewV4(),
-			JobRunID: run.ID,
-			TaskSpec: task,
-			Status:   RunStatusUnstarted,
+			ID:         uuid.NewV4(),
+			JobRunID:   run.ID,
+			TaskSpec:   task,
+			TaskSpecID: task.ID,
+			Status:     RunStatusUnstarted,
 		}
 	}
 	run.SetStatus(RunStatusInProgress)
@@ -247,7 +248,7 @@ type TaskRun struct {
 	Result                           RunResult     `json:"result"`
 	ResultID                         clnull.Uint32 `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
-	TaskSpec                         TaskSpec      `json:"task"`
+	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
 	TaskSpecID                       int64         `json:"-"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"minimumConfirmations" gorm:"column:minimum_confirmations"`
 	ObservedIncomingConfirmations    clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
