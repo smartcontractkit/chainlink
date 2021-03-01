@@ -11,7 +11,9 @@ import (
 	"syscall"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -20,12 +22,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
-	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
@@ -41,11 +41,6 @@ import (
 
 //go:generate mockery --name ExternalInitiatorManager --output ../../internal/mocks/ --case=underscore
 type (
-	// headTrackableCallback is a simple wrapper around an On Connect callback
-	headTrackableCallback struct {
-		onConnect func()
-	}
-
 	StartCloser interface {
 		Start() error
 		Close() error
@@ -57,14 +52,6 @@ type (
 		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
-
-func (c *headTrackableCallback) Connect(*models.Head) error {
-	c.onConnect()
-	return nil
-}
-
-func (c *headTrackableCallback) Disconnect()                                    {}
-func (c *headTrackableCallback) OnNewLongestChain(context.Context, models.Head) {}
 
 //go:generate mockery --name Application --output ../../internal/mocks/ --case=underscore
 
@@ -165,6 +152,28 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		jobORM         = job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, advisoryLocker)
 	)
 
+	store.NotifyNewEthTx = ethBroadcaster
+	pendingConnectionResumer := newPendingConnectionResumer(runManager)
+
+	appCallbackLock := &sync.Mutex{}
+	appCallbackLock.Lock()
+	headTrackerDoneCallback := func() {
+		appCallbackLock.Unlock()
+	}
+
+	headTrackables := []strpkg.HeadTrackable{gasUpdater}
+
+	headTrackables = append(
+		headTrackables,
+		ethConfirmer,
+		jobSubscriber,
+		pendingConnectionResumer,
+		balanceMonitor,
+		promReporter,
+		logBroadcaster,
+	)
+	headTracker := services.NewHeadTracker(store, headTrackables, headTrackerDoneCallback)
+
 	var (
 		subservices []StartCloser
 		delegates   = map[job.Type]job.Delegate{
@@ -190,11 +199,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
 
-	store.NotifyNewEthTx = ethBroadcaster
-
-	pendingConnectionResumer := newPendingConnectionResumer(runManager)
-
 	app := &ChainlinkApplication{
+		HeadTracker:              headTracker,
 		JobSubscriber:            jobSubscriber,
 		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
@@ -221,25 +227,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		subservices: subservices,
 	}
 
-	headTrackables := []strpkg.HeadTrackable{gasUpdater}
-
-	headTrackables = append(
-		headTrackables,
-		ethConfirmer,
-		jobSubscriber,
-		pendingConnectionResumer,
-		balanceMonitor,
-		promReporter,
-		logBroadcaster,
-	)
-
-	for _, onConnectCallback := range onConnectCallbacks {
-		headTrackable := &headTrackableCallback{func() {
+	go func() {
+		appCallbackLock.Lock()
+		for _, onConnectCallback := range onConnectCallbacks {
 			onConnectCallback(app)
-		}}
-		headTrackables = append(headTrackables, headTrackable)
-	}
-	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
+		}
+	}()
 
 	return app
 }

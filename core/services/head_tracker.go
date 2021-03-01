@@ -116,7 +116,8 @@ func (r *headRingBuffer) run() {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	callbacks             []strpkg.HeadTrackable
+	callbacks             map[strpkg.HeadTrackable]bool
+	readyCallback         func()
 	inHeaders             chan *models.Head
 	outHeaders            chan models.Head
 	headSubscription      ethereum.Subscription
@@ -134,17 +135,26 @@ type HeadTracker struct {
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
-	var sleeper utils.Sleeper
-	if len(sleepers) > 0 {
-		sleeper = sleepers[0]
-	} else {
-		sleeper = utils.NewBackoffSleeper()
+func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, readyCallback func()) *HeadTracker {
+	return NewHeadTrackerWithSleeper(store, callbacks, readyCallback, utils.NewBackoffSleeper())
+}
+
+// NewHeadTrackerWithSleeper instantiates a new HeadTracker with an explicitly set sleeper
+func NewHeadTrackerWithSleeper(
+	store *strpkg.Store,
+	callbacks []strpkg.HeadTrackable,
+	readyCallback func(),
+	sleeper utils.Sleeper,
+) *HeadTracker {
+	callbacksMap := make(map[strpkg.HeadTrackable]bool)
+	for _, callback := range callbacks {
+		callbacksMap[callback] = true
 	}
 	return &HeadTracker{
-		store:     store,
-		callbacks: callbacks,
-		sleeper:   sleeper,
+		store:         store,
+		callbacks:     callbacksMap,
+		readyCallback: readyCallback,
+		sleeper:       sleeper,
 	}
 }
 
@@ -231,14 +241,29 @@ func (ht *HeadTracker) Connected() bool {
 	return ht.connected
 }
 
-func (ht *HeadTracker) connect(bn *models.Head) {
-	for _, trackable := range ht.callbacks {
-		logger.WarnIf(trackable.Connect(bn))
+// Subscribe registers new callbacks on the head tracker, returning an
+// unsubscribe function
+func (ht *HeadTracker) Subscribe(callback strpkg.HeadTrackable) func() {
+	ht.headMutex.Lock()
+	defer ht.headMutex.Unlock()
+	ht.callbacks[callback] = true
+	if ht.connected {
+		logger.WarnIf(callback.Connect(ht.highestSeenHead))
+	}
+	return func() {
+		delete(ht.callbacks, callback)
 	}
 }
 
+func (ht *HeadTracker) connect(bn *models.Head) {
+	for trackable := range ht.callbacks {
+		logger.WarnIf(trackable.Connect(bn))
+	}
+	ht.readyCallback()
+}
+
 func (ht *HeadTracker) disconnect() {
-	for _, trackable := range ht.callbacks {
+	for trackable := range ht.callbacks {
 		trackable.Disconnect()
 	}
 }
@@ -251,7 +276,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 	}()
 
 	for {
-		if !ht.subscribe() {
+		if !ht.subscribeToEthClient() {
 			return
 		}
 		if err := ht.receiveHeaders(); err != nil {
@@ -263,9 +288,9 @@ func (ht *HeadTracker) listenForNewHeads() {
 	}
 }
 
-// subscribe periodically attempts to connect to the ethereum node via websocket.
+// subscribeToEthClient periodically attempts to connect to the ethereum node via websocket.
 // It returns true on success, and false if cut short by a done request and did not connect.
-func (ht *HeadTracker) subscribe() bool {
+func (ht *HeadTracker) subscribeToEthClient() bool {
 	ht.sleeper.Reset()
 	for {
 		err := ht.unsubscribeFromHead()
@@ -503,15 +528,17 @@ func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain mode
 func (ht *HeadTracker) concurrentlyExecuteCallbacks(ctx context.Context, headWithChain models.Head) {
 	wg := sync.WaitGroup{}
 	wg.Add(len(ht.callbacks))
-	for idx, trackable := range ht.callbacks {
-		go func(i int, t strpkg.HeadTrackable) {
+
+	for trackable := range ht.callbacks {
+		go func(t strpkg.HeadTrackable) {
 			start := time.Now()
 			t.OnNewLongestChain(ctx, headWithChain)
 			elapsed := time.Since(start)
-			logger.Debugw(fmt.Sprintf("HeadTracker: finished callback %v in %s", i, elapsed), "callbackType", reflect.TypeOf(t), "callbackIdx", i, "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
+			logger.Debugw(fmt.Sprintf("HeadTracker: finished callback in %s", elapsed), "callbackType", reflect.TypeOf(t), "blockNumber", headWithChain.Number, "time", elapsed, "id", "head_tracker")
 			wg.Done()
-		}(idx, trackable)
+		}(trackable)
 	}
+
 	wg.Wait()
 }
 

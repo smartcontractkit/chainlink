@@ -942,10 +942,6 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
-	gethClient.AssertExpectations(t)
-	rpcClient.AssertExpectations(t)
-	sub.AssertExpectations(t)
-
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
