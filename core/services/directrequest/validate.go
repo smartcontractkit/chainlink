@@ -1,8 +1,6 @@
 package directrequest
 
 import (
-	"crypto/sha256"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -26,7 +24,11 @@ func ValidatedDirectRequestSpec(tomlString string) (job.SpecDB, error) {
 	if err != nil {
 		return specDB, err
 	}
-	spec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
+	digest, err := specDB.Pipeline.Digest()
+	if err != nil {
+		return specDB, err
+	}
+	spec.OnChainJobSpecID = digest
 	specDB.DirectRequestSpec = &spec
 
 	if specDB.Type != job.DirectRequest {
