@@ -728,6 +728,46 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
+	t.Run("geth client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
+		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
+		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+
+		etx := models.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          models.EthTxUnstarted,
+		}
+		require.NoError(t, store.DB.Save(&etx).Error)
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(tooExpensiveError)).Once()
+
+		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+
+		// Check it was saved with no attempt and a fatal error
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.Nil(t, etx.BroadcastAt)
+		require.Nil(t, etx.Nonce)
+		assert.NotNil(t, etx.Error)
+		assert.Contains(t, *etx.Error, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+		assert.Len(t, etx.EthTxAttempts, 0)
+
+		// Check that the key had its nonce reset
+		require.NoError(t, store.DB.First(&key).Error)
+		// Saved NextNonce must be the same as before because this transaction
+		// was not accepted by the eth node and never can be
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(localNextNonce), *key.NextNonce)
+
+		ethClient.AssertExpectations(t)
+	})
+
 	t.Run("eth client call fails with an unexpected random error", func(t *testing.T) {
 		retryableErrorExample := "geth shit the bed again"
 		localNextNonce := getLocalNextNonce(t, store, fromAddress)

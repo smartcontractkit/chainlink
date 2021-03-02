@@ -1182,6 +1182,47 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Len(t, etx.EthTxAttempts, 1)
 
 		kst.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
+	})
+
+	ethClient = new(mocks.Client)
+	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
+
+	t.Run("resubmits previous attempt and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
+		ethTx := gethTypes.Transaction{}
+		kst.On("SignTx",
+			mock.AnythingOfType("accounts.Account"),
+			mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+				if tx.Nonce() != uint64(*etx.Nonce) {
+					return false
+				}
+				ethTx = *tx
+				return true
+			}),
+			mock.MatchedBy(func(chainID *big.Int) bool {
+				return chainID.Cmp(store.Config.ChainID()) == 0
+			})).Return(&ethTx, nil).Once()
+
+		// Once for the bumped attempt which exceeds limit
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(25000000000)
+		})).Return(errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
+		// Once for the resubmitted previous attempt
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(342)
+		})).Return(nil).Once()
+
+		// Do the thing
+		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), keys, currentHead))
+
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		// Did not create an additional attempt
+		require.Len(t, etx.EthTxAttempts, 1)
+
+		kst.AssertExpectations(t)
+		ethClient.AssertExpectations(t)
 	})
 
 	kst = new(mocks.KeyStoreInterface)
@@ -1189,6 +1230,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	kst.On("GetAccountByAddress", fromAddress).
 		Return(gethAccounts.Account{Address: fromAddress}, nil)
 	var attempt1_2 models.EthTxAttempt
+	ethClient = new(mocks.Client)
+	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
 
 	t.Run("creates new attempt with higher gas price if transaction has an attempt older than threshold", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
