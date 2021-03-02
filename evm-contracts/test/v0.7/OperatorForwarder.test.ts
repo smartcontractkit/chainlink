@@ -32,11 +32,7 @@ describe('OperatorForwarder', () => {
   let operatorForwarder: contract.Instance<OperatorForwarder__factory>
   const deployment = setup.snapshot(provider, async () => {
     link = await linkTokenFactory.connect(roles.defaultAccount).deploy()
-    authorizedSenders = [
-      roles.oracleNode1.address,
-      roles.oracleNode2.address,
-      roles.oracleNode3.address,
-    ]
+    authorizedSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
     operatorForwarderDeployer = await operatorForwarderDeployerFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, authorizedSenders)
@@ -75,9 +71,9 @@ describe('OperatorForwarder', () => {
       const auth1 = await operatorForwarder.authorizedSender1()
       const auth2 = await operatorForwarder.authorizedSender2()
       const auth3 = await operatorForwarder.authorizedSender3()
-      assert.equal(auth1, authorizedSenders[0])
-      assert.equal(auth2, authorizedSenders[1])
-      assert.equal(auth3, authorizedSenders[2])
+      assert.equal(auth1, roles.defaultAccount.address)
+      assert.equal(auth2, authorizedSenders[0])
+      assert.equal(auth3, authorizedSenders[1])
     })
   })
 
@@ -108,7 +104,7 @@ describe('OperatorForwarder', () => {
           const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
           await matchers.evmRevert(async () => {
             await operatorForwarder
-              .connect(roles.oracleNode1)
+              .connect(roles.defaultAccount)
               .forward(link.address, sighash)
           })
         })
@@ -117,7 +113,7 @@ describe('OperatorForwarder', () => {
       describe('when forwarding to any other address', () => {
         it('forwards the data', async () => {
           const tx = await operatorForwarder
-            .connect(roles.oracleNode1)
+            .connect(roles.defaultAccount)
             .forward(mock.address, payload)
           await tx.wait()
           assert.equal(await mock.getBytes(), bytes)
@@ -125,7 +121,7 @@ describe('OperatorForwarder', () => {
 
         it('perceives the message is sent by the OperatorForwarder', async () => {
           const tx = await operatorForwarder
-            .connect(roles.oracleNode1)
+            .connect(roles.defaultAccount)
             .forward(mock.address, payload)
           const receipt = await tx.wait()
           const log: any = receipt.logs?.[0]

@@ -91,16 +91,12 @@ describe('Operator', () => {
     describe('when called by an authorized sender', () => {
       describe('with 3 authorized senders', () => {
         beforeEach(async () => {
-          newSenders = [
-            roles.oracleNode1.address,
-            roles.oracleNode2.address,
-            roles.oracleNode3.address,
-          ]
+          newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
           await operator
             .connect(roles.defaultAccount)
             .setAuthorizedSenders(newSenders)
 
-          const tx = await operator.connect(roles.oracleNode1).createForwarder()
+          const tx = await operator.connect(roles.oracleNode2).createForwarder()
           receipt = await tx.wait()
         })
 
@@ -128,27 +124,27 @@ describe('Operator', () => {
             .attach(forwarders[0])
           assert.equal(
             await operatorForwarder.authorizedSender1(),
-            newSenders[0],
+            roles.defaultAccount.address,
           )
           assert.equal(
             await operatorForwarder.authorizedSender2(),
-            newSenders[1],
+            newSenders[0],
           )
           assert.equal(
             await operatorForwarder.authorizedSender3(),
-            newSenders[2],
+            newSenders[1],
           )
         })
       })
 
       describe('with 1 authorized sender', () => {
         beforeEach(async () => {
-          newSenders = [roles.oracleNode1.address]
+          newSenders = [roles.oracleNode2.address]
           await operator
             .connect(roles.defaultAccount)
             .setAuthorizedSenders(newSenders)
 
-          const tx = await operator.connect(roles.oracleNode1).createForwarder()
+          const tx = await operator.connect(roles.oracleNode2).createForwarder()
           receipt = await tx.wait()
         })
 
@@ -176,11 +172,11 @@ describe('Operator', () => {
             .attach(forwarders[0])
           assert.equal(
             await operatorForwarder.authorizedSender1(),
-            newSenders[0],
+            roles.defaultAccount.address,
           )
           assert.equal(
             await operatorForwarder.authorizedSender2(),
-            '0x0000000000000000000000000000000000000000',
+            newSenders[0],
           )
           assert.equal(
             await operatorForwarder.authorizedSender3(),
