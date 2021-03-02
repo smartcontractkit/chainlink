@@ -468,7 +468,7 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	return finalResult, nil
 }
 
-func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error){
+func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, r.config.DatabaseMaximumTxDuration())
 	defer cancel()
 	return r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs)

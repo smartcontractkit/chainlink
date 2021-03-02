@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink
 
 go 1.15
 
-replace github.com/smartcontractkit/libocr => /Users/connorstein/go/src/github.com/smartcontractkit/libocr
-
 require (
 	github.com/DATA-DOG/go-txdb v0.1.3
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
@@ -31,7 +29,7 @@ require (
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.8.0
-	github.com/libp2p/go-libp2p-core v0.8.0
+	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
@@ -46,7 +44,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20210211115835-afc9c01fedfd
+	github.com/smartcontractkit/libocr v0.0.0-20210302210303-55a103050dc5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5

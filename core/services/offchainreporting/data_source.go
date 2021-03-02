@@ -55,8 +55,8 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	go func() {
 		// In the case that our run gets cancelled via ctx cancellation,
 		// we still want to save the results and so we need a fresh context.
-		if _, err := ds.pipelineRunner.InsertFinishedRunWithResults(context.Background(), run, trrs); err != nil {
-			logger.Errorw(fmt.Sprintf("error inserting finished results for spec ID %v", ds.spec.ID), "err", err)
+		if _, errInsert := ds.pipelineRunner.InsertFinishedRunWithResults(context.Background(), run, trrs); errInsert != nil {
+			logger.Errorw(fmt.Sprintf("error inserting finished results for spec ID %v", ds.spec.ID), "err", errInsert)
 		}
 	}()
 
