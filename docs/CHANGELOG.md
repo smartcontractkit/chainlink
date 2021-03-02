@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Better debug logging in Gas Updater
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
