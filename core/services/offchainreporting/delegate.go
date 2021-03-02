@@ -169,7 +169,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			return nil, err
 		}
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
-			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault()))
+			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()))
 
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: NewDB(db, concreteSpec.ID),
