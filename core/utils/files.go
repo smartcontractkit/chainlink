@@ -19,10 +19,12 @@ func FileExists(name string) bool {
 	return true
 }
 
+// TooPermissive checks if the file has more than the allowed permissions
 func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 	return fileMode&^maxAllowedPerms != 0
 }
 
+// IsFileOwnedByChainlink attempts to read fileInfo to verify file owner
 func IsFileOwnedByChainlink(fileInfo os.FileInfo) (bool, error) {
 	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok {
