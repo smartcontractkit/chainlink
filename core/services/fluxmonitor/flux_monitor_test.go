@@ -404,12 +404,9 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(logmocks.Broadcaster)
-	logBroadcaster.On("Register", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
-		return fa.Address() == initr.Address
-	}), mock.Anything).Return(true)
-	logBroadcaster.On("Unregister", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
-		return fa.Address() == initr.Address
-	}), mock.Anything)
+	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
+		return opts.Contract.Address() == initr.Address
+	})).Return(true)
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
@@ -448,11 +445,11 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		logBroadcasts = append(logBroadcasts, logBroadcast)
 	}
 
-	checker.HandleLog(logBroadcasts[0], nil) // Get the checker to start processing a log so we can freeze it
+	checker.HandleLog(logBroadcasts[0]) // Get the checker to start processing a log so we can freeze it
 	<-chSafeToFillQueue
-	checker.HandleLog(logBroadcasts[1], nil) // This log is evicted from the priority queue
-	checker.HandleLog(logBroadcasts[2], nil)
-	checker.HandleLog(logBroadcasts[3], nil)
+	checker.HandleLog(logBroadcasts[1]) // This log is evicted from the priority queue
+	checker.HandleLog(logBroadcasts[2])
+	checker.HandleLog(logBroadcasts[3])
 
 	close(chBlock)
 	<-chSafeToAssert
@@ -552,7 +549,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				logBroadcast.On("DecodedLog").Return(&decodedLog)
 				logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
 				logBroadcast.On("MarkConsumed").Return(nil).Once()
-				deviationChecker.HandleLog(logBroadcast, nil)
+				deviationChecker.HandleLog(logBroadcast)
 
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
 
@@ -901,7 +898,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
 	logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(0), StartedAt: big.NewInt(time.Now().UTC().Unix())})
 	logBroadcast.On("MarkConsumed").Return(nil)
-	deviationChecker.HandleLog(logBroadcast, nil)
+	deviationChecker.HandleLog(logBroadcast)
 
 	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
 	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
@@ -1463,17 +1460,17 @@ func TestFluxMonitor_PollingDeviationChecker_HandlesNilLogs(t *testing.T) {
 
 	logBroadcast.On("DecodedLog").Return(logNewRound).Once()
 	assert.NotPanics(t, func() {
-		p.HandleLog(logBroadcast, nil)
+		p.HandleLog(logBroadcast)
 	})
 
 	logBroadcast.On("DecodedLog").Return(logAnswerUpdated).Once()
 	assert.NotPanics(t, func() {
-		p.HandleLog(logBroadcast, nil)
+		p.HandleLog(logBroadcast)
 	})
 
 	logBroadcast.On("DecodedLog").Return(randomType).Once()
 	assert.NotPanics(t, func() {
-		p.HandleLog(logBroadcast, nil)
+		p.HandleLog(logBroadcast)
 	})
 }
 
