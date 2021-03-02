@@ -112,7 +112,7 @@ func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 			logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei),
 				"gasPriceWei", percentileGasPrice,
 				"gasPriceGWei", gasPriceGwei,
-				"currentBlockNum", block.Number,
+				"currentBlockNum", block.Number(),
 			)
 			err := gu.setPercentileGasPrice(percentileGasPrice)
 			if err != nil {
