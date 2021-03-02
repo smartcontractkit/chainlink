@@ -1,6 +1,7 @@
 package bulletprooftxmanager_test
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -88,6 +89,7 @@ func TestBulletproofTxManager_BumpGas(t *testing.T) {
 }
 
 func TestBulletproofTxManager_BumpGas_HitsMaxError(t *testing.T) {
+	t.Parallel()
 	config := orm.NewConfig()
 	config.Set("ETH_GAS_BUMP_PERCENT", "50")
 	config.Set("ETH_GAS_PRICE_DEFAULT", toBigInt("2e10")) // 20 GWei
@@ -101,6 +103,7 @@ func TestBulletproofTxManager_BumpGas_HitsMaxError(t *testing.T) {
 }
 
 func TestBulletproofTxManager_BumpGas_NoBumpError(t *testing.T) {
+	t.Parallel()
 	config := orm.NewConfig()
 	config.Set("ETH_GAS_BUMP_PERCENT", "0")
 	config.Set("ETH_GAS_BUMP_WEI", "0")
@@ -132,6 +135,7 @@ func toBigInt(input string) *big.Int {
 }
 
 func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
+	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 
@@ -142,4 +146,77 @@ func TestBulletproofTxManager_SendEther_DoesNotSendToZero(t *testing.T) {
 	_, err := bulletprooftxmanager.SendEther(store, from, to, *value)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send ether to zero address")
+}
+
+func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+	_, otherAddress := cltest.MustAddRandomKeyToKeystore(t, store)
+
+	ctx := context.Background()
+	db := store.MustSQLDB()
+	var maxUnconfirmedTransactions uint64 = 2
+
+	t.Run("with no eth_txes returns nil", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	// deliberately one extra to exceed limit
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, int64(i), otherAddress)
+	}
+
+	t.Run("with eth_txes from another address returns nil", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	// deliberately one extra to exceed limit
+	var n int64 = 0
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertConfirmedEthTxWithAttempt(t, store, n, 42, fromAddress)
+		n++
+	}
+
+	t.Run("with many confirmed eth_txes from the same address returns nil", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	for i := 0; i < int(maxUnconfirmedTransactions)-1; i++ {
+		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+		n++
+	}
+
+	t.Run("with fewer unconfirmed eth_txes than limit returns nil", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+	n++
+
+	t.Run("with equal unconfirmed eth_txes to limit returns nil", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
+	cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, n, fromAddress)
+
+	t.Run("with more unconfirmed eth_txes than limit returns error", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.Error(t, err)
+
+		require.EqualError(t, err, fmt.Sprintf("cannot transmit eth transaction; there are currently %v unconfirmed transactions in the queue which exceeds the configured maximum of %v", maxUnconfirmedTransactions+1, maxUnconfirmedTransactions))
+	})
+
+	t.Run("disables check with 0 limit", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, 0)
+		require.NoError(t, err)
+	})
 }
