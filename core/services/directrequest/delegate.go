@@ -64,7 +64,7 @@ type listener struct {
 
 // Start complies with job.Service
 func (d listener) Start() error {
-	connected := d.logBroadcaster.Register(d.contractAddress, d)
+	connected := d.logBroadcaster.Register(nil, d)
 	if !connected {
 		return errors.New("Failed to register listener with logBroadcaster")
 	}
@@ -73,7 +73,7 @@ func (d listener) Start() error {
 
 // Close complies with job.Service
 func (d listener) Close() error {
-	d.logBroadcaster.Unregister(d.contractAddress, d)
+	d.logBroadcaster.Unregister(nil, d)
 	return nil
 }
 

@@ -4,6 +4,7 @@
 package link_token_interface
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -636,6 +637,22 @@ func (_LinkToken *LinkToken) UnpackLog(out interface{}, event string, log types.
 	return _LinkToken.LinkTokenFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_LinkToken *LinkToken) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(LinkTokenABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["Approval"].ID:
+		return _LinkToken.ParseApproval(log)
+	case abi.Events["Transfer"].ID:
+		return _LinkToken.ParseTransfer(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_LinkToken *LinkToken) Address() common.Address {
 	return _LinkToken.address
 }
@@ -678,6 +695,8 @@ type LinkTokenInterface interface {
 	ParseTransfer(log types.Log) (*LinkTokenTransfer, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }

@@ -4,6 +4,7 @@
 package solidity_vrf_coordinator_interface
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -756,6 +757,24 @@ func (_VRFCoordinator *VRFCoordinator) UnpackLog(out interface{}, event string, 
 	return _VRFCoordinator.VRFCoordinatorFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_VRFCoordinator *VRFCoordinator) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(VRFCoordinatorABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["NewServiceAgreement"].ID:
+		return _VRFCoordinator.ParseNewServiceAgreement(log)
+	case abi.Events["RandomnessRequest"].ID:
+		return _VRFCoordinator.ParseRandomnessRequest(log)
+	case abi.Events["RandomnessRequestFulfilled"].ID:
+		return _VRFCoordinator.ParseRandomnessRequestFulfilled(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_VRFCoordinator *VRFCoordinator) Address() common.Address {
 	return _VRFCoordinator.address
 }
@@ -806,6 +825,8 @@ type VRFCoordinatorInterface interface {
 	ParseRandomnessRequestFulfilled(log types.Log) (*VRFCoordinatorRandomnessRequestFulfilled, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }

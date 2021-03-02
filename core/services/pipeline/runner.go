@@ -27,7 +27,7 @@ type (
 		Close() error
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 		ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
-		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (finalResult FinalResult, err error)
+		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	}
@@ -439,17 +439,17 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 
 // ExecuteAndInsertNewRun bypasses the job pipeline entirely.
 // It executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (result FinalResult, err error) {
+func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, result FinalResult, err error) {
 	start := time.Now()
 
 	run, err := newRun(spec, start)
 	if err != nil {
-		return result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
+		return run.ID, result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
 	}
 
 	trrs, err := r.ExecuteRun(ctx, run, l)
 	if err != nil {
-		return result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return run.ID, result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
 	end := time.Now()
@@ -460,11 +460,12 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	run.Errors = finalResult.ErrorsDB()
 
 	// TODO: Might wanna add some logging with runID
-	if _, err := r.orm.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
-		return result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+	runID, err = r.orm.InsertFinishedRunWithResults(ctx, run, trrs)
+	if err != nil {
+		return runID, result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 
-	return finalResult, nil
+	return runID, finalResult, nil
 }
 
 func (r *runner) runReaper() {

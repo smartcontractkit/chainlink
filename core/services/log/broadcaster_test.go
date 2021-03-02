@@ -63,7 +63,10 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	lb.Start()
 	defer lb.Stop()
 
-	lb.Register(common.Address{}, listener)
+	contract := new(logmocks.AbigenContract)
+	contract.On("Address").Return(common.Address{})
+
+	lb.Register(contract, listener)
 
 	g.Consistently(func() int { return len(chSubscribe) }).Should(gomega.Equal(0))
 	lb.DependentReady()
@@ -113,19 +116,22 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	defer lb.Stop()
 
 	type registration struct {
-		common.Address
+		log.AbigenContract
 		log.Listener
 	}
 	registrations := make([]registration, numContracts)
 	for i := 0; i < numContracts; i++ {
+		contract := new(logmocks.AbigenContract)
+		contract.On("Address").Return(cltest.NewAddress())
+
 		listener := new(logmocks.Listener)
 		listener.On("OnConnect").Return()
 		listener.On("OnDisconnect").Return()
 		listener.On("JobID").Return(models.NewJobID())
 		listener.On("JobIDV2").Return(int32(i))
 		listener.On("IsV2Job").Return(i%2 == 0)
-		registrations[i] = registration{cltest.NewAddress(), listener}
-		lb.Register(registrations[i].Address, registrations[i].Listener)
+		registrations[i] = registration{contract, listener}
+		lb.Register(contract, listener)
 	}
 
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&subscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
@@ -133,7 +139,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return atomic.LoadInt32(&unsubscribeCalls) }).Should(gomega.Equal(int32(0)))
 
 	for _, r := range registrations {
-		lb.Unregister(r.Address, r.Listener)
+		lb.Unregister(r.AbigenContract, r.Listener)
 	}
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&unsubscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return atomic.LoadInt32(&subscribeCalls) }).Should(gomega.Equal(int32(1)))
@@ -158,6 +164,8 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		sub           = new(mocks.Subscription)
 		addr1         = cltest.NewAddress()
 		addr2         = cltest.NewAddress()
+		contract1     = new(logmocks.AbigenContract)
+		contract2     = new(logmocks.AbigenContract)
 		addr1SentLogs = []types.Log{
 			{Address: addr1, BlockNumber: 1, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
 			{Address: addr1, BlockNumber: 2, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
@@ -170,6 +178,11 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		}
 	)
 	store.EthClient = ethClient
+
+	contract1.On("Address").Return(addr1)
+	contract2.On("Address").Return(addr2)
+	contract1.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+	contract2.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
 
 	chchRawLogs := make(chan chan<- types.Log, 1)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -230,10 +243,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	defer cleanup()
 
-	lb.Register(addr1, &listener1)
-	lb.Register(addr1, &listener2)
-	lb.Register(addr2, &listener3)
-	lb.Register(addr2, &listener4)
+	lb.Register(contract1, &listener1)
+	lb.Register(contract1, &listener2)
+	lb.Register(contract2, &listener3)
+	lb.Register(contract2, &listener4)
 
 	chRawLogs := <-chchRawLogs
 
@@ -284,8 +297,15 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 		addr0     = cltest.NewAddress()
 		addr1     = cltest.NewAddress()
 		addr2     = cltest.NewAddress()
+		contract0 = new(logmocks.AbigenContract)
+		contract1 = new(logmocks.AbigenContract)
+		contract2 = new(logmocks.AbigenContract)
 	)
 	store.EthClient = ethClient
+
+	contract0.On("Address").Return(addr0)
+	contract1.On("Address").Return(addr1)
+	contract2.On("Address").Return(addr2)
 
 	chchRawLogs := make(chan chan<- types.Log, 1)
 	chStarted := make(chan struct{})
@@ -360,13 +380,13 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	lb.AddDependents(1)
 	lb.Start() // Subscribe #0
 	defer lb.Stop()
-	lb.Register(addr0, listener0)
+	lb.Register(contract0, listener0)
 	lb.DependentReady()
 	<-chStarted // Await startup
 	<-chchRawLogs
-	lb.Register(addr1, listener1) // Subscribe #1
+	lb.Register(contract1, listener1) // Subscribe #1
 	<-chchRawLogs
-	lb.Register(addr2, listener2) // Subscribe #2
+	lb.Register(contract2, listener2) // Subscribe #2
 	<-chchRawLogs
 
 	cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
@@ -551,8 +571,15 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				consumerID: createJob(t, store).ID,
 			}
 
+			contractA := new(logmocks.AbigenContract)
+			contractB := new(logmocks.AbigenContract)
+			contractA.On("Address").Return(addrA)
+			contractB.On("Address").Return(addrB)
+			contractA.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+			contractB.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+
 			// Register listener A
-			lb.Register(addrA, logListenerA)
+			lb.Register(contractA, logListenerA)
 
 			// Send initial logs
 			chRawLogs1 := <-chchRawLogs
@@ -593,7 +620,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			})
 
 			// Register listener B (triggers resubscription)
-			lb.Register(addrB, logListenerB)
+			lb.Register(contractB, logListenerB)
 
 			// Send second batch of new logs
 			chRawLogs2 := <-chchRawLogs
@@ -739,9 +766,12 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 		},
 		consumerID: job.ID,
 	}
-	addr := common.Address{1}
+	addr := cltest.NewAddress()
+	contract := new(logmocks.AbigenContract)
+	contract.On("Address").Return(addr)
+	contract.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
 
-	lb.Register(addr, &logListener)
+	lb.Register(contract, &logListener)
 
 	cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     3,
@@ -817,7 +847,10 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		consumerID: job.ID,
 	}
 
-	lb.Register(addr, &listener)
+	contract := new(logmocks.AbigenContract)
+	contract.On("Address").Return(addr)
+	contract.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+	lb.Register(contract, &listener)
 
 	chRawLogs := <-chchRawLogs
 	for i := 0; i < len(logs); i++ {
