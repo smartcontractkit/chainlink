@@ -22,12 +22,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return "", err
-	}
-
+func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {
 	if parsed.Path == "" {
 		return "", errors.New("path missing from database URL")
 	}
