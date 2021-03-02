@@ -59,7 +59,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		tracker.HandleLog(logBroadcast, nil)
+		tracker.HandleLog(logBroadcast)
 
 		configDigest, epoch, round, err = tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
@@ -94,7 +94,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		tracker.HandleLog(logBroadcast, nil)
+		tracker.HandleLog(logBroadcast)
 
 		configDigest, epoch, round, err = tracker.LatestRoundRequested(context.Background(), 0)
 		require.NoError(t, err)
@@ -140,7 +140,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 1 && rr.Round == 1
 		})).Return(nil)
 
-		tracker.HandleLog(logBroadcast, nil)
+		tracker.HandleLog(logBroadcast)
 
 		db.AssertExpectations(t)
 
@@ -161,7 +161,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
-		tracker.HandleLog(logBroadcast2, nil)
+		tracker.HandleLog(logBroadcast2)
 
 		db.AssertExpectations(t)
 
@@ -174,7 +174,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.AssertExpectations(t)
 
 		// Same round with lower epoch is ignored
-		tracker.HandleLog(logBroadcast, nil)
+		tracker.HandleLog(logBroadcast)
 
 		db.AssertExpectations(t)
 
@@ -197,7 +197,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
-		tracker.HandleLog(logBroadcast3, nil)
+		tracker.HandleLog(logBroadcast3)
 
 		db.AssertExpectations(t)
 
@@ -234,7 +234,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		db.On("SaveLatestRoundRequested", mock.Anything).Return(errors.New("something exploded"))
 
-		tracker.HandleLog(logBroadcast, nil)
+		tracker.HandleLog(logBroadcast)
 
 		db.AssertExpectations(t)
 

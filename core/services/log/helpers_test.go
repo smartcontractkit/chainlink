@@ -13,12 +13,12 @@ import (
 )
 
 type simpleLogListener struct {
-	handler    func(lb log.Broadcast, err error)
+	handler    func(lb log.Broadcast)
 	consumerID models.JobID
 }
 
-func (listener simpleLogListener) HandleLog(lb log.Broadcast, err error) {
-	listener.handler(lb, err)
+func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
+	listener.handler(lb)
 }
 func (listener simpleLogListener) OnConnect()    {}
 func (listener simpleLogListener) OnDisconnect() {}
@@ -46,12 +46,12 @@ type mockListener struct {
 	jobIDV2 int32
 }
 
-func (l *mockListener) JobID() models.JobID            { return l.jobID }
-func (l *mockListener) JobIDV2() int32                 { return l.jobIDV2 }
-func (l *mockListener) IsV2Job() bool                  { return l.jobID.IsZero() }
-func (l *mockListener) OnConnect()                     {}
-func (l *mockListener) OnDisconnect()                  {}
-func (l *mockListener) HandleLog(log.Broadcast, error) {}
+func (l *mockListener) JobID() models.JobID     { return l.jobID }
+func (l *mockListener) JobIDV2() int32          { return l.jobIDV2 }
+func (l *mockListener) IsV2Job() bool           { return l.jobID.IsZero() }
+func (l *mockListener) OnConnect()              {}
+func (l *mockListener) OnDisconnect()           {}
+func (l *mockListener) HandleLog(log.Broadcast) {}
 
 func createJob(t *testing.T, store *store.Store) models.JobSpec {
 	t.Helper()
