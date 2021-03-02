@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Improved handling of the case where we exceed the configured TX fee cap in
+  geth. Node will now fatally error jobs if the total transaction costs exceeds
+  the configured cap (default 1 Eth). Also, it will no longer continue
+  to bump gas on transactions that started hitting this limit and instead
+  continue to resubmit at the highest price that worked. Node operators should
+  check their geth nodes and remove this cap if configured, you can do this by
+  running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting
+  these values in your config toml.
+
 ## [0.10.1] - 2021-02-23
 
 ### Fixed
