@@ -1,7 +1,9 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
@@ -289,7 +292,7 @@ func TestClient_CreateExternalInitiator(t *testing.T) {
 			assert.NoError(t, err)
 
 			var exi models.ExternalInitiator
-			err = app.Store.RawDB(func(db *gorm.DB) error {
+			err = app.Store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 				return db.Where("name = ?", test.args[0]).Find(&exi).Error
 			})
 			require.NoError(t, err)
@@ -804,7 +807,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		ChangePasswordRequest: models.ChangePasswordRequest{
 			OldPassword: cltest.Password,
-			NewPassword: "password",
+			NewPassword: "_p4SsW0rD1!@#",
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
@@ -948,7 +951,7 @@ func TestClient_CreateETHKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 
 	mustLogIn(t, client)
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: "password"}
+	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
 
 	assert.NoError(t, client.CreateETHKey(nilContext))
 }
@@ -989,7 +992,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 
 	set = flag.NewFlagSet("test", 0)
 	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
-	set.Parse([]string{"../internal/fixtures/keys/3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea.json"})
+	set.Parse([]string{"../internal/fixtures/keys/testkey-0x69Ca211a68100E18B40683E96b55cD217AC95006.json"})
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	assert.NoError(t, err)
@@ -1003,7 +1006,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 1)
 
 	ethkeys := *r.Renders[0].(*[]presenters.ETHKey)
-	addr := common.HexToAddress("0x3cb8e3fd9d27e39a5e9e6852b0e96160061fd4ea")
+	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
 	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
 
 	testdir := filepath.Join(os.TempDir(), t.Name())
@@ -1429,4 +1432,38 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 
 	require.NoError(t, client.RemoteLogin(c))
 	assert.EqualError(t, client.TriggerPipelineRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+}
+
+func TestClient_ListJobsV2(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client, r := app.NewClientAndRenderer()
+
+	// Create the job
+	toml, err := ioutil.ReadFile("./testdata/direct-request-spec.toml")
+	assert.NoError(t, err)
+
+	request, err := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(toml),
+	})
+	assert.NoError(t, err)
+
+	resp, err := client.HTTP.Post("/v2/jobs", bytes.NewReader(request))
+	assert.NoError(t, err)
+
+	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+
+	job := cmd.Job{}
+	err = web.ParseJSONAPIResponse(responseBodyBytes, &job)
+	assert.NoError(t, err)
+
+	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
+	jobs := *r.Renders[0].(*[]cmd.Job)
+	require.Equal(t, 1, len(jobs))
+	assert.Equal(t, job.ID, jobs[0].ID)
 }

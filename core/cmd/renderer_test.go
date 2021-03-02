@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
@@ -37,6 +38,37 @@ func TestRendererTable_RenderJobs(t *testing.T) {
 
 	output := buffer.String()
 	assert.Contains(t, output, "noop")
+}
+
+func TestRendererTable_RenderJobsV2(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	jobs := []cmd.Job{
+		{
+			JAID: cmd.JAID{ID: "1"},
+			Name: "Test Job",
+			Type: cmd.DirectRequestJob,
+			DirectRequestSpec: &cmd.DirectRequestSpec{
+				CreatedAt: now,
+			},
+			PipelineSpec: cmd.PipelineSpec{
+				DotDAGSource: "    ds1          [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
+			},
+		},
+	}
+	assert.NoError(t, r.Render(&jobs))
+
+	output := buffer.String()
+	assert.Contains(t, output, "1")
+	assert.Contains(t, output, "Test Job")
+	assert.Contains(t, output, now.Format(time.RFC3339))
+	assert.Contains(t, output, "directrequest")
+	assert.Contains(t, output, "ds1 http")
+	assert.Contains(t, output, "ds1_parse jsonparse")
+	assert.Contains(t, output, "ds1_multiply multiply")
 }
 
 func TestRendererTable_RenderConfiguration(t *testing.T) {

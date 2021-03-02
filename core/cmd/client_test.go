@@ -129,9 +129,9 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		isTerminal     bool
 		isError        bool
 	}{
-		{"correct", []string{"good@email.com", "password"}, true, false},
-		{"incorrect pwd then correct", []string{"good@email.com", "", "good@email.com", "password"}, true, false},
-		{"incorrect email then correct", []string{"", "password", "good@email.com", "password"}, true, false},
+		{"correct", []string{"good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"bad pwd then correct", []string{"good@email.com", "p4SsW0r", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
+		{"bad email then correct", []string{"", "p4SsW0rD1!@#_", "good@email.com", "p4SsW0rD1!@#_"}, true, false},
 		{"not a terminal", []string{}, false, true},
 	}
 	for _, test := range tests {
@@ -143,7 +143,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 			tai := cmd.NewPromptingAPIInitializer(mock)
 
 			// Remove fixture user
-			_, err := store.DeleteUser()
+			err := store.DeleteUser()
 			require.NoError(t, err)
 
 			user, err := tai.Initialize(store)

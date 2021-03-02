@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -15,9 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
-
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -354,7 +354,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		require.NoError(t, store.DB.Create(&firstInProgress).Error)
 		err := store.DB.Create(&secondInProgress).Error
 		require.Error(t, err)
-		assert.EqualError(t, err, "pq: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\"")
+		assert.EqualError(t, err, "ERROR: duplicate key value violates unique constraint \"idx_only_one_in_progress_tx_per_account\" (SQLSTATE 23505)")
 	})
 
 	t.Run("previous run assigned nonce but never broadcast", func(t *testing.T) {
@@ -716,6 +716,46 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Nil(t, etx.Nonce)
 		assert.NotNil(t, etx.Error)
 		assert.Contains(t, *etx.Error, "exceeds block gas limit")
+		assert.Len(t, etx.EthTxAttempts, 0)
+
+		// Check that the key had its nonce reset
+		require.NoError(t, store.DB.First(&key).Error)
+		// Saved NextNonce must be the same as before because this transaction
+		// was not accepted by the eth node and never can be
+		require.NotNil(t, key.NextNonce)
+		require.Equal(t, int64(localNextNonce), *key.NextNonce)
+
+		ethClient.AssertExpectations(t)
+	})
+
+	t.Run("geth client fails with error indicating that the transaction was too expensive", func(t *testing.T) {
+		tooExpensiveError := "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)"
+		localNextNonce := getLocalNextNonce(t, store, fromAddress)
+
+		etx := models.EthTx{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: encodedPayload,
+			Value:          value,
+			GasLimit:       gasLimit,
+			State:          models.EthTxUnstarted,
+		}
+		require.NoError(t, store.DB.Save(&etx).Error)
+
+		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+			return tx.Nonce() == localNextNonce
+		})).Return(errors.New(tooExpensiveError)).Once()
+
+		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+
+		// Check it was saved with no attempt and a fatal error
+		etx, err = store.FindEthTxWithAttempts(etx.ID)
+		require.NoError(t, err)
+
+		assert.Nil(t, etx.BroadcastAt)
+		require.Nil(t, etx.Nonce)
+		assert.NotNil(t, etx.Error)
+		assert.Contains(t, *etx.Error, "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
 		assert.Len(t, etx.EthTxAttempts, 0)
 
 		// Check that the key had its nonce reset
@@ -1150,7 +1190,7 @@ func TestEthBroadcaster_EthTxInsertEventCausesTriggerToFire(t *testing.T) {
 	// NOTE: Testing triggers requires committing transactions and does not work with transactional tests
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "eth_tx_triggers", true, true)
 	defer cleanup()
-	config.Config.Dialect = orm.DialectPostgresWithoutLock
+	config.Config.Dialect = dialects.PostgresWithoutLock
 	store, cleanup := cltest.NewStoreWithConfig(config)
 	defer cleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)

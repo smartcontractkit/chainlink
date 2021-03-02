@@ -55,7 +55,7 @@ type JobSpec struct {
 	EndAt      null.Time      `json:"endAt" gorm:"index"`
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 	UpdatedAt  time.Time      `json:"-"`
-	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;association_autoupdate:false;association_autocreate:false"`
+	Errors     []JobSpecError `json:"-" gorm:"foreignkey:JobSpecID;->"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.

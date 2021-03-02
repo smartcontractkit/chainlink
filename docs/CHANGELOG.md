@@ -7,31 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Better debug logging in Gas Updater
+
+### Fixed
+
+- Improved handling of the case where we exceed the configured TX fee cap in
+  geth. Node will now fatally error jobs if the total transaction costs exceeds
+  the configured cap (default 1 Eth). Also, it will no longer continue
+  to bump gas on transactions that started hitting this limit and instead
+  continue to resubmit at the highest price that worked. Node operators should
+  check their geth nodes and remove this cap if configured, you can do this by
+  running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting
+  these values in your config toml.
+
+## [0.10.1] - 2021-02-23
+
+### Fixed
+
+- Prevent autosaving Task Spec on when Task Runs are saved to lower database load.
+
+## [0.10.0] - 2021-02-22
+
 ### Fixed
 
 - Fix a case where archiving jobs could try to delete it from the external initiator even if the job was not an EI job.
 - Improved performance of the transaction manager by fetching receipts in
   batches. This should help prevent the node from getting stuck when processing
   large numbers of OCR jobs.
-
-## [0.9.10] - 2021-01-30
-
-### Fixed
-
-- Fixed a UI bug with fluxmonitor jobs where initiator params were bunched up.
 - Fixed a fluxmonitor job bug where submitting a value outside the acceptable range would stall the job
   permanently. Now a job spec error will be thrown if the polled answer is outside the
   acceptable range and no ethtx will be submitted. As additional protection, we also now
   check the receipts of the ethtx's and if they were reverted, we mark the ethtx task as failed.
-- Improved performance of OCR jobs to reduce database load. OCR jobs now run with unlimited parallelism and are not affected by `JOB_PIPELINE_PARALLELISM`.
+
+### Breaking
+
 - Squashed migrations into a single 1_initial migration. If you were running a version
   older than 0.9.10, you need to upgrade to 0.9.10 first before upgrading to the next
   version so that the migrations are run.
 
 ### Added
 
-- A new env var `JOB_PIPELINE_MAX_RUN_DURATION` has been added which controls maximum duration of the total run.
 - A new Operator UI feature that visualize JSON and TOML job spec tasks on a 'New Job' page.
+
+## [0.9.10] - 2021-01-30
+
+### Fixed
+
+- Fixed a UI bug with fluxmonitor jobs where initiator params were bunched up.
+- Improved performance of OCR jobs to reduce database load. OCR jobs now run with unlimited parallelism and are not affected by `JOB_PIPELINE_PARALLELISM`.
+
+### Added
+
+- A new env var `JOB_PIPELINE_MAX_RUN_DURATION` has been added which controls maximum duration of the total run.
 
 ## [0.9.9] - 2021-01-18
 
