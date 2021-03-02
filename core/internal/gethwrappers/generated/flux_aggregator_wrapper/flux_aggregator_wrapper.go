@@ -4,6 +4,7 @@
 package flux_aggregator_wrapper
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -2611,6 +2612,42 @@ func (_FluxAggregator *FluxAggregator) UnpackLog(out interface{}, event string, 
 	return _FluxAggregator.FluxAggregatorFilterer.contract.UnpackLog(out, event, log)
 }
 
+func (_FluxAggregator *FluxAggregator) ParseLog(log types.Log) (interface{}, error) {
+	abi, err := abi.JSON(strings.NewReader(FluxAggregatorABI))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+	}
+	switch log.Topics[0] {
+	case abi.Events["AnswerUpdated"].ID:
+		return _FluxAggregator.ParseAnswerUpdated(log)
+	case abi.Events["AvailableFundsUpdated"].ID:
+		return _FluxAggregator.ParseAvailableFundsUpdated(log)
+	case abi.Events["NewRound"].ID:
+		return _FluxAggregator.ParseNewRound(log)
+	case abi.Events["OracleAdminUpdateRequested"].ID:
+		return _FluxAggregator.ParseOracleAdminUpdateRequested(log)
+	case abi.Events["OracleAdminUpdated"].ID:
+		return _FluxAggregator.ParseOracleAdminUpdated(log)
+	case abi.Events["OraclePermissionsUpdated"].ID:
+		return _FluxAggregator.ParseOraclePermissionsUpdated(log)
+	case abi.Events["OwnershipTransferRequested"].ID:
+		return _FluxAggregator.ParseOwnershipTransferRequested(log)
+	case abi.Events["OwnershipTransferred"].ID:
+		return _FluxAggregator.ParseOwnershipTransferred(log)
+	case abi.Events["RequesterPermissionsSet"].ID:
+		return _FluxAggregator.ParseRequesterPermissionsSet(log)
+	case abi.Events["RoundDetailsUpdated"].ID:
+		return _FluxAggregator.ParseRoundDetailsUpdated(log)
+	case abi.Events["SubmissionReceived"].ID:
+		return _FluxAggregator.ParseSubmissionReceived(log)
+	case abi.Events["ValidatorUpdated"].ID:
+		return _FluxAggregator.ParseValidatorUpdated(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
 func (_FluxAggregator *FluxAggregator) Address() common.Address {
 	return _FluxAggregator.address
 }
@@ -2777,6 +2814,8 @@ type FluxAggregatorInterface interface {
 	ParseValidatorUpdated(log types.Log) (*FluxAggregatorValidatorUpdated, error)
 
 	UnpackLog(out interface{}, event string, log types.Log) error
+
+	ParseLog(log types.Log) (interface{}, error)
 
 	Address() common.Address
 }

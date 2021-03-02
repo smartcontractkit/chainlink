@@ -711,6 +711,34 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		sendError = nil
 	}
 
+	if sendError.IsTooExpensive() {
+		// The gas price was bumped too high. This transaction attempt cannot be accepted.
+		//
+		// Best thing we can do is to re-send the previous attempt at the old
+		// price and discard this bumped version.
+		logger.Errorw("EthConfirmer: bumped transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
+			"blockHeight", blockHeight,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		if len(etx.EthTxAttempts) > 0 {
+			previousAttempt := etx.EthTxAttempts[0]
+			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
+			logger.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
+				"ethTxID", etx.ID,
+				"id", "RPCTxFeeCapExceeded",
+				"err", sendError2,
+			)
+		} else {
+			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)
+		}
+		return deleteInProgressAttempt(ec.store.DB, attempt)
+	}
+
 	if sendError.Fatal() {
 		// WARNING: This should never happen!
 		// Should NEVER be fatal this is an invariant violation. The
