@@ -15,7 +15,9 @@ import (
 )
 
 var (
-	Client             *http.Client
+	// Client represents a HTTP Client
+	Client *http.Client
+	// UnrestrictedClient represents a HTTP Client with no Transport restrictions
 	UnrestrictedClient *http.Client
 )
 
