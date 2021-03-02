@@ -54,7 +54,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 
 	updateConfig(cli.Config, c.Bool("debug"), c.Int64("replay-from-block"))
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	logger.Infow("Starting Chainlink Node " + static.Version + " at commit " + static.Sha)
+	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
 	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
@@ -367,12 +367,9 @@ func (cli *Client) makeApp() (chainlink.Application, func()) {
 func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	config := orm.NewConfig()
-	if config.DatabaseURL() == "" {
+	parsed := config.DatabaseURL()
+	if parsed.String() == "" {
 		return cli.errorOut(errors.New("You must set DATABASE_URL env variable. HINT: If you are running this to set up your local test database, try DATABASE_URL=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable"))
-	}
-	parsed, err := url.Parse(config.DatabaseURL())
-	if err != nil {
-		return cli.errorOut(err)
 	}
 
 	dangerMode := c.Bool("dangerWillRobinson")
@@ -381,8 +378,8 @@ func (cli *Client) ResetDatabase(c *clipkg.Context) error {
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return cli.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	logger.Infof("Resetting database: %#v", config.DatabaseURL())
-	if err := dropAndCreateDB(*parsed); err != nil {
+	logger.Infof("Resetting database: %#v", parsed.String())
+	if err := dropAndCreateDB(parsed); err != nil {
 		return cli.errorOut(err)
 	}
 	if err := migrateTestDB(config); err != nil {
@@ -430,7 +427,8 @@ func dropAndCreateDB(parsed url.URL) (err error) {
 }
 
 func migrateTestDB(config *orm.Config) error {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	dbURL := config.DatabaseURL()
+	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), gracefulpanic.NewSignal(), config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -444,7 +442,8 @@ func migrateTestDB(config *orm.Config) error {
 }
 
 func insertFixtures(config *orm.Config) (err error) {
-	db, err := sql.Open(string(dialects.Postgres), config.DatabaseURL())
+	dbURL := config.DatabaseURL()
+	db, err := sql.Open(string(dialects.Postgres), dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
 	}
@@ -493,10 +492,11 @@ func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 	addressHex := c.String("address")
 	nextNonce := c.Uint64("nextNonce")
+	dbURL := cli.Config.DatabaseURL()
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: cli.Config.DatabaseURL(),
+		DSN: dbURL.String(),
 	}), &gorm.Config{})
 	if err != nil {
 		return cli.errorOut(err)

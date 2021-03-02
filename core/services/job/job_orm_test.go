@@ -48,8 +48,9 @@ func TestORM(t *testing.T) {
 		compareOCRJobSpecs(t, *dbSpec, returnedSpec)
 	})
 
+	dbURL := config.DatabaseURL()
 	db2, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		DSN: config.DatabaseURL(),
+		DSN: dbURL.String(),
 	}), &gorm.Config{})
 	require.NoError(t, err)
 	d, err := db2.DB()
