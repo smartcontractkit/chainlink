@@ -108,6 +108,12 @@ func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
 		if len(gu.rollingBlockHistory) > gu.rollingBlockHistorySize {
 			gu.rollingBlockHistory = gu.rollingBlockHistory[1:]
 			percentileGasPrice := gu.percentileGasPrice()
+			gasPriceGwei := fmt.Sprintf("%.2f", float64(percentileGasPrice)/1000000000)
+			logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei),
+				"gasPriceWei", percentileGasPrice,
+				"gasPriceGWei", gasPriceGwei,
+				"currentBlockNum", block.Number,
+			)
 			err := gu.setPercentileGasPrice(percentileGasPrice)
 			if err != nil {
 				logger.Error("GasUpdater error setting gas price: ", err)
@@ -139,12 +145,10 @@ func (gu *gasUpdater) percentileGasPrice() int64 {
 }
 
 func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
-	gasPriceGwei := fmt.Sprintf("%.2f", float64(gasPrice)/1000000000)
 	bigGasPrice := big.NewInt(gasPrice)
 	if bigGasPrice.Cmp(gu.store.Config.EthMaxGasPriceWei()) > 0 {
 		return fmt.Errorf("cannot set gas price %s because it exceeds EthMaxGasPriceWei %s", bigGasPrice.String(), gu.store.Config.EthMaxGasPriceWei().String())
 	}
-	logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei), "gasPriceWei", gasPrice, "gasPriceGWei", gasPriceGwei)
 	return gu.store.Config.SetEthGasPriceDefault(bigGasPrice)
 }
 
