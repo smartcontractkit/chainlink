@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -157,6 +159,21 @@ func TestRunner(t *testing.T) {
 		// But if we delete the job, then we can.
 		require.NoError(t, jobORM.DeleteJob(context.Background(), dbSpec.ID))
 		require.NoError(t, db.Delete(&bridge).Error)
+	})
+
+	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
+		_, bridge := cltest.NewBridgeType(t, "testbridge", "blah")
+		require.NoError(t, db.Create(bridge).Error)
+		dbSpec := makeOCRJobSpecFromToml(t, db, `
+			type               = "offchainreporting"
+			schemaVersion      = 1
+			observationSource = """
+				ds1          [type=bridge name="testbridge2" url="http://data.com"];
+			"""
+		`)
+		require.Error(t,
+			pipeline.ErrNoSuchBridge,
+			errors.Cause(jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)))
 	})
 
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)

@@ -30,6 +30,11 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFile job.SpecDB

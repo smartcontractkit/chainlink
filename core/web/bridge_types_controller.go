@@ -146,7 +146,6 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	jobsUsingBridge, err := btc.App.GetStore().FindJobIDsWithBridge(name)
-	//jobFounds, err := btc.App.GetStore().AnyJobWithType(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs for BTC Destroy: %+v", err))
 		return
