@@ -13,13 +13,13 @@ type ORM struct {
 	mock.Mock
 }
 
-// MarkBroadcastConsumed provides a mock function with given fields: blockHash, blockNumber, logIndex, jobID
-func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error {
-	ret := _m.Called(blockHash, blockNumber, logIndex, jobID)
+// MarkBroadcastConsumed provides a mock function with given fields: blockHash, logIndex, jobID
+func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) error {
+	ret := _m.Called(blockHash, logIndex, jobID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Hash, uint64, uint, interface{}) error); ok {
-		r0 = rf(blockHash, blockNumber, logIndex, jobID)
+	if rf, ok := ret.Get(0).(func(common.Hash, uint, interface{}) error); ok {
+		r0 = rf(blockHash, logIndex, jobID)
 	} else {
 		r0 = ret.Error(0)
 	}

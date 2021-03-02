@@ -35,16 +35,20 @@ type (
 	}
 
 	broadcaster struct {
-		orm       ORM
-		ethClient eth.Client
-		config    Config
-		connected *abool.AtomicBool
+		orm         ORM
+		ethClient   eth.Client
+		config      Config
+		connected   *abool.AtomicBool
+		latestBlock uint64
 
-		registrations map[common.Address]map[common.Hash]map[Listener]struct{} // contractAddress => logTopic => Listener
-		decoders      map[common.Address]AbigenContract
-		addSubscriber *utils.Mailbox
-		rmSubscriber  *utils.Mailbox
-		newLogs       *utils.Mailbox
+		registrations  map[common.Address]map[common.Hash]map[Listener]struct{} // contractAddress => logTopic => Listener
+		decoders       map[common.Address]AbigenContract
+		addSubscriber  *utils.Mailbox
+		rmSubscriber   *utils.Mailbox
+		newHeads       *utils.Mailbox
+		logs           map[common.Address][]types.Log
+		logsMu         sync.Mutex
+		canonicalChain map[common.Hash]struct{}
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
@@ -97,7 +101,8 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		decoders:         make(map[common.Address]AbigenContract),
 		addSubscriber:    utils.NewMailbox(0),
 		rmSubscriber:     utils.NewMailbox(0),
-		newLogs:          utils.NewMailbox(10000),
+		newHeads:         utils.NewMailbox(1),
+		logs:             make(map[common.Address][]types.Log),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           make(chan struct{}),
 		chDone:           make(chan struct{}),
@@ -147,6 +152,13 @@ func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (connected 
 	return b.IsConnected(), func() {
 		b.rmSubscriber.Deliver(registration{listener, opts})
 	}
+}
+
+func (b *broadcaster) Connect(head *models.Head) error { return nil }
+func (b *broadcaster) Disconnect()                     {}
+
+func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
+	b.newHeads.Deliver(head)
 }
 
 func (b *broadcaster) IsConnected() bool {
@@ -225,7 +237,7 @@ func (b *broadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort boo
 		}
 		currentHeight := uint64(latestBlock.Number)
 
-		// Backfill from `backfillDepth` blocks ago.  It's up to the subscribers to
+		// Backfill from `backfillDepth` blocks ago.  It'b up to the subscribers to
 		// filter out logs they've already dealt with.
 		fromBlock := currentHeight - b.config.BlockBackfillDepth()
 		if fromBlock > currentHeight {
@@ -280,8 +292,11 @@ func (b *broadcaster) process(chRawLogs <-chan types.Log, chErr <-chan error) (s
 
 	for {
 		select {
-		case log := <-chRawLogs:
-			b.processLog(log)
+		case rawLog := <-chRawLogs:
+			b.processLog(rawLog)
+
+		case <-b.newHeads.Notify():
+			b.onNewHeads()
 
 		case err := <-chErr:
 			// Note we'll get a message on this channel
@@ -312,31 +327,73 @@ func (b *broadcaster) processLog(log types.Log) {
 		return
 	}
 
-	var wg sync.WaitGroup
-	for listener := range b.registrations[log.Address][log.Topics[0]] {
-		listener := listener
+	b.logsMu.Lock()
+	defer b.logsMu.Unlock()
+	b.logs[log.Address] = append(b.logs[log.Address], log)
+}
 
-		logCopy := copyLog(log)
-		decodedLog, err := b.decoders[log.Address].ParseLog(logCopy)
-		if err != nil {
-			logger.Errorw("could not parse contract log", "error", err)
+func (b *broadcaster) onNewHeads() {
+	for {
+		x := b.newHeads.Retrieve()
+		if x == nil {
+			break
+		}
+		head, ok := x.(models.Head)
+		if !ok {
+			logger.Errorf("expected `models.Head`, got %T", x)
 			continue
 		}
+		b.latestBlock = uint64(head.Number)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			listener.HandleLog(&broadcast{
-				orm:        b.orm,
-				rawLog:     logCopy,
-				decodedLog: decodedLog,
-				jobID:      listener.JobID(),
-				jobIDV2:    listener.JobIDV2(),
-				isV2:       listener.IsV2Job(),
-			})
-		}()
+		b.canonicalChain = make(map[common.Hash]struct{})
+		for h := &head; h.Parent != nil; h = h.Parent {
+			b.canonicalChain[h.Hash] = struct{}{}
+		}
 	}
-	wg.Wait()
+
+	// Now that we're caught up, broadcast all pending logs
+	b.broadcastPendingLogs()
+}
+
+func (b *broadcaster) broadcastPendingLogs() {
+	b.logsMu.Lock()
+	defer b.logsMu.Unlock()
+
+	for _, logs := range b.logs {
+		for _, log := range logs {
+			// Skip logs that have been reorged away
+			if _, exists := b.canonicalChain[log.BlockHash]; !exists {
+				continue
+			}
+
+			var wg sync.WaitGroup
+			for listener := range b.registrations[log.Address][log.Topics[0]] {
+				listener := listener
+
+				logCopy := copyLog(log)
+				decodedLog, err := b.decoders[log.Address].ParseLog(logCopy)
+				if err != nil {
+					logger.Errorw("could not parse contract log", "error", err)
+					continue
+				}
+
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					listener.HandleLog(&broadcast{
+						orm:        b.orm,
+						rawLog:     logCopy,
+						decodedLog: decodedLog,
+						jobID:      listener.JobID(),
+						jobIDV2:    listener.JobIDV2(),
+						isV2:       listener.IsV2Job(),
+					})
+				}()
+			}
+			wg.Wait()
+		}
+	}
+	b.logs = make(map[common.Address][]types.Log)
 }
 
 func copyLog(l types.Log) types.Log {
@@ -451,10 +508,10 @@ func (b *broadcaster) createSubscription() (sub managedSubscription, abort bool)
 		}
 		chRawLogs := make(chan types.Log)
 
-		ctx2, cancel := context.WithTimeout(ctx, 15*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 		defer cancel()
 
-		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx2, filterQuery, chRawLogs)
+		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
 		if err != nil {
 			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "error", err)
 			return true
