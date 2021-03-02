@@ -15,7 +15,7 @@ import (
 
 type ORM interface {
 	WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (bool, error)
-	MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, logIndex uint, jobID interface{}) error
+	MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) error
 }
 
 type orm struct {
@@ -71,12 +71,9 @@ func (o *orm) MarkBroadcastConsumed(blockHash common.Hash, blockNumber uint64, l
 		panic(fmt.Sprintf("unrecognised type for jobID: %T", v))
 	}
 
-	q := `
-        INSERT INTO log_broadcasts (block_hash, block_number, log_index, %[1]s, created_at, consumed) VALUES (?, ?, ?, ?, NOW(), true)
-    `
-
-	stmt := fmt.Sprintf(q, jobIDName)
-	query := o.db.Exec(stmt, blockHash, blockNumber, logIndex, jobID)
+	query := o.db.Exec(fmt.Sprintf(`
+        INSERT INTO log_broadcasts (block_hash, log_index, %s, created_at, consumed) VALUES (?, ?, ?, NOW(), true)
+    `, jobIDName), blockHash, logIndex, jobID)
 	if query.Error != nil {
 		return errors.Wrap(query.Error, "while marking log broadcast as consumed")
 	} else if query.RowsAffected == 0 {
