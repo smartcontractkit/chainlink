@@ -2,8 +2,9 @@
 pragma solidity ^0.7.0;
 
 import "../dev/OperatorForwarder.sol";
+import "../dev/ConfirmedOwner.sol";
 
-contract OperatorForwarderDeployer {
+contract OperatorForwarderDeployer is ConfirmedOwner {
 
   address private immutable linkAddress;
   address[] private s_authorisedSenders;
@@ -13,7 +14,9 @@ contract OperatorForwarderDeployer {
   constructor(
     address link,
     address[] memory authorizedSenders
-  ) {
+  ) 
+    ConfirmedOwner(msg.sender)
+  {
     linkAddress = link;
     s_authorisedSenders = authorizedSenders;
   }
