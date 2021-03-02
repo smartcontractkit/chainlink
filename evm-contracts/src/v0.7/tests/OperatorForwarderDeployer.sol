@@ -23,7 +23,9 @@ contract OperatorForwarderDeployer is ConfirmedOwner {
 
   function createForwarder()
     external
-    returns (address)
+    returns (
+      address
+    )
   {
     OperatorForwarder newForwarder = new OperatorForwarder(linkAddress);
     address forwarderAddress = address(newForwarder);
@@ -34,7 +36,9 @@ contract OperatorForwarderDeployer is ConfirmedOwner {
   function getAuthorizedSenders()
     external
     view
-    returns (address[] memory)
+    returns (
+      address[] memory
+    )
   {
     return s_authorisedSenders;
   }
