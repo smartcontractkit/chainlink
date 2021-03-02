@@ -120,6 +120,10 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxT
 			Index:          task.OutputIndex(),
 			SuccessorID:    successorID,
 		}
+		if task.Type() == TaskTypeBridge {
+			btName := task.(*BridgeTask).Name
+			taskSpec.BridgeName = &btName
+		}
 		err = tx.Create(&taskSpec).Error
 		if err != nil {
 			return specID, err

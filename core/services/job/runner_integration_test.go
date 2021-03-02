@@ -138,6 +138,27 @@ func TestRunner(t *testing.T) {
 		}
 	})
 
+	t.Run("must delete job before deleting bridge", func(t *testing.T) {
+		_, bridge := cltest.NewBridgeType(t, "testbridge", "blah")
+		require.NoError(t, db.Create(bridge).Error)
+		dbSpec := makeOCRJobSpecFromToml(t, db, `
+			type               = "offchainreporting"
+			schemaVersion      = 1
+			observationSource = """
+				ds1          [type=bridge name="testbridge" url="http://data.com"];
+			"""
+		`)
+		require.NoError(t, jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
+		// Should not be able to delete a bridge in use.
+		require.EqualError(t,
+			db.Delete(&bridge).Error,
+			"ERROR: update or delete on table \"bridge_types\" violates foreign key constraint \"fk_pipeline_task_specs_bridge_name\" on table \"pipeline_task_specs\" (SQLSTATE 23503)")
+
+		// But if we delete the job, then we can.
+		require.NoError(t, jobORM.DeleteJob(context.Background(), dbSpec.ID))
+		require.NoError(t, db.Delete(&bridge).Error)
+	})
+
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
@@ -564,7 +585,7 @@ ds1 -> ds1_parse;
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
 		spec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), ek.PeerID, kb.ID, transmitterAddress.Hex(), fmt.Sprintf(simpleFetchDataSourceTemplate, "blah", true))
-		dbSpec := makeOCRJobSpecWithHTTPURL(t, db, spec)
+		dbSpec := makeOCRJobSpecFromToml(t, db, spec)
 
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
