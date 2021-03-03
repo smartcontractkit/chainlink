@@ -134,6 +134,7 @@ func (c *Config) Validate() error {
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
