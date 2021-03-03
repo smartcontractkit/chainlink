@@ -8,24 +8,32 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 type transmitter struct {
-	db          *sql.DB
-	fromAddress gethCommon.Address
-	gasLimit    uint64
+	db                         *sql.DB
+	fromAddress                gethCommon.Address
+	gasLimit                   uint64
+	maxUnconfirmedTransactions uint64
 }
 
 // NewTransmitter creates a new eth transmitter
-func NewTransmitter(sqldb *sql.DB, fromAddress gethCommon.Address, gasLimit uint64) Transmitter {
+func NewTransmitter(sqldb *sql.DB, fromAddress gethCommon.Address, gasLimit, maxUnconfirmedTransactions uint64) Transmitter {
 	return &transmitter{
-		db:          sqldb,
-		fromAddress: fromAddress,
-		gasLimit:    gasLimit,
+		db:                         sqldb,
+		fromAddress:                fromAddress,
+		gasLimit:                   gasLimit,
+		maxUnconfirmedTransactions: maxUnconfirmedTransactions,
 	}
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress gethCommon.Address, payload []byte) error {
+	err := utils.CheckOKToTransmit(ctx, t.db, t.fromAddress, t.maxUnconfirmedTransactions)
+	if err != nil {
+		return errors.Wrap(err, "transmitter#CreateEthTransaction")
+	}
+
 	value := 0
 	res, err := t.db.ExecContext(ctx, `
 INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)

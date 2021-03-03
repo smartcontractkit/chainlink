@@ -227,9 +227,10 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 
 func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []models.EthTxAttempt, err error) {
 	err = ec.store.DB.
-		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id").
+		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").
 		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
-		Find(&attempts, "eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").Error
+		Where("eth_tx_attempts.state != 'insufficient_eth'").
+		Find(&attempts).Error
 
 	return
 }
@@ -496,16 +497,22 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	if err != nil {
 		return errors.Wrap(err, "FindEthTxsRequiringRebroadcast failed")
 	}
-	if len(etxs) > 0 {
-		logger.Debugf("EthConfirmer: Bumping gas for %v transactions", len(etxs))
-	}
+	logger.Debugf("EthConfirmer: Rebroadcasting %v transactions", len(etxs))
 	for _, etx := range etxs {
+		// NOTE: This races with OCR transaction insertion that checks for
+		// out-of-eth.  If we check at the wrong moment (while an
+		// insufficient_eth attempt has been temporarily moved to in_progress)
+		// we will send an extra transaction because it will appear as if no
+		// transactions are in insufficient_eth state.
+		//
+		// This still limits the worst case to a maximum of two transactions
+		// pending though which is probably acceptable.
 		attempt, err := ec.attemptForRebroadcast(etx)
 		if err != nil {
 			return errors.Wrap(err, "attemptForRebroadcast failed")
 		}
 
-		logger.Debugw("EthConfirmer: Bumping gas for transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice)
+		logger.Debugw("EthConfirmer: Rebroadcasting transaction", "ethTxID", etx.ID, "nonce", etx.Nonce, "nPreviousAttempts", len(etx.EthTxAttempts), "gasPrice", attempt.GasPrice)
 
 		if err := ec.saveInProgressAttempt(&attempt); err != nil {
 			return errors.Wrap(err, "saveInProgressAttempt failed")
@@ -518,8 +525,11 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 	return nil
 }
 
-// "in_progress" attempts were left behind after a crash/restart and may or may not have been sent
-// We should try to ensure they get on-chain so we can fetch a receipt for them
+// "in_progress" attempts were left behind after a crash/restart and may or may not have been sent.
+// We should try to ensure they get on-chain so we can fetch a receipt for them.
+// NOTE: We also use this to mark attempts for rebroadcast in event of a
+// re-org, so multiple attempts are allowed to be in in_progress state (but
+// only one per eth_tx).
 func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
 	attempts, err := getInProgressEthTxAttempts(ec.store, address)
 	if err != nil {
@@ -626,6 +636,7 @@ func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.
 		if previousAttempt.State == models.EthTxAttemptInsufficientEth {
 			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
+			logger.Debugw("EthConfirmer: rebroadcast InsufficientEth", "ethTxID", etx.ID, "ethTxAttemptID", previousAttempt.ID, "nonce", etx.Nonce, "txHash", previousAttempt.Hash)
 			previousAttempt.State = models.EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
@@ -639,6 +650,9 @@ func (ec *ethConfirmer) attemptForRebroadcast(etx models.EthTx) (attempt models.
 			previousAttempt.State = models.EthTxAttemptInProgress
 			return previousAttempt, nil
 		}
+		logger.Debugw("EthConfirmer: rebroadcast bumping gas",
+			"ethTxID", etx.ID, "nonce", etx.Nonce, "originalGasPrice", previousGasPrice.String(),
+			"bumpedGasPrice", bumpedGasPrice.String(), "previousTxHash", previousAttempt.Hash, "previousAttemptID", previousAttempt.ID)
 	} else {
 		logger.Errorf("invariant violation: EthTx %v was unconfirmed but didn't have any attempts. "+
 			"Falling back to default gas price instead."+
@@ -695,6 +709,34 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// get it into the mempool
 		logger.Infow("EthConfirmer: Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
+	}
+
+	if sendError.IsTooExpensive() {
+		// The gas price was bumped too high. This transaction attempt cannot be accepted.
+		//
+		// Best thing we can do is to re-send the previous attempt at the old
+		// price and discard this bumped version.
+		logger.Errorw("EthConfirmer: bumped transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
+			"blockHeight", blockHeight,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		if len(etx.EthTxAttempts) > 0 {
+			previousAttempt := etx.EthTxAttempts[0]
+			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
+			logger.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
+				"ethTxID", etx.ID,
+				"id", "RPCTxFeeCapExceeded",
+				"err", sendError2,
+			)
+		} else {
+			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)
+		}
+		return deleteInProgressAttempt(ec.store.DB, attempt)
 	}
 
 	if sendError.Fatal() {

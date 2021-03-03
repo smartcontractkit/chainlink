@@ -262,7 +262,21 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 	defer cancel()
 	sendError := sendTransaction(ctx, eb.ethClient, attempt)
 
+	if sendError.IsTooExpensive() {
+		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		etx.Error = sendError.StrPtr()
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return saveFatallyErroredTransaction(eb.store, &etx)
+	}
+
 	if sendError.Fatal() {
+		logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = sendError.StrPtr()
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.store, &etx)
@@ -446,15 +460,13 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 	if etx.Error == nil {
 		return errors.New("expected error field to be set")
 	}
-	logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", *etx.Error)
 	etx.Nonce = nil
 	etx.State = models.EthTxFatalError
 	return store.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		// Omit the EthTxAttempts (we just deleted them) or gorm v2 will try to save them.
-		return errors.Wrap(tx.Omit("EthTxAttempts").Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 

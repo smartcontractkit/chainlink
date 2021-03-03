@@ -75,11 +75,6 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		advisoryLockTimeout: timeout,
 		shutdownSignal:      shutdownSignal,
 	}
-	logger.Infof("Attempting to lock %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
-	if err = orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	logger.Info("Got global lock")
 
 	db, err := ct.initializeDatabase()
 	if err != nil {
@@ -503,9 +498,6 @@ func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
 	var sessions []models.Session
 	err := orm.DB.
 		Limit(limit).
@@ -516,9 +508,6 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 
 // GetConfigValue returns the value for a named configuration entry
 func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	name := EnvVarName(field)
 	config := models.Configuration{}
 	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
@@ -529,9 +518,6 @@ func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) err
 
 // SetConfigValue returns the value for a named configuration entry
 func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	name := EnvVarName(field)
 	textValue, err := value.MarshalText()
 	if err != nil {
@@ -785,23 +771,17 @@ func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 }
 
 // FindUser will return the one API user, or an error.
-func (orm *ORM) FindUser() (user models.User, err error) {
-	if err = orm.MustEnsureAdvisoryLock(); err != nil {
-		return user, err
-	}
-	err = orm.DB.
-		Preload(clause.Associations).
-		Order("created_at desc").
-		First(&user).Error
-	return user, err
+func (orm *ORM) FindUser() (models.User, error) {
+	return findUser(orm.DB)
+}
+
+func findUser(db *gorm.DB) (user models.User, err error) {
+	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return models.User{}, err
-	}
 	if len(sessionID) == 0 {
 		return models.User{}, errors.New("Session ID cannot be empty")
 	}
@@ -823,18 +803,18 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 }
 
 // DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() (models.User, error) {
-	user, err := orm.FindUser()
-	if err != nil {
-		return user, err
-	}
-
-	return user, orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Delete(&user).Error; err != nil {
+func (orm *ORM) DeleteUser() error {
+	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+		user, err := findUser(dbtx)
+		if err != nil {
 			return err
 		}
 
-		if err := dbtx.Exec("DELETE FROM sessions").Error; err != nil {
+		if err = dbtx.Delete(&user).Error; err != nil {
+			return err
+		}
+
+		if err = dbtx.Exec("DELETE FROM sessions").Error; err != nil {
 			return err
 		}
 
@@ -844,9 +824,6 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 
 // DeleteUserSession will erase the session ID for the sole API User.
 func (orm *ORM) DeleteUserSession(sessionID string) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Delete(models.Session{ID: sessionID}).Error
 }
 
@@ -861,9 +838,6 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return "", err
-	}
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
@@ -893,17 +867,11 @@ func constantTimeEmailCompare(left, right string) bool {
 
 // ClearSessions removes all sessions.
 func (orm *ORM) ClearSessions() error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Exec("DELETE FROM sessions").Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
 }
 
@@ -987,9 +955,6 @@ func (orm *ORM) SaveUser(user *models.User) error {
 
 // SaveSession saves the session.
 func (orm *ORM) SaveSession(session *models.Session) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Save(session).Error
 }
 
@@ -1107,9 +1072,6 @@ func (orm *ORM) LastHead() (*models.Head, error) {
 
 // DeleteStaleSessions deletes all sessions before the passed time.
 func (orm *ORM) DeleteStaleSessions(before time.Time) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
@@ -1394,7 +1356,7 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Find(collection).Error
 }
 
-func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
+func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}

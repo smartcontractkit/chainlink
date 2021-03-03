@@ -22,16 +22,13 @@ const up3 = `
     CREATE INDEX IF NOT EXISTS idx_eth_logs_block_number ON eth_logs (block_number);
     CREATE INDEX IF NOT EXISTS idx_eth_logs_address_block_number ON eth_logs (address, block_number);
 
-    -- TODO: IS THIS SAFE????????????????????????????????????????????
-    DELETE FROM log_consumptions;
-
 	ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_consumptions_exactly_one_job_id TO chk_log_broadcasts_exactly_one_job_id;
 	ALTER TABLE log_consumptions RENAME CONSTRAINT log_consumptions_job_id_fkey TO log_broadcasts_job_id_fkey;
 	ALTER TABLE log_consumptions RENAME TO log_broadcasts;
 
     ALTER TABLE log_broadcasts
         ADD COLUMN "consumed" BOOL NOT NULL DEFAULT FALSE,
-        ADD COLUMN "eth_log_id" BIGINT NOT NULL,
+		ADD COLUMN "eth_log_id" BIGINT, -- NOTE: This ought to be not null in the final application of this migration
 		ADD CONSTRAINT log_broadcasts_eth_log_id_fkey FOREIGN KEY (eth_log_id) REFERENCES eth_logs (id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE;
 
     CREATE INDEX idx_log_broadcasts_unconsumed_eth_log_id ON log_broadcasts (eth_log_id) WHERE consumed = false;
@@ -45,15 +42,21 @@ const up3 = `
 	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON log_broadcasts(job_id_v2, block_hash, log_index) INCLUDE (consumed) WHERE job_id_v2 IS NOT NULL;
 `
 
-// TODO: Finalise down3
 const down3 = `
-    -- ALTER TABLE log_broadcasts DROP COLUMN "consumed";
-    ALTER TABLE log_broadcasts DROP CONSTRAINT "log_broadcasts_eth_logs_fkey";
-    -- ALTER TABLE log_broadcasts RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
-    -- ALTER TABLE log_broadcasts RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
-    ALTER TABLE log_broadcasts RENAME TO log_consumptions;
+	DELETE FROM eth_logs;
 
-    DROP TABLE eth_logs;
+    ALTER TABLE log_broadcasts
+        DROP COLUMN "eth_log_id",
+        DROP COLUMN "consumed";
+
+	ALTER TABLE log_broadcasts RENAME TO log_consumptions;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT chk_log_broadcasts_exactly_one_job_id TO chk_log_consumptions_exactly_one_job_id;
+	ALTER TABLE log_consumptions RENAME CONSTRAINT log_broadcasts_job_id_fkey TO log_consumptions_job_id_fkey;
+
+	CREATE UNIQUE INDEX log_consumptions_unique_v1_idx ON public.log_consumptions USING btree (job_id, block_hash, log_index);
+	CREATE UNIQUE INDEX log_consumptions_unique_v2_idx ON public.log_consumptions USING btree (job_id_v2, block_hash, log_index);
+
+    DROP TABLE "eth_logs";
 `
 
 func init() {
