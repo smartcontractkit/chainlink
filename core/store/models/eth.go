@@ -137,6 +137,21 @@ func (h Head) EarliestInChain() Head {
 	return h
 }
 
+// IsInChain returns true if the given hash matches the hash of a head in the chain
+func (h Head) IsInChain(blockHash common.Hash) bool {
+	for {
+		if h.Hash == blockHash {
+			return true
+		}
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return false
+}
+
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h Head) ChainLength() uint32 {
 	l := uint32(1)

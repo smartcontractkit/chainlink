@@ -98,7 +98,6 @@ type ChainlinkApplication struct {
 	services.RunManager
 	RunQueue                 services.RunQueue
 	JobSubscriber            services.JobSubscriber
-	GasUpdater               services.GasUpdater
 	EthBroadcaster           bulletprooftxmanager.EthBroadcaster
 	LogBroadcaster           log.Broadcaster
 	EventBroadcaster         postgres.EventBroadcaster
@@ -126,6 +125,9 @@ type ChainlinkApplication struct {
 // the logger at the same directory and returns the Application to
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) Application {
+	var subservices []StartCloser
+	var headTrackables []strpkg.HeadTrackable
+
 	shutdownSignal := gracefulpanic.NewSignal()
 	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
 
@@ -141,11 +143,19 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}
 
+	if store.Config.GasUpdaterEnabled() {
+		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
+		gasUpdater := services.NewGasUpdater(store)
+		subservices = append(subservices, gasUpdater)
+		headTrackables = append(headTrackables, gasUpdater)
+	} else {
+		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
+	}
+
 	runExecutor := services.NewRunExecutor(store, statsPusher)
 	runQueue := services.NewRunQueue(runExecutor)
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
-	gasUpdater := services.NewGasUpdater(store)
 	promReporter := services.NewPromReporter(store.MustSQLDB())
 	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
@@ -166,8 +176,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	)
 
 	var (
-		subservices []StartCloser
-		delegates   = map[job.Type]job.Delegate{
+		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
@@ -206,7 +215,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	app := &ChainlinkApplication{
 		JobSubscriber:            jobSubscriber,
-		GasUpdater:               gasUpdater,
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
 		EventBroadcaster:         eventBroadcaster,
@@ -230,8 +238,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		// instead of manually start/closing
 		subservices: subservices,
 	}
-
-	headTrackables := []strpkg.HeadTrackable{gasUpdater}
 
 	headTrackables = append(
 		headTrackables,

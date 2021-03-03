@@ -400,7 +400,7 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value

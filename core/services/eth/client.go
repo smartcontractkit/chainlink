@@ -339,7 +339,6 @@ func (client *client) SubscribeNewHead(ctx context.Context, ch chan<- *models.He
 	return client.RPCClient.EthSubscribe(ctx, ch, "newHeads")
 }
 
-// TODO: remove this wrapper type once cltest.EthMock is no longer in use.
 type rpcClientWrapper struct {
 	*rpc.Client
 }
