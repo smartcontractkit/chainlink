@@ -2,6 +2,7 @@ package job
 
 import (
 	"context"
+	"reflect"
 	"strconv"
 	"sync"
 	"time"
@@ -212,12 +213,14 @@ func (js *spawner) stopAllServices() {
 }
 
 func (js *spawner) stopService(jobID int32) {
-	for i, service := range js.services[jobID] {
+	services := js.services[jobID]
+	for i := len(services) - 1; i >= 0; i-- {
+		service := services[i]
 		err := service.Close()
 		if err != nil {
-			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i)
+			logger.Errorw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
 		} else {
-			logger.Infow("Stopped job service", "jobID", jobID, "subservice", i)
+			logger.Infow("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", reflect.TypeOf(service))
 		}
 	}
 	delete(js.services, jobID)
