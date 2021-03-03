@@ -623,6 +623,30 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return true, nil
 }
 
+func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) {
+	// Non-FM jobs specify bridges in task specs.
+	var bridgeJobIDs []models.JobID
+	err := orm.DB.Raw(`SELECT job_spec_id FROM task_specs WHERE type = ? AND deleted_at IS NULL`, bridgeName).Find(&bridgeJobIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	var fmInitiators []models.Initiator
+	err = orm.DB.Raw(`SELECT * FROM initiators WHERE type = ? AND deleted_at IS NULL`, models.InitiatorFluxMonitor).Find(&fmInitiators).Error
+	if err != nil {
+		return nil, err
+	}
+	// FM jobs specify bridges in the initiator.
+	for _, fmi := range fmInitiators {
+		if fmi.Feeds.IsArray() && len(fmi.Feeds.Array()) == 1 {
+			bn := fmi.Feeds.Array()[0].Get("bridge")
+			if bn.String() == bridgeName {
+				bridgeJobIDs = append(bridgeJobIDs, fmi.JobSpecID)
+			}
+		}
+	}
+	return bridgeJobIDs, nil
+}
+
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
 func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
