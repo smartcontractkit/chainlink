@@ -68,6 +68,8 @@ contracts-operator-ui-build: # only compiles tsc and builds contracts and operat
 	yarn setup:chainlink
 	CHAINLINK_VERSION="$(VERSION)@$(COMMIT_SHA)" yarn workspace @chainlink/operator-ui build
 
+.PHONY: abigen
+abigen: tools/bin/abigen
 tools/bin/abigen:
 	./tools/bin/build_abigen
 
