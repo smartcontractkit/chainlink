@@ -1370,6 +1370,10 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client, _ := app.NewClientAndRenderer()
 
 	var ocrJobSpecFromFile job.SpecDB
@@ -1381,7 +1385,6 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	err = tree.Unmarshal(&ocrSpec)
 	require.NoError(t, err)
 	ocrJobSpecFromFile.OffchainreportingOracleSpec = &ocrSpec
-
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 	ocrJobSpecFromFile.OffchainreportingOracleSpec.TransmitterAddress = &key.Address
 
