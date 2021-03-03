@@ -458,8 +458,8 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	run.Outputs = finalResult.OutputsDB()
 	run.Errors = finalResult.ErrorsDB()
 
-	if runID, err = r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs); err != nil {
-		return result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
+	if runID, err = r.orm.InsertFinishedRunWithResults(ctx, run, trrs); err != nil {
+		return runID, result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 
 	return runID, finalResult, nil

@@ -24,7 +24,7 @@ type dataSource struct {
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
-// The context passed in here has a timeout of (ObservationTimeout - ObservationGracePeriod).
+// The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
