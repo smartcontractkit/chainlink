@@ -211,7 +211,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(voterTurnoutDataSourceTemplate, httpURL)
 	voterTurnoutJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
-	return makeOCRJobSpecWithHTTPURL(t, db, voterTurnoutJobSpec)
+	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
 
 func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) *job.SpecDB {
@@ -220,10 +220,10 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitter
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	ds := fmt.Sprintf(simpleFetchDataSourceTemplate, httpURL, lax)
 	simpleFetchJobSpec := fmt.Sprintf(ocrJobSpecTemplate, cltest.NewAddress().Hex(), peerID, ocrKeyID, transmitterAddress.Hex(), ds)
-	return makeOCRJobSpecWithHTTPURL(t, db, simpleFetchJobSpec)
+	return makeOCRJobSpecFromToml(t, db, simpleFetchJobSpec)
 }
 
-func makeOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, jobSpecToml string) *job.SpecDB {
+func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.SpecDB {
 	t.Helper()
 
 	var jb = job.SpecDB{
