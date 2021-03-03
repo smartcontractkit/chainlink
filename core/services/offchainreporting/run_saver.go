@@ -56,7 +56,6 @@ func (r *RunResultSaver) Close() error {
 
 	// In the unlikely event that there are remaining runResults to write,
 	// drain the channel and save them.
-Drain:
 	for {
 		select {
 		case rr := <-r.runResults:
@@ -65,7 +64,7 @@ Drain:
 				logger.Errorw(fmt.Sprintf("error inserting finished results for job %v", r.jobID), "err", err)
 			}
 		default:
-			break Drain
+			return nil
 		}
 	}
 	return nil
