@@ -131,18 +131,36 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
   {
     require(compoundDeviationThresholdNumerator > 0
       && compoundDeviationThresholdNumerator <= BILLION, "Invalid threshold numerator");
-    require(compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
-    s_feedDetails[aggregator] = CompoundFeedDetails({
-      symbol: compoundSymbol,
-      decimals: compoundDecimals,
-      deviationThresholdNumerator: compoundDeviationThresholdNumerator
-    });
-    emit FeedDetailsSet(
-      aggregator,
-      compoundSymbol,
-      compoundDecimals,
-      compoundDeviationThresholdNumerator
-    );
+    require(_compoundPriceOf(compoundSymbol) != 0, "Invalid Compound price");
+    string memory currentSymbol = s_feedDetails[aggregator].symbol;
+    // If symbol is not set, use the new one
+    if (bytes(currentSymbol).length == 0) {
+      s_feedDetails[aggregator] = CompoundFeedDetails({
+        symbol: compoundSymbol,
+        decimals: compoundDecimals,
+        deviationThresholdNumerator: compoundDeviationThresholdNumerator
+      });
+      emit FeedDetailsSet(
+        aggregator,
+        compoundSymbol,
+        compoundDecimals,
+        compoundDeviationThresholdNumerator
+      );
+    }
+    // If the symbol is already set, don't change it
+    else {
+      s_feedDetails[aggregator] = CompoundFeedDetails({
+        symbol: currentSymbol,
+        decimals: compoundDecimals,
+        deviationThresholdNumerator: compoundDeviationThresholdNumerator
+      });
+      emit FeedDetailsSet(
+        aggregator,
+        currentSymbol,
+        compoundDecimals,
+        compoundDeviationThresholdNumerator
+      );
+    }
   }
 
   /**
@@ -165,7 +183,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     uint256 invalidCount = 0;
     for (uint256 i = 0; i < aggregators.length; i++) {
       address aggregator = aggregators[i];
-      if (isInvalid(aggregator)) {
+      if (_isInvalid(aggregator)) {
         invalidAggregators[invalidCount] = aggregator;
         invalidCount++;
       }
@@ -297,7 +315,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param symbol string
    * @return price uint256
    */
-  function compoundPriceOf(
+  function _compoundPriceOf(
     string memory symbol
   )
     private
@@ -317,7 +335,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param aggregator address of the Chainlink aggregator
    * @return invalid bool. True if the deviation exceeds threshold.
    */
-  function isInvalid(
+  function _isInvalid(
     address aggregator
   )
     private
@@ -331,11 +349,11 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
       return false;
     }
     // Get both oracle price details
-    uint256 compPrice = compoundPriceOf(compDetails.symbol);
-    (uint256 aggregatorPrice, uint8 aggregatorDecimals) = aggregatorValues(aggregator);
+    uint256 compPrice = _compoundPriceOf(compDetails.symbol);
+    (uint256 aggregatorPrice, uint8 aggregatorDecimals) = _aggregatorValues(aggregator);
 
     // Adjust the prices so the number of decimals in each align
-    (aggregatorPrice, compPrice) = adjustPriceDecimals(
+    (aggregatorPrice, compPrice) = _adjustPriceDecimals(
       aggregatorPrice,
       aggregatorDecimals,
       compPrice,
@@ -343,7 +361,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
     );
 
     // Check whether the prices deviate beyond the threshold.
-    return deviatesBeyondThreshold(aggregatorPrice, compPrice, compDetails.deviationThresholdNumerator);
+    return _deviatesBeyondThreshold(aggregatorPrice, compPrice, compDetails.deviationThresholdNumerator);
   }
 
   /**
@@ -352,7 +370,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @return price uint256
    * @return decimals uint8
    */
-  function aggregatorValues(
+  function _aggregatorValues(
     address aggregator
   )
     private
@@ -378,7 +396,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @return adjustedAggregatorPrice uint256
    * @return adjustedCompoundPrice uint256
    */
-  function adjustPriceDecimals(
+  function _adjustPriceDecimals(
     uint256 aggregatorPrice,
     uint8 aggregatorDecimals,
     uint256 compoundPrice,
@@ -414,7 +432,7 @@ contract CompoundPriceFlaggingValidator is ConfirmedOwner, UpkeepInterface {
    * @param deviationThresholdNumerator uint32
    * @return beyondThreshold boolean. Returns true if deviation is beyond threshold.
    */
-  function deviatesBeyondThreshold(
+  function _deviatesBeyondThreshold(
     uint256 aggregatorPrice,
     uint256 compPrice,
     uint32 deviationThresholdNumerator
