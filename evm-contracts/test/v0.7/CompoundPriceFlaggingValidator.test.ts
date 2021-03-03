@@ -225,6 +225,38 @@ describe('CompoundPriceFlaggingVlidator', () => {
       assert.equal(response[2].toString(), deviationNumerator.toString())
     })
 
+    it('uses the existing symbol if one already exists', async () => {
+      const newSymbol = 'LINK'
+
+      await compoundOracle
+        .connect(personas.Carol)
+        .setPrice(newSymbol, 1500000, 2)
+
+      const tx = await validator
+        .connect(personas.Carol)
+        .setFeedDetails(
+          mockAggregator.address,
+          newSymbol,
+          decimals,
+          deviationNumerator,
+        )
+      receipt = await tx.wait()
+
+      // Check the event
+      const eventLog = matchers.eventExists(
+        receipt,
+        validator.interface.events.FeedDetailsSet,
+      )
+      const eventArgs = h.eventArgs(eventLog)
+      assert.equal(eventArgs.symbol, symbol)
+
+      // Check the state
+      const response = await validator
+        .connect(personas.Carol)
+        .getFeedDetails(mockAggregator.address)
+      assert.equal(response[0], symbol)
+    })
+
     it('emits an event', async () => {
       const eventLog = matchers.eventExists(
         receipt,
