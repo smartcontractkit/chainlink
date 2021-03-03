@@ -44,7 +44,6 @@ type (
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
@@ -176,6 +175,11 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 		panic("expected at least one task to be final")
 	}
 	return
+}
+
+type RunWithResults struct {
+	Run            Run
+	TaskRunResults TaskRunResults
 }
 
 type BaseTask struct {

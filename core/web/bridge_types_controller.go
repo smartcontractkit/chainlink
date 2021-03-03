@@ -145,17 +145,17 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge for BTC Destroy: %+v", err))
 		return
 	}
-	jobFounds, err := btc.App.GetStore().AnyJobWithType(name)
+	jobsUsingBridge, err := btc.App.GetStore().FindJobIDsWithBridge(name)
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs for BTC Destroy: %+v", err))
 		return
 	}
-	if jobFounds {
-		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because there are jobs associated with it: %+v", err))
+	if len(jobsUsingBridge) > 0 {
+		jsonAPIError(c, http.StatusConflict, fmt.Errorf("can't remove the bridge because jobs %v are associated with it", jobsUsingBridge))
 		return
 	}
 	if err = btc.App.GetStore().DeleteBridgeType(&bt); err != nil {
-		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to initialise BTC Destroy: %+v", err))
+		jsonAPIError(c, StatusCodeForError(err), fmt.Errorf("failed to delete bridge: %+v", err))
 		return
 	}
 

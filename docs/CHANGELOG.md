@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The global env var JOB_PIPELINE_MAX_TASK_DURATION is no longer supported
+for OCR jobs.
 - Better debug logging in Gas Updater
 - `ETH_MAX_UNCONFIRMED_TRANSACTIONS`
 
@@ -40,6 +42,8 @@ at the highest price that worked.
 Node operators should check their geth nodes and remove this cap if configured,
 you can do this by running your geth node with `--rpc.gascap=0
 --rpc.txfeecap=0` or setting these values in your config toml.
+
+- Pull head backfill out of the headtracker. This should eliminate some harmless but annoying errors logged on startup and occasionally during normal operation on fast chains like Kovan.
 
 ## [0.10.1] - 2021-02-23
 
