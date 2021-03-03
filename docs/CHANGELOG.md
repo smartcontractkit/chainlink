@@ -7,16 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Better debug logging in Gas Updater
+- `ETH_MAX_UNCONFIRMED_TRANSACTIONS`
+
+Chainlink node now has a maximum number of unconfirmed transactions that
+may be in flight at any one time (per key).
+
+If this limit is reached, further attempts t send transactions will fail
+and the relevant job will be marked as failed.
+
+Jobs will continue to fail until at least one transaction is confirmed
+and the queue size is reduced. This is introduced as a sanity limit to
+prevent unbounded sending of transactions e.g. in the case that the eth
+node is failing to broadcast to the network.
+
+The default is set to 500 which considered high enough that it should
+never be reached under normal operation. This limit can be configured
+using the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
-  geth. Node will now fatally error jobs if the total transaction costs exceeds
-  the configured cap (default 1 Eth). Also, it will no longer continue
-  to bump gas on transactions that started hitting this limit and instead
-  continue to resubmit at the highest price that worked. Node operators should
-  check their geth nodes and remove this cap if configured, you can do this by
-  running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting
-  these values in your config toml.
+  geth.
+
+Node will now fatally error jobs if the total transaction costs exceeds the
+configured cap (default 1 Eth). Also, it will no longer continue to bump gas on
+transactions that started hitting this limit and instead continue to resubmit
+at the highest price that worked.
+
+Node operators should check their geth nodes and remove this cap if configured,
+you can do this by running your geth node with `--rpc.gascap=0
+--rpc.txfeecap=0` or setting these values in your config toml.
 
 ## [0.10.1] - 2021-02-23
 
