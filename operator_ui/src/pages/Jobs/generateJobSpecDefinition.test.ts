@@ -1,4 +1,10 @@
-import { InitiatorType, JobSpecV2 } from 'core/store/models'
+/* eslint-enable no-useless-escape */
+
+import {
+  InitiatorType,
+  JobSpecV2,
+  OffChainReportingOracleJobV2Spec,
+} from 'core/store/models'
 import {
   generateJSONDefinition,
   generateTOMLDefinition,
@@ -175,7 +181,7 @@ describe('generateJSONDefinition', () => {
 
 describe('generateTOMLDefinition', () => {
   it('generates a valid OCR definition', () => {
-    const jobSpecAttributesInput = {
+    const jobSpecAttributesInput: OffChainReportingOracleJobV2Spec = {
       name: 'Job spec v2',
       type: 'offchainreporting',
       fluxMonitorSpec: null,
@@ -208,7 +214,6 @@ describe('generateTOMLDefinition', () => {
       errors: [],
     }
 
-    /* eslint-disable no-useless-escape */
     const expectedOutput = `type = "offchainreporting"
 schemaVersion = 1
 contractAddress = "0x1469877c88F19E273EFC7Ef3C9D944574583B8a0"
@@ -233,7 +238,6 @@ observationSource = """
 """
 maxTaskDuration = "10s"
 `
-    /* eslint-enable no-useless-escape */
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)
@@ -266,7 +270,6 @@ maxTaskDuration = "10s"
       errors: [],
     } as JobSpecV2
 
-    /* eslint-disable no-useless-escape */
     const expectedOutput = `type = "fluxmonitor"
 schemaVersion = 1
 name = "FM Job Spec"
@@ -286,7 +289,6 @@ observationSource = """
     fetch -> parse -> multiply;
 """
 `
-    /* eslint-enable no-useless-escape */
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)

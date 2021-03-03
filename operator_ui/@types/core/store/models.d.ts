@@ -466,26 +466,44 @@ declare module 'core/store/models' {
   export type PipelineTaskOutput = string | null
   export type PipelineTaskError = string | null
 
-  export type FluxMonitorSpec = {
-    contractAddress: common.Address
-    precision: number;
-    threshold: number;
-    absoluteThreshold: number;
-    idleTimerDisabled: false;
-    idleTimerPeriod: string;
-    pollTimerDisabled: false;
-    pollTimerPeriod: string;
-    createdAt: time.Time
-  }
-
-  export type DirectRequestSpec = {
-    createdAt: time.Time
-  }
-
-  export interface JobSpecV2 {
+  interface BaseJobSpecV2 {
     name: string | null
-    type: string
-    errors: JobSpecError[]
+    errors: JobSpecError[]    
+    maxTaskDuration: string
+    pipelineSpec: {
+      dotDagSource: string
+    }    
+    schemaVersion: number;
+  }
+
+  export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
+    type: 'directrequest'
+    directRequestSpec: {
+      createdAt: time.Time
+    }
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null 
+  }  
+
+  export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
+    type: 'fluxmonitor'
+    fluxMonitorSpec: {
+      contractAddress: common.Address
+      precision: number;
+      threshold: number;
+      absoluteThreshold: number;
+      idleTimerDisabled: false;
+      idleTimerPeriod: string;
+      pollTimerDisabled: false;
+      pollTimerPeriod: string;
+      createdAt: time.Time      
+    }
+    directRequestSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
+    type: 'offchainreporting'
     offChainReportingOracleSpec: {
       contractAddress: common.Address
       p2pPeerID: string
@@ -501,15 +519,41 @@ declare module 'core/store/models' {
       contractConfigConfirmations: number
       createdAt: time.Time
       updatedAt: time.Time
-    } | null
-    directRequestSpec: DirectRequestSpec | null
-    fluxMonitorSpec: FluxMonitorSpec | null
-    maxTaskDuration: string
-    pipelineSpec: {
-      dotDagSource: string
-    }
-    schemaVersion: number;
+    } 
+    directRequestSpec: null
+    fluxMonitorSpec: null
   }
+
+  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec
+
+  // export interface JobSpecV2 {
+  //   name: string | null
+  //   type: string
+  //   errors: JobSpecError[]
+  //   offChainReportingOracleSpec: {
+  //     contractAddress: common.Address
+  //     p2pPeerID: string
+  //     p2pBootstrapPeers: string[]
+  //     isBootstrapPeer: boolean
+  //     keyBundleID: string
+  //     monitoringEndpoint: string
+  //     transmitterAddress: common.Address
+  //     observationTimeout: string
+  //     blockchainTimeout: string
+  //     contractConfigTrackerSubscribeInterval: string
+  //     contractConfigTrackerPollInterval: string
+  //     contractConfigConfirmations: number
+  //     createdAt: time.Time
+  //     updatedAt: time.Time
+  //   } | null
+  //   directRequestSpec: DirectRequestSpec | null
+  //   fluxMonitorSpec: FluxMonitorSpec | null
+  //   maxTaskDuration: string
+  //   pipelineSpec: {
+  //     dotDagSource: string
+  //   }
+  //   schemaVersion: number;
+  // }
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]

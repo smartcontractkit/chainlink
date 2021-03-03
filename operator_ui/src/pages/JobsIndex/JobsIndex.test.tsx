@@ -11,10 +11,10 @@ import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import JobsIndex, { simpleJobFilter, CombinedJobs } from './JobsIndex'
-import { partialAsFull } from 'support/test-helpers/partialAsFull'
+import { partialAsFull } from 'test-helpers/partialAsFull'
 import { Initiator, InitiatorType } from 'core/store/models'
 import { INDEX_ENDPOINT as JSON_ENDPOINT } from 'api/v2/specs'
-import { ENDPOINT as OCR_ENDPOINT } from 'src/api/v2/jobs'
+import { ENDPOINT as OCR_ENDPOINT } from 'api/v2/jobs'
 
 describe('pages/JobsIndex/JobsIndex', () => {
   it('renders the list of jobs', async () => {
