@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -32,7 +32,7 @@ import (
 
 const hibernationPollPeriod = 24 * time.Hour
 
-var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
@@ -290,10 +290,10 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	var flagsContract *contracts.Flags
+	var flagsContract *flags_wrapper.Flags
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-		flagsContract, err = contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
+		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
 		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
 		logger.ErrorIf(err, errorMsg)
 	}
@@ -311,12 +311,12 @@ func (f pollingDeviationCheckerFactory) New(
 	return NewPollingDeviationChecker(
 		f.store,
 		fluxAggregator,
+		flagsContract,
 		f.logBroadcaster,
 		initr,
 		minJobPayment,
 		runManager,
 		fetcher,
-		flagsContract,
 		func() { f.logBroadcaster.DependentReady() },
 		min,
 		max,
@@ -381,10 +381,10 @@ type DeviationChecker interface {
 type PollingDeviationChecker struct {
 	store          *store.Store
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface
+	flags          flags_wrapper.FlagsInterface
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	fetcher        Fetcher
-	flagsContract  *contracts.Flags
 	oracleAddress  common.Address
 
 	initr         models.Initiator
@@ -412,21 +412,20 @@ type PollingDeviationChecker struct {
 func NewPollingDeviationChecker(
 	store *store.Store,
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
+	flags flags_wrapper.FlagsInterface,
 	logBroadcaster log.Broadcaster,
 	initr models.Initiator,
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	flagsContract *contracts.Flags,
 	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
-	return &PollingDeviationChecker{
+	pdc := &PollingDeviationChecker{
 		readyForLogs:     readyForLogs,
 		store:            store,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
-		flagsContract:    flagsContract,
 		initr:            initr,
 		minJobPayment:    minJobPayment,
 		requestData:      initr.RequestData,
@@ -451,7 +450,15 @@ func NewPollingDeviationChecker(
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
-	}, nil
+	}
+	// This is necessary due to the unfortunate fact that assigning `nil` to an
+	// interface variable causes `x == nil` checks to always return false. If we
+	// do this here, in the constructor, we can avoid using reflection when we
+	// check `p.flags == nil` later in the code.
+	if flags != nil && !reflect.ValueOf(flags).IsNil() {
+		pdc.flags = flags
+	}
+	return pdc, nil
 }
 
 const (
@@ -471,7 +478,7 @@ func (p *PollingDeviationChecker) Start() {
 }
 
 func (p *PollingDeviationChecker) setIsHibernatingStatus() {
-	if p.flagsContract == nil {
+	if p.flags == nil {
 		p.isHibernating = false
 		return
 	}
@@ -485,10 +492,10 @@ func (p *PollingDeviationChecker) setIsHibernatingStatus() {
 }
 
 func (p *PollingDeviationChecker) isFlagLowered() (bool, error) {
-	if p.flagsContract == nil {
+	if p.flags == nil {
 		return true, nil
 	}
-	flags, err := p.flagsContract.GetFlags(nil, []common.Address{utils.ZeroAddress, p.initr.Address})
+	flags, err := p.flags.GetFlags(nil, []common.Address{utils.ZeroAddress, p.initr.Address})
 	if err != nil {
 		return true, err
 	}
@@ -575,21 +582,13 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	// subscribe to contract logs
-	isConnected := false
-	fluxAggLogListener, err := newFluxAggregatorDecodingLogListener(p.fluxAggregator.Address(), p.store.EthClient, p)
-	if err != nil {
-		logger.Errorw("unable to create flux agg decoding log listener", "err", err)
-		return
-	}
+	isConnected := p.logBroadcaster.Register(p.fluxAggregator, p)
+	defer p.logBroadcaster.Unregister(p.fluxAggregator, p)
 
-	isConnected = p.logBroadcaster.Register(p.fluxAggregator.Address(), fluxAggLogListener)
-	defer func() { p.logBroadcaster.Unregister(p.fluxAggregator.Address(), fluxAggLogListener) }()
-
-	if p.flagsContract != nil {
-		flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
-		flagsConnected := p.logBroadcaster.Register(p.flagsContract.Address, flagsLogListener)
+	if p.flags != nil {
+		flagsConnected := p.logBroadcaster.Register(p.flags, p)
 		isConnected = isConnected && flagsConnected
-		defer func() { p.logBroadcaster.Unregister(p.flagsContract.Address, flagsLogListener) }()
+		defer p.logBroadcaster.Unregister(p.flags, p)
 	}
 
 	if isConnected {
@@ -1080,11 +1079,7 @@ func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polled
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (flux_aggregator_wrapper.OracleRoundState, error) {
-	roundState, err := p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
-	if err != nil {
-		return flux_aggregator_wrapper.OracleRoundState{}, err
-	}
-	return roundState, nil
+	return p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
 }
 
 // initialRoundState fetches the round information that the fluxmonitor should use when starting

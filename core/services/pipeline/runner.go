@@ -27,7 +27,7 @@ type (
 		Close() error
 		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 		ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
-		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (finalResult FinalResult, err error)
+		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 		AwaitRun(ctx context.Context, runID int64) error
 		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
@@ -388,6 +388,7 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 		"taskID", taskRun.PipelineTaskSpecID,
 		"runID", taskRun.PipelineRunID,
 		"taskRunID", taskRun.ID,
+		"specID", taskRun.PipelineTaskSpec.PipelineSpecID,
 	}
 
 	task, err := UnmarshalTaskFromMap(
@@ -437,17 +438,17 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 
 // ExecuteAndInsertNewRun bypasses the job pipeline entirely.
 // It executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (result FinalResult, err error) {
+func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, result FinalResult, err error) {
 	start := time.Now()
 
 	run, err := NewRun(spec, start)
 	if err != nil {
-		return result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
+		return run.ID, result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
 	}
 
 	trrs, err := r.ExecuteRun(ctx, run, l)
 	if err != nil {
-		return result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
+		return run.ID, result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
 
 	end := time.Now()
@@ -457,15 +458,11 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 	run.Outputs = finalResult.OutputsDB()
 	run.Errors = finalResult.ErrorsDB()
 
-	// In the case that our run gets cancelled via ctx cancellation,
-	// we still want to save the results and so we need a fresh context.
-	dbCtx, cancel := context.WithTimeout(context.Background(), r.config.DatabaseMaximumTxDuration())
-	defer cancel()
-	if _, err := r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs); err != nil {
+	if runID, err = r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs); err != nil {
 		return result, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 
-	return finalResult, nil
+	return runID, finalResult, nil
 }
 
 func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error) {

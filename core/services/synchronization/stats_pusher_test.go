@@ -28,7 +28,7 @@ func TestStatsPusher(t *testing.T) {
 	pusher.Start()
 	defer pusher.Close()
 
-	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
+	require.NoError(t, store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 	pusher.PushNow()
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
@@ -56,7 +56,7 @@ func TestStatsPusher_ClockTrigger(t *testing.T) {
 	pusher.Start()
 	defer pusher.Close()
 
-	err = store.ORM.RawDB(func(db *gorm.DB) error {
+	err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Save(&models.SyncEvent{Body: string("")}).Error
 	})
 	require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestStatsPusher_NoAckLeavesEvent(t *testing.T) {
 	pusher.Start()
 	defer pusher.Close()
 
-	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
+	require.NoError(t, store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 	pusher.PushNow()
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
@@ -111,7 +111,7 @@ func TestStatsPusher_BadSyncLeavesEvent(t *testing.T) {
 	pusher.Start()
 	defer pusher.Close()
 
-	require.NoError(t, store.ORM.RawDB(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
+	require.NoError(t, store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return db.Create(&models.SyncEvent{}).Error }))
 
 	assert.Equal(t, 1, lenSyncEvents(t, store.ORM), "jobrun sync event should be created")
 	clock.Trigger()

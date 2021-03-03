@@ -371,6 +371,14 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
 }
 
+// EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
+// transactions per key that are allowed to be in flight before jobs will start
+// failing and rejecting send of any further transactions.
+// 0 value disables
+func (c Config) EthMaxUnconfirmedTransactions() uint64 {
+	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)

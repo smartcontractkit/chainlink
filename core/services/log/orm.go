@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jackc/pgconn"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -108,6 +109,21 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	query := o.db.Exec(stmt, args...)
 
 	if query.Error != nil {
+		switch v := query.Error.(type) {
+		case *pgconn.PgError:
+			if v.Code == "23503" && v.ConstraintName == "log_broadcasts_eth_log_id_fkey" {
+				logger.Debugw(
+					"log.ORM.UpsertBroadcastForListener: tried to upsert log_broadcast but the referenced eth_log was already deleted",
+					"blockHash", log.BlockHash, "blockNum", log.BlockNumber, "index", log.Index, "address", log.Address, "jobID", jobID,
+					"log", log,
+				)
+				// NOTE: This rare case indicates that the eth_log was deleted
+				// simultaneously with this query. Return as if we inserted
+				// successfully and the delete operation came immediately
+				// afterwards, cascading to the newly inserted log_broadcast.
+				return nil
+			}
+		}
 		return errors.Wrap(query.Error, "while upserting broadcast for listener")
 	} else if query.RowsAffected == 0 {
 		return errors.Errorf("no eth_log was found with block_hash %s and index %v", log.BlockHash, log.Index)
@@ -116,7 +132,7 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	return nil
 }
 
-func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID interface{}) error {
+func (o *orm) UpsertBroadcastsForListenerSinceBlock(blockNumber uint64, address common.Address, jobID interface{}) (err error) {
 	var jobIDName string
 	switch v := jobID.(type) {
 	case models.JobID:
@@ -152,7 +168,22 @@ ON CONFLICT (%[1]s, block_hash, log_index) WHERE %[1]s IS NOT NULL DO UPDATE SET
 	}
 
 	stmt := fmt.Sprintf(q, jobIDName)
-	return o.db.Exec(stmt, args...).Error
+	err = o.db.Exec(stmt, args...).Error
+	switch v := err.(type) {
+	case *pgconn.PgError:
+		if v.Code == "23503" && v.ConstraintName == "log_broadcasts_eth_log_id_fkey" {
+			logger.Debugw(
+				"log.ORM.UpsertBroadcastsForListenerSinceBlock: tried to upsert log_broadcasts but the referenced eth_log was already deleted",
+				"blockNum", blockNumber, "address", address, "jobID", jobID,
+			)
+			// NOTE: This rare case indicates that the eth_log was deleted
+			// simultaneously with this query. Return as if we inserted
+			// successfully and the delete operation came immediately
+			// afterwards, cascading to the newly inserted log_broadcast.
+			return nil
+		}
+	}
+	return errors.Wrapf(err, "while upserting broadcast for listener since block %v", blockNumber)
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) (consumed bool, err error) {

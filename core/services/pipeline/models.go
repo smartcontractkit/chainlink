@@ -17,7 +17,7 @@ type (
 		DotDagSource      string          `json:"dotDagSource"`
 		CreatedAt         time.Time       `json:"-"`
 		MaxTaskDuration   models.Interval `json:"-"`
-		PipelineTaskSpecs []TaskSpec      `json:"-" gorm:"foreignkey:PipelineSpecID;association_autoupdate:false;association_autocreate:false"`
+		PipelineTaskSpecs []TaskSpec      `json:"-" gorm:"foreignkey:PipelineSpecID;->"`
 	}
 
 	TaskSpec struct {
@@ -41,7 +41,7 @@ type (
 		Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
 		CreatedAt        time.Time        `json:"createdAt"`
 		FinishedAt       *time.Time       `json:"finishedAt"`
-		PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;association_autoupdate:false;association_autocreate:false"`
+		PipelineTaskRuns []TaskRun        `json:"taskRuns" gorm:"foreignkey:PipelineRunID;->"`
 	}
 
 	TaskRun struct {
@@ -52,7 +52,7 @@ type (
 		Output             *JSONSerializable `json:"output" gorm:"type:jsonb"`
 		Error              null.String       `json:"error"`
 		PipelineTaskSpecID int32             `json:"-"`
-		PipelineTaskSpec   TaskSpec          `json:"taskSpec" gorm:"foreignkey:PipelineTaskSpecID;association_autoupdate:false;association_autocreate:false"`
+		PipelineTaskSpec   TaskSpec          `json:"taskSpec" gorm:"foreignkey:PipelineTaskSpecID;->"`
 		CreatedAt          time.Time         `json:"createdAt"`
 		FinishedAt         *time.Time        `json:"finishedAt"`
 	}
