@@ -1511,4 +1511,13 @@ observationSource = """
 		require.NoError(t, err)
 		return answer.String()
 	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+
+	for _, app := range apps {
+		jobs, err := app.JobORM.JobsV2()
+		require.NoError(t, err)
+		// No spec errors
+		for _, j := range jobs {
+			require.Len(t, j.JobSpecErrors, 0)
+		}
+	}
 }

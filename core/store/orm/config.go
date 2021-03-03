@@ -521,6 +521,10 @@ func (c Config) JobPipelineMaxRunDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
 }
 
+func (c Config) JobPipelineResultWriteQueueDepth() uint64 {
+	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parseUint64).(uint64)
+}
+
 // JobPipelineParallelism controls how many workers the pipeline.Runner
 // uses in parallel (how many pipeline runs may simultaneously be executing)
 func (c Config) JobPipelineParallelism() uint8 {

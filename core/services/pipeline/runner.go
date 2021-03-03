@@ -18,33 +18,33 @@ import (
 	"gorm.io/gorm"
 )
 
-type (
-	// Runner checks the DB for incomplete TaskRuns and runs them.  For a
-	// TaskRun to be eligible to be run, its parent/input tasks must already
-	// all be complete.
-	Runner interface {
-		Start() error
-		Close() error
-		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
-		ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
-		ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
-		AwaitRun(ctx context.Context, runID int64) error
-		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
-	}
+//go:generate mockery --name Runner --output ./mocks/ --case=underscore
 
-	runner struct {
-		orm                             ORM
-		config                          Config
-		processIncompleteTaskRunsWorker utils.SleeperTask
-		runReaperWorker                 utils.SleeperTask
+// Runner checks the DB for incomplete TaskRuns and runs them.  For a
+// TaskRun to be eligible to be run, its parent/input tasks must already
+// all be complete.
+type Runner interface {
+	Start() error
+	Close() error
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
+	ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
+	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
+	AwaitRun(ctx context.Context, runID int64) error
+	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
+	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
+}
 
-		utils.StartStopOnce
-		chStop  chan struct{}
-		chDone  chan struct{}
-		newRuns postgres.Subscription
-	}
-)
+type runner struct {
+	orm                             ORM
+	config                          Config
+	processIncompleteTaskRunsWorker utils.SleeperTask
+	runReaperWorker                 utils.SleeperTask
+
+	utils.StartStopOnce
+	chStop  chan struct{}
+	chDone  chan struct{}
+	newRuns postgres.Subscription
+}
 
 var (
 	promPipelineTaskExecutionTime = promauto.NewGaugeVec(prometheus.GaugeOpts{

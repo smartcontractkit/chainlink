@@ -2,7 +2,6 @@ package offchainreporting
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -20,6 +19,7 @@ type dataSource struct {
 	jobID          int32
 	spec           pipeline.Spec
 	ocrLogger      logger.Logger
+	runResults     chan<- pipeline.RunWithResults
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
@@ -52,13 +52,14 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	// we reach the passed in context deadline and we want to
 	// immediately return any result we have and do not want to have
 	// a db write block that.
-	go func(run pipeline.Run, trrs []pipeline.TaskRunResult) {
-		// In the case that our run gets cancelled via ctx cancellation,
-		// we still want to save the results and so we need a fresh context.
-		if _, errInsert := ds.pipelineRunner.InsertFinishedRunWithResults(context.Background(), run, trrs); errInsert != nil {
-			logger.Errorw(fmt.Sprintf("error inserting finished results for spec ID %v", ds.spec.ID), "err", errInsert)
-		}
-	}(run, trrs)
+	select {
+	case ds.runResults <- pipeline.RunWithResults{
+		Run:            run,
+		TaskRunResults: trrs,
+	}:
+	default:
+		return nil, errors.Errorf("unable to enqueue run save, buffer full")
+	}
 
 	result, err := finalResult.SingularResult()
 	if err != nil {

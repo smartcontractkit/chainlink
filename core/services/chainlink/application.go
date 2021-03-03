@@ -183,7 +183,17 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW, monitoringEndpoint)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
+			store.DB,
+			jobORM,
+			config,
+			store.OCRKeyStore,
+			pipelineRunner,
+			ethClient,
+			logBroadcaster,
+			concretePW,
+			monitoringEndpoint,
+		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}

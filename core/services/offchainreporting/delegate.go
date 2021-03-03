@@ -45,7 +45,16 @@ func NewDelegate(
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper, monitoringEndpoint}
+	return &Delegate{db,
+		jobORM,
+		config,
+		keyStore,
+		pipelineRunner,
+		ethClient,
+		logBroadcaster,
+		peerWrapper,
+		monitoringEndpoint,
+	}
 }
 
 func (d Delegate) JobType() job.Type {
@@ -172,6 +181,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
 			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()))
 
+		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: NewDB(db, concreteSpec.ID),
 			Datasource: dataSource{
@@ -179,6 +189,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 				jobID:          jobSpec.ID,
 				ocrLogger:      *loggerWith,
 				spec:           *jobSpec.PipelineSpec,
+				runResults:     runResults,
 			},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
@@ -193,6 +204,16 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
 		services = append(services, oracle)
+
+		// RunResultSaver needs to be started first so its available
+		// to read db writes. It is stopped last after the Oracle is shut down
+		// so no further runs are enqueued and we can drain the queue.
+		services = append([]job.Service{&RunResultSaver{
+			runResults:     runResults,
+			pipelineRunner: d.pipelineRunner,
+			jobID:          jobSpec.ID,
+			done:           make(chan struct{}),
+		}}, services...)
 	}
 
 	return services, nil

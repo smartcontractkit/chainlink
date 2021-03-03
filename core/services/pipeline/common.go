@@ -177,6 +177,11 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 	return
 }
 
+type RunWithResults struct {
+	Run            Run
+	TaskRunResults TaskRunResults
+}
+
 type BaseTask struct {
 	outputTask Task
 	dotID      string        `mapstructure:"-"`
