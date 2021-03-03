@@ -65,3 +65,12 @@ func (oc *OCRContractTransmitter) LatestTransmissionDetails(ctx context.Context)
 func (oc *OCRContractTransmitter) FromAddress() gethCommon.Address {
 	return oc.transmitter.FromAddress()
 }
+
+func (oc *OCRContractTransmitter) LatestRoundRequested(ctx context.Context, lookback time.Duration) (
+	configDigest ocrtypes.ConfigDigest,
+	epoch uint32,
+	round uint8,
+	err error,
+) {
+	return ocrtypes.ConfigDigest{}, 0, 0, nil
+}
