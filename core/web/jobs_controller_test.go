@@ -317,6 +317,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	)
 	require.NoError(t, app.Start())
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFileDB job.SpecDB
