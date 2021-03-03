@@ -1,7 +1,7 @@
 import React from 'react'
 import { Route } from 'react-router-dom'
 import { JobsShow } from 'pages/Jobs/Show'
-import { jsonApiOcrJobSpec } from 'support/factories/jsonApiJob'
+import { jsonApiOcrJobSpec } from 'factories/jsonApiJob'
 import { jsonApiOcrJobRuns } from 'factories/jsonApiOcrJobRuns'
 import jsonApiJobSpecFactory from 'factories/jsonApiJobSpec'
 import jsonApiJobSpecRunsFactory from 'factories/jsonApiJobSpecRuns'

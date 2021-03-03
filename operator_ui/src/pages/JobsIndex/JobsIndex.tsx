@@ -26,8 +26,8 @@ import {
   WithStyles,
   Theme,
 } from '@material-ui/core/styles'
-import DirectRequestRow from './DirectRequestRow'
-import JobV2Row from './JobV2Row'
+import { DirectRequestRow } from './DirectRequestRow'
+import { JobV2Row } from './JobV2Row'
 import SearchIcon from '@material-ui/icons/Search'
 
 enum JobSpecTypes {
@@ -65,14 +65,15 @@ function getCreatedAt(job: CombinedJobs) {
   if (isJobSpecV1(job)) {
     return job.attributes.createdAt
   } else if (isJobSpecV2(job)) {
-    const { fluxMonitorSpec, offChainReportingOracleSpec } = job.attributes
+    switch (job.attributes.type) {
+      case 'offchainreporting':
+        return job.attributes.offChainReportingOracleSpec.createdAt
 
-    if (isFluxMonitorJobSpecV2(job)) {
-      return fluxMonitorSpec ? fluxMonitorSpec.createdAt : new Date().toString()
-    } else {
-      return offChainReportingOracleSpec
-        ? offChainReportingOracleSpec.createdAt
-        : new Date().toString()
+      case 'fluxmonitor':
+        return job.attributes.fluxMonitorSpec.createdAt
+
+      case 'directrequest':
+        return job.attributes.directRequestSpec.createdAt
     }
   } else {
     return new Date().toString()

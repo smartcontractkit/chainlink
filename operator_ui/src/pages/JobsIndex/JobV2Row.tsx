@@ -3,48 +3,22 @@ import { TableCell, TableRow, Typography } from '@material-ui/core'
 import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { JobSpecV2 } from './JobsIndex'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
-
-const styles = (theme: Theme) =>
-  createStyles({
-    cell: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-    },
-    link: {
-      '&::before': {
-        content: "''",
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-      },
-    },
-  })
+import { withStyles, WithStyles } from '@material-ui/core/styles'
+import { styles } from './sharedStyles'
 
 interface Props extends WithStyles<typeof styles> {
   job: JobSpecV2
 }
 
-const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
+export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
   const createdAt = React.useMemo(() => {
-    const { fluxMonitorSpec, offChainReportingOracleSpec } = job.attributes
-
     switch (job.attributes.type) {
       case 'fluxmonitor':
-        return fluxMonitorSpec ? fluxMonitorSpec.createdAt : undefined
+        return job.attributes.fluxMonitorSpec.createdAt
       case 'offchainreporting':
-        return offChainReportingOracleSpec
-          ? offChainReportingOracleSpec.createdAt
-          : undefined
-      default:
-        return undefined
+        return job.attributes.offChainReportingOracleSpec.createdAt
+      case 'directrequest':
+        return job.attributes.directRequestSpec.createdAt
     }
   }, [job])
 
@@ -90,11 +64,9 @@ const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
         </Link>
       </TableCell>
       <TableCell>
-        {createdAt && (
-          <Typography variant="body1">
-            <TimeAgo tooltip>{createdAt}</TimeAgo>
-          </Typography>
-        )}
+        <Typography variant="body1">
+          <TimeAgo tooltip>{createdAt}</TimeAgo>
+        </Typography>
       </TableCell>
       <TableCell>
         <Typography variant="body1">{type}</Typography>
@@ -114,5 +86,3 @@ const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
     </TableRow>
   )
 })
-
-export default JobV2Row

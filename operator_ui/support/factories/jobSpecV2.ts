@@ -1,5 +1,9 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
-import { JobSpecV2, FluxMonitorSpec } from 'core/store/models'
+import {
+  JobSpecV2,
+  FluxMonitorJobV2Spec,
+  OffChainReportingOracleJobV2Spec,
+} from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
 export function ocrJobSpecV2(
@@ -14,7 +18,7 @@ export function ocrJobSpecV2(
   > = {},
 ): JobSpecV2 {
   const offChainReportingOracleSpec = partialAsFull<
-    JobSpecV2['offChainReportingOracleSpec']
+    OffChainReportingOracleJobV2Spec['offChainReportingOracleSpec']
   >({
     contractAddress: config.contractAddress || generateUuid(),
     p2pPeerID: config.p2pPeerID || generateUuid(),
@@ -51,7 +55,7 @@ export function ocrJobSpecV2(
 }
 
 export function fluxMonitorJobV2(
-  spec: Partial<FluxMonitorSpec> = {},
+  spec: Partial<FluxMonitorJobV2Spec['fluxMonitorSpec']> = {},
   config: Partial<
     {
       name?: string
@@ -62,7 +66,9 @@ export function fluxMonitorJobV2(
     }
   > = {},
 ): JobSpecV2 {
-  const fluxMonitorSpec = partialAsFull<JobSpecV2['fluxMonitorSpec']>({
+  const fluxMonitorSpec = partialAsFull<
+    FluxMonitorJobV2Spec['fluxMonitorSpec']
+  >({
     createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
   })
   return {

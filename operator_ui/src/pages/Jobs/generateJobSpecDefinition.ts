@@ -1,5 +1,10 @@
 import { ApiResponse } from 'utils/json-api-client'
-import { JobSpec, JobSpecV2 } from 'core/store/models'
+import {
+  FluxMonitorJobV2Spec,
+  JobSpec,
+  JobSpecV2,
+  OffChainReportingOracleJobV2Spec,
+} from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
 type DIRECT_REQUEST_DEFINITION_VALID_KEYS =
@@ -104,7 +109,7 @@ export const generateTOMLDefinition = (
 }
 
 function generateOCRDefinition(
-  attrs: ApiResponse<JobSpecV2>['data']['attributes'],
+  attrs: ApiResponse<OffChainReportingOracleJobV2Spec>['data']['attributes'],
 ) {
   const ocrSpecWithoutDates = {
     ...attrs.offChainReportingOracleSpec,
@@ -125,7 +130,7 @@ function generateOCRDefinition(
 }
 
 function generateFluxMonitorDefinition(
-  attrs: ApiResponse<JobSpecV2>['data']['attributes'],
+  attrs: ApiResponse<FluxMonitorJobV2Spec>['data']['attributes'],
 ) {
   const {
     fluxMonitorSpec,
@@ -135,12 +140,6 @@ function generateFluxMonitorDefinition(
     type,
     maxTaskDuration,
   } = attrs
-
-  // There should always be a flux monitor spec but safeguarding due to type
-  // constraints
-  if (!fluxMonitorSpec) {
-    return ''
-  }
   const {
     contractAddress,
     precision,

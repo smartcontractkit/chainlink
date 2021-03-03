@@ -7,8 +7,8 @@ import {
   generateJSONDefinition,
   generateTOMLDefinition,
 } from './generateJobSpecDefinition'
-import { JobData, JobSpecType, JobV2 } from './sharedTypes'
-import DefinitionTab from './Definition'
+import { JobData, JobV2 } from './sharedTypes'
+import { JobDefinition } from './JobDefinition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
@@ -82,32 +82,32 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         .then((response) => {
           const jobSpec = response.data
           setState((s) => {
-            const job = {
+            let createdAt: string
+            switch (jobSpec.attributes.type) {
+              case 'offchainreporting':
+                createdAt =
+                  jobSpec.attributes.offChainReportingOracleSpec.createdAt
+
+                break
+              case 'fluxmonitor':
+                createdAt = jobSpec.attributes.fluxMonitorSpec.createdAt
+
+                break
+              case 'directrequest':
+                createdAt = jobSpec.attributes.directRequestSpec.createdAt
+
+                break
+            }
+
+            const job: JobV2 = {
               ...jobSpec.attributes.pipelineSpec,
               id: jobSpec.id,
               definition: generateTOMLDefinition(jobSpec.attributes),
               type: 'v2',
               name: jobSpec.attributes.name,
-              specType: jobSpec.attributes.type as JobSpecType,
+              specType: jobSpec.attributes.type,
               errors: jobSpec.attributes.errors,
-            } as JobV2
-
-            switch (jobSpec.attributes.type) {
-              case 'offchainreporting':
-                job.createdAt = jobSpec.attributes.offChainReportingOracleSpec
-                  ?.createdAt as string
-
-                break
-              case 'fluxmonitor':
-                job.createdAt = jobSpec.attributes.fluxMonitorSpec
-                  ?.createdAt as string
-
-                break
-              case 'directRequest':
-                job.createdAt = jobSpec.attributes.directRequestSpec
-                  ?.createdAt as string
-
-                break
+              createdAt,
             }
 
             return {
@@ -155,7 +155,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           exact
           path={`${match.path}/definition`}
           render={() => (
-            <DefinitionTab
+            <JobDefinition
               {...{
                 ...state,
                 ErrorComponent,
