@@ -35,6 +35,8 @@ idleTimerDisabled = false
 pollTimerPeriod = "1m"
 pollTimerDisabled = false
 
+minPayment = 1000000000000000000
+
 observationSource = """
 // data source 1
 ds1 [type=http method=GET url="https://pricesource1.com" requestData="{\\"coin\\": \\"ETH\\", \\"market\\": \\"USD\\"}"];
