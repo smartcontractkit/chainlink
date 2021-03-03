@@ -52,13 +52,13 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	// we reach the passed in context deadline and we want to
 	// immediately return any result we have and do not want to have
 	// a db write block that.
-	go func() {
+	go func(run pipeline.Run, trrs []pipeline.TaskRunResult) {
 		// In the case that our run gets cancelled via ctx cancellation,
 		// we still want to save the results and so we need a fresh context.
 		if _, errInsert := ds.pipelineRunner.InsertFinishedRunWithResults(context.Background(), run, trrs); errInsert != nil {
 			logger.Errorw(fmt.Sprintf("error inserting finished results for spec ID %v", ds.spec.ID), "err", errInsert)
 		}
-	}()
+	}(run, trrs)
 
 	result, err := finalResult.SingularResult()
 	if err != nil {
