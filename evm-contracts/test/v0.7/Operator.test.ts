@@ -14,6 +14,7 @@ import { MaliciousConsumer__factory } from '../../ethers/v0.4/factories/Maliciou
 import { MaliciousMultiWordConsumer__factory } from '../../ethers/v0.6/factories/MaliciousMultiWordConsumer__factory'
 import { MaliciousRequester__factory } from '../../ethers/v0.4/factories/MaliciousRequester__factory'
 import { Operator__factory } from '../../ethers/v0.7/factories/Operator__factory'
+import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
 import { Consumer__factory } from '../../ethers/v0.7/factories/Consumer__factory'
 import { GasGuzzlingConsumer__factory } from '../../ethers/v0.6/factories/GasGuzzlingConsumer__factory'
 import { ContractReceipt } from 'ethers/contract'
@@ -27,6 +28,7 @@ const maliciousRequesterFactory = new MaliciousRequester__factory()
 const maliciousConsumerFactory = new MaliciousConsumer__factory()
 const maliciousMultiWordConsumerFactory = new MaliciousMultiWordConsumer__factory()
 const operatorFactory = new Operator__factory()
+const operatorForwarderFactory = new OperatorForwarder__factory()
 const linkTokenFactory = new contract.LinkToken__factory()
 
 let roles: setup.Roles
@@ -61,7 +63,6 @@ describe('Operator', () => {
     matchers.publicAbi(operatorFactory, [
       'EXPIRY_TIME',
       'cancelOracleRequest',
-      'forward',
       'fulfillOracleRequest',
       'fulfillOracleRequest2',
       'isAuthorizedSender',
@@ -74,11 +75,116 @@ describe('Operator', () => {
       'withdrawable',
       'operatorTransferAndCall',
       'distributeFunds',
+      'createForwarder',
+      'getForwarders',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
+  })
+
+  describe('#createForwarder', () => {
+    let receipt: ContractReceipt
+    let operatorForwarder: contract.Instance<OperatorForwarder__factory>
+    let newSenders: Array<string>
+    describe('when called by an authorized sender', () => {
+      describe('with 3 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
+          await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+
+          const tx = await operator.connect(roles.oracleNode2).createForwarder()
+          receipt = await tx.wait()
+        })
+
+        it('Emits a ForwarderCreated event', async () => {
+          const eventFound = h.findEventIn(
+            receipt,
+            operatorFactory.interface.events.ForwarderCreated,
+          )
+          assert.exists(eventFound)
+        })
+
+        it('adds a forwarder to storage', async () => {
+          const forwarders = await operator
+            .connect(roles.oracleNode1)
+            .getForwarders()
+          assert.equal(forwarders.length, 1)
+        })
+
+        it('sets the correct authorized senders on the forwarder', async () => {
+          const forwarders = await operator
+            .connect(roles.oracleNode1)
+            .getForwarders()
+          operatorForwarder = await operatorForwarderFactory
+            .connect(roles.oracleNode1)
+            .attach(forwarders[0])
+          assert.equal(
+            await operatorForwarder.authorizedSender1(),
+            roles.defaultAccount.address,
+          )
+          assert.equal(
+            await operatorForwarder.authorizedSender2(),
+            newSenders[0],
+          )
+          assert.equal(
+            await operatorForwarder.authorizedSender3(),
+            newSenders[1],
+          )
+        })
+      })
+
+      describe('with 1 authorized sender', () => {
+        beforeEach(async () => {
+          newSenders = [roles.oracleNode2.address]
+          await operator
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+
+          const tx = await operator.connect(roles.oracleNode2).createForwarder()
+          receipt = await tx.wait()
+        })
+
+        it('Emits a ForwarderCreated event', async () => {
+          const eventFound = h.findEventIn(
+            receipt,
+            operatorFactory.interface.events.ForwarderCreated,
+          )
+          assert.exists(eventFound)
+        })
+
+        it('adds a forwarder to storage', async () => {
+          const forwarders = await operator
+            .connect(roles.oracleNode1)
+            .getForwarders()
+          assert.equal(forwarders.length, 1)
+        })
+
+        it('sets the correct authorized sender on the forwarder', async () => {
+          const forwarders = await operator
+            .connect(roles.oracleNode1)
+            .getForwarders()
+          operatorForwarder = await operatorForwarderFactory
+            .connect(roles.oracleNode1)
+            .attach(forwarders[0])
+          assert.equal(
+            await operatorForwarder.authorizedSender1(),
+            roles.defaultAccount.address,
+          )
+          assert.equal(
+            await operatorForwarder.authorizedSender2(),
+            newSenders[0],
+          )
+          assert.equal(
+            await operatorForwarder.authorizedSender3(),
+            '0x0000000000000000000000000000000000000000',
+          )
+        })
+      })
+    })
   })
 
   describe('#distributeFunds', () => {
@@ -2833,62 +2939,6 @@ describe('Operator', () => {
               .connect(roles.consumer)
               .cancelOracleRequest(...oracle.convertCancelParams(request)),
           )
-        })
-      })
-    })
-  })
-
-  describe('#forward', () => {
-    const bytes = utils.hexlify(utils.randomBytes(100))
-    const payload = getterSetterFactory.interface.functions.setBytes.encode([
-      bytes,
-    ])
-    let mock: contract.Instance<GetterSetter__factory>
-
-    beforeEach(async () => {
-      mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()
-    })
-
-    describe('when called by an unauthorized node', () => {
-      it('reverts', async () => {
-        await matchers.evmRevert(async () => {
-          await operator.connect(roles.stranger).forward(mock.address, payload)
-        })
-      })
-    })
-
-    describe('when called by an authorized node', () => {
-      describe('when attempting to forward to the link token', () => {
-        it('reverts', async () => {
-          const { sighash } = linkTokenFactory.interface.functions.name // any Link Token function
-          await matchers.evmRevert(async () => {
-            await operator
-              .connect(roles.oracleNode)
-              .forward(link.address, sighash)
-          })
-        })
-      })
-
-      describe('when forwarding to any other address', () => {
-        it('forwards the data', async () => {
-          const tx = await operator
-            .connect(roles.oracleNode)
-            .forward(mock.address, payload)
-          await tx.wait()
-          assert.equal(await mock.getBytes(), bytes)
-        })
-
-        it('perceives the message is sent by the Operator', async () => {
-          const tx = await operator
-            .connect(roles.oracleNode)
-            .forward(mock.address, payload)
-          const receipt = await tx.wait()
-          const log: any = receipt.logs?.[0]
-          const logData = mock.interface.events.SetBytes.decode(
-            log.data,
-            log.topics,
-          )
-          assert.equal(utils.getAddress(logData.from), operator.address)
         })
       })
     })

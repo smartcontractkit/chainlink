@@ -16,4 +16,5 @@ interface OperatorInterface is OracleInterface {
   function distributeFunds(address payable[] calldata receivers,uint[] calldata amounts) external payable;
   function getAuthorizedSenders() external returns (address[] memory);
   function setAuthorizedSenders(address[] calldata senders) external;
+  function getForwarders() external returns (address[] memory);
 }
