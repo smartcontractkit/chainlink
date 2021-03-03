@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -165,6 +166,7 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
 	IdleTimerDisabled bool          `json:"idleTimerDisabled,omitempty" gorm:"type:jsonb"`
+	MinPayment        *assets.Link  `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
 	CreatedAt         time.Time     `json:"createdAt" toml:"-"`
 	UpdatedAt         time.Time     `json:"updatedAt" toml:"-"`
 }
