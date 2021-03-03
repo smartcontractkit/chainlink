@@ -58,7 +58,7 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		TaskRunResults: trrs,
 	}:
 	default:
-		return nil, errors.Errorf("unable to enqueue run save, buffer full")
+		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.jobID)
 	}
 
 	result, err := finalResult.SingularResult()
