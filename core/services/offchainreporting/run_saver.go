@@ -67,5 +67,4 @@ func (r *RunResultSaver) Close() error {
 			return nil
 		}
 	}
-	return nil
 }
