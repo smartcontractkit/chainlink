@@ -19,6 +19,15 @@ type RunResultSaver struct {
 	jobID          int32
 }
 
+func NewResultRunSaver(runResults <-chan pipeline.RunWithResults, pipelineRunner pipeline.Runner, done chan struct{}, jobID int32) *RunResultSaver {
+	return &RunResultSaver{
+		runResults:     runResults,
+		pipelineRunner: pipelineRunner,
+		done:           done,
+		jobID:          jobID,
+	}
+}
+
 func (r *RunResultSaver) Start() error {
 	if !r.OkayToStart() {
 		return errors.New("cannot start already started run result saver")

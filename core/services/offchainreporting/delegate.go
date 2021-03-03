@@ -208,12 +208,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		// RunResultSaver needs to be started first so its available
 		// to read db writes. It is stopped last after the Oracle is shut down
 		// so no further runs are enqueued and we can drain the queue.
-		services = append([]job.Service{&RunResultSaver{
-			runResults:     runResults,
-			pipelineRunner: d.pipelineRunner,
-			jobID:          jobSpec.ID,
-			done:           make(chan struct{}),
-		}}, services...)
+		services = append([]job.Service{NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			jobSpec.ID,
+		)}, services...)
 	}
 
 	return services, nil
