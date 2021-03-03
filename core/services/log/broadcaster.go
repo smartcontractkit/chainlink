@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -13,6 +14,7 @@ import (
 
 //go:generate mockery --name Broadcaster --output ./mocks/ --case=underscore --structname Broadcaster --filename broadcaster.go
 //go:generate mockery --name Listener --output ./mocks/ --case=underscore --structname Listener --filename listener.go
+//go:generate mockery --name AbigenContract --output ./mocks/ --case=underscore --structname AbigenContract --filename abigen_contract.go
 
 type (
 	// The Broadcaster manages log subscription requests for the Chainlink node.  Instead
@@ -23,8 +25,8 @@ type (
 		utils.DependentAwaiter
 		Start() error
 		Stop() error
-		Register(address common.Address, listener Listener) (connected bool)
-		Unregister(address common.Address, listener Listener)
+		Register(contract AbigenContract, listener Listener) (connected bool)
+		Unregister(contract AbigenContract, listener Listener)
 	}
 
 	broadcaster struct {
@@ -43,6 +45,11 @@ type (
 		JobID() models.JobID
 		JobIDV2() int32
 		IsV2Job() bool
+	}
+
+	AbigenContract interface {
+		Address() common.Address
+		ParseLog(log types.Log) (interface{}, error)
 	}
 
 	Config interface {
@@ -87,15 +94,15 @@ func (b *broadcaster) Stop() error {
 	})
 }
 
-func (b *broadcaster) Register(contractAddr common.Address, listener Listener) (connected bool) {
-	b.subscriber.NotifyAddContract(contractAddr)
-	b.relayer.NotifyAddListener(contractAddr, listener)
+func (b *broadcaster) Register(contract AbigenContract, listener Listener) (connected bool) {
+	b.subscriber.NotifyAddContract(contract.Address())
+	b.relayer.NotifyAddListener(contract, listener)
 	return b.subscriber.IsConnected()
 }
 
-func (b *broadcaster) Unregister(contractAddr common.Address, listener Listener) {
-	b.subscriber.NotifyRemoveContract(contractAddr)
-	b.relayer.NotifyRemoveListener(contractAddr, listener)
+func (b *broadcaster) Unregister(contract AbigenContract, listener Listener) {
+	b.subscriber.NotifyRemoveContract(contract.Address())
+	b.relayer.NotifyRemoveListener(contract, listener)
 }
 
 func (b *broadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {

@@ -10,84 +10,101 @@ import (
 
 func Test_Eth_Errors(t *testing.T) {
 	t.Parallel()
+	var err *eth.SendError
 	randomError := eth.NewSendErrorS("some old bollocks")
 
-	// IsNonceTooLowError
-	assert.False(t, randomError.IsNonceTooLowError())
+	t.Run("IsNonceTooLowError", func(t *testing.T) {
+		assert.False(t, randomError.IsNonceTooLowError())
 
-	// Geth
-	err := eth.NewSendErrorS("nonce too low")
-	assert.True(t, err.IsNonceTooLowError())
-	// Parity
-	err = eth.NewSendErrorS("Transaction nonce is too low. Try incrementing the nonce.")
-	assert.True(t, err.IsNonceTooLowError())
+		// Geth
+		err = eth.NewSendErrorS("nonce too low")
+		assert.True(t, err.IsNonceTooLowError())
+		// Parity
+		err = eth.NewSendErrorS("Transaction nonce is too low. Try incrementing the nonce.")
+		assert.True(t, err.IsNonceTooLowError())
+	})
 
-	// IsReplacementUnderpriced
+	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
+		// Geth
+		err = eth.NewSendErrorS("replacement transaction underpriced")
+		assert.True(t, err.IsReplacementUnderpriced())
+		// Parity
+		s := "Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce."
+		err = eth.NewSendErrorS(s)
+		assert.True(t, err.IsReplacementUnderpriced())
+		s = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
+		err = eth.NewSendErrorS(s)
+		assert.False(t, err.IsReplacementUnderpriced())
+	})
 
-	// Geth
-	err = eth.NewSendErrorS("replacement transaction underpriced")
-	assert.True(t, err.IsReplacementUnderpriced())
-	// Parity
-	s := "Transaction gas price 100wei is too low. There is another transaction with same nonce in the queue with gas price 150wei. Try increasing the gas price or incrementing the nonce."
-	err = eth.NewSendErrorS(s)
-	assert.True(t, err.IsReplacementUnderpriced())
-	s = "There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee."
-	err = eth.NewSendErrorS(s)
-	assert.False(t, err.IsReplacementUnderpriced())
+	t.Run("IsTransactionAlreadyInMempool", func(t *testing.T) {
+		assert.False(t, randomError.IsTransactionAlreadyInMempool())
 
-	// IsTransactionAlreadyInMempool
-	assert.False(t, randomError.IsTransactionAlreadyInMempool())
+		// Geth
+		// I have seen this in log output
+		err = eth.NewSendErrorS("known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960")
+		assert.True(t, err.IsTransactionAlreadyInMempool())
+		// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
+		err = eth.NewSendErrorS("already known")
+		assert.True(t, err.IsTransactionAlreadyInMempool())
+		// This one is present in the light client (?!)
+		err = eth.NewSendErrorS("Known transaction (7f65)")
+		assert.True(t, err.IsTransactionAlreadyInMempool())
+		// Parity
+		s := "Transaction with the same hash was already imported."
+		err = eth.NewSendErrorS(s)
+		assert.True(t, err.IsTransactionAlreadyInMempool())
+	})
 
-	// Geth
-	// I have seen this in log output
-	err = eth.NewSendErrorS("known transaction: 0x7f657507aee0511e36d2d1972a6b22e917cc89f92b6c12c4dbd57eaabb236960")
-	assert.True(t, err.IsTransactionAlreadyInMempool())
-	// This comes from the geth source - https://github.com/ethereum/go-ethereum/blob/eb9d7d15ecf08cd5104e01a8af64489f01f700b0/core/tx_pool.go#L57
-	err = eth.NewSendErrorS("already known")
-	assert.True(t, err.IsTransactionAlreadyInMempool())
-	// This one is present in the light client (?!)
-	err = eth.NewSendErrorS("Known transaction (7f65)")
-	assert.True(t, err.IsTransactionAlreadyInMempool())
-	// Parity
-	s = "Transaction with the same hash was already imported."
-	err = eth.NewSendErrorS(s)
-	assert.True(t, err.IsTransactionAlreadyInMempool())
+	t.Run("IsTerminallyUnderpriced", func(t *testing.T) {
+		assert.False(t, randomError.IsTerminallyUnderpriced())
 
-	// IsTerminallyUnderpriced
-	assert.False(t, randomError.IsTerminallyUnderpriced())
+		// Geth
+		err = eth.NewSendErrorS("transaction underpriced")
+		assert.True(t, err.IsTerminallyUnderpriced())
+		// Parity
+		err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
+		assert.False(t, err.IsTerminallyUnderpriced())
+		err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
+		assert.True(t, err.IsTerminallyUnderpriced())
+	})
 
-	// Geth
-	err = eth.NewSendErrorS("transaction underpriced")
-	assert.True(t, err.IsTerminallyUnderpriced())
-	// Parity
-	err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-	assert.False(t, err.IsTerminallyUnderpriced())
-	err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
-	assert.True(t, err.IsTerminallyUnderpriced())
+	t.Run("IsTemporarilyUnderpriced", func(t *testing.T) {
+		// Parity
+		err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
+		assert.True(t, err.IsTemporarilyUnderpriced())
+		err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
+		assert.False(t, err.IsTemporarilyUnderpriced())
+	})
 
-	// IsTemporarilyUnderpriced
-	// Parity
-	err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
-	assert.True(t, err.IsTemporarilyUnderpriced())
-	err = eth.NewSendErrorS("Transaction gas price is too low. It does not satisfy your node's minimal gas price (minimal: 100 got: 50). Try increasing the gas price.")
-	assert.False(t, err.IsTemporarilyUnderpriced())
+	t.Run("IsInsufficientEth", func(t *testing.T) {
+		// Geth
+		err = eth.NewSendErrorS("insufficient funds for transfer")
+		assert.True(t, err.IsInsufficientEth())
+		err = eth.NewSendErrorS("insufficient funds for gas * price + value")
+		assert.True(t, err.IsInsufficientEth())
+		err = eth.NewSendErrorS("insufficient balance for transfer")
+		assert.True(t, err.IsInsufficientEth())
+		// Parity
+		err = eth.NewSendErrorS("Insufficient balance for transaction. Balance=100.25, Cost=200.50")
+		assert.True(t, err.IsInsufficientEth())
+		err = eth.NewSendErrorS("Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.")
+		assert.True(t, err.IsInsufficientEth())
+		// Nil
+		err = eth.NewSendError(nil)
+		assert.False(t, err.IsInsufficientEth())
+	})
 
-	// IsInsufficientEth
-	// Geth
-	err = eth.NewSendErrorS("insufficient funds for transfer")
-	assert.True(t, err.IsInsufficientEth())
-	err = eth.NewSendErrorS("insufficient funds for gas * price + value")
-	assert.True(t, err.IsInsufficientEth())
-	err = eth.NewSendErrorS("insufficient balance for transfer")
-	assert.True(t, err.IsInsufficientEth())
-	// Parity
-	err = eth.NewSendErrorS("Insufficient balance for transaction. Balance=100.25, Cost=200.50")
-	assert.True(t, err.IsInsufficientEth())
-	err = eth.NewSendErrorS("Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.")
-	assert.True(t, err.IsInsufficientEth())
-	// Nil
-	err = eth.NewSendError(nil)
-	assert.False(t, err.IsInsufficientEth())
+	t.Run("IsTooExpensive", func(t *testing.T) {
+		// Geth
+		err = eth.NewSendErrorS("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+		assert.True(t, err.IsTooExpensive())
+
+		assert.False(t, randomError.IsTooExpensive())
+		// Nil
+		err = eth.NewSendError(nil)
+		assert.False(t, err.IsTooExpensive())
+	})
 }
 
 func Test_Eth_Errors_Fatal(t *testing.T) {

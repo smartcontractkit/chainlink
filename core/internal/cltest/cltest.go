@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -1433,7 +1432,7 @@ func AllExternalInitiators(t testing.TB, store *strpkg.Store) []models.ExternalI
 	t.Helper()
 
 	var all []models.ExternalInitiator
-	err := store.RawDB(func(db *gorm.DB) error {
+	err := store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Find(&all).Error
 	})
 	require.NoError(t, err)
@@ -1444,7 +1443,7 @@ func AllJobs(t testing.TB, store *strpkg.Store) []models.JobSpec {
 	t.Helper()
 
 	var all []models.JobSpec
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Find(&all).Error
 	})
 	require.NoError(t, err)
@@ -1467,7 +1466,7 @@ func GetLastEthTxAttempt(t testing.TB, store *strpkg.Store) models.EthTxAttempt 
 
 	var txa models.EthTxAttempt
 	var count int64
-	err := store.ORM.RawDB(func(db *gorm.DB) error {
+	err := store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		return db.Order("created_at desc").First(&txa).Count(&count).Error
 	})
 	require.NoError(t, err)
@@ -1578,7 +1577,7 @@ func MakeRoundStateReturnData(
 	return data
 }
 
-var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
 func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
 	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)

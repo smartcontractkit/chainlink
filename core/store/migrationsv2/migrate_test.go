@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMigrate_Migrations_Initial(t *testing.T) {
+func TestMigrate_Migrations(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2", false)
 	defer cleanup()
 
@@ -66,7 +66,7 @@ func TestMigrate_Migrations_Initial(t *testing.T) {
 		require.NoError(t, r.Error)
 		assert.True(t, r.RowsAffected > 0, "table %v not found", table)
 	}
-	migrationsv2.Rollback(orm.DB, migrationsv2.Migrations[0])
+	err = migrationsv2.Rollback(orm.DB, migrationsv2.Migrations[0])
 	require.NoError(t, err)
 
 	for _, table := range tables {
