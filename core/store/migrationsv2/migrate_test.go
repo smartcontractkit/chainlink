@@ -83,7 +83,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2_bridgefk", false)
 	defer cleanup()
 
-	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0008_reapply_eth_logs_table"))
+	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0009_add_min_payment_to_flux_monitor_spec"))
 	_, bt := cltest.NewBridgeType(t)
 	require.NoError(t, orm.DB.Create(bt).Error)
 	ps := &pipeline.Spec{}
@@ -117,7 +117,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 	}).Error)
 
 	// Migrating up should populate the bridge field
-	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0009_bridge_fk"))
+	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0010_bridge_fk"))
 
 	// V2 pipeline TaskSpec
 	var p pipeline.TaskSpec
