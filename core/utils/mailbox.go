@@ -18,8 +18,8 @@ func NewMailbox(capacity uint64) *Mailbox {
 	}
 	return &Mailbox{
 		chNotify: make(chan struct{}, 1),
-		queue:    make([]interface{}, 0, capacity),
-		capacity: queueCap,
+		queue:    make([]interface{}, 0, queueCap),
+		capacity: capacity,
 	}
 }
 
