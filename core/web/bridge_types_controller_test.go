@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/adapters"
+
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -236,13 +238,32 @@ func TestBridgeController_Destroy(t *testing.T) {
 
 	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
+	// Create an FM and DR job using the bridge.
 	js := cltest.NewJobWithWebInitiator()
 	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
 	assert.NoError(t, app.Store.CreateJob(&js))
 
+	jsFM := cltest.NewJobWithFluxMonitorInitiatorWithBridge(bt.Name.String())
+	jsFM.Tasks = []models.TaskSpec{{Type: adapters.TaskTypeNoOp}}
+	assert.NoError(t, app.Store.CreateJob(&jsFM))
+
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
 	defer cleanup()
 	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
+
+	require.NoError(t, app.Store.ArchiveJob(js.ID))
+
+	// Still fails because FM job using bridge.
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
+
+	require.NoError(t, app.Store.ArchiveJob(jsFM.ID))
+
+	// Succeeds because FM job is archived.
+	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
+	defer cleanup()
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be 200")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {

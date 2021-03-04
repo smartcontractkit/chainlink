@@ -63,6 +63,10 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 	key := cltest.MustInsertRandomKey(t, db)
 	address := key.Address.Address()
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, db.Create(bridge2).Error)
 
 	rpc, geth, _, _ := cltest.NewEthMocks(t)
 	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).

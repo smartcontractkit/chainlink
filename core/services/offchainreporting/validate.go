@@ -99,6 +99,7 @@ func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOrac
 		ContractTransmitterTransmitTimeout:     config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      config.OCRObservationTimeout(time.Duration(spec.ObservationTimeout)),
+		DataSourceGracePeriod:                  config.OCRObservationGracePeriod(),
 	}
 	if config.Dev() {
 		lc.DevelopmentMode = types.EnableDangerousDevelopmentMode
