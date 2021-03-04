@@ -166,7 +166,7 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
 	IdleTimerDisabled bool          `json:"idleTimerDisabled,omitempty" gorm:"type:jsonb"`
-	MinPayment        *assets.Link  `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	MinPayment        *assets.Link  `json:"minPayment,omitempty"`
 	CreatedAt         time.Time     `json:"createdAt" toml:"-"`
 	UpdatedAt         time.Time     `json:"updatedAt" toml:"-"`
 }
