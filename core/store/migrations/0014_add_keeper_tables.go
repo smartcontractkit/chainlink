@@ -60,7 +60,7 @@ const down14 = `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0007_add_keeper_tables",
+		ID: "0014_add_keeper_tables",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up14).Error
 		},
