@@ -9,15 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- The global env var JOB_PIPELINE_MAX_TASK_DURATION is no longer supported
-for OCR jobs.
-- Better debug logging in Gas Updater
-- `ETH_MAX_UNCONFIRMED_TRANSACTIONS`
+- Add `ETH_MAX_UNCONFIRMED_TRANSACTIONS` configuration variable
 
 Chainlink node now has a maximum number of unconfirmed transactions that
 may be in flight at any one time (per key).
 
-If this limit is reached, further attempts t send transactions will fail
+If this limit is reached, further attempts to send transactions will fail
 and the relevant job will be marked as failed.
 
 Jobs will continue to fail until at least one transaction is confirmed
@@ -26,8 +23,13 @@ prevent unbounded sending of transactions e.g. in the case that the eth
 node is failing to broadcast to the network.
 
 The default is set to 500 which considered high enough that it should
-never be reached under normal operation. This limit can be configured
-using the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+never be reached under normal operation. This limit can be changed
+by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+
+- Support requestNewRound in libocr
+
+requestNewRound enables dedicated requesters to request a fresh report to
+be sent to the contract right away regardless of heartbeat or deviation.
 
 ### Fixed
 
@@ -53,6 +55,9 @@ you can do this by running your geth node with `--rpc.gascap=0
 - Bump `ORM_MAX_IDLE_CONNS` default from 5 to 10
 
 Each Chainlink node will now use a maximum of 23 database connections (up from previous max of 13). Make sure your postgres database is tuned accordingly, especially if you are running multiple Chainlink nodes on a single database. If you find yourself hitting connection limits, you can consider reducing `ORM_MAX_OPEN_CONNS` but this may result in degraded performance.
+
+- The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
+for OCR jobs.
 
 ## [0.10.1] - 2021-02-23
 
