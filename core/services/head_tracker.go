@@ -171,7 +171,7 @@ func (ht *HeadTracker) Start() error {
 	}
 	if ht.highestSeenHead != nil {
 		ht.logger.Debugw(
-			"Headtracker: Tracking logs from last block ", presenters.FriendlyBigInt(ht.highestSeenHead.ToInt()), " with hash ", ht.highestSeenHead.Hash.Hex(),
+			fmt.Sprintf("Headtracker: Tracking logs from last block %v with hash %s", presenters.FriendlyBigInt(ht.highestSeenHead.ToInt()), ht.highestSeenHead.Hash.Hex()),
 			"blockNumber", ht.highestSeenHead.Number,
 			"blockHash", ht.highestSeenHead.Hash,
 		)
