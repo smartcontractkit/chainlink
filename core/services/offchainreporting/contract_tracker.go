@@ -55,9 +55,10 @@ type (
 		logger           logger.Logger
 		db               OCRContractTrackerDB
 
-		// processLogs worker
-		wg     sync.WaitGroup
-		chStop chan struct{}
+		// Start/Stop lifecycle
+		ctx       context.Context
+		ctxCancel context.CancelFunc
+		wg        sync.WaitGroup
 
 		// LatestRoundRequested
 		latestRoundRequested offchainaggregator.OffchainAggregatorRoundRequested
@@ -85,6 +86,7 @@ func NewOCRContractTracker(
 	logger logger.Logger,
 	db OCRContractTrackerDB,
 ) (o *OCRContractTracker, err error) {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &OCRContractTracker{
 		utils.StartStopOnce{},
 		ethClient,
@@ -95,8 +97,9 @@ func NewOCRContractTracker(
 		jobID,
 		logger,
 		db,
+		ctx,
+		cancel,
 		sync.WaitGroup{},
-		make(chan struct{}),
 		offchainaggregator.OffchainAggregatorRoundRequested{},
 		sync.RWMutex{},
 		*utils.NewMailbox(configMailboxSanityLimit),
@@ -128,7 +131,7 @@ func (t *OCRContractTracker) Close() error {
 	if !t.OkayToStop() {
 		return errors.New("OCRContractTracker already stopped")
 	}
-	close(t.chStop)
+	t.ctxCancel()
 	t.wg.Wait()
 	t.logBroadcaster.Unregister(t.contract, t)
 	close(t.chConfigs)
@@ -154,11 +157,11 @@ func (t *OCRContractTracker) processLogs() {
 				}
 				select {
 				case t.chConfigs <- cc:
-				case <-t.chStop:
+				case <-t.ctx.Done():
 					return
 				}
 			}
-		case <-t.chStop:
+		case <-t.ctx.Done():
 			return
 		}
 	}
@@ -268,6 +271,10 @@ func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.Co
 
 // LatestConfigDetails queries the eth node
 func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	defer cancel()
+
 	opts := bind.CallOpts{Context: ctx, Pending: false}
 	result, err := t.contractCaller.LatestConfigDetails(&opts)
 	if err != nil {
@@ -290,6 +297,10 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 			{OCRContractConfigSet},
 		},
 	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	defer cancel()
 
 	logs, err := t.ethClient.FilterLogs(ctx, q)
 	if err != nil {
@@ -314,6 +325,10 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // TODO(sam): This could (should?) be optimised to use the head tracker
 // https://www.pivotaltracker.com/story/show/177006717
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = utils.CombinedContext(t.ctx, ctx)
+	defer cancel()
+
 	h, err := t.ethClient.HeaderByNumber(ctx, nil)
 	if err != nil {
 		return 0, err
@@ -336,7 +351,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 //
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
-func (t *OCRContractTracker) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
+func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `BLOCK_BACKFILL_DEPTH` blocks ago
 	// Some further improvements could be made:
