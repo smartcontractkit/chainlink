@@ -270,7 +270,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 			creationHeight := int64(1)
-			runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+			runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs := <-logsCh
 			logs <- runlog
@@ -362,7 +362,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	logs := <-logsCh
 	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
@@ -1558,7 +1558,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	requiredConfs := int64(100)
 
 	creationHeight := int64(1)
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+	runlog := cltest.NewRunLog(t, j.DirectRequestSpec.OnChainJobSpecID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 	runlog.BlockHash = test.logBlockHash
 	logs := <-logsCh
 	logs <- runlog
