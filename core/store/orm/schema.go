@@ -100,8 +100,8 @@ type ConfigSchema struct {
 	OCRTraceLogging                           bool            `env:"OCR_TRACE_LOGGING" default:"false"`
 	OCRMonitoringEndpoint                     string          `env:"OCR_MONITORING_ENDPOINT"`
 	OperatorContractAddress                   common.Address  `env:"OPERATOR_CONTRACT_ADDRESS"`
-	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"10"`
-	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"5"`
+	ORMMaxOpenConns                           int             `env:"ORM_MAX_OPEN_CONNS" default:"20"`
+	ORMMaxIdleConns                           int             `env:"ORM_MAX_IDLE_CONNS" default:"10"`
 	P2PAnnounceIP                             net.IP          `env:"P2P_ANNOUNCE_IP"`
 	P2PAnnouncePort                           uint16          `env:"P2P_ANNOUNCE_PORT"`
 	P2PDHTAnnouncementCounterUserPrefix       uint32          `env:"P2P_DHT_ANNOUNCEMENT_COUNTER_USER_PREFIX" default:"0"`

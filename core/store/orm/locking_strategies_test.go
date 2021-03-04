@@ -47,11 +47,12 @@ func TestPostgresLockingStrategy_Lock_withLock(t *testing.T) {
 
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 	delay := tc.DatabaseTimeout()
-	if tc.DatabaseURL() == "" {
+	dbURL := tc.DatabaseURL()
+	if dbURL.String() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
 
-	withLock, err := orm.NewConnection(dialects.Postgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	withLock, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
@@ -74,18 +75,19 @@ func TestPostgresLockingStrategy_Lock_withoutLock(t *testing.T) {
 	delay := tc.DatabaseTimeout()
 
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
-	if tc.DatabaseURL() == "" {
+	dbURL := tc.DatabaseURL()
+	if dbURL.String() == "" {
 		t.Skip("No postgres DatabaseURL set.")
 	}
 
-	withLock, err := orm.NewConnection(dialects.Postgres, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	withLock, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls, err := orm.NewPostgresLockingStrategy(withLock)
 	require.NoError(t, err)
 	require.NoError(t, ls.Lock(delay), "should get exclusive lock")
 	require.NoError(t, ls.Lock(delay), "relocking on same instance is reentrant")
 
-	withoutLock, err := orm.NewConnection(dialects.PostgresWithoutLock, tc.DatabaseURL(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	withoutLock, err := orm.NewConnection(dialects.PostgresWithoutLock, dbURL.String(), tc.GetAdvisoryLockIDConfiguredOrDefault(), tc.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	ls2, err := orm.NewPostgresLockingStrategy(withoutLock)
 	require.NoError(t, err)
@@ -121,7 +123,8 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ct, err := orm.NewConnection(dialects.Postgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond, 0, 0)
+	dbURL := store.Config.DatabaseURL()
+	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), 10*time.Millisecond, 0, 0)
 	require.NoError(t, err)
 	lock2, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
@@ -147,7 +150,8 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 	require.NoError(t, dbErr)
 
 	orm2ShutdownSignal := gracefulpanic.NewSignal()
-	orm2, err := orm.NewORM(store.Config.DatabaseURL(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, dialects.TransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	dbURL := store.Config.DatabaseURL()
+	orm2, err := orm.NewORM(dbURL.String(), store.Config.DatabaseTimeout(), orm2ShutdownSignal, dialects.TransactionWrappedPostgres, tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	defer orm2.Close()
 
@@ -178,7 +182,8 @@ func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) 
 	require.NoError(t, connErr)
 	require.NoError(t, dbErr)
 
-	ct, err := orm.NewConnection(dialects.Postgres, store.Config.DatabaseURL(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
+	dbURL := store.Config.DatabaseURL()
+	ct, err := orm.NewConnection(dialects.Postgres, dbURL.String(), tc.Config.GetAdvisoryLockIDConfiguredOrDefault(), tc.Config.GlobalLockRetryInterval().Duration(), tc.ORMMaxOpenConns(), tc.ORMMaxIdleConns())
 	require.NoError(t, err)
 	lock, err := orm.NewLockingStrategy(ct)
 	require.NoError(t, err)
