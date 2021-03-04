@@ -13,7 +13,7 @@ UPDATE pipeline_task_specs SET bridge_name = ts.json->>'name' FROM pipeline_task
 `
 	down10 = `
 ALTER TABLE pipeline_task_specs DROP CONSTRAINT fk_pipeline_task_specs_bridge_name;
-ALTER TABLE DROP COLUMN bridge_name;
+ALTER TABLE pipeline_task_specs DROP COLUMN bridge_name;
 `
 )
 

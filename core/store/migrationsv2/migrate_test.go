@@ -124,4 +124,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 	require.NoError(t, orm.DB.Find(&p, "id = ?", bts.ID).Error)
 
 	assert.Equal(t, *p.BridgeName, string(bt.Name))
+
+	// Run the down migration
+	require.NoError(t, migrationsv2.MigrateDown(orm.DB))
 }
