@@ -1,6 +1,7 @@
 package job
 
 import (
+	"net/url"
 	"time"
 )
 
@@ -19,7 +20,7 @@ type Service interface {
 
 type Config interface {
 	DatabaseMaximumTxDuration() time.Duration
-	DatabaseURL() string
+	DatabaseURL() url.URL
 	TriggerFallbackDBPollInterval() time.Duration
 	JobPipelineParallelism() uint8
 }
