@@ -56,7 +56,7 @@ func (t *MedianTask) Run(_ context.Context, taskRun TaskRun, inputs []Result) (r
 	}
 
 	if uint64(len(fetchErrors)) > t.AllowedFaults {
-		return Result{Error: errors.Wrapf(ErrBadInput, "Too many inputs to median task failed (%v of %v): %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
+		return Result{Error: errors.Wrapf(ErrBadInput, "Number of faulty inputs %v to median task > number allowed faults %v. Fetch errors: %v", len(fetchErrors), t.AllowedFaults, multierr.Combine(fetchErrors...).Error())}
 	}
 
 	sort.Slice(answers, func(i, j int) bool {

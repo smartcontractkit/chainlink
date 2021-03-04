@@ -44,7 +44,6 @@ func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.SpecDB, error)
 	}
 	timeouts := []time.Duration{
 		config.DefaultHTTPTimeout().Duration(),
-		config.JobPipelineMaxTaskDuration(),
 		time.Duration(specDB.MaxTaskDuration),
 	}
 	if aTimeoutSet {

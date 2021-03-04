@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"sync"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/pkg/errors"
@@ -64,7 +66,12 @@ func (s *PostgresLockingStrategy) Lock(timeout models.Duration) error {
 	}
 
 	if s.conn == nil {
-		db, err := sql.Open(string(dialects.Postgres), s.config.uri)
+		uri, err := url.Parse(s.config.uri)
+		if err != nil {
+			return err
+		}
+		static.SetConsumerName(uri, "PostgresLockingStrategy")
+		db, err := sql.Open(string(dialects.Postgres), uri.String())
 		if err != nil {
 			return err
 		}

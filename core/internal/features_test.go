@@ -1357,7 +1357,7 @@ func TestIntegration_OCR(t *testing.T) {
 	defer cleanup()
 
 	var (
-		oracles      []confighelper.OracleIdentity
+		oracles      []confighelper.OracleIdentityExtra
 		transmitters []common.Address
 		kbs          []ocrkey.EncryptedKeyBundle
 		apps         []*cltest.TestApplication
@@ -1369,16 +1369,20 @@ func TestIntegration_OCR(t *testing.T) {
 		// we'll flood it with messages and slow things down. 5s is about how long it takes the
 		// bootstrap node to come up.
 		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
+		// GracePeriod < ObservationTimeout
+		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "200ms")
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
 		transmitters = append(transmitters, transmitter)
 
-		oracles = append(oracles, confighelper.OracleIdentity{
-			OnChainSigningAddress:           ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
-			TransmitAddress:                 transmitter,
-			OffchainPublicKey:               ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
-			PeerID:                          peerID,
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnChainSigningAddress: ocrtypes.OnChainSigningAddress(kb.OnChainSigningAddress),
+				TransmitAddress:       transmitter,
+				OffchainPublicKey:     ocrtypes.OffchainPublicKey(kb.OffChainPublicKey),
+				PeerID:                peerID,
+			},
 			SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(kb.ConfigPublicKey),
 		})
 	}
@@ -1428,13 +1432,26 @@ isBootstrapPeer    = true
 	require.NoError(t, err)
 
 	var jids []int32
+	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 	for i := 0; i < 4; i++ {
 		err = apps[i].StartAndConnect()
 		require.NoError(t, err)
 		defer apps[i].Stop()
 
-		mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", `{"data": 10}`)
-		defer cleanupHTTP()
+		// Since this API speed is > ObservationTimeout we should ignore it and still produce values.
+		slowServers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			time.Sleep(5 * time.Second)
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
+		}))
+		defer slowServers[i].Close()
+		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
+		}))
+		defer servers[i].Close()
+
+		// Note we need: observationTimeout + DeltaGrace (500ms) < DeltaRound (1s)
 		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1446,7 +1463,7 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
-observationTimeout = "20s"
+observationTimeout = "400ms"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
@@ -1454,9 +1471,18 @@ observationSource = """
     ds1          [type=http method=GET url="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=%d];
-	ds1->ds1_parse->ds1_multiply;
+
+    // data source 2
+    ds2          [type=http method=GET url="%s"];
+    ds2_parse    [type=jsonparse path="data"];
+    ds2_multiply [type=multiply times=%d];
+
+    ds1 -> ds1_parse -> ds1_multiply -> answer1;
+    ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], mockHTTP.URL, i))
+`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], servers[i].URL, i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
@@ -1484,5 +1510,14 @@ observationSource = """
 		answer, err := ocrContract.LatestAnswer(nil)
 		require.NoError(t, err)
 		return answer.String()
-	}, 5*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+	}, 10*time.Second, 200*time.Millisecond).Should(gomega.Equal("20"))
+
+	for _, app := range apps {
+		jobs, err := app.JobORM.JobsV2()
+		require.NoError(t, err)
+		// No spec errors
+		for _, j := range jobs {
+			require.Len(t, j.JobSpecErrors, 0)
+		}
+	}
 }

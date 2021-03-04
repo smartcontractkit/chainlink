@@ -1,6 +1,7 @@
 package adapters
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"reflect"
@@ -150,6 +151,12 @@ func (e *EthTx) insertEthTx(input models.RunInput, store *strpkg.Store) models.R
 		gasLimit = store.Config.EthGasLimitDefault()
 	} else {
 		gasLimit = e.GasLimit
+	}
+
+	if err := utils.CheckOKToTransmit(context.Background(), store.MustSQLDB(), fromAddress, store.Config.EthMaxUnconfirmedTransactions()); err != nil {
+		err = errors.Wrap(err, "number of unconfirmed transactions exceeds ETH_MAX_UNCONFIRMED_TRANSACTIONS")
+		logger.Error(err)
+		return models.NewRunOutputError(err)
 	}
 
 	if err := store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, gasLimit); err != nil {
