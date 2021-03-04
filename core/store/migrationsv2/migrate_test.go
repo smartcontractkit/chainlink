@@ -4,9 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/stretchr/testify/assert"
@@ -124,4 +127,37 @@ func TestMigrate_BridgeFK(t *testing.T) {
 	require.NoError(t, orm.DB.Find(&p, "id = ?", bts.ID).Error)
 
 	assert.Equal(t, *p.BridgeName, string(bt.Name))
+}
+
+func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2_change_jobs_to_numeric", false)
+	defer cleanup()
+
+	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0010_bridge_fk"))
+
+	jobSpec := cltest.NewJob()
+	jobSpec.MinPayment = assets.NewLink(100)
+	orm.DB.Create(&jobSpec)
+
+	fmSpec := job.FluxMonitorSpec{
+		MinPayment:        assets.NewLink(100),
+		ContractAddress:   cltest.NewEIP55Address(),
+		PollTimerDisabled: true,
+		IdleTimerDisabled: true,
+	}
+	orm.DB.Create(&fmSpec)
+
+	require.NoError(t, migrationsv2.MigrateUp(orm.DB, "0012_change_jobs_to_numeric"))
+
+	var js models.JobSpec
+	require.NoError(t, orm.DB.Find(&js, "id = ?", jobSpec.ID).Error)
+	require.Equal(t, assets.NewLink(100), js.MinPayment)
+
+	var fms job.FluxMonitorSpec
+	require.NoError(t, orm.DB.Find(&fms, "id = ?", fmSpec.ID).Error)
+	require.Equal(t, assets.NewLink(100), fms.MinPayment)
+
+	require.NoError(t, migrationsv2.Rollback(
+		orm.DB, migrationsv2.Migrations[len(migrationsv2.Migrations)-1]),
+	)
 }
