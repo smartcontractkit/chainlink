@@ -121,7 +121,6 @@ ds1 -> ds1_parse;
 			},
 			setGlobals: func(t *testing.T, c *orm.Config) {
 				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
-				c.Set("JOB_PIPELINE_MAX_TASK_DURATION", "3s")
 			},
 		},
 	}
