@@ -10,7 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -358,5 +360,57 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
+	})
+}
+
+func Test_DB_LatestRoundRequested(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	require.NoError(t, store.DB.Exec(`SET CONSTRAINTS offchainreporting_latest_roun_offchainreporting_oracle_spe_fkey DEFERRED`).Error)
+	sqldb, _ := store.DB.DB()
+
+	db := offchainreporting.NewDB(sqldb, 1)
+	db2 := offchainreporting.NewDB(sqldb, 2)
+
+	rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+
+	rr := offchainaggregator.OffchainAggregatorRoundRequested{
+		Requester:    cltest.NewAddress(),
+		ConfigDigest: cltest.MakeConfigDigest(t),
+		Epoch:        42,
+		Round:        9,
+		Raw:          rawLog,
+	}
+
+	t.Run("saves latest round requested", func(t *testing.T) {
+		err := db.SaveLatestRoundRequested(rr)
+		require.NoError(t, err)
+
+		rawLog.Index = 42
+
+		// Now overwrite to prove that updating works
+		rr = offchainaggregator.OffchainAggregatorRoundRequested{
+			Requester:    cltest.NewAddress(),
+			ConfigDigest: cltest.MakeConfigDigest(t),
+			Epoch:        43,
+			Round:        8,
+			Raw:          rawLog,
+		}
+
+		err = db.SaveLatestRoundRequested(rr)
+		require.NoError(t, err)
+	})
+
+	t.Run("loads latest round requested", func(t *testing.T) {
+		// There is no round for db2
+		lrr, err := db2.LoadLatestRoundRequested()
+		require.NoError(t, err)
+		require.Equal(t, 0, int(lrr.Epoch))
+
+		lrr, err = db.LoadLatestRoundRequested()
+		require.NoError(t, err)
+
+		assert.Equal(t, rr, lrr)
 	})
 }

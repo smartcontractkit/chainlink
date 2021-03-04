@@ -51,6 +51,9 @@ type (
 	// TODO(spook): I can't wait for Go generics
 	Delegate interface {
 		JobType() Type
+		// ServicesForSpec returns services to be started and stopped for this
+		// job. Services are started in the order they are given and stopped in
+		// reverse order.
 		ServicesForSpec(spec SpecDB) ([]Service, error)
 	}
 )
