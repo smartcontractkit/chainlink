@@ -38,7 +38,7 @@ type (
 	Config interface {
 		BridgeResponseURL() *url.URL
 		DatabaseMaximumTxDuration() time.Duration
-		DatabaseURL() string
+		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint

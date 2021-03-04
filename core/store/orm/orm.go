@@ -8,6 +8,7 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm/clause"
@@ -1038,7 +1040,7 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 	)`, n).Error
 }
 
-// Chain returns the chain of heads starting at hash and up to lookback parents
+// Chain return the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
 func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 	rows, err := orm.DB.Raw(`
@@ -1444,7 +1446,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 }
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
-	originalUri := ct.uri
+	originalURI := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
@@ -1454,6 +1456,13 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
 		ct.uri = uuid.NewV4().String()
+	} else {
+		uri, err := url.Parse(ct.uri)
+		if err != nil {
+			return nil, err
+		}
+		static.SetConsumerName(uri, "ORM")
+		ct.uri = uri.String()
 	}
 
 	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
@@ -1465,7 +1474,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
-		DSN:  originalUri,
+		DSN:  originalURI,
 	}), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
