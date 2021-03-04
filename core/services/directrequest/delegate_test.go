@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,7 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	runner := new(log_mocks.PipelineRunner)
+	runner := new(pipeline_mocks.Runner)
 	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
@@ -47,7 +48,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	runner := new(log_mocks.PipelineRunner)
+	runner := new(pipeline_mocks.Runner)
 
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
 	defer cleanupDB()
