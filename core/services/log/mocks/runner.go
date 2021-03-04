@@ -66,24 +66,31 @@ func (_m *PipelineRunner) CreateRun(ctx context.Context, jobID int32, meta map[s
 }
 
 // ExecuteAndInsertNewRun provides a mock function with given fields: ctx, spec, l
-func (_m *PipelineRunner) ExecuteAndInsertNewRun(ctx context.Context, spec pipeline.Spec, l logger.Logger) (pipeline.FinalResult, error) {
+func (_m *PipelineRunner) ExecuteAndInsertNewRun(ctx context.Context, spec pipeline.Spec, l logger.Logger) (int64, pipeline.FinalResult, error) {
 	ret := _m.Called(ctx, spec, l)
 
-	var r0 pipeline.FinalResult
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, logger.Logger) pipeline.FinalResult); ok {
+	var r0 int64
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, logger.Logger) int64); ok {
 		r0 = rf(ctx, spec, l)
 	} else {
-		r0 = ret.Get(0).(pipeline.FinalResult)
+		r0 = ret.Get(0).(int64)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, logger.Logger) error); ok {
+	var r1 pipeline.FinalResult
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, logger.Logger) pipeline.FinalResult); ok {
 		r1 = rf(ctx, spec, l)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(pipeline.FinalResult)
 	}
 
-	return r0, r1
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, logger.Logger) error); ok {
+		r2 = rf(ctx, spec, l)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // ExecuteRun provides a mock function with given fields: ctx, run, l

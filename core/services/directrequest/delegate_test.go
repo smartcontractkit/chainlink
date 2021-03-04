@@ -2,15 +2,17 @@ package directrequest_test
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	log_mocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
@@ -20,12 +22,13 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	broadcaster := new(mocks.Broadcaster)
-	runner := new(mocks.PipelineRunner)
+	gethClient := new(mocks.Client)
+	broadcaster := new(log_mocks.Broadcaster)
+	runner := new(log_mocks.PipelineRunner)
 	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, orm.DB)
+	delegate := directrequest.NewDelegate(broadcaster, runner, gethClient, orm.DB)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.SpecDB{}
@@ -42,8 +45,9 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 }
 
 func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
-	broadcaster := new(mocks.Broadcaster)
-	runner := new(mocks.PipelineRunner)
+	gethClient := new(mocks.Client)
+	broadcaster := new(log_mocks.Broadcaster)
+	runner := new(log_mocks.PipelineRunner)
 
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
 	defer cleanupDB()
@@ -55,7 +59,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, db)
+	delegate := directrequest.NewDelegate(broadcaster, runner, gethClient, db)
 
 	spec := factoryJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
@@ -72,11 +76,11 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	broadcaster.On("Unregister", mock.Anything, mock.Anything).Return(nil)
 
 	t.Run("Log is an OracleRequest", func(t *testing.T) {
-		log := new(mocks.Broadcast)
+		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
-		logOracleRequest := contracts.LogOracleRequest{
+		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
 		log.On("DecodedLog").Return(&logOracleRequest)
@@ -98,22 +102,22 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		// Create one run with a matching request ID ...
 		meta := make(map[string]interface{})
-		request := contracts.OracleRequest{
-			RequestID: cltest.NewHash(),
+		request := oracle_wrapper.OracleOracleRequest{
+			RequestId: cltest.NewHash(),
 		}
-		meta["oracleRequest"] = request.ToMap()
+		meta["oracleRequest"] = map[string]string{"requestId": fmt.Sprintf("0x%x", request.RequestId)}
 		_, err = orm.CreateRun(context.Background(), spec.ID, meta)
 		require.NoError(t, err)
 		// And one without
 		_, err = orm.CreateRun(context.Background(), spec.ID, nil)
 		require.NoError(t, err)
 
-		log := new(mocks.Broadcast)
+		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
-		logCancelOracleRequest := contracts.LogCancelOracleRequest{
-			RequestID: request.RequestID,
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{
+			RequestId: request.RequestId,
 		}
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("MarkConsumed").Return(nil)

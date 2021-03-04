@@ -4,6 +4,7 @@ flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 66e
 multiwordconsumer_wrapper: ../../../evm-contracts/abi/v0.7/MultiWordConsumer.json c56412fac629f4c063e93daf6e92e23237a7c0974ade9f58b544cc92a3d10cf6
 offchain_aggregator_wrapper: ./OffchainAggregator.json 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
 operator_wrapper: ../../../evm-contracts/abi/v0.7/Operator.json 0fc6586a14bd99cd83d6b6ab195f04182aeda76577f30ada067ee34bb6c28919
+oracle_wrapper: ../../../evm-contracts/abi/v0.6/Oracle.json dd316d626835e761d742423828454d5e600fe6b76f2a98646c9e304b318fb907
 solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 1776df7b50d470d2b8ea7a48e29af132d688646c05a65b2d268f5eeb967eb512
 solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json e988ec6477717518f17f3f938cc27fcdd4695be47bf24a08139c3acd9d79971f
 solidity_vrf_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 8c2e2fdaccfc626eb2922fe9a157eca19111a8d4c1103976926d522abed3ce55

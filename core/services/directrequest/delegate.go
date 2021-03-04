@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"reflect"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -20,13 +20,15 @@ type Delegate struct {
 	logBroadcaster log.Broadcaster
 	pipelineRunner pipeline.Runner
 	db             *gorm.DB
+	ethClient      eth.Client
 }
 
-func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, db *gorm.DB) *Delegate {
+func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, ethClient eth.Client, db *gorm.DB) *Delegate {
 	return &Delegate{
 		logBroadcaster,
 		pipelineRunner,
 		db,
+		ethClient,
 	}
 }
 
@@ -42,9 +44,14 @@ func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err
 	}
 	concreteSpec := spec.DirectRequestSpec
 
+	oracle, err := oracle_wrapper.NewOracle(concreteSpec.ContractAddress.Address(), d.ethClient)
+	if err != nil {
+		return
+	}
+
 	logListener := listener{
 		d.logBroadcaster,
-		concreteSpec.ContractAddress.Address(),
+		oracle,
 		d.pipelineRunner,
 		d.db,
 		spec.ID,
@@ -60,16 +67,16 @@ var (
 )
 
 type listener struct {
-	logBroadcaster  log.Broadcaster
-	contractAddress gethCommon.Address
-	pipelineRunner  pipeline.Runner
-	db              *gorm.DB
-	jobID           int32
+	logBroadcaster log.Broadcaster
+	oracle         oracle_wrapper.OracleInterface
+	pipelineRunner pipeline.Runner
+	db             *gorm.DB
+	jobID          int32
 }
 
 // Start complies with job.Service
 func (d listener) Start() error {
-	connected := d.logBroadcaster.Register(d.contractAddress, d)
+	connected := d.logBroadcaster.Register(d.oracle, d)
 	if !connected {
 		return errors.New("Failed to register listener with logBroadcaster")
 	}
@@ -112,14 +119,14 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 	// TODO: Need to filter each job to the _jobId - can we filter upstream?
 	// TODO: Will need to generate a jobID somehow... hash of DAG?
 	switch log := log.(type) {
-	case *contracts.LogOracleRequest:
-		d.handleOracleRequest(log.ToOracleRequest())
+	case *oracle_wrapper.OracleOracleRequest:
+		d.handleOracleRequest(log)
 		err = lb.MarkConsumed()
 		if err != nil {
 			logger.Errorf("Error marking log as consumed: %v", err)
 		}
-	case *contracts.LogCancelOracleRequest:
-		d.handleCancelOracleRequest(log.RequestID)
+	case *oracle_wrapper.OracleCancelOracleRequest:
+		d.handleCancelOracleRequest(log.RequestId)
 		// TODO: Transactional/atomic log consumption would be nice
 		err = lb.MarkConsumed()
 		if err != nil {
@@ -131,9 +138,23 @@ func (d listener) HandleLog(lb log.Broadcast, err error) {
 	}
 }
 
-func (d *listener) handleOracleRequest(req contracts.OracleRequest) {
+func oracleRequestToMap(req *oracle_wrapper.OracleOracleRequest) map[string]interface{} {
+	result := make(map[string]interface{})
+	result["specId"] = fmt.Sprintf("0x%x", req.SpecId)
+	result["requester"] = req.Requester.Hex()
+	result["requestId"] = fmt.Sprintf("0x%x", req.RequestId)
+	result["payment"] = fmt.Sprintf("%v", req.Payment)
+	result["callbackAddr"] = req.CallbackAddr.Hex()
+	result["callbackFunctionId"] = fmt.Sprintf("0x%x", req.CallbackFunctionId)
+	result["cancelExpiration"] = fmt.Sprintf("%v", req.CancelExpiration)
+	result["dataVersion"] = fmt.Sprintf("%v", req.DataVersion)
+	result["data"] = fmt.Sprintf("0x%x", req.Data)
+	return result
+}
+
+func (d *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) {
 	meta := make(map[string]interface{})
-	meta["oracleRequest"] = req.ToMap()
+	meta["oracleRequest"] = oracleRequestToMap(req)
 	ctx := context.TODO()
 	_, err := d.pipelineRunner.CreateRun(ctx, d.jobID, meta)
 	if err != nil {
