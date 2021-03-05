@@ -131,18 +131,22 @@ func sendEmptyTransaction(
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	to := utils.ZeroAddress
-	value := big.NewInt(0)
-	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
-	signedTx, err := keyStore.SignTx(account, tx, chainID)
+	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, account, chainID)
 	if err != nil {
-		return signedTx, err
+		return nil, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
 	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
+}
+
+// makes a transaction that sends 0 eth to self
+func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+	value := big.NewInt(0)
+	payload := []byte{}
+	tx := gethTypes.NewTransaction(nonce, account.Address, value, gasLimit, gasPriceWei, payload)
+	return keyStore.SignTx(account, tx, chainID)
 }
 
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {

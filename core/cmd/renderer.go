@@ -402,12 +402,7 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
 	var rows [][]string
 	for _, key := range keys {
-		var nextNonce string
-		if key.NextNonce == nil {
-			nextNonce = "0"
-		} else {
-			nextNonce = fmt.Sprintf("%d", *key.NextNonce)
-		}
+		nextNonce := fmt.Sprintf("%d", key.NextNonce)
 		var lastUsed string
 		if key.LastUsed != nil {
 			lastUsed = key.LastUsed.String()
