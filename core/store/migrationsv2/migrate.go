@@ -43,6 +43,21 @@ func MigrateDown(db *gorm.DB) error {
 	return nil
 }
 
+func MigrateDownFrom(db *gorm.DB, name string) error {
+	var from *gormigrate.Migration
+	for _, m := range Migrations {
+		if m.ID == name {
+			from = m
+		}
+	}
+	g := gormigrate.New(db, &gormigrate.Options{
+		UseTransaction:            false,
+		ValidateUnknownMigrations: false,
+	}, Migrations)
+
+	return g.RollbackMigration(from)
+}
+
 func Rollback(db *gorm.DB, m *gormigrate.Migration) error {
 	g := gormigrate.New(db, &gormigrate.Options{
 		UseTransaction:            false,
