@@ -114,7 +114,7 @@ export const RecentRuns = withStyles(chartCardStyles)(
               </Card>
             </Grid>
             <Grid item xs={4}>
-              {job?.type === 'Off-chain reporting' && job.dotDagSource !== '' && (
+              {job?.type === 'v2' && job.dotDagSource !== '' && (
                 <Grid item xs>
                   <Card style={{ overflow: 'visible' }}>
                     <CardTitle divider>Task list</CardTitle>

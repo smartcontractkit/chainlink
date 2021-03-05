@@ -82,7 +82,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrContract, err := NewOCRContractConfigTracker(
+	gormdb, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
+	}
+	ocrdb := NewDB(gormdb, concreteSpec.ID)
+
+	tracker, err := NewOCRContractTracker(
 		contract,
 		contractFilterer,
 		contractCaller,
@@ -90,10 +96,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		d.logBroadcaster,
 		jobSpec.ID,
 		*logger.Default,
+		ocrdb,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOCRContract")
 	}
+	services = append(services, tracker)
 
 	peerID, err := d.config.P2PPeerID(concreteSpec.P2PPeerID)
 	if err != nil {
@@ -139,17 +147,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
-	db, errdb := d.db.DB()
-	if errdb != nil {
-		return nil, errors.Wrap(errdb, "unable to open sql db")
-	}
-
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			Bootstrappers:         bootstrapPeers,
-			ContractConfigTracker: ocrContract,
-			Database:              NewDB(db, concreteSpec.ID),
+			ContractConfigTracker: tracker,
+			Database:              ocrdb,
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
 		})
@@ -178,12 +181,18 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		if err != nil {
 			return nil, err
 		}
-		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
-			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()))
+		contractTransmitter := NewOCRContractTransmitter(
+			concreteSpec.ContractAddress.Address(),
+			contractCaller,
+			contractABI,
+			NewTransmitter(gormdb, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
+			d.logBroadcaster,
+			tracker,
+		)
 
 		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			Database: NewDB(db, concreteSpec.ID),
+			Database: ocrdb,
 			Datasource: dataSource{
 				pipelineRunner: d.pipelineRunner,
 				jobID:          jobSpec.ID,
@@ -193,7 +202,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
-			ContractConfigTracker:        ocrContract,
+			ContractConfigTracker:        tracker,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
