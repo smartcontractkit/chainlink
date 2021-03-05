@@ -126,5 +126,5 @@ func TestMigrate_BridgeFK(t *testing.T) {
 	assert.Equal(t, *p.BridgeName, string(bt.Name))
 
 	// Run the down migration
-	require.NoError(t, migrationsv2.MigrateDown(orm.DB))
+	require.NoError(t, migrationsv2.MigrateDownFrom(orm.DB, "0010_bridge_fk"))
 }
