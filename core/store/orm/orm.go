@@ -8,6 +8,7 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm/clause"
@@ -623,6 +625,30 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 	return true, nil
 }
 
+func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) {
+	// Non-FM jobs specify bridges in task specs.
+	var bridgeJobIDs []models.JobID
+	err := orm.DB.Raw(`SELECT job_spec_id FROM task_specs WHERE type = ? AND deleted_at IS NULL`, bridgeName).Find(&bridgeJobIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	var fmInitiators []models.Initiator
+	err = orm.DB.Raw(`SELECT * FROM initiators WHERE type = ? AND deleted_at IS NULL`, models.InitiatorFluxMonitor).Find(&fmInitiators).Error
+	if err != nil {
+		return nil, err
+	}
+	// FM jobs specify bridges in the initiator.
+	for _, fmi := range fmInitiators {
+		if fmi.Feeds.IsArray() && len(fmi.Feeds.Array()) == 1 {
+			bn := fmi.Feeds.Array()[0].Get("bridge")
+			if bn.String() == bridgeName {
+				bridgeJobIDs = append(bridgeJobIDs, fmi.JobSpecID)
+			}
+		}
+	}
+	return bridgeJobIDs, nil
+}
+
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
 // It can be called multiple times without error as long as the outcome would have resulted in the same database state
 func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint64) error {
@@ -1014,7 +1040,7 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 	)`, n).Error
 }
 
-// Chain returns the chain of heads starting at hash and up to lookback parents
+// Chain return the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
 func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 	rows, err := orm.DB.Raw(`
@@ -1420,7 +1446,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 }
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
-	originalUri := ct.uri
+	originalURI := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
@@ -1430,6 +1456,13 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
 		ct.uri = uuid.NewV4().String()
+	} else {
+		uri, err := url.Parse(ct.uri)
+		if err != nil {
+			return nil, err
+		}
+		static.SetConsumerName(uri, "ORM")
+		ct.uri = uri.String()
 	}
 
 	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
@@ -1441,7 +1474,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
-		DSN:  originalUri,
+		DSN:  originalURI,
 	}), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)

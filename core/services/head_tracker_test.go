@@ -444,7 +444,7 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	checker.AssertExpectations(t)
 }
 
-func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
+func TestHeadTracker_Backfill(t *testing.T) {
 	t.Parallel()
 
 	// Heads are arranged as follows:
@@ -516,29 +516,22 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 	ctx := context.Background()
 
-	t.Run("returns chain if all the heads are in database", func(t *testing.T) {
+	t.Run("does nothing if all the heads are in database", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
 			require.NoError(t, store.IdempotentInsertHead(h))
 		}
 
-		sub := new(mocks.Subscription)
 		ethClient := new(mocks.Client)
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID(), nil)
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-		sub.On("Err").Return(nil)
 		store.EthClient = ethClient
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 2)
+		err := ht.Backfill(ctx, h12, 2)
 		require.NoError(t, err)
 
-		assert.Equal(t, int64(12), h.Number)
-		require.NotNil(t, h.Parent)
-		assert.Equal(t, int64(11), h.Parent.Number)
-		require.Nil(t, h.Parent.Parent)
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("fetches a missing head", func(t *testing.T) {
@@ -556,7 +549,12 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 3)
+		var depth uint = 3
+
+		err := ht.Backfill(ctx, h12, depth)
+		require.NoError(t, err)
+
+		h, err := store.Chain(h12.Hash, depth)
 		require.NoError(t, err)
 
 		assert.Equal(t, int64(12), h.Number)
@@ -591,7 +589,12 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 			Return(&head8, nil)
 
 		// Needs to be 8 because there are 8 heads in chain (15,14,13,12,11,10,9,8)
-		h, err := ht.GetChainWithBackfill(ctx, h15, 8)
+		var depth uint = 8
+
+		err := ht.Backfill(ctx, h15, depth)
+		require.NoError(t, err)
+
+		h, err := store.Chain(h15.Hash, depth)
 		require.NoError(t, err)
 
 		require.Equal(t, uint32(8), h.ChainLength())
@@ -602,25 +605,6 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("returns error if first head is not in database", func(t *testing.T) {
-		store, cleanup := cltest.NewStore(t)
-		defer cleanup()
-
-		ethClient := new(mocks.Client)
-		sub := new(mocks.Subscription)
-		store.EthClient = ethClient
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
-
-		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
-
-		h16 := *cltest.Head(16)
-		h16.ParentHash = h15.Hash
-
-		_, err := ht.GetChainWithBackfill(ctx, h16, 3)
-		require.Contains(t, err.Error(), "record not found")
-	})
-
 	t.Run("does not backfill if chain length is already greater than or equal to depth", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
@@ -629,20 +613,17 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		}
 
 		ethClient := new(mocks.Client)
-		sub := new(mocks.Subscription)
 		store.EthClient = ethClient
-		ethClient.On("ChainID", mock.Anything).Return(store.Config.ChainID())
-		ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h15, 3)
+		err := ht.Backfill(ctx, h15, 3)
 		require.NoError(t, err)
-		require.Equal(t, uint32(3), h.ChainLength())
 
-		h, err = ht.GetChainWithBackfill(ctx, h15, 5)
+		err = ht.Backfill(ctx, h15, 5)
 		require.NoError(t, err)
-		require.Equal(t, uint32(5), h.ChainLength())
+
+		ethClient.AssertExpectations(t)
 	})
 
 	t.Run("only backfills to height 0 if chain length would otherwise cause it to try and fetch a negative head", func(t *testing.T) {
@@ -658,15 +639,19 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		require.NoError(t, store.IdempotentInsertHead(h1))
 
-		h, err := ht.GetChainWithBackfill(ctx, h1, 400)
+		err := ht.Backfill(ctx, h1, 400)
 		require.NoError(t, err)
+
+		h, err := store.Chain(h1.Hash, 400)
+		require.NoError(t, err)
+
 		require.Equal(t, uint32(2), h.ChainLength())
 		require.Equal(t, int64(0), h.EarliestInChain().Number)
 
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("abandons backfill and returns whatever we have if the eth node returns not found", func(t *testing.T) {
+	t.Run("abandons backfill and returns error if the eth node returns not found", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
@@ -684,7 +669,11 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, h12, 400)
+		require.Error(t, err)
+		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
+
+		h, err := store.Chain(h12.Hash, 400)
 		require.NoError(t, err)
 
 		// Should contain 12, 11, 10, 9
@@ -694,7 +683,7 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 		ethClient.AssertExpectations(t)
 	})
 
-	t.Run("abandons backfill and returns whatever we have if the context time budget is exceeded", func(t *testing.T) {
+	t.Run("abandons backfill and returns error if the context time budget is exceeded", func(t *testing.T) {
 		store, cleanup := cltest.NewStore(t)
 		defer cleanup()
 		for _, h := range heads {
@@ -710,7 +699,11 @@ func TestHeadTracker_GetChainWithBackfill(t *testing.T) {
 
 		ht := services.NewHeadTracker(store, []strpkg.HeadTrackable{}, cltest.NeverSleeper{})
 
-		h, err := ht.GetChainWithBackfill(ctx, h12, 400)
+		err := ht.Backfill(ctx, h12, 400)
+		require.Error(t, err)
+		require.EqualError(t, err, "fetchAndSaveHead failed: context deadline exceeded")
+
+		h, err := store.Chain(h12.Hash, 400)
 		require.NoError(t, err)
 
 		// Should contain 12, 11, 10, 9

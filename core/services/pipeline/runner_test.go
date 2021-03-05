@@ -3,9 +3,11 @@ package pipeline_test
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 
@@ -259,4 +261,90 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	}
 	// There are three tasks in the erroring pipeline
 	require.Len(t, errorResults, 3)
+}
+
+func dotGraphToSpec(t *testing.T, id int32, taskIDStart int32, graph string) pipeline.Spec {
+	d := pipeline.NewTaskDAG()
+	err := d.UnmarshalText([]byte(graph))
+	require.NoError(t, err)
+	ts, err := d.TasksInDependencyOrder()
+	require.NoError(t, err)
+	var s = pipeline.Spec{
+		ID:                id,
+		PipelineTaskSpecs: make([]pipeline.TaskSpec, 0),
+	}
+	taskSpecIDs := make(map[pipeline.Task]int32)
+	for _, task := range ts {
+		var successorID null.Int
+		if task.OutputTask() != nil {
+			successor := task.OutputTask()
+			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
+		}
+		v := pipeline.JSONSerializable{task, false}
+		b, err := v.MarshalJSON()
+		require.NoError(t, err)
+		v2 := pipeline.JSONSerializable{}
+		err = v2.UnmarshalJSON(b)
+		require.NoError(t, err)
+		s.PipelineTaskSpecs = append(s.PipelineTaskSpecs, pipeline.TaskSpec{
+			ID:             taskIDStart,
+			DotID:          task.DotID(),
+			PipelineSpecID: s.ID,
+			Type:           task.Type(),
+			JSON:           v2,
+			Index:          task.OutputIndex(),
+			SuccessorID:    successorID,
+		})
+		taskSpecIDs[task] = taskIDStart
+		taskIDStart++
+	}
+	return s
+}
+
+func Test_PipelineRunner_HandleFaults(t *testing.T) {
+	// We want to test the scenario where one or multiple APIs time out,
+	// but a sufficient number of them still complete within the desired time frame
+	// and so we can still obtain a median.
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	m1 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":10}`))
+	}))
+	m2 := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":11}`))
+	}))
+	s := dotGraphToSpec(t, 1, 1, fmt.Sprintf(`
+ds1          [type=http url="%s"];
+ds1_parse    [type=jsonparse path="result"];
+ds1_multiply [type=multiply times=100];
+
+ds2          [type=http url="%s"];
+ds2_parse    [type=jsonparse path="result"];
+ds2_multiply [type=multiply times=100];
+
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+ds2 -> ds2_parse -> ds2_multiply -> answer1;
+
+answer1 [type=median                      index=0];
+`, m1.URL, m2.URL))
+
+	r := pipeline.NewRunner(orm, store.Config)
+	run, err := pipeline.NewRun(s, time.Now())
+	require.NoError(t, err)
+
+	// If we cancel before an API is finished, we should still get a median.
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	trrs, err := r.ExecuteRun(ctx, run, *logger.Default)
+	require.NoError(t, err)
+	for _, trr := range trrs {
+		if trr.IsTerminal {
+			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value)
+		}
+	}
 }
