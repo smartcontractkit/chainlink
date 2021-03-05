@@ -168,7 +168,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 }
 
 // NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
-func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
+func NewJobWithFluxMonitorInitiatorWithBridge(bridgeName string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -176,7 +176,7 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		InitiatorParams: models.InitiatorParams{
 			Address:           NewAddress(),
 			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:             models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Feeds:             models.JSON{Result: gjson.Parse(fmt.Sprintf("[{\"bridge\":\"%s\"}]", bridgeName))},
 			Threshold:         0.5,
 			AbsoluteThreshold: 0.01,
 			Precision:         2,

@@ -303,6 +303,10 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	)
 	require.NoError(t, app.Start())
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	return app, client, cleanup
 }
@@ -315,6 +319,11 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	require.NoError(t, app.Start())
+
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 
 	client := app.NewHTTPClient()
 

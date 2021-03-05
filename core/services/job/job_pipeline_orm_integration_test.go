@@ -88,6 +88,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 		})
 	}
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, db.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, db.Create(bridge2).Error)
+
 	t.Run("creates task DAGs", func(t *testing.T) {
 		orm, _, cleanup := cltest.NewPipelineORM(t, config, db)
 		defer cleanup()
