@@ -1,6 +1,6 @@
 import { ApiResponse } from 'utils/json-api-client'
-import { OcrJobSpec } from 'core/store/models'
-import { jobSpecV2 } from './jobSpecV2'
+import { JobSpecV2 } from 'core/store/models'
+import { ocrJobSpecV2 } from './jobSpecV2'
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * Math.floor(max))
@@ -8,7 +8,7 @@ function getRandomInt(max: number) {
 
 export const jsonApiOcrJobSpec = (
   config: Partial<
-    OcrJobSpec['offChainReportingOracleSpec'] & { id?: string } & {
+    JobSpecV2['offChainReportingOracleSpec'] & { id?: string } & {
       dotDagSource?: string
     }
   > = {},
@@ -19,7 +19,7 @@ export const jsonApiOcrJobSpec = (
     data: {
       type: 'jobSpecV2',
       id,
-      attributes: jobSpecV2(config),
+      attributes: ocrJobSpecV2(config),
     },
-  } as ApiResponse<OcrJobSpec>
+  } as ApiResponse<JobSpecV2>
 }
