@@ -4,30 +4,8 @@ import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
-
-const styles = (theme: Theme) =>
-  createStyles({
-    cell: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-    },
-    link: {
-      '&::before': {
-        content: "''",
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-      },
-    },
-  })
+import { withStyles, WithStyles } from '@material-ui/core/styles'
+import { styles } from './sharedStyles'
 
 interface Props extends WithStyles<typeof styles> {
   job: DirectRequest
