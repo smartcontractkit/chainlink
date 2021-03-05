@@ -4,6 +4,7 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
+	gorm "gorm.io/gorm"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -43,13 +44,20 @@ func (_m *ORM) DeleteUnconsumedBroadcastsForListener(jobID interface{}) error {
 	return r0
 }
 
-// MarkBroadcastConsumed provides a mock function with given fields: blockHash, logIndex, jobID
-func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}) error {
-	ret := _m.Called(blockHash, logIndex, jobID)
+// MarkBroadcastConsumed provides a mock function with given fields: blockHash, logIndex, jobID, opts
+func (_m *ORM) MarkBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID interface{}, opts ...*gorm.DB) error {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, blockHash, logIndex, jobID)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Hash, uint, interface{}) error); ok {
-		r0 = rf(blockHash, logIndex, jobID)
+	if rf, ok := ret.Get(0).(func(common.Hash, uint, interface{}, ...*gorm.DB) error); ok {
+		r0 = rf(blockHash, logIndex, jobID, opts...)
 	} else {
 		r0 = ret.Error(0)
 	}
