@@ -7,8 +7,8 @@ import {
   generateJSONDefinition,
   generateTOMLDefinition,
 } from './generateJobSpecDefinition'
-import { JobData } from './sharedTypes'
-import { JobsDefinition } from './Definition'
+import { JobData, JobV2 } from './sharedTypes'
+import { JobDefinition } from './JobDefinition'
 import { JobsErrors } from './Errors'
 import { RecentRuns } from './RecentRuns'
 import { RegionalNav } from './RegionalNav'
@@ -77,22 +77,45 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
 
   const getJobSpec = React.useCallback(async () => {
     if (isOcrJob(jobSpecId)) {
-      return v2.ocrSpecs
+      return v2.jobs
         .getJobSpec(jobSpecId)
         .then((response) => {
           const jobSpec = response.data
-          setState((s) => ({
-            ...s,
-            jobSpec,
-            job: {
-              ...jobSpec.attributes,
-              ...jobSpec.attributes.offChainReportingOracleSpec,
+          setState((s) => {
+            let createdAt: string
+            switch (jobSpec.attributes.type) {
+              case 'offchainreporting':
+                createdAt =
+                  jobSpec.attributes.offChainReportingOracleSpec.createdAt
+
+                break
+              case 'fluxmonitor':
+                createdAt = jobSpec.attributes.fluxMonitorSpec.createdAt
+
+                break
+              case 'directrequest':
+                createdAt = jobSpec.attributes.directRequestSpec.createdAt
+
+                break
+            }
+
+            const job: JobV2 = {
               ...jobSpec.attributes.pipelineSpec,
               id: jobSpec.id,
               definition: generateTOMLDefinition(jobSpec.attributes),
-              type: 'Off-chain reporting',
-            },
-          }))
+              type: 'v2',
+              name: jobSpec.attributes.name,
+              specType: jobSpec.attributes.type,
+              errors: jobSpec.attributes.errors,
+              createdAt,
+            }
+
+            return {
+              ...s,
+              jobSpec,
+              job,
+            }
+          })
         })
         .catch(setError)
     } else {
@@ -132,7 +155,7 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
           exact
           path={`${match.path}/definition`}
           render={() => (
-            <JobsDefinition
+            <JobDefinition
               {...{
                 ...state,
                 ErrorComponent,
