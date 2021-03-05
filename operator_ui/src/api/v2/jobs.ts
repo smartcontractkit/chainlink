@@ -6,26 +6,27 @@ export const ENDPOINT = '/v2/jobs'
 const SHOW_ENDPOINT = `${ENDPOINT}/:specId`
 const DESTROY_ENDPOINT = `${ENDPOINT}/:specId`
 
-export class OcrSpecs {
+// Jobs represents the v2 jobs
+export class Jobs {
   constructor(private api: jsonapi.Api) {}
 
   @boundMethod
-  public getJobSpecs(): Promise<jsonapi.ApiResponse<models.OcrJobSpec[]>> {
+  public getJobSpecs(): Promise<jsonapi.ApiResponse<models.JobSpecV2[]>> {
     return this.index()
   }
 
   @boundMethod
   public getJobSpec(
     id: string,
-  ): Promise<jsonapi.ApiResponse<models.OcrJobSpec>> {
+  ): Promise<jsonapi.ApiResponse<models.JobSpecV2>> {
     return this.show({}, { specId: id })
   }
 
   @boundMethod
   public createJobSpec(
-    ocrJobSpecRequest: models.OcrJobSpecRequest,
-  ): Promise<jsonapi.ApiResponse<models.OcrJobSpec>> {
-    return this.create(ocrJobSpecRequest)
+    request: models.JobSpecV2Request,
+  ): Promise<jsonapi.ApiResponse<models.JobSpecV2>> {
+    return this.create(request)
   }
 
   @boundMethod
@@ -33,16 +34,16 @@ export class OcrSpecs {
     return this.destroy(undefined, { specId: id })
   }
 
-  private index = this.api.fetchResource<{}, models.OcrJobSpec[]>(ENDPOINT)
+  private index = this.api.fetchResource<{}, models.JobSpecV2[]>(ENDPOINT)
 
   private create = this.api.createResource<
-    models.OcrJobSpecRequest,
-    models.OcrJobSpec
+    models.JobSpecV2Request,
+    models.JobSpecV2
   >(ENDPOINT)
 
   private show = this.api.fetchResource<
     {},
-    models.OcrJobSpec,
+    models.JobSpecV2,
     {
       specId: string
     }

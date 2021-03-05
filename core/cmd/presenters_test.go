@@ -32,7 +32,7 @@ func TestJob_GetName(t *testing.T) {
 
 	job := &cmd.Job{}
 
-	assert.Equal(t, "specDBs", job.GetName())
+	assert.Equal(t, "jobs", job.GetName())
 }
 
 func TestJob_GetTasks(t *testing.T) {
