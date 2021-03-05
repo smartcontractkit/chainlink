@@ -12,6 +12,7 @@ import (
 
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/mock"
@@ -617,14 +618,16 @@ ds1 -> ds1_parse;
 		config.Config.Set("P2P_PEER_ID", ek.PeerID.String()) // Required to create job spawner delegate.
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
+
+		ethClient := eth.NewClientWith(rpc, geth)
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
-			nil,
+			ethClient,
+			log.NewBroadcaster(log.NewORM(db), ethClient, config),
 			pw,
 			monitoringEndpoint)
 		services, err := sd.ServicesForSpec(jb)
