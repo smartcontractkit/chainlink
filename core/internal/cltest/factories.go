@@ -754,11 +754,11 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func MustInsertKeeperJob(t *testing.T, store *strpkg.Store) job.SpecDB {
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.SpecDB {
 	t.Helper()
 	keeperSpec := job.KeeperSpec{
-		ContractAddress: NewEIP55Address(),
-		FromAddress:     NewEIP55Address(),
+		ContractAddress: contract,
+		FromAddress:     from,
 	}
 	err := store.DB.Create(&keeperSpec).Error
 	require.NoError(t, err)
@@ -774,13 +774,16 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store) job.SpecDB {
 }
 
 func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry {
+	key, _ := MustAddRandomKeyToKeystore(t, store)
+	from := key.Address
 	t.Helper()
-	job := MustInsertKeeperJob(t, store)
+	contractAddress := NewEIP55Address()
+	job := MustInsertKeeperJob(t, store, from, contractAddress)
 	registry := keeper.Registry{
-		ContractAddress:   NewEIP55Address(),
+		ContractAddress:   contractAddress,
 		BlockCountPerTurn: 20,
 		CheckGas:          10_000,
-		FromAddress:       NewEIP55Address(),
+		FromAddress:       from,
 		JobID:             job.ID,
 		KeeperIndex:       0,
 		NumKeepers:        1,

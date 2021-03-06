@@ -11,15 +11,17 @@ import (
 )
 
 type Delegate struct {
-	keeperORM KeeperORM
-	ethClient eth.Client
+	keeperORM    KeeperORM
+	ethClient    eth.Client
+	syncInterval time.Duration
 }
 
-func NewDelegate(orm *orm.ORM, ethClient eth.Client) *Delegate {
+func NewDelegate(orm *orm.ORM, ethClient eth.Client, config *orm.Config) *Delegate {
 	keeperORM := NewORM(orm)
 	return &Delegate{
-		keeperORM: keeperORM,
-		ethClient: ethClient,
+		keeperORM:    keeperORM,
+		ethClient:    ethClient,
+		syncInterval: config.KeeperRegistrySyncInterval(),
 	}
 }
 
@@ -41,7 +43,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, err
 	}
 
-	registrySynchronizer := NewRegistrySynchronizer(spec, contract, d.keeperORM, 10*time.Second) // TODO - RYAN
+	registrySynchronizer := NewRegistrySynchronizer(spec, contract, d.keeperORM, d.syncInterval)
 
 	return []job.Service{
 		registrySynchronizer,

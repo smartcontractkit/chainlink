@@ -1,9 +1,12 @@
 package keeper
 
 import (
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm/clause"
 )
+
+const gasBuffer = int32(200_000)
 
 func NewORM(orm *orm.ORM) KeeperORM {
 	return KeeperORM{
@@ -84,4 +87,23 @@ func (korm KeeperORM) NextUpkeepIDForRegistry(reg Registry) (nextID int64, err e
 		Row().
 		Scan(&nextID)
 	return nextID, err
+}
+
+func (korm KeeperORM) InsertEthTXForUpkeep(upkeep UpkeepRegistration, payload []byte) error {
+	sqlDB, err := korm.DB.DB()
+	if err != nil {
+		return err
+	}
+	_, err = sqlDB.Exec(
+		`INSERT INTO eth_txes (from_address, to_address, encoded_payload, gas_limit, value, state, created_at)
+		VALUES ($1,$2,$3,$4,0,'unstarted',NOW());`,
+		upkeep.Registry.FromAddress.Address(),
+		upkeep.Registry.ContractAddress.Address(),
+		payload,
+		upkeep.ExecuteGas+gasBuffer,
+	)
+	if err != nil {
+		return errors.Wrap(err, "keeper failed to insert eth_tx")
+	}
+	return nil
 }

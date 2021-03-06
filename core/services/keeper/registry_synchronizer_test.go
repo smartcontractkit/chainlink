@@ -44,7 +44,7 @@ var upkeep = struct {
 }{
 	Target:              common.HexToAddress("0x0000000000000000000000000000000000000123"),
 	ExecuteGas:          2_000_000,
-	CheckData:           common.Hex2Bytes("0x1234"),
+	CheckData:           common.Hex2Bytes("1234"),
 	Balance:             big.NewInt(1000000000000000000),
 	LastKeeper:          common.HexToAddress("0x0000000000000000000000000000000000000456"),
 	Admin:               common.HexToAddress("0x0000000000000000000000000000000000000789"),
@@ -55,16 +55,16 @@ func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer,
 	store, cleanup := cltest.NewStore(t)
 	keeperORM := keeper.NewORM(store.ORM)
 	ethMock := new(mocks.Client)
-	job := cltest.MustInsertKeeperJob(t, store)
-	contractAddress := job.KeeperSpec.ContractAddress
+	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	contractAddress := j.KeeperSpec.ContractAddress
 	contract, err := keeper_registry_contract.NewKeeperRegistryContract(
 		contractAddress.Address(),
 		ethMock,
 	)
 	require.NoError(t, err)
 
-	synchronizer := keeper.NewRegistrySynchronizer(job, contract, keeperORM, syncInterval)
-	return store, synchronizer, ethMock, job, cleanup
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, keeperORM, syncInterval)
+	return store, synchronizer, ethMock, j, cleanup
 }
 
 func Test_RegistrySynchronizer_Start(t *testing.T) {
