@@ -109,6 +109,7 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
+	UpkeepExecuter           keeper.UpkeepExecuter
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
@@ -167,6 +168,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	upkeepExecuter := keeper.NewUpkeepExecuter(keeper.NewORM(store.ORM), store.EthClient)
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -187,7 +189,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
-			job.Keeper: keeper.NewDelegate(store.ORM, store.EthClient),
+			job.Keeper: keeper.NewDelegate(store.ORM, store.EthClient, config),
 		}
 	)
 
@@ -229,7 +231,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, upkeepExecuter)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -250,6 +252,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
+		UpkeepExecuter:           upkeepExecuter,
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		pendingConnectionResumer: pendingConnectionResumer,
@@ -269,6 +272,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor,
 		promReporter,
 		logBroadcaster,
+		upkeepExecuter,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {

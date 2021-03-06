@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -229,4 +230,30 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	nextID, err = keeperORM.NextUpkeepIDForRegistry(reg)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), nextID)
+}
+
+func TestKeeperDB_InsertEthTXForUpkeep(t *testing.T) {
+	store, keeperORM, cleanup := setupKeeperDB(t)
+	defer cleanup()
+
+	reg := cltest.MustInsertKeeperRegistry(t, store)
+
+	upkeep := newUpkeep(reg, 0)
+	err := keeperORM.UpsertUpkeep(&upkeep)
+	require.NoError(t, err)
+
+	payload := common.Hex2Bytes("1234")
+
+	err = keeperORM.InsertEthTXForUpkeep(upkeep, payload)
+	require.NoError(t, err)
+
+	gasBuffer := int32(200_000)
+
+	var ethTX models.EthTx
+	err = store.DB.First(&ethTX).Error
+	require.NoError(t, err)
+	require.Equal(t, reg.FromAddress.Address(), ethTX.FromAddress)
+	require.Equal(t, reg.ContractAddress.Address(), ethTX.ToAddress)
+	require.Equal(t, payload, ethTX.EncodedPayload)
+	require.Equal(t, upkeep.ExecuteGas+gasBuffer, int32(ethTX.GasLimit))
 }
