@@ -793,6 +793,20 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry
 	return registry
 }
 
+func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
+	upkeepID, err := keeper.NewORM(store.ORM).NextUpkeepIDForRegistry(registry)
+	require.NoError(t, err)
+	upkeep := keeper.UpkeepRegistration{
+		UpkeepID:   upkeepID,
+		ExecuteGas: int32(10_000),
+		Registry:   registry,
+		CheckData:  common.Hex2Bytes("ABC123"),
+	}
+	err = store.DB.Create(&upkeep).Error
+	require.NoError(t, err)
+	return upkeep
+}
+
 func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
 	return flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          roundID,

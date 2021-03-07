@@ -28,7 +28,6 @@ func setup(t *testing.T) (
 	ethMock := new(mocks.Client)
 	keeperORM := keeper.NewORM(store.ORM)
 	executer := keeper.NewUpkeepExecuter(keeperORM, ethMock)
-	// key, _ := cltest.MustAddRandomKeyToKeystore(t, store)
 	registry := cltest.MustInsertKeeperRegistry(t, store)
 	err := executer.Start()
 	require.NoError(t, err)
