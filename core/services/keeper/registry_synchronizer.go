@@ -19,7 +19,7 @@ import (
 const syncUpkeepQueueSize = 10
 
 func NewRegistrySynchronizer(
-	job job.SpecDB,
+	job job.Job,
 	contract *keeper_registry_contract.KeeperRegistryContract,
 	keeperORM KeeperORM,
 	syncInterval time.Duration,
@@ -41,7 +41,7 @@ type RegistrySynchronizer struct {
 	contract  *keeper_registry_contract.KeeperRegistryContract
 	interval  time.Duration
 	isRunning *atomic.Bool
-	job       job.SpecDB
+	job       job.Job
 	keeperORM KeeperORM
 
 	chDone chan struct{}
@@ -169,7 +169,7 @@ func (rs RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, don
 	}
 }
 
-func (rs RegistrySynchronizer) newSyncedRegistry(job job.SpecDB) (Registry, error) {
+func (rs RegistrySynchronizer) newSyncedRegistry(job job.Job) (Registry, error) {
 	fromAddress := job.KeeperSpec.FromAddress
 	contractAddress := job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)

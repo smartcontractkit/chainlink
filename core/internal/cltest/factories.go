@@ -754,7 +754,7 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
-func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.SpecDB {
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
 	t.Helper()
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
@@ -762,7 +762,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	}
 	err := store.DB.Create(&keeperSpec).Error
 	require.NoError(t, err)
-	specDB := job.SpecDB{
+	specDB := job.Job{
 		KeeperSpec:    &keeperSpec,
 		Type:          job.Keeper,
 		SchemaVersion: 1,
