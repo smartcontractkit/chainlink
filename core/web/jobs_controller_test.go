@@ -148,12 +148,13 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 	jb := job.Job{}
 	require.NoError(t, app.Store.DB.Preload("KeeperSpec").First(&jb).Error)
 
-	jobSpec := job.Job{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
+	require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
+	require.Equal(t, resource.KeeperSpec.FromAddress, jb.KeeperSpec.FromAddress)
 	assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
-	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)

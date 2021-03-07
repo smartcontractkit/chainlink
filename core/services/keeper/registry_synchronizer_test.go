@@ -51,7 +51,7 @@ var upkeep = struct {
 	MaxValidBlocknumber: 1_000_000_000,
 }
 
-func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer, *mocks.Client, job.SpecDB, func()) {
+func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer, *mocks.Client, job.Job, func()) {
 	store, cleanup := cltest.NewStore(t)
 	keeperORM := keeper.NewORM(store.ORM)
 	ethMock := new(mocks.Client)
