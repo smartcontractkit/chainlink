@@ -84,78 +84,84 @@ func (executer UpkeepExecuter) run() {
 		case <-executer.chDone:
 			return
 		case <-executer.chSignalRun:
-			executer.processActiveRegistrations()
+			executer.processActiveUpkeeps()
 		}
 	}
 }
 
-func (executer UpkeepExecuter) processActiveRegistrations() {
+func (executer UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
-	// with work because processActiveRegistrations() blocks - this could be parallelized
-	// but will need a cap
+	// with work because processActiveUpkeeps() blocks
 	logger.Debug("received new block, running checkUpkeep for keeper registrations")
 
-	activeRegistrations, err := executer.keeperORM.EligibleUpkeeps(executer.blockHeight.Load())
+	activeUpkeepss, err := executer.keeperORM.EligibleUpkeeps(executer.blockHeight.Load())
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
 	}
 
-	for _, reg := range activeRegistrations {
+	for _, reg := range activeUpkeepss {
 		executer.concurrentExecute(reg)
 	}
 }
 
-func (executer UpkeepExecuter) concurrentExecute(registration UpkeepRegistration) {
+func (executer UpkeepExecuter) concurrentExecute(upkeep UpkeepRegistration) {
 	executer.executionQueue <- struct{}{}
-	go executer.execute(registration)
+	go executer.execute(upkeep)
 }
 
 // execute will call checkForUpkeep and, if it succeeds, triger a job on the CL node
-func (executer UpkeepExecuter) execute(registration UpkeepRegistration) {
-	// pop queue when done executing
-	defer func() {
-		<-executer.executionQueue
-	}()
+// DEV: must perform call "manually" because abigen wrapper can only send tx
+func (executer UpkeepExecuter) execute(upkeep UpkeepRegistration) {
+	defer func() { <-executer.executionQueue }()
 
-	checkPayload, err := RegistryABI.Pack(
-		checkUpkeep,
-		big.NewInt(int64(registration.UpkeepID)),
-		registration.Registry.FromAddress.Address(),
-	)
+	msg, err := constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
 		logger.Error(err)
 		return
 	}
 
-	to := registration.Registry.ContractAddress.Address()
+	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+
+	checkUpkeepResult, err := executer.ethClient.CallContract(context.Background(), msg, nil)
+	if err != nil {
+		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+		return
+	}
+
+	performTxData, err := constructPerformUpkeepTxData(checkUpkeepResult, upkeep.UpkeepID)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+
+	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+
+	err = executer.keeperORM.InsertEthTXForUpkeep(upkeep, performTxData)
+	if err != nil {
+		logger.Error(err)
+	}
+}
+
+func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
+	checkPayload, err := RegistryABI.Pack(
+		checkUpkeep,
+		big.NewInt(int64(upkeep.UpkeepID)),
+		upkeep.Registry.FromAddress.Address(),
+	)
+	if err != nil {
+		return ethereum.CallMsg{}, err
+	}
+
+	to := upkeep.Registry.ContractAddress.Address()
 	msg := ethereum.CallMsg{
 		From: utils.ZeroAddress,
 		To:   &to,
-		Gas:  uint64(registration.Registry.CheckGas),
+		Gas:  uint64(upkeep.Registry.CheckGas),
 		Data: checkPayload,
 	}
 
-	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", registration.Registry.ContractAddress.Hex(), registration.UpkeepID)
-
-	result, err := executer.ethClient.CallContract(context.Background(), msg, nil)
-	if err != nil {
-		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", registration.Registry.ContractAddress.Hex(), registration.UpkeepID)
-		return
-	}
-
-	performTxData, err := constructPerformUpkeepTxData(result, registration.UpkeepID)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-
-	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", registration.Registry.ContractAddress.Hex(), registration.UpkeepID)
-
-	err = executer.keeperORM.InsertEthTXForUpkeep(registration, performTxData)
-	if err != nil {
-		logger.Error(err)
-	}
+	return msg, nil
 }
 
 func constructPerformUpkeepTxData(checkUpkeepResult []byte, upkeepID int64) ([]byte, error) {

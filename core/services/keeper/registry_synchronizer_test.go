@@ -42,12 +42,12 @@ var upkeep = struct {
 	Admin               common.Address
 	MaxValidBlocknumber uint64
 }{
-	Target:              common.HexToAddress("0x0000000000000000000000000000000000000123"),
+	Target:              cltest.NewAddress(),
 	ExecuteGas:          2_000_000,
 	CheckData:           common.Hex2Bytes("1234"),
 	Balance:             big.NewInt(1000000000000000000),
-	LastKeeper:          common.HexToAddress("0x0000000000000000000000000000000000000456"),
-	Admin:               common.HexToAddress("0x0000000000000000000000000000000000000789"),
+	LastKeeper:          cltest.NewAddress(),
+	Admin:               cltest.NewAddress(),
 	MaxValidBlocknumber: 1_000_000_000,
 }
 

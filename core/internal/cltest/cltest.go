@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -950,6 +949,8 @@ const (
 	DBWaitTimeout = 20 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
+	// AsertNoActionTimeout shouldn't be too long, or it will slow down tests
+	AsertNoActionTimeout = 3 * time.Second
 )
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -1768,7 +1769,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, store *store.Store, model interface{}, expected int64) {
+func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
 	var count int64
 	store.DB.Model(model).Count(&count)
 	require.Equal(t, expected, count)
@@ -1783,7 +1784,7 @@ func WaitForCount(t testing.TB, store *strpkg.Store, model interface{}, want int
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, 5*time.Second, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
@@ -1795,5 +1796,5 @@ func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AsertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }

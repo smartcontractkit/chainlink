@@ -97,8 +97,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// keeper job is triggered and payload is received
 	receivedBytes := func() []byte {
-		received, err := upkeepContract.ReceivedBytes(nil)
-		require.NoError(t, err)
+		received, err2 := upkeepContract.ReceivedBytes(nil)
+		require.NoError(t, err2)
 		return received
 	}
 	g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload1))
