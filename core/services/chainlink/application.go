@@ -54,7 +54,7 @@ type (
 	// ExternalInitiatorManager manages HTTP requests to remote external initiators
 	ExternalInitiatorManager interface {
 		Notify(models.JobSpec, *strpkg.Store) error
-		DeleteJob(db *gorm.DB, jobID *models.ID) error
+		DeleteJob(db *gorm.DB, jobID models.JobID) error
 	}
 )
 
@@ -79,7 +79,7 @@ type Application interface {
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
 	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
-	ArchiveJob(*models.ID) error
+	ArchiveJob(models.JobID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
@@ -146,12 +146,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	gasUpdater := services.NewGasUpdater(store)
-	db, err := store.DB.DB()
-	if err != nil {
-		panic(err)
-	}
-	promReporter := services.NewPromReporter(db)
-	logBroadcaster := log.NewBroadcaster(ethClient, store.ORM, store.Config.BlockBackfillDepth())
+	promReporter := services.NewPromReporter(store.MustSQLDB())
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -175,17 +171,29 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
-				store.DB),
+				store.DB,
+			),
 			job.FluxMonitor: fluxmonitorv2.NewDelegate(
 				pipelineRunner,
-				store.DB),
+				store.DB,
+			),
 		}
 	)
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
 		subservices = append(subservices, concretePW)
-		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(store.DB, jobORM, config, store.OCRKeyStore, pipelineRunner, ethClient, logBroadcaster, concretePW, monitoringEndpoint)
+		delegates[job.OffchainReporting] = offchainreporting.NewDelegate(
+			store.DB,
+			jobORM,
+			config,
+			store.OCRKeyStore,
+			pipelineRunner,
+			ethClient,
+			logBroadcaster,
+			concretePW,
+			monitoringEndpoint,
+		)
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
@@ -232,6 +240,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer,
 		balanceMonitor,
 		promReporter,
+		logBroadcaster,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
@@ -454,7 +463,7 @@ func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) erro
 
 // ArchiveJob silences the job from the system, preventing future job runs.
 // It is idempotent and can be run as many times as you like.
-func (app *ChainlinkApplication) ArchiveJob(ID *models.ID) error {
+func (app *ChainlinkApplication) ArchiveJob(ID models.JobID) error {
 	err := app.JobSubscriber.RemoveJob(ID)
 	if err != nil {
 		logger.Warnw("Error removing job from JobSubscriber", "error", err)

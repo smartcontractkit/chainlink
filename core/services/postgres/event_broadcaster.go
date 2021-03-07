@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"sync"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -48,15 +50,16 @@ type Event struct {
 	Payload string
 }
 
-func NewEventBroadcaster(uri string, minReconnectInterval time.Duration, maxReconnectDuration time.Duration) *eventBroadcaster {
+func NewEventBroadcaster(uri url.URL, minReconnectInterval time.Duration, maxReconnectDuration time.Duration) *eventBroadcaster {
 	if minReconnectInterval == time.Duration(0) {
 		minReconnectInterval = 1 * time.Second
 	}
 	if maxReconnectDuration == time.Duration(0) {
 		maxReconnectDuration = 1 * time.Minute
 	}
+	static.SetConsumerName(&uri, "EventBroadcaster")
 	return &eventBroadcaster{
-		uri:                  uri,
+		uri:                  uri.String(),
 		minReconnectInterval: minReconnectInterval,
 		maxReconnectDuration: maxReconnectDuration,
 		subscriptions:        make(map[string]map[Subscription]struct{}),
@@ -67,12 +70,13 @@ func NewEventBroadcaster(uri string, minReconnectInterval time.Duration, maxReco
 
 func (b *eventBroadcaster) Start() error {
 	return b.StartOnce("Postgres event broadcaster", func() (err error) {
+		// Explicitly using the lib/pq for notifications so we use the postgres driverName
+		// and NOT pgx.
 		db, err := sql.Open("postgres", b.uri)
 		if err != nil {
 			return err
 		}
 		b.db = db
-
 		b.listener = pq.NewListener(b.uri, b.minReconnectInterval, b.maxReconnectDuration, func(ev pq.ListenerEventType, err error) {
 			// These are always connection-related events, and the pq library
 			// automatically handles reconnecting to the DB. Therefore, we do not

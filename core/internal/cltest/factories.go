@@ -8,11 +8,13 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	mathrand "math/rand"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -24,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor"
+	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -35,6 +38,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -164,7 +168,7 @@ func NewJobWithFluxMonitorInitiator() models.JobSpec {
 }
 
 // NewJobWithFluxMonitorInitiator create new Job with FluxMonitor initiator
-func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
+func NewJobWithFluxMonitorInitiatorWithBridge(bridgeName string) models.JobSpec {
 	j := NewJob()
 	j.Initiators = []models.Initiator{{
 		JobSpecID: j.ID,
@@ -172,7 +176,7 @@ func NewJobWithFluxMonitorInitiatorWithBridge() models.JobSpec {
 		InitiatorParams: models.InitiatorParams{
 			Address:           NewAddress(),
 			RequestData:       models.JSON{Result: gjson.Parse(`{"data":{"coin":"ETH","market":"USD"}}`)},
-			Feeds:             models.JSON{Result: gjson.Parse(`[{"bridge":"testbridge"}]`)},
+			Feeds:             models.JSON{Result: gjson.Parse(fmt.Sprintf("[{\"bridge\":\"%s\"}]", bridgeName))},
 			Threshold:         0.5,
 			AbsoluteThreshold: 0.01,
 			Precision:         2,
@@ -290,7 +294,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID *models.ID,
+	jobID models.JobID,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -445,27 +449,27 @@ func BuildTaskRequests(t *testing.T, initrs []models.TaskSpec) []models.TaskSpec
 }
 
 func NewRunInput(value models.JSON) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInput(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInput(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithString(t testing.TB, value string) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
 	data := JSONFromString(t, value)
-	return *models.NewRunInput(jobRunID, *taskRunID, data, models.RunStatusUnstarted)
+	return *models.NewRunInput(jobRunID, taskRunID, data, models.RunStatusUnstarted)
 }
 
 func NewRunInputWithResult(value interface{}) models.RunInput {
-	jobRunID := models.NewID()
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+	jobRunID := uuid.NewV4()
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID *models.ID) models.RunInput {
-	taskRunID := models.NewID()
-	return *models.NewRunInputWithResult(jobRunID, *taskRunID, value, models.RunStatusUnstarted)
+func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
+	taskRunID := uuid.NewV4()
+	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
@@ -473,21 +477,21 @@ func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.Poll
 	runManager := new(mocks.RunManager)
 	fetcher := new(mocks.Fetcher)
 	initr := models.Initiator{
-		JobSpecID: models.NewID(),
+		JobSpecID: models.NewJobID(),
 		InitiatorParams: models.InitiatorParams{
 			PollTimer: models.PollTimerConfig{
 				Period: models.MustMakeDuration(time.Second),
 			},
 		},
 	}
-	lb := new(mocks.LogBroadcaster)
-	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, lb, initr, nil, runManager, fetcher, nil, func() {}, big.NewInt(0), big.NewInt(100000000000))
+	lb := new(logmocks.Broadcaster)
+	checker, err := fluxmonitor.NewPollingDeviationChecker(s, fluxAggregator, nil, lb, initr, nil, runManager, fetcher, func() {}, big.NewInt(0), big.NewInt(100000000000))
 	require.NoError(t, err)
 	return checker
 }
 
-func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
-	taskRunID := models.NewID()
+func MustInsertTaskRun(t *testing.T, store *strpkg.Store) uuid.UUID {
+	taskRunID := uuid.NewV4()
 
 	job := NewJobWithWebInitiator()
 	require.NoError(t, store.CreateJob(&job))
@@ -495,7 +499,7 @@ func MustInsertTaskRun(t *testing.T, store *strpkg.Store) models.ID {
 	jobRun.TaskRuns = []models.TaskRun{models.TaskRun{ID: taskRunID, Status: models.RunStatusUnstarted, TaskSpecID: job.Tasks[0].ID}}
 	require.NoError(t, store.CreateJobRun(&jobRun))
 
-	return *taskRunID
+	return taskRunID
 }
 
 func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
@@ -704,6 +708,24 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
+func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.SpecDB {
+	t.Helper()
+
+	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
+	require.NoError(t, err)
+
+	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
+	specDB := job.SpecDB{
+		OffchainreportingOracleSpec: &oracleSpec,
+		Type:                        job.OffchainReporting,
+		SchemaVersion:               1,
+		PipelineSpec:                &pipeline.Spec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
 	t.Helper()
 
@@ -711,7 +733,7 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 	spec := job.OffchainReportingOracleSpec{
 		ContractAddress:                        NewEIP55Address(),
 		P2PPeerID:                              &pid,
-		P2PBootstrapPeers:                      []string{},
+		P2PBootstrapPeers:                      pq.StringArray{},
 		IsBootstrapPeer:                        false,
 		EncryptedOCRKeyBundleID:                &DefaultOCRKeyBundleIDSha256,
 		TransmitterAddress:                     &transmitterAddress,
@@ -752,7 +774,7 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
-	p := pipeline.TaskRun{PipelineRunID: pipelineRunID}
+	p := pipeline.TaskRun{PipelineTaskSpecID: mathrand.Int31(), PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
 }
@@ -782,4 +804,38 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	require.NoError(t, db.Create(&job).Error)
 
 	return job
+}
+
+func RandomLog(t *testing.T) types.Log {
+	t.Helper()
+
+	topics := make([]common.Hash, 4)
+	for i := range topics {
+		topics[i] = NewHash()
+	}
+
+	return types.Log{
+		Address:     NewAddress(),
+		BlockHash:   NewHash(),
+		BlockNumber: uint64(mathrand.Intn(9999999)),
+		Index:       uint(mathrand.Intn(9999999)),
+		Data:        MustRandomBytes(t, 512),
+		Topics:      []common.Hash{NewHash(), NewHash(), NewHash(), NewHash()},
+	}
+}
+
+func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
+	t.Helper()
+
+	topics := make([][]byte, len(log.Topics))
+	for i, topic := range log.Topics {
+		x := make([]byte, len(topic))
+		copy(x, topic[:])
+		topics[i] = x
+	}
+
+	err := store.DB.Exec(`
+        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES (?,?,?,?,?,?,NOW())
+    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
+	require.NoError(t, err)
 }

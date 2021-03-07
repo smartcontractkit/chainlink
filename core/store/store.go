@@ -224,9 +224,16 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 		return nil
 	}
 	squashVersionMinus1 := semver.New("0.9.10")
-	currentVersion := semver.New(static.Version)
-	lastV1Migration := "1612225637"
+	currentVersion, err := semver.NewVersion(static.Version)
+	if err != nil {
+		return errors.Wrapf(err, "expected VERSION to be valid semver (for example 1.42.3). Got: %s", static.Version)
+	}
+	lastV1Migration := "1611847145"
 	if squashVersionMinus1.LessThan(*currentVersion) {
+		// Completely empty database is fine to run squashed migrations on
+		if !db.Migrator().HasTable("migrations") {
+			return nil
+		}
 		// Running code later than S - 1. Ensure that we see
 		// the last v1 migration.
 		q := db.Exec("SELECT * FROM migrations WHERE id = ?", lastV1Migration)
@@ -242,7 +249,8 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 }
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
-	orm, err := orm.NewORM(config.DatabaseURL(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	dbURL := config.DatabaseURL()
+	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
@@ -252,7 +260,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 	if config.MigrateDatabase() {
 		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
-		err = orm.RawDB(func(db *gorm.DB) error {
+		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			return migrationsv2.Migrate(db)
 		})
 		if err != nil {

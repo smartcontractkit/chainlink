@@ -1,3 +1,7 @@
+import React from 'react'
+import { connect } from 'react-redux'
+import { Redirect, useLocation } from 'react-router-dom'
+
 import { localizedTimestamp, TimeAgo } from 'components/TimeAgo'
 import Card from '@material-ui/core/Card'
 import Dialog from '@material-ui/core/Dialog'
@@ -15,9 +19,7 @@ import Typography from '@material-ui/core/Typography'
 import { ApiResponse } from 'utils/json-api-client'
 import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
-import React from 'react'
-import { connect } from 'react-redux'
-import { Redirect, useLocation } from 'react-router-dom'
+
 import { createJobRun, deleteJobSpec } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
@@ -131,7 +133,6 @@ interface Props extends WithStyles<typeof styles> {
   jobSpecId: string
   job: JobData['job']
   runsCount: JobData['recentRunsCount']
-  url: string
   getJobSpecRuns: (props: { page?: number; size?: number }) => Promise<void>
 }
 
@@ -241,7 +242,12 @@ const RegionalNavComponent = ({
           <Grid item xs={12}>
             {job && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {job?.type} job spec detail
+                {job?.type === 'v2'
+                  ? job.specType === 'offchainreporting'
+                    ? 'Off-chain reporting'
+                    : 'Direct request'
+                  : job?.type}{' '}
+                job spec detail
               </Typography>
             )}
           </Grid>
@@ -388,11 +394,7 @@ const RegionalNavComponent = ({
   )
 }
 
-const mapStateToProps = (state: any) => ({
-  url: state.notifications.currentUrl,
-})
-
-export const ConnectedRegionalNav = connect(mapStateToProps, {
+export const ConnectedRegionalNav = connect(null, {
   createJobRun,
   deleteJobSpec,
 })(RegionalNavComponent)

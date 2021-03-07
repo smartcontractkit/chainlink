@@ -30,6 +30,11 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFile job.SpecDB
@@ -179,6 +184,9 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	err = toml.Unmarshal([]byte(sp), &os)
 	require.NoError(t, err)
 	ocrJobSpec.OffchainreportingOracleSpec = &os
+
+	err = app.Store.OCRKeyStore.Unlock(cltest.Password)
+	require.NoError(t, err)
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)

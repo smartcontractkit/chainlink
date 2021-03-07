@@ -3,7 +3,11 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -41,9 +45,10 @@ type (
 	}
 )
 
-func NewAdvisoryLock(uri string) AdvisoryLocker {
+func NewAdvisoryLock(uri url.URL) AdvisoryLocker {
+	static.SetConsumerName(&uri, "AdvisoryLocker")
 	return &postgresAdvisoryLock{
-		URI: uri,
+		URI: uri.String(),
 		mu:  &sync.Mutex{},
 	}
 }
@@ -79,7 +84,7 @@ func (lock *postgresAdvisoryLock) tryLock(ctx context.Context, classID int32, ob
 	defer utils.WrapIfError(&err, "TryAdvisoryLock failed")
 
 	if lock.conn == nil {
-		db, err2 := sql.Open("postgres", lock.URI)
+		db, err2 := sql.Open(string(dialects.Postgres), lock.URI)
 		if err2 != nil {
 			return err2
 		}

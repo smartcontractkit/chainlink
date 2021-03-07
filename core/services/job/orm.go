@@ -7,13 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
+
 	"gorm.io/gorm/clause"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	storm "github.com/smartcontractkit/chainlink/core/store/orm"
 
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 
@@ -121,6 +123,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]SpecDB, error) {
 	err := o.db.
 		Joins(join, args...).
 		Preload("OffchainreportingOracleSpec").
+		Preload("PipelineSpec.PipelineTaskSpecs").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
@@ -157,16 +160,16 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *SpecDB, taskDAG pipeline.T
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		err = tx.Create(jobSpec).Error
-		pqErr, ok := err.(*pq.Error)
+		pqErr, ok := err.(*pgconn.PgError)
 		if err != nil && ok && pqErr.Code == "23503" {
-			if pqErr.Constraint == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
+			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
 			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.Constraint == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 				}
-				if pqErr.Constraint == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
+				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
 			}
@@ -271,6 +274,7 @@ func (o *orm) JobsV2() ([]SpecDB, error) {
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("DirectRequestSpec").
+		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
 		Find(&jobs).
 		Error
@@ -310,6 +314,7 @@ func (o *orm) FindJob(id int32) (SpecDB, error) {
 	err := o.db.
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("JobSpecErrors").
 		First(&job, "jobs.id = ?", id).

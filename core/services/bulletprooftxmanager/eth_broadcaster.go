@@ -262,7 +262,21 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 	defer cancel()
 	sendError := sendTransaction(ctx, eb.ethClient, attempt)
 
+	if sendError.IsTooExpensive() {
+		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		etx.Error = sendError.StrPtr()
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return saveFatallyErroredTransaction(eb.store, &etx)
+	}
+
 	if sendError.Fatal() {
+		logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = sendError.StrPtr()
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.store, &etx)
@@ -321,14 +335,23 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		sendError = nil
 	}
 
-	if sendError != nil {
-		// Any other type of error is considered temporary or resolvable by the
-		// node operator, but will likely prevent other transactions from working.
-		// Safest thing to do is bail out and wait for the next poll.
-		return errors.Wrapf(sendError, "error while sending transaction %v", etx.ID)
+	if sendError.IsInsufficientEth() {
+		logger.Errorw(fmt.Sprintf("EthBroadcaster: EthTxAttempt %v (hash 0x%x) at gas price (%s Wei) was rejected due to insufficient eth. "+
+			"The eth node returned %s. "+
+			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
+			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
+		), "ethTxID", etx.ID, "err", sendError)
+		return saveAttempt(eb.store, &etx, attempt, models.EthTxAttemptInsufficientEth)
 	}
 
-	return saveUnconfirmed(eb.store, &etx, attempt)
+	if sendError == nil {
+		return saveAttempt(eb.store, &etx, attempt, models.EthTxAttemptBroadcast)
+	}
+
+	// Any other type of error is considered temporary or resolvable by the
+	// node operator, but will likely prevent other transactions from working.
+	// Safest thing to do is bail out and wait for the next poll.
+	return errors.Wrapf(sendError, "error while sending transaction %v", etx.ID)
 }
 
 // Finds next transaction in the queue, assigns a nonce, and moves it to "in_progress" state ready for broadcast.
@@ -376,16 +399,18 @@ func findNextUnstartedTransactionFromAddress(db *gorm.DB, etx *models.EthTx, fro
 		Error
 }
 
-func saveUnconfirmed(store *store.Store, etx *models.EthTx, attempt models.EthTxAttempt, callbacks ...func(tx *gorm.DB) error) error {
+func saveAttempt(store *store.Store, etx *models.EthTx, attempt models.EthTxAttempt, newAttemptState models.EthTxAttemptState, callbacks ...func(tx *gorm.DB) error) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("can only transition to unconfirmed from in_progress, transaction is currently %s", etx.State)
 	}
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("attempt must be in in_progress state")
 	}
-	logger.Debugw("EthBroadcaster: successfully broadcast transaction", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
+	if !(newAttemptState == models.EthTxAttemptBroadcast || newAttemptState == models.EthTxAttemptInsufficientEth) {
+		return errors.Errorf("new attempt state must be broadcast or insufficient_eth, got: %s", newAttemptState)
+	}
 	etx.State = models.EthTxUnconfirmed
-	attempt.State = models.EthTxAttemptBroadcast
+	attempt.State = newAttemptState
 	return store.Transaction(func(tx *gorm.DB) error {
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
@@ -435,15 +460,13 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 	if etx.Error == nil {
 		return errors.New("expected error field to be set")
 	}
-	logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", *etx.Error)
 	etx.Nonce = nil
 	etx.State = models.EthTxFatalError
 	return store.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		// Omit the EthTxAttempts (we just deleted them) or gorm v2 will try to save them.
-		return errors.Wrap(tx.Omit("EthTxAttempts").Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 

@@ -1,4 +1,4 @@
-package ocrkey
+package ocrkey_test
 
 import (
 	"encoding/json"
@@ -9,37 +9,39 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func assertKeyBundlesEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
+func assertKeyBundlesEqual(t *testing.T, pk1 *ocrkey.KeyBundle, pk2 *ocrkey.KeyBundle) {
 	assert.Equal(t, pk1.ID, pk2.ID)
-	assert.Equal(t, pk1.onChainSigning.Curve, pk2.onChainSigning.Curve)
-	assert.Equal(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
-	assert.Equal(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
-	assert.Equal(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
-	assert.Equal(t, pk1.offChainSigning, pk2.offChainSigning)
-	assert.Equal(t, pk1.offChainEncryption, pk2.offChainEncryption)
+	assert.Equal(t, pk1.ExportedOnChainSigning().Curve, pk2.ExportedOnChainSigning().Curve)
+	assert.Equal(t, pk1.ExportedOnChainSigning().X, pk2.ExportedOnChainSigning().X)
+	assert.Equal(t, pk1.ExportedOnChainSigning().Y, pk2.ExportedOnChainSigning().Y)
+	assert.Equal(t, pk1.ExportedOnChainSigning().D, pk2.ExportedOnChainSigning().D)
+	assert.Equal(t, pk1.ExportedOffChainSigning(), pk2.ExportedOffChainSigning())
+	assert.Equal(t, pk1.ExportedOffChainEncryption(), pk2.ExportedOffChainEncryption())
 }
 
-func assertKeyBundlesNotEqual(t *testing.T, pk1 *KeyBundle, pk2 *KeyBundle) {
+func assertKeyBundlesNotEqual(t *testing.T, pk1 *ocrkey.KeyBundle, pk2 *ocrkey.KeyBundle) {
 	assert.NotEqual(t, pk1.ID, pk2.ID)
-	assert.NotEqual(t, pk1.onChainSigning.X, pk2.onChainSigning.X)
-	assert.NotEqual(t, pk1.onChainSigning.Y, pk2.onChainSigning.Y)
-	assert.NotEqual(t, pk1.onChainSigning.D, pk2.onChainSigning.D)
-	assert.NotEqual(t, pk1.offChainSigning.PublicKey(), pk2.offChainSigning.PublicKey())
-	assert.NotEqual(t, pk1.offChainEncryption, pk2.offChainEncryption)
+	assert.NotEqual(t, pk1.ExportedOnChainSigning().X, pk2.ExportedOnChainSigning().X)
+	assert.NotEqual(t, pk1.ExportedOnChainSigning().Y, pk2.ExportedOnChainSigning().Y)
+	assert.NotEqual(t, pk1.ExportedOnChainSigning().D, pk2.ExportedOnChainSigning().D)
+	assert.NotEqual(t, pk1.ExportedOffChainSigning().PublicKey(), pk2.ExportedOffChainSigning().PublicKey())
+	assert.NotEqual(t, pk1.ExportedOffChainEncryption(), pk2.ExportedOffChainEncryption())
 }
 
 func TestOCRKeys_NewKeyBundle(t *testing.T) {
 	t.Parallel()
-	pk1, err := NewKeyBundle()
+	pk1, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
-	pk2, err := NewKeyBundle()
+	pk2, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
-	pk3, err := NewKeyBundle()
+	pk3, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
 	assertKeyBundlesNotEqual(t, pk1, pk2)
 	assertKeyBundlesNotEqual(t, pk1, pk3)
@@ -50,15 +52,15 @@ func TestOCRKeys_NewKeyBundle(t *testing.T) {
 // and then decrypting
 func TestOCRKeys_Encrypt_Decrypt(t *testing.T) {
 	t.Parallel()
-	pk, err := NewKeyBundle()
+	pk, err := ocrkey.NewKeyBundle()
 	require.NoError(t, err)
-	pkEncrypted, err := pk.encrypt("password", utils.FastScryptParams)
+	pkEncrypted, err := pk.Encrypt(cltest.Password, utils.FastScryptParams)
 	require.NoError(t, err)
 	// check that properties on encrypted key match those on OCRkey
 	require.Equal(t, pk.ID, pkEncrypted.ID)
-	require.Equal(t, pk.onChainSigning.Address(), pkEncrypted.OnChainSigningAddress)
-	require.Equal(t, pk.offChainSigning.PublicKey(), pkEncrypted.OffChainPublicKey)
-	pkDecrypted, err := pkEncrypted.Decrypt("password")
+	require.Equal(t, ocrkey.OnChainSigningAddress(pk.PublicKeyAddressOnChain()), pkEncrypted.OnChainSigningAddress)
+	require.Equal(t, ocrkey.OffChainPublicKey(pk.PublicKeyOffChain()), pkEncrypted.OffChainPublicKey)
+	pkDecrypted, err := pkEncrypted.Decrypt(cltest.Password)
 	require.NoError(t, err)
 	assertKeyBundlesEqual(t, pk, pkDecrypted)
 }
@@ -69,13 +71,13 @@ func TestOCRKeys_ScalarTooBig(t *testing.T) {
 	buf := make([]byte, curve25519.PointSize+1)
 	buf[0] = 0x01
 	tooBig.SetBytes(buf)
-	kbr := keyBundleRawData{
+	kbr := ocrkey.KeyBundleRawData{
 		EcdsaD: *tooBig,
 	}
 	jb, err := json.Marshal(&kbr)
 	require.NoError(t, err)
 
-	kb := KeyBundle{}
+	kb := ocrkey.KeyBundle{}
 	err = kb.UnmarshalJSON(jb)
-	assert.Equal(t, ErrScalarTooBig, errors.Cause(err))
+	assert.Equal(t, ocrkey.ErrScalarTooBig, errors.Cause(err))
 }

@@ -919,6 +919,29 @@ func (_m *FluxAggregator) ParseAvailableFundsUpdated(log types.Log) (*flux_aggre
 	return r0, r1
 }
 
+// ParseLog provides a mock function with given fields: log
+func (_m *FluxAggregator) ParseLog(log types.Log) (interface{}, error) {
+	ret := _m.Called(log)
+
+	var r0 interface{}
+	if rf, ok := ret.Get(0).(func(types.Log) interface{}); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(interface{})
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseNewRound provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseNewRound(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorNewRound, error) {
 	ret := _m.Called(log)

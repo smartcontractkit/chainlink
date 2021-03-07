@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
+	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -61,11 +62,11 @@ func TestORM_Unscoped(t *testing.T) {
 
 	orm := store.ORM
 	job := cltest.NewJob()
-	err := orm.RawDB(func(db *gorm.DB) error {
+	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		require.NoError(t, orm.CreateJob(&job))
 		require.NoError(t, db.Delete(&job).Error)
 		require.Error(t, db.First(&job).Error)
-		err := store.ORM.Unscoped().RawDB(func(db *gorm.DB) error {
+		err := store.ORM.Unscoped().RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			require.NoError(t, db.First(&job).Error)
 			return nil
 		})
@@ -112,7 +113,7 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 
 	exi2, err := models.NewExternalInitiator(token, &req)
 	require.NoError(t, err)
-	require.Equal(t, `pq: duplicate key value violates unique constraint "external_initiators_name_key"`, store.CreateExternalInitiator(exi2).Error())
+	require.Equal(t, `ERROR: duplicate key value violates unique constraint "external_initiators_name_key" (SQLSTATE 23505)`, store.CreateExternalInitiator(exi2).Error())
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
@@ -190,7 +191,7 @@ func TestORM_SaveJobRun_OnConstraintViolationOtherThanOptimisticLockFailureRetur
 	jr.InitiatorID = 0
 	jr.Initiator = models.Initiator{}
 	err := store.SaveJobRun(&jr)
-	assert.EqualError(t, err, "pq: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\"")
+	assert.EqualError(t, err, "ERROR: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\" (SQLSTATE 23503)")
 }
 
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
@@ -259,18 +260,18 @@ func TestORM_JobRunsFor(t *testing.T) {
 
 	runs, err := store.JobRunsFor(job.ID)
 	assert.NoError(t, err)
-	actual := []*models.ID{runs[0].ID, runs[1].ID, runs[2].ID}
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID, jr3.ID}, actual)
+	actual := []uuid.UUID{runs[0].ID, runs[1].ID, runs[2].ID}
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID, jr3.ID}, actual)
 
 	limRuns, limErr := store.JobRunsFor(job.ID, 2)
 	assert.NoError(t, limErr)
-	limActual := []*models.ID{limRuns[0].ID, limRuns[1].ID}
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, limActual)
+	limActual := []uuid.UUID{limRuns[0].ID, limRuns[1].ID}
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, limActual)
 
 	_, limZeroErr := store.JobRunsFor(job.ID, 0)
 	assert.NoError(t, limZeroErr)
-	limZeroActual := []*models.ID{}
-	assert.Equal(t, []*models.ID{}, limZeroActual)
+	limZeroActual := []uuid.UUID{}
+	assert.Equal(t, []uuid.UUID{}, limZeroActual)
 }
 
 func TestORM_LinkEarnedFor(t *testing.T) {
@@ -348,8 +349,8 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	require.Equal(t, 2, count)
 	require.Equal(t, 1, completedCount)
 	require.Equal(t, t, 1, errorCount)
-	actual := []*models.ID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
-	assert.Equal(t, []*models.ID{jr2.ID, jr1.ID}, actual)
+	actual := []uuid.UUID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
+	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, actual)
 }
 
 func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
@@ -368,7 +369,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		models.RunStatusPendingOutgoingConfirmations,
 		models.RunStatusCompleted}
 
-	var seedIds []*models.ID
+	var seedIds []uuid.UUID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
 		run.SetStatus(status)
@@ -379,17 +380,17 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []*models.ID
+		expected []uuid.UUID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]*models.ID{seedIds[0]},
+			[]uuid.UUID{seedIds[0]},
 		},
 		{
 			"multiple status'",
 			[]models.RunStatus{models.RunStatusPendingBridge, models.RunStatusPendingIncomingConfirmations, models.RunStatusPendingOutgoingConfirmations},
-			[]*models.ID{seedIds[0], seedIds[1], seedIds[2]},
+			[]uuid.UUID{seedIds[0], seedIds[1], seedIds[2]},
 		},
 	}
 
@@ -398,7 +399,7 @@ func TestORM_UnscopedJobRunsWithStatus_Happy(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []*models.ID{}
+			pendingIDs := []uuid.UUID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -424,7 +425,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		models.RunStatusPendingConnection,
 		models.RunStatusCompleted}
 
-	var seedIds []*models.ID
+	var seedIds []uuid.UUID
 	for _, status := range statuses {
 		run := cltest.NewJobRun(j)
 		run.SetStatus(status)
@@ -437,12 +438,12 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 	tests := []struct {
 		name     string
 		statuses []models.RunStatus
-		expected []*models.ID
+		expected []uuid.UUID
 	}{
 		{
 			"single status",
 			[]models.RunStatus{models.RunStatusPendingBridge},
-			[]*models.ID{seedIds[0]},
+			[]uuid.UUID{seedIds[0]},
 		},
 		{
 			"multiple status'",
@@ -451,7 +452,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 				models.RunStatusPendingOutgoingConfirmations,
 				models.RunStatusPendingIncomingConfirmations,
 				models.RunStatusPendingConnection},
-			[]*models.ID{seedIds[0], seedIds[1], seedIds[2], seedIds[3]},
+			[]uuid.UUID{seedIds[0], seedIds[1], seedIds[2], seedIds[3]},
 		},
 	}
 
@@ -460,7 +461,7 @@ func TestORM_UnscopedJobRunsWithStatus_Deleted(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pending := cltest.MustAllJobsWithStatus(t, store, test.statuses...)
 
-			pendingIDs := []*models.ID{}
+			pendingIDs := []uuid.UUID{}
 			for _, jr := range pending {
 				pendingIDs = append(pendingIDs, jr.ID)
 			}
@@ -745,7 +746,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				var bumpedSession models.Session
-				err = store.ORM.RawDB(func(db *gorm.DB) error {
+				err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 					return db.First(&bumpedSession, "ID = ?", prevSession.ID).Error
 				})
 				require.NoError(t, err)
@@ -764,7 +765,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	_, err := store.FindUser()
 	require.NoError(t, err)
 
-	_, err = store.DeleteUser()
+	err = store.DeleteUser()
 	require.NoError(t, err)
 
 	_, err = store.FindUser()
@@ -879,7 +880,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var runCount int64
 	orm := store.ORM
 
-	err := orm.RawDB(func(db *gorm.DB) error {
+	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		job := cltest.NewJobWithWebInitiator()
 		require.NoError(t, store.ORM.CreateJob(&job))
 
@@ -1031,7 +1032,7 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 		jobRun.Status = status
 		jobRun.TaskRuns = []models.TaskRun{
 			{
-				ID:         models.NewID(),
+				ID:         uuid.NewV4(),
 				Status:     models.RunStatusUnstarted,
 				TaskSpecID: jobSpec.Tasks[0].ID,
 			},
@@ -1054,7 +1055,7 @@ func TestORM_RemoveUnstartedTransaction(t *testing.T) {
 		ethTxAttempt.State = models.EthTxAttemptInProgress
 		require.NoError(t, storeInstance.DB.Save(&ethTxAttempt).Error)
 
-		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID.UUID(), ethTx.ID).Error)
+		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID, ethTx.ID).Error)
 	}
 
 	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
@@ -1372,10 +1373,10 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		err := store.IdempotentInsertEthTaskRunTx(sharedTaskRunID, fromAddress, toAddress, encodedPayload, gasLimit)
 		require.NoError(t, err)
 
-		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID.UUID())
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(sharedTaskRunID)
 		require.NoError(t, err)
 
-		assert.Equal(t, sharedTaskRunID.UUID(), etrt.TaskRunID)
+		assert.Equal(t, sharedTaskRunID, etrt.TaskRunID)
 		require.NotNil(t, etrt.EthTx)
 		assert.Nil(t, etrt.EthTx.Nonce)
 		assert.Equal(t, fromAddress, etrt.EthTx.FromAddress)
@@ -1389,7 +1390,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure it didn't leave a stray EthTx hanging around
-		store.RawDB(func(db *gorm.DB) error {
+		store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			var count int64
 			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
 			assert.Equal(t, 1, int(count))
@@ -1423,7 +1424,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		err = store.IdempotentInsertEthTaskRunTx(taskRunID, fromAddress, toAddress, encodedPayload, secondGasLimit)
 		require.NoError(t, err)
 
-		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID.UUID())
+		etrt, err := store.FindEthTaskRunTxByTaskRunID(taskRunID)
 		require.NoError(t, err)
 
 		// But the second insert did not change the gas limit
@@ -1475,7 +1476,7 @@ func TestORM_UpsertErrorFor_Happy(t *testing.T) {
 	store.UpsertErrorFor(job1.ID, description1)
 
 	tests := []struct {
-		jobID               *models.ID
+		jobID               models.JobID
 		description         string
 		expectedOccurrences uint
 	}{
@@ -1531,12 +1532,12 @@ func TestORM_UpsertErrorFor_Error(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		jobID       *models.ID
+		jobID       models.JobID
 		description string
 	}{
 		{
 			"missing job",
-			models.NewID(),
+			models.NewJobID(),
 			description,
 		},
 		{
@@ -1659,7 +1660,8 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 		fmrs, err := store.FindOrCreateFluxMonitorRoundStats(address, roundID)
 		require.NoError(t, err)
 		require.Equal(t, expectedCount, fmrs.NumSubmissions)
-		require.Equal(t, jobRun.ID, fmrs.JobRunID)
+		require.True(t, fmrs.JobRunID.Valid)
+		require.Equal(t, jobRun.ID, fmrs.JobRunID.UUID)
 	}
 }
 
@@ -1716,25 +1718,4 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
-}
-
-func TestORM_MarkLogConsumed(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := store.ORM
-
-	blockHash := cltest.NewHash()
-	logIndex := uint(42)
-	job := cltest.MustInsertJobSpec(t, store)
-	blockNumber := uint64(142)
-
-	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
-
-	d, _ := orm.DB.DB()
-	res, err := d.Exec(`SELECT * FROM log_consumptions;`)
-	require.NoError(t, err)
-	rowsaffected, err := res.RowsAffected()
-	require.NoError(t, err)
-	require.Equal(t, int64(1), rowsaffected)
 }

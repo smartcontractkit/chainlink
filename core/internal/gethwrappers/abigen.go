@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -46,20 +47,26 @@ func Abigen(a AbigenArgs) {
 	}
 	version := string(regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+`).Find(
 		versionResponse.Bytes()))
-	if version != gethParams.Version {
+	// TODO: Re-enable once geth 1.10 is released with the abigen patch included.
+	// We do this to avoid running un-released code in geth which is also present in the abigen bug fix patch.
+	// This way we _only_ use the patched abigen for code generation.
+	// if version != gethParams.Version {
+	if version != "1.9.26" {
 		Exit(fmt.Sprintf("wrong version (%s) of abigen; install the correct one "+
 			"(%s) with `make abigen` in the chainlink root dir", version,
 			gethParams.Version),
 			nil)
 	}
-	buildCommand := exec.Command(
-		abigenExecutablePath,
-		"-bin", a.Bin,
+	args := []string{
 		"-abi", a.ABI,
 		"-out", a.Out,
 		"-type", a.Type,
 		"-pkg", a.Pkg,
-	)
+	}
+	if a.Bin != "" {
+		args = append(args, "-bin", a.Bin)
+	}
+	buildCommand := exec.Command(abigenExecutablePath, args...)
 	var buildResponse bytes.Buffer
 	buildCommand.Stderr = &buildResponse
 	if err := buildCommand.Run(); err != nil {
@@ -77,11 +84,15 @@ func ImproveAbigenOutput(path string) {
 	}
 
 	fset, fileNode := parseFile(bs)
+	logNames := getLogNames(fileNode)
+	if len(logNames) > 0 {
+		astutil.AddImport(fset, fileNode, "fmt")
+	}
 	contractName := getContractName(fileNode)
 	fileNode = addAddressField(contractName, fileNode)
 	fileNode = replaceAnonymousStructs(contractName, fileNode)
 	bs = generateCode(fset, fileNode)
-	bs = writeAdditionalMethods(contractName, bs)
+	bs = writeAdditionalMethods(contractName, logNames, bs)
 	fset, fileNode = parseFile(bs)
 	fileNode = writeInterface(contractName, fileNode)
 	bs = generateCode(fset, fileNode)
@@ -184,6 +195,21 @@ func addAddressField(contractName string, fileNode *ast.File) *ast.File {
 	return fileNode
 }
 
+func getLogNames(fileNode *ast.File) []string {
+	var logNames []string
+	astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+		x, is := cursor.Node().(*ast.FuncDecl)
+		if !is {
+			return true
+		} else if !strings.HasPrefix(x.Name.Name, "Parse") {
+			return false
+		}
+		logNames = append(logNames, x.Name.Name[len("Parse"):])
+		return false
+	}, nil)
+	return logNames
+}
+
 func replaceAnonymousStructs(contractName string, fileNode *ast.File) *ast.File {
 	done := map[string]bool{}
 	return astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
@@ -237,13 +263,36 @@ func replaceAnonymousStructs(contractName string, fileNode *ast.File) *ast.File 
 	}, nil).(*ast.File)
 }
 
-func writeAdditionalMethods(contractName string, bs []byte) []byte {
+func writeAdditionalMethods(contractName string, logNames []string, bs []byte) []byte {
 	// Write the the UnpackLog method to the bottom of the file
 	bs = append(bs, []byte(fmt.Sprintf(`
 func (_%v *%v) UnpackLog(out interface{}, event string, log types.Log) error {
     return _%v.%vFilterer.contract.UnpackLog(out, event, log)
 }
 `, contractName, contractName, contractName, contractName))...)
+
+	if len(logNames) > 0 {
+		var logSwitchBody string
+		for _, logName := range logNames {
+			logSwitchBody += fmt.Sprintf(`case abi.Events["%v"].ID:
+        return _%v.Parse%v(log)
+`, logName, contractName, logName)
+		}
+
+		bs = append(bs, []byte(fmt.Sprintf(`
+func (_%v *%v) ParseLog(log types.Log) (interface{}, error) {
+    abi, err := abi.JSON(strings.NewReader(%vABI))
+    if err != nil {
+        return nil, fmt.Errorf("could not parse ABI: " + err.Error())
+    }
+    switch log.Topics[0] {
+    %v
+    default:
+        return nil, fmt.Errorf("abigen wrapper received unknown log topic: %%v", log.Topics[0])
+    }
+}
+`, contractName, contractName, contractName, logSwitchBody))...)
+	}
 
 	// Write the the Address method to the bottom of the file
 	bs = append(bs, []byte(fmt.Sprintf(`

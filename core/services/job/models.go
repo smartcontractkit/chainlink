@@ -5,14 +5,16 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
+
 	"gorm.io/gorm"
 
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	null "gopkg.in/guregu/null.v4"
 )
 
@@ -42,11 +44,11 @@ func (id *IDEmbed) SetID(value string) error {
 type SpecDB struct {
 	IDEmbed
 	OffchainreportingOracleSpecID *int32                       `json:"-"`
-	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
 	DirectRequestSpecID           *int32                       `json:"-"`
-	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
-	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec" gorm:"save_association:true;association_autoupdate:true;association_autocreate:true"`
+	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
 	PipelineSpecID                int32                        `json:"-"`
 	PipelineSpec                  *pipeline.Spec               `json:"pipelineSpec"`
 	JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
@@ -155,15 +157,16 @@ type FluxMonitorSpec struct {
 	IDEmbed
 	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
 	Precision       int32               `json:"precision,omitempty" gorm:"type:smallint"`
-	Threshold       float32             `json:"threshold,omitempty"`
+	Threshold       float32             `json:"threshold,omitempty" toml:"threshold,float"`
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold float32       `json:"absoluteThreshold" gorm:"type:float;not null"`
+	AbsoluteThreshold float32       `json:"absoluteThreshold" toml:"absoluteThreshold,float" gorm:"type:float;not null"`
 	PollTimerPeriod   time.Duration `json:"pollTimerPeriod,omitempty" gorm:"type:jsonb"`
 	PollTimerDisabled bool          `json:"pollTimerDisabled,omitempty" gorm:"type:jsonb"`
 	IdleTimerPeriod   time.Duration `json:"idleTimerPeriod,omitempty" gorm:"type:jsonb"`
 	IdleTimerDisabled bool          `json:"idleTimerDisabled,omitempty" gorm:"type:jsonb"`
+	MinPayment        *assets.Link  `json:"minPayment,omitempty"`
 	CreatedAt         time.Time     `json:"createdAt" toml:"-"`
 	UpdatedAt         time.Time     `json:"updatedAt" toml:"-"`
 }

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/eth/contracts"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -32,7 +32,7 @@ import (
 
 const hibernationPollPeriod = 24 * time.Hour
 
-var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
+var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
 //go:generate mockery --name Service --output ../../internal/mocks/ --case=underscore
 //go:generate mockery --name DeviationCheckerFactory --output ../../internal/mocks/ --case=underscore
@@ -40,7 +40,7 @@ var fluxAggregatorABI = contracts.MustGetABI(flux_aggregator_wrapper.FluxAggrega
 
 type RunManager interface {
 	Create(
-		jobSpecID *models.ID,
+		jobSpecID models.JobID,
 		initiator *models.Initiator,
 		creationHeight *big.Int,
 		runRequest *models.RunRequest,
@@ -51,7 +51,7 @@ type RunManager interface {
 // needed to listen to price deviations and new round requests.
 type Service interface {
 	AddJob(models.JobSpec) error
-	RemoveJob(*models.ID)
+	RemoveJob(models.JobID)
 	Start() error
 	Stop()
 }
@@ -62,7 +62,7 @@ type concreteFluxMonitor struct {
 	logBroadcaster log.Broadcaster
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
-	chRemove       chan models.ID
+	chRemove       chan models.JobID
 	chConnect      chan *models.Head
 	chDisconnect   chan struct{}
 	chStop         chan struct{}
@@ -71,7 +71,7 @@ type concreteFluxMonitor struct {
 }
 
 type addEntry struct {
-	jobID    models.ID
+	jobID    models.JobID
 	checkers []DeviationChecker
 }
 
@@ -91,7 +91,7 @@ func New(
 			logBroadcaster: logBroadcaster,
 		},
 		chAdd:        make(chan addEntry),
-		chRemove:     make(chan models.ID),
+		chRemove:     make(chan models.JobID),
 		chConnect:    make(chan *models.Head),
 		chDisconnect: make(chan struct{}),
 		chStop:       make(chan struct{}),
@@ -144,7 +144,7 @@ func (fm *concreteFluxMonitor) Stop() {
 func (fm *concreteFluxMonitor) serveInternalRequests() {
 	defer close(fm.chDone)
 
-	jobMap := map[models.ID][]DeviationChecker{}
+	jobMap := map[models.JobID][]DeviationChecker{}
 
 	for {
 		select {
@@ -195,8 +195,8 @@ func (fm *concreteFluxMonitor) serveInternalRequests() {
 // AddJob created a DeviationChecker for any job initiators of type
 // InitiatorFluxMonitor.
 func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
-	if job.ID == nil {
-		err := errors.New("received job with nil ID")
+	if job.ID.IsZero() {
+		err := errors.New("received job with zero ID")
 		logger.Error(err)
 		return err
 	}
@@ -226,18 +226,18 @@ func (fm *concreteFluxMonitor) AddJob(job models.JobSpec) error {
 		return nil
 	}
 
-	fm.chAdd <- addEntry{*job.ID, validCheckers}
+	fm.chAdd <- addEntry{job.ID, validCheckers}
 	return nil
 }
 
 // RemoveJob stops and removes the checker for all Flux Monitor initiators belonging
 // to the passed job ID.
-func (fm *concreteFluxMonitor) RemoveJob(id *models.ID) {
-	if id == nil {
+func (fm *concreteFluxMonitor) RemoveJob(id models.JobID) {
+	if id.IsZero() {
 		logger.Warn("nil job ID passed to FluxMonitor#RemoveJob")
 		return
 	}
-	fm.chRemove <- *id
+	fm.chRemove <- id
 }
 
 // DeviationCheckerFactory holds the New method needed to create a new instance
@@ -290,10 +290,10 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	var flagsContract *contracts.Flags
+	var flagsContract *flags_wrapper.Flags
 	if f.store.Config.FlagsContractAddress() != "" {
 		flagsContractAddress := common.HexToAddress(f.store.Config.FlagsContractAddress())
-		flagsContract, err = contracts.NewFlagsContract(flagsContractAddress, f.store.EthClient)
+		flagsContract, err = flags_wrapper.NewFlags(flagsContractAddress, f.store.EthClient)
 		errorMsg := fmt.Sprintf("unable to create Flags contract instance, check address: %s", f.store.Config.FlagsContractAddress())
 		logger.ErrorIf(err, errorMsg)
 	}
@@ -311,12 +311,12 @@ func (f pollingDeviationCheckerFactory) New(
 	return NewPollingDeviationChecker(
 		f.store,
 		fluxAggregator,
+		flagsContract,
 		f.logBroadcaster,
 		initr,
 		minJobPayment,
 		runManager,
 		fetcher,
-		flagsContract,
 		func() { f.logBroadcaster.DependentReady() },
 		min,
 		max,
@@ -381,10 +381,10 @@ type DeviationChecker interface {
 type PollingDeviationChecker struct {
 	store          *store.Store
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface
+	flags          flags_wrapper.FlagsInterface
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
 	fetcher        Fetcher
-	flagsContract  *contracts.Flags
 	oracleAddress  common.Address
 
 	initr         models.Initiator
@@ -412,21 +412,20 @@ type PollingDeviationChecker struct {
 func NewPollingDeviationChecker(
 	store *store.Store,
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
+	flags flags_wrapper.FlagsInterface,
 	logBroadcaster log.Broadcaster,
 	initr models.Initiator,
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	flagsContract *contracts.Flags,
 	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
-	return &PollingDeviationChecker{
+	pdc := &PollingDeviationChecker{
 		readyForLogs:     readyForLogs,
 		store:            store,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
-		flagsContract:    flagsContract,
 		initr:            initr,
 		minJobPayment:    minJobPayment,
 		requestData:      initr.RequestData,
@@ -451,7 +450,15 @@ func NewPollingDeviationChecker(
 		chProcessLogs: make(chan struct{}, 1),
 		chStop:        make(chan struct{}),
 		waitOnStop:    make(chan struct{}),
-	}, nil
+	}
+	// This is necessary due to the unfortunate fact that assigning `nil` to an
+	// interface variable causes `x == nil` checks to always return false. If we
+	// do this here, in the constructor, we can avoid using reflection when we
+	// check `p.flags == nil` later in the code.
+	if flags != nil && !reflect.ValueOf(flags).IsNil() {
+		pdc.flags = flags
+	}
+	return pdc, nil
 }
 
 const (
@@ -471,7 +478,7 @@ func (p *PollingDeviationChecker) Start() {
 }
 
 func (p *PollingDeviationChecker) setIsHibernatingStatus() {
-	if p.flagsContract == nil {
+	if p.flags == nil {
 		p.isHibernating = false
 		return
 	}
@@ -485,10 +492,10 @@ func (p *PollingDeviationChecker) setIsHibernatingStatus() {
 }
 
 func (p *PollingDeviationChecker) isFlagLowered() (bool, error) {
-	if p.flagsContract == nil {
+	if p.flags == nil {
 		return true, nil
 	}
-	flags, err := p.flagsContract.GetFlags(nil, []common.Address{utils.ZeroAddress, p.initr.Address})
+	flags, err := p.flags.GetFlags(nil, []common.Address{utils.ZeroAddress, p.initr.Address})
 	if err != nil {
 		return true, err
 	}
@@ -521,9 +528,11 @@ func (p *PollingDeviationChecker) OnDisconnect() {
 	p.connected.UnSet()
 }
 
-func (p *PollingDeviationChecker) JobID() *models.ID { return p.initr.JobSpecID }
-func (p *PollingDeviationChecker) JobIDV2() int32    { return 0 }
-func (p *PollingDeviationChecker) IsV2Job() bool     { return false }
+func (p *PollingDeviationChecker) JobID() models.JobID {
+	return p.initr.JobSpecID
+}
+func (p *PollingDeviationChecker) JobIDV2() int32 { return 0 }
+func (p *PollingDeviationChecker) IsV2Job() bool  { return false }
 
 func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast, err error) {
 	if err != nil {
@@ -573,21 +582,13 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	// subscribe to contract logs
-	isConnected := false
-	fluxAggLogListener, err := newFluxAggregatorDecodingLogListener(p.fluxAggregator.Address(), p.store.EthClient, p)
-	if err != nil {
-		logger.Errorw("unable to create flux agg decoding log listener", "err", err)
-		return
-	}
+	isConnected := p.logBroadcaster.Register(p.fluxAggregator, p)
+	defer p.logBroadcaster.Unregister(p.fluxAggregator, p)
 
-	isConnected = p.logBroadcaster.Register(p.fluxAggregator.Address(), fluxAggLogListener)
-	defer func() { p.logBroadcaster.Unregister(p.fluxAggregator.Address(), fluxAggLogListener) }()
-
-	if p.flagsContract != nil {
-		flagsLogListener := contracts.NewFlagsDecodingLogListener(p.flagsContract, p)
-		flagsConnected := p.logBroadcaster.Register(p.flagsContract.Address, flagsLogListener)
+	if p.flags != nil {
+		flagsConnected := p.logBroadcaster.Register(p.flags, p)
 		isConnected = isConnected && flagsConnected
-		defer func() { p.logBroadcaster.Unregister(p.flagsContract.Address, flagsLogListener) }()
+		defer p.logBroadcaster.Unregister(p.flags, p)
 	}
 
 	if isConnected {
@@ -891,6 +892,10 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 		return
 	}
 
+	if !p.isValidSubmission(logger.Default.SugaredLogger, polledAnswer) {
+		return
+	}
+
 	var payment assets.Link
 	if roundState.PaymentAmount == nil {
 		logger.Error("roundState.PaymentAmount shouldn't be nil")
@@ -1062,11 +1067,11 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 // If the polledAnswer is outside the allowable range, log an error and don't submit.
 // to avoid an onchain reversion.
 func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polledAnswer decimal.Decimal) bool {
-	polledAnswerInt := new(big.Int)
-	polledAnswerInt.SetString(polledAnswer.String(), 10)
+	max := decimal.NewFromBigInt(p.maxSubmission, -p.precision)
+	min := decimal.NewFromBigInt(p.minSubmission, -p.precision)
 
-	if polledAnswerInt.Cmp(p.minSubmission) < 0 || polledAnswerInt.Cmp(p.maxSubmission) > 0 {
-		l.Errorw("polled value is outside acceptable range", "min", p.minSubmission, "max", p.maxSubmission, "polled value", polledAnswerInt)
+	if polledAnswer.GreaterThan(max) || polledAnswer.LessThan(min) {
+		l.Errorw("polled value is outside acceptable range", "min", min, "max", max, "polled value", polledAnswer)
 		p.store.UpsertErrorFor(p.JobID(), "Polled value is outside acceptable range")
 		return false
 	}
@@ -1074,11 +1079,7 @@ func (p *PollingDeviationChecker) isValidSubmission(l *zap.SugaredLogger, polled
 }
 
 func (p *PollingDeviationChecker) roundState(roundID uint32) (flux_aggregator_wrapper.OracleRoundState, error) {
-	roundState, err := p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
-	if err != nil {
-		return flux_aggregator_wrapper.OracleRoundState{}, err
-	}
-	return roundState, nil
+	return p.fluxAggregator.OracleRoundState(nil, p.oracleAddress, roundID)
 }
 
 // initialRoundState fetches the round information that the fluxmonitor should use when starting
@@ -1362,8 +1363,8 @@ func (p *PollingDeviationChecker) statsAndStatusForRound(roundID uint32) (
 	}
 	// JobRun will not exist if this is the first time responding to this round
 	var jobRun models.JobRun
-	if roundStats.JobRunID != nil {
-		jobRun, err = p.store.FindJobRun(roundStats.JobRunID)
+	if roundStats.JobRunID.Valid {
+		jobRun, err = p.store.FindJobRun(roundStats.JobRunID.UUID)
 		if err != nil {
 			return models.FluxMonitorRoundStats{}, "", err
 		}

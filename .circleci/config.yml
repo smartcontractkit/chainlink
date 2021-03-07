@@ -59,4 +59,4 @@ commands:
             # Use temporary keys to get account ID
             accountID=$(aws sts get-caller-identity --output text --query 'Account')
             # docker cli login to ECR
-            aws ecr get-login-password --region "${AWS_REGION}" --profile "default" | docker login --username AWS --password-stdin "${accountID}.dkr.ecr.us-west-2.amazonaws.com/chainlink"
+            aws ecr-public get-login-password --region "us-east-1" --profile "default" | docker login --username AWS --password-stdin "public.ecr.aws"
