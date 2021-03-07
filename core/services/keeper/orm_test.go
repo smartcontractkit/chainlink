@@ -12,13 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var registryAddress = cltest.NewEIP55Address()
-var fromAddress = cltest.NewEIP55Address()
-var checkDataStr = "ABC123"
-var checkData = common.Hex2Bytes(checkDataStr)
+var checkData = common.Hex2Bytes("ABC123")
 var executeGas = int32(10_000)
-var checkGas = int32(2_000_000)
-var blockCountPerTurn = int32(20)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.KeeperORM, func()) {
 	store, cleanup := cltest.NewStore(t)
@@ -39,8 +34,8 @@ func TestKeeperDB_Registries(t *testing.T) {
 	store, keeperORM, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	_ = cltest.MustInsertKeeperRegistry(t, store)
-	_ = cltest.MustInsertKeeperRegistry(t, store)
+	cltest.MustInsertKeeperRegistry(t, store)
+	cltest.MustInsertKeeperRegistry(t, store)
 
 	existingRegistries, err := keeperORM.Registries()
 	require.NoError(t, err)

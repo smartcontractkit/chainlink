@@ -17,14 +17,14 @@ const up14 = `
 		);
 
 		ALTER TABLE jobs ADD COLUMN keeper_spec_id INT REFERENCES keeper_specs(id),
-			DROP CONSTRAINT chk_only_one_spec,
-			ADD CONSTRAINT chk_only_one_spec CHECK (
-				num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id) = 1
+		DROP CONSTRAINT chk_only_one_spec,
+		ADD CONSTRAINT chk_only_one_spec CHECK (
+			num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id) = 1
 		);
 
 		CREATE TABLE keeper_registries (
 			id BIGSERIAL PRIMARY KEY,
-			job_id BIGINT UNIQUE NOT NULL REFERENCES jobs (id),
+			job_id BIGINT UNIQUE NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
 			keeper_index int NOT NULL,
 			contract_address bytea UNIQUE NOT NULL,
 			from_address bytea NOT NULL,

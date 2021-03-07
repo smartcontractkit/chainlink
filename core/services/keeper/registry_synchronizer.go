@@ -61,7 +61,7 @@ func (rs RegistrySynchronizer) Close() error {
 	return nil
 }
 
-func (rs *RegistrySynchronizer) run() {
+func (rs RegistrySynchronizer) run() {
 	ticker := time.NewTicker(rs.interval)
 	defer ticker.Stop()
 
@@ -75,8 +75,7 @@ func (rs *RegistrySynchronizer) run() {
 	}
 }
 
-func (rs *RegistrySynchronizer) syncRegistry() {
-	// TODO - RYAN - take DB lock on job so that it can't be deleted in the middle of a sync
+func (rs RegistrySynchronizer) syncRegistry() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	logger.Debugf("syncing registry %s", contractAddress.Hex())
 

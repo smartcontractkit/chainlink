@@ -8,7 +8,7 @@ type Registry struct {
 	CheckGas          int32
 	ContractAddress   models.EIP55Address
 	FromAddress       models.EIP55Address
-	JobID             int32 `gorm:"default:null"`
+	JobID             int32
 	KeeperIndex       int32
 	NumKeepers        int32
 }
