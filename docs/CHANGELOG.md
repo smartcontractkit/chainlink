@@ -7,16 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `ETH_MAX_UNCONFIRMED_TRANSACTIONS` configuration variable
+
+Chainlink node now has a maximum number of unconfirmed transactions that
+may be in flight at any one time (per key).
+
+If this limit is reached, further attempts to send transactions will fail
+and the relevant job will be marked as failed.
+
+Jobs will continue to fail until at least one transaction is confirmed
+and the queue size is reduced. This is introduced as a sanity limit to
+prevent unbounded sending of transactions e.g. in the case that the eth
+node is failing to broadcast to the network.
+
+The default is set to 500 which considered high enough that it should
+never be reached under normal operation. This limit can be changed
+by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
+
+- Support requestNewRound in libocr
+
+requestNewRound enables dedicated requesters to request a fresh report to
+be sent to the contract right away regardless of heartbeat or deviation.
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
-  geth. Node will now fatally error jobs if the total transaction costs exceeds
-  the configured cap (default 1 Eth). Also, it will no longer continue
-  to bump gas on transactions that started hitting this limit and instead
-  continue to resubmit at the highest price that worked. Node operators should
-  check their geth nodes and remove this cap if configured, you can do this by
-  running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting
-  these values in your config toml.
+  geth.
+
+Node will now fatally error jobs if the total transaction costs exceeds the
+configured cap (default 1 Eth). Also, it will no longer continue to bump gas on
+transactions that started hitting this limit and instead continue to resubmit
+at the highest price that worked.
+
+Node operators should check their geth nodes and remove this cap if configured,
+you can do this by running your geth node with `--rpc.gascap=0
+--rpc.txfeecap=0` or setting these values in your config toml.
+
+- Make head backfill asynchronous. This should eliminate some harmless but
+  annoying errors related to backfilling heads, logged on startup and
+  occasionally during normal operation on fast chains like Kovan.
+
+- Improvements to the GasUpdater
+
+Various efficiency and correctness improvements have been made to the
+GasUpdater. It places less load on the ethereum node and now features re-org
+detection.
+
+Most notably, GasUpdater no longer takes a 24 block delay to "warm up" on
+application start and instead loads all relevant block history immediately.
+This means that the application gas price will always be updated correctly
+after reboot before the first transaction is ever sent, eliminating the previous
+scenario where the node could send underpriced or overpriced transactions for a
+period after a reboot, until the gas updater caught up.
+
+
+### Changed
+
+- Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20
+- Bump `ORM_MAX_IDLE_CONNS` default from 5 to 10
+
+Each Chainlink node will now use a maximum of 23 database connections (up from previous max of 13). Make sure your postgres database is tuned accordingly, especially if you are running multiple Chainlink nodes on a single database. If you find yourself hitting connection limits, you can consider reducing `ORM_MAX_OPEN_CONNS` but this may result in degraded performance.
+
+- The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
+for OCR jobs.
 
 ## [0.10.1] - 2021-02-23
 

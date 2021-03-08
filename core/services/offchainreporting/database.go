@@ -3,14 +3,17 @@ package offchainreporting
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 )
 
@@ -19,8 +22,13 @@ type db struct {
 	oracleSpecID int32
 }
 
+var (
+	_ ocrtypes.Database    = &db{}
+	_ OCRContractTrackerDB = &db{}
+)
+
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqldb *sql.DB, oracleSpecID int32) ocrtypes.Database {
+func NewDB(sqldb *sql.DB, oracleSpecID int32) *db {
 	return &db{sqldb, oracleSpecID}
 }
 
@@ -240,6 +248,55 @@ WHERE offchainreporting_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
+
+	return
+}
+
+func (d *db) SaveLatestRoundRequested(rr offchainaggregator.OffchainAggregatorRoundRequested) error {
+	rawLog, err := json.Marshal(rr.Raw)
+	if err != nil {
+		return errors.Wrap(err, "could not marshal log as JSON")
+	}
+	_, err = d.Exec(`
+INSERT INTO offchainreporting_latest_round_requested (offchainreporting_oracle_spec_id, requester, config_digest, epoch, round, raw)
+VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (offchainreporting_oracle_spec_id) DO UPDATE SET
+	requester = EXCLUDED.requester,
+	config_digest = EXCLUDED.config_digest,
+	epoch = EXCLUDED.epoch,
+	round = EXCLUDED.round,
+	raw = EXCLUDED.raw
+`, d.oracleSpecID, rr.Requester, rr.ConfigDigest[:], rr.Epoch, rr.Round, rawLog)
+
+	return errors.Wrap(err, "could not save latest round requested")
+}
+
+func (d *db) LoadLatestRoundRequested() (rr offchainaggregator.OffchainAggregatorRoundRequested, err error) {
+	rows, err := d.Query(`
+SELECT requester, config_digest, epoch, round, raw
+FROM offchainreporting_latest_round_requested
+WHERE offchainreporting_oracle_spec_id = $1
+LIMIT 1
+`, d.oracleSpecID)
+	if err != nil {
+		return rr, errors.Wrap(err, "LoadLatestRoundRequested failed to query rows")
+	}
+
+	for rows.Next() {
+		var configDigest []byte
+		var rawLog []byte
+		var err2 error
+
+		err2 = rows.Scan(&rr.Requester, &configDigest, &rr.Epoch, &rr.Round, &rawLog)
+		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to scan row"))
+
+		rr.ConfigDigest, err2 = ocrtypes.BytesToConfigDigest(configDigest)
+		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to decode config digest"))
+
+		err2 = json.Unmarshal(rawLog, &rr.Raw)
+		err = multierr.Combine(err2, errors.Wrap(err, "LoadLatestRoundRequested failed to unmarshal raw log"))
+	}
+
+	err = multierr.Combine(err, rows.Close())
 
 	return
 }

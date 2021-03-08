@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"net/url"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/pkg/errors"
@@ -43,9 +45,10 @@ type (
 	}
 )
 
-func NewAdvisoryLock(uri string) AdvisoryLocker {
+func NewAdvisoryLock(uri url.URL) AdvisoryLocker {
+	static.SetConsumerName(&uri, "AdvisoryLocker")
 	return &postgresAdvisoryLock{
-		URI: uri,
+		URI: uri.String(),
 		mu:  &sync.Mutex{},
 	}
 }

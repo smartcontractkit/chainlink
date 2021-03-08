@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgconn"
+
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -18,31 +20,33 @@ import (
 	"gorm.io/gorm"
 )
 
+var (
+	ErrNoSuchBridge = errors.New("no such bridge exists")
+)
+
 //go:generate mockery --name ORM --output ./mocks/ --case=underscore
 
-type (
-	ORM interface {
-		CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-		CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-		ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
-		ListenForNewRuns() (postgres.Subscription, error)
-		InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
-		AwaitRun(ctx context.Context, runID int64) error
-		RunFinished(runID int64) (bool, error)
-		ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-		DeleteRunsOlderThan(threshold time.Duration) error
+type ORM interface {
+	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
+	ListenForNewRuns() (postgres.Subscription, error)
+	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
+	AwaitRun(ctx context.Context, runID int64) error
+	RunFinished(runID int64) (bool, error)
+	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
+	DeleteRunsOlderThan(threshold time.Duration) error
 
-		FindBridge(name models.TaskType) (models.BridgeType, error)
+	FindBridge(name models.TaskType) (models.BridgeType, error)
 
-		DB() *gorm.DB
-	}
+	DB() *gorm.DB
+}
 
-	orm struct {
-		db               *gorm.DB
-		config           Config
-		eventBroadcaster postgres.EventBroadcaster
-	}
-)
+type orm struct {
+	db               *gorm.DB
+	config           Config
+	eventBroadcaster postgres.EventBroadcaster
+}
 
 var _ ORM = (*orm)(nil)
 
@@ -120,8 +124,18 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxT
 			Index:          task.OutputIndex(),
 			SuccessorID:    successorID,
 		}
+		if task.Type() == TaskTypeBridge {
+			btName := task.(*BridgeTask).Name
+			taskSpec.BridgeName = &btName
+		}
 		err = tx.Create(&taskSpec).Error
 		if err != nil {
+			pqErr, ok := err.(*pgconn.PgError)
+			if ok && pqErr.Code == "23503" {
+				if pqErr.ConstraintName == "fk_pipeline_task_specs_bridge_name" {
+					return specID, errors.Wrap(ErrNoSuchBridge, *taskSpec.BridgeName)
+				}
+			}
 			return specID, err
 		}
 

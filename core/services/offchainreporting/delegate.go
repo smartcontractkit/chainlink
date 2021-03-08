@@ -45,7 +45,16 @@ func NewDelegate(
 	peerWrapper *SingletonPeerWrapper,
 	monitoringEndpoint ocrtypes.MonitoringEndpoint,
 ) *Delegate {
-	return &Delegate{db, jobORM, config, keyStore, pipelineRunner, ethClient, logBroadcaster, peerWrapper, monitoringEndpoint}
+	return &Delegate{db,
+		jobORM,
+		config,
+		keyStore,
+		pipelineRunner,
+		ethClient,
+		logBroadcaster,
+		peerWrapper,
+		monitoringEndpoint,
+	}
 }
 
 func (d Delegate) JobType() job.Type {
@@ -73,7 +82,13 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
 	}
 
-	ocrContract, err := NewOCRContractConfigTracker(
+	gormdb, errdb := d.db.DB()
+	if errdb != nil {
+		return nil, errors.Wrap(errdb, "unable to open sql db")
+	}
+	ocrdb := NewDB(gormdb, concreteSpec.ID)
+
+	tracker, err := NewOCRContractTracker(
 		contract,
 		contractFilterer,
 		contractCaller,
@@ -81,10 +96,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		d.logBroadcaster,
 		jobSpec.ID,
 		*logger.Default,
+		ocrdb,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewOCRContract")
 	}
+	services = append(services, tracker)
 
 	peerID, err := d.config.P2PPeerID(concreteSpec.P2PPeerID)
 	if err != nil {
@@ -118,6 +135,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		ContractTransmitterTransmitTimeout:     d.config.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        d.config.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      d.config.OCRObservationTimeout(time.Duration(concreteSpec.ObservationTimeout)),
+		DataSourceGracePeriod:                  d.config.OCRObservationGracePeriod(),
 	}
 	if d.config.Dev() {
 		// Skips config validation so we can use any config parameters we want.
@@ -129,17 +147,12 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 	}
 	logger.Info(fmt.Sprintf("OCR job using local config %+v", lc))
 
-	db, errdb := d.db.DB()
-	if errdb != nil {
-		return nil, errors.Wrap(errdb, "unable to open sql db")
-	}
-
 	if concreteSpec.IsBootstrapPeer {
 		bootstrapper, err := ocr.NewBootstrapNode(ocr.BootstrapNodeArgs{
 			BootstrapperFactory:   peerWrapper.Peer,
 			Bootstrappers:         bootstrapPeers,
-			ContractConfigTracker: ocrContract,
-			Database:              NewDB(db, concreteSpec.ID),
+			ContractConfigTracker: tracker,
+			Database:              ocrdb,
 			LocalConfig:           lc,
 			Logger:                ocrLogger,
 		})
@@ -168,20 +181,28 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 		if err != nil {
 			return nil, err
 		}
-		contractTransmitter := NewOCRContractTransmitter(concreteSpec.ContractAddress.Address(), contractCaller, contractABI,
-			NewTransmitter(db, ta.Address(), d.config.EthGasLimitDefault()))
+		contractTransmitter := NewOCRContractTransmitter(
+			concreteSpec.ContractAddress.Address(),
+			contractCaller,
+			contractABI,
+			NewTransmitter(gormdb, ta.Address(), d.config.EthGasLimitDefault(), d.config.EthMaxUnconfirmedTransactions()),
+			d.logBroadcaster,
+			tracker,
+		)
 
+		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
-			Database: NewDB(db, concreteSpec.ID),
+			Database: ocrdb,
 			Datasource: dataSource{
 				pipelineRunner: d.pipelineRunner,
 				jobID:          jobSpec.ID,
 				ocrLogger:      *loggerWith,
 				spec:           *jobSpec.PipelineSpec,
+				runResults:     runResults,
 			},
 			LocalConfig:                  lc,
 			ContractTransmitter:          contractTransmitter,
-			ContractConfigTracker:        ocrContract,
+			ContractConfigTracker:        tracker,
 			PrivateKeys:                  &ocrkey,
 			BinaryNetworkEndpointFactory: peerWrapper.Peer,
 			Logger:                       ocrLogger,
@@ -192,6 +213,16 @@ func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, e
 			return nil, errors.Wrap(err, "error calling NewOracle")
 		}
 		services = append(services, oracle)
+
+		// RunResultSaver needs to be started first so its available
+		// to read db writes. It is stopped last after the Oracle is shut down
+		// so no further runs are enqueued and we can drain the queue.
+		services = append([]job.Service{NewResultRunSaver(
+			runResults,
+			d.pipelineRunner,
+			make(chan struct{}),
+			jobSpec.ID,
+		)}, services...)
 	}
 
 	return services, nil

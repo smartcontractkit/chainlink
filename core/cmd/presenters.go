@@ -80,7 +80,7 @@ type Job struct {
 
 // GetName implements the api2go EntityNamer interface
 func (j Job) GetName() string {
-	return "specDBs"
+	return "jobs"
 }
 
 // GetTasks extracts the tasks from the dependency graph

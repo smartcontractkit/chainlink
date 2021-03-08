@@ -12,11 +12,7 @@ import { ApiResponse } from 'utils/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
-import {
-  OcrJobSpecRequest,
-  OcrJobSpec,
-  JobSpecRequest,
-} from 'core/store/models'
+import { JobSpecV2Request, JobSpecV2, JobSpecRequest } from 'core/store/models'
 import { JobSpec } from 'core/store/presenters'
 import BaseLink from 'components/BaseLink'
 import ErrorMessage from 'components/Notifications/DefaultError'
@@ -100,15 +96,15 @@ function apiCall({
 }: {
   format: JobSpecFormats
   value: string
-}): Promise<ApiResponse<JobSpec | OcrJobSpec>> {
+}): Promise<ApiResponse<JobSpec | JobSpecV2>> {
   if (format === JobSpecFormats.JSON) {
     const definition: JobSpecRequest = JSON.parse(value)
     return api.v2.specs.createJobSpec(definition)
   }
 
   if (format === JobSpecFormats.TOML) {
-    const definition: OcrJobSpecRequest = { toml: value }
-    return api.v2.ocrSpecs.createJobSpec(definition)
+    const definition: JobSpecV2Request = { toml: value }
+    return api.v2.jobs.createJobSpec(definition)
   }
 
   return Promise.reject('Invalid format')

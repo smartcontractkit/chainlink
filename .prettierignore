@@ -34,3 +34,5 @@ evm-contracts/truffle/**/*
 
 # solc_bin
 solc_bin
+
+docs/

@@ -49,7 +49,7 @@ type JobSpec struct {
 	Name       string         `json:"name"`
 	CreatedAt  time.Time      `json:"createdAt" gorm:"index"`
 	Initiators []Initiator    `json:"initiators"`
-	MinPayment *assets.Link   `json:"minPayment,omitempty" gorm:"type:varchar(255)"`
+	MinPayment *assets.Link   `json:"minPayment,omitempty"`
 	Tasks      []TaskSpec     `json:"tasks"`
 	StartAt    null.Time      `json:"startAt" gorm:"index"`
 	EndAt      null.Time      `json:"endAt" gorm:"index"`

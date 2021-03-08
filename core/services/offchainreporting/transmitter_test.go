@@ -25,7 +25,7 @@ func Test_Transmitter_CreateEthTransaction(t *testing.T) {
 	toAddress := cltest.NewAddress()
 	payload := []byte{1, 2, 3}
 
-	transmitter := offchainreporting.NewTransmitter(db, fromAddress, gasLimit)
+	transmitter := offchainreporting.NewTransmitter(db, fromAddress, gasLimit, 0)
 
 	require.NoError(t, transmitter.CreateEthTransaction(context.Background(), toAddress, payload))
 
@@ -51,7 +51,7 @@ func Test_Transmitter_CreateEthTransaction_OutOfEth(t *testing.T) {
 	gasLimit := uint64(1000)
 	toAddress := cltest.NewAddress()
 
-	transmitter := offchainreporting.NewTransmitter(db, thisKey.Address.Address(), gasLimit)
+	transmitter := offchainreporting.NewTransmitter(db, thisKey.Address.Address(), gasLimit, 0)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)

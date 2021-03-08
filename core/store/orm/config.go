@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm"
@@ -109,7 +110,7 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
 		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
@@ -134,6 +135,7 @@ func (c *Config) Validate() error {
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
@@ -263,8 +265,18 @@ func (c Config) GlobalLockRetryInterval() models.Duration {
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
-func (c Config) DatabaseURL() string {
-	return c.viper.GetString(EnvVarName("DatabaseURL"))
+func (c Config) DatabaseURL() url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseURL"))
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database url %s", s)
+		return url.URL{}
+	}
+	if uri.String() == "" {
+		return *uri
+	}
+	static.SetConsumerName(uri, "Default")
+	return *uri
 }
 
 // MigrateDatabase determines whether the database will be automatically
@@ -371,6 +383,14 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
 }
 
+// EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
+// transactions per key that are allowed to be in flight before jobs will start
+// failing and rejecting send of any further transactions.
+// 0 value disables
+func (c Config) EthMaxUnconfirmedTransactions() uint64 {
+	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
 func (c Config) EthGasLimitDefault() uint64 {
 	return c.getWithFallback("EthGasLimitDefault", parseUint64).(uint64)
@@ -380,7 +400,7 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
@@ -507,14 +527,13 @@ func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
-// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
-func (c Config) JobPipelineMaxTaskDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
-}
-
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c Config) JobPipelineMaxRunDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
+}
+
+func (c Config) JobPipelineResultWriteQueueDepth() uint64 {
+	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parseUint64).(uint64)
 }
 
 // JobPipelineParallelism controls how many workers the pipeline.Runner
@@ -583,6 +602,10 @@ func (c Config) getDurationWithOverride(override time.Duration, field string) ti
 
 func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
 	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRObservationGracePeriod() time.Duration {
+	return c.getWithFallback("OCRObservationGracePeriod", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
@@ -904,8 +927,7 @@ func (c Config) CertFile() string {
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
 func (c Config) CreateProductionLogger() *logger.Logger {
-	return logger.CreateProductionLogger(
-		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
+	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
 // SessionSecret returns a sequence of bytes to be used as a private key for
