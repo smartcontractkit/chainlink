@@ -199,7 +199,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, logBroadcaster, config),
 		}
 	)
 

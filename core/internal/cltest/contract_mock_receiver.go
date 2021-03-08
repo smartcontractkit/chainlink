@@ -1,6 +1,7 @@
 package cltest
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -47,6 +48,24 @@ func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs 
 			}),
 			mock.Anything).
 		Return(encoded, nil)
+}
+
+func (receiver contractMockReceiver) MockRevertResponse(funcName string) *mock.Call {
+	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
+	if len(funcSig) != 10 {
+		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
+	}
+
+	return receiver.ethMock.
+		On(
+			"CallContract",
+			mock.Anything,
+			mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+				return *callArgs.To == receiver.address &&
+					hexutil.Encode(callArgs.Data)[0:10] == funcSig
+			}),
+			mock.Anything).
+		Return(nil, errors.New("revert"))
 }
 
 func (receiver contractMockReceiver) mustEncodeResponse(funcName string, responseArgs []interface{}) []byte {
