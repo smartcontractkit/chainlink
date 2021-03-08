@@ -110,7 +110,7 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
 		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
