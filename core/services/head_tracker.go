@@ -46,7 +46,10 @@ var (
 		Name: "head_tracker_num_heads_dropped",
 		Help: "The total number of heads dropped",
 	})
-
+	promEthConnectionErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_eth_connection_errors",
+		Help: "The total number of eth node connection errors",
+	})
 	// kovanChainID is the Chain ID for Kovan test network
 	kovanChainID = big.NewInt(42)
 )
@@ -281,6 +284,7 @@ func (ht *HeadTracker) subscribe() bool {
 		case <-time.After(ht.sleeper.After()):
 			err := ht.subscribeToHead()
 			if err != nil {
+				promEthConnectionErrors.Inc()
 				logger.Warnw(fmt.Sprintf("Failed to connect to ethereum node %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
 				logger.Info("Connected to ethereum node ", ht.store.Config.EthereumURL())
