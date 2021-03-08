@@ -432,7 +432,11 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
-	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
+	credentialsFile := c.String("file")
+	if credentialsFile == "" {
+		credentialsFile = cli.Config.AdminCredentialsFile()
+	}
+	sessionRequest, err := cli.buildSessionRequest(credentialsFile)
 	if err != nil {
 		return cli.errorOut(err)
 	}
