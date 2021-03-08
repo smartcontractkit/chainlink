@@ -318,14 +318,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.EventBroadcaster.Start,
 		app.FluxMonitor.Start,
 		app.EthBroadcaster.Start,
-
-		// HeadTracker deliberately started after
-		// RunManager.ResumeAllInProgress since it Connects JobSubscriber
-		// which leads to writes of JobRuns RunStatus to the db.
-		// https://www.pivotaltracker.com/story/show/162230780
-		app.HeadTracker.Start,
-
-		app.Scheduler.Start,
 	}
 
 	for _, task := range subtasks {
@@ -338,6 +330,21 @@ func (app *ChainlinkApplication) Start() error {
 		if err := subservice.Start(); err != nil {
 			return err
 		}
+	}
+
+	// HeadTracker deliberately started afterwards since several tasks are
+	// registered as callbacks and it's sensible to have started them before
+	// calling the first OnNewHead
+	// For example:
+	// RunManager.ResumeAllInProgress since it Connects JobSubscriber
+	// which leads to writes of JobRuns RunStatus to the db.
+	// https://www.pivotaltracker.com/story/show/162230780
+	if err := app.HeadTracker.Start(); err != nil {
+		return err
+	}
+
+	if err := app.Scheduler.Start(); err != nil {
+		return err
 	}
 
 	app.started = true
@@ -379,20 +386,21 @@ func (app *ChainlinkApplication) stop() error {
 		logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
+
+		logger.Debug("Stopping Scheduler...")
+		app.Scheduler.Stop()
+
+		logger.Debug("Stopping HeadTracker...")
+		merr = multierr.Append(merr, app.HeadTracker.Stop())
+
 		for i := len(app.subservices) - 1; i >= 0; i-- {
 			service := app.subservices[i]
 			logger.Debugw(fmt.Sprintf("Closing service %v...", i), "serviceType", reflect.TypeOf(service))
 			merr = multierr.Append(merr, service.Close())
 		}
 
-		logger.Debug("Stopping LogBroadcaster...")
-		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
-		logger.Debug("Stopping EventBroadcaster...")
-		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
 		logger.Debug("Stopping Scheduler...")
 		app.Scheduler.Stop()
-		logger.Debug("Stopping HeadTracker...")
-		merr = multierr.Append(merr, app.HeadTracker.Stop())
 		logger.Debug("Stopping balanceMonitor...")
 		merr = multierr.Append(merr, app.balanceMonitor.Stop())
 		logger.Debug("Stopping JobSubscriber...")
@@ -401,6 +409,10 @@ func (app *ChainlinkApplication) stop() error {
 		app.FluxMonitor.Stop()
 		logger.Debug("Stopping EthBroadcaster...")
 		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
+		logger.Debug("Stopping EventBroadcaster...")
+		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
+		logger.Debug("Stopping LogBroadcaster...")
+		merr = multierr.Append(merr, app.LogBroadcaster.Stop())
 		logger.Debug("Stopping RunQueue...")
 		app.RunQueue.Stop()
 		logger.Debug("Stopping StatsPusher...")
