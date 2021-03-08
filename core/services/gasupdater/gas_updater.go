@@ -109,12 +109,6 @@ func (gu *gasUpdater) Disconnect() {
 // OnNewLongestChain recalculates and sets global gas price if a new head comes
 // in and we are not currently fetching
 func (gu *gasUpdater) OnNewLongestChain(ctx context.Context, head models.Head) {
-	// Bail out as early as possible if the gas updater is disabled so we avoid
-	// any potential undesired side effects. Note that in a future iteration
-	// the GasUpdaterEnabled setting could be modifiable at runtime
-	if gu.State() != utils.StartStopOnce_Started {
-		panic("OnNewLongestChain called on unstarted gas updater")
-	}
 	gu.mb.Deliver(head)
 }
 
