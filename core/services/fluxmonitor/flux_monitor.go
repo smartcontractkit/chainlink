@@ -654,7 +654,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	accounts := p.store.KeyStore.Accounts()
 	for _, acct := range accounts {
 		for _, oracleAddr := range oracleAddrs {
-			if acct.Address == oracleAddr {
+			if acct.Address.Hex() == oracleAddr.Hex() {
 				p.oracleAddress = oracleAddr
 				return nil
 			}
@@ -662,7 +662,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	}
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr)
+		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr, "accounts", accounts, "oracleAddresses", oracleAddrs)
 		p.oracleAddress = addr
 	} else {
 		logger.Error("No keys found. This flux monitor job may not work correctly")
