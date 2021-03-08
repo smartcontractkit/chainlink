@@ -205,6 +205,15 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AdminCredentialsFile points to text file containing admnn credentials for logging in
+func (c Config) AdminCredentialsFile() string {
+	file := c.viper.GetString(EnvVarName("AdminCredentialsFile"))
+	if file == "" {
+		return filepath.Join(c.RootDir(), "apicredentials")
+	}
+	return file
+}
+
 // AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
 func (c Config) AuthenticatedRateLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
