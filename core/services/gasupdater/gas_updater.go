@@ -189,7 +189,7 @@ func (gu *gasUpdater) Recalculate(head models.Head) {
 
 	percentileGasPrice, err := gu.percentileGasPrice(percentile)
 	if err != nil {
-		logger.Infow("GasUpdater: cannot calculate percentile gas price", "err", err)
+		logger.Warnw("GasUpdater: cannot calculate percentile gas price", "err", err)
 		return
 	}
 	gasPriceGwei := fmt.Sprintf("%.2f", float64(percentileGasPrice)/1000000000)
@@ -201,6 +201,7 @@ func (gu *gasUpdater) Recalculate(head models.Head) {
 	gu.logger.Debugw(fmt.Sprintf("GasUpdater: setting new default gas price: %v Gwei", gasPriceGwei),
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
+		"maxGasPriceWei", gu.config.EthMaxGasPriceWei(),
 		"headNum", head.Number,
 		"blocks", numsInHistory,
 	)
@@ -325,7 +326,8 @@ func (gu *gasUpdater) percentileGasPrice(percentile int) (int64, error) {
 func (gu *gasUpdater) setPercentileGasPrice(gasPrice int64) error {
 	bigGasPrice := big.NewInt(gasPrice)
 	if bigGasPrice.Cmp(gu.config.EthMaxGasPriceWei()) > 0 {
-		return fmt.Errorf("cannot set gas price %s because it exceeds ETH_MAX_GAS_PRICE_WEI=%s", bigGasPrice.String(), gu.config.EthMaxGasPriceWei().String())
+		gu.logger.Warnw(fmt.Sprintf("Calculated gas price of %s Wei exceeds ETH_MAX_GAS_PRICE_WEI=%[2]s, setting gas price to the maximum allowed value of %[2]s Wei instead", bigGasPrice.String(), gu.config.EthMaxGasPriceWei().String()), "gasPriceWei", bigGasPrice, "maxGasPriceWei", gu.config.EthMaxGasPriceWei())
+		return gu.config.SetEthGasPriceDefault(gu.config.EthMaxGasPriceWei())
 	}
 	return gu.config.SetEthGasPriceDefault(bigGasPrice)
 }

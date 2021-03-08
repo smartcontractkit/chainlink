@@ -290,7 +290,8 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 	ethClient := new(mocks.Client)
 	config := new(gumocks.Config)
 
-	config.On("EthMaxGasPriceWei").Return(big.NewInt(100))
+	maxGasPrice := big.NewInt(100)
+	config.On("EthMaxGasPriceWei").Return(maxGasPrice)
 	config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 
 	guIface := gasupdater.NewGasUpdater(ethClient, config)
@@ -310,7 +311,7 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 		gu.Recalculate(*cltest.Head(1))
 	})
 
-	t.Run("will not set gas price higher than ETH_MAX_GAS_PRICE_WEI", func(t *testing.T) {
+	t.Run("sets gas price to ETH_MAX_GAS_PRICE_WEI if the calculation would otherwise exceed it", func(t *testing.T) {
 		blocks := []models.Block{
 			models.Block{
 				Number:       0,
@@ -323,6 +324,8 @@ func TestGasUpdater_Recalculate(t *testing.T) {
 				Transactions: cltest.TransactionsFromGasPrices(9002),
 			},
 		}
+
+		config.On("SetEthGasPriceDefault", maxGasPrice).Return(nil)
 		gasupdater.SetRollingBlockHistory(gu, blocks)
 
 		gu.Recalculate(*cltest.Head(1))
