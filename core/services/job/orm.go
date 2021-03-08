@@ -186,11 +186,14 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	defer o.claimedJobsMu.Unlock()
 
 	err := o.db.Exec(`
-            WITH deleted_jobs AS (
-            	DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
-            ),
-            deleted_oracle_specs AS (
+			WITH deleted_jobs AS (
+				DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id, keeper_spec_id
+			),
+			deleted_oracle_specs AS (
 				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+			),
+			deleted_keeper_specs AS (
+				DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
 			)
 			DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
     	`, id).Error

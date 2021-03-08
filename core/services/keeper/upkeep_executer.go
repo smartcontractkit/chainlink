@@ -111,7 +111,7 @@ func (executer UpkeepExecuter) concurrentExecute(upkeep UpkeepRegistration) {
 }
 
 // execute will call checkForUpkeep and, if it succeeds, triger a job on the CL node
-// DEV: must perform call "manually" because abigen wrapper can only send tx
+// DEV: must perform contract call "manually" because abigen wrapper can only send tx
 func (executer UpkeepExecuter) execute(upkeep UpkeepRegistration) {
 	defer func() { <-executer.executionQueue }()
 
