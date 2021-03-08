@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployKeeperRegistry(auth *bind.TransactOpts, backend bind.ContractBackend,
 
 type KeeperRegistry struct {
 	address common.Address
+	abi     abi.ABI
 	KeeperRegistryCaller
 	KeeperRegistryTransactor
 	KeeperRegistryFilterer
@@ -91,11 +93,15 @@ type KeeperRegistryTransactorRaw struct {
 }
 
 func NewKeeperRegistry(address common.Address, backend bind.ContractBackend) (*KeeperRegistry, error) {
+	abi, err := abi.JSON(strings.NewReader(KeeperRegistryABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindKeeperRegistry(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistry{address: address, KeeperRegistryCaller: KeeperRegistryCaller{contract: contract}, KeeperRegistryTransactor: KeeperRegistryTransactor{contract: contract}, KeeperRegistryFilterer: KeeperRegistryFilterer{contract: contract}}, nil
+	return &KeeperRegistry{address: address, abi: abi, KeeperRegistryCaller: KeeperRegistryCaller{contract: contract}, KeeperRegistryTransactor: KeeperRegistryTransactor{contract: contract}, KeeperRegistryFilterer: KeeperRegistryFilterer{contract: contract}}, nil
 }
 
 func NewKeeperRegistryCaller(address common.Address, caller bind.ContractCaller) (*KeeperRegistryCaller, error) {
@@ -2237,44 +2243,84 @@ type GetUpkeep struct {
 	MaxValidBlocknumber uint64
 }
 
-func (_KeeperRegistry *KeeperRegistry) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _KeeperRegistry.KeeperRegistryFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_KeeperRegistry *KeeperRegistry) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(KeeperRegistryABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_KeeperRegistry *KeeperRegistry) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["ConfigSet"].ID:
+	case _KeeperRegistry.abi.Events["ConfigSet"].ID:
 		return _KeeperRegistry.ParseConfigSet(log)
-	case abi.Events["FundsAdded"].ID:
+	case _KeeperRegistry.abi.Events["FundsAdded"].ID:
 		return _KeeperRegistry.ParseFundsAdded(log)
-	case abi.Events["FundsWithdrawn"].ID:
+	case _KeeperRegistry.abi.Events["FundsWithdrawn"].ID:
 		return _KeeperRegistry.ParseFundsWithdrawn(log)
-	case abi.Events["KeepersUpdated"].ID:
+	case _KeeperRegistry.abi.Events["KeepersUpdated"].ID:
 		return _KeeperRegistry.ParseKeepersUpdated(log)
-	case abi.Events["OwnershipTransferRequested"].ID:
+	case _KeeperRegistry.abi.Events["OwnershipTransferRequested"].ID:
 		return _KeeperRegistry.ParseOwnershipTransferRequested(log)
-	case abi.Events["OwnershipTransferred"].ID:
+	case _KeeperRegistry.abi.Events["OwnershipTransferred"].ID:
 		return _KeeperRegistry.ParseOwnershipTransferred(log)
-	case abi.Events["PayeeshipTransferRequested"].ID:
+	case _KeeperRegistry.abi.Events["PayeeshipTransferRequested"].ID:
 		return _KeeperRegistry.ParsePayeeshipTransferRequested(log)
-	case abi.Events["PayeeshipTransferred"].ID:
+	case _KeeperRegistry.abi.Events["PayeeshipTransferred"].ID:
 		return _KeeperRegistry.ParsePayeeshipTransferred(log)
-	case abi.Events["PaymentWithdrawn"].ID:
+	case _KeeperRegistry.abi.Events["PaymentWithdrawn"].ID:
 		return _KeeperRegistry.ParsePaymentWithdrawn(log)
-	case abi.Events["UpkeepCanceled"].ID:
+	case _KeeperRegistry.abi.Events["UpkeepCanceled"].ID:
 		return _KeeperRegistry.ParseUpkeepCanceled(log)
-	case abi.Events["UpkeepPerformed"].ID:
+	case _KeeperRegistry.abi.Events["UpkeepPerformed"].ID:
 		return _KeeperRegistry.ParseUpkeepPerformed(log)
-	case abi.Events["UpkeepRegistered"].ID:
+	case _KeeperRegistry.abi.Events["UpkeepRegistered"].ID:
 		return _KeeperRegistry.ParseUpkeepRegistered(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (KeeperRegistryConfigSet) Topic() common.Hash {
+	return common.HexToHash("0xf68c98604b3cbc1a909e0df75315ce475fbc89bae7a6ab88b53573897f58d0d7")
+}
+
+func (KeeperRegistryFundsAdded) Topic() common.Hash {
+	return common.HexToHash("0xafd24114486da8ebfc32f3626dada8863652e187461aa74d4bfa734891506203")
+}
+
+func (KeeperRegistryFundsWithdrawn) Topic() common.Hash {
+	return common.HexToHash("0xf3b5906e5672f3e524854103bcafbbdba80dbdfeca2c35e116127b1060a68318")
+}
+
+func (KeeperRegistryKeepersUpdated) Topic() common.Hash {
+	return common.HexToHash("0x056264c94f28bb06c99d13f0446eb96c67c215d8d707bce2655a98ddf1c0b71f")
+}
+
+func (KeeperRegistryOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (KeeperRegistryOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (KeeperRegistryPayeeshipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0x84f7c7c80bb8ed2279b4aab5f61cd05e6374073d38f46d7f32de8c30e9e38367")
+}
+
+func (KeeperRegistryPayeeshipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x78af32efdcad432315431e9b03d27e6cd98fb79c405fdc5af7c1714d9c0f75b3")
+}
+
+func (KeeperRegistryPaymentWithdrawn) Topic() common.Hash {
+	return common.HexToHash("0x9819093176a1851202c7bcfa46845809b4e47c261866550e94ed3775d2f40698")
+}
+
+func (KeeperRegistryUpkeepCanceled) Topic() common.Hash {
+	return common.HexToHash("0x91cb3bb75cfbd718bbfccc56b7f53d92d7048ef4ca39a3b7b7c6d4af1f791181")
+}
+
+func (KeeperRegistryUpkeepPerformed) Topic() common.Hash {
+	return common.HexToHash("0xcaacad83e47cc45c280d487ec84184eee2fa3b54ebaa393bda7549f13da228f6")
+}
+
+func (KeeperRegistryUpkeepRegistered) Topic() common.Hash {
+	return common.HexToHash("0xbae366358c023f887e791d7a62f2e4316f1026bd77f6fb49501a917b3bc5d012")
 }
 
 func (_KeeperRegistry *KeeperRegistry) Address() common.Address {
@@ -2410,9 +2456,7 @@ type KeeperRegistryInterface interface {
 
 	ParseUpkeepRegistered(log types.Log) (*KeeperRegistryUpkeepRegistered, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

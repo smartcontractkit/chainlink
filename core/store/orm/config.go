@@ -598,6 +598,14 @@ func (c Config) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }
 
+func (c Config) KeeperMinimumRequiredConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
+}
+
+func (c Config) KeeperMaximumGracePeriod() int64 {
+	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
+}
+
 // JSONConsole enables the JSON console.
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
