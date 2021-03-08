@@ -86,6 +86,7 @@ func Test_RegistrySynchronizer_AddsAndRemovesUpkeeps(t *testing.T) {
 	contractAddress := job.KeeperSpec.ContractAddress.Address()
 	fromAddress := job.KeeperSpec.FromAddress.Address()
 
+	// 1st sync
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, contractAddress)
 	canceledUpkeeps := []*big.Int{big.NewInt(1)}
 	registryMock.MockResponse("getConfig", regConfig).Once()
@@ -98,15 +99,22 @@ func Test_RegistrySynchronizer_AddsAndRemovesUpkeeps(t *testing.T) {
 
 	cltest.AssertCount(t, store, keeper.Registry{}, 1)
 	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
-	ethMock.AssertExpectations(t)
 
+	var registry keeper.Registry
 	var upkeepRegistration keeper.UpkeepRegistration
-	err := store.DB.First(&upkeepRegistration).Error
-	require.NoError(t, err)
-
+	require.NoError(t, store.DB.First(&registry).Error)
+	require.NoError(t, store.DB.First(&upkeepRegistration).Error)
+	require.Equal(t, job.KeeperSpec.ContractAddress, registry.ContractAddress)
+	require.Equal(t, job.KeeperSpec.FromAddress, registry.FromAddress)
+	require.Equal(t, int32(20), registry.BlockCountPerTurn)
+	require.Equal(t, int32(0), registry.KeeperIndex)
+	require.Equal(t, int32(1), registry.NumKeepers)
 	require.Equal(t, upkeep.CheckData, upkeepRegistration.CheckData)
 	require.Equal(t, int32(upkeep.ExecuteGas), upkeepRegistration.ExecuteGas)
 
+	ethMock.AssertExpectations(t)
+
+	// 2nd sync
 	canceledUpkeeps = []*big.Int{big.NewInt(0), big.NewInt(1), big.NewInt(3)}
 	registryMock.MockResponse("getConfig", regConfig).Once()
 	registryMock.MockResponse("getKeeperList", []common.Address{fromAddress}).Once()
