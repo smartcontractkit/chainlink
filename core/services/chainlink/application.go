@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -145,7 +146,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	if store.Config.GasUpdaterEnabled() {
 		logger.Debugw("GasUpdater: dynamic gas updates are enabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
-		gasUpdater := services.NewGasUpdater(store)
+		gasUpdater := gasupdater.NewGasUpdater(store.EthClient, store.Config)
 		subservices = append(subservices, gasUpdater)
 		headTrackables = append(headTrackables, gasUpdater)
 	} else {

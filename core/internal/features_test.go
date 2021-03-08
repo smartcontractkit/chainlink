@@ -1544,17 +1544,17 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	)
 	defer cleanup()
 
-	b41 := services.Block{
+	b41 := models.Block{
 		Number:       41,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(41000000000, 41500000000),
 	}
-	b42 := services.Block{
+	b42 := models.Block{
 		Number:       42,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(44000000000, 45000000000),
 	}
-	b43 := services.Block{
+	b43 := models.Block{
 		Number:       43,
 		Hash:         cltest.NewHash(),
 		Transactions: cltest.TransactionsFromGasPrices(48000000000, 49000000000, 31000000000),

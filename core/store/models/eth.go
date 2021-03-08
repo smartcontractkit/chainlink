@@ -375,3 +375,52 @@ func (ary UntrustedBytes) SafeByteSlice(start int, end int) ([]byte, error) {
 	}
 	return ary[start:end], nil
 }
+
+type blockInternal struct {
+	Number       string
+	Hash         common.Hash
+	ParentHash   common.Hash
+	Transactions []types.Transaction
+}
+
+// Int64ToHex converts an int64 into go-ethereum's hex representation
+func Int64ToHex(n int64) string {
+	return hexutil.EncodeBig(big.NewInt(n))
+}
+
+// Block represents an ethereum block
+type Block struct {
+	Number       int64
+	Hash         common.Hash
+	ParentHash   common.Hash
+	Transactions []types.Transaction
+}
+
+// MarshalJSON implements json marshalling for Block
+func (b Block) MarshalJSON() ([]byte, error) {
+	return json.Marshal(blockInternal{
+		Int64ToHex(b.Number),
+		b.Hash,
+		b.ParentHash,
+		b.Transactions,
+	})
+}
+
+// UnmarshalJSON unmarshals to a Block
+func (b *Block) UnmarshalJSON(data []byte) error {
+	bi := blockInternal{}
+	if err := json.Unmarshal(data, &bi); err != nil {
+		return err
+	}
+	n, err := hexutil.DecodeBig(bi.Number)
+	if err != nil {
+		return err
+	}
+	*b = Block{
+		n.Int64(),
+		bi.Hash,
+		bi.ParentHash,
+		bi.Transactions,
+	}
+	return nil
+}
