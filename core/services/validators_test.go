@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -19,6 +21,21 @@ import (
 
 func TestValidateJob(t *testing.T) {
 	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	// Create a funding key.
+	require.NoError(t, store.KeyStore.Unlock(cltest.Password))
+	funding, err := store.KeyStore.NewAccount()
+	require.NoError(t, err)
+	fundingKey := models.Key{
+		Address:   models.EIP55Address(funding.Address.Hex()),
+		IsFunding: true,
+		JSON: models.JSON{
+			Result: gjson.ParseBytes([]byte(`{"json" : true}`)),
+		},
+	}
+	require.NoError(t, store.CreateKeyIfNotExists(fundingKey))
 	tests := []struct {
 		name  string
 		input []byte
@@ -68,17 +85,19 @@ func TestValidateJob(t *testing.T) {
 		{
 			"runlog and ethtx with a fromAddress that doesn't match one of our keys",
 			cltest.MustReadFile(t, "testdata/runlog_ethtx_w_missing_fromAddress_job.json"),
-			models.NewJSONAPIErrorsWith("Cannot set EthTx Task's fromAddress parameter: the node does not have this private key in the database"),
+			models.NewJSONAPIErrorsWith("error record not found finding key for address 0x0f416a5a298f05d386cfe8164f342bec5b5e10d7"),
 		},
 		{
 			"runlog with two ethtx tasks",
 			cltest.MustReadFile(t, "testdata/runlog_2_ethlogs_job.json"),
 			models.NewJSONAPIErrorsWith("Cannot RunLog initiated jobs cannot have more than one EthTx Task"),
 		},
+		{
+			"cannot use funding key",
+			[]byte(fmt.Sprintf(string(cltest.MustReadFile(t, "testdata/runlog_ethtx_template_fromAddress_job.json")), fundingKey.Address.String())),
+			models.NewJSONAPIErrorsWith(fmt.Sprintf("address %v is a funding address, cannot use it to send transactions", fundingKey.Address.String())),
+		},
 	}
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

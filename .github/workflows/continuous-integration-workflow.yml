@@ -106,10 +106,6 @@ jobs:
         if: always()
         run: ./compose ${{ matrix.test }}:down
         working-directory: ./tools/docker
-      - name: Capture logs on failure
-        if: failure()
-        run: ./compose logs:test:save
-        working-directory: ./tools/docker
       - name: Store logs artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v1
