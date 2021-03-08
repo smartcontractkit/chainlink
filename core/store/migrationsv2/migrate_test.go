@@ -160,7 +160,5 @@ func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
 	require.NoError(t, orm.DB.Find(&fms, "id = ?", fmSpec.ID).Error)
 	require.Equal(t, assets.NewLink(100), fms.MinPayment)
 
-	require.NoError(t, migrationsv2.Rollback(
-		orm.DB, migrationsv2.Migrations[len(migrationsv2.Migrations)-1]),
-	)
+	require.NoError(t, migrationsv2.MigrateDownFrom(orm.DB, "0012_change_jobs_to_numeric"))
 }
