@@ -1,11 +1,19 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 )
+
+// DefaultQueryCtx returns a context with a sensible sanity limit timeout for
+// SQL queries
+func DefaultQueryCtx() (ctx context.Context, cancel context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 10*time.Second)
+}
 
 func IsSerializationAnomaly(err error) bool {
 	if err == nil {

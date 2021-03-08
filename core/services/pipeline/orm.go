@@ -277,8 +277,6 @@ FROM (VALUES
 ) AS updates(id, output, error, finished_at)
 WHERE ptr.id = updates.id
 `
-	// NOTE: gormv1 does not support bulk updates so we have to
-	// manually construct it ourselves
 	valueStrings := []string{}
 	valueArgs := []interface{}{}
 	for _, trr := range trrs {
