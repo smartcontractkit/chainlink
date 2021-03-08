@@ -57,7 +57,7 @@ type ConfigSchema struct {
 	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`
 	FlagsContractAddress                      string          `env:"FLAGS_CONTRACT_ADDRESS"`
-	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"3"`
+	GasUpdaterBlockDelay                      uint16          `env:"GAS_UPDATER_BLOCK_DELAY" default:"1"`
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
