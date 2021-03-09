@@ -73,7 +73,14 @@ Each Chainlink node will now use a maximum of 23 database connections (up from p
 - The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
 for OCR jobs.
 
-## [0.10.1] - 2021-02-23
+## [0.10.2] - 2021-02-26
+
+### Fixed
+
+- Add contexts so that database queries timeout when necessary.
+- Use manual updates instead of gorm update associations.
+
+## [0.10.1] - 2021-02-25
 
 ### Fixed
 

@@ -19,7 +19,7 @@ import (
 const (
 	// LockTimeout controls the max time we will wait for any kind of database lock.
 	// It's good to set this to _something_ because waiting for locks forever is really bad.
-	LockTimeout = 1 * time.Minute
+	LockTimeout = 15 * time.Second
 	// IdleInTxSessionTimeout controls the max time we leave a transaction open and idle.
 	// It's good to set this to _something_ because leaving transactions open forever is really bad.
 	IdleInTxSessionTimeout = 1 * time.Hour
