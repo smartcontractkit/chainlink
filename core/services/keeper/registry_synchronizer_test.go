@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_contract"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
@@ -57,7 +57,7 @@ func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer,
 	ethMock := new(mocks.Client)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	contractAddress := j.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_contract.NewKeeperRegistryContract(
+	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress.Address(),
 		ethMock,
 	)

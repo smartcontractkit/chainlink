@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_contract"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -36,7 +36,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	}
 
 	contractAddress := spec.KeeperSpec.ContractAddress
-	contract, err := keeper_registry_contract.NewKeeperRegistryContract(
+	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress.Address(),
 		d.ethClient,
 	)
