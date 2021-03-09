@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
@@ -24,6 +25,11 @@ func NewProductionClient() *cmd.Client {
 	config := orm.NewConfig()
 	prompter := cmd.NewTerminalPrompter()
 	cookieAuth := cmd.NewSessionCookieAuthenticator(config, cmd.DiskCookieStore{Config: config})
+	sr := models.SessionRequest{}
+	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
+	if credentialsFile := config.AdminCredentialsFile(); credentialsFile != "" {
+		sr, _ = sessionRequestBuilder.Build(credentialsFile)
+	}
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},
 		Config:                         config,
@@ -31,9 +37,9 @@ func NewProductionClient() *cmd.Client {
 		KeyStoreAuthenticator:          cmd.TerminalKeyStoreAuthenticator{Prompter: prompter},
 		FallbackAPIInitializer:         cmd.NewPromptingAPIInitializer(prompter),
 		Runner:                         cmd.ChainlinkRunner{},
-		HTTP:                           cmd.NewAuthenticatedHTTPClient(config, cookieAuth),
+		HTTP:                           cmd.NewAuthenticatedHTTPClient(config, cookieAuth, sr),
 		CookieAuthenticator:            cookieAuth,
-		FileSessionRequestBuilder:      cmd.NewFileSessionRequestBuilder(),
+		FileSessionRequestBuilder:      sessionRequestBuilder,
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
 		PasswordPrompter:               cmd.NewPasswordPrompter(),
