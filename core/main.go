@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -30,7 +31,7 @@ func NewProductionClient() *cmd.Client {
 	if credentialsFile := config.AdminCredentialsFile(); credentialsFile != "" {
 		var err error
 		sr, err = sessionRequestBuilder.Build(credentialsFile)
-		if err != nil && err != cmd.ErrNoCredentialFile {
+		if errors.Cause(err) != cmd.ErrNoCredentialFile && os.IsNotExist(err) {
 			logger.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
 		}
 	}
