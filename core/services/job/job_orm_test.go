@@ -308,12 +308,8 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
-		registry := cltest.MustInsertKeeperRegistry(t, store)
-		_ = cltest.MustInsertUpkeepForRegistry(t, store, registry)
-
-		var keeperJob job.Job
-		err := store.DB.First(&keeperJob).Error
-		require.NoError(t, err)
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store)
+		cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)
 		cltest.AssertCount(t, store, keeper.Registry{}, 1)
@@ -321,7 +317,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		err = orm.DeleteJob(ctx, keeperJob.ID)
+		err := orm.DeleteJob(ctx, keeperJob.ID)
 		require.NoError(t, err)
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
 		cltest.AssertCount(t, store, keeper.Registry{}, 0)

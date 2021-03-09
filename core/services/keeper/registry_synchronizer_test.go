@@ -54,7 +54,6 @@ var upkeep = struct {
 
 func setupRegistrySync(t *testing.T) (*store.Store, *keeper.RegistrySynchronizer, *mocks.Client, job.Job, func()) {
 	store, cleanup := cltest.NewStore(t)
-	orm := keeper.NewORM(store.DB)
 	ethMock := new(mocks.Client)
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 	contractAddress := j.KeeperSpec.ContractAddress
@@ -64,7 +63,7 @@ func setupRegistrySync(t *testing.T) (*store.Store, *keeper.RegistrySynchronizer
 	)
 	require.NoError(t, err)
 
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, orm, syncInterval)
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, syncInterval)
 	return store, synchronizer, ethMock, j, cleanup
 }
 
