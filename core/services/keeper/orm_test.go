@@ -17,7 +17,7 @@ var executeGas = int32(10_000)
 
 func setupKeeperDB(t *testing.T) (*store.Store, keeper.KeeperORM, func()) {
 	store, cleanup := cltest.NewStore(t)
-	keeperORM := keeper.NewORM(store.ORM)
+	keeperORM := keeper.NewORM(store.DB)
 	return store, keeperORM, cleanup
 }
 

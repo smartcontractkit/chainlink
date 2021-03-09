@@ -168,7 +168,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	upkeepExecuter := keeper.NewUpkeepExecuter(keeper.NewORM(store.ORM), store.EthClient)
+	upkeepExecuter := keeper.NewUpkeepExecuter(store.DB, store.EthClient)
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -189,7 +189,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
-			job.Keeper: keeper.NewDelegate(store.ORM, store.EthClient, config),
+			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, config),
 		}
 	)
 

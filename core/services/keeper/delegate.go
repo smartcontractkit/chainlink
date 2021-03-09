@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"gorm.io/gorm"
 )
 
 type Delegate struct {
@@ -16,8 +17,8 @@ type Delegate struct {
 	syncInterval time.Duration
 }
 
-func NewDelegate(orm *orm.ORM, ethClient eth.Client, config *orm.Config) *Delegate {
-	keeperORM := NewORM(orm)
+func NewDelegate(db *gorm.DB, ethClient eth.Client, config *orm.Config) *Delegate {
+	keeperORM := NewORM(db)
 	return &Delegate{
 		keeperORM:    keeperORM,
 		ethClient:    ethClient,
