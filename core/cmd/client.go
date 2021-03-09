@@ -460,11 +460,11 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 	return user, store.SaveUser(&user)
 }
 
-var errNoCredentialFile = errors.New("no API user credential file was passed")
+var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
 func credentialsFromFile(file string) (models.SessionRequest, error) {
 	if len(file) == 0 {
-		return models.SessionRequest{}, errNoCredentialFile
+		return models.SessionRequest{}, ErrNoCredentialFile
 	}
 
 	logger.Debug("Initializing API credentials from ", file)

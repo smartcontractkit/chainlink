@@ -689,6 +689,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 	defer assertMocksCalled()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)

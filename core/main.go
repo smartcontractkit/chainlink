@@ -28,7 +28,11 @@ func NewProductionClient() *cmd.Client {
 	sr := models.SessionRequest{}
 	sessionRequestBuilder := cmd.NewFileSessionRequestBuilder()
 	if credentialsFile := config.AdminCredentialsFile(); credentialsFile != "" {
-		sr, _ = sessionRequestBuilder.Build(credentialsFile)
+		var err error
+		sr, err = sessionRequestBuilder.Build(credentialsFile)
+		if err != nil && err != cmd.ErrNoCredentialFile {
+			logger.Fatalw("Error loading API credentials", "error", err, "credentialsFile", credentialsFile)
+		}
 	}
 	return &cmd.Client{
 		Renderer:                       cmd.RendererTable{Writer: os.Stdout},

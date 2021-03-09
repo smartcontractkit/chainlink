@@ -207,8 +207,10 @@ func (c Config) AllowOrigins() string {
 
 // AdminCredentialsFile points to text file containing admnn credentials for logging in
 func (c Config) AdminCredentialsFile() string {
-	file := c.viper.GetString(EnvVarName("AdminCredentialsFile"))
-	if file == "" {
+	fieldName := "AdminCredentialsFile"
+	file := c.viper.GetString(EnvVarName(fieldName))
+	defaultValue, _ := defaultValue(fieldName)
+	if file == defaultValue {
 		return filepath.Join(c.RootDir(), "apicredentials")
 	}
 	return file
