@@ -264,6 +264,31 @@ func TestHead_EarliestInChain(t *testing.T) {
 	assert.Equal(t, int64(1), head.EarliestInChain().Number)
 }
 
+func TestHead_IsInChain(t *testing.T) {
+	hash1 := cltest.NewHash()
+	hash2 := cltest.NewHash()
+	hash3 := cltest.NewHash()
+
+	head := models.Head{
+		Number: 3,
+		Hash:   hash3,
+		Parent: &models.Head{
+			Hash:   hash2,
+			Number: 2,
+			Parent: &models.Head{
+				Hash:   hash1,
+				Number: 1,
+			},
+		},
+	}
+
+	assert.True(t, head.IsInChain(hash1))
+	assert.True(t, head.IsInChain(hash2))
+	assert.True(t, head.IsInChain(hash3))
+	assert.False(t, head.IsInChain(cltest.NewHash()))
+	assert.False(t, head.IsInChain(common.Hash{}))
+}
+
 func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 	tests := []struct {
 		name string

@@ -49,6 +49,20 @@ you can do this by running your geth node with `--rpc.gascap=0
   annoying errors related to backfilling heads, logged on startup and
   occasionally during normal operation on fast chains like Kovan.
 
+- Improvements to the GasUpdater
+
+Various efficiency and correctness improvements have been made to the
+GasUpdater. It places less load on the ethereum node and now features re-org
+detection.
+
+Most notably, GasUpdater no longer takes a 24 block delay to "warm up" on
+application start and instead loads all relevant block history immediately.
+This means that the application gas price will always be updated correctly
+after reboot before the first transaction is ever sent, eliminating the previous
+scenario where the node could send underpriced or overpriced transactions for a
+period after a reboot, until the gas updater caught up.
+
+
 ### Changed
 
 - Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20
