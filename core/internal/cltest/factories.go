@@ -794,7 +794,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
-	upkeepID, err := keeper.NewORM(store.ORM).NextUpkeepIDForRegistry(registry)
+	upkeepID, err := keeper.NewORM(store.DB).NextUpkeepIDForRegistry(registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,

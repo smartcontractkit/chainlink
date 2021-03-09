@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"go.uber.org/atomic"
+	"gorm.io/gorm"
 )
 
 const (
@@ -21,13 +22,13 @@ const (
 )
 
 func NewUpkeepExecuter(
-	keeperORM KeeperORM,
+	db *gorm.DB,
 	ethClient eth.Client,
 ) UpkeepExecuter {
 	return UpkeepExecuter{
 		blockHeight:    atomic.NewInt64(0),
 		ethClient:      ethClient,
-		keeperORM:      keeperORM,
+		keeperORM:      NewORM(db),
 		isRunning:      atomic.NewBool(false),
 		executionQueue: make(chan struct{}, executionQueueSize),
 		chDone:         make(chan struct{}),

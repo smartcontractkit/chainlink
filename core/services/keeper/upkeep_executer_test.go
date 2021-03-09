@@ -26,8 +26,7 @@ func setup(t *testing.T) (
 ) {
 	store, strCleanup := cltest.NewStore(t)
 	ethMock := new(mocks.Client)
-	keeperORM := keeper.NewORM(store.ORM)
-	executer := keeper.NewUpkeepExecuter(keeperORM, ethMock)
+	executer := keeper.NewUpkeepExecuter(store.DB, ethMock)
 	registry := cltest.MustInsertKeeperRegistry(t, store)
 	err := executer.Start()
 	require.NoError(t, err)

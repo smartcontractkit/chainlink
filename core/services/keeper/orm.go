@@ -2,20 +2,20 @@ package keeper
 
 import (
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 const gasBuffer = int32(200_000)
 
-func NewORM(orm *orm.ORM) KeeperORM {
+func NewORM(db *gorm.DB) KeeperORM {
 	return KeeperORM{
-		orm,
+		DB: db,
 	}
 }
 
 type KeeperORM struct {
-	*orm.ORM
+	DB *gorm.DB
 }
 
 func (korm KeeperORM) Registries() (registries []Registry, _ error) {
