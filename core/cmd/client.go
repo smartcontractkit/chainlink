@@ -238,7 +238,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		if cookieerr != nil {
 			return response, err
 		}
-		response, err := h.client.Do(request)
+		response, err = h.client.Do(request)
 		if err != nil {
 			return response, err
 		}
