@@ -55,7 +55,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
@@ -83,7 +83,7 @@ func TestKeeperDB_BatchDelete(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 
 	for i := int64(0); i < 3; i++ {
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
@@ -106,7 +106,7 @@ func TestKeeperDB_DeleteRegistryByJobID(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 
 	for i := int64(0); i < 3; i++ {
 		cltest.MustInsertUpkeepForRegistry(t, store, registry)
@@ -128,10 +128,10 @@ func TestKeeperDB_EligibleUpkeeps_BlockCountPerTurn(t *testing.T) {
 
 	blockheight := int64(40)
 
-	reg1 := cltest.MustInsertKeeperRegistry(t, store)
+	reg1, _ := cltest.MustInsertKeeperRegistry(t, store)
 	reg1.BlockCountPerTurn = 20
 	require.NoError(t, store.DB.Save(&reg1).Error)
-	reg2 := cltest.MustInsertKeeperRegistry(t, store)
+	reg2, _ := cltest.MustInsertKeeperRegistry(t, store)
 	reg2.BlockCountPerTurn = 30
 	require.NoError(t, store.DB.Save(&reg2).Error)
 
@@ -168,7 +168,7 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 	registry.NumKeepers = 5
 	require.NoError(t, store.DB.Save(&registry).Error)
 	cltest.MustInsertUpkeepForRegistry(t, store, registry)
@@ -204,7 +204,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 
 	nextID, err := orm.LowestUnsyncedID(ctx(), registry)
 	require.NoError(t, err)
@@ -232,7 +232,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	store, orm, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
-	registry := cltest.MustInsertKeeperRegistry(t, store)
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
 	payload := common.Hex2Bytes("1234")

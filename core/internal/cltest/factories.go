@@ -774,7 +774,7 @@ func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Add
 	return specDB
 }
 
-func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry {
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) (keeper.Registry, job.Job) {
 	key, _ := MustAddRandomKeyToKeystore(t, store)
 	from := key.Address
 	t.Helper()
@@ -791,7 +791,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry
 	}
 	err := store.DB.Create(&registry).Error
 	require.NoError(t, err)
-	return registry
+	return registry, job
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
