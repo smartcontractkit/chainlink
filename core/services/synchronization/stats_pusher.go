@@ -271,23 +271,25 @@ func createSyncEventWithStatsPusher(sp StatsPusher) func(*gorm.DB) {
 			db.Error = errors.Errorf("expected models.JobRun")
 			return
 		}
-		presenter := SyncJobRunPresenter{&run}
-		bodyBytes, err := json.Marshal(presenter)
-		if err != nil {
-			db.Error = errors.Wrap(err, "createSyncEvent#json.Marshal failed")
-			return
-		}
-
-		event := models.SyncEvent{
-			Body: string(bodyBytes),
-		}
 
 		// Note we have to use a separate db instance here
 		// as the argument is part of a chain already targeting the job_runs table.
-		err = sp.(*statsPusher).DB.Create(&event).Error
-		if err != nil {
-			db.Error = errors.Wrap(err, "createSyncEvent#Create failed")
-			return
-		}
+		db.Error = InsertSyncEventForJobRun(sp.(*statsPusher).DB, &run)
 	}
+}
+
+// InsertSyncEventForJobRun generates an event for a change to job_runs
+func InsertSyncEventForJobRun(db *gorm.DB, run *models.JobRun) error {
+	presenter := SyncJobRunPresenter{run}
+	bodyBytes, err := json.Marshal(presenter)
+	if err != nil {
+		return errors.Wrap(err, "createSyncEvent#json.Marshal failed")
+	}
+
+	event := models.SyncEvent{
+		Body: string(bodyBytes),
+	}
+
+	err = db.Create(&event).Error
+	return errors.Wrap(err, "createSyncEvent#Create failed")
 }

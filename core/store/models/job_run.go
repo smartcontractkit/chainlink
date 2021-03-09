@@ -246,7 +246,7 @@ type TaskRun struct {
 	ID                               uuid.UUID     `json:"id" gorm:"type:uuid;primary_key;not null"`
 	JobRunID                         uuid.UUID     `json:"-" gorm:"type:uuid"`
 	Result                           RunResult     `json:"result"`
-	ResultID                         clnull.Uint32 `json:"-"`
+	ResultID                         clnull.Int64  `json:"-"`
 	Status                           RunStatus     `json:"status" gorm:"default:'unstarted'"`
 	TaskSpec                         TaskSpec      `json:"task" gorm:"->"`
 	TaskSpecID                       int64         `json:"-"`
@@ -290,7 +290,7 @@ func (tr *TaskRun) ApplyOutput(result RunOutput) {
 // Data and ErrorMessage.
 type RunResult struct {
 	ID           int64       `json:"-" gorm:"primary_key;auto_increment"`
-	Data         JSON        `json:"data" gorm:"type:text"`
+	Data         JSON        `json:"data"`
 	ErrorMessage null.String `json:"error"`
 	CreatedAt    time.Time   `json:"-"`
 	UpdatedAt    time.Time   `json:"-"`
