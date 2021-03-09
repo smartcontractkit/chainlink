@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_contract"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -20,7 +20,7 @@ const syncUpkeepQueueSize = 10
 
 func NewRegistrySynchronizer(
 	job job.Job,
-	contract *keeper_registry_contract.KeeperRegistryContract,
+	contract *keeper_registry_wrapper.KeeperRegistry,
 	keeperORM KeeperORM,
 	syncInterval time.Duration,
 ) RegistrySynchronizer {
@@ -38,7 +38,7 @@ func NewRegistrySynchronizer(
 var _ job.Service = RegistrySynchronizer{}
 
 type RegistrySynchronizer struct {
-	contract  *keeper_registry_contract.KeeperRegistryContract
+	contract  *keeper_registry_wrapper.KeeperRegistry
 	interval  time.Duration
 	isRunning *atomic.Bool
 	job       job.Job
