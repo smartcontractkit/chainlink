@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
@@ -65,13 +63,13 @@ func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
 }
 
 // NewStore will create a new store
-func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) *Store {
+func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
 	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
-func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) *Store {
+func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
 	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
 }
 
@@ -83,16 +81,16 @@ func newStoreWithKeyStore(
 	advisoryLocker postgres.AdvisoryLocker,
 	keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
-) *Store {
+) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to create project root dir: %+v", err))
+		return nil, errors.Wrap(err, "error while creating project root dir")
 	}
 	orm, err := initializeORM(config, shutdownSignal)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("Unable to initialize ORM: %+v", err))
+		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
 	if e := orm.ClobberDiskKeyStoreWithDBKeys(config.KeysDir()); e != nil {
-		logger.Fatal(fmt.Sprintf("Unable to migrate key store to disk: %+v", e))
+		return nil, errors.Wrap(err, "error migrating key store to disk")
 	}
 
 	keyStore := keyStoreGenerator(config)
@@ -109,7 +107,7 @@ func newStoreWithKeyStore(
 		closeOnce:      &sync.Once{},
 	}
 	store.VRFKeyStore = NewVRFKeyStore(store)
-	return store
+	return store, nil
 }
 
 // Start initiates all of Store's dependencies
