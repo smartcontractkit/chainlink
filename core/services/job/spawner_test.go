@@ -37,7 +37,7 @@ func (d delegate) JobType() job.Type {
 	return d.jobType
 }
 
-func (d delegate) ServicesForSpec(js job.SpecDB) ([]job.Service, error) {
+func (d delegate) ServicesForSpec(js job.Job) ([]job.Service, error) {
 	if js.Type != d.jobType {
 		return nil, nil
 	}
