@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
 
-This variable defaults to `$ROOT_DIR/apicredentials` and when defined / the
+This variable defaults to `$ROOT/apicredentials` and when defined / the
 file exists, any command using the CLI that requires authentication will use it
 to automatically log in.
 
