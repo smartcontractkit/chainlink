@@ -261,7 +261,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
 		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return migrationsv2.Migrate(db)
+			return migrations.Migrate(db)
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
