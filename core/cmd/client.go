@@ -61,7 +61,7 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*orm.Config, ...func(chainlink.Application)) chainlink.Application
+	NewApplication(*orm.Config, ...func(chainlink.Application)) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
