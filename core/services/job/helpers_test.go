@@ -132,14 +132,14 @@ observationSource = """
 `
 )
 
-func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.SpecDB {
+func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.Job {
 	t.Helper()
 
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
 	jobSpecText := fmt.Sprintf(ocrJobSpecText, cltest.NewAddress().Hex(), peerID.String(), ocrKeyID, transmitterAddress.Hex())
 
-	dbSpec := job.SpecDB{
+	dbSpec := job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecText), &dbSpec)
@@ -156,7 +156,7 @@ func makeOCRJobSpec(t *testing.T, transmitterAddress common.Address) *job.SpecDB
 // to do equality comparisons of these structs manually.
 //
 // https://github.com/stretchr/testify/issues/984
-func compareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
+func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)
@@ -171,7 +171,7 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractConfigConfirmations, actual.OffchainreportingOracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.SpecDB {
+func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
 	t.Helper()
 	var ocrSpec = job.OffchainReportingOracleSpec{
 		P2PBootstrapPeers:                      pq.StringArray{},
@@ -181,7 +181,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 		ContractConfigTrackerPollInterval:      models.Interval(1 * time.Minute),
 		ContractConfigConfirmations:            uint16(3),
 	}
-	var os = job.SpecDB{
+	var os = job.Job{
 		Name:          null.NewString("a job", true),
 		Pipeline:      *pipeline.NewTaskDAG(),
 		Type:          job.OffchainReporting,
@@ -200,12 +200,12 @@ func makeMinimalHTTPOracleSpec(t *testing.T, contractAddress, peerID, transmitte
 	return &os
 }
 
-func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) *job.SpecDB {
+func makeVoterTurnoutOCRJobSpec(t *testing.T, db *gorm.DB, transmitterAddress common.Address) *job.Job {
 	t.Helper()
 	return MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, db, transmitterAddress, "https://example.com/foo/bar")
 }
 
-func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) *job.SpecDB {
+func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string) *job.Job {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -214,7 +214,7 @@ func MakeVoterTurnoutOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitte
 	return makeOCRJobSpecFromToml(t, db, voterTurnoutJobSpec)
 }
 
-func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) *job.SpecDB {
+func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitterAddress common.Address, httpURL string, lax bool) *job.Job {
 	t.Helper()
 	peerID := cltest.DefaultP2PPeerID
 	ocrKeyID := cltest.DefaultOCRKeyBundleID
@@ -223,10 +223,10 @@ func makeSimpleFetchOCRJobSpecWithHTTPURL(t *testing.T, db *gorm.DB, transmitter
 	return makeOCRJobSpecFromToml(t, db, simpleFetchJobSpec)
 }
 
-func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.SpecDB {
+func makeOCRJobSpecFromToml(t *testing.T, db *gorm.DB, jobSpecToml string) *job.Job {
 	t.Helper()
 
-	var jb = job.SpecDB{
+	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	err := toml.Unmarshal([]byte(jobSpecToml), &jb)

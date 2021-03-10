@@ -61,7 +61,7 @@ func (d Delegate) JobType() job.Type {
 	return job.OffchainReporting
 }
 
-func (d Delegate) ServicesForSpec(jobSpec job.SpecDB) (services []job.Service, err error) {
+func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err error) {
 	if jobSpec.OffchainreportingOracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jobSpec)
 	}

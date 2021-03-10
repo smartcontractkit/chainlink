@@ -813,7 +813,7 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -821,7 +821,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.SpecDB
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
-	var createdJob job.SpecDB
+	var createdJob job.Job
 	err := ParseJSONAPIResponse(t, resp, &createdJob)
 	require.NoError(t, err)
 	return createdJob
