@@ -168,7 +168,7 @@ func (ht *HeadTracker) Start() error {
 		return nil
 	}
 
-	if err := ht.setHighestSeenHeadFromDB(context.Background()); err != nil {
+	if err := ht.setHighestSeenHeadFromDB(); err != nil {
 		return err
 	}
 	if ht.highestSeenHead != nil {
@@ -409,21 +409,22 @@ func (ht *HeadTracker) receiveHeaders() error {
 	for {
 		select {
 		case <-ht.done:
+			logger.Debug("receiveHeaders received done signal, shutting down")
 			return nil
 		case blockHeader, open := <-ht.outHeaders:
 			if !open {
 				return errors.New("HeadTracker: outHeaders prematurely closed")
 			}
-			ctx, cancel := utils.CombinedContext(ht.done, ht.totalNewHeadTimeBudget())
-			if err := ht.handleNewHead(ctx, blockHeader); err != nil {
-				cancel()
-				return err
-			}
-			<-ctx.Done()
-			cancel()
-			if err := ctx.Err(); err != nil {
-				logger.Warnw("HeadTracker: handling of new head cancelled", "error", err)
-				return err
+			timeBudget := ht.totalNewHeadTimeBudget()
+			{
+				ctx, cancel := utils.CombinedContext(ht.done, timeBudget)
+				defer cancel()
+				if err := ht.handleNewHead(ctx, blockHeader); err != nil {
+					return err
+				} else if err := ctx.Err(); err != nil {
+					logger.Warnw("HeadTracker: handling of new head canceled", "error", err, "timeBudget", timeBudget.String())
+					return err
+				}
 			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
@@ -584,9 +585,14 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	return nil
 }
 
-func (ht *HeadTracker) setHighestSeenHeadFromDB(ctx context.Context) error {
+func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
 	head, err := ht.store.LastHead(ctx)
 	if err != nil {
+		return err
+	} else if err := ctx.Err(); err != nil {
+		logger.Warnw("HeadTracker: handling of setHighestSeenHeadFromDB canceled", "error", err)
 		return err
 	}
 	ht.highestSeenHead = head
@@ -596,8 +602,13 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB(ctx context.Context) error {
 // chainIDVerify checks whether or not the ChainID from the Chainlink config
 // matches the ChainID reported by the ETH node connected to this Chainlink node.
 func verifyEthereumChainID(ht *HeadTracker) error {
-	ethereumChainID, err := ht.store.EthClient.ChainID(context.TODO())
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+	ethereumChainID, err := ht.store.EthClient.ChainID(ctx)
 	if err != nil {
+		return err
+	} else if err := ctx.Err(); err != nil {
+		logger.Warnw("HeadTracker: handling of verifyEthereumChainID canceled", "error", err)
 		return err
 	}
 
