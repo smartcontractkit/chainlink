@@ -68,7 +68,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
-		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrationsv2.Migrate(db) }))
+		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrations.Migrate(db) }))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
 		_, filename, _, ok := runtime.Caller(0)
