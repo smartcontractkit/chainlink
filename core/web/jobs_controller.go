@@ -41,7 +41,7 @@ func (jc *JobsController) Index(c *gin.Context) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -84,7 +84,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
-	var js job.SpecDB
+	var js job.Job
 	config := jc.App.GetStore().Config
 	switch genericJS.Type {
 	case job.OffchainReporting:
@@ -129,7 +129,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

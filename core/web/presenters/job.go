@@ -160,7 +160,7 @@ type JobResource struct {
 }
 
 // NewJobResource initializes a new JSONAPI job resource
-func NewJobResource(j job.SpecDB) *JobResource {
+func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
 		JAID:            NewJAIDInt32(j.ID),
 		Name:            j.Name.ValueOrZero(),
@@ -189,7 +189,7 @@ func NewJobResource(j job.SpecDB) *JobResource {
 }
 
 // NewJobResources initializes a slice of JSONAPI job resources
-func NewJobResources(js []job.SpecDB) []JobResource {
+func NewJobResources(js []job.Job) []JobResource {
 	rs := []JobResource{}
 
 	for _, j := range js {
