@@ -30,7 +30,7 @@ type (
 	Spawner interface {
 		Start() error
 		Close() error
-		CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error)
+		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 	}
 
@@ -54,7 +54,7 @@ type (
 		// ServicesForSpec returns services to be started and stopped for this
 		// job. Services are started in the order they are given and stopped in
 		// reverse order.
-		ServicesForSpec(spec SpecDB) ([]Service, error)
+		ServicesForSpec(spec Job) ([]Service, error)
 	}
 )
 
@@ -169,7 +169,7 @@ func (js *spawner) startUnclaimedServices() {
 	ctx, cancel := utils.CombinedContext(js.chStop, 5*time.Second)
 	defer cancel()
 
-	specDBRows, err := js.orm.ClaimUnclaimedJobs(ctx)
+	jobs, err := js.orm.ClaimUnclaimedJobs(ctx)
 	if err != nil {
 		logger.Errorf("Couldn't fetch unclaimed jobs: %v", err)
 		return
@@ -178,33 +178,33 @@ func (js *spawner) startUnclaimedServices() {
 	js.jobTypeDelegatesMu.RLock()
 	defer js.jobTypeDelegatesMu.RUnlock()
 
-	for _, specDBRow := range specDBRows {
-		if _, exists := js.services[specDBRow.ID]; exists {
-			logger.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", specDBRow.ID)
+	for _, job := range jobs {
+		if _, exists := js.services[job.ID]; exists {
+			logger.Warnw("Job spawner ORM attempted to claim locally-claimed job, skipping", "jobID", job.ID)
 			continue
 		}
 
-		delegate, exists := js.jobTypeDelegates[specDBRow.Type]
+		delegate, exists := js.jobTypeDelegates[job.Type]
 		if !exists {
-			logger.Errorw("Job type has not been registered with job.Spawner", "type", specDBRow.Type, "jobID", specDBRow.ID)
+			logger.Errorw("Job type has not been registered with job.Spawner", "type", job.Type, "jobID", job.ID)
 			continue
 		}
-		services, err := delegate.ServicesForSpec(specDBRow)
+		services, err := delegate.ServicesForSpec(job)
 		if err != nil {
-			logger.Errorw("Error creating services for job", "jobID", specDBRow.ID, "error", err)
-			js.orm.RecordError(ctx, specDBRow.ID, err.Error())
+			logger.Errorw("Error creating services for job", "jobID", job.ID, "error", err)
+			js.orm.RecordError(ctx, job.ID, err.Error())
 			continue
 		}
 
-		logger.Infow("Starting services for job", "jobID", specDBRow.ID, "count", len(services))
+		logger.Infow("Starting services for job", "jobID", job.ID, "count", len(services))
 
 		for _, service := range services {
 			err := service.Start()
 			if err != nil {
-				logger.Errorw("Error creating service for job", "jobID", specDBRow.ID, "error", err)
+				logger.Errorw("Error creating service for job", "jobID", job.ID, "error", err)
 				continue
 			}
-			js.services[specDBRow.ID] = append(js.services[specDBRow.ID], service)
+			js.services[job.ID] = append(js.services[job.ID], service)
 		}
 	}
 }
@@ -260,7 +260,7 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 
