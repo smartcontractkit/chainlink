@@ -41,7 +41,7 @@ func (id *IDEmbed) SetID(value string) error {
 	return nil
 }
 
-type SpecDB struct {
+type Job struct {
 	IDEmbed
 	OffchainreportingOracleSpecID *int32                       `json:"-"`
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
@@ -59,7 +59,7 @@ type SpecDB struct {
 	Pipeline                      pipeline.TaskDAG             `json:"-" toml:"observationSource" gorm:"-"`
 }
 
-func (SpecDB) TableName() string {
+func (Job) TableName() string {
 	return "jobs"
 }
 

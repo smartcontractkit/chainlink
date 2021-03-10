@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
-func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.SpecDB, error) {
-	var specDB = job.SpecDB{
+func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.Job, error) {
+	var specDB = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.FluxMonitorSpec

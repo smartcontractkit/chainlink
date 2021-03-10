@@ -30,7 +30,7 @@ type (
 	Spawner interface {
 		Start() error
 		Close() error
-		CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error)
+		CreateJob(ctx context.Context, spec Job, name null.String) (int32, error)
 		DeleteJob(ctx context.Context, jobID int32) error
 	}
 
@@ -54,7 +54,7 @@ type (
 		// ServicesForSpec returns services to be started and stopped for this
 		// job. Services are started in the order they are given and stopped in
 		// reverse order.
-		ServicesForSpec(spec SpecDB) ([]Service, error)
+		ServicesForSpec(spec Job) ([]Service, error)
 	}
 )
 
@@ -260,7 +260,7 @@ func (js *spawner) handlePGDeleteEvent(ctx context.Context, ev postgres.Event) {
 	js.unloadDeletedJob(ctx, jobID)
 }
 
-func (js *spawner) CreateJob(ctx context.Context, spec SpecDB, name null.String) (int32, error) {
+func (js *spawner) CreateJob(ctx context.Context, spec Job, name null.String) (int32, error) {
 	js.jobTypeDelegatesMu.Lock()
 	defer js.jobTypeDelegatesMu.Unlock()
 

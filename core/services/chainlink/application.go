@@ -79,7 +79,7 @@ type Application interface {
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	ArchiveJob(models.JobID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -468,7 +468,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error) {
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 

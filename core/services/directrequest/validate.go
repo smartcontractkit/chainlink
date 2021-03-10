@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 )
 
-func ValidatedDirectRequestSpec(tomlString string) (job.SpecDB, error) {
-	var specDB = job.SpecDB{
+func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
+	var specDB = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.DirectRequestSpec

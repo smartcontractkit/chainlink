@@ -15,8 +15,8 @@ import (
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.SpecDB, error) {
-	var specDB = job.SpecDB{
+func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
+	var specDB = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.OffchainReportingOracleSpec
@@ -107,7 +107,7 @@ func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOrac
 	return offchainreporting.SanityCheckLocalConfig(lc)
 }
 
-func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
+func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
@@ -118,7 +118,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
 	return nil
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.SpecDB) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}
