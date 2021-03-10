@@ -14,10 +14,9 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	gormpostgres "gorm.io/driver/postgres"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"go.uber.org/multierr"
 

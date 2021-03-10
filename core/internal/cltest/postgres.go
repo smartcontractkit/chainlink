@@ -12,8 +12,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"

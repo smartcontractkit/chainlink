@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 

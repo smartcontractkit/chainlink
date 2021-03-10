@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"gopkg.in/guregu/null.v4"
 
@@ -18,7 +18,7 @@ import (
 )
 
 func TestMigrate_Initial(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2", false)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations", false)
 	defer cleanup()
 
 	err := migrations.MigrateUp(orm.DB, "1611847145")
@@ -83,7 +83,7 @@ func TestMigrate_Initial(t *testing.T) {
 }
 
 func TestMigrate_BridgeFK(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2_bridgefk", false)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_bridgefk", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0009_add_min_payment_to_flux_monitor_spec"))
@@ -133,7 +133,7 @@ func TestMigrate_BridgeFK(t *testing.T) {
 }
 
 func TestMigrate_ChangeJobsToNumeric(t *testing.T) {
-	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrationsv2_change_jobs_to_numeric", false)
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_change_jobs_to_numeric", false)
 	defer cleanup()
 
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0010_bridge_fk"))
