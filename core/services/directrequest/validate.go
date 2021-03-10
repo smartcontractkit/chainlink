@@ -10,30 +10,30 @@ import (
 )
 
 func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
-	var specDB = job.Job{
+	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.DirectRequestSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
-	err = tree.Unmarshal(&specDB)
+	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	spec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
-	specDB.DirectRequestSpec = &spec
+	jb.DirectRequestSpec = &spec
 
-	if specDB.Type != job.DirectRequest {
-		return specDB, errors.Errorf("unsupported type %s", specDB.Type)
+	if jb.Type != job.DirectRequest {
+		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
-	if specDB.SchemaVersion != uint32(1) {
-		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
+	if jb.SchemaVersion != uint32(1) {
+		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
-	return specDB, nil
+	return jb, nil
 }

@@ -715,15 +715,15 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	require.NoError(t, err)
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
-	specDB := job.Job{
+	jb := job.Job{
 		OffchainreportingOracleSpec: &oracleSpec,
 		Type:                        job.OffchainReporting,
 		SchemaVersion:               1,
 		PipelineSpec:                &pipeline.Spec{},
 	}
-	err = store.DB.Create(&specDB).Error
+	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
-	return specDB
+	return jb
 }
 
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {

@@ -11,40 +11,40 @@ import (
 )
 
 func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.Job, error) {
-	var specDB = job.Job{
+	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.FluxMonitorSpec
 	tree, err := toml.Load(ts)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
-	err = tree.Unmarshal(&specDB)
+	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
-	specDB.FluxMonitorSpec = &spec
+	jb.FluxMonitorSpec = &spec
 
-	if specDB.Type != job.FluxMonitor {
-		return specDB, errors.Errorf("unsupported type %s", specDB.Type)
+	if jb.Type != job.FluxMonitor {
+		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
-	if specDB.SchemaVersion != uint32(1) {
-		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
+	if jb.SchemaVersion != uint32(1) {
+		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 
 	// Find the smallest of all the timeouts
 	// and ensure the polling period is greater than that.
-	minTaskTimeout, aTimeoutSet, err := specDB.Pipeline.MinTimeout()
+	minTaskTimeout, aTimeoutSet, err := jb.Pipeline.MinTimeout()
 	if err != nil {
-		return specDB, err
+		return jb, err
 	}
 	timeouts := []time.Duration{
 		config.DefaultHTTPTimeout().Duration(),
-		time.Duration(specDB.MaxTaskDuration),
+		time.Duration(jb.MaxTaskDuration),
 	}
 	if aTimeoutSet {
 		timeouts = append(timeouts, minTaskTimeout)
@@ -56,7 +56,7 @@ func ValidatedFluxMonitorSpec(config *orm.Config, ts string) (job.Job, error) {
 		}
 	}
 	if !spec.PollTimerDisabled && spec.PollTimerPeriod < minTimeout {
-		return specDB, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, spec.PollTimerPeriod)
+		return jb, errors.Errorf("pollTimer.period must be equal or greater than %v, got %v", minTimeout, spec.PollTimerPeriod)
 	}
-	return specDB, nil
+	return jb, nil
 }
