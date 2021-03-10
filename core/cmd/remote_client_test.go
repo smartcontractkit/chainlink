@@ -943,9 +943,6 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
-
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
-
 	assert.NoError(t, client.CreateETHKey(nilContext))
 }
 
