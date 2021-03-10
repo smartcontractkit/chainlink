@@ -708,22 +708,22 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
-func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.SpecDB {
+func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
 	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
-	specDB := job.SpecDB{
+	jb := job.Job{
 		OffchainreportingOracleSpec: &oracleSpec,
 		Type:                        job.OffchainReporting,
 		SchemaVersion:               1,
 		PipelineSpec:                &pipeline.Spec{},
 	}
-	err = store.DB.Create(&specDB).Error
+	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
-	return specDB
+	return jb
 }
 
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
@@ -779,7 +779,7 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 	return p
 }
 
-func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.Job {
 	t.Helper()
 
 	pspec := pipeline.Spec{}
@@ -800,7 +800,7 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	drspec := job.DirectRequestSpec{}
 	require.NoError(t, db.Create(&drspec).Error)
 
-	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
 	require.NoError(t, db.Create(&job).Error)
 
 	return job
