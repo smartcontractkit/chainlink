@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -54,6 +55,7 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool                `json:"pollTimerDisabled"`
 	IdleTimerPeriod   string              `json:"idleTimerPeriod"`
 	IdleTimerDisabled bool                `json:"idleTimerDisabled"`
+	MinPayment        *assets.Link        `json:"minPayment"`
 	CreatedAt         time.Time           `json:"createdAt"`
 	UpdatedAt         time.Time           `json:"updatedAt"`
 }
@@ -70,6 +72,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		PollTimerDisabled: spec.PollTimerDisabled,
 		IdleTimerPeriod:   spec.IdleTimerPeriod.String(),
 		IdleTimerDisabled: spec.IdleTimerDisabled,
+		MinPayment:        spec.MinPayment,
 		CreatedAt:         spec.CreatedAt,
 		UpdatedAt:         spec.UpdatedAt,
 	}
