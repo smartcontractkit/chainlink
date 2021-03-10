@@ -165,24 +165,24 @@ func runJob(runManager RunManager, le models.LogRequest) {
 
 	if err := le.ValidateRequester(); err != nil {
 		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
+			logger.Errorw("CreateErrored failure", "error", e)
 		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		logger.Errorw("LogRequest failed validation", le.ForLogger("error", err)...)
 		return
 	}
 
 	rr, err := le.RunRequest()
 	if err != nil {
 		if _, e := runManager.CreateErrored(jobSpecID, initiator, err); e != nil {
-			logger.Errorw(e.Error())
+			logger.Errorw("CreateErrored failure", le.ForLogger("error", e)...)
 		}
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		logger.Errorw("Error decoding LogRequest as RunRequest", le.ForLogger("error", err)...)
 		return
 	}
 
 	_, err = runManager.Create(jobSpecID, &initiator, le.BlockNumber(), &rr)
 	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		logger.Errorw("Failed to schedule job from LogReuest", le.ForLogger("error", err)...)
 	}
 }
 

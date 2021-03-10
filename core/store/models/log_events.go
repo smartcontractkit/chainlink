@@ -323,7 +323,7 @@ func (le RunLogEvent) Requester() (common.Address, error) {
 func (le RunLogEvent) RunRequest() (RunRequest, error) {
 	requestParams, err := le.JSON()
 	if err != nil {
-		logger.Errorw(err.Error(), le.ForLogger()...)
+		logger.Errorw("Error decoding RunLog to JSON", le.ForLogger("error", err)...)
 		return RunRequest{}, err
 	}
 

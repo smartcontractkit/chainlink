@@ -106,8 +106,9 @@ func (fm *concreteFluxMonitor) Start() error {
 	var wg sync.WaitGroup
 	err := fm.store.Jobs(func(j *models.JobSpec) bool {
 		if j == nil {
+			// FIXME: This seems like an invariant violation?
 			err := errors.New("received nil job")
-			logger.Error(err)
+			logger.Errorw("Unexpected nil job when fetching jobs", "error", err)
 			return true
 		}
 		job := *j

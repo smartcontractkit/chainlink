@@ -348,7 +348,7 @@ func loggerFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := ioutil.ReadAll(c.Request.Body)
 		if err != nil {
-			logger.Error("Web request log error: ", err.Error())
+			logger.Errorw("Failed to read web response body", "error", err)
 			// Implicitly relies on limits.RequestSizeLimiter
 			// overriding of c.Request.Body to abort gin's Context
 			// inside ioutil.ReadAll.

@@ -269,7 +269,7 @@ func (ht *HeadTracker) listenForNewHeads() {
 			return
 		}
 		if err := ht.receiveHeaders(); err != nil {
-			ht.logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
+			ht.logger.Errorw("Error while receiving headers", "error", err)
 			continue
 		} else {
 			return

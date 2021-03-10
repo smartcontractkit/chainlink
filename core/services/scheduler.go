@@ -136,11 +136,11 @@ func (r *Recurring) AddJob(job models.JobSpec) {
 
 			_, err := r.runManager.Create(job.ID, &initr, nil, &models.RunRequest{})
 			if err != nil && !ExpectedRecurringScheduleJobError(err) {
-				logger.Errorw(err.Error())
+				logger.Errorw("Error while scheduling run", "error", err)
 			}
 		})
 		if err != nil {
-			logger.Error(err)
+			logger.Errorw("Error adding cron schedule", "error", err)
 		}
 	}
 }
@@ -189,12 +189,12 @@ func (ot *OneTime) RunJobAt(initiator models.Initiator, job models.JobSpec) {
 
 		_, err := ot.RunManager.Create(job.ID, &initiator, nil, &models.RunRequest{})
 		if err != nil && !ExpectedRecurringScheduleJobError(err) {
-			logger.Error(err.Error())
+			logger.Errorw("Error while scheduling run", "error", err)
 			return
 		}
 
 		if err := ot.Store.MarkRan(initiator, true); err != nil {
-			logger.Error(err.Error())
+			logger.Errorw("Error while marking run as finished", "error", err)
 		}
 	}
 }
