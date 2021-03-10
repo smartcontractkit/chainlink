@@ -414,12 +414,17 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker: outHeaders prematurely closed")
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), ht.totalNewHeadTimeBudget())
+			ctx, cancel := utils.CombinedContext(ht.done, ht.totalNewHeadTimeBudget())
 			if err := ht.handleNewHead(ctx, blockHeader); err != nil {
 				cancel()
 				return err
 			}
+			<-ctx.Done()
 			cancel()
+			if err := ctx.Err(); err != nil {
+				logger.Warnw("HeadTracker: handling of new head cancelled", "error", err)
+				return err
+			}
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
 				return err
