@@ -45,18 +45,18 @@ func (_m *Application) AddJob(_a0 models.JobSpec) error {
 }
 
 // AddJobV2 provides a mock function with given fields: ctx, _a1, name
-func (_m *Application) AddJobV2(ctx context.Context, _a1 job.SpecDB, name null.String) (int32, error) {
+func (_m *Application) AddJobV2(ctx context.Context, _a1 job.Job, name null.String) (int32, error) {
 	ret := _m.Called(ctx, _a1, name)
 
 	var r0 int32
-	if rf, ok := ret.Get(0).(func(context.Context, job.SpecDB, null.String) int32); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, job.Job, null.String) int32); ok {
 		r0 = rf(ctx, _a1, name)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, job.SpecDB, null.String) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, job.Job, null.String) error); ok {
 		r1 = rf(ctx, _a1, name)
 	} else {
 		r1 = ret.Error(1)

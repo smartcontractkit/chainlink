@@ -16,7 +16,7 @@ func TestValidateOracleSpec(t *testing.T) {
 		name       string
 		toml       string
 		setGlobals func(t *testing.T, c *orm.Config)
-		assertion  func(t *testing.T, os job.SpecDB, err error)
+		assertion  func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "minimal non-bootstrap oracle spec",
@@ -33,7 +33,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				// Should be able to jsonapi marshal/unmarshal the minimum spec.
 				// This ensures the UnmarshalJSON's defined on the fields handle a min spec correctly.
@@ -67,7 +67,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
 				assert.False(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
@@ -83,7 +83,7 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = true
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, int(os.SchemaVersion))
 				assert.True(t, os.OffchainreportingOracleSpec.IsBootstrapPeer)
@@ -112,7 +112,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "unrecognised key for bootstrap peer: observationSource")
 			},
@@ -127,7 +127,7 @@ p2pPeerID          = "12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq"
 p2pBootstrapPeers  = []
 isBootstrapPeer    = false
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -144,7 +144,7 @@ observationSource = """
 ->
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -161,7 +161,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -179,7 +179,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -197,7 +197,7 @@ observationSource = """
 blah
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -212,7 +212,7 @@ p2pBootstrapPeers  = []
 isBootstrapPeer    = true
 monitoringEndpoint = "\t/fd\2ff )(*&^%$#@"
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, "toml error on load: (8, 23): invalid escape sequence: \\2")
 			},
 		},
@@ -236,7 +236,7 @@ observationSource = """
 ds1          [type=bridge name=voter_turnout];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "max task duration must be < observation timeout")
 			},
@@ -250,7 +250,7 @@ contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pPeerID = "blah"
 isBootstrapPeer    = true
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "failed to parse peer ID")
 			},
@@ -274,7 +274,7 @@ observationSource = """
 ds1          [type=bridge name=voter_turnout timeout="30s"];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "individual max task duration must be < observation timeout")
 			},
@@ -282,7 +282,7 @@ ds1          [type=bridge name=voter_turnout timeout="30s"];
 		{
 			name: "toml parse doesn't panic",
 			toml: string(hexutil.MustDecode("0x2222220d5c22223b22225c0d21222222")),
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 		},
@@ -308,7 +308,7 @@ ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, os job.SpecDB, err error) {
+			assertion: func(t *testing.T, os job.Job, err error) {
 				require.Error(t, err)
 			},
 			setGlobals: func(t *testing.T, c *orm.Config) {

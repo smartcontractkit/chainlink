@@ -31,7 +31,7 @@ func (d *Delegate) JobType() job.Type {
 
 // ServicesForSpec returns the log listener service for a direct request job
 // TODO: This will need heavy test coverage
-func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.DirectRequestSpec == nil {
 		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", spec)
 	}
@@ -111,7 +111,7 @@ func (listener) JobID() models.JobID {
 	return models.NilJobID
 }
 
-// SpecDB complies with log.Listener
+// Job complies with log.Listener
 func (d listener) JobIDV2() int32 {
 	return d.jobID
 }
