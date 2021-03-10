@@ -57,13 +57,6 @@ func deleteKeyExportFile(t *testing.T) {
 	}
 }
 
-func mustLogIn(t *testing.T, client *cmd.Client) {
-	set := flag.NewFlagSet("test_login", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.RemoteLogin(c))
-}
-
 func requireOCRKeyCount(t *testing.T, store *store.Store, length int) []ocrkey.EncryptedKeyBundle {
 	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
@@ -950,7 +943,6 @@ func TestClient_CreateETHKey(t *testing.T) {
 
 	client, _ := app.NewClientAndRenderer()
 
-	mustLogIn(t, client)
 	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
 
 	assert.NoError(t, client.CreateETHKey(nilContext))
@@ -1153,7 +1145,6 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
-	mustLogIn(t, client)
 	require.NoError(t, client.CreateP2PKey(nilContext))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
@@ -1193,8 +1184,6 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 
 	requireP2PKeyCount(t, app.Store, 2) // Created  + fixture key
 
-	mustLogIn(t, client)
-
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("yes", true, "")
 	strID := strconv.FormatInt(int64(encKey.ID), 10)
@@ -1225,8 +1214,6 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 
 	keys := requireP2PKeyCount(t, store, 1)
 	key := keys[0]
-
-	mustLogIn(t, client)
 
 	keyName := keyNameForTest(t)
 	set := flag.NewFlagSet("test P2P export", 0)
@@ -1266,7 +1253,6 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
-	mustLogIn(t, client)
 	require.NoError(t, client.CreateOCRKeyBundle(nilContext))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
@@ -1306,8 +1292,6 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 
 	requireOCRKeyCount(t, app.Store, 2) // Created key + fixture key
 
-	mustLogIn(t, client)
-
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{key.ID.String()})
 	set.Bool("yes", true, "")
@@ -1335,8 +1319,6 @@ func TestClient_ImportExportOCRKeyBundle(t *testing.T) {
 
 	keys := requireOCRKeyCount(t, store, 1)
 	key := keys[0]
-
-	mustLogIn(t, client)
 
 	keyName := keyNameForTest(t)
 	set := flag.NewFlagSet("test OCR export", 0)
