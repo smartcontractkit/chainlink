@@ -58,7 +58,7 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 		logger.Warnw(`"meta" field on task run is malformed, discarding`,
 			"jobID", taskRun.PipelineRun.PipelineSpecID,
 			"taskRunID", taskRun.ID,
-			"task", taskRun.PipelineTaskSpec.DotID,
+			"task", taskRun.DotID,
 			"meta", taskRun.PipelineRun.Meta.Val,
 		)
 	}

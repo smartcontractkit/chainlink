@@ -26,8 +26,8 @@ const (
 `
 )
 
-func NewBaseTask(dotID string, t Task, index int32) BaseTask {
-	return BaseTask{dotID: dotID, outputTask: t, Index: index}
+func NewBaseTask(dotID string, t Task, index int32, nPreds int) BaseTask {
+	return BaseTask{dotID: dotID, outputTask: t, Index: index, nPreds: nPreds}
 }
 
 func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {

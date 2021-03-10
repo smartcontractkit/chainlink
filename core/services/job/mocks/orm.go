@@ -127,6 +127,29 @@ func (_m *ORM) FindJob(id int32) (job.Job, error) {
 	return r0, r1
 }
 
+// FindJobIDsWithBridge provides a mock function with given fields: name
+func (_m *ORM) FindJobIDsWithBridge(name string) ([]int32, error) {
+	ret := _m.Called(name)
+
+	var r0 []int32
+	if rf, ok := ret.Get(0).(func(string) []int32); ok {
+		r0 = rf(name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int32)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // JobsV2 provides a mock function with given fields:
 func (_m *ORM) JobsV2() ([]job.Job, error) {
 	ret := _m.Called()

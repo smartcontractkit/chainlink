@@ -27,7 +27,7 @@ type Runner interface {
 	Start() error
 	Close() error
 	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
-	ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (trrs TaskRunResults, err error)
 	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
@@ -75,6 +75,7 @@ func (r *runner) Start() error {
 	if !r.OkayToStart() {
 		return errors.New("Pipeline runner has already been started")
 	}
+
 	go r.runLoop()
 
 	newRunsSubscription, err := r.orm.ListenForNewRuns()
@@ -99,6 +100,7 @@ func (r *runner) Start() error {
 			}
 		}()
 	}
+
 	return nil
 }
 
@@ -149,31 +151,6 @@ func (r *runner) runLoop() {
 	}
 }
 
-// NewRun creates an in-memory Run along with its TaskRuns for the provided job
-// It does not interact with the database
-func NewRun(spec Spec, startedAt time.Time) (run Run, err error) {
-	if len(spec.PipelineTaskSpecs) == 0 {
-		return run, errors.New("spec.PipelineTaskSpecs was empty")
-	}
-	taskRuns := make([]TaskRun, len(spec.PipelineTaskSpecs))
-	for i, taskSpec := range spec.PipelineTaskSpecs {
-		taskRuns[i] = TaskRun{
-			Type:               taskSpec.Type,
-			PipelineTaskSpecID: taskSpec.ID,
-			PipelineTaskSpec:   taskSpec,
-			CreatedAt:          startedAt,
-		}
-	}
-	run = Run{
-		PipelineSpecID:   spec.ID,
-		PipelineSpec:     spec,
-		PipelineTaskRuns: taskRuns,
-		CreatedAt:        startedAt,
-	}
-
-	return run, nil
-}
-
 func (r *runner) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	runID, err := r.orm.CreateRun(ctx, jobID, meta)
 	if err != nil {
@@ -213,6 +190,7 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 
 type (
 	memoryTaskRun struct {
+		task          Task
 		taskRun       TaskRun
 		next          *memoryTaskRun
 		nPredecessors int
@@ -244,61 +222,23 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
-	return r.executeRun(ctx, r.orm.DB(), run, l)
+func (r *runner) ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (trrs TaskRunResults, err error) {
+	return r.executeRun(ctx, r.orm.DB(), spec, l)
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
-	l.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, error) {
+	l.Debugw("Initiating tasks for pipeline run of spec", "spec", spec.ID)
+	var (
+		err  error
+		trrs TaskRunResults
+	)
 	startRun := time.Now()
 
-	if run.PipelineSpec.ID == 0 {
-		return nil, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
+	d := TaskDAG{}
+	err = d.UnmarshalText([]byte(spec.DotDagSource))
+	if err != nil {
+		return trrs, err
 	}
-
-	// Find "firsts" and work forwards
-	// 1. Make map of all memory task runs keyed by task spec id
-	all := make(map[int32]*memoryTaskRun)
-	for _, tr := range run.PipelineTaskRuns {
-		if tr.PipelineTaskSpec.ID == 0 {
-			return nil, errors.Errorf("taskRun.PipelineTaskSpec.ID may not be 0: %#v", tr)
-		}
-		mtr := memoryTaskRun{
-			taskRun: tr,
-		}
-		all[tr.PipelineTaskSpec.ID] = &mtr
-	}
-
-	var graph []*memoryTaskRun
-
-	// TODO: Test with multiple and single null successor IDs
-	// https://www.pivotaltracker.com/story/show/176557536
-
-	// 2. Fill in predecessor count and next, append firsts to work graph
-	for id, mtr := range all {
-		for _, pred := range all {
-			if !pred.taskRun.PipelineTaskSpec.SuccessorID.IsZero() && pred.taskRun.PipelineTaskSpec.SuccessorID.ValueOrZero() == int64(id) {
-				mtr.nPredecessors++
-			}
-		}
-
-		if mtr.taskRun.PipelineTaskSpec.SuccessorID.IsZero() {
-			mtr.next = nil
-		} else {
-			mtr.next = all[int32(mtr.taskRun.PipelineTaskSpec.SuccessorID.ValueOrZero())]
-		}
-
-		if mtr.nPredecessors == 0 {
-			// No predecessors so this is the first one
-			graph = append(graph, mtr)
-		}
-	}
-
-	// 3. Execute tasks using "fan in" job processing
-
-	var updateMu sync.Mutex
-	var wg sync.WaitGroup
-	wg.Add(len(graph))
 
 	// HACK: This mutex is necessary to work around a bug in the pq driver that
 	// causes concurrent database calls inside the same transaction to fail
@@ -306,6 +246,52 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 	// FIXME: Get rid of this by replacing pq with pgx
 	var txdbMutex sync.Mutex
 
+	// Find "firsts" and work forwards
+	tasks, err := d.TasksInDependencyOrderWithResultTask()
+	if err != nil {
+		return nil, err
+	}
+	all := make(map[string]*memoryTaskRun)
+	var graph []*memoryTaskRun
+	for _, task := range tasks {
+		if task.Type() == TaskTypeHTTP {
+			task.(*HTTPTask).config = r.config
+		}
+		if task.Type() == TaskTypeBridge {
+			task.(*BridgeTask).config = r.config
+			task.(*BridgeTask).txdb = txdb
+			task.(*BridgeTask).txdbMutex = &txdbMutex
+		}
+		mtr := memoryTaskRun{
+			nPredecessors: task.NPreds(),
+			task:          task,
+			taskRun: TaskRun{
+				Type:  task.Type(),
+				Index: task.OutputIndex(),
+				DotID: task.GetDotID(),
+			},
+		}
+		if mtr.nPredecessors == 0 {
+			graph = append(graph, &mtr)
+		}
+		all[task.GetDotID()] = &mtr
+	}
+
+	// Populate next pointers
+	for did, ts := range all {
+		if ts.task.OutputTask() != nil {
+			all[did].next = all[ts.task.OutputTask().GetDotID()]
+		} else {
+			all[did].next = nil
+		}
+	}
+
+	// TODO: Test with multiple and single null successor IDs
+	// https://www.pivotaltracker.com/story/show/176557536
+	// 3. Execute tasks using "fan in" job processing
+	var updateMu sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(len(graph))
 	for _, mtr := range graph {
 		go func(m *memoryTaskRun) {
 			defer wg.Done()
@@ -333,13 +319,15 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 
 				startTaskRun := time.Now()
 
-				result := r.executeTaskRun(ctx, txdb, run.PipelineSpec, m.taskRun, m.results(), &txdbMutex, l)
+				result := r.executeTaskRun(ctx, spec, m.task, m.taskRun, m.results(), l)
 
 				finishedAt := time.Now()
 
+				m.taskRun.CreatedAt = startTaskRun
+				m.taskRun.FinishedAt = &finishedAt
 				trr := TaskRunResult{
-					ID:         m.taskRun.ID,
-					TaskSpecID: m.taskRun.PipelineTaskSpec.ID,
+					TaskRun:    m.taskRun,
+					Task:       m.task,
 					Result:     result,
 					FinishedAt: finishedAt,
 					IsTerminal: m.next == nil,
@@ -351,21 +339,21 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 
 				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type)).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type)).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.ID), string(m.taskRun.PipelineTaskSpec.Type), status).Inc()
+				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type), status).Inc()
 
 				if m.next == nil {
 					return
 				}
 
 				m.next.predMu.Lock()
-				m.next.inputs = append(m.next.inputs, input{result: result, index: m.taskRun.PipelineTaskSpec.Index})
+				m.next.inputs = append(m.next.inputs, input{result: result, index: m.task.OutputIndex()})
 				m.next.nPredecessors--
 				m.next.predMu.Unlock()
 
@@ -377,31 +365,16 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 	wg.Wait()
 
 	runTime := time.Since(startRun)
-	l.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
+	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
 
 	return trrs, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex, l logger.Logger) Result {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, taskRun TaskRun, inputs []Result, l logger.Logger) Result {
 	loggerFields := []interface{}{
-		"taskName", taskRun.PipelineTaskSpec.DotID,
-		"taskID", taskRun.PipelineTaskSpecID,
+		"taskName", taskRun.DotID,
 		"runID", taskRun.PipelineRunID,
 		"taskRunID", taskRun.ID,
-		"specID", taskRun.PipelineTaskSpec.PipelineSpecID,
-	}
-
-	task, err := UnmarshalTaskFromMap(
-		taskRun.PipelineTaskSpec.Type,
-		taskRun.PipelineTaskSpec.JSON.Val,
-		taskRun.PipelineTaskSpec.DotID,
-		r.config,
-		txdb,
-		txdbMutex,
-	)
-	if err != nil {
-		l.Errorw("Pipeline task run could not be unmarshaled", append(loggerFields, "error", err)...)
-		return Result{Error: err}
 	}
 
 	// Order of precedence for task timeout:
@@ -439,14 +412,10 @@ func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, t
 // ExecuteAndInsertNewRun bypasses the job pipeline entirely.
 // It executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, result FinalResult, err error) {
-	start := time.Now()
-
-	run, err := NewRun(spec, start)
-	if err != nil {
-		return run.ID, result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
-	}
-
-	trrs, err := r.ExecuteRun(ctx, run, l)
+	var run Run
+	run.PipelineSpecID = spec.ID
+	run.CreatedAt = time.Now()
+	trrs, err := r.ExecuteRun(ctx, spec, l)
 	if err != nil {
 		return run.ID, result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}

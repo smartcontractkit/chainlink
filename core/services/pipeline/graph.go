@@ -14,6 +14,7 @@ import (
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
 // calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
+// NOTE: We only permit one child
 type TaskDAG struct {
 	*simple.DirectedGraph
 	DOTSource string
@@ -62,7 +63,8 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil)
+		nPreds := g.To(node.ID()).Len()
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, nPreds)
 		if err != nil {
 			return nil, err
 		}
@@ -88,6 +90,28 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 		visited[node.ID()] = true
 	}
 	return tasks, nil
+}
+
+func (g TaskDAG) TasksInDependencyOrderWithResultTask() ([]Task, error) {
+	tasks, err := g.TasksInDependencyOrder()
+	if err != nil {
+		return nil, err
+	}
+	// Create the final result task that collects the answers from the pipeline's
+	// outputs.  This is a Postgres-related performance optimization.
+	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
+	resultPreds := 0
+	for _, task := range tasks {
+		if task.GetDotID() == ResultTaskDotID {
+			return nil, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
+		}
+		if task.OutputTask() == nil {
+			task.SetOutputTask(&resultTask)
+			resultPreds++
+		}
+	}
+	resultTask.nPreds = resultPreds
+	return append([]Task{&resultTask}, tasks...), nil
 }
 
 func (g TaskDAG) MinTimeout() (time.Duration, bool, error) {

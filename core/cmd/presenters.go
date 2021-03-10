@@ -103,7 +103,7 @@ func (j Job) GetTasks() ([]string, error) {
 	// inputs.
 	for i := len(tasks) - 1; i >= 0; i-- {
 		t := tasks[i]
-		types = append(types, fmt.Sprintf("%s %s", t.DotID(), t.Type()))
+		types = append(types, fmt.Sprintf("%s %s", t.GetDotID(), t.Type()))
 	}
 
 	return types, nil
