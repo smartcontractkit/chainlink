@@ -1470,3 +1470,16 @@ func TestClient_ListJobsV2(t *testing.T) {
 	require.Equal(t, 1, len(jobs))
 	assert.Equal(t, job.ID, jobs[0].ID)
 }
+
+func TestClient_CreateJobV2(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
+	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+}
