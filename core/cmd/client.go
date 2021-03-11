@@ -205,11 +205,6 @@ func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 }
 
 func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
-	cookie, err := h.cookieAuth.Cookie()
-	if err != nil {
-		return nil, err
-	}
-
 	var headers map[string]string
 	if len(headerArgs) > 0 {
 		headers = headerArgs[0]
@@ -226,7 +221,12 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
-	request.AddCookie(cookie)
+	cookie, err := h.cookieAuth.Cookie()
+	if err != nil {
+		return nil, err
+	} else if cookie != nil {
+		request.AddCookie(cookie)
+	}
 
 	response, err := h.client.Do(request)
 	if err != nil {

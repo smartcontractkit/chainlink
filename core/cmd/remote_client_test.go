@@ -1463,3 +1463,22 @@ func TestClient_CreateJobV2(t *testing.T) {
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
+
+func TestClient_AutoLogin(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client, _ := app.NewClientAndRenderer()
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, cltest.NullCookieAuthenticator{}, models.SessionRequest{})
+
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
+	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	fmt.Println("Error", err)
+	require.NoError(t, err)
+}
