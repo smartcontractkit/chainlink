@@ -1,5 +1,5 @@
 package keeper
 
-func (rs RegistrySynchronizer) ExportedSyncRegistry() {
+func (rs *RegistrySynchronizer) ExportedSyncRegistry() {
 	rs.syncRegistry()
 }

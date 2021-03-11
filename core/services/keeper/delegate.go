@@ -41,7 +41,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.ethClient,
 	)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
 
 	registrySynchronizer := NewRegistrySynchronizer(spec, contract, d.keeperORM, d.syncInterval)

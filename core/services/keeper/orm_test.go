@@ -212,7 +212,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	require.Equal(t, int64(4), nextID)
 }
 
-func TestKeeperDB_InsertEthTXForUpkeep(t *testing.T) {
+func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	store, keeperORM, cleanup := setupKeeperDB(t)
 	defer cleanup()
 
@@ -222,7 +222,7 @@ func TestKeeperDB_InsertEthTXForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	err := keeperORM.InsertEthTXForUpkeep(upkeep, payload)
+	err := keeperORM.CreateEthTransactionForUpkeep(upkeep, payload)
 	require.NoError(t, err)
 
 	var ethTX models.EthTx

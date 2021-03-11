@@ -93,8 +93,8 @@ func (_m *Runner) ExecuteAndInsertNewRun(ctx context.Context, spec pipeline.Spec
 	return r0, r1, r2
 }
 
-// ExecuteRun provides a mock function with given fields: ctx, run, l
-func (_m *Runner) ExecuteRun(ctx context.Context, run pipeline.Run, l logger.Logger) (pipeline.TaskRunResults, error) {
+// Executorun provides a mock function with given fields: ctx, run, l
+func (_m *Runner) Executorun(ctx context.Context, run pipeline.Run, l logger.Logger) (pipeline.TaskRunResults, error) {
 	ret := _m.Called(ctx, run, l)
 
 	var r0 pipeline.TaskRunResults

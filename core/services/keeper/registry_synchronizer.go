@@ -2,18 +2,18 @@ package keeper
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/big"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/atomic"
 )
 
 const syncUpkeepQueueSize = 10
@@ -23,51 +23,59 @@ func NewRegistrySynchronizer(
 	contract *keeper_registry_wrapper.KeeperRegistry,
 	keeperORM KeeperORM,
 	syncInterval time.Duration,
-) RegistrySynchronizer {
-	return RegistrySynchronizer{
-		contract:  contract,
-		keeperORM: keeperORM,
-		job:       job,
-		interval:  syncInterval,
-		isRunning: atomic.NewBool(false),
-		chDone:    make(chan struct{}),
+) *RegistrySynchronizer {
+	return &RegistrySynchronizer{
+		contract:      contract,
+		doneWG:        sync.WaitGroup{},
+		keeperORM:     keeperORM,
+		job:           job,
+		interval:      syncInterval,
+		chDone:        make(chan struct{}),
+		StartStopOnce: utils.StartStopOnce{},
 	}
 }
 
 // RegistrySynchronizer conforms to the job.Service interface
-var _ job.Service = RegistrySynchronizer{}
+var _ job.Service = &RegistrySynchronizer{}
 
 type RegistrySynchronizer struct {
 	contract  *keeper_registry_wrapper.KeeperRegistry
+	doneWG    sync.WaitGroup
 	interval  time.Duration
-	isRunning *atomic.Bool
 	job       job.Job
 	keeperORM KeeperORM
 
 	chDone chan struct{}
+
+	utils.StartStopOnce
 }
 
-func (rs RegistrySynchronizer) Start() error {
-	if rs.isRunning.Load() {
-		return errors.New("already started")
+func (rs *RegistrySynchronizer) Start() error {
+	if !rs.OkayToStart() {
+		return errors.New("RegistrySynchronizer is already started")
 	}
-	rs.isRunning.Store(true)
 	go rs.run()
 	return nil
 }
 
-func (rs RegistrySynchronizer) Close() error {
+func (rs *RegistrySynchronizer) Close() error {
+	if !rs.OkayToStop() {
+		return errors.New("RegistrySynchronizer is already stopped")
+	}
 	close(rs.chDone)
+	rs.doneWG.Wait()
 	return nil
 }
 
-func (rs RegistrySynchronizer) run() {
+func (rs *RegistrySynchronizer) run() {
+	rs.doneWG.Add(1)
 	ticker := time.NewTicker(rs.interval)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-rs.chDone:
+			rs.doneWG.Done()
 			return
 		case <-ticker.C:
 			rs.syncRegistry()
@@ -75,7 +83,7 @@ func (rs RegistrySynchronizer) run() {
 	}
 }
 
-func (rs RegistrySynchronizer) syncRegistry() {
+func (rs *RegistrySynchronizer) syncRegistry() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	logger.Debugf("syncing registry %s", contractAddress.Hex())
 
@@ -101,17 +109,21 @@ func (rs RegistrySynchronizer) syncRegistry() {
 	}
 }
 
-func (rs RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
+func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	nextUpkeepID, err := rs.keeperORM.NextUpkeepIDForRegistry(reg)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}
 
 	countOnContractBig, err := rs.contract.GetUpkeepCount(nil)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "RegistrySynchronizer: unable to get upkeep count")
 	}
 	countOnContract := countOnContractBig.Int64()
+
+	if nextUpkeepID > countOnContract {
+		return errors.New("RegistrySynchronizer: invariant, contract should always have at least as many upkeeps as DB")
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(int(countOnContract - nextUpkeepID))
@@ -128,7 +140,7 @@ func (rs RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 	return nil
 }
 
-func (rs RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
+func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	canceledBigs, err := rs.contract.GetCanceledUpkeepList(nil)
 	if err != nil {
 		return err
@@ -140,7 +152,7 @@ func (rs RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	return rs.keeperORM.BatchDeleteUpkeeps(reg.ID, canceled)
 }
 
-func (rs RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, doneCallback func()) {
+func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, doneCallback func()) {
 	defer doneCallback()
 
 	err := func() error {
@@ -164,11 +176,15 @@ func (rs RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, don
 	}()
 
 	if err != nil {
-		logger.Errorf("unable to sync upkeep #%d on registry %s, err: %v", upkeepID, registry.ContractAddress.Hex(), err)
+		logger.Errorw(
+			fmt.Sprintf("unable to sync upkeep #%d on registry %s", upkeepID, registry.ContractAddress.Hex()),
+			"error",
+			err,
+		)
 	}
 }
 
-func (rs RegistrySynchronizer) newSyncedRegistry(job job.Job) (Registry, error) {
+func (rs *RegistrySynchronizer) newSyncedRegistry(job job.Job) (Registry, error) {
 	fromAddress := job.KeeperSpec.FromAddress
 	contractAddress := job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
@@ -179,15 +195,13 @@ func (rs RegistrySynchronizer) newSyncedRegistry(job job.Job) (Registry, error) 
 	if err != nil {
 		return Registry{}, err
 	}
-	found := false
-	var keeperIndex int32
+	keeperIndex := int32(-1)
 	for idx, address := range keeperAddresses {
 		if address == fromAddress.Address() {
 			keeperIndex = int32(idx)
-			found = true
 		}
 	}
-	if !found {
+	if keeperIndex == -1 {
 		return Registry{}, fmt.Errorf("unable to find %s in keeper list on registry %s", fromAddress.Hex(), contractAddress.Hex())
 	}
 
