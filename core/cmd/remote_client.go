@@ -251,6 +251,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
+		err = errors.New("client request error")
 		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
 		return cli.errorOut(err)
 	}

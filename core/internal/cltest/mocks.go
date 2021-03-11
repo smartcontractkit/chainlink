@@ -445,6 +445,16 @@ func (m MockCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cook
 	return MustGenerateSessionCookie(m.SessionID), m.Error
 }
 
+type NullCookieAuthenticator struct{}
+
+func (NullCookieAuthenticator) Cookie() (*http.Cookie, error) {
+	return nil, nil
+}
+
+func (NullCookieAuthenticator) Authenticate(models.SessionRequest) (*http.Cookie, error) {
+	return nil, nil
+}
+
 type MockSessionRequestBuilder struct {
 	Count int
 	Error error
