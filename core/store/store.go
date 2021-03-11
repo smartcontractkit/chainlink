@@ -9,12 +9,11 @@ import (
 	"github.com/coreos/go-semver/semver"
 	"github.com/smartcontractkit/chainlink/core/static"
 
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
-
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -259,7 +258,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
 		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
-			return migrationsv2.Migrate(db)
+			return migrations.Migrate(db)
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
