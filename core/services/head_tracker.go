@@ -168,7 +168,7 @@ func (ht *HeadTracker) Start() error {
 		return nil
 	}
 
-	if err := ht.setHighestSeenHeadFromDB(context.Background()); err != nil {
+	if err := ht.setHighestSeenHeadFromDB(); err != nil {
 		return err
 	}
 	if ht.highestSeenHead != nil {
@@ -294,11 +294,15 @@ func (ht *HeadTracker) backfiller() {
 					logger.Errorf("HeadTracker: invariant violation, expected %T but got %T", models.Head{}, head)
 					continue
 				}
-				ctx, cancel := utils.ContextFromChan(ht.done)
-				err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
-				cancel()
-				if err != nil {
-					logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
+				{
+					ctx, cancel := utils.ContextFromChan(ht.done)
+					err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
+					defer cancel()
+					if err != nil {
+						logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
+					} else if err := ctx.Err(); err != nil {
+						break
+					}
 				}
 			}
 		}
@@ -414,12 +418,17 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker: outHeaders prematurely closed")
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), ht.totalNewHeadTimeBudget())
-			if err := ht.handleNewHead(ctx, blockHeader); err != nil {
-				cancel()
-				return err
+			timeBudget := ht.totalNewHeadTimeBudget()
+			{
+				ctx, cancel := utils.CombinedContext(ht.done, timeBudget)
+				defer cancel()
+				if err := ht.handleNewHead(ctx, blockHeader); err != nil {
+					return err
+				} else if err := ctx.Err(); err != nil {
+					logger.Debugw("HeadTracker: handling of new head canceled", "error", err, "timeBudget", timeBudget.String())
+					return err
+				}
 			}
-			cancel()
 		case err, open := <-ht.headSubscription.Err():
 			if open && err != nil {
 				return err
@@ -579,7 +588,9 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 	return nil
 }
 
-func (ht *HeadTracker) setHighestSeenHeadFromDB(ctx context.Context) error {
+func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
 	head, err := ht.store.LastHead(ctx)
 	if err != nil {
 		return err
@@ -591,7 +602,9 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB(ctx context.Context) error {
 // chainIDVerify checks whether or not the ChainID from the Chainlink config
 // matches the ChainID reported by the ETH node connected to this Chainlink node.
 func verifyEthereumChainID(ht *HeadTracker) error {
-	ethereumChainID, err := ht.store.EthClient.ChainID(context.TODO())
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+	ethereumChainID, err := ht.store.EthClient.ChainID(ctx)
 	if err != nil {
 		return err
 	}
