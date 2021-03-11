@@ -102,28 +102,31 @@ func (executor *UpkeepExecutor) run() {
 func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	logger.Debug("received new block, running checkUpkeep for keeper registrations")
+	blockHeight := executor.blockHeight.Load()
+	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", blockHeight)
 
-	activeUpkeepss, err := executor.keeperORM.EligibleUpkeeps(executor.blockHeight.Load())
+	activeUpkeeps, err := executor.keeperORM.EligibleUpkeeps(blockHeight)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
 	}
 
-	for _, reg := range activeUpkeepss {
-		executor.concurrentExecute(reg)
-	}
-}
+	wg := sync.WaitGroup{}
+	wg.Add(len(activeUpkeeps))
 
-func (executor *UpkeepExecutor) concurrentExecute(upkeep UpkeepRegistration) {
-	executor.executionQueue <- struct{}{}
-	go executor.execute(upkeep)
+	done := func() { <-executor.executionQueue; wg.Done() }
+	for _, reg := range activeUpkeeps {
+		executor.executionQueue <- struct{}{}
+		go executor.execute(reg, done)
+	}
+
+	wg.Wait()
 }
 
 // execute will call checkForUpkeep and, if it succeeds, triger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration) {
-	defer func() { <-executor.executionQueue }()
+func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) {
+	defer done()
 
 	msg, err := constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
