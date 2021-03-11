@@ -1473,8 +1473,16 @@ func TestClient_AutoLogin(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
 	client, _ := app.NewClientAndRenderer()
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, cltest.NullCookieAuthenticator{}, models.SessionRequest{})
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
