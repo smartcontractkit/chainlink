@@ -44,6 +44,9 @@ func (o *ormLogWrapper) Error(ctx context.Context, s string, i ...interface{}) {
 func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
 	elapsed := time.Since(begin)
 	switch {
+	case ctx.Err() != nil:
+		sql, _ := fc()
+		o.SugaredLogger.Debugw("Operation cancelled via context", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 	case err != nil:
 		// NOTE: Silence "record not found" errors since it is the one type of
 		// error that we expect/handle and otherwise it fills our logs with
