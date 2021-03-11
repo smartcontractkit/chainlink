@@ -269,15 +269,21 @@ func (ht *HeadTracker) listenForNewHeads() {
 		logger.WarnIf(errors.Wrap(err, "HeadTracker failed when unsubscribe from head"))
 	}()
 
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+
 	for {
 		if !ht.subscribe() {
-			return
+			break
 		}
-		if err := ht.receiveHeaders(); err != nil {
+		err := ht.receiveHeaders(ctx)
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			ht.logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			continue
 		} else {
-			return
+			break
 		}
 	}
 }
@@ -305,7 +311,7 @@ func (ht *HeadTracker) backfiller() {
 					defer cancel()
 					if err != nil {
 						logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
-					} else if err := ctx.Err(); err != nil {
+					} else if ctx.Err() != nil {
 						break
 					}
 				}
@@ -424,7 +430,7 @@ func (ht *HeadTracker) subscribe() bool {
 }
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
-func (ht *HeadTracker) receiveHeaders() error {
+func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 	for {
 		select {
 		case <-ht.done:
@@ -435,12 +441,16 @@ func (ht *HeadTracker) receiveHeaders() error {
 			}
 			timeBudget := ht.totalNewHeadTimeBudget()
 			{
-				ctx, cancel := utils.CombinedContext(ht.done, timeBudget)
+				deadlineCtx, cancel := context.WithTimeout(ctx, timeBudget)
 				defer cancel()
-				if err := ht.handleNewHead(ctx, blockHeader); err != nil {
+
+				err := ht.handleNewHead(ctx, blockHeader)
+				if ctx.Err() != nil {
+					return nil
+				} else if deadlineCtx.Err() != nil {
+					logger.Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
 					return err
-				} else if err := ctx.Err(); err != nil {
-					logger.Debugw("HeadTracker: handling of new head canceled", "error", err, "timeBudget", timeBudget.String())
+				} else if err != nil {
 					return err
 				}
 			}
@@ -471,7 +481,10 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		"blockHash", head.Hash,
 	)
 
-	if err := ht.Save(ctx, head); err != nil {
+	err := ht.Save(ctx, head)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
