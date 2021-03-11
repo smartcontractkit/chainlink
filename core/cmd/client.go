@@ -234,7 +234,7 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	}
 	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
 		var cookieerr error
-		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
+		_, err = h.cookieAuth.Authenticate(h.sessionRequest)
 		if cookieerr != nil {
 			return response, err
 		}
