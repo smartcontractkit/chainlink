@@ -1485,8 +1485,6 @@ func TestClient_AutoLogin(t *testing.T) {
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
-	fmt.Println("Error", err)
+	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
