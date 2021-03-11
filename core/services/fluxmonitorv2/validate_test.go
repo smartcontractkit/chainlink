@@ -16,7 +16,7 @@ func TestValidate(t *testing.T) {
 		name       string
 		toml       string
 		setGlobals func(t *testing.T, c *orm.Config)
-		assertion  func(t *testing.T, os job.SpecDB, err error)
+		assertion  func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "valid spec",
@@ -52,7 +52,7 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, s.FluxMonitorSpec)
 				b, err := jsonapi.Marshal(s.FluxMonitorSpec)
@@ -85,7 +85,7 @@ ds1_parse [type=jsonparse path="latest"];
 ds1 -> ds1_parse -> answer1;
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Nil(t, s.FluxMonitorSpec)
 				require.Error(t, err)
 				assert.Regexp(t, regexp.MustCompile("^.*is not a valid EIP55 formatted address$"), err.Error())
@@ -115,7 +115,7 @@ ds1_parse [type=jsonparse path="latest"];
 ds1 -> ds1_parse;
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
 			},
