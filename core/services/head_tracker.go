@@ -619,9 +619,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 }
 
 func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
-	ctx, cancel := utils.ContextFromChan(ht.done)
-	defer cancel()
-	head, err := ht.store.LastHead(ctx)
+	head, err := ht.store.LastHead(context.Background())
 	if err != nil {
 		return err
 	}
