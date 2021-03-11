@@ -429,7 +429,7 @@ func (m *MockAPIInitializer) Initialize(store *store.Store) (models.User, error)
 }
 
 func NewMockAuthenticatedHTTPClient(cfg orm.ConfigReader, sessionID string) cmd.HTTPClient {
-	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID})
+	return cmd.NewAuthenticatedHTTPClient(cfg, MockCookieAuthenticator{SessionID: sessionID}, models.SessionRequest{})
 }
 
 type MockCookieAuthenticator struct {

@@ -15,6 +15,7 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
+	AdminCredentialsFile                      string          `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
 	AllowOrigins                              string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                    int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod              time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`

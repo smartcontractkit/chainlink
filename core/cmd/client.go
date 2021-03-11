@@ -162,18 +162,20 @@ type HTTPClient interface {
 }
 
 type authenticatedHTTPClient struct {
-	config     orm.ConfigReader
-	client     *http.Client
-	cookieAuth CookieAuthenticator
+	config         orm.ConfigReader
+	client         *http.Client
+	cookieAuth     CookieAuthenticator
+	sessionRequest models.SessionRequest
 }
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator) HTTPClient {
+func NewAuthenticatedHTTPClient(config orm.ConfigReader, cookieAuth CookieAuthenticator, sessionRequest models.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
-		config:     config,
-		client:     &http.Client{},
-		cookieAuth: cookieAuth,
+		config:         config,
+		client:         &http.Client{},
+		cookieAuth:     cookieAuth,
+		sessionRequest: sessionRequest,
 	}
 }
 
@@ -203,11 +205,6 @@ func (h *authenticatedHTTPClient) Delete(path string) (*http.Response, error) {
 }
 
 func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, headerArgs ...map[string]string) (*http.Response, error) {
-	cookie, err := h.cookieAuth.Cookie()
-	if err != nil {
-		return nil, err
-	}
-
 	var headers map[string]string
 	if len(headerArgs) > 0 {
 		headers = headerArgs[0]
@@ -224,8 +221,30 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
-	request.AddCookie(cookie)
-	return h.client.Do(request)
+	cookie, err := h.cookieAuth.Cookie()
+	if err != nil {
+		return nil, err
+	} else if cookie != nil {
+		request.AddCookie(cookie)
+	}
+
+	response, err := h.client.Do(request)
+	if err != nil {
+		return response, err
+	}
+	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
+		var cookieerr error
+		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
+		if cookieerr != nil {
+			return response, err
+		}
+		request.AddCookie(cookie)
+		response, err = h.client.Do(request)
+		if err != nil {
+			return response, err
+		}
+	}
+	return response, nil
 }
 
 // CookieAuthenticator is the interface to generating a cookie to authenticate
@@ -442,11 +461,11 @@ func (f fileAPIInitializer) Initialize(store *store.Store) (models.User, error) 
 	return user, store.SaveUser(&user)
 }
 
-var errNoCredentialFile = errors.New("no API user credential file was passed")
+var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
 func credentialsFromFile(file string) (models.SessionRequest, error) {
 	if len(file) == 0 {
-		return models.SessionRequest{}, errNoCredentialFile
+		return models.SessionRequest{}, ErrNoCredentialFile
 	}
 
 	logger.Debug("Initializing API credentials from ", file)
