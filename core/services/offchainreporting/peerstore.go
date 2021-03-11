@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
@@ -69,7 +71,9 @@ func (p *Pstorewrapper) Start() error {
 	if err != nil {
 		return errors.Wrap(err, "could not start peerstore wrapper")
 	}
-	go p.dbLoop()
+	go gracefulpanic.WrapRecover(func() {
+		p.dbLoop()
+	})
 	return nil
 }
 
