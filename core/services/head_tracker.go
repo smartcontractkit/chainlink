@@ -222,7 +222,9 @@ func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	ht.headMutex.Unlock()
 
 	err := ht.store.IdempotentInsertHead(ctx, h)
-	if err != nil {
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return err
 	}
 	return ht.store.TrimOldHeads(ht.store.Config.EthHeadTrackerHistoryDepth())
@@ -339,6 +341,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
 	defer func() {
+		if ctx.Err() != nil {
+			return
+		}
 		logger.Debugw("HeadTracker: finished backfill",
 			"fetched", fetched,
 			"blockNumber", head.Number,
@@ -354,7 +359,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		var existingHead *models.Head
 		existingHead, err = ht.store.HeadByHash(ctx, head.ParentHash)
-		if err != nil {
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "HeadByHash failed")
 		}
 		if existingHead != nil {
@@ -363,7 +370,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		}
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
-		if err != nil {
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "fetchAndSaveHead failed")
 		}
 	}
@@ -373,7 +382,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
 	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
 	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
-	if err != nil {
+	if ctx.Err() != nil {
+		return models.Head{}, nil
+	} else if err != nil {
 		return models.Head{}, err
 	} else if head == nil {
 		return models.Head{}, errors.New("got nil head")
@@ -483,7 +494,9 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	promCurrentHead.Set(float64(head.Number))
 
 	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
-	if err != nil {
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
 	}
 	ht.backfillMB.Deliver(headWithChain)
