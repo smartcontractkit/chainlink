@@ -6,7 +6,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,7 +15,7 @@ func TestValidate(t *testing.T) {
 	var tt = []struct {
 		name       string
 		toml       string
-		setGlobals func(t *testing.T, c *orm.Config)
+		setGlobals func(t *testing.T, c *coreorm.Config)
 		assertion  func(t *testing.T, os job.Job, err error)
 	}{
 		{
@@ -119,14 +119,14 @@ ds1 -> ds1_parse;
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
 			},
-			setGlobals: func(t *testing.T, c *orm.Config) {
+			setGlobals: func(t *testing.T, c *coreorm.Config) {
 				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
 			},
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := orm.NewConfig()
+			c := coreorm.NewConfig()
 			if tc.setGlobals != nil {
 				tc.setGlobals(t, c)
 			}
