@@ -142,16 +142,16 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return f.App
+func (f InstanceAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+	return f.App, nil
 }
 
 type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
-	return noopStopApplication{s.Application}
+func (s seededAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
+	return noopStopApplication{s.Application}, nil
 }
 
 type noopStopApplication struct {

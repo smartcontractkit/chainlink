@@ -125,12 +125,15 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []StartCloser
 	var headTrackables []strpkg.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	if err != nil {
+		return nil, err
+	}
 
 	setupConfig(config, store)
 
@@ -258,7 +261,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
-	return app
+	return app, nil
 }
 
 func setupConfig(config *orm.Config, store *strpkg.Store) {

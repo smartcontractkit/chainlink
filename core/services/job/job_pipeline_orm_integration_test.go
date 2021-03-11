@@ -409,7 +409,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 func TestORM_CreateRunWhenJobDeleted(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
 

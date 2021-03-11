@@ -185,7 +185,7 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
 
@@ -227,7 +227,7 @@ func TestORM_UnclaimJob(t *testing.T) {
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
 
