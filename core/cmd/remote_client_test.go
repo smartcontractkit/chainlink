@@ -689,6 +689,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 	defer assertMocksCalled()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -942,9 +943,6 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
-
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
-
 	assert.NoError(t, client.CreateETHKey(nilContext))
 }
 
@@ -1463,5 +1461,30 @@ func TestClient_CreateJobV2(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+}
+
+func TestClient_AutoLogin(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
