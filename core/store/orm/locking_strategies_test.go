@@ -103,7 +103,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
 
-	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
 	delay := store.Config.DatabaseTimeout()
@@ -136,7 +136,7 @@ func TestPostgresLockingStrategy_WhenLostIsReacquired(t *testing.T) {
 func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
-	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
 	// NewStore no longer takes a lock on opening, so do something that does...
@@ -167,7 +167,7 @@ func TestPostgresLockingStrategy_CanBeReacquiredByNewNodeAfterDisconnect(t *test
 func TestPostgresLockingStrategy_WhenReacquiredOriginalNodeErrors(t *testing.T) {
 	tc := cltest.NewTestConfig(t)
 	tc.Config.Set("DATABASE_TIMEOUT", "500ms")
-	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	defer cleanup()
 
 	delay := store.Config.DatabaseTimeout()
