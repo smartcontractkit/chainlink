@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -51,7 +52,7 @@ var upkeep = struct {
 	MaxValidBlocknumber: 1_000_000_000,
 }
 
-func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer, *mocks.Client, job.Job, func()) {
+func setupRegistrySync(t *testing.T) (*store.Store, *keeper.RegistrySynchronizer, *mocks.Client, job.Job, func()) {
 	store, cleanup := cltest.NewStore(t)
 	keeperORM := keeper.NewORM(store.DB)
 	ethMock := new(mocks.Client)
@@ -65,6 +66,14 @@ func setupRegistrySync(t *testing.T) (*store.Store, keeper.RegistrySynchronizer,
 
 	synchronizer := keeper.NewRegistrySynchronizer(j, contract, keeperORM, syncInterval)
 	return store, synchronizer, ethMock, j, cleanup
+}
+
+func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int32) {
+	g := gomega.NewGomegaWithT(t)
+	var upkeepIDs []int32
+	err := store.DB.Model(keeper.UpkeepRegistration{}).Pluck("upkeep_id", &upkeepIDs).Error
+	require.NoError(t, err)
+	g.Expect(upkeepIDs).To(gomega.ContainElements(expected))
 }
 
 func Test_RegistrySynchronizer_Start(t *testing.T) {
@@ -112,7 +121,10 @@ func Test_RegistrySynchronizer_AddsAndRemovesUpkeeps(t *testing.T) {
 	require.Equal(t, upkeep.CheckData, upkeepRegistration.CheckData)
 	require.Equal(t, int32(upkeep.ExecuteGas), upkeepRegistration.ExecuteGas)
 
+	assertUpkeepIDs(t, store, []int32{0, 2})
 	ethMock.AssertExpectations(t)
+
+	gomega.ContainElements()
 
 	// 2nd sync
 	canceledUpkeeps = []*big.Int{big.NewInt(0), big.NewInt(1), big.NewInt(3)}
@@ -126,5 +138,6 @@ func Test_RegistrySynchronizer_AddsAndRemovesUpkeeps(t *testing.T) {
 
 	cltest.AssertCount(t, store, keeper.Registry{}, 1)
 	cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 2)
+	assertUpkeepIDs(t, store, []int32{2, 4})
 	ethMock.AssertExpectations(t)
 }

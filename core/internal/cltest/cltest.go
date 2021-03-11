@@ -1771,7 +1771,8 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 
 func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
 	var count int64
-	store.DB.Model(model).Count(&count)
+	err := store.DB.Model(model).Count(&count).Error
+	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }
 

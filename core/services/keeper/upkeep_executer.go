@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"sync"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -21,100 +22,108 @@ const (
 	executionQueueSize = 10
 )
 
-func NewUpkeepExecuter(
+func NewUpkeepExecutor(
 	db *gorm.DB,
 	ethClient eth.Client,
-) UpkeepExecuter {
-	return UpkeepExecuter{
+) *UpkeepExecutor {
+	return &UpkeepExecutor{
 		blockHeight:    atomic.NewInt64(0),
+		doneWG:         sync.WaitGroup{},
 		ethClient:      ethClient,
 		keeperORM:      NewORM(db),
-		isRunning:      atomic.NewBool(false),
 		executionQueue: make(chan struct{}, executionQueueSize),
 		chDone:         make(chan struct{}),
 		chSignalRun:    make(chan struct{}, 1),
+		StartStopOnce:  utils.StartStopOnce{},
 	}
 }
 
-// UpkeepExecuter fulfills HeadTrackable interface
-var _ store.HeadTrackable = UpkeepExecuter{}
+// UpkeepExecutor fulfills HeadTrackable interface
+var _ store.HeadTrackable = &UpkeepExecutor{}
 
-type UpkeepExecuter struct {
+type UpkeepExecutor struct {
 	blockHeight *atomic.Int64
+	doneWG      sync.WaitGroup
 	ethClient   eth.Client
 	keeperORM   KeeperORM
-	isRunning   *atomic.Bool
 
 	executionQueue chan struct{}
 	chDone         chan struct{}
 	chSignalRun    chan struct{}
+
+	utils.StartStopOnce
 }
 
-func (executer UpkeepExecuter) Start() error {
-	if executer.isRunning.Load() {
-		return errors.New("already started")
+func (executor *UpkeepExecutor) Start() error {
+	if !executor.OkayToStart() {
+		return errors.New("UpkeepExecutor is already started")
 	}
-	executer.isRunning.Store(true)
-	go executer.run()
+	go executor.run()
 	return nil
 }
 
-func (executer UpkeepExecuter) Close() error {
-	close(executer.chDone)
+func (executor *UpkeepExecutor) Close() error {
+	if !executor.OkayToStop() {
+		return errors.New("UpkeepExecutor is already stopped")
+	}
+	close(executor.chDone)
+	executor.doneWG.Wait()
 	return nil
 }
 
-func (executer UpkeepExecuter) Connect(head *models.Head) error {
+func (executor *UpkeepExecutor) Connect(head *models.Head) error {
 	return nil
 }
 
-func (executer UpkeepExecuter) Disconnect() {}
+func (executor *UpkeepExecutor) Disconnect() {}
 
-func (executer UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
-	executer.blockHeight.Store(head.Number)
+func (executor *UpkeepExecutor) OnNewLongestChain(ctx context.Context, head models.Head) {
+	executor.blockHeight.Store(head.Number)
 	// avoid blocking if signal already in buffer
 	select {
-	case executer.chSignalRun <- struct{}{}:
+	case executor.chSignalRun <- struct{}{}:
 	default:
 	}
 }
 
-func (executer UpkeepExecuter) run() {
+func (executor *UpkeepExecutor) run() {
+	executor.doneWG.Add(1)
 	for {
 		select {
-		case <-executer.chDone:
+		case <-executor.chDone:
+			executor.doneWG.Done()
 			return
-		case <-executer.chSignalRun:
-			executer.processActiveUpkeeps()
+		case <-executor.chSignalRun:
+			executor.processActiveUpkeeps()
 		}
 	}
 }
 
-func (executer UpkeepExecuter) processActiveUpkeeps() {
+func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
 	logger.Debug("received new block, running checkUpkeep for keeper registrations")
 
-	activeUpkeepss, err := executer.keeperORM.EligibleUpkeeps(executer.blockHeight.Load())
+	activeUpkeepss, err := executor.keeperORM.EligibleUpkeeps(executor.blockHeight.Load())
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
 	}
 
 	for _, reg := range activeUpkeepss {
-		executer.concurrentExecute(reg)
+		executor.concurrentExecute(reg)
 	}
 }
 
-func (executer UpkeepExecuter) concurrentExecute(upkeep UpkeepRegistration) {
-	executer.executionQueue <- struct{}{}
-	go executer.execute(upkeep)
+func (executor *UpkeepExecutor) concurrentExecute(upkeep UpkeepRegistration) {
+	executor.executionQueue <- struct{}{}
+	go executor.execute(upkeep)
 }
 
 // execute will call checkForUpkeep and, if it succeeds, triger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executer UpkeepExecuter) execute(upkeep UpkeepRegistration) {
-	defer func() { <-executer.executionQueue }()
+func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration) {
+	defer func() { <-executor.executionQueue }()
 
 	msg, err := constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
@@ -124,7 +133,7 @@ func (executer UpkeepExecuter) execute(upkeep UpkeepRegistration) {
 
 	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	checkUpkeepResult, err := executer.ethClient.CallContract(context.Background(), msg, nil)
+	checkUpkeepResult, err := executor.ethClient.CallContract(context.Background(), msg, nil)
 	if err != nil {
 		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 		return
@@ -138,7 +147,7 @@ func (executer UpkeepExecuter) execute(upkeep UpkeepRegistration) {
 
 	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	err = executer.keeperORM.InsertEthTXForUpkeep(upkeep, performTxData)
+	err = executor.keeperORM.CreateEthTransactionForUpkeep(upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
 	}

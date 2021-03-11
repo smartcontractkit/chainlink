@@ -415,7 +415,7 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds
-func Mine(backend *backends.SimulatedBackend) (stopMinning func()) {
+func Mine(backend *backends.SimulatedBackend) (stopMining func()) {
 	timer := time.NewTicker(2 * time.Second)
 	chStop := make(chan struct{})
 	go func() {

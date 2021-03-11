@@ -126,7 +126,7 @@ func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 	}
 }
 
-// KeeperSpec defines the spec details of a DirectRequest Job
+// KeeperSpec defines the spec details of a Keeper Job
 type KeeperSpec struct {
 	ContractAddress models.EIP55Address `json:"contractAddress"`
 	FromAddress     models.EIP55Address `json:"fromAddress"`

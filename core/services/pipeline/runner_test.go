@@ -218,7 +218,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 		PipelineTaskRuns: taskRuns,
 	}
 
-	trrs, err := r.ExecuteRun(context.Background(), run, *logger.Default)
+	trrs, err := r.Executorun(context.Background(), run, *logger.Default)
 	require.NoError(t, err)
 
 	require.Len(t, trrs, len(taskRuns))
@@ -340,7 +340,7 @@ answer1 [type=median                      index=0];
 	// If we cancel before an API is finished, we should still get a median.
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	trrs, err := r.ExecuteRun(ctx, run, *logger.Default)
+	trrs, err := r.Executorun(ctx, run, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {

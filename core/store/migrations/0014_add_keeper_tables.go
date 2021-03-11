@@ -24,7 +24,7 @@ const up14 = `
 
 		CREATE TABLE keeper_registries (
 			id BIGSERIAL PRIMARY KEY,
-			job_id BIGINT UNIQUE NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+			job_id int UNIQUE NOT NULL REFERENCES jobs(id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE,
 			keeper_index int NOT NULL,
 			contract_address bytea UNIQUE NOT NULL,
 			from_address bytea NOT NULL,
@@ -37,7 +37,7 @@ const up14 = `
 
 		CREATE TABLE upkeep_registrations (
 			id BIGSERIAL PRIMARY KEY,
-			registry_id bigint NOT NULL REFERENCES keeper_registries(id) ON DELETE CASCADE,
+			registry_id bigint NOT NULL REFERENCES keeper_registries(id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE,
 			execute_gas int NOT NULL,
 			check_data bytea NOT NULL,
 			upkeep_id bigint NOT NULL,

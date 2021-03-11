@@ -89,7 +89,7 @@ func (korm KeeperORM) NextUpkeepIDForRegistry(reg Registry) (nextID int64, err e
 	return nextID, err
 }
 
-func (korm KeeperORM) InsertEthTXForUpkeep(upkeep UpkeepRegistration, payload []byte) error {
+func (korm KeeperORM) CreateEthTransactionForUpkeep(upkeep UpkeepRegistration, payload []byte) error {
 	sqlDB, err := korm.DB.DB()
 	if err != nil {
 		return err

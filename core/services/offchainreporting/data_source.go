@@ -34,7 +34,7 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		return observation, errors.Wrapf(err, "error creating new run for spec ID %v", ds.spec.ID)
 	}
 
-	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, run, ds.ocrLogger)
+	trrs, err := ds.pipelineRunner.Executorun(ctx, run, ds.ocrLogger)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}

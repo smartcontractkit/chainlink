@@ -109,7 +109,7 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
-	UpkeepExecuter           keeper.UpkeepExecuter
+	UpkeepExecutor           *keeper.UpkeepExecutor
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
@@ -168,7 +168,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
-	upkeepExecuter := keeper.NewUpkeepExecuter(store.DB, store.EthClient)
+	upkeepExecutor := keeper.NewUpkeepExecutor(store.DB, store.EthClient)
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -231,7 +231,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, upkeepExecuter)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, upkeepExecutor)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -252,7 +252,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
-		UpkeepExecuter:           upkeepExecuter,
+		UpkeepExecutor:           upkeepExecutor,
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		pendingConnectionResumer: pendingConnectionResumer,
@@ -272,7 +272,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor,
 		promReporter,
 		logBroadcaster,
-		upkeepExecuter,
+		upkeepExecutor,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {

@@ -20,18 +20,18 @@ import (
 func setup(t *testing.T) (
 	*store.Store,
 	*mocks.Client,
-	keeper.UpkeepExecuter,
+	*keeper.UpkeepExecutor,
 	keeper.Registry,
 	func(),
 ) {
 	store, strCleanup := cltest.NewStore(t)
 	ethMock := new(mocks.Client)
-	executer := keeper.NewUpkeepExecuter(store.DB, ethMock)
+	executor := keeper.NewUpkeepExecutor(store.DB, ethMock)
 	registry := cltest.MustInsertKeeperRegistry(t, store)
-	err := executer.Start()
+	err := executor.Start()
 	require.NoError(t, err)
-	cleanup := func() { executer.Close(); strCleanup() }
-	return store, ethMock, executer, registry, cleanup
+	cleanup := func() { executor.Close(); strCleanup() }
+	return store, ethMock, executor, registry, cleanup
 }
 
 var checkUpkeepResponse = struct {
@@ -48,16 +48,16 @@ var checkUpkeepResponse = struct {
 	LinkEth:        big.NewInt(0), // doesn't matter
 }
 
-func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
-	_, _, executer, _, cleanup := setup(t)
+func Test_UpkeepExecutor_ErrorsIfStartedTwice(t *testing.T) {
+	_, _, executor, _, cleanup := setup(t)
 	defer cleanup()
 
-	err := executer.Start() // already started in setup()
+	err := executor.Start() // already started in setup()
 	require.Error(t, err)
 }
 
-func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
-	store, ethMock, executer, registry, cleanup := setup(t)
+func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
+	store, ethMock, executor, registry, cleanup := setup(t)
 	defer cleanup()
 
 	upkeep := newUpkeep(registry, 0)
@@ -69,21 +69,21 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-		executer.OnNewLongestChain(context.TODO(), head)
+		executor.OnNewLongestChain(context.TODO(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 	})
 
 	t.Run("skips upkeep on non-triggering block number", func(t *testing.T) {
 		head := models.NewHead(big.NewInt(21), cltest.NewHash(), cltest.NewHash(), 1000)
-		executer.OnNewLongestChain(context.TODO(), head)
+		executor.OnNewLongestChain(context.TODO(), head)
 		cltest.AssertCountStays(t, store, models.EthTx{}, 1)
 	})
 
 	ethMock.AssertExpectations(t)
 }
 
-func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
-	store, ethMock, executer, registry, cleanup := setup(t)
+func Test_UpkeepExecutor_PerformsUpkeep_Error(t *testing.T) {
+	store, ethMock, executor, registry, cleanup := setup(t)
 	defer cleanup()
 
 	upkeep := newUpkeep(registry, 0)
@@ -99,7 +99,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 		})
 
 	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-	executer.OnNewLongestChain(context.TODO(), head)
+	executor.OnNewLongestChain(context.TODO(), head)
 
 	select {
 	case <-time.NewTimer(5 * time.Second).C:

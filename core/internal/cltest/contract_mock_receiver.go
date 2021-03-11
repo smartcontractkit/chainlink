@@ -1,7 +1,6 @@
 package cltest
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -33,7 +32,7 @@ type contractMockReceiver struct {
 func (receiver contractMockReceiver) MockResponse(funcName string, responseArgs ...interface{}) *mock.Call {
 	funcSig := hexutil.Encode(receiver.abi.Methods[funcName].ID)
 	if len(funcSig) != 10 {
-		receiver.t.Fatal(fmt.Sprintf("Unable to find Registry contract function with name %s", funcName))
+		receiver.t.Fatalf("Unable to find Registry contract function with name %s", funcName)
 	}
 
 	encoded := receiver.mustEncodeResponse(funcName, responseArgs)
