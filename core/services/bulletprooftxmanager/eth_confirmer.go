@@ -536,21 +536,27 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ec.store, address)
-	if err != nil {
+	attempts, err := getInProgressEthTxAttempts(ctx, ec.store, address)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
-		if err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight); err != nil {
+		err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight)
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
 	return nil
 }
 
-func getInProgressEthTxAttempts(s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
+func getInProgressEthTxAttempts(ctx context.Context, s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
 	var attempts []models.EthTxAttempt
 	err := s.DB.
+		WithContext(ctx).
 		Preload("EthTx").
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')").
 		Where("eth_tx_attempts.state = 'in_progress'").
