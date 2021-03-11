@@ -728,10 +728,13 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		if len(etx.EthTxAttempts) > 0 {
 			previousAttempt := etx.EthTxAttempts[0]
 			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
-			logger.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
+			l := logger.Default
+			if sendError2 != nil {
+				l = logger.CreateLogger(l.With("err", sendError2))
+			}
+			l.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
 				"ethTxID", etx.ID,
 				"id", "RPCTxFeeCapExceeded",
-				"err", sendError2,
 			)
 		} else {
 			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)

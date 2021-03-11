@@ -14,10 +14,9 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	gormpostgres "gorm.io/driver/postgres"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"go.uber.org/multierr"
 
@@ -56,10 +55,13 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
-	app := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+	app, err := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
 		store := app.GetStore()
 		checkAccountsForExternalUse(store)
 	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
 	store := app.GetStore()
 	if e := checkFilePermissions(cli.Config.RootDir()); e != nil {
 		logger.Warn(e)
@@ -295,7 +297,10 @@ func (cli *Client) RebroadcastTransactions(c *clipkg.Context) (err error) {
 
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	cli.Config.Dialect = dialects.PostgresWithoutLock
-	app := cli.AppFactory.NewApplication(cli.Config)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
 			err = multierr.Append(err, serr)
@@ -339,7 +344,11 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 		return nil
 	}
 
-	app, cleanupFn := cli.makeApp()
+	app, cleanupFn, err := cli.makeApp()
+	if err != nil {
+		logger.Errorw("error while creating application", "error", err)
+		return err
+	}
 	defer cleanupFn()
 	storeInstance := app.GetStore()
 	ormInstance := storeInstance.ORM
@@ -353,13 +362,16 @@ func (cli *Client) HardReset(c *clipkg.Context) error {
 	return nil
 }
 
-func (cli *Client) makeApp() (chainlink.Application, func()) {
-	app := cli.AppFactory.NewApplication(cli.Config)
+func (cli *Client) makeApp() (chainlink.Application, func(), error) {
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return nil, nil, err
+	}
 	return app, func() {
 		if err := app.Stop(); err != nil {
 			logger.Errorw("Failed to stop the application on hard reset", "error", err)
 		}
-	}
+	}, nil
 }
 
 // ResetDatabase drops, creates and migrates the database specified by DATABASE_URL
@@ -433,7 +445,7 @@ func migrateTestDB(config *orm.Config) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = migrationsv2.Migrate(orm.DB)
+	err = migrations.Migrate(orm.DB)
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)
 	}
@@ -469,7 +481,10 @@ func insertFixtures(config *orm.Config) (err error) {
 // DeleteUser is run locally to remove the User row from the node's database.
 func (cli *Client) DeleteUser(c *clipkg.Context) (err error) {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app := cli.AppFactory.NewApplication(cli.Config)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
 	defer func() {
 		if serr := app.Stop(); serr != nil {
 			err = multierr.Append(err, serr)
@@ -520,7 +535,10 @@ func (cli *Client) SetNextNonce(c *clipkg.Context) error {
 // ImportKey imports a key to be used with the chainlink node
 func (cli *Client) ImportKey(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
-	app := cli.AppFactory.NewApplication(cli.Config)
+	app, err := cli.AppFactory.NewApplication(cli.Config)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
 
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass in filepath to key"))
@@ -533,7 +551,7 @@ func (cli *Client) ImportKey(c *clipkg.Context) error {
 		dstKeyPath = filepath.Join(dstDirPath, srcKeyFile) // ex: /clroot/keys/mykey
 	)
 
-	err := utils.EnsureDirAndMaxPerms(dstDirPath, 0700|os.ModeDir)
+	err = utils.EnsureDirAndMaxPerms(dstDirPath, 0700|os.ModeDir)
 	if err != nil {
 		return cli.errorOut(err)
 	}

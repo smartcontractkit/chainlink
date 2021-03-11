@@ -242,7 +242,7 @@ func TestBridgeResponse_TooLarge(t *testing.T) {
 	defer cfgCleanup()
 	config.Set("DEFAULT_HTTP_LIMIT", "1")
 
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	largePayload := `{"pending": true}`

@@ -110,7 +110,7 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
 		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
@@ -324,6 +324,11 @@ func (c Config) FeatureExternalInitiators() bool {
 // FeatureFluxMonitor enables the Flux Monitor feature.
 func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
+}
+
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+func (c Config) FeatureFluxMonitorV2() bool {
+	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
 }
 
 // FeatureOffchainReporting enables the Flux Monitor feature.
@@ -1052,6 +1057,10 @@ func parseIP(s string) (interface{}, error) {
 
 func parseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func parseBool(s string) (interface{}, error) {
+	return strconv.ParseBool(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

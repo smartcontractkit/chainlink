@@ -61,14 +61,14 @@ func (cli *Client) errorOut(err error) error {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(*orm.Config, ...func(chainlink.Application)) chainlink.Application
+	NewApplication(*orm.Config, ...func(chainlink.Application)) (chainlink.Application, error)
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) chainlink.Application {
+func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbacks ...func(chainlink.Application)) (chainlink.Application, error) {
 	var ethClient eth.Client
 	if config.EthereumDisabled() {
 		logger.Info("ETH_DISABLED is set, using Null eth.Client")
@@ -77,7 +77,7 @@ func (n ChainlinkAppFactory) NewApplication(config *orm.Config, onConnectCallbac
 		var err error
 		ethClient, err = eth.NewClient(config.EthereumURL(), config.EthereumSecondaryURLs()...)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("Unable to create ETH client: %+v", err))
+			return nil, err
 		}
 	}
 
