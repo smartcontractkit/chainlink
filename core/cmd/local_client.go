@@ -14,10 +14,9 @@ import (
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	gormpostgres "gorm.io/driver/postgres"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
 
 	"go.uber.org/multierr"
 
@@ -433,7 +432,7 @@ func migrateTestDB(config *orm.Config) error {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
 	orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
-	err = migrationsv2.Migrate(orm.DB)
+	err = migrations.Migrate(orm.DB)
 	if err != nil {
 		return fmt.Errorf("migrateTestDB failed: %v", err)
 	}
