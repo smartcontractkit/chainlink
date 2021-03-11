@@ -23,7 +23,7 @@ func (d *Delegate) JobType() job.Type {
 	return job.FluxMonitor
 }
 
-func (d *Delegate) ServicesForSpec(spec job.SpecDB) (services []job.Service, err error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", spec)
 	}
