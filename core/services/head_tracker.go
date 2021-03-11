@@ -632,9 +632,7 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
 // chainIDVerify checks whether or not the ChainID from the Chainlink config
 // matches the ChainID reported by the ETH node connected to this Chainlink node.
 func verifyEthereumChainID(ht *HeadTracker) error {
-	ctx, cancel := utils.ContextFromChan(ht.done)
-	defer cancel()
-	ethereumChainID, err := ht.store.EthClient.ChainID(ctx)
+	ethereumChainID, err := ht.store.EthClient.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
