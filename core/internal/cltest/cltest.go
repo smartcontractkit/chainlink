@@ -1472,11 +1472,16 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
 
-func (a Awaiter) AwaitOrFail(t testing.TB, d time.Duration) {
+func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	duration := 10 * time.Second
+	if len(durationParams) > 0 {
+		duration = durationParams[0]
+	}
+
 	select {
 	case <-a:
-	case <-time.After(d):
-		t.Fatal("timed out")
+	case <-time.After(duration):
+		t.Fatal("timed out waiting for Awaiter to get ItHappened")
 	}
 }
 
