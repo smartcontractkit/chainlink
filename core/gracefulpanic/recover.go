@@ -1,8 +1,9 @@
 package gracefulpanic
 
 import (
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"runtime/debug"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 func WrapRecover(fn func()) {
