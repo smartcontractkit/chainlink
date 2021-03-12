@@ -35,6 +35,8 @@ const up14 = `
 			CONSTRAINT keeper_registries_from_address_check CHECK ((octet_length(from_address) = 20))
 		);
 
+		CREATE INDEX idx_keeper_registries_keeper_index ON keeper_registries(keeper_index);
+
 		CREATE TABLE upkeep_registrations (
 			id BIGSERIAL PRIMARY KEY,
 			registry_id bigint NOT NULL REFERENCES keeper_registries(id) ON DELETE CASCADE DEFERRABLE INITIALLY IMMEDIATE,
@@ -44,7 +46,8 @@ const up14 = `
 			positioning_constant int NOT NULL
 		);
 
-		CREATE UNIQUE INDEX idx_upkeep_registrations_unique_upkeep_ids_per_keeper ON upkeep_registrations(upkeep_id, registry_id);
+		CREATE UNIQUE INDEX idx_upkeep_registrations_unique_upkeep_ids_per_keeper ON upkeep_registrations(registry_id, upkeep_id);
+		CREATE INDEX idx_upkeep_registrations_upkeep_id ON upkeep_registrations(upkeep_id);
 	`
 
 const down14 = `

@@ -21,13 +21,13 @@ const syncUpkeepQueueSize = 10
 func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
-	keeperORM KeeperORM,
+	orm ORM,
 	syncInterval time.Duration,
 ) *RegistrySynchronizer {
 	return &RegistrySynchronizer{
 		contract:      contract,
 		doneWG:        sync.WaitGroup{},
-		keeperORM:     keeperORM,
+		orm:           orm,
 		job:           job,
 		interval:      syncInterval,
 		chDone:        make(chan struct{}),
@@ -39,11 +39,11 @@ func NewRegistrySynchronizer(
 var _ job.Service = &RegistrySynchronizer{}
 
 type RegistrySynchronizer struct {
-	contract  *keeper_registry_wrapper.KeeperRegistry
-	doneWG    sync.WaitGroup
-	interval  time.Duration
-	job       job.Job
-	keeperORM KeeperORM
+	contract *keeper_registry_wrapper.KeeperRegistry
+	doneWG   sync.WaitGroup
+	interval time.Duration
+	job      job.Job
+	orm      ORM
 
 	chDone chan struct{}
 
@@ -92,7 +92,7 @@ func (rs *RegistrySynchronizer) syncRegistry() {
 		if err != nil {
 			return err
 		}
-		if err = rs.keeperORM.UpsertRegistry(&registry); err != nil {
+		if err = rs.orm.UpsertRegistry(&registry); err != nil {
 			return err
 		}
 		if err = rs.addNewUpkeeps(registry); err != nil {
@@ -110,7 +110,7 @@ func (rs *RegistrySynchronizer) syncRegistry() {
 }
 
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
-	nextUpkeepID, err := rs.keeperORM.NextUpkeepIDForRegistry(reg)
+	nextUpkeepID, err := rs.orm.NextUpkeepIDForRegistry(reg)
 	if err != nil {
 		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}
@@ -149,7 +149,7 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	for idx, upkeepID := range canceledBigs {
 		canceled[idx] = upkeepID.Int64()
 	}
-	return rs.keeperORM.BatchDeleteUpkeeps(reg.ID, canceled)
+	return rs.orm.BatchDeleteUpkeeps(reg.ID, canceled)
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, doneCallback func()) {
@@ -172,7 +172,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, do
 			UpkeepID:            upkeepID,
 		}
 
-		return rs.keeperORM.UpsertUpkeep(&newUpkeep)
+		return rs.orm.UpsertUpkeep(&newUpkeep)
 	}()
 
 	if err != nil {

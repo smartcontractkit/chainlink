@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -418,15 +419,18 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 func Mine(backend *backends.SimulatedBackend) (stopMining func()) {
 	timer := time.NewTicker(2 * time.Second)
 	chStop := make(chan struct{})
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		for {
 			select {
 			case <-timer.C:
 				backend.Commit()
 			case <-chStop:
+				wg.Done()
 				return
 			}
 		}
 	}()
-	return func() { close(chStop); timer.Stop() }
+	return func() { close(chStop); timer.Stop(); wg.Wait() }
 }
