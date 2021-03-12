@@ -429,7 +429,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	ta.Server = server
 	ta.wsServer = tc.wsServer
 	return ta, func() {
-		assert.NoError(t, ta.StopIfStarted())
+		ta.StopIfStarted()
 	}
 }
 
@@ -533,7 +533,7 @@ func (ta *TestApplication) Stop() error {
 	// TODO: Here we double close, which is less than ideal.
 	// We would prefer to invoke a method on an interface that
 	// cleans up only in test.
-	require.NoError(ta.t, ta.ChainlinkApplication.StopIfStarted())
+	ta.ChainlinkApplication.StopIfStarted()
 	cleanUpStore(ta.t, ta.Store)
 	if ta.Server != nil {
 		ta.Server.Close()
