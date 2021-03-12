@@ -37,6 +37,13 @@ by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
 requestNewRound enables dedicated requesters to request a fresh report to
 be sent to the contract right away regardless of heartbeat or deviation.
 
+- New prometheus metric:
+
+```
+Name: "head_tracker_eth_connection_errors",
+Help: "The total number of eth node connection errors",
+```
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
