@@ -227,7 +227,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -336,7 +336,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.LogBroadcaster.Start,
 		app.EventBroadcaster.Start,
 		app.FluxMonitor.Start,
-		app.EthBroadcaster.Start,
 	}
 
 	for _, task := range subtasks {
@@ -426,8 +425,6 @@ func (app *ChainlinkApplication) stop() error {
 		merr = multierr.Append(merr, app.JobSubscriber.Stop())
 		logger.Debug("Stopping FluxMonitor...")
 		app.FluxMonitor.Stop()
-		logger.Debug("Stopping EthBroadcaster...")
-		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		logger.Debug("Stopping EventBroadcaster...")
 		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
 		logger.Debug("Stopping LogBroadcaster...")
