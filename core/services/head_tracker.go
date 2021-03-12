@@ -447,7 +447,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		ms := float64(elapsed.Milliseconds())
 		promCallbackDuration.Set(ms)
 		promCallbackDurationHist.Observe(ms)
-		if elapsed > ht.store.Config.HeadTimeBudget() {
+		if elapsed > ht.callbackExecutionThreshold() {
 			ht.logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.store.Config.HeadTimeBudget().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		} else {
 			ht.logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
@@ -490,6 +490,13 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 
 	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
+}
+
+// If total callback execution time exceeds this threshold we consider this to
+// be a problem and will log a warning.
+// Here we set it to the average time between blocks.
+func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
+	return ht.store.Config.HeadTimeBudget() / 2
 }
 
 func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {
