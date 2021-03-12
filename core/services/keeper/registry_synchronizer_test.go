@@ -77,6 +77,7 @@ func assertUpkeepIDs(t *testing.T, store *store.Store, expected []int32) {
 }
 
 func Test_RegistrySynchronizer_Start(t *testing.T) {
+	t.Parallel()
 	_, synchronizer, _, _, cleanup := setupRegistrySync(t)
 	defer cleanup()
 
@@ -89,6 +90,7 @@ func Test_RegistrySynchronizer_Start(t *testing.T) {
 }
 
 func Test_RegistrySynchronizer_AddsAndRemovesUpkeeps(t *testing.T) {
+	t.Parallel()
 	store, synchronizer, ethMock, job, cleanup := setupRegistrySync(t)
 	defer cleanup()
 

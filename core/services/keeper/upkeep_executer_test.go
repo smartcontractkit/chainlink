@@ -50,6 +50,7 @@ var checkUpkeepResponse = struct {
 }
 
 func Test_UpkeepExecutor_ErrorsIfStartedTwice(t *testing.T) {
+	t.Parallel()
 	_, _, executor, _, cleanup := setup(t)
 	defer cleanup()
 
@@ -58,6 +59,7 @@ func Test_UpkeepExecutor_ErrorsIfStartedTwice(t *testing.T) {
 }
 
 func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
+	t.Parallel()
 	store, ethMock, executor, registry, cleanup := setup(t)
 	defer cleanup()
 
@@ -84,6 +86,7 @@ func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
 }
 
 func Test_UpkeepExecutor_PerformsUpkeep_Error(t *testing.T) {
+	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 	store, ethMock, executor, registry, cleanup := setup(t)
 	defer cleanup()

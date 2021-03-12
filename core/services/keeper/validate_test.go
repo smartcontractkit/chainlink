@@ -8,6 +8,7 @@ import (
 )
 
 func TestValidatedKeeperSpec(t *testing.T) {
+	t.Parallel()
 	toml := `
 		type                = "keeper"
 		schemaVersion       = 1
