@@ -27,56 +27,53 @@ func NewRegistrySynchronizer(
 ) *RegistrySynchronizer {
 	return &RegistrySynchronizer{
 		contract:      contract,
-		doneWG:        sync.WaitGroup{},
-		orm:           orm,
-		job:           job,
 		interval:      syncInterval,
-		chDone:        make(chan struct{}),
+		job:           job,
+		orm:           orm,
 		StartStopOnce: utils.StartStopOnce{},
+		wgDone:        sync.WaitGroup{},
+		chStop:        make(chan struct{}),
 	}
 }
 
 // RegistrySynchronizer conforms to the job.Service interface
-var _ job.Service = &RegistrySynchronizer{}
+var _ job.Service = (*RegistrySynchronizer)(nil)
 
 type RegistrySynchronizer struct {
 	contract *keeper_registry_wrapper.KeeperRegistry
-	doneWG   sync.WaitGroup
 	interval time.Duration
 	job      job.Job
 	orm      ORM
-
-	chDone chan struct{}
-
+	wgDone   sync.WaitGroup
+	chStop   chan struct{}
 	utils.StartStopOnce
 }
 
 func (rs *RegistrySynchronizer) Start() error {
-	if !rs.OkayToStart() {
-		return errors.New("RegistrySynchronizer is already started")
-	}
-	go rs.run()
-	return nil
+	return rs.StartOnce("RegistrySynchronizer", func() error {
+		go rs.run()
+		return nil
+	})
 }
 
 func (rs *RegistrySynchronizer) Close() error {
 	if !rs.OkayToStop() {
 		return errors.New("RegistrySynchronizer is already stopped")
 	}
-	close(rs.chDone)
-	rs.doneWG.Wait()
+	close(rs.chStop)
+	rs.wgDone.Wait()
 	return nil
 }
 
 func (rs *RegistrySynchronizer) run() {
-	rs.doneWG.Add(1)
+	rs.wgDone.Add(1)
 	ticker := time.NewTicker(rs.interval)
+	defer rs.wgDone.Done()
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-rs.chDone:
-			rs.doneWG.Done()
+		case <-rs.chStop:
 			return
 		case <-ticker.C:
 			rs.syncRegistry()
@@ -88,32 +85,32 @@ func (rs *RegistrySynchronizer) syncRegistry() {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	logger.Debugf("syncing registry %s", contractAddress.Hex())
 
-	err := func() error {
-		registry, err := rs.newSyncedRegistry(rs.job)
-		if err != nil {
-			return err
-		}
-		ctx, _ := postgres.DefaultQueryCtx()
-		if err = rs.orm.UpsertRegistry(ctx, &registry); err != nil {
-			return err
-		}
-		if err = rs.addNewUpkeeps(registry); err != nil {
-			return err
-		}
-		if err = rs.deleteCanceledUpkeeps(registry); err != nil {
-			return err
-		}
-		return nil
+	var err error
+	defer func() {
+		logger.ErrorIf(err, fmt.Sprintf("unable to sync registry %s", contractAddress.Hex()))
 	}()
 
+	registry, err := rs.newSyncedRegistry(rs.job)
 	if err != nil {
-		logger.Errorf("unable to sync registry %s, err: %v", contractAddress.Hex(), err)
+		return
+	}
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	if err = rs.orm.UpsertRegistry(ctx, &registry); err != nil {
+		return
+	}
+	if err = rs.addNewUpkeeps(registry); err != nil {
+		return
+	}
+	if err = rs.deleteCanceledUpkeeps(registry); err != nil {
+		return
 	}
 }
 
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
-	ctx, _ := postgres.DefaultQueryCtx()
-	nextUpkeepID, err := rs.orm.NextUpkeepIDForRegistry(ctx, reg)
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	nextUpkeepID, err := rs.orm.LowestUnsyncedID(ctx, reg)
 	if err != nil {
 		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}
@@ -128,12 +125,19 @@ func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
 		return errors.New("RegistrySynchronizer: invariant, contract should always have at least as many upkeeps as DB")
 	}
 
+	// batch sync registries
 	wg := sync.WaitGroup{}
 	wg.Add(int(countOnContract - nextUpkeepID))
-
-	// batch sync registries
 	chSyncUpkeepQueue := make(chan struct{}, syncUpkeepQueueSize)
-	done := func() { <-chSyncUpkeepQueue; wg.Done() }
+
+	done := func() {
+		select {
+		case <-rs.chStop:
+		case <-chSyncUpkeepQueue:
+		}
+		wg.Done()
+	}
+
 	for upkeepID := nextUpkeepID; upkeepID < countOnContract; upkeepID++ {
 		chSyncUpkeepQueue <- struct{}{}
 		go rs.syncUpkeep(reg, upkeepID, done)
@@ -152,40 +156,37 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	for idx, upkeepID := range canceledBigs {
 		canceled[idx] = upkeepID.Int64()
 	}
-	ctx, _ := postgres.DefaultQueryCtx()
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 	return rs.orm.BatchDeleteUpkeeps(ctx, reg.ID, canceled)
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, doneCallback func()) {
 	defer doneCallback()
 
-	err := func() error {
-		upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(int64(upkeepID)))
-		if err != nil {
-			return err
-		}
-		positioningConstant, err := calcPositioningConstant(upkeepID, registry.ContractAddress, registry.NumKeepers)
-		if err != nil {
-			return fmt.Errorf("unable to calculate positioning constant: %v", err)
-		}
-		newUpkeep := UpkeepRegistration{
-			CheckData:           upkeepConfig.CheckData,
-			ExecuteGas:          int32(upkeepConfig.ExecuteGas),
-			RegistryID:          registry.ID,
-			PositioningConstant: positioningConstant,
-			UpkeepID:            upkeepID,
-		}
-		ctx, _ := postgres.DefaultQueryCtx()
-		return rs.orm.UpsertUpkeep(ctx, &newUpkeep)
+	var err error
+	defer func() {
+		logger.ErrorIf(err, fmt.Sprintf("unable to sync upkeep #%d on registry %s", upkeepID, registry.ContractAddress.Hex()))
 	}()
 
+	upkeepConfig, err := rs.contract.GetUpkeep(nil, big.NewInt(int64(upkeepID)))
 	if err != nil {
-		logger.Errorw(
-			fmt.Sprintf("unable to sync upkeep #%d on registry %s", upkeepID, registry.ContractAddress.Hex()),
-			"error",
-			err,
-		)
+		return
 	}
+	positioningConstant, err := calcPositioningConstant(upkeepID, registry.ContractAddress, registry.NumKeepers)
+	if err != nil {
+		return
+	}
+	newUpkeep := UpkeepRegistration{
+		CheckData:           upkeepConfig.CheckData,
+		ExecuteGas:          int32(upkeepConfig.ExecuteGas),
+		RegistryID:          registry.ID,
+		PositioningConstant: positioningConstant,
+		UpkeepID:            upkeepID,
+	}
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err = rs.orm.UpsertUpkeep(ctx, &newUpkeep)
 }
 
 func (rs *RegistrySynchronizer) newSyncedRegistry(job job.Job) (Registry, error) {

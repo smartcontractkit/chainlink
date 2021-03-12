@@ -796,7 +796,7 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
 	ctx, _ := postgres.DefaultQueryCtx()
-	upkeepID, err := keeper.NewORM(store.DB).NextUpkeepIDForRegistry(ctx, registry)
+	upkeepID, err := keeper.NewORM(store.DB).LowestUnsyncedID(ctx, registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,

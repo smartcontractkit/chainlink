@@ -206,7 +206,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 
 	registry := cltest.MustInsertKeeperRegistry(t, store)
 
-	nextID, err := orm.NextUpkeepIDForRegistry(ctx(), registry)
+	nextID, err := orm.LowestUnsyncedID(ctx(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), nextID)
 
@@ -214,7 +214,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(ctx(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.NextUpkeepIDForRegistry(ctx(), registry)
+	nextID, err = orm.LowestUnsyncedID(ctx(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), nextID)
 
@@ -222,7 +222,7 @@ func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	err = orm.UpsertUpkeep(ctx(), &upkeep)
 	require.NoError(t, err)
 
-	nextID, err = orm.NextUpkeepIDForRegistry(ctx(), registry)
+	nextID, err = orm.LowestUnsyncedID(ctx(), registry)
 	require.NoError(t, err)
 	require.Equal(t, int64(4), nextID)
 }

@@ -29,46 +29,45 @@ func NewUpkeepExecutor(
 ) *UpkeepExecutor {
 	return &UpkeepExecutor{
 		blockHeight:    atomic.NewInt64(0),
-		doneWG:         sync.WaitGroup{},
+		wgDone:         sync.WaitGroup{},
 		ethClient:      ethClient,
 		orm:            NewORM(db),
 		executionQueue: make(chan struct{}, executionQueueSize),
-		chDone:         make(chan struct{}),
+		chStop:         make(chan struct{}),
 		chSignalRun:    make(chan struct{}, 1),
 		StartStopOnce:  utils.StartStopOnce{},
 	}
 }
 
 // UpkeepExecutor fulfills HeadTrackable interface
-var _ store.HeadTrackable = &UpkeepExecutor{}
+var _ store.HeadTrackable = (*UpkeepExecutor)(nil)
 
 type UpkeepExecutor struct {
 	blockHeight *atomic.Int64
-	doneWG      sync.WaitGroup
+	wgDone      sync.WaitGroup
 	ethClient   eth.Client
 	orm         ORM
 
 	executionQueue chan struct{}
-	chDone         chan struct{}
+	chStop         chan struct{}
 	chSignalRun    chan struct{}
 
 	utils.StartStopOnce
 }
 
 func (executor *UpkeepExecutor) Start() error {
-	if !executor.OkayToStart() {
-		return errors.New("UpkeepExecutor is already started")
-	}
-	go executor.run()
-	return nil
+	return executor.StartOnce("UpkeepExecutor", func() error {
+		go executor.run()
+		return nil
+	})
 }
 
 func (executor *UpkeepExecutor) Close() error {
 	if !executor.OkayToStop() {
 		return errors.New("UpkeepExecutor is already stopped")
 	}
-	close(executor.chDone)
-	executor.doneWG.Wait()
+	close(executor.chStop)
+	executor.wgDone.Wait()
 	return nil
 }
 
@@ -88,11 +87,11 @@ func (executor *UpkeepExecutor) OnNewLongestChain(ctx context.Context, head mode
 }
 
 func (executor *UpkeepExecutor) run() {
-	executor.doneWG.Add(1)
+	executor.wgDone.Add(1)
+	defer executor.wgDone.Done()
 	for {
 		select {
-		case <-executor.chDone:
-			executor.doneWG.Done()
+		case <-executor.chStop:
 			return
 		case <-executor.chSignalRun:
 			executor.processActiveUpkeeps()
@@ -106,7 +105,8 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	blockHeight := executor.blockHeight.Load()
 	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", blockHeight)
 
-	ctx, _ := postgres.DefaultQueryCtx()
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
 	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, blockHeight)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
@@ -115,7 +115,6 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
-	// TODO - RYAN - comment
 	done := func() { <-executor.executionQueue; wg.Done() }
 	for _, reg := range activeUpkeeps {
 		executor.executionQueue <- struct{}{}
@@ -125,7 +124,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	wg.Wait()
 }
 
-// execute will call checkForUpkeep and, if it succeeds, triger a job on the CL node
+// execute will call checkForUpkeep and, if it succeeds, trigger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
 func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) {
 	defer done()
@@ -138,7 +137,10 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 
 	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	checkUpkeepResult, err := executor.ethClient.CallContract(context.Background(), msg, nil)
+	ctxService, cancel := utils.ContextFromChan(executor.chStop)
+	defer cancel()
+
+	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
 		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 		return
@@ -152,8 +154,11 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 
 	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	ctx, _ := postgres.DefaultQueryCtx()
-	err = executor.orm.CreateEthTransactionForUpkeep(ctx, upkeep, performTxData)
+	ctxQuery, _ := postgres.DefaultQueryCtx()
+	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
+	defer cancel()
+
+	err = executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
 	}
