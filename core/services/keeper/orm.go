@@ -4,11 +4,16 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
-const gasBuffer = int32(200_000)
+const (
+	gasBuffer         = int32(200_000)
+	maxUnconfirmedTXs = uint64(5)
+)
 
 func NewORM(db *gorm.DB) ORM {
 	return ORM{
@@ -60,7 +65,6 @@ func (korm ORM) BatchDeleteUpkeeps(ctx context.Context, registryID int32, upkeed
 		Error
 }
 
-// TODO - RYAN - raw sql
 func (korm ORM) DeleteRegistryByJobID(ctx context.Context, jobID int32) error {
 	return korm.DB.
 		WithContext(ctx).
@@ -69,31 +73,27 @@ func (korm ORM) DeleteRegistryByJobID(ctx context.Context, jobID int32) error {
 		Error
 }
 
-// TODO - RYAN - one where clause
 func (korm ORM) EligibleUpkeeps(ctx context.Context, blockNumber int64) (upkeeps []UpkeepRegistration, _ error) {
-	turnTakingQuery := `
-		keeper_registries.keeper_index =
-			(
-				upkeep_registrations.positioning_constant + (? / keeper_registries.block_count_per_turn)
-			) % keeper_registries.num_keepers
-	`
 	err := korm.DB.
 		WithContext(ctx).
 		Preload("Registry").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
-		Where("? % keeper_registries.block_count_per_turn = 0", blockNumber).
-		Where(turnTakingQuery, blockNumber).
+		Where(`
+			? % keeper_registries.block_count_per_turn = 0 AND
+			keeper_registries.keeper_index =
+			(
+				upkeep_registrations.positioning_constant + (? / keeper_registries.block_count_per_turn)
+			) % keeper_registries.num_keepers
+		`, blockNumber, blockNumber).
 		Find(&upkeeps).
 		Error
 
 	return upkeeps, err
 }
 
-// NextUpkeepIDForRegistry returns the largest upkeepID + 1, indicating the expected next upkeepID
+// LowestUnsyncedID returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
-// LowestUnsyncedID
-// todo - ryan - note not racy - and raw sql
-func (korm ORM) NextUpkeepIDForRegistry(ctx context.Context, reg Registry) (nextID int64, err error) {
+func (korm ORM) LowestUnsyncedID(ctx context.Context, reg Registry) (nextID int64, err error) {
 	err = korm.DB.
 		WithContext(ctx).
 		Model(&UpkeepRegistration{}).
@@ -109,17 +109,44 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 	if err != nil {
 		return err
 	}
-	_, err = sqlDB.ExecContext(
-		ctx,
-		`INSERT INTO eth_txes (from_address, to_address, encoded_payload, gas_limit, value, state, created_at)
-		VALUES ($1,$2,$3,$4,0,'unstarted',NOW());`,
-		upkeep.Registry.FromAddress.Address(),
+
+	from := upkeep.Registry.FromAddress.Address()
+	err = utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
+	if err != nil {
+		return errors.Wrap(err, "transmitter#CreateEthTransaction")
+	}
+
+	value := 0
+	res, err := sqlDB.ExecContext(ctx, `
+		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
+		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
+		WHERE NOT EXISTS (
+			SELECT 1 FROM eth_tx_attempts
+			JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
+			WHERE eth_txes.from_address = $1
+				AND eth_txes.state = 'unconfirmed'
+				AND eth_tx_attempts.state = 'insufficient_eth'
+		);`,
+		from,
 		upkeep.Registry.ContractAddress.Address(),
 		payload,
+		value,
 		upkeep.ExecuteGas+gasBuffer,
 	)
+
 	if err != nil {
 		return errors.Wrap(err, "keeper failed to insert eth_tx")
 	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "transmitter failed to get RowsAffected on eth_tx insert")
+	}
+	if rowsAffected == 0 {
+		err := errors.Errorf("Skipped upkeep because wallet is out of eth: %s", from.Hex())
+		logger.Warnw(err.Error())
+		return err
+	}
+
 	return nil
 }

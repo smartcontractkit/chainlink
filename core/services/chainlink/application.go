@@ -109,7 +109,6 @@ type ChainlinkApplication struct {
 	FluxMonitor              fluxmonitor.Service
 	Scheduler                *services.Scheduler
 	Store                    *strpkg.Store
-	UpkeepExecutor           *keeper.UpkeepExecutor
 	ExternalInitiatorManager ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	pendingConnectionResumer *pendingConnectionResumer
@@ -252,7 +251,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		Scheduler:                services.NewScheduler(store, runManager),
 		Store:                    store,
 		SessionReaper:            services.NewStoreReaper(store),
-		UpkeepExecutor:           upkeepExecutor,
 		Exiter:                   os.Exit,
 		ExternalInitiatorManager: externalInitiatorManager,
 		pendingConnectionResumer: pendingConnectionResumer,

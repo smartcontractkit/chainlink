@@ -27,7 +27,7 @@ type Runner interface {
 	Start() error
 	Close() error
 	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
-	Executorun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error)
 	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
@@ -208,7 +208,7 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.executorun)
+	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
 }
 
 type (
@@ -244,11 +244,11 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) Executorun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
-	return r.executorun(ctx, r.orm.DB(), run, l)
+func (r *runner) ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
+	return r.executeRun(ctx, r.orm.DB(), run, l)
 }
 
-func (r *runner) executorun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
 	l.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
 	startRun := time.Now()
 
@@ -446,7 +446,7 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger
 		return run.ID, result, errors.Wrapf(err, "error creating new run for spec ID %v", spec.ID)
 	}
 
-	trrs, err := r.Executorun(ctx, run, l)
+	trrs, err := r.ExecuteRun(ctx, run, l)
 	if err != nil {
 		return run.ID, result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}
