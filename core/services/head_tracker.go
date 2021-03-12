@@ -422,7 +422,7 @@ func (ht *HeadTracker) receiveHeaders() error {
 			if !open {
 				return errors.New("HeadTracker: outHeaders prematurely closed")
 			}
-			timeBudget := ht.totalNewHeadTimeBudget()
+			timeBudget := ht.store.Config.HeadTimeBudget()
 			{
 				ctx, cancel := utils.CombinedContext(ht.done, timeBudget)
 				defer cancel()
@@ -447,8 +447,8 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		ms := float64(elapsed.Milliseconds())
 		promCallbackDuration.Set(ms)
 		promCallbackDurationHist.Observe(ms)
-		if elapsed > ht.callbackExecutionThreshold() {
-			ht.logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.callbackExecutionThreshold().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
+		if elapsed > ht.store.Config.HeadTimeBudget() {
+			ht.logger.Warnw(fmt.Sprintf("HeadTracker finished processing head %v in %s which exceeds callback execution threshold of %s", number, elapsed.String(), ht.store.Config.HeadTimeBudget().String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		} else {
 			ht.logger.Debugw(fmt.Sprintf("HeadTracker finished processing head %v in %s", number, elapsed.String()), "blockNumber", number, "time", elapsed, "id", "head_tracker")
 		}
@@ -490,33 +490,6 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 
 	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
-}
-
-func (ht *HeadTracker) isKovan() bool {
-	return ht.store.Config.ChainID().Cmp(kovanChainID) == 0
-}
-
-// totalNewHeadTimeBudget is the timeout on the shared context for all
-// requests triggered by a new head
-//
-// These values are chosen to be roughly 2 * block time (to give some leeway
-// for temporary overload). They are by no means set in stone and may require
-// adjustment based on real world feedback.
-func (ht *HeadTracker) totalNewHeadTimeBudget() time.Duration {
-	if ht.isKovan() {
-		return 8 * time.Second
-	}
-	return 26 * time.Second
-}
-
-// If total callback execution time exceeds this threshold we consider this to
-// be a problem and will log a warning.
-// Here we set it to the average time between blocks.
-func (ht *HeadTracker) callbackExecutionThreshold() time.Duration {
-	if ht.isKovan() {
-		return 4 * time.Second
-	}
-	return 13 * time.Second
 }
 
 func (ht *HeadTracker) onNewLongestChain(ctx context.Context, headWithChain models.Head) {

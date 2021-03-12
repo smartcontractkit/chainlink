@@ -939,6 +939,11 @@ func (c Config) CertFile() string {
 	return c.TLSCertPath()
 }
 
+// HeadTimeBudget returns the time allowed for context timeout in head tracker
+func (c Config) HeadTimeBudget() time.Duration {
+	return c.getWithFallback("HeadTimeBudget", parseDuration).(time.Duration)
+}
+
 // CreateProductionLogger returns a custom logger for the config's root
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
