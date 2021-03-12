@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
@@ -92,7 +93,8 @@ func (rs *RegistrySynchronizer) syncRegistry() {
 		if err != nil {
 			return err
 		}
-		if err = rs.orm.UpsertRegistry(&registry); err != nil {
+		ctx, _ := postgres.DefaultQueryCtx()
+		if err = rs.orm.UpsertRegistry(ctx, &registry); err != nil {
 			return err
 		}
 		if err = rs.addNewUpkeeps(registry); err != nil {
@@ -110,7 +112,8 @@ func (rs *RegistrySynchronizer) syncRegistry() {
 }
 
 func (rs *RegistrySynchronizer) addNewUpkeeps(reg Registry) error {
-	nextUpkeepID, err := rs.orm.NextUpkeepIDForRegistry(reg)
+	ctx, _ := postgres.DefaultQueryCtx()
+	nextUpkeepID, err := rs.orm.NextUpkeepIDForRegistry(ctx, reg)
 	if err != nil {
 		return errors.Wrap(err, "RegistrySynchronizer: unable to find next ID for registry")
 	}
@@ -149,7 +152,8 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	for idx, upkeepID := range canceledBigs {
 		canceled[idx] = upkeepID.Int64()
 	}
-	return rs.orm.BatchDeleteUpkeeps(reg.ID, canceled)
+	ctx, _ := postgres.DefaultQueryCtx()
+	return rs.orm.BatchDeleteUpkeeps(ctx, reg.ID, canceled)
 }
 
 func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, doneCallback func()) {
@@ -171,8 +175,8 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64, do
 			PositioningConstant: positioningConstant,
 			UpkeepID:            upkeepID,
 		}
-
-		return rs.orm.UpsertUpkeep(&newUpkeep)
+		ctx, _ := postgres.DefaultQueryCtx()
+		return rs.orm.UpsertUpkeep(ctx, &newUpkeep)
 	}()
 
 	if err != nil {

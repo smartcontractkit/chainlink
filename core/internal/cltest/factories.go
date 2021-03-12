@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
@@ -794,7 +795,8 @@ func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry
 }
 
 func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
-	upkeepID, err := keeper.NewORM(store.DB).NextUpkeepIDForRegistry(registry)
+	ctx, _ := postgres.DefaultQueryCtx()
+	upkeepID, err := keeper.NewORM(store.DB).NextUpkeepIDForRegistry(ctx, registry)
 	require.NoError(t, err)
 	upkeep := keeper.UpkeepRegistration{
 		UpkeepID:   upkeepID,
