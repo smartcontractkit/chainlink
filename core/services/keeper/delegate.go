@@ -12,15 +12,15 @@ import (
 )
 
 type Delegate struct {
-	keeperORM    KeeperORM
+	orm          ORM
 	ethClient    eth.Client
 	syncInterval time.Duration
 }
 
 func NewDelegate(db *gorm.DB, ethClient eth.Client, config *orm.Config) *Delegate {
-	keeperORM := NewORM(db)
+	orm := NewORM(db)
 	return &Delegate{
-		keeperORM:    keeperORM,
+		orm:          orm,
 		ethClient:    ethClient,
 		syncInterval: config.KeeperRegistrySyncInterval(),
 	}
@@ -44,7 +44,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
 
-	registrySynchronizer := NewRegistrySynchronizer(spec, contract, d.keeperORM, d.syncInterval)
+	registrySynchronizer := NewRegistrySynchronizer(spec, contract, d.orm, d.syncInterval)
 
 	return []job.Service{
 		registrySynchronizer,

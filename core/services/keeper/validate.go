@@ -30,7 +30,7 @@ func ValidatedKeeperSpec(tomlString string) (job.Job, error) {
 		return j, errors.Errorf("unsupported type %s", j.Type)
 	}
 	if j.SchemaVersion != uint32(1) {
-		return j, errors.Errorf("the only supported schema version is currently 1, got %v", j.SchemaVersion)
+		return j, errors.Errorf("the only supported schema version is currently 1, got %d", j.SchemaVersion)
 	}
 	return j, nil
 }

@@ -8,22 +8,22 @@ import (
 
 const gasBuffer = int32(200_000)
 
-func NewORM(db *gorm.DB) KeeperORM {
-	return KeeperORM{
+func NewORM(db *gorm.DB) ORM {
+	return ORM{
 		DB: db,
 	}
 }
 
-type KeeperORM struct {
+type ORM struct {
 	DB *gorm.DB
 }
 
-func (korm KeeperORM) Registries() (registries []Registry, _ error) {
+func (korm ORM) Registries() (registries []Registry, _ error) {
 	err := korm.DB.Find(&registries).Error
 	return registries, err
 }
 
-func (korm KeeperORM) UpsertRegistry(registry *Registry) error {
+func (korm ORM) UpsertRegistry(registry *Registry) error {
 	return korm.DB.
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "job_id"}},
@@ -35,7 +35,7 @@ func (korm KeeperORM) UpsertRegistry(registry *Registry) error {
 		Error
 }
 
-func (korm KeeperORM) UpsertUpkeep(registration *UpkeepRegistration) error {
+func (korm ORM) UpsertUpkeep(registration *UpkeepRegistration) error {
 	return korm.DB.
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "registry_id"}, {Name: "upkeep_id"}},
@@ -45,21 +45,23 @@ func (korm KeeperORM) UpsertUpkeep(registration *UpkeepRegistration) error {
 		Error
 }
 
-func (korm KeeperORM) BatchDeleteUpkeeps(registryID int32, upkeedIDs []int64) error {
+func (korm ORM) BatchDeleteUpkeeps(registryID int32, upkeedIDs []int64) error {
 	return korm.DB.
 		Where("registry_id = ? AND upkeep_id IN (?)", registryID, upkeedIDs).
 		Delete(UpkeepRegistration{}).
 		Error
 }
 
-func (korm KeeperORM) DeleteRegistryByJobID(jobID int32) error {
+// TODO - RYAN - raw sql
+func (korm ORM) DeleteRegistryByJobID(jobID int32) error {
 	return korm.DB.
 		Where("job_id = ?", jobID).
 		Delete(Registry{}). // auto deletes upkeep registrations
 		Error
 }
 
-func (korm KeeperORM) EligibleUpkeeps(blockNumber int64) (result []UpkeepRegistration, _ error) {
+// TODO - RYAN - one where clause
+func (korm ORM) EligibleUpkeeps(blockNumber int64) (upkeeps []UpkeepRegistration, _ error) {
 	turnTakingQuery := `
 		keeper_registries.keeper_index =
 			(
@@ -71,15 +73,17 @@ func (korm KeeperORM) EligibleUpkeeps(blockNumber int64) (result []UpkeepRegistr
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
 		Where("? % keeper_registries.block_count_per_turn = 0", blockNumber).
 		Where(turnTakingQuery, blockNumber).
-		Find(&result).
+		Find(&upkeeps).
 		Error
 
-	return result, err
+	return upkeeps, err
 }
 
 // NextUpkeepIDForRegistry returns the largest upkeepID + 1, indicating the expected next upkeepID
 // to sync from the contract
-func (korm KeeperORM) NextUpkeepIDForRegistry(reg Registry) (nextID int64, err error) {
+// LowestUnsyncedID
+// todo - ryan - note not racy - and raw sql
+func (korm ORM) NextUpkeepIDForRegistry(reg Registry) (nextID int64, err error) {
 	err = korm.DB.
 		Model(&UpkeepRegistration{}).
 		Where("registry_id = ?", reg.ID).
@@ -89,7 +93,7 @@ func (korm KeeperORM) NextUpkeepIDForRegistry(reg Registry) (nextID int64, err e
 	return nextID, err
 }
 
-func (korm KeeperORM) CreateEthTransactionForUpkeep(upkeep UpkeepRegistration, payload []byte) error {
+func (korm ORM) CreateEthTransactionForUpkeep(upkeep UpkeepRegistration, payload []byte) error {
 	sqlDB, err := korm.DB.DB()
 	if err != nil {
 		return err

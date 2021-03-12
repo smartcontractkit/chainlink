@@ -4,9 +4,9 @@ import (
 	"context"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/atomic"
 )
 
 func setup(t *testing.T) (
@@ -83,6 +84,7 @@ func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
 }
 
 func Test_UpkeepExecutor_PerformsUpkeep_Error(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 	store, ethMock, executor, registry, cleanup := setup(t)
 	defer cleanup()
 
@@ -90,22 +92,17 @@ func Test_UpkeepExecutor_PerformsUpkeep_Error(t *testing.T) {
 	err := store.DB.Create(&upkeep).Error
 	require.NoError(t, err)
 
-	chUpkeepCalled := make(chan struct{})
+	wasCalled := atomic.NewBool(false)
 	ethMock.
 		On("CallContract", mock.Anything, mock.Anything, mock.Anything).
 		Return(nil, errors.New("contract call revert")).
 		Run(func(args mock.Arguments) {
-			chUpkeepCalled <- struct{}{}
+			wasCalled.Store(true)
 		})
 
 	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
 	executor.OnNewLongestChain(context.TODO(), head)
 
-	select {
-	case <-time.NewTimer(5 * time.Second).C:
-		t.Fatal("checkUpkeep never called")
-	case <-chUpkeepCalled:
-	}
-
+	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	ethMock.AssertExpectations(t)
 }

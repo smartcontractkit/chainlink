@@ -30,7 +30,7 @@ func NewUpkeepExecutor(
 		blockHeight:    atomic.NewInt64(0),
 		doneWG:         sync.WaitGroup{},
 		ethClient:      ethClient,
-		keeperORM:      NewORM(db),
+		orm:            NewORM(db),
 		executionQueue: make(chan struct{}, executionQueueSize),
 		chDone:         make(chan struct{}),
 		chSignalRun:    make(chan struct{}, 1),
@@ -45,7 +45,7 @@ type UpkeepExecutor struct {
 	blockHeight *atomic.Int64
 	doneWG      sync.WaitGroup
 	ethClient   eth.Client
-	keeperORM   KeeperORM
+	orm         ORM
 
 	executionQueue chan struct{}
 	chDone         chan struct{}
@@ -105,7 +105,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	blockHeight := executor.blockHeight.Load()
 	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", blockHeight)
 
-	activeUpkeeps, err := executor.keeperORM.EligibleUpkeeps(blockHeight)
+	activeUpkeeps, err := executor.orm.EligibleUpkeeps(blockHeight)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -113,7 +113,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
-
+	// TODO - RYAN - comment
 	done := func() { <-executor.executionQueue; wg.Done() }
 	for _, reg := range activeUpkeeps {
 		executor.executionQueue <- struct{}{}
@@ -150,7 +150,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 
 	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	err = executor.keeperORM.CreateEthTransactionForUpkeep(upkeep, performTxData)
+	err = executor.orm.CreateEthTransactionForUpkeep(upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
 	}

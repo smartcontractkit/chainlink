@@ -269,7 +269,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	t.Parallel()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	db := store.DB
 
@@ -291,7 +291,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		var ocrJob job.SpecDB
+		var ocrJob job.Job
 		err = store.DB.First(&ocrJob).Error
 		require.NoError(t, err)
 
@@ -304,14 +304,14 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		require.NoError(t, err)
 		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 0)
 		cltest.AssertCount(t, store, pipeline.Spec{}, 0)
-		cltest.AssertCount(t, store, job.SpecDB{}, 0)
+		cltest.AssertCount(t, store, job.Job{}, 0)
 	})
 
 	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
 		registry := cltest.MustInsertKeeperRegistry(t, store)
 		_ = cltest.MustInsertUpkeepForRegistry(t, store, registry)
 
-		var keeperJob job.SpecDB
+		var keeperJob job.Job
 		err := store.DB.First(&keeperJob).Error
 		require.NoError(t, err)
 
@@ -326,6 +326,6 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
 		cltest.AssertCount(t, store, keeper.Registry{}, 0)
 		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 0)
-		cltest.AssertCount(t, store, job.SpecDB{}, 0)
+		cltest.AssertCount(t, store, job.Job{}, 0)
 	})
 }
