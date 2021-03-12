@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -105,7 +106,8 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	blockHeight := executor.blockHeight.Load()
 	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", blockHeight)
 
-	activeUpkeeps, err := executor.orm.EligibleUpkeeps(blockHeight)
+	ctx, _ := postgres.DefaultQueryCtx()
+	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, blockHeight)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -150,7 +152,8 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 
 	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
 
-	err = executor.orm.CreateEthTransactionForUpkeep(upkeep, performTxData)
+	ctx, _ := postgres.DefaultQueryCtx()
+	err = executor.orm.CreateEthTransactionForUpkeep(ctx, upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
 	}
