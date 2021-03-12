@@ -446,6 +446,7 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 	if err != nil {
 		return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
 	}
+	defer logger.ErrorIfCalling(rows.Close)
 
 	for rows.Next() {
 		var ethTxID int64
@@ -462,7 +463,7 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64)
 	}
 
-	return errors.Wrap(rows.Close(), "markOldTxesMissingReceiptAsErrored failed to close rows")
+	return nil
 }
 
 func (ec *ethConfirmer) RebroadcastWhereNecessary(ctx context.Context, keys []models.Key, blockHeight int64) error {
