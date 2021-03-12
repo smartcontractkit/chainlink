@@ -56,23 +56,23 @@ func (o *ormLogWrapper) Trace(ctx context.Context, begin time.Time, fc func() (s
 		}
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Errorw("", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Errorw("", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Errorw("Operation failed", "err", err, "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case elapsed > o.slowThreshold && o.slowThreshold != 0:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Warnw("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Warnw("Operation timed out", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Warnw("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Warnw("Operation timed out", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	case o.logAllQueries:
 		sql, rows := fc()
 		if rows == -1 {
-			o.SugaredLogger.Infow("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
+			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "sql", sql)
 		} else {
-			o.SugaredLogger.Infow("", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
+			o.SugaredLogger.Infow("Query executed", "elapsed", float64(elapsed.Nanoseconds())/1e6, "rows", rows, "sql", sql)
 		}
 	}
 }
