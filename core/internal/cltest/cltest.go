@@ -48,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
@@ -834,6 +835,20 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
 	return createdJob
 }
 
+func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusOK)
+
+	var jobResponse webpresenters.JobResource
+	err := ParseJSONAPIResponse(t, resp, &jobResponse)
+	require.NoError(t, err)
+	return jobResponse
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
@@ -1109,6 +1124,23 @@ func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.JobID, cou
 	return jse
 }
 
+// WaitForSpecErrorV2 polls until the passed in jobID has count number
+// of job spec errors.
+func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
+	t.Helper()
+
+	g := gomega.NewGomegaWithT(t)
+	var jse []job.SpecError
+	g.Eventually(func() []job.SpecError {
+		err := store.DB.
+			Where("job_id = ?", jobID).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1168,6 +1200,22 @@ func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want i
 		return jrs
 	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return jrs
+}
+
+// AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var prs []pipeline.Run
+	g.Consistently(func() []pipeline.Run {
+		err := store.DB.
+			Where("pipeline_spec_id = ?", pipelineSpecID).
+			Find(&prs).Error
+		assert.NoError(t, err)
+		return prs
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return prs
 }
 
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
