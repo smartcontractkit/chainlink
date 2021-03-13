@@ -28,7 +28,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestJobsController_Create_ValidationFailure(t *testing.T) {
+func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -124,6 +124,41 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
+}
+
+func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "testdata/keeper-spec.toml")
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.Job{}
+	require.NoError(t, app.Store.DB.Preload("KeeperSpec").First(&jb).Error)
+
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
+	assert.NoError(t, err)
+
+	require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
+	require.Equal(t, resource.KeeperSpec.FromAddress, jb.KeeperSpec.FromAddress)
+	assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
+
+	// Sanity check to make sure it inserted correctly
+	require.Equal(t, models.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+	require.Equal(t, models.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
