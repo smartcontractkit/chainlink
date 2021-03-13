@@ -124,6 +124,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 		Joins(join, args...).
 		Preload("FluxMonitorSpec").
 		Preload("OffchainreportingOracleSpec").
+		Preload("KeeperSpec").
 		Preload("PipelineSpec.PipelineTaskSpecs").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
@@ -185,11 +186,14 @@ func (o *orm) DeleteJob(ctx context.Context, id int32) error {
 	defer o.claimedJobsMu.Unlock()
 
 	err := o.db.Exec(`
-            WITH deleted_jobs AS (
-            	DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id
-            ),
-            deleted_oracle_specs AS (
+			WITH deleted_jobs AS (
+				DELETE FROM jobs WHERE id = ? RETURNING offchainreporting_oracle_spec_id, pipeline_spec_id, keeper_spec_id
+			),
+			deleted_oracle_specs AS (
 				DELETE FROM offchainreporting_oracle_specs WHERE id IN (SELECT offchainreporting_oracle_spec_id FROM deleted_jobs)
+			),
+			deleted_keeper_specs AS (
+				DELETE FROM keeper_specs WHERE id IN (SELECT keeper_spec_id FROM deleted_jobs)
 			)
 			DELETE FROM pipeline_specs WHERE id IN (SELECT pipeline_spec_id FROM deleted_jobs)
     	`, id).Error
@@ -277,6 +281,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		Preload("DirectRequestSpec").
 		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
+		Preload("KeeperSpec").
 		Find(&jobs).
 		Error
 	for i := range jobs {
@@ -318,6 +323,7 @@ func (o *orm) FindJob(id int32) (Job, error) {
 		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
 		Preload("JobSpecErrors").
+		Preload("KeeperSpec").
 		First(&job, "jobs.id = ?", id).
 		Error
 	if job.OffchainreportingOracleSpec != nil {

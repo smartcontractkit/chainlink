@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
@@ -751,6 +753,60 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	j := NewJob()
 	require.NoError(t, s.CreateJob(&j))
 	return j
+}
+
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
+	t.Helper()
+	keeperSpec := job.KeeperSpec{
+		ContractAddress: contract,
+		FromAddress:     from,
+	}
+	err := store.DB.Create(&keeperSpec).Error
+	require.NoError(t, err)
+	specDB := job.Job{
+		KeeperSpec:    &keeperSpec,
+		Type:          job.Keeper,
+		SchemaVersion: 1,
+		PipelineSpec:  &pipeline.Spec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry {
+	key, _ := MustAddRandomKeyToKeystore(t, store)
+	from := key.Address
+	t.Helper()
+	contractAddress := NewEIP55Address()
+	job := MustInsertKeeperJob(t, store, from, contractAddress)
+	registry := keeper.Registry{
+		ContractAddress:   contractAddress,
+		BlockCountPerTurn: 20,
+		CheckGas:          10_000,
+		FromAddress:       from,
+		JobID:             job.ID,
+		KeeperIndex:       0,
+		NumKeepers:        1,
+	}
+	err := store.DB.Create(&registry).Error
+	require.NoError(t, err)
+	return registry
+}
+
+func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
+	ctx, _ := postgres.DefaultQueryCtx()
+	upkeepID, err := keeper.NewORM(store.DB).LowestUnsyncedID(ctx, registry)
+	require.NoError(t, err)
+	upkeep := keeper.UpkeepRegistration{
+		UpkeepID:   upkeepID,
+		ExecuteGas: int32(10_000),
+		Registry:   registry,
+		CheckData:  common.Hex2Bytes("ABC123"),
+	}
+	err = store.DB.Create(&upkeep).Error
+	require.NoError(t, err)
+	return upkeep
 }
 
 func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
