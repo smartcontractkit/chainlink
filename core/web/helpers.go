@@ -41,7 +41,7 @@ func paginatedResponseWithMeta(
 	resource interface{},
 	count int,
 	err error,
-	meta map[string]string,
+	meta map[string]interface{},
 ) {
 	if errors.Cause(err) == orm.ErrorNotFound {
 		err = nil

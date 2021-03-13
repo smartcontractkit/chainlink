@@ -76,7 +76,7 @@ func NewJSONAPIResponse(resource interface{}) ([]byte, error) {
 	return json.Marshal(document)
 }
 
-func NewPaginatedResponseWithMeta(url url.URL, size, page, count int, resource interface{}, meta map[string]string) ([]byte, error) {
+func NewPaginatedResponseWithMeta(url url.URL, size, page, count int, resource interface{}, meta map[string]interface{}) ([]byte, error) {
 	document, err := getPaginatedResponseDoc(url, size, page, count, resource)
 	if err != nil {
 		return nil, err
@@ -122,19 +122,38 @@ func getPaginatedResponseDoc(url url.URL, size, page, count int, resource interf
 
 // ParsePaginatedResponse parse a JSONAPI response for a document with links
 func ParsePaginatedResponse(input []byte, resource interface{}, links *jsonapi.Links) error {
+	document := jsonapi.Document{}
+	err := parsePaginatedResponseToDocument(input, resource, &document)
+	if err != nil {
+		return err
+	}
+	*links = document.Links
+	return nil
+}
+
+// ParsePaginatedResponse parse a JSONAPI response for a document with links
+func ParsePaginatedResponseWithMeta(input []byte, resource interface{}, links *jsonapi.Links, meta *jsonapi.Meta) error {
+	document := jsonapi.Document{}
+	err := parsePaginatedResponseToDocument(input, resource, &document)
+	if err != nil {
+		return err
+	}
+	*links = document.Links
+	*meta = document.Meta
+	return nil
+}
+
+func parsePaginatedResponseToDocument(input []byte, resource interface{}, document *jsonapi.Document) error {
 	err := ParseJSONAPIResponse(input, resource)
 	if err != nil {
 		return errors.Wrap(err, "ParseJSONAPIResponse error")
 	}
 
 	// Unmarshal using the stdlib Unmarshal to extract the links part of the document
-	document := jsonapi.Document{}
 	err = json.Unmarshal(input, &document)
 	if err != nil {
 		return fmt.Errorf("unable to unmarshal links: %+v", err)
 	}
-
-	*links = document.Links
 	return nil
 }
 

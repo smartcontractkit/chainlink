@@ -348,7 +348,7 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 	assert.NoError(t, err)
 	require.Equal(t, 2, count)
 	require.Equal(t, 1, completedCount)
-	require.Equal(t, t, 1, errorCount)
+	require.Equal(t, 1, errorCount)
 	actual := []uuid.UUID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
 	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, actual)
 }

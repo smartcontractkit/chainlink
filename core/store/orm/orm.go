@@ -498,6 +498,19 @@ func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 	return int(count), err
 }
 
+func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string) (int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
+	err := orm.DB.
+		Model(&models.JobRun{}).
+		Where("job_spec_id = ?", jobSpecID).
+		Where("status = ?", status).
+		Count(&count).Error
+	return int(count), err
+}
+
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 	var sessions []models.Session
@@ -944,7 +957,14 @@ func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, li
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
-
+	completedCount, err := orm.JobRunsCountForGivenStatus(id, "completed")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	erroredCount, err := orm.JobRunsCountForGivenStatus(id, "errored")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	var runs []models.JobRun
 	err = orm.preloadJobRuns().
 		Where("job_spec_id = ?", id).
@@ -952,15 +972,6 @@ func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, li
 		Limit(limit).
 		Offset(offset).
 		Find(&runs).Error
-	var completedCount = 0
-	var erroredCount = 0
-	for _, r := range runs {
-		if r.Status.Completed() {
-			completedCount++
-		} else if r.Status.Errored() {
-			erroredCount++
-		}
-	}
 	return runs, count, completedCount, erroredCount, err
 }
 

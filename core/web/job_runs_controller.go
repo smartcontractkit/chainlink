@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -50,9 +49,9 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 
 		runs, count, completedCount, erroredCount, err = store.JobRunsSortedFor(runID, order, offset, size)
 	}
-	meta := make(map[string]string)
-	meta["completed"] = strconv.Itoa(completedCount)
-	meta["errored"] = strconv.Itoa(erroredCount)
+	meta := make(map[string]interface{})
+	meta["completed"] = completedCount
+	meta["errored"] = erroredCount
 	paginatedResponseWithMeta(c, "JobRuns", size, page, runs, count, err, meta)
 }
 
