@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `ADMIN_CREDENTIALS_FILE` configuration variable
+
+This variable defaults to `$ROOT/apicredentials` and when defined / the
+file exists, any command using the CLI that requires authentication will use it
+to automatically log in.
+
 - Add `ETH_MAX_UNCONFIRMED_TRANSACTIONS` configuration variable
 
 Chainlink node now has a maximum number of unconfirmed transactions that
@@ -31,6 +37,13 @@ by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
 requestNewRound enables dedicated requesters to request a fresh report to
 be sent to the contract right away regardless of heartbeat or deviation.
 
+- New prometheus metric:
+
+```
+Name: "head_tracker_eth_connection_errors",
+Help: "The total number of eth node connection errors",
+```
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
@@ -49,6 +62,20 @@ you can do this by running your geth node with `--rpc.gascap=0
   annoying errors related to backfilling heads, logged on startup and
   occasionally during normal operation on fast chains like Kovan.
 
+- Improvements to the GasUpdater
+
+Various efficiency and correctness improvements have been made to the
+GasUpdater. It places less load on the ethereum node and now features re-org
+detection.
+
+Most notably, GasUpdater no longer takes a 24 block delay to "warm up" on
+application start and instead loads all relevant block history immediately.
+This means that the application gas price will always be updated correctly
+after reboot before the first transaction is ever sent, eliminating the previous
+scenario where the node could send underpriced or overpriced transactions for a
+period after a reboot, until the gas updater caught up.
+
+
 ### Changed
 
 - Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20
@@ -59,7 +86,14 @@ Each Chainlink node will now use a maximum of 23 database connections (up from p
 - The global env var `JOB_PIPELINE_MAX_TASK_DURATION` is no longer supported
 for OCR jobs.
 
-## [0.10.1] - 2021-02-23
+## [0.10.2] - 2021-02-26
+
+### Fixed
+
+- Add contexts so that database queries timeout when necessary.
+- Use manual updates instead of gorm update associations.
+
+## [0.10.1] - 2021-02-25
 
 ### Fixed
 

@@ -25,7 +25,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 	return CreateSpecViaWeb(t, app, string(MustReadFile(t, path)))
 }
 
-func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.SpecDB {
+func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.Job {
 	return CreateJobViaWeb(t, app, string(MustReadFile(t, path)))
 }
 

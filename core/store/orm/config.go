@@ -110,7 +110,7 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
 		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
@@ -203,6 +203,17 @@ func (c Config) GetDatabaseDialectConfiguredOrDefault() dialects.DialectName {
 // AllowOrigins returns the CORS hosts used by the frontend.
 func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
+}
+
+// AdminCredentialsFile points to text file containing admnn credentials for logging in
+func (c Config) AdminCredentialsFile() string {
+	fieldName := "AdminCredentialsFile"
+	file := c.viper.GetString(EnvVarName(fieldName))
+	defaultValue, _ := defaultValue(fieldName)
+	if file == defaultValue {
+		return filepath.Join(c.RootDir(), "apicredentials")
+	}
+	return file
 }
 
 // AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
@@ -326,6 +337,11 @@ func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
 }
 
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+func (c Config) FeatureFluxMonitorV2() bool {
+	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
+}
+
 // FeatureOffchainReporting enables the Flux Monitor feature.
 func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
@@ -400,7 +416,7 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
@@ -548,6 +564,10 @@ func (c Config) JobPipelineReaperInterval() time.Duration {
 
 func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperRegistrySyncInterval() time.Duration {
+	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }
 
 // JSONConsole enables the JSON console.
@@ -1052,6 +1072,10 @@ func parseIP(s string) (interface{}, error) {
 
 func parseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func parseBool(s string) (interface{}, error) {
+	return strconv.ParseBool(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

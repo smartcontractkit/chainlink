@@ -31,7 +31,7 @@ context('End to end', function () {
     cy.contains('h4', 'Transactions').should('exist')
 
     // Navigate to Explorer
-    const url = Cypress.env('EXPLORER_URL') || 'http://localhost:3001'
+    const url = Cypress.env('EXPLORER_URL') || 'http://localhost:8080'
     cy.forceVisit(url)
     cy.get('@runId').then((runId) => {
       cy.get('input[name=search]').type(runId)
