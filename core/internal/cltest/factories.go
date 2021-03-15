@@ -824,18 +824,17 @@ func RandomLog(t *testing.T) types.Log {
 	}
 }
 
-func MustInsertLog(t *testing.T, log types.Log, store *strpkg.Store) {
+func RawNewRoundLog(t *testing.T, contractAddr common.Address, blockHash common.Hash, blockNumber uint64, logIndex uint, removed bool) types.Log {
 	t.Helper()
 
-	topics := make([][]byte, len(log.Topics))
-	for i, topic := range log.Topics {
-		x := make([]byte, len(topic))
-		copy(x, topic[:])
-		topics[i] = x
+	topic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	return types.Log{
+		Address:     contractAddr,
+		BlockHash:   blockHash,
+		BlockNumber: blockNumber,
+		Index:       logIndex,
+		Topics:      []common.Hash{topic, NewHash(), NewHash()},
+		Data:        []byte("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Removed:     removed,
 	}
-
-	err := store.DB.Exec(`
-        INSERT INTO eth_logs (block_hash, block_number, index, address, topics, data, created_at) VALUES (?,?,?,?,?,?,NOW())
-    `, log.BlockHash, log.BlockNumber, log.Index, log.Address, pq.ByteaArray(topics), log.Data).Error
-	require.NoError(t, err)
 }
