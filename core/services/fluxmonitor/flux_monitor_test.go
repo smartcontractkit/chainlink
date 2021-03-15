@@ -406,7 +406,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	logBroadcaster := new(logmocks.Broadcaster)
 	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
 		return opts.Contract.Address() == initr.Address
-	})).Return(true)
+	})).Return(true, func() {})
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)
@@ -499,8 +499,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			fluxAggregator.On("Address").Return(initr.Address).Maybe()
-			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			idleDurationOccured := make(chan struct{}, 3)
 
@@ -596,8 +595,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
-	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-	logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 	fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 	fluxAggregator.On("Address").Return(initr.Address).Maybe()
@@ -675,8 +673,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 		t.Run(test.name, func(t *testing.T) {
 			fluxAggregator := new(mocks.FluxAggregator)
 
-			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			fluxAggregator.On("Address").Return(initr.Address).Maybe()
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
@@ -764,8 +761,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 		t.Run(test.name, func(t *testing.T) {
 			fluxAggregator := new(mocks.FluxAggregator)
 
-			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			fluxAggregator.On("Address").Return(initr.Address).Maybe()
 			fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
@@ -842,8 +838,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 	chRoundState1 := make(chan struct{})
 	chRoundState2 := make(chan struct{})
 
-	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-	logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 	fluxAggregator.On("Address").Return(initr.Address).Maybe()
 	fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)

@@ -228,7 +228,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	listener1 := &simpleLogListener{
 		handler: func(lb log.Broadcast) {
-			logger.Warnf("1 got %v", lb.RawLog().BlockNumber)
 			addr1Logs1 = append(addr1Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
@@ -236,7 +235,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	}
 	listener2 := &simpleLogListener{
 		handler: func(lb log.Broadcast) {
-			logger.Warnf("2 got %v", lb.RawLog().BlockNumber)
 			addr1Logs2 = append(addr1Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
@@ -244,7 +242,6 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	}
 	listener3 := &simpleLogListener{
 		handler: func(lb log.Broadcast) {
-			logger.Warnf("3 got %v", lb.RawLog().BlockNumber)
 			addr2Logs1 = append(addr2Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
@@ -252,28 +249,11 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	}
 	listener4 := &simpleLogListener{
 		handler: func(lb log.Broadcast) {
-			logger.Warnf("4 got %v", lb.RawLog().BlockNumber)
 			addr2Logs2 = append(addr2Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: createJob(t, store).ID,
 	}
-
-	cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     0,
-		EndBlock:       10,
-		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{lb},
-		Hashes: map[int64]common.Hash{
-			1: blockHash1,
-			2: blockHash2,
-			3: blockHash3,
-			4: blockHash4,
-			5: blockHash5,
-			6: blockHash6,
-		},
-	})
-	defer cleanup()
 
 	_, unsubscribe := lb.Register(listener1, log.ListenerOpts{
 		Contract: contract1,
@@ -490,6 +470,7 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 		},
 	})
+	defer unsubscribe()
 
 	select {
 	case <-chchRawLogs:
@@ -536,26 +517,25 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			blockHeight1: 0,
 			batch1:       []uint{1, 2},
 
-			blockHeight2:     3,
+			blockHeight2:     2,
 			backfillableLogs: nil,
-			batch2:           []uint{7, 8},
+			batch2:           []uint{3, 4},
 
-			expectedFilteredA: []uint{1, 2, 7, 8},
-			expectedFilteredB: []uint{7, 8},
+			expectedFilteredA: []uint{1, 2, 3, 4},
+			expectedFilteredB: []uint{3, 4}},
+		{
+			name: "no backfilled logs, overlap",
+
+			blockHeight1: 0,
+			batch1:       []uint{1, 2},
+
+			blockHeight2:     2,
+			backfillableLogs: nil,
+			batch2:           []uint{2, 3},
+
+			expectedFilteredA: []uint{1, 2, 3},
+			expectedFilteredB: []uint{2, 3},
 		},
-		// {
-		// 	name: "no backfilled logs, overlap",
-
-		// 	blockHeight1: 0,
-		// 	batch1:       []uint{1, 2},
-
-		// 	blockHeight2:     2,
-		// 	backfillableLogs: nil,
-		// 	batch2:           []uint{2, 3},
-
-		// 	expectedFilteredA: []uint{1, 2, 3},
-		// 	expectedFilteredB: []uint{2, 3},
-		// },
 		{
 			name: "backfilled logs, no overlap",
 
@@ -689,16 +669,12 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				EndBlock:      test.blockHeight2,
 				BackfillDepth: backfillDepth,
 				Hashes:        blockHashes,
-				HeadTrackables: []strpkg.HeadTrackable{lb, cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
-					logger.Warnf("------------ HEAD TRACKABLE (%v) --------------", head.Number)
+				HeadTrackables: []strpkg.HeadTrackable{cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					if _, exists := logsA[uint(head.Number)]; !exists {
-						logger.Warnf("  ** not exists")
 						return
 					} else if !batchContains(test.batch1, uint(head.Number)) {
-						logger.Warnf("  ** not batchContains %v %v", head.Number, test.batch1)
 						return
 					}
-					logger.Warnf("  ** yup!")
 					select {
 					case chRawLogs1 <- logsA[uint(head.Number)]:
 					case <-time.After(5 * time.Second):
@@ -713,7 +689,6 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			}
 			requireAllReceived(t, &expectedA, &recvdA)
 			requireBroadcastCount(t, store, len(test.batch1))
-			logger.Debugf(" -- recvdA: %v / expectedA: %v", recvdA, expectedA)
 
 			cleanup()
 
@@ -747,7 +722,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock:    test.blockHeight2,
 				BackfillDepth: backfillDepth,
 				Hashes:        blockHashes,
-				HeadTrackables: []strpkg.HeadTrackable{lb, cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				HeadTrackables: []strpkg.HeadTrackable{cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						select {
 						case chRawLogs2 <- logsA[uint(head.Number)]:
@@ -912,14 +887,6 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	hash0 := cltest.NewHash()
 	hash1 := cltest.NewHash()
 
-	cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     3,
-		BackfillDepth:  10,
-		HeadTrackables: []strpkg.HeadTrackable{lb},
-		Hashes:         map[int64]common.Hash{0: hash0, 1: hash1},
-	})
-	defer cleanup()
-
 	newRoundTopic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
 	answerUpdatedTopic := (flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}).Topic()
 
@@ -962,10 +929,8 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		blockHash0  = cltest.NewHash()
 		blockHash1  = cltest.NewHash()
 		blockHash2  = cltest.NewHash()
-		blockHash3  = cltest.NewHash()
 		blockHash1R = cltest.NewHash()
 		blockHash2R = cltest.NewHash()
-		blockHash3R = cltest.NewHash()
 
 		addr = cltest.NewAddress()
 
@@ -977,22 +942,14 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		log1R       = cltest.RawNewRoundLog(t, addr, blockHash1R, 1, 0, false)
 		log2R       = cltest.RawNewRoundLog(t, addr, blockHash2R, 2, 0, false)
 
-		head0  = models.Head{Hash: blockHash0, Number: 0}
-		head1  = models.Head{Hash: blockHash1, Number: 1, Parent: &head0}
-		head2  = models.Head{Hash: blockHash2, Number: 2, Parent: &head1}
-		head3  = models.Head{Hash: blockHash3, Number: 3, Parent: &head2}
-		head1R = models.Head{Hash: blockHash1R, Number: 1, Parent: &head0}
-		head2R = models.Head{Hash: blockHash2R, Number: 2, Parent: &head1R}
-		head3R = models.Head{Hash: blockHash3R, Number: 3, Parent: &head2R}
-
-		events = []interface{}{
-			head0, log0,
-			head1, log1,
-			head2, log2,
-			head3,
-			head1R, log1Removed, log2Removed, log1R,
-			head2R, log2R,
-			head3R,
+		logs = []types.Log{
+			log0,
+			log1,
+			log2,
+			log1Removed,
+			log2Removed,
+			log1R,
+			log2R,
 		}
 		expected = []types.Log{log0, log1, log2, log1R, log2R}
 	)
@@ -1024,17 +981,9 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 
 	chRawLogs := <-chchRawLogs
 
-	go func() {
-		for _, event := range events {
-			switch x := event.(type) {
-			case models.Head:
-				lb.OnNewLongestChain(context.Background(), x)
-			case types.Log:
-				chRawLogs <- x
-			}
-			time.Sleep(250 * time.Millisecond)
-		}
-	}()
+	for _, log := range logs {
+		chRawLogs <- log
+	}
 
 	require.Eventually(t, func() bool {
 		recvdMu.Lock()

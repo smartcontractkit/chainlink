@@ -3,7 +3,6 @@ package log_test
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -30,15 +29,6 @@ func (listener simpleLogListener) IsV2Job() bool {
 }
 func (listener simpleLogListener) JobIDV2() int32 {
 	return 0
-}
-
-type logBroadcastRow struct {
-	BlockHash   common.Hash
-	BlockNumber uint64
-	LogIndex    uint
-	JobID       models.JobID
-	JobIDV2     int32
-	Consumed    bool
 }
 
 type mockListener struct {

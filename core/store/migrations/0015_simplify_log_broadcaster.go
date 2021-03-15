@@ -1,16 +1,16 @@
-package migrationsv2
+package migrations
 
 import (
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
-const up13 = `
+const up15 = `
     ALTER TABLE log_broadcasts DROP COLUMN "eth_log_id";
     DROP TABLE "eth_logs";
 `
 
-const down13 = `
+const down15 = `
     CREATE TABLE "eth_logs" (
         "id" BIGSERIAL PRIMARY KEY,
         "block_hash" bytea NOT NULL,
@@ -39,12 +39,12 @@ const down13 = `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0013_simplify_log_broadcaster",
+		ID: "0015_simplify_log_broadcaster",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up13).Error
+			return db.Exec(up15).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down13).Error
+			return db.Exec(down15).Error
 		},
 	})
 }
