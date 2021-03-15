@@ -331,8 +331,10 @@ func (b *broadcaster) processLog(log types.Log) {
 
 func (b *broadcaster) onNewHeads() {
 	for {
-		x := b.newHeads.Retrieve()
+		// We only care about the most recent head
+		x := b.newHeads.RetrieveLatestAndClear()
 		if x == nil {
+			// This should never happen
 			break
 		}
 		head, ok := x.(models.Head)
@@ -343,23 +345,45 @@ func (b *broadcaster) onNewHeads() {
 		b.latestBlock = uint64(head.Number)
 
 		b.canonicalChain = make(map[common.Hash]struct{})
-		for h := &head; h.Parent != nil; h = h.Parent {
+		var heads []*models.Head
+		for h := &head; h != nil; h = h.Parent {
+			heads = append(heads, h)
 			b.canonicalChain[h.Hash] = struct{}{}
+		}
+		logger.Warnf("heads --------------------------------")
+		for _, head := range heads {
+			logger.Warnf("  - %v %v", head.Number, head.Hash)
 		}
 	}
 
 	// Now that we're caught up, broadcast all pending logs
 	b.broadcastPendingLogs()
+	logger.Warnf("///////////////////////// heads")
 }
 
 func (b *broadcaster) broadcastPendingLogs() {
 	b.logsMu.Lock()
 	defer b.logsMu.Unlock()
 
-	for _, logs := range b.logs {
+	nextLogs := make(map[common.Address][]types.Log)
+
+	for contractAddr, logs := range b.logs {
+		var nums []uint64
 		for _, log := range logs {
+			nums = append(nums, log.BlockNumber)
+		}
+		for i, log := range logs {
+			logger.Infof("log: %v", log.BlockNumber)
+			// Defer processing more logs from this contract if we haven't received its block yet
+			if log.BlockNumber > b.latestBlock {
+				logger.Infof("xyzzy no block yet")
+				nextLogs[contractAddr] = logs[i:]
+				break
+			}
+
 			// Skip logs that have been reorged away
 			if _, exists := b.canonicalChain[log.BlockHash]; !exists {
+				logger.Infof("xyzzy reorged away: %v %v", log.BlockNumber, log.BlockHash)
 				continue
 			}
 
@@ -390,7 +414,7 @@ func (b *broadcaster) broadcastPendingLogs() {
 			wg.Wait()
 		}
 	}
-	b.logs = make(map[common.Address][]types.Log)
+	b.logs = nextLogs
 }
 
 func copyLog(l types.Log) types.Log {
