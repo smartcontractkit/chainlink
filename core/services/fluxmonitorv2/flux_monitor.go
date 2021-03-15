@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -242,7 +243,9 @@ const (
 func (fm *FluxMonitor) Start() error {
 	fm.logger.Debug("Starting Flux Monitor for job")
 
-	go fm.consume()
+	go gracefulpanic.WrapRecover(func() {
+		fm.consume()
+	})
 
 	return nil
 }
