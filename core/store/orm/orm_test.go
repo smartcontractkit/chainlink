@@ -1,6 +1,7 @@
 package orm_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/big"
@@ -9,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -179,7 +181,194 @@ func TestORM_CreateJobRun_CreatesRunRequest(t *testing.T) {
 	assert.Equal(t, 1, requestCount)
 }
 
-func TestORM_SaveJobRun_OnConstraintViolationOtherThanOptimisticLockFailureReturnsError(t *testing.T) {
+func TestORM_SaveJobRun_JobRun(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	t.Run("does not error on a job run with no task runs", func(t *testing.T) {
+		job := cltest.NewJobWithWebInitiator()
+		require.NoError(t, store.CreateJob(&job))
+		rr := models.NewRunRequest(models.JSON{})
+		currentHeight := big.NewInt(0)
+		run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
+		require.NoError(t, store.CreateJobRun(run))
+		run.TaskRuns = []models.TaskRun{}
+
+		require.NoError(t, store.SaveJobRun(run))
+	})
+
+	job := cltest.NewJobWithWebInitiator()
+	require.NoError(t, store.CreateJob(&job))
+	rr := models.NewRunRequest(models.JSON{})
+	currentHeight := big.NewInt(0)
+	run, _ := services.NewRun(&job, &job.Initiators[0], currentHeight, rr, store.Config, store.ORM, time.Now())
+	require.NoError(t, store.CreateJobRun(run))
+
+	t.Run("if no results exist already, inserts them", func(t *testing.T) {
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.True(t, run.ResultID.Valid)
+		require.Equal(t, run.ResultID.Int64, run.Result.ID)
+		require.Equal(t, models.JSON{}, run.Result.Data)
+		require.False(t, run.Result.ErrorMessage.Valid)
+
+		require.Len(t, run.TaskRuns, 1)
+
+		tr := run.TaskRuns[0]
+		require.True(t, tr.ResultID.Valid)
+		require.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		require.Equal(t, models.JSON{}, tr.Result.Data)
+		require.False(t, tr.Result.ErrorMessage.Valid)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("if results exist already, updates all run results for job run and task runs", func(t *testing.T) {
+		run.Result.Data = cltest.JSONFromString(t, `{"foo": 42}`)
+		run.Result.ErrorMessage = null.StringFrom(`something exploded`)
+
+		run.TaskRuns[0].Result.Data = cltest.JSONFromString(t, `{"bar": 3.14}`)
+		run.TaskRuns[0].Result.ErrorMessage = null.StringFrom(`something else exploded`)
+
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.True(t, run.ResultID.Valid)
+		require.Equal(t, run.ResultID.Int64, run.Result.ID)
+		require.Equal(t, cltest.JSONFromString(t, `{"foo": 42}`), run.Result.Data)
+		require.Equal(t, "something exploded", run.Result.ErrorMessage.String)
+
+		require.Len(t, run.TaskRuns, 1)
+
+		tr := run.TaskRuns[0]
+		require.True(t, tr.ResultID.Valid)
+		require.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		require.Equal(t, cltest.JSONFromString(t, `{"bar": 3.14}`), tr.Result.Data)
+		require.Equal(t, "something else exploded", tr.Result.ErrorMessage.String)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("returns optimistic update failure if job run does not exist at all with that ID", func(t *testing.T) {
+		run2 := &models.JobRun{ID: uuid.NewV4(), Status: models.RunStatusUnstarted}
+		err := store.SaveJobRun(run2)
+
+		require.Error(t, err)
+		require.Equal(t, orm.ErrOptimisticUpdateConflict, errors.Cause(err))
+	})
+
+	t.Run("returns error if one of the task runs has not been inserted", func(t *testing.T) {
+		ts := models.TaskSpec{Type: adapters.TaskTypeNoOp, JobSpecID: job.ID}
+		require.NoError(t, store.DB.Create(&ts).Error)
+
+		tr := models.TaskRun{ID: uuid.NewV4(), Status: models.RunStatusErrored, TaskSpecID: ts.ID, JobRunID: run.ID}
+		run.TaskRuns = append(run.TaskRuns, tr)
+
+		err := store.SaveJobRun(run)
+		require.Error(t, err)
+		require.EqualError(t, err, fmt.Sprintf("SaveJobRun failed: failed to insert run_result; task run with id %s was missing", tr.ID))
+	})
+
+	t.Run("if one task run result exists and one does not, does a mixture of inserts and updates", func(t *testing.T) {
+		tr := run.TaskRuns[1]
+		require.NoError(t, store.DB.Save(&tr).Error)
+
+		run.TaskRuns[0].Result.Data = cltest.JSONFromString(t, `{"baz": 100}`)
+		run.TaskRuns[0].Result.ErrorMessage = null.String{}
+		run.TaskRuns[1].Result.ErrorMessage = null.StringFrom(`oh dear`)
+
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.Len(t, run.TaskRuns, 2)
+
+		tr = run.TaskRuns[0]
+		assert.True(t, tr.ResultID.Valid)
+		assert.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		assert.Equal(t, cltest.JSONFromString(t, `{"baz": 100}`), tr.Result.Data)
+		assert.False(t, tr.Result.ErrorMessage.Valid)
+
+		tr = run.TaskRuns[1]
+		assert.True(t, tr.ResultID.Valid)
+		assert.Equal(t, tr.ResultID.Int64, tr.Result.ID)
+		assert.Equal(t, cltest.JSONFromString(t, ``), tr.Result.Data)
+		assert.Equal(t, "oh dear", tr.Result.ErrorMessage.String)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("updates fields on the job run", func(t *testing.T) {
+		finishedAt := null.TimeFrom(time.Unix(42, 0))
+		status := models.RunStatusPendingSleep
+		creationHeight := utils.NewBigI(43)
+		observedHeight := utils.NewBigI(44)
+		payment := assets.NewLink(45)
+
+		run.Status = status
+		run.FinishedAt = finishedAt
+		run.CreationHeight = creationHeight
+		run.ObservedHeight = observedHeight
+		run.Payment = payment
+
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.Equal(t, finishedAt, run.FinishedAt)
+		require.Equal(t, status, run.Status)
+		require.Equal(t, creationHeight, run.CreationHeight)
+		require.Equal(t, observedHeight, run.ObservedHeight)
+		require.Equal(t, payment, run.Payment)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("updates fields on the task run", func(t *testing.T) {
+		status := models.RunStatusPendingConnection
+
+		run.TaskRuns[0].Status = status
+
+		require.NoError(t, store.SaveJobRun(run))
+
+		require.Equal(t, status, run.TaskRuns[0].Status)
+
+		loadedRun, err := store.FindJobRun(run.ID)
+		require.NoError(t, err)
+		require.Equal(t, *run, loadedRun)
+	})
+
+	t.Run("inserted sync_event", func(t *testing.T) {
+		se := models.SyncEvent{}
+		err := store.DB.Order("id desc").First(&se).Error
+		require.NoError(t, err)
+
+		assert.Contains(t, se.Body, job.ID.String())
+		assert.Contains(t, se.Body, run.ID.String())
+	})
+
+	t.Run("returns error if task run result is not preloaded", func(t *testing.T) {
+		run.TaskRuns[1].Result = models.RunResult{}
+		err := store.SaveJobRun(run)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected TaskRun.Result to be preloaded")
+	})
+
+	t.Run("returns error if job run result is not preloaded", func(t *testing.T) {
+		run.Result = models.RunResult{}
+		err := store.SaveJobRun(run)
+
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected JobRun.Result to be preloaded")
+	})
+}
+
+func TestORM_SaveJobRun_OptimisticLockFailure(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -188,10 +377,12 @@ func TestORM_SaveJobRun_OnConstraintViolationOtherThanOptimisticLockFailureRetur
 	require.NoError(t, store.CreateJob(&job))
 	jr := cltest.CreateJobRunWithStatus(t, store, job, models.RunStatusUnstarted)
 
-	jr.InitiatorID = 0
-	jr.Initiator = models.Initiator{}
+	// Something else updated it
+	require.NoError(t, store.DB.Exec(`UPDATE job_runs SET updated_at = '1942-01-01'`).Error)
+
 	err := store.SaveJobRun(&jr)
-	assert.EqualError(t, err, "ERROR: insert or update on table \"job_runs\" violates foreign key constraint \"fk_job_runs_initiator_id\" (SQLSTATE 23503)")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, orm.ErrOptimisticUpdateConflict))
 }
 
 func TestORM_SaveJobRun_ArchivedDoesNotRevertDeletedAt(t *testing.T) {
@@ -228,16 +419,15 @@ func TestORM_SaveJobRun_Cancelled(t *testing.T) {
 	jr.SetStatus(models.RunStatusInProgress)
 	require.NoError(t, store.SaveJobRun(&jr))
 
-	// Save the updated at before saving with cancelled
-	updatedAt := jr.UpdatedAt
-
 	jr.SetStatus(models.RunStatusCancelled)
 	require.NoError(t, store.SaveJobRun(&jr))
 
-	// Restore the previous updated at to simulate a conflict
-	jr.UpdatedAt = updatedAt
+	// Set a previous updated at to simulate a conflict
+	jr.UpdatedAt = time.Unix(42, 0)
 	jr.SetStatus(models.RunStatusInProgress)
-	assert.Equal(t, orm.ErrOptimisticUpdateConflict, store.SaveJobRun(&jr))
+	err := store.SaveJobRun(&jr)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, orm.ErrOptimisticUpdateConflict))
 }
 
 func TestORM_JobRunsFor(t *testing.T) {
@@ -1268,18 +1458,18 @@ func TestORM_Heads_Chain(t *testing.T) {
 		} else if idx == 7 {
 			longestChainHeadHash = h.Hash
 		}
-		assert.Nil(t, store.IdempotentInsertHead(h))
+		assert.Nil(t, store.IdempotentInsertHead(context.TODO(), h))
 	}
 
 	competingHead1 := *cltest.Head(3)
 	competingHead1.ParentHash = baseOfForkHash
-	assert.Nil(t, store.IdempotentInsertHead(competingHead1))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead1))
 	competingHead2 := *cltest.Head(4)
 	competingHead2.ParentHash = competingHead1.Hash
-	assert.Nil(t, store.IdempotentInsertHead(competingHead2))
+	assert.Nil(t, store.IdempotentInsertHead(context.TODO(), competingHead2))
 
 	// Query for the top of the longer chain does not include the competing chain
-	h, err := store.Chain(longestChainHeadHash, 12)
+	h, err := store.Chain(context.TODO(), longestChainHeadHash, 12)
 	require.NoError(t, err)
 	assert.Equal(t, longestChainHeadHash, h.Hash)
 	count := 1
@@ -1295,7 +1485,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.Equal(t, 8, count)
 
 	// If we set the limit lower we get fewer heads in chain
-	h, err = store.Chain(longestChainHeadHash, 2)
+	h, err = store.Chain(context.TODO(), longestChainHeadHash, 2)
 	require.NoError(t, err)
 	assert.Equal(t, longestChainHeadHash, h.Hash)
 	count = 1
@@ -1309,7 +1499,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.Equal(t, 2, count)
 
 	// If we query for the top of the competing chain we get its parents
-	head, err := store.Chain(competingHead2.Hash, 12)
+	head, err := store.Chain(context.TODO(), competingHead2.Hash, 12)
 	require.NoError(t, err)
 	assert.Equal(t, competingHead2.Hash, head.Hash)
 	require.NotNil(t, head.Parent)
@@ -1319,7 +1509,7 @@ func TestORM_Heads_Chain(t *testing.T) {
 	assert.NotNil(t, head.Parent.Parent.Parent) // etc...
 
 	// Returns error if hash has no matches
-	_, err = store.Chain(cltest.NewHash(), 12)
+	_, err = store.Chain(context.TODO(), cltest.NewHash(), 12)
 	require.Error(t, err)
 }
 
@@ -1331,18 +1521,18 @@ func TestORM_Heads_IdempotentInsertHead(t *testing.T) {
 
 	// Returns nil when inserting first head
 	head := *cltest.Head(0)
-	require.NoError(t, store.IdempotentInsertHead(head))
+	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
 
 	// Head is inserted
-	foundHead, err := store.LastHead()
+	foundHead, err := store.LastHead(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 
 	// Returns nil when inserting same head again
-	require.NoError(t, store.IdempotentInsertHead(head))
+	require.NoError(t, store.IdempotentInsertHead(context.TODO(), head))
 
 	// Head is still inserted
-	foundHead, err = store.LastHead()
+	foundHead, err = store.LastHead(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, head.Hash, foundHead.Hash)
 }
@@ -1354,7 +1544,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	// rollback due to constraint violation for this function
 	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
 	defer cleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)

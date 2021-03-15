@@ -1732,7 +1732,7 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 
 			config, configCleanup := cltest.NewConfig(t)
 			defer configCleanup()
-			store, storeCleanup := cltest.NewStoreWithConfig(config)
+			store, storeCleanup := cltest.NewStoreWithConfig(t, config)
 			defer storeCleanup()
 
 			var (

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -41,7 +42,7 @@ func (jc *JobsController) Index(c *gin.Context) {
 // Example:
 // "GET <application>/jobs/:ID"
 func (jc *JobsController) Show(c *gin.Context) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -84,7 +85,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Wrap(err, "failed to parse V2 job TOML. HINT: If you are trying to add a V1 job spec (json) via the CLI, try `job_specs create` instead"))
 	}
 
-	var js job.SpecDB
+	var js job.Job
 	config := jc.App.GetStore().Config
 	switch genericJS.Type {
 	case job.OffchainReporting:
@@ -97,6 +98,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = directrequest.ValidatedDirectRequestSpec(request.TOML)
 	case job.FluxMonitor:
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
+	case job.Keeper:
+		js, err = keeper.ValidatedKeeperSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
@@ -129,7 +132,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {
-	jobSpec := job.SpecDB{}
+	jobSpec := job.Job{}
 	err := jobSpec.SetID(c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

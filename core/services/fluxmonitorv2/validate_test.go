@@ -6,7 +6,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/orm"
+	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,8 +15,8 @@ func TestValidate(t *testing.T) {
 	var tt = []struct {
 		name       string
 		toml       string
-		setGlobals func(t *testing.T, c *orm.Config)
-		assertion  func(t *testing.T, os job.SpecDB, err error)
+		setGlobals func(t *testing.T, c *coreorm.Config)
+		assertion  func(t *testing.T, os job.Job, err error)
 	}{
 		{
 			name: "valid spec",
@@ -52,7 +52,7 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
 				require.NotNil(t, s.FluxMonitorSpec)
 				b, err := jsonapi.Marshal(s.FluxMonitorSpec)
@@ -85,7 +85,7 @@ ds1_parse [type=jsonparse path="latest"];
 ds1 -> ds1_parse -> answer1;
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Nil(t, s.FluxMonitorSpec)
 				require.Error(t, err)
 				assert.Regexp(t, regexp.MustCompile("^.*is not a valid EIP55 formatted address$"), err.Error())
@@ -115,18 +115,18 @@ ds1_parse [type=jsonparse path="latest"];
 ds1 -> ds1_parse;
 """
 `,
-			assertion: func(t *testing.T, s job.SpecDB, err error) {
+			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
 				assert.EqualError(t, err, "pollTimer.period must be equal or greater than 500ms, got 400ms")
 			},
-			setGlobals: func(t *testing.T, c *orm.Config) {
+			setGlobals: func(t *testing.T, c *coreorm.Config) {
 				c.Set("DEFAULT_HTTP_TIMEOUT", "2s")
 			},
 		},
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			c := orm.NewConfig()
+			c := coreorm.NewConfig()
 			if tc.setGlobals != nil {
 				tc.setGlobals(t, c)
 			}

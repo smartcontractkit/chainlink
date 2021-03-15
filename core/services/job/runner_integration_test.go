@@ -360,7 +360,7 @@ func TestRunner(t *testing.T) {
 
 	t.Run("missing required env vars", func(t *testing.T) {
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -382,7 +382,7 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
@@ -407,7 +407,7 @@ ds1 -> ds1_parse;
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -425,7 +425,7 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
@@ -456,7 +456,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := `
@@ -484,7 +484,7 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
@@ -518,7 +518,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		kb, _, err := keyStore.GenerateEncryptedOCRKeyBundle()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 
@@ -531,7 +531,7 @@ ds1 -> ds1_parse;
 		os.MaxTaskDuration = models.Interval(cltest.MustParseDuration(t, "1s"))
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
@@ -561,7 +561,7 @@ ds1 -> ds1_parse;
 		keyStore := offchainreporting.NewKeyStore(db, utils.GetScryptParams(config.Config))
 		_, ek, err := keyStore.GenerateEncryptedP2PKey()
 		require.NoError(t, err)
-		var os = job.SpecDB{
+		var os = job.Job{
 			Pipeline: *pipeline.NewTaskDAG(),
 		}
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address(), ek.PeerID)
@@ -571,7 +571,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
@@ -608,7 +608,7 @@ ds1 -> ds1_parse;
 		// Create an OCR job
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-		var jb job.SpecDB
+		var jb job.Job
 		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
 			First(&jb).Error

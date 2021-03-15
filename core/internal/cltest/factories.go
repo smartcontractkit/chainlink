@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	pbormanuuid "github.com/pborman/uuid"
@@ -708,22 +710,22 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
-func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.SpecDB {
+func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
 	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
-	specDB := job.SpecDB{
+	jb := job.Job{
 		OffchainreportingOracleSpec: &oracleSpec,
 		Type:                        job.OffchainReporting,
 		SchemaVersion:               1,
 		PipelineSpec:                &pipeline.Spec{},
 	}
-	err = store.DB.Create(&specDB).Error
+	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
-	return specDB
+	return jb
 }
 
 func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, transmitterAddress models.EIP55Address) job.OffchainReportingOracleSpec {
@@ -753,6 +755,60 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	return j
 }
 
+func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
+	t.Helper()
+	keeperSpec := job.KeeperSpec{
+		ContractAddress: contract,
+		FromAddress:     from,
+	}
+	err := store.DB.Create(&keeperSpec).Error
+	require.NoError(t, err)
+	specDB := job.Job{
+		KeeperSpec:    &keeperSpec,
+		Type:          job.Keeper,
+		SchemaVersion: 1,
+		PipelineSpec:  &pipeline.Spec{},
+	}
+	err = store.DB.Create(&specDB).Error
+	require.NoError(t, err)
+	return specDB
+}
+
+func MustInsertKeeperRegistry(t *testing.T, store *strpkg.Store) keeper.Registry {
+	key, _ := MustAddRandomKeyToKeystore(t, store)
+	from := key.Address
+	t.Helper()
+	contractAddress := NewEIP55Address()
+	job := MustInsertKeeperJob(t, store, from, contractAddress)
+	registry := keeper.Registry{
+		ContractAddress:   contractAddress,
+		BlockCountPerTurn: 20,
+		CheckGas:          10_000,
+		FromAddress:       from,
+		JobID:             job.ID,
+		KeeperIndex:       0,
+		NumKeepers:        1,
+	}
+	err := store.DB.Create(&registry).Error
+	require.NoError(t, err)
+	return registry
+}
+
+func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry keeper.Registry) keeper.UpkeepRegistration {
+	ctx, _ := postgres.DefaultQueryCtx()
+	upkeepID, err := keeper.NewORM(store.DB).LowestUnsyncedID(ctx, registry)
+	require.NoError(t, err)
+	upkeep := keeper.UpkeepRegistration{
+		UpkeepID:   upkeepID,
+		ExecuteGas: int32(10_000),
+		Registry:   registry,
+		CheckData:  common.Hex2Bytes("ABC123"),
+	}
+	err = store.DB.Create(&upkeep).Error
+	require.NoError(t, err)
+	return upkeep
+}
+
 func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmission *big.Int) flux_aggregator_wrapper.OracleRoundState {
 	return flux_aggregator_wrapper.OracleRoundState{
 		RoundId:          roundID,
@@ -779,7 +835,7 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 	return p
 }
 
-func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
+func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.Job {
 	t.Helper()
 
 	pspec := pipeline.Spec{}
@@ -800,7 +856,7 @@ func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.SpecDB {
 	drspec := job.DirectRequestSpec{}
 	require.NoError(t, db.Create(&drspec).Error)
 
-	job := job.SpecDB{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
+	job := job.Job{Type: "directrequest", SchemaVersion: 1, DirectRequestSpecID: &drspec.ID, PipelineSpecID: pspec.ID}
 	require.NoError(t, db.Create(&job).Error)
 
 	return job

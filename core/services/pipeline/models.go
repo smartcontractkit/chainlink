@@ -87,6 +87,46 @@ func (r Run) FinalErrors() (f FinalErrors) {
 	return f
 }
 
+// RunStatus represents the status of a run
+type RunStatus int
+
+const (
+	// RunStatusUnknown is the when the run status cannot be determined.
+	RunStatusUnknown RunStatus = iota
+	// RunStatusInProgress is used for when a run is actively being executed.
+	RunStatusInProgress
+	// RunStatusErrored is used for when a run has errored and will not complete.
+	RunStatusErrored
+	// RunStatusCompleted is used for when a run has successfully completed execution.
+	RunStatusCompleted
+)
+
+// Completed returns true if the status is RunStatusCompleted.
+func (s RunStatus) Completed() bool {
+	return s == RunStatusCompleted
+}
+
+// Errored returns true if the status is RunStatusErrored.
+func (s RunStatus) Errored() bool {
+	return s == RunStatusErrored
+}
+
+// Finished returns true if the status is final and can't be changed.
+func (s RunStatus) Finished() bool {
+	return s.Completed() || s.Errored()
+}
+
+// Status determines the status of the run.
+func (r *Run) Status() RunStatus {
+	if r.HasErrors() {
+		return RunStatusErrored
+	} else if r.FinishedAt != nil {
+		return RunStatusCompleted
+	}
+
+	return RunStatusInProgress
+}
+
 func (tr TaskRun) GetID() string {
 	return fmt.Sprintf("%v", tr.ID)
 }

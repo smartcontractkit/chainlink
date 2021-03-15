@@ -38,6 +38,7 @@ type ORM interface {
 	DeleteRunsOlderThan(threshold time.Duration) error
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
+	FindRun(id int64) (Run, error)
 
 	DB() *gorm.DB
 }
@@ -291,8 +292,6 @@ FROM (VALUES
 ) AS updates(id, output, error, finished_at)
 WHERE ptr.id = updates.id
 `
-	// NOTE: gormv1 does not support bulk updates so we have to
-	// manually construct it ourselves
 	valueStrings := []string{}
 	valueArgs := []interface{}{}
 	for _, trr := range trrs {
@@ -501,6 +500,17 @@ func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
 
 func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {
 	return FindBridge(o.db, name)
+}
+
+func (o *orm) FindRun(id int64) (Run, error) {
+	var run Run
+	err := o.db.Raw(`
+        SELECT * 
+        FROM pipeline_runs
+		WHERE id = ?
+    `, id).Scan(&run).Error
+
+	return run, err
 }
 
 // FindBridge find a bridge using the given database

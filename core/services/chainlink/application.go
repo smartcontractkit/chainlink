@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -79,7 +80,7 @@ type Application interface {
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
 	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error)
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
 	ArchiveJob(models.JobID) error
 	DeleteJobV2(ctx context.Context, jobID int32) error
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
@@ -125,12 +126,15 @@ type ChainlinkApplication struct {
 // present at the configured root directory (default: ~/.chainlink),
 // the logger at the same directory and returns the Application to
 // be used by the node.
-func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) Application {
+func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []StartCloser
 	var headTrackables []strpkg.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
-	store := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	store, err := strpkg.NewStore(config, ethClient, advisoryLocker, shutdownSignal, keyStoreGenerator)
+	if err != nil {
+		return nil, err
+	}
 
 	setupConfig(config, store)
 
@@ -163,6 +167,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	upkeepExecutor := keeper.NewUpkeepExecutor(store.DB, store.EthClient)
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -183,12 +188,29 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
-			job.FluxMonitor: fluxmonitorv2.NewDelegate(
-				pipelineRunner,
-				store.DB,
-			),
+			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, config),
 		}
 	)
+
+	if config.Dev() || config.FeatureFluxMonitorV2() {
+		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
+			store,
+			jobORM,
+			pipelineORM,
+			pipelineRunner,
+			store.DB,
+			ethClient,
+			logBroadcaster,
+			fluxmonitorv2.Config{
+				DefaultHTTPTimeout:         store.Config.DefaultHTTPTimeout().Duration(),
+				FlagsContractAddress:       store.Config.FlagsContractAddress(),
+				MinContractPayment:         store.Config.MinimumContractPayment(),
+				EthGasLimit:                store.Config.EthGasLimitDefault(),
+				MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
+			},
+		)
+	}
+
 	if (config.Dev() && config.P2PListenPort() > 0) || config.FeatureOffchainReporting() {
 		logger.Debug("Off-chain reporting enabled")
 		concretePW := offchainreporting.NewSingletonPeerWrapper(store.OCRKeyStore, config, store.DB)
@@ -208,7 +230,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethConfirmer)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, upkeepExecutor)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -248,6 +270,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor,
 		promReporter,
 		logBroadcaster,
+		upkeepExecutor,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
@@ -258,7 +281,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
-	return app
+	return app, nil
 }
 
 func setupConfig(config *orm.Config, store *strpkg.Store) {
@@ -317,7 +340,6 @@ func (app *ChainlinkApplication) Start() error {
 		app.LogBroadcaster.Start,
 		app.EventBroadcaster.Start,
 		app.FluxMonitor.Start,
-		app.EthBroadcaster.Start,
 	}
 
 	for _, task := range subtasks {
@@ -407,8 +429,6 @@ func (app *ChainlinkApplication) stop() error {
 		merr = multierr.Append(merr, app.JobSubscriber.Stop())
 		logger.Debug("Stopping FluxMonitor...")
 		app.FluxMonitor.Stop()
-		logger.Debug("Stopping EthBroadcaster...")
-		merr = multierr.Append(merr, app.EthBroadcaster.Stop())
 		logger.Debug("Stopping EventBroadcaster...")
 		merr = multierr.Append(merr, app.EventBroadcaster.Stop())
 		logger.Debug("Stopping LogBroadcaster...")
@@ -468,7 +488,7 @@ func (app *ChainlinkApplication) AddJob(job models.JobSpec) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.SpecDB, name null.String) (int32, error) {
+func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error) {
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 

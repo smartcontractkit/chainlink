@@ -89,6 +89,7 @@ func TestIntegration_Scheduler(t *testing.T) {
 func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
+	config.Set("ADMIN_CREDENTIALS_FILE", "")
 
 	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
@@ -1452,7 +1453,8 @@ isBootstrapPeer    = true
 		}))
 		defer servers[i].Close()
 
-		// Note we need: observationTimeout + DeltaGrace (500ms) < DeltaRound (1s)
+		// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
+		// So 200ms + 200ms + 500ms < 1s
 		ocrJob, err := offchainreporting.ValidatedOracleSpecToml(apps[i].Config.Config, fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
@@ -1464,7 +1466,7 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
-observationTimeout = "400ms"
+observationTimeout = "200ms"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
