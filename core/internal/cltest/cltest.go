@@ -1681,13 +1681,47 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
+	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
 	HeadTrackables       []strpkg.HeadTrackable
+	Hashes               map[int64]common.Hash
 }
 
 func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanup func()) {
 	t.Helper()
+
+	if args.BackfillDepth == 0 {
+		t.Fatal("BackfillDepth must be > 0")
+	}
+
+	// Build the full chain of heads
+	heads := make(map[int64]*models.Head)
+	first := args.StartBlock - args.BackfillDepth
+	if first < 0 {
+		first = 0
+	}
+	last := args.EndBlock
+	if last == 0 {
+		last = args.StartBlock + 300 // If no .EndBlock is provided, assume we want 300 heads
+	}
+	for i := first; i <= last; i++ {
+		// If a particular block should have a particular
+		// hash, use that. Otherwise, generate a random one.
+		var hash common.Hash
+		if args.Hashes != nil {
+			if h, exists := args.Hashes[i]; exists {
+				hash = h
+			}
+		}
+		if hash == (common.Hash{}) {
+			hash = NewHash()
+		}
+		heads[i] = &models.Head{Hash: hash, Number: i}
+		if i > first {
+			heads[i].Parent = heads[i-1]
+		}
+	}
 
 	if args.Timeout == 0 {
 		args.Timeout = 60 * time.Second
@@ -1701,6 +1735,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 
 	chDone := make(chan struct{})
 	go func() {
+		current := int64(args.StartBlock)
 		for {
 			select {
 			case <-chDone:
@@ -1708,13 +1743,20 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 			case <-chTimeout:
 				return
 			default:
-				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChain(ctx, models.Head{Number: args.StartBlock})
+				// Trim chain to backfill depth
+				ptr := heads[current]
+				for i := int64(0); i < args.BackfillDepth && ptr.Parent != nil; i++ {
+					ptr = ptr.Parent
 				}
-				if args.EndBlock >= 0 && args.StartBlock == args.EndBlock {
+				ptr.Parent = nil
+
+				for _, ht := range args.HeadTrackables {
+					ht.OnNewLongestChain(ctx, *heads[current])
+				}
+				if args.EndBlock >= 0 && current == args.EndBlock {
 					return
 				}
-				args.StartBlock++
+				current++
 				time.Sleep(args.Interval)
 			}
 		}
