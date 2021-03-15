@@ -4,13 +4,13 @@ import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { JobSpecV2 } from './JobsIndex'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
-import { styles } from './sharedStyles'
+import { tableStyles } from 'components/Table'
 
-interface Props extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof tableStyles> {
   job: JobSpecV2
 }
 
-export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
+export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
   const createdAt = React.useMemo(() => {
     switch (job.attributes.type) {
       case 'fluxmonitor':
@@ -45,7 +45,7 @@ export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
   }, [job])
 
   return (
-    <TableRow style={{ transform: 'scale(1)' }} hover>
+    <TableRow className={classes.row} hover>
       <TableCell className={classes.cell} component="th" scope="row">
         <Link className={classes.link} href={`/jobs/${job.id}`}>
           {job.attributes.name || job.id}
