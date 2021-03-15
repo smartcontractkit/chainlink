@@ -30,10 +30,10 @@ context('End to end', function () {
       .should('exist')
       .children('a')
       .click()
-    cy.contains('p', bridgeProperties.name).should('exist')
-    cy.contains('p', bridgeProperties.url).should('exist')
-    cy.contains('p', bridgeProperties.minimumContractPayment).should('exist')
-    cy.contains('p', bridgeProperties.confirmations).should('exist')
+    cy.contains('td', bridgeProperties.name).should('exist')
+    cy.contains('td', bridgeProperties.url).should('exist')
+    cy.contains('td', bridgeProperties.minimumContractPayment).should('exist')
+    cy.contains('td', bridgeProperties.confirmations).should('exist')
 
     // Edit Bridge
     cy.clickLink('Edit')
@@ -43,9 +43,11 @@ context('End to end', function () {
       .should('exist')
       .children('a')
       .click()
-    cy.contains('p', bridgeProperties.name).should('exist')
-    cy.contains('p', newBridgeProperties.url).should('exist')
-    cy.contains('p', newBridgeProperties.minimumContractPayment).should('exist')
-    cy.contains('p', newBridgeProperties.confirmations).should('exist')
+    cy.contains('td', bridgeProperties.name).should('exist')
+    cy.contains('td', newBridgeProperties.url).should('exist')
+    cy.contains('td', newBridgeProperties.minimumContractPayment).should(
+      'exist',
+    )
+    cy.contains('td', newBridgeProperties.confirmations).should('exist')
   })
 })
