@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
+	"database/sql/driver"
 	"encoding"
 	"encoding/hex"
 	"fmt"
@@ -1583,16 +1584,33 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
 
 	// Use the underlying connection with the unique uri for txdb.
-	d, err := sql.Open(string(ct.dialect), ct.uri)
+	var (
+		d   *sql.DB
+		err error
+		db  *gorm.DB
+	)
+
+	d, err = sql.Open(string(ct.dialect), ct.uri)
 	if err != nil {
 		return nil, err
 	}
-	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
-		Conn: d,
-		DSN:  originalURI,
-	}), &gorm.Config{Logger: newLogger})
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+	for i := 0; i < 3; i++ {
+		db, err = gorm.Open(gormpostgres.New(gormpostgres.Config{
+			Conn: d,
+			DSN:  originalURI,
+		}), &gorm.Config{Logger: newLogger})
+		if err != nil {
+			if err == driver.ErrBadConn {
+				logger.Warnw("retrying to connect", "err", err)
+				// Use the underlying connection with the unique uri for txdb.
+				d, err = sql.Open(string(ct.dialect), ct.uri)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+			return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+		}
 	}
 
 	if err = dbutil.SetTimezone(db); err != nil {
