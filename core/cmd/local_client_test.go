@@ -348,7 +348,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.PostgresWithoutLock
-	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+	connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 	defer connectedCleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
 
@@ -372,7 +372,7 @@ func TestClient_RebroadcastTransactions_BPTXM(t *testing.T) {
 	// Lock, because the db locking strategy is decided when we
 	// initialize the store/ORM.
 	config.Config.Dialect = dialects.PostgresWithoutLock
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 	store.KeyStore.Unlock(cltest.Password)
 	require.NoError(t, connectedStore.Start())
@@ -434,7 +434,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			config, _, cleanup := cltest.BootstrapThrowawayORM(t, "rebroadcasttransactions_outsiderange", true, true)
 			defer cleanup()
 			config.Config.Dialect = dialects.Postgres
-			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(config)
+			connectedStore, connectedCleanup := cltest.NewStoreWithConfig(t, config)
 			defer connectedCleanup()
 
 			_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, connectedStore, 0)
@@ -455,7 +455,7 @@ func TestClient_RebroadcastTransactions_OutsideRange_BPTXM(t *testing.T) {
 			// Lock, because the db locking strategy is decided when we
 			// initialize the store/ORM.
 			config.Config.Dialect = dialects.PostgresWithoutLock
-			store, cleanup := cltest.NewStoreWithConfig(config)
+			store, cleanup := cltest.NewStoreWithConfig(t, config)
 			defer cleanup()
 			store.KeyStore.Unlock(cltest.Password)
 			require.NoError(t, connectedStore.Start())
@@ -503,7 +503,7 @@ func TestClient_SetNextNonce(t *testing.T) {
 	config, _, cleanup := cltest.BootstrapThrowawayORM(t, "setnextnonce", true, true)
 	defer cleanup()
 	config.Config.Dialect = dialects.Postgres
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	client := cmd.Client{

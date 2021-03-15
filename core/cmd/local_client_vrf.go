@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/pkg/errors"
@@ -17,10 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
-func vRFKeyStore(cli *Client) *store.VRFKeyStore {
-	return cli.AppFactory.NewApplication(cli.Config).GetStore().VRFKeyStore
-}
-
 // CreateVRFKey creates a key in the VRF keystore, protected by the password in
 // the password file
 func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
@@ -29,7 +26,14 @@ func (cli *Client) CreateVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := vRFKeyStore(cli).CreateKey(string(password))
+	var vrfKeyStore *store.VRFKeyStore
+	_, err = cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	key, err := vrfKeyStore.CreateKey(string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating new account")
 	}
@@ -69,7 +73,14 @@ func (cli *Client) CreateAndExportWeakVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	key, err := vRFKeyStore(cli).CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
+	var vrfKeyStore *store.VRFKeyStore
+	_, err = cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	key, err := vrfKeyStore.CreateWeakInMemoryEncryptedKeyXXXTestingOnly(
 		string(password))
 	if err != nil {
 		return errors.Wrapf(err, "while creating testing key")
@@ -107,7 +118,14 @@ func (cli *Client) ImportVRFKey(c *clipkg.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := vRFKeyStore(cli).Import(keyjson, string(password)); err != nil {
+	var vrfKeyStore *store.VRFKeyStore
+	_, err = cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	if err := vrfKeyStore.Import(keyjson, string(password)); err != nil {
 		if err == store.MatchingVRFKeyError {
 			fmt.Println(`The database already has an entry for that public key.`)
 			var key struct{ PublicKey string }
@@ -163,7 +181,14 @@ func getKeys(cli *Client, c *clipkg.Context) (*vrfkey.EncryptedVRFKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	enckey, err := vRFKeyStore(cli).GetSpecificKey(publicKey)
+	var vrfKeyStore *store.VRFKeyStore
+	_, err = cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return nil, cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	enckey, err := vrfKeyStore.GetSpecificKey(publicKey)
 	if err != nil {
 		return nil, errors.Wrapf(err,
 			"while retrieving keys with matching public key %s", publicKey.String())
@@ -185,16 +210,24 @@ func (cli *Client) DeleteVRFKey(c *clipkg.Context) error {
 		return nil
 	}
 
+	var vrfKeyStore *store.VRFKeyStore
+	_, err = cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+
 	hardDelete := c.Bool("hard")
 	if hardDelete {
-		if err := vRFKeyStore(cli).Delete(publicKey); err != nil {
+		if err := vrfKeyStore.Delete(publicKey); err != nil {
 			if err == store.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
 			return err
 		}
 	} else {
-		if err := vRFKeyStore(cli).Archive(publicKey); err != nil {
+		if err := vrfKeyStore.Archive(publicKey); err != nil {
 			if err == store.AttemptToDeleteNonExistentKeyFromDB {
 				fmt.Printf("There is already no entry in the DB for %s\n", publicKey)
 			}
@@ -217,7 +250,14 @@ func getPublicKey(c *clipkg.Context) (vrfkey.PublicKey, error) {
 
 // ListKeys Lists the keys in the db
 func (cli *Client) ListKeys(c *clipkg.Context) error {
-	keys, err := vRFKeyStore(cli).ListKeys()
+	var vrfKeyStore *store.VRFKeyStore
+	_, err := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
+		vrfKeyStore = app.GetStore().VRFKeyStore
+	})
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "creating application"))
+	}
+	keys, err := vrfKeyStore.ListKeys()
 	if err != nil {
 		return err
 	}
@@ -237,7 +277,7 @@ func (cli *Client) ListKeys(c *clipkg.Context) error {
 			hashStr = hash.Hex()
 		}
 		var createdAt, updatedAt, deletedAt string
-		specificKey, err := vRFKeyStore(cli).GetSpecificKey(*key)
+		specificKey, err := vrfKeyStore.GetSpecificKey(*key)
 		if err != nil {
 			createdAt = "error fetching key from DB"
 			updatedAt = "error fetching key from DB"

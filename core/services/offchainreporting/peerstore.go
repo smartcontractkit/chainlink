@@ -2,7 +2,11 @@ package offchainreporting
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -67,7 +71,9 @@ func (p *Pstorewrapper) Start() error {
 	if err != nil {
 		return errors.Wrap(err, "could not start peerstore wrapper")
 	}
-	go p.dbLoop()
+	go gracefulpanic.WrapRecover(func() {
+		p.dbLoop()
+	})
 	return nil
 }
 
@@ -153,7 +159,18 @@ func (p *Pstorewrapper) WriteToDB() error {
 				peers = append(peers, p)
 			}
 		}
-		return tx.Create(&peers).Error
+		valueStrings := []string{}
+		valueArgs := []interface{}{}
+		for _, p := range peers {
+			valueStrings = append(valueStrings, "(?, ?, ?, NOW(), NOW())")
+			valueArgs = append(valueArgs, p.ID)
+			valueArgs = append(valueArgs, p.Addr)
+			valueArgs = append(valueArgs, p.PeerID)
+		}
+
+		/* #nosec G201 */
+		stmt := fmt.Sprintf("INSERT INTO p2p_peers (id, addr, peer_id, created_at, updated_at) VALUES %s", strings.Join(valueStrings, ","))
+		return tx.Exec(stmt, valueArgs...).Error
 	})
 	return errors.Wrap(err, "could not write peers to DB")
 }

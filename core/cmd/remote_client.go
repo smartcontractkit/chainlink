@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
@@ -253,6 +251,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
+		err = errors.New("client request error")
 		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
 		return cli.errorOut(err)
 	}
@@ -262,7 +261,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	ocrJobSpec := job.SpecDB{}
+	ocrJobSpec := Job{}
 	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
 		return cli.errorOut(err)
 	}
@@ -434,7 +433,11 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
-	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
+	credentialsFile := c.String("file")
+	if credentialsFile == "" {
+		credentialsFile = cli.Config.AdminCredentialsFile()
+	}
+	sessionRequest, err := cli.buildSessionRequest(credentialsFile)
 	if err != nil {
 		return cli.errorOut(err)
 	}

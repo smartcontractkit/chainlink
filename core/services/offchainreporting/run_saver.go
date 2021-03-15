@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -32,7 +34,7 @@ func (r *RunResultSaver) Start() error {
 	if !r.OkayToStart() {
 		return errors.New("cannot start already started run result saver")
 	}
-	go func() {
+	go gracefulpanic.WrapRecover(func() {
 		for {
 			select {
 			case rr := <-r.runResults:
@@ -44,7 +46,7 @@ func (r *RunResultSaver) Start() error {
 				return
 			}
 		}
-	}()
+	})
 	return nil
 }
 

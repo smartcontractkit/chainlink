@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
@@ -244,7 +245,11 @@ func (orm *ORM) preloadJobRuns() *gorm.DB {
 }
 
 func (orm *ORM) preloadJobRunsUnscoped() *gorm.DB {
-	return orm.DB.Unscoped().
+	return preloadJobRunsUnscoped(orm.DB)
+}
+
+func preloadJobRunsUnscoped(db *gorm.DB) *gorm.DB {
+	return db.Unscoped().
 		Preload("Initiator", func(db *gorm.DB) *gorm.DB {
 			return db.Unscoped()
 		}).
@@ -288,25 +293,134 @@ func (orm *ORM) convenientTransaction(callback func(*gorm.DB) error) error {
 	return postgres.GormTransaction(context.Background(), orm.DB, callback)
 }
 
-// SaveJobRun updates UpdatedAt for a JobRun and saves it
+// SaveJobRun updates UpdatedAt for a JobRun and updates its status, finished
+// at and run results.
+// It auto-inserts run results if none are existing already for the given
+// jobrun/taskruns.
 func (orm *ORM) SaveJobRun(run *models.JobRun) error {
-	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		result := dbtx.Unscoped().
-			Session(&gorm.Session{FullSaveAssociations: true}). // We want to save the RunResult and TaskRuns also.
-			Where("updated_at = ?", run.UpdatedAt).
-			Omit("deleted_at").
-			Save(run)
+	if run.ID == uuid.Nil {
+		return errors.New("job run did not have an ID set")
+	}
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	err := postgres.GormTransaction(ctx, orm.DB, func(dbtx *gorm.DB) error {
+		result := dbtx.Exec(`
+UPDATE job_runs SET "status"=?, "finished_at"=?, "updated_at"=NOW(), "creation_height"=?, "observed_height"=?, "payment"=?
+WHERE updated_at = ? AND "id" = ?`,
+			run.Status, run.FinishedAt, run.CreationHeight, run.ObservedHeight, run.Payment,
+			run.UpdatedAt, run.ID,
+		)
 		if result.Error != nil {
-			if strings.Contains(result.Error.Error(), "duplicate key value violates unique constraint") {
-				return ErrOptimisticUpdateConflict
-			}
-			return result.Error
+			return errors.Wrap(result.Error, "failed to update job run")
 		}
 		if result.RowsAffected == 0 {
 			return ErrOptimisticUpdateConflict
 		}
-		return nil
+
+		// NOTE: uRunResultStrs/uRunResultArgs handles updating the run_results
+		// for both the job_run and task_runs, if any
+		uRunResultStrs := []string{}
+		uRunResultArgs := []interface{}{}
+		if run.Result.ID > 0 {
+			uRunResultStrs = append(uRunResultStrs, "(?::bigint, ?::jsonb, ?::text)")
+			uRunResultArgs = append(uRunResultArgs, run.ResultID, run.Result.Data, run.Result.ErrorMessage)
+		} else {
+			if run.ResultID.Valid {
+				return errors.Errorf("got valid ResultID %v for job run %s but Result.ID was 0; expected JobRun.Result to be preloaded", run.ResultID.Int64, run.ID)
+			}
+			// Insert the run result for the job run
+			err := dbtx.Exec(`
+WITH run_result AS (
+	INSERT INTO run_results (data, error_message, created_at, updated_at) VALUES(?, ?, NOW(), NOW()) RETURNING id
+)
+UPDATE job_runs
+SET result_id = run_result.id
+FROM run_result
+WHERE job_runs.id = ?
+`, run.Result.Data, run.Result.ErrorMessage, run.ID).Error
+			if err != nil {
+				return errors.Wrap(err, "error inserting run result for job_run")
+			}
+		}
+
+		uTaskRunStrs := []string{}
+		uTaskRunArgs := []interface{}{}
+		for _, tr := range run.TaskRuns {
+			uTaskRunStrs = append(uTaskRunStrs, "(?::uuid, ?::run_status)")
+			uTaskRunArgs = append(uTaskRunArgs, tr.ID, tr.Status)
+			if tr.Result.ID > 0 {
+				uRunResultStrs = append(uRunResultStrs, "(?::bigint, ?::jsonb, ?::text)")
+				uRunResultArgs = append(uRunResultArgs, tr.ResultID, tr.Result.Data, tr.Result.ErrorMessage)
+			} else {
+				if tr.ResultID.Valid {
+					return errors.Errorf("got valid ResultID %v for task run %s but Result.ID was 0; expected TaskRun.Result to be preloaded", tr.ResultID.Int64, tr.ID)
+				}
+				// Insert the run result for the task run
+				res := dbtx.Exec(`
+WITH run_result AS (
+	INSERT INTO run_results (data, error_message, created_at, updated_at) VALUES(?, ?, NOW(), NOW()) RETURNING id
+)
+UPDATE task_runs
+SET result_id = run_result.id
+FROM run_result
+WHERE task_runs.id = ?
+`, tr.Result.Data, tr.Result.ErrorMessage, tr.ID)
+				if res.Error != nil {
+					return errors.Wrap(res.Error, "error inserting run result for job_run")
+				}
+				if res.RowsAffected == 0 {
+					return errors.Errorf("failed to insert run_result; task run with id %v was missing", tr.ID)
+				}
+			}
+		}
+
+		if len(uTaskRunStrs) > 0 {
+			updateTaskRunsSQL := `
+UPDATE task_runs SET status=updates.status, updated_at=NOW()
+FROM (VALUES
+%s
+) AS updates(id, status)
+WHERE task_runs.id = updates.id
+`
+			/* #nosec G201 */
+			stmt := fmt.Sprintf(updateTaskRunsSQL, strings.Join(uTaskRunStrs, ","))
+			err := dbtx.Exec(stmt, uTaskRunArgs...).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to update task runs")
+			}
+		}
+
+		if len(uRunResultStrs) > 0 {
+			updateRunResultsSQL := `
+UPDATE run_results SET data=updates.data, error_message=updates.error_message, updated_at=NOW()
+FROM (VALUES
+%s
+) AS updates(id, data, error_message)
+WHERE run_results.id = updates.id
+`
+			/* #nosec G201 */
+			stmt := fmt.Sprintf(updateRunResultsSQL, strings.Join(uRunResultStrs, ","))
+			err := dbtx.Exec(stmt, uRunResultArgs...).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to update task run results")
+			}
+		}
+
+		// Preload the lot again, it's the easiest way to make sure our
+		// returned model is in sync with the database
+		err := preloadJobRunsUnscoped(dbtx).First(run, "id = ?", run.ID).Error
+		if err != nil {
+			return errors.Wrap(err, "failed to reload job run after update")
+		}
+
+		// Insert sync_event
+		return errors.Wrap(synchronization.InsertSyncEventForJobRun(dbtx, run), "failed to insert sync_event for updated run")
 	})
+
+	return errors.Wrap(err, "SaveJobRun failed")
 }
 
 // CreateJobRun inserts a new JobRun
@@ -1013,8 +1127,9 @@ func (orm *ORM) CreateInitiator(initr *models.Initiator) error {
 
 // IdempotentInsertHead inserts a head only if the hash is new. Will do nothing if hash exists already.
 // No advisory lock required because this is thread safe.
-func (orm *ORM) IdempotentInsertHead(h models.Head) error {
+func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
 	err := orm.DB.
+		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "hash"}},
 			DoNothing: true,
@@ -1042,8 +1157,8 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 
 // Chain return the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
-func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
-	rows, err := orm.DB.Raw(`
+func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (models.Head, error) {
+	rows, err := orm.DB.WithContext(ctx).Raw(`
 	WITH RECURSIVE chain AS (
 		SELECT * FROM heads WHERE hash = ?
 	UNION
@@ -1076,9 +1191,9 @@ func (orm *ORM) Chain(hash common.Hash, lookback uint) (models.Head, error) {
 }
 
 // HeadByHash fetches the head with the given hash from the db, returns nil if none exists
-func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
+func (orm *ORM) HeadByHash(ctx context.Context, hash common.Hash) (*models.Head, error) {
 	head := &models.Head{}
-	err := orm.DB.Where("hash = ?", hash).First(head).Error
+	err := orm.DB.WithContext(ctx).Where("hash = ?", hash).First(head).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
@@ -1087,9 +1202,9 @@ func (orm *ORM) HeadByHash(hash common.Hash) (*models.Head, error) {
 
 // LastHead returns the head with the highest number. In the case of ties (e.g.
 // due to re-org) it returns the most recently seen head entry.
-func (orm *ORM) LastHead() (*models.Head, error) {
+func (orm *ORM) LastHead(ctx context.Context) (*models.Head, error) {
 	number := &models.Head{}
-	err := orm.DB.Order("number DESC, created_at DESC, id DESC").First(number).Error
+	err := orm.DB.WithContext(ctx).Order("number DESC, created_at DESC, id DESC").First(number).Error
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}

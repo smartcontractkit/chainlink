@@ -102,7 +102,7 @@ func TestJobRun_SkipsEventSaveIfURLBlank(t *testing.T) {
 	t.Parallel()
 	config, _ := cltest.NewConfig(t)
 	config.Set("EXPLORER_URL", "")
-	store, cleanup := cltest.NewStoreWithConfig(config)
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	job := cltest.NewJobWithWebInitiator()
