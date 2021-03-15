@@ -7,6 +7,8 @@ import (
 	"sync"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -250,6 +252,10 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
+	}
+	if config.DatabaseBackupEnabled() {
+		databaseBackup := periodicbackup.NewDatabaseBackup(config.DatabaseBackupFrequency(), config.DatabaseURL(), config.RootDir(), logger.Default)
+		databaseBackup.RunBackupGracefully()
 	}
 	if err = CheckSquashUpgrade(orm.DB); err != nil {
 		panic(err)
