@@ -661,15 +661,27 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 			}
 		}
 	}
+
+	l := logger.Default.With(
+		"jobID", p.initr.JobSpecID.String(),
+		"contract", p.initr.Address.Hex(),
+		"accounts", accounts,
+		"oracleAddresses", oracleAddrs,
+	)
+
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr, "accounts", accounts, "oracleAddresses", oracleAddrs)
+
+		l.Warnw(
+			"None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
+			"address", addr.Hex(),
+		)
 		p.oracleAddress = addr
 	} else {
-		logger.Error("No keys found. This flux monitor job may not work correctly")
+		l.Error("No keys found. This flux monitor job may not work correctly")
 	}
-	return errors.New("none of the node's keys matched any oracle addresses")
 
+	return errors.New("none of the node's keys matched any oracle addresses")
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
