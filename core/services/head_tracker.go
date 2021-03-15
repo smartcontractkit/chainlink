@@ -50,8 +50,6 @@ var (
 		Name: "head_tracker_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
 	})
-	// kovanChainID is the Chain ID for Kovan test network
-	kovanChainID = big.NewInt(42)
 )
 
 // headRingBuffer is a small goroutine that sits between the eth client and the
