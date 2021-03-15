@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployOperator(auth *bind.TransactOpts, backend bind.ContractBackend, link 
 
 type Operator struct {
 	address common.Address
+	abi     abi.ABI
 	OperatorCaller
 	OperatorTransactor
 	OperatorFilterer
@@ -91,11 +93,15 @@ type OperatorTransactorRaw struct {
 }
 
 func NewOperator(address common.Address, backend bind.ContractBackend) (*Operator, error) {
+	abi, err := abi.JSON(strings.NewReader(OperatorABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindOperator(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &Operator{address: address, OperatorCaller: OperatorCaller{contract: contract}, OperatorTransactor: OperatorTransactor{contract: contract}, OperatorFilterer: OperatorFilterer{contract: contract}}, nil
+	return &Operator{address: address, abi: abi, OperatorCaller: OperatorCaller{contract: contract}, OperatorTransactor: OperatorTransactor{contract: contract}, OperatorFilterer: OperatorFilterer{contract: contract}}, nil
 }
 
 func NewOperatorCaller(address common.Address, caller bind.ContractCaller) (*OperatorCaller, error) {
@@ -1357,34 +1363,54 @@ func (_Operator *OperatorFilterer) ParseOwnershipTransferred(log types.Log) (*Op
 	return event, nil
 }
 
-func (_Operator *Operator) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _Operator.OperatorFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_Operator *Operator) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(OperatorABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_Operator *Operator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["AuthorizedSendersChanged"].ID:
+	case _Operator.abi.Events["AuthorizedSendersChanged"].ID:
 		return _Operator.ParseAuthorizedSendersChanged(log)
-	case abi.Events["CancelOracleRequest"].ID:
+	case _Operator.abi.Events["CancelOracleRequest"].ID:
 		return _Operator.ParseCancelOracleRequest(log)
-	case abi.Events["ForwarderCreated"].ID:
+	case _Operator.abi.Events["ForwarderCreated"].ID:
 		return _Operator.ParseForwarderCreated(log)
-	case abi.Events["OracleRequest"].ID:
+	case _Operator.abi.Events["OracleRequest"].ID:
 		return _Operator.ParseOracleRequest(log)
-	case abi.Events["OracleResponse"].ID:
+	case _Operator.abi.Events["OracleResponse"].ID:
 		return _Operator.ParseOracleResponse(log)
-	case abi.Events["OwnershipTransferRequested"].ID:
+	case _Operator.abi.Events["OwnershipTransferRequested"].ID:
 		return _Operator.ParseOwnershipTransferRequested(log)
-	case abi.Events["OwnershipTransferred"].ID:
+	case _Operator.abi.Events["OwnershipTransferred"].ID:
 		return _Operator.ParseOwnershipTransferred(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (OperatorAuthorizedSendersChanged) Topic() common.Hash {
+	return common.HexToHash("0xe720bc96024900ba647b8faa27766eb59f72cadf3c7ec34a7365c999f78320db")
+}
+
+func (OperatorCancelOracleRequest) Topic() common.Hash {
+	return common.HexToHash("0xa7842b9ec549398102c0d91b1b9919b2f20558aefdadf57528a95c6cd3292e93")
+}
+
+func (OperatorForwarderCreated) Topic() common.Hash {
+	return common.HexToHash("0x6a1722b151fa6ee2129092224b7b96addf678f7981115ec5867d03fd820a4158")
+}
+
+func (OperatorOracleRequest) Topic() common.Hash {
+	return common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65")
+}
+
+func (OperatorOracleResponse) Topic() common.Hash {
+	return common.HexToHash("0x9e9bc7616d42c2835d05ae617e508454e63b30b934be8aa932ebc125e0e58a64")
+}
+
+func (OperatorOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (OperatorOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
 func (_Operator *Operator) Address() common.Address {
@@ -1472,9 +1498,7 @@ type OperatorInterface interface {
 
 	ParseOwnershipTransferred(log types.Log) (*OperatorOwnershipTransferred, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

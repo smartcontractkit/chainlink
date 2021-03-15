@@ -44,6 +44,7 @@ func DeployVRFConsumer(auth *bind.TransactOpts, backend bind.ContractBackend, _v
 
 type VRFConsumer struct {
 	address common.Address
+	abi     abi.ABI
 	VRFConsumerCaller
 	VRFConsumerTransactor
 	VRFConsumerFilterer
@@ -90,11 +91,15 @@ type VRFConsumerTransactorRaw struct {
 }
 
 func NewVRFConsumer(address common.Address, backend bind.ContractBackend) (*VRFConsumer, error) {
+	abi, err := abi.JSON(strings.NewReader(VRFConsumerABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindVRFConsumer(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFConsumer{address: address, VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
+	return &VRFConsumer{address: address, abi: abi, VRFConsumerCaller: VRFConsumerCaller{contract: contract}, VRFConsumerTransactor: VRFConsumerTransactor{contract: contract}, VRFConsumerFilterer: VRFConsumerFilterer{contract: contract}}, nil
 }
 
 func NewVRFConsumerCaller(address common.Address, caller bind.ContractCaller) (*VRFConsumerCaller, error) {
@@ -221,10 +226,6 @@ func (_VRFConsumer *VRFConsumerTransactorSession) TestRequestRandomness(_keyHash
 	return _VRFConsumer.Contract.TestRequestRandomness(&_VRFConsumer.TransactOpts, _keyHash, _fee, _seed)
 }
 
-func (_VRFConsumer *VRFConsumer) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _VRFConsumer.VRFConsumerFilterer.contract.UnpackLog(out, event, log)
-}
-
 func (_VRFConsumer *VRFConsumer) Address() common.Address {
 	return _VRFConsumer.address
 }
@@ -237,8 +238,6 @@ type VRFConsumerInterface interface {
 	RawFulfillRandomness(opts *bind.TransactOpts, requestId [32]byte, randomness *big.Int) (*types.Transaction, error)
 
 	TestRequestRandomness(opts *bind.TransactOpts, _keyHash [32]byte, _fee *big.Int, _seed *big.Int) (*types.Transaction, error)
-
-	UnpackLog(out interface{}, event string, log types.Log) error
 
 	Address() common.Address
 }

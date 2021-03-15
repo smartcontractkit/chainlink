@@ -14,6 +14,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
@@ -56,9 +57,10 @@ type (
 		db               OCRContractTrackerDB
 
 		// Start/Stop lifecycle
-		ctx       context.Context
-		ctxCancel context.CancelFunc
-		wg        sync.WaitGroup
+		ctx             context.Context
+		ctxCancel       context.CancelFunc
+		wg              sync.WaitGroup
+		unsubscribeLogs func()
 
 		// LatestRoundRequested
 		latestRoundRequested offchainaggregator.OffchainAggregatorRoundRequested
@@ -100,6 +102,7 @@ func NewOCRContractTracker(
 		ctx,
 		cancel,
 		sync.WaitGroup{},
+		nil,
 		offchainaggregator.OffchainAggregatorRoundRequested{},
 		sync.RWMutex{},
 		*utils.NewMailbox(configMailboxSanityLimit),
@@ -113,12 +116,21 @@ func (t *OCRContractTracker) Start() (err error) {
 	if !t.OkayToStart() {
 		return errors.New("OCRContractTracker: already started")
 	}
-	connected := t.logBroadcaster.Register(t.contract, t)
+	connected, unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
+		Contract: t.contract,
+		Logs: []generated.AbigenLog{
+			offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
+			offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
+		},
+	})
+	t.unsubscribeLogs = unsubscribe
+
 	if !connected {
 		t.logger.Warnw("OCRContractTracker#Start: log broadcaster is not connected", "jobID", t.jobID, "address", t.contract.Address())
 	}
 	t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
 	if err != nil {
+		unsubscribe()
 		return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
 	}
 	t.wg.Add(1)
@@ -133,7 +145,7 @@ func (t *OCRContractTracker) Close() error {
 	}
 	t.ctxCancel()
 	t.wg.Wait()
-	t.logBroadcaster.Unregister(t.contract, t)
+	t.unsubscribeLogs()
 	close(t.chConfigs)
 	return nil
 }
@@ -175,12 +187,7 @@ func (t *OCRContractTracker) OnDisconnect() {}
 
 // HandleLog complies with LogListener interface
 // It is not thread safe
-func (t *OCRContractTracker) HandleLog(lb log.Broadcast, err error) {
-	if err != nil {
-		t.logger.Errorw("OCRContract: error in previous LogListener", "err", err)
-		return
-	}
-
+func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	was, err := lb.WasAlreadyConsumed()
 	if err != nil {
 		t.logger.Errorw("OCRContract: could not determine if log was already consumed", "error", err)

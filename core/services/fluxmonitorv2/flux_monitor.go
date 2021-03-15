@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -314,12 +315,7 @@ func (fm *FluxMonitor) JobIDV2() int32 { return fm.jobID }
 func (fm *FluxMonitor) IsV2Job() bool { return true }
 
 // HandleLog processes the contract logs
-func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast, err error) {
-	if err != nil {
-		fm.logger.Errorf("got error from LogBroadcaster: %v", err)
-		return
-	}
-
+func (fm *FluxMonitor) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		fm.logger.Error("HandleLog: ignoring nil value")
@@ -366,13 +362,25 @@ func (fm *FluxMonitor) consume() {
 	}
 
 	// Subscribe to contract logs
-	isConnected := fm.logBroadcaster.Register(fm.fluxAggregator, fm)
-	defer fm.logBroadcaster.Unregister(fm.fluxAggregator, fm)
+	isConnected, unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
+		Contract: fm.fluxAggregator,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
 
 	if fm.flags.ContractExists() {
-		flagsConnected := fm.logBroadcaster.Register(fm.flags.Contract(), fm)
+		flagsConnected, unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
+			Contract: fm.flags,
+			Logs: []generated.AbigenLog{
+				flags_wrapper.FlagsFlagLowered{},
+				flags_wrapper.FlagsFlagRaised{},
+			},
+		})
 		isConnected = isConnected && flagsConnected
-		defer fm.logBroadcaster.Unregister(fm.flags.Contract(), fm)
+		defer unsubscribe()
 	}
 
 	if isConnected {
