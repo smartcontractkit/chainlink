@@ -269,7 +269,6 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer,
 		balanceMonitor,
 		promReporter,
-		logBroadcaster,
 		upkeepExecutor,
 	)
 

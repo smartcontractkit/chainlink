@@ -70,7 +70,7 @@ ds2_parse [type=jsonparse path="latest"];
 ds1 -> ds1_parse -> answer1;
 ds2 -> ds2_parse -> answer1;
 
-answer1 [type=median index=0];					
+answer1 [type=median index=0];
 `,
 	}
 )
@@ -478,14 +478,9 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(3)).Return(makeRoundStateForRoundID(3), nil).Once()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(4)).Return(makeRoundStateForRoundID(4), nil).Once()
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-	tm.fluxAggregator.On("Address").Return(contractAddress, nil)
+	// tm.fluxAggregator.On("Address").Return(contractAddress, nil)
 
-	tm.logBroadcaster.On("Register", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
-		return fa.Address() == contractAddress
-	}), mock.Anything).Return(true)
-	tm.logBroadcaster.On("Unregister", mock.MatchedBy(func(fa flux_aggregator_wrapper.FluxAggregatorInterface) bool {
-		return fa.Address() == contractAddress
-	}), mock.Anything)
+	tm.logBroadcaster.On("Register", fm, mock.Anything).Return(true, func() {})
 
 	tm.orm.On("MostRecentFluxMonitorRoundID", contractAddress).Return(uint32(1), nil)
 	tm.orm.On("MostRecentFluxMonitorRoundID", contractAddress).Return(uint32(3), nil)
@@ -583,11 +578,11 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		logBroadcasts = append(logBroadcasts, logBroadcast)
 	}
 
-	fm.HandleLog(logBroadcasts[0], nil) // Get the checker to start processing a log so we can freeze it
+	fm.HandleLog(logBroadcasts[0]) // Get the checker to start processing a log so we can freeze it
 	<-chSafeToFillQueue
-	fm.HandleLog(logBroadcasts[1], nil) // This log is evicted from the priority queue
-	fm.HandleLog(logBroadcasts[2], nil)
-	fm.HandleLog(logBroadcasts[3], nil)
+	fm.HandleLog(logBroadcasts[1]) // This log is evicted from the priority queue
+	fm.HandleLog(logBroadcasts[2])
+	fm.HandleLog(logBroadcasts[3])
 
 	close(chBlock)
 	<-chSafeToAssert
@@ -630,8 +625,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
 
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			tm.logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			idleDurationOccured := make(chan struct{}, 3)
 
@@ -665,7 +659,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 				tm.logBroadcast.On("DecodedLog").Return(&decodedLog)
 				tm.logBroadcast.On("WasAlreadyConsumed").Return(false, nil).Once()
 				tm.logBroadcast.On("MarkConsumed").Return(nil).Once()
-				fm.HandleLog(tm.logBroadcast, nil)
+				fm.HandleLog(tm.logBroadcast)
 
 				gomega.NewGomegaWithT(t).Eventually(chBlock).Should(gomega.BeClosed())
 
@@ -711,8 +705,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
-	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-	tm.logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
 	roundState0 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
@@ -770,8 +763,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
 
-			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			tm.logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
@@ -841,8 +833,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 
 			tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
 
-			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-			tm.logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+			tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 			tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
@@ -902,8 +893,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	chRoundState1 := make(chan struct{})
 	chRoundState2 := make(chan struct{})
 
-	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true)
-	tm.logBroadcaster.On("Unregister", mock.Anything, mock.Anything)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
 
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Once()
@@ -942,7 +932,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	tm.logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
 	tm.logBroadcast.On("DecodedLog").Return(&flux_aggregator_wrapper.FluxAggregatorNewRound{RoundId: big.NewInt(0), StartedAt: big.NewInt(time.Now().UTC().Unix())})
 	tm.logBroadcast.On("MarkConsumed").Return(nil)
-	fm.HandleLog(tm.logBroadcast, nil)
+	fm.HandleLog(tm.logBroadcast)
 
 	gomega.NewGomegaWithT(t).Eventually(chRoundState1).Should(gomega.BeClosed())
 	gomega.NewGomegaWithT(t).Eventually(chRoundState2).Should(gomega.BeClosed())
@@ -963,17 +953,17 @@ func TestFluxMonitor_HandlesNilLogs(t *testing.T) {
 
 	logBroadcast.On("DecodedLog").Return(logNewRound).Once()
 	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast, nil)
+		fm.HandleLog(logBroadcast)
 	})
 
 	logBroadcast.On("DecodedLog").Return(logAnswerUpdated).Once()
 	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast, nil)
+		fm.HandleLog(logBroadcast)
 	})
 
 	logBroadcast.On("DecodedLog").Return(randomType).Once()
 	assert.NotPanics(t, func() {
-		fm.HandleLog(logBroadcast, nil)
+		fm.HandleLog(logBroadcast)
 	})
 
 	logBroadcast.AssertExpectations(t)
