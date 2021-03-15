@@ -22,6 +22,7 @@ const (
 	DirectRequest     Type = "directrequest"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
+	Keeper            Type = "keeper"
 )
 
 type IDEmbed struct {
@@ -49,6 +50,8 @@ type Job struct {
 	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
 	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
+	KeeperSpecID                  *int32                       `json:"-"`
+	KeeperSpec                    *KeeperSpec                  `json:"keeperSpec"`
 	PipelineSpecID                int32                        `json:"-"`
 	PipelineSpec                  *pipeline.Spec               `json:"pipelineSpec"`
 	JobSpecErrors                 []SpecError                  `json:"errors" gorm:"foreignKey:JobID"`
@@ -169,4 +172,12 @@ type FluxMonitorSpec struct {
 	MinPayment        *assets.Link  `json:"minPayment,omitempty"`
 	CreatedAt         time.Time     `json:"createdAt" toml:"-"`
 	UpdatedAt         time.Time     `json:"updatedAt" toml:"-"`
+}
+
+type KeeperSpec struct {
+	IDEmbed
+	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
+	FromAddress     models.EIP55Address `json:"fromAddress" toml:"fromAddress"`
+	CreatedAt       time.Time           `json:"createdAt" toml:"-"`
+	UpdatedAt       time.Time           `json:"updatedAt" toml:"-"`
 }

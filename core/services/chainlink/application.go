@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -166,6 +167,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	upkeepExecutor := keeper.NewUpkeepExecutor(store.DB, store.EthClient)
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -186,6 +188,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
+			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, config),
 		}
 	)
 
@@ -227,7 +230,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, upkeepExecutor)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
@@ -267,6 +270,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		balanceMonitor,
 		promReporter,
 		logBroadcaster,
+		upkeepExecutor,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {
