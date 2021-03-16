@@ -10,7 +10,7 @@ import (
 // JAID represents a JSON API ID.
 // It implements the api2go MarshalIdentifier and UnmarshalIdentitier interface.
 type JAID struct {
-	ID string `json:"-"`
+	ID string `json:"id"`
 }
 
 // GetID implements the api2go MarshalIdentifier interface.
