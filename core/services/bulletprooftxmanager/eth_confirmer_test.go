@@ -966,6 +966,13 @@ func TestEthConfirmer_FindEthTxsRequiringRebroadcast(t *testing.T) {
 		assert.Equal(t, etx3.ID, etxs[1].ID)
 	})
 
+	t.Run("returns nothing if threshold is zero", func(t *testing.T) {
+		etxs, err := bulletprooftxmanager.FindEthTxsRequiringRebroadcast(store.DB, fromAddress, currentHead, 0, 10)
+		require.NoError(t, err)
+
+		require.Len(t, etxs, 0)
+	})
+
 	t.Run("does not return more transactions the requested limit", func(t *testing.T) {
 		// Unconfirmed txes in DB are:
 		// (unnamed) (nonce 2)
