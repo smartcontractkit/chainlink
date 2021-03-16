@@ -126,6 +126,24 @@ func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 	}
 }
 
+// KeeperSpec defines the spec details of a Keeper Job
+type KeeperSpec struct {
+	ContractAddress models.EIP55Address `json:"contractAddress"`
+	FromAddress     models.EIP55Address `json:"fromAddress"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
+}
+
+// NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
+func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
+	return &KeeperSpec{
+		ContractAddress: spec.ContractAddress,
+		FromAddress:     spec.FromAddress,
+		CreatedAt:       spec.CreatedAt,
+		UpdatedAt:       spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -155,12 +173,13 @@ type JobResource struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	KeeperSpec            *KeeperSpec            `json:"KeeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
 
 // NewJobResource initializes a new JSONAPI job resource
-func NewJobResource(j job.SpecDB) *JobResource {
+func NewJobResource(j job.Job) *JobResource {
 	resource := &JobResource{
 		JAID:            NewJAIDInt32(j.ID),
 		Name:            j.Name.ValueOrZero(),
@@ -177,6 +196,8 @@ func NewJobResource(j job.SpecDB) *JobResource {
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+	case job.Keeper:
+		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	}
 
 	jes := []JobError{}
@@ -189,7 +210,7 @@ func NewJobResource(j job.SpecDB) *JobResource {
 }
 
 // NewJobResources initializes a slice of JSONAPI job resources
-func NewJobResources(js []job.SpecDB) []JobResource {
+func NewJobResources(js []job.Job) []JobResource {
 	rs := []JobResource{}
 
 	for _, j := range js {

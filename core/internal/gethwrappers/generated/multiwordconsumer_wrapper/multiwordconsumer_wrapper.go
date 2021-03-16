@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployMultiWordConsumer(auth *bind.TransactOpts, backend bind.ContractBacke
 
 type MultiWordConsumer struct {
 	address common.Address
+	abi     abi.ABI
 	MultiWordConsumerCaller
 	MultiWordConsumerTransactor
 	MultiWordConsumerFilterer
@@ -91,11 +93,15 @@ type MultiWordConsumerTransactorRaw struct {
 }
 
 func NewMultiWordConsumer(address common.Address, backend bind.ContractBackend) (*MultiWordConsumer, error) {
+	abi, err := abi.JSON(strings.NewReader(MultiWordConsumerABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindMultiWordConsumer(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &MultiWordConsumer{address: address, MultiWordConsumerCaller: MultiWordConsumerCaller{contract: contract}, MultiWordConsumerTransactor: MultiWordConsumerTransactor{contract: contract}, MultiWordConsumerFilterer: MultiWordConsumerFilterer{contract: contract}}, nil
+	return &MultiWordConsumer{address: address, abi: abi, MultiWordConsumerCaller: MultiWordConsumerCaller{contract: contract}, MultiWordConsumerTransactor: MultiWordConsumerTransactor{contract: contract}, MultiWordConsumerFilterer: MultiWordConsumerFilterer{contract: contract}}, nil
 }
 
 func NewMultiWordConsumerCaller(address common.Address, caller bind.ContractCaller) (*MultiWordConsumerCaller, error) {
@@ -1013,30 +1019,42 @@ func (_MultiWordConsumer *MultiWordConsumerFilterer) ParseRequestMultipleFulfill
 	return event, nil
 }
 
-func (_MultiWordConsumer *MultiWordConsumer) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _MultiWordConsumer.MultiWordConsumerFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_MultiWordConsumer *MultiWordConsumer) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(MultiWordConsumerABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_MultiWordConsumer *MultiWordConsumer) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["ChainlinkCancelled"].ID:
+	case _MultiWordConsumer.abi.Events["ChainlinkCancelled"].ID:
 		return _MultiWordConsumer.ParseChainlinkCancelled(log)
-	case abi.Events["ChainlinkFulfilled"].ID:
+	case _MultiWordConsumer.abi.Events["ChainlinkFulfilled"].ID:
 		return _MultiWordConsumer.ParseChainlinkFulfilled(log)
-	case abi.Events["ChainlinkRequested"].ID:
+	case _MultiWordConsumer.abi.Events["ChainlinkRequested"].ID:
 		return _MultiWordConsumer.ParseChainlinkRequested(log)
-	case abi.Events["RequestFulfilled"].ID:
+	case _MultiWordConsumer.abi.Events["RequestFulfilled"].ID:
 		return _MultiWordConsumer.ParseRequestFulfilled(log)
-	case abi.Events["RequestMultipleFulfilled"].ID:
+	case _MultiWordConsumer.abi.Events["RequestMultipleFulfilled"].ID:
 		return _MultiWordConsumer.ParseRequestMultipleFulfilled(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (MultiWordConsumerChainlinkCancelled) Topic() common.Hash {
+	return common.HexToHash("0xe1fe3afa0f7f761ff0a8b89086790efd5140d2907ebd5b7ff6bfcb5e075fd4c5")
+}
+
+func (MultiWordConsumerChainlinkFulfilled) Topic() common.Hash {
+	return common.HexToHash("0x7cc135e0cebb02c3480ae5d74d377283180a2601f8f644edf7987b009316c63a")
+}
+
+func (MultiWordConsumerChainlinkRequested) Topic() common.Hash {
+	return common.HexToHash("0xb5e6e01e79f91267dc17b4e6314d5d4d03593d2ceee0fbb452b750bd70ea5af9")
+}
+
+func (MultiWordConsumerRequestFulfilled) Topic() common.Hash {
+	return common.HexToHash("0x1a111c5dcf9a71088bd5e1797fdfaf399fec2afbb24aca247e4e3e9f4b61df91")
+}
+
+func (MultiWordConsumerRequestMultipleFulfilled) Topic() common.Hash {
+	return common.HexToHash("0x0ec0c13e44aa04198947078cb990660252870dd3363f4c4bb3cc780f808dabbe")
 }
 
 func (_MultiWordConsumer *MultiWordConsumer) Address() common.Address {
@@ -1100,9 +1118,7 @@ type MultiWordConsumerInterface interface {
 
 	ParseRequestMultipleFulfilled(log types.Log) (*MultiWordConsumerRequestMultipleFulfilled, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

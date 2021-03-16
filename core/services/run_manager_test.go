@@ -573,7 +573,7 @@ func TestRunManager_Create_fromRunLogPayments(t *testing.T) {
 			config.Set("DATABASE_TIMEOUT", "10s") // Lots of parallelized tests
 			config.Set("MINIMUM_CONTRACT_PAYMENT", test.configMinimumPayment)
 
-			store, storeCleanup := cltest.NewStoreWithConfig(config)
+			store, storeCleanup := cltest.NewStoreWithConfig(t, config)
 			defer storeCleanup()
 
 			bt := &models.BridgeType{
