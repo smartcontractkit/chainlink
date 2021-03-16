@@ -36,7 +36,7 @@ import (
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster interface {
 	Start() error
-	Stop() error
+	Close() error
 
 	Trigger()
 
@@ -93,7 +93,7 @@ func (eb *ethBroadcaster) Start() error {
 	return nil
 }
 
-func (eb *ethBroadcaster) Stop() error {
+func (eb *ethBroadcaster) Close() error {
 	if !eb.OkayToStop() {
 		return errors.New("EthBroadcaster is already stopped")
 	}

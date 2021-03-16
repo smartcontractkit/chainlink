@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployLinkToken(auth *bind.TransactOpts, backend bind.ContractBackend) (com
 
 type LinkToken struct {
 	address common.Address
+	abi     abi.ABI
 	LinkTokenCaller
 	LinkTokenTransactor
 	LinkTokenFilterer
@@ -91,11 +93,15 @@ type LinkTokenTransactorRaw struct {
 }
 
 func NewLinkToken(address common.Address, backend bind.ContractBackend) (*LinkToken, error) {
+	abi, err := abi.JSON(strings.NewReader(LinkTokenABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindLinkToken(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &LinkToken{address: address, LinkTokenCaller: LinkTokenCaller{contract: contract}, LinkTokenTransactor: LinkTokenTransactor{contract: contract}, LinkTokenFilterer: LinkTokenFilterer{contract: contract}}, nil
+	return &LinkToken{address: address, abi: abi, LinkTokenCaller: LinkTokenCaller{contract: contract}, LinkTokenTransactor: LinkTokenTransactor{contract: contract}, LinkTokenFilterer: LinkTokenFilterer{contract: contract}}, nil
 }
 
 func NewLinkTokenCaller(address common.Address, caller bind.ContractCaller) (*LinkTokenCaller, error) {
@@ -633,24 +639,24 @@ func (_LinkToken *LinkTokenFilterer) ParseTransfer(log types.Log) (*LinkTokenTra
 	return event, nil
 }
 
-func (_LinkToken *LinkToken) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _LinkToken.LinkTokenFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_LinkToken *LinkToken) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(LinkTokenABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_LinkToken *LinkToken) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["Approval"].ID:
+	case _LinkToken.abi.Events["Approval"].ID:
 		return _LinkToken.ParseApproval(log)
-	case abi.Events["Transfer"].ID:
+	case _LinkToken.abi.Events["Transfer"].ID:
 		return _LinkToken.ParseTransfer(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (LinkTokenApproval) Topic() common.Hash {
+	return common.HexToHash("0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925")
+}
+
+func (LinkTokenTransfer) Topic() common.Hash {
+	return common.HexToHash("0xe19260aff97b920c7df27010903aeb9c8d2be5d310a2c67824cf3f15396e4c16")
 }
 
 func (_LinkToken *LinkToken) Address() common.Address {
@@ -694,9 +700,7 @@ type LinkTokenInterface interface {
 
 	ParseTransfer(log types.Log) (*LinkTokenTransfer, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

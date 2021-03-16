@@ -21,7 +21,7 @@ type ConfigReader interface {
 	ChainID() *big.Int
 	ClientNodeURL() string
 	DatabaseTimeout() models.Duration
-	DatabaseURL() string
+	DatabaseURL() url.URL
 	DatabaseMaximumTxDuration() time.Duration
 	DefaultMaxHTTPAttempts() uint
 	DefaultHTTPLimit() int64

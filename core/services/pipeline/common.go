@@ -38,13 +38,12 @@ type (
 	Config interface {
 		BridgeResponseURL() *url.URL
 		DatabaseMaximumTxDuration() time.Duration
-		DatabaseURL() string
+		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
 		DefaultMaxHTTPAttempts() uint
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxTaskDuration() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
 		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
@@ -176,6 +175,11 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 		panic("expected at least one task to be final")
 	}
 	return
+}
+
+type RunWithResults struct {
+	Run            Run
+	TaskRunResults TaskRunResults
 }
 
 type BaseTask struct {

@@ -88,7 +88,7 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 
 func (ec *ethConfirmer) Start() error {
 	if !ec.OkayToStart() {
-		return errors.New("Pipeline runner has already been started")
+		return errors.New("EthConfirmer has already been started")
 	}
 	go ec.runLoop()
 	return nil
@@ -96,7 +96,7 @@ func (ec *ethConfirmer) Start() error {
 
 func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
-		return errors.New("Pipeline runner has already been stopped")
+		return errors.New("EthConfirmer has already been stopped")
 	}
 	ec.ctxCancel()
 	<-ec.chDone
@@ -728,10 +728,13 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		if len(etx.EthTxAttempts) > 0 {
 			previousAttempt := etx.EthTxAttempts[0]
 			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
-			logger.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
+			l := logger.Default
+			if sendError2 != nil {
+				l = logger.CreateLogger(l.With("err", sendError2))
+			}
+			l.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
 				"ethTxID", etx.ID,
 				"id", "RPCTxFeeCapExceeded",
-				"err", sendError2,
 			)
 		} else {
 			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)
@@ -866,7 +869,7 @@ func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
-				logger.Errorw("Error in handleAnyInProgressAttempts", "error", err, "fromAddress", fromAddress)
+				logger.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
 			}
 
 			wg.Done()

@@ -44,6 +44,7 @@ func DeployVRFRequestIDBaseTestHelper(auth *bind.TransactOpts, backend bind.Cont
 
 type VRFRequestIDBaseTestHelper struct {
 	address common.Address
+	abi     abi.ABI
 	VRFRequestIDBaseTestHelperCaller
 	VRFRequestIDBaseTestHelperTransactor
 	VRFRequestIDBaseTestHelperFilterer
@@ -90,11 +91,15 @@ type VRFRequestIDBaseTestHelperTransactorRaw struct {
 }
 
 func NewVRFRequestIDBaseTestHelper(address common.Address, backend bind.ContractBackend) (*VRFRequestIDBaseTestHelper, error) {
+	abi, err := abi.JSON(strings.NewReader(VRFRequestIDBaseTestHelperABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindVRFRequestIDBaseTestHelper(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFRequestIDBaseTestHelper{address: address, VRFRequestIDBaseTestHelperCaller: VRFRequestIDBaseTestHelperCaller{contract: contract}, VRFRequestIDBaseTestHelperTransactor: VRFRequestIDBaseTestHelperTransactor{contract: contract}, VRFRequestIDBaseTestHelperFilterer: VRFRequestIDBaseTestHelperFilterer{contract: contract}}, nil
+	return &VRFRequestIDBaseTestHelper{address: address, abi: abi, VRFRequestIDBaseTestHelperCaller: VRFRequestIDBaseTestHelperCaller{contract: contract}, VRFRequestIDBaseTestHelperTransactor: VRFRequestIDBaseTestHelperTransactor{contract: contract}, VRFRequestIDBaseTestHelperFilterer: VRFRequestIDBaseTestHelperFilterer{contract: contract}}, nil
 }
 
 func NewVRFRequestIDBaseTestHelperCaller(address common.Address, caller bind.ContractCaller) (*VRFRequestIDBaseTestHelperCaller, error) {
@@ -197,10 +202,6 @@ func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelperCallerSession) Make
 	return _VRFRequestIDBaseTestHelper.Contract.MakeVRFInputSeed(&_VRFRequestIDBaseTestHelper.CallOpts, _keyHash, _userSeed, _requester, _nonce)
 }
 
-func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelper) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _VRFRequestIDBaseTestHelper.VRFRequestIDBaseTestHelperFilterer.contract.UnpackLog(out, event, log)
-}
-
 func (_VRFRequestIDBaseTestHelper *VRFRequestIDBaseTestHelper) Address() common.Address {
 	return _VRFRequestIDBaseTestHelper.address
 }
@@ -209,8 +210,6 @@ type VRFRequestIDBaseTestHelperInterface interface {
 	MakeRequestId(opts *bind.CallOpts, _keyHash [32]byte, _vRFInputSeed *big.Int) ([32]byte, error)
 
 	MakeVRFInputSeed(opts *bind.CallOpts, _keyHash [32]byte, _userSeed *big.Int, _requester common.Address, _nonce *big.Int) (*big.Int, error)
-
-	UnpackLog(out interface{}, event string, log types.Log) error
 
 	Address() common.Address
 }

@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm"
@@ -109,7 +110,7 @@ func (c *Config) Validate() error {
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
 	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(5000000000)) < 0 {
+	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
 		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
@@ -134,6 +135,7 @@ func (c *Config) Validate() error {
 		ContractTransmitterTransmitTimeout:     c.OCRContractTransmitterTransmitTimeout(),
 		DatabaseTimeout:                        c.OCRDatabaseTimeout(),
 		DataSourceTimeout:                      c.OCRObservationTimeout(override),
+		DataSourceGracePeriod:                  c.OCRObservationGracePeriod(),
 	}
 	if err := ocr.SanityCheckLocalConfig(lc); err != nil {
 		return err
@@ -203,6 +205,17 @@ func (c Config) AllowOrigins() string {
 	return c.viper.GetString(EnvVarName("AllowOrigins"))
 }
 
+// AdminCredentialsFile points to text file containing admnn credentials for logging in
+func (c Config) AdminCredentialsFile() string {
+	fieldName := "AdminCredentialsFile"
+	file := c.viper.GetString(EnvVarName(fieldName))
+	defaultValue, _ := defaultValue(fieldName)
+	if file == defaultValue {
+		return filepath.Join(c.RootDir(), "apicredentials")
+	}
+	return file
+}
+
 // AuthenticatedRateLimit defines the threshold to which requests authenticated requests get limited
 func (c Config) AuthenticatedRateLimit() int64 {
 	return c.viper.GetInt64(EnvVarName("AuthenticatedRateLimit"))
@@ -263,8 +276,18 @@ func (c Config) GlobalLockRetryInterval() models.Duration {
 
 // DatabaseURL configures the URL for chainlink to connect to. This must be
 // a properly formatted URL, with a valid scheme (postgres://)
-func (c Config) DatabaseURL() string {
-	return c.viper.GetString(EnvVarName("DatabaseURL"))
+func (c Config) DatabaseURL() url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseURL"))
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database url %s", s)
+		return url.URL{}
+	}
+	if uri.String() == "" {
+		return *uri
+	}
+	static.SetConsumerName(uri, "Default")
+	return *uri
 }
 
 // MigrateDatabase determines whether the database will be automatically
@@ -312,6 +335,11 @@ func (c Config) FeatureExternalInitiators() bool {
 // FeatureFluxMonitor enables the Flux Monitor feature.
 func (c Config) FeatureFluxMonitor() bool {
 	return c.viper.GetBool(EnvVarName("FeatureFluxMonitor"))
+}
+
+// FeatureFluxMonitorV2 enables the Flux Monitor v2 feature.
+func (c Config) FeatureFluxMonitorV2() bool {
+	return c.getWithFallback("FeatureFluxMonitorV2", parseBool).(bool)
 }
 
 // FeatureOffchainReporting enables the Flux Monitor feature.
@@ -388,7 +416,7 @@ func (c Config) EthGasLimitDefault() uint64 {
 func (c Config) EthGasPriceDefault() *big.Int {
 	if c.runtimeStore != nil {
 		var value big.Int
-		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		if err := c.runtimeStore.GetConfigValue("EthGasPriceDefault", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 			logger.Warnw("Error while trying to fetch EthGasPriceDefault.", "error", err)
 		} else if err == nil {
 			return &value
@@ -515,14 +543,13 @@ func (c Config) TriggerFallbackDBPollInterval() time.Duration {
 	return c.getWithFallback("TriggerFallbackDBPollInterval", parseDuration).(time.Duration)
 }
 
-// JobPipelineMaxTaskDuration is the maximum time that an individual task should be allowed to run
-func (c Config) JobPipelineMaxTaskDuration() time.Duration {
-	return c.getWithFallback("JobPipelineMaxTaskDuration", parseDuration).(time.Duration)
-}
-
 // JobPipelineMaxRunDuration is the maximum time that a job run may take
 func (c Config) JobPipelineMaxRunDuration() time.Duration {
 	return c.getWithFallback("JobPipelineMaxRunDuration", parseDuration).(time.Duration)
+}
+
+func (c Config) JobPipelineResultWriteQueueDepth() uint64 {
+	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parseUint64).(uint64)
 }
 
 // JobPipelineParallelism controls how many workers the pipeline.Runner
@@ -537,6 +564,10 @@ func (c Config) JobPipelineReaperInterval() time.Duration {
 
 func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperRegistrySyncInterval() time.Duration {
+	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }
 
 // JSONConsole enables the JSON console.
@@ -591,6 +622,10 @@ func (c Config) getDurationWithOverride(override time.Duration, field string) ti
 
 func (c Config) OCRObservationTimeout(override time.Duration) time.Duration {
 	return c.getDurationWithOverride(override, "OCRObservationTimeout")
+}
+
+func (c Config) OCRObservationGracePeriod() time.Duration {
+	return c.getWithFallback("OCRObservationGracePeriod", parseDuration).(time.Duration)
 }
 
 func (c Config) OCRBlockchainTimeout(override time.Duration) time.Duration {
@@ -912,8 +947,7 @@ func (c Config) CertFile() string {
 // directory and LogLevel, with pretty printing for stdout. If LOG_TO_DISK is
 // false, the logger will only log to stdout.
 func (c Config) CreateProductionLogger() *logger.Logger {
-	return logger.CreateProductionLogger(
-		c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
+	return logger.CreateProductionLogger(c.RootDir(), c.JSONConsole(), c.LogLevel().Level, c.LogToDisk())
 }
 
 // SessionSecret returns a sequence of bytes to be used as a private key for
@@ -1038,6 +1072,10 @@ func parseIP(s string) (interface{}, error) {
 
 func parseDuration(s string) (interface{}, error) {
 	return time.ParseDuration(s)
+}
+
+func parseBool(s string) (interface{}, error) {
+	return strconv.ParseBool(s)
 }
 
 func parseBigInt(str string) (interface{}, error) {

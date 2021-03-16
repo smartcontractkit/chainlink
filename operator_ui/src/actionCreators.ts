@@ -24,6 +24,7 @@ type Errors =
   | jsonapi.BadRequestError
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
+  | jsonapi.ConflictError
 
 type RestAction = 'UPSERT' | 'DELETE'
 
@@ -142,8 +143,7 @@ export const deleteJobSpec = (
   return (dispatch: Dispatch) => {
     dispatch({ type: ResourceActionType.REQUEST_DELETE })
 
-    const endpoint =
-      jobType === 'Direct request' ? api.v2.specs : api.v2.ocrSpecs
+    const endpoint = jobType === 'Direct request' ? api.v2.specs : api.v2.jobs
 
     return endpoint
       .destroyJobSpec(id)

@@ -12,10 +12,13 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitor/promfm"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -474,7 +477,11 @@ func (p *PollingDeviationChecker) Start() {
 		"job", p.initr.JobSpecID.String(),
 		"initr", p.initr.ID,
 	)
-	go p.consume()
+
+	go gracefulpanic.WrapRecover(func() {
+		p.consume()
+	})
+
 }
 
 func (p *PollingDeviationChecker) setIsHibernatingStatus() {
@@ -534,12 +541,7 @@ func (p *PollingDeviationChecker) JobID() models.JobID {
 func (p *PollingDeviationChecker) JobIDV2() int32 { return 0 }
 func (p *PollingDeviationChecker) IsV2Job() bool  { return false }
 
-func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast, err error) {
-	if err != nil {
-		logger.Errorf("got error from LogBroadcaster: %v", err)
-		return
-	}
-
+func (p *PollingDeviationChecker) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		logger.Error("HandleLog: ignoring nil value")
@@ -582,13 +584,25 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	// subscribe to contract logs
-	isConnected := p.logBroadcaster.Register(p.fluxAggregator, p)
-	defer p.logBroadcaster.Unregister(p.fluxAggregator, p)
+	isConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+		Contract: p.fluxAggregator,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
 
 	if p.flags != nil {
-		flagsConnected := p.logBroadcaster.Register(p.flags, p)
+		flagsConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+			Contract: p.flags,
+			Logs: []generated.AbigenLog{
+				flags_wrapper.FlagsFlagLowered{},
+				flags_wrapper.FlagsFlagRaised{},
+			},
+		})
 		isConnected = isConnected && flagsConnected
-		defer p.logBroadcaster.Unregister(p.flags, p)
+		defer unsubscribe()
 	}
 
 	if isConnected {
@@ -654,7 +668,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	accounts := p.store.KeyStore.Accounts()
 	for _, acct := range accounts {
 		for _, oracleAddr := range oracleAddrs {
-			if acct.Address == oracleAddr {
+			if acct.Address.Hex() == oracleAddr.Hex() {
 				p.oracleAddress = oracleAddr
 				return nil
 			}
@@ -662,7 +676,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	}
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr)
+		logger.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly", "address", addr, "accounts", accounts, "oracleAddresses", oracleAddrs)
 		p.oracleAddress = addr
 	} else {
 		logger.Error("No keys found. This flux monitor job may not work correctly")
@@ -775,7 +789,7 @@ func (p *PollingDeviationChecker) respondToAnswerUpdatedLog(log flux_aggregator_
 func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound) {
 	logger.Debugw("NewRound log", p.loggerFieldsForNewRound(log)...)
 
-	promSetBigInt(promFMSeenRound.WithLabelValues(p.initr.JobSpecID.String()), log.RoundId)
+	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(p.initr.JobSpecID.String()), log.RoundId)
 
 	//
 	// NewRound answer submission logic:
@@ -1031,7 +1045,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 	jobSpecID := p.initr.JobSpecID.String()
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, -p.precision)
 
-	promSetDecimal(promFMSeenValue.WithLabelValues(jobSpecID), polledAnswer)
+	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobSpecID), polledAnswer)
 	l = l.With(
 		"latestAnswer", latestAnswer,
 		"polledAnswer", polledAnswer,
@@ -1060,8 +1074,8 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
-	promSetDecimal(promFMReportedValue.WithLabelValues(jobSpecID), polledAnswer)
-	promSetUint32(promFMReportedRound.WithLabelValues(jobSpecID), roundState.RoundId)
+	promfm.SetDecimal(promfm.ReportedValue.WithLabelValues(jobSpecID), polledAnswer)
+	promfm.SetUint32(promfm.ReportedRound.WithLabelValues(jobSpecID), roundState.RoundId)
 }
 
 // If the polledAnswer is outside the allowable range, log an error and don't submit.
