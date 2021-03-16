@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/pelletier/go-toml"
 
@@ -27,7 +28,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 )
 
-func TestJobsController_Create_ValidationFailure(t *testing.T) {
+func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -101,28 +102,63 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	jb := job.SpecDB{}
+	jb := job.Job{}
 	require.NoError(t, app.Store.DB.Preload("OffchainreportingOracleSpec").First(&jb).Error)
 
-	ocrJobSpec := job.SpecDB{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "web oracle spec", jb.Name.ValueOrZero())
-	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PPeerID, ocrJobSpec.OffchainreportingOracleSpec.P2PPeerID)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, ocrJobSpec.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, ocrJobSpec.OffchainreportingOracleSpec.IsBootstrapPeer)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, ocrJobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.TransmitterAddress, ocrJobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, ocrJobSpec.OffchainreportingOracleSpec.ObservationTimeout)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, ocrJobSpec.OffchainreportingOracleSpec.BlockchainTimeout)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigConfirmations, ocrJobSpec.OffchainreportingOracleSpec.ContractConfigConfirmations)
-	assert.NotNil(t, ocrJobSpec.PipelineSpec.DotDagSource)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PPeerID, resource.OffChainReportingSpec.P2PPeerID)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.P2PBootstrapPeers, resource.OffChainReportingSpec.P2PBootstrapPeers)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.IsBootstrapPeer, resource.OffChainReportingSpec.IsBootstrapPeer)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID, resource.OffChainReportingSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.TransmitterAddress, resource.OffChainReportingSpec.TransmitterAddress)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ObservationTimeout, resource.OffChainReportingSpec.ObservationTimeout)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.BlockchainTimeout, resource.OffChainReportingSpec.BlockchainTimeout)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval, resource.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, jb.OffchainreportingOracleSpec.ContractConfigConfirmations, resource.OffChainReportingSpec.ContractConfigConfirmations)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.OffchainreportingOracleSpec.ContractAddress)
+}
+
+func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "testdata/keeper-spec.toml")
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.Job{}
+	require.NoError(t, app.Store.DB.Preload("KeeperSpec").First(&jb).Error)
+
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
+	assert.NoError(t, err)
+
+	require.Equal(t, resource.KeeperSpec.ContractAddress, jb.KeeperSpec.ContractAddress)
+	require.Equal(t, resource.KeeperSpec.FromAddress, jb.KeeperSpec.FromAddress)
+	assert.Equal(t, "example keeper spec", jb.Name.ValueOrZero())
+
+	// Sanity check to make sure it inserted correctly
+	require.Equal(t, models.EIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"), jb.KeeperSpec.ContractAddress)
+	require.Equal(t, models.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
@@ -145,15 +181,15 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	jb := job.SpecDB{}
+	jb := job.Job{}
 	require.NoError(t, app.Store.DB.Preload("DirectRequestSpec").First(&jb).Error)
 
-	jobSpec := job.SpecDB{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "example eth request event spec", jb.Name.ValueOrZero())
-	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
@@ -178,25 +214,27 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
+
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
-	jb := job.SpecDB{}
+	jb := job.Job{}
 	require.NoError(t, app.Store.DB.Preload("FluxMonitorSpec").First(&jb).Error)
 
-	jobSpec := job.SpecDB{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpec)
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 	t.Log()
 
 	assert.Equal(t, "example flux monitor spec", jb.Name.ValueOrZero())
-	assert.NotNil(t, jobSpec.PipelineSpec.DotDagSource)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 	assert.Equal(t, models.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 	assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
 	assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
 	assert.Equal(t, int32(2), jb.FluxMonitorSpec.Precision)
 	assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
+	assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 }
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, cleanup, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
@@ -206,14 +244,14 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	jobSpecs := []job.SpecDB{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &jobSpecs)
+	resources := []presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
 	assert.NoError(t, err)
 
-	require.Len(t, jobSpecs, 2)
+	require.Len(t, resources, 2)
 
-	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, jobSpecs[0])
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, jobSpecs[1])
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, resources[0])
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, resources[1])
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
@@ -224,21 +262,21 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ocrJobSpec := job.SpecDB{}
-	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJobSpec)
+	ocrJob := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJob)
 	assert.NoError(t, err)
 
-	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJobSpec)
+	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
 	response, cleanup = client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID2))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	ereJobSpec := job.SpecDB{}
-	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJobSpec)
+	ereJob := presenters.JobResource{}
+	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ereJob)
 	assert.NoError(t, err)
 
-	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJobSpec)
+	runDirectRequestJobSpecAssertions(t, ereJobSpecFromFile, ereJob)
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
@@ -259,31 +297,31 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
-func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.SpecDB, ocrJobSpecFromServer job.SpecDB) {
+func runOCRJobSpecAssertions(t *testing.T, ocrJobSpecFromFileDB job.Job, ocrJobSpecFromServer presenters.JobResource) {
 	ocrJobSpecFromFile := ocrJobSpecFromFileDB.OffchainreportingOracleSpec
-	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractAddress)
-	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PPeerID)
-	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffchainreportingOracleSpec.P2PBootstrapPeers)
-	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffchainreportingOracleSpec.IsBootstrapPeer)
-	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
-	assert.Equal(t, ocrJobSpecFromFile.TransmitterAddress, ocrJobSpecFromServer.OffchainreportingOracleSpec.TransmitterAddress)
-	assert.Equal(t, ocrJobSpecFromFile.ObservationTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.ObservationTimeout)
-	assert.Equal(t, ocrJobSpecFromFile.BlockchainTimeout, ocrJobSpecFromServer.OffchainreportingOracleSpec.BlockchainTimeout)
-	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigTrackerSubscribeInterval)
-	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffchainreportingOracleSpec.ContractConfigConfirmations)
-	assert.Equal(t, ocrJobSpecFromFileDB.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDagSource)
+	assert.Equal(t, ocrJobSpecFromFile.ContractAddress, ocrJobSpecFromServer.OffChainReportingSpec.ContractAddress)
+	assert.Equal(t, ocrJobSpecFromFile.P2PPeerID, ocrJobSpecFromServer.OffChainReportingSpec.P2PPeerID)
+	assert.Equal(t, ocrJobSpecFromFile.P2PBootstrapPeers, ocrJobSpecFromServer.OffChainReportingSpec.P2PBootstrapPeers)
+	assert.Equal(t, ocrJobSpecFromFile.IsBootstrapPeer, ocrJobSpecFromServer.OffChainReportingSpec.IsBootstrapPeer)
+	assert.Equal(t, ocrJobSpecFromFile.EncryptedOCRKeyBundleID, ocrJobSpecFromServer.OffChainReportingSpec.EncryptedOCRKeyBundleID)
+	assert.Equal(t, ocrJobSpecFromFile.TransmitterAddress, ocrJobSpecFromServer.OffChainReportingSpec.TransmitterAddress)
+	assert.Equal(t, ocrJobSpecFromFile.ObservationTimeout, ocrJobSpecFromServer.OffChainReportingSpec.ObservationTimeout)
+	assert.Equal(t, ocrJobSpecFromFile.BlockchainTimeout, ocrJobSpecFromServer.OffChainReportingSpec.BlockchainTimeout)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigTrackerSubscribeInterval, ocrJobSpecFromServer.OffChainReportingSpec.ContractConfigTrackerSubscribeInterval)
+	assert.Equal(t, ocrJobSpecFromFile.ContractConfigConfirmations, ocrJobSpecFromServer.OffChainReportingSpec.ContractConfigConfirmations)
+	assert.Equal(t, ocrJobSpecFromFileDB.Pipeline.DOTSource, ocrJobSpecFromServer.PipelineSpec.DotDAGSource)
 
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
 	// millenia and century characters to be present
-	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.CreatedAt.String(), "20")
-	assert.Contains(t, ocrJobSpecFromServer.OffchainreportingOracleSpec.UpdatedAt.String(), "20")
+	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.CreatedAt.String(), "20")
+	assert.Contains(t, ocrJobSpecFromServer.OffChainReportingSpec.UpdatedAt.String(), "20")
 }
 
-func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.SpecDB, ereJobSpecFromServer job.SpecDB) {
+func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job, ereJobSpecFromServer presenters.JobResource) {
 	assert.Equal(t, ereJobSpecFromFile.DirectRequestSpec.ContractAddress, ereJobSpecFromServer.DirectRequestSpec.ContractAddress)
-	assert.Equal(t, ereJobSpecFromFile.Pipeline.DOTSource, ereJobSpecFromServer.PipelineSpec.DotDagSource)
+	assert.Equal(t, ereJobSpecFromFile.Pipeline.DOTSource, ereJobSpecFromServer.PipelineSpec.DotDAGSource)
 	// Check that create and update dates are non empty values.
 	// Empty date value is "0001-01-01 00:00:00 +0000 UTC" so we are checking for the
 	// millenia and century characters to be present
@@ -300,11 +338,15 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	)
 	require.NoError(t, app.Start())
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
 	return app, client, cleanup
 }
 
-func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), job.SpecDB, int32, job.SpecDB, int32) {
+func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), job.Job, int32, job.Job, int32) {
 	t.Parallel()
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
@@ -313,9 +355,14 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	)
 	require.NoError(t, app.Start())
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFileDB job.SpecDB
+	var ocrJobSpecFromFileDB job.Job
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
@@ -327,7 +374,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	var ereJobSpecFromFileDB job.SpecDB
+	var ereJobSpecFromFileDB job.Job
 	tree, err = toml.LoadFile("testdata/direct-request-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ereJobSpecFromFileDB)

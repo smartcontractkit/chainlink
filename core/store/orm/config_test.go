@@ -196,3 +196,16 @@ func TestStore_urlParser(t *testing.T) {
 		})
 	}
 }
+
+func TestStore_boolParser(t *testing.T) {
+	val, err := parseBool("true")
+	assert.NoError(t, err)
+	assert.Equal(t, true, val)
+
+	val, err = parseBool("false")
+	assert.NoError(t, err)
+	assert.Equal(t, false, val)
+
+	_, err = parseBool("")
+	assert.Error(t, err)
+}

@@ -12,8 +12,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
-
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -22,12 +21,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func dropAndCreateThrowawayTestDB(databaseURL string, postfix string) (string, error) {
-	parsed, err := url.Parse(databaseURL)
-	if err != nil {
-		return "", err
-	}
-
+func dropAndCreateThrowawayTestDB(parsed url.URL, postfix string) (string, error) {
 	if parsed.Path == "" {
 		return "", errors.New("path missing from database URL")
 	}
@@ -73,7 +67,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 	orm.SetLogging(true)
 	tc.Config.Set("DATABASE_URL", migrationTestDBURL)
 	if migrate {
-		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrationsv2.Migrate(db) }))
+		require.NoError(t, orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error { return migrations.Migrate(db) }))
 	}
 	if len(loadFixtures) > 0 && loadFixtures[0] {
 		_, filename, _, ok := runtime.Caller(0)
