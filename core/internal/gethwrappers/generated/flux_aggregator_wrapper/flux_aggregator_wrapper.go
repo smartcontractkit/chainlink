@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployFluxAggregator(auth *bind.TransactOpts, backend bind.ContractBackend,
 
 type FluxAggregator struct {
 	address common.Address
+	abi     abi.ABI
 	FluxAggregatorCaller
 	FluxAggregatorTransactor
 	FluxAggregatorFilterer
@@ -91,11 +93,15 @@ type FluxAggregatorTransactorRaw struct {
 }
 
 func NewFluxAggregator(address common.Address, backend bind.ContractBackend) (*FluxAggregator, error) {
+	abi, err := abi.JSON(strings.NewReader(FluxAggregatorABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindFluxAggregator(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &FluxAggregator{address: address, FluxAggregatorCaller: FluxAggregatorCaller{contract: contract}, FluxAggregatorTransactor: FluxAggregatorTransactor{contract: contract}, FluxAggregatorFilterer: FluxAggregatorFilterer{contract: contract}}, nil
+	return &FluxAggregator{address: address, abi: abi, FluxAggregatorCaller: FluxAggregatorCaller{contract: contract}, FluxAggregatorTransactor: FluxAggregatorTransactor{contract: contract}, FluxAggregatorFilterer: FluxAggregatorFilterer{contract: contract}}, nil
 }
 
 func NewFluxAggregatorCaller(address common.Address, caller bind.ContractCaller) (*FluxAggregatorCaller, error) {
@@ -2608,44 +2614,84 @@ type OracleRoundState struct {
 	PaymentAmount    *big.Int
 }
 
-func (_FluxAggregator *FluxAggregator) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _FluxAggregator.FluxAggregatorFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_FluxAggregator *FluxAggregator) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(FluxAggregatorABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_FluxAggregator *FluxAggregator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["AnswerUpdated"].ID:
+	case _FluxAggregator.abi.Events["AnswerUpdated"].ID:
 		return _FluxAggregator.ParseAnswerUpdated(log)
-	case abi.Events["AvailableFundsUpdated"].ID:
+	case _FluxAggregator.abi.Events["AvailableFundsUpdated"].ID:
 		return _FluxAggregator.ParseAvailableFundsUpdated(log)
-	case abi.Events["NewRound"].ID:
+	case _FluxAggregator.abi.Events["NewRound"].ID:
 		return _FluxAggregator.ParseNewRound(log)
-	case abi.Events["OracleAdminUpdateRequested"].ID:
+	case _FluxAggregator.abi.Events["OracleAdminUpdateRequested"].ID:
 		return _FluxAggregator.ParseOracleAdminUpdateRequested(log)
-	case abi.Events["OracleAdminUpdated"].ID:
+	case _FluxAggregator.abi.Events["OracleAdminUpdated"].ID:
 		return _FluxAggregator.ParseOracleAdminUpdated(log)
-	case abi.Events["OraclePermissionsUpdated"].ID:
+	case _FluxAggregator.abi.Events["OraclePermissionsUpdated"].ID:
 		return _FluxAggregator.ParseOraclePermissionsUpdated(log)
-	case abi.Events["OwnershipTransferRequested"].ID:
+	case _FluxAggregator.abi.Events["OwnershipTransferRequested"].ID:
 		return _FluxAggregator.ParseOwnershipTransferRequested(log)
-	case abi.Events["OwnershipTransferred"].ID:
+	case _FluxAggregator.abi.Events["OwnershipTransferred"].ID:
 		return _FluxAggregator.ParseOwnershipTransferred(log)
-	case abi.Events["RequesterPermissionsSet"].ID:
+	case _FluxAggregator.abi.Events["RequesterPermissionsSet"].ID:
 		return _FluxAggregator.ParseRequesterPermissionsSet(log)
-	case abi.Events["RoundDetailsUpdated"].ID:
+	case _FluxAggregator.abi.Events["RoundDetailsUpdated"].ID:
 		return _FluxAggregator.ParseRoundDetailsUpdated(log)
-	case abi.Events["SubmissionReceived"].ID:
+	case _FluxAggregator.abi.Events["SubmissionReceived"].ID:
 		return _FluxAggregator.ParseSubmissionReceived(log)
-	case abi.Events["ValidatorUpdated"].ID:
+	case _FluxAggregator.abi.Events["ValidatorUpdated"].ID:
 		return _FluxAggregator.ParseValidatorUpdated(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (FluxAggregatorAnswerUpdated) Topic() common.Hash {
+	return common.HexToHash("0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f")
+}
+
+func (FluxAggregatorAvailableFundsUpdated) Topic() common.Hash {
+	return common.HexToHash("0xfe25c73e3b9089fac37d55c4c7efcba6f04af04cebd2fc4d6d7dbb07e1e5234f")
+}
+
+func (FluxAggregatorNewRound) Topic() common.Hash {
+	return common.HexToHash("0x0109fc6f55cf40689f02fbaad7af7fe7bbac8a3d2186600afc7d3e10cac60271")
+}
+
+func (FluxAggregatorOracleAdminUpdateRequested) Topic() common.Hash {
+	return common.HexToHash("0xb79bf2e89c2d70dde91d2991fb1ea69b7e478061ad7c04ed5b02b96bc52b8104")
+}
+
+func (FluxAggregatorOracleAdminUpdated) Topic() common.Hash {
+	return common.HexToHash("0x0c5055390645c15a4be9a21b3f8d019153dcb4a0c125685da6eb84048e2fe904")
+}
+
+func (FluxAggregatorOraclePermissionsUpdated) Topic() common.Hash {
+	return common.HexToHash("0x18dd09695e4fbdae8d1a5edb11221eb04564269c29a089b9753a6535c54ba92e")
+}
+
+func (FluxAggregatorOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (FluxAggregatorOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (FluxAggregatorRequesterPermissionsSet) Topic() common.Hash {
+	return common.HexToHash("0xc3df5a754e002718f2e10804b99e6605e7c701d95cec9552c7680ca2b6f2820a")
+}
+
+func (FluxAggregatorRoundDetailsUpdated) Topic() common.Hash {
+	return common.HexToHash("0x56800c9d1ed723511246614d15e58cfcde15b6a33c245b5c961b689c1890fd8f")
+}
+
+func (FluxAggregatorSubmissionReceived) Topic() common.Hash {
+	return common.HexToHash("0x92e98423f8adac6e64d0608e519fd1cefb861498385c6dee70d58fc926ddc68c")
+}
+
+func (FluxAggregatorValidatorUpdated) Topic() common.Hash {
+	return common.HexToHash("0xcfac5dc75b8d9a7e074162f59d9adcd33da59f0fe8dfb21580db298fc0fdad0d")
 }
 
 func (_FluxAggregator *FluxAggregator) Address() common.Address {
@@ -2813,9 +2859,7 @@ type FluxAggregatorInterface interface {
 
 	ParseValidatorUpdated(log types.Log) (*FluxAggregatorValidatorUpdated, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

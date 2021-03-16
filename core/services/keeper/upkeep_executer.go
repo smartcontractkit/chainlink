@@ -8,12 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"go.uber.org/atomic"
 	"gorm.io/gorm"
 )
 
@@ -24,40 +24,50 @@ const (
 )
 
 func NewUpkeepExecutor(
+	job job.Job,
 	db *gorm.DB,
 	ethClient eth.Client,
+	headBroadcaster *services.HeadBroadcaster,
 ) *UpkeepExecutor {
 	return &UpkeepExecutor{
-		blockHeight:    atomic.NewInt64(0),
-		wgDone:         sync.WaitGroup{},
-		ethClient:      ethClient,
-		orm:            NewORM(db),
-		executionQueue: make(chan struct{}, executionQueueSize),
-		chStop:         make(chan struct{}),
-		chSignalRun:    make(chan struct{}, 1),
-		StartStopOnce:  utils.StartStopOnce{},
+		chStop:          make(chan struct{}),
+		ethClient:       ethClient,
+		executionQueue:  make(chan struct{}, executionQueueSize),
+		headBroadcaster: headBroadcaster,
+		job:             job,
+		mailbox:         utils.NewMailbox(1),
+		orm:             NewORM(db),
+		wgDone:          sync.WaitGroup{},
+		StartStopOnce:   utils.StartStopOnce{},
 	}
 }
 
-// UpkeepExecutor fulfills HeadTrackable interface
-var _ store.HeadTrackable = (*UpkeepExecutor)(nil)
+// UpkeepExecutor fulfills Service and HeadBroadcastable interfaces
+var _ job.Service = (*UpkeepExecutor)(nil)
+var _ services.HeadBroadcastable = (*UpkeepExecutor)(nil)
 
 type UpkeepExecutor struct {
-	blockHeight *atomic.Int64
-	wgDone      sync.WaitGroup
-	ethClient   eth.Client
-	orm         ORM
-
-	executionQueue chan struct{}
-	chStop         chan struct{}
-	chSignalRun    chan struct{}
-
+	chStop          chan struct{}
+	ethClient       eth.Client
+	executionQueue  chan struct{}
+	headBroadcaster *services.HeadBroadcaster
+	job             job.Job
+	mailbox         *utils.Mailbox
+	orm             ORM
+	wgDone          sync.WaitGroup
 	utils.StartStopOnce
 }
 
 func (executor *UpkeepExecutor) Start() error {
 	return executor.StartOnce("UpkeepExecutor", func() error {
+		executor.wgDone.Add(2)
 		go executor.run()
+		unsubscribe := executor.headBroadcaster.Subscribe(executor)
+		go func() {
+			defer unsubscribe()
+			defer executor.wgDone.Done()
+			<-executor.chStop
+		}()
 		return nil
 	})
 }
@@ -71,29 +81,17 @@ func (executor *UpkeepExecutor) Close() error {
 	return nil
 }
 
-func (executor *UpkeepExecutor) Connect(head *models.Head) error {
-	return nil
-}
-
-func (executor *UpkeepExecutor) Disconnect() {}
-
 func (executor *UpkeepExecutor) OnNewLongestChain(ctx context.Context, head models.Head) {
-	executor.blockHeight.Store(head.Number)
-	// avoid blocking if signal already in buffer
-	select {
-	case executor.chSignalRun <- struct{}{}:
-	default:
-	}
+	executor.mailbox.Deliver(head)
 }
 
 func (executor *UpkeepExecutor) run() {
-	executor.wgDone.Add(1)
 	defer executor.wgDone.Done()
 	for {
 		select {
 		case <-executor.chStop:
 			return
-		case <-executor.chSignalRun:
+		case <-executor.mailbox.Notify():
 			executor.processActiveUpkeeps()
 		}
 	}
@@ -102,12 +100,16 @@ func (executor *UpkeepExecutor) run() {
 func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	blockHeight := executor.blockHeight.Load()
-	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", blockHeight)
+	head, ok := executor.mailbox.Retrieve().(models.Head)
+	if !ok {
+		logger.Errorf("expected `models.Head`, got %T", head)
+		return
+	}
+	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", head.Number)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, blockHeight)
+	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, head.Number)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
