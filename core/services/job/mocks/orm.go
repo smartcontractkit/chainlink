@@ -42,15 +42,15 @@ func (_m *ORM) CheckForDeletedJobs(ctx context.Context) ([]int32, error) {
 }
 
 // ClaimUnclaimedJobs provides a mock function with given fields: ctx
-func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]job.SpecDB, error) {
+func (_m *ORM) ClaimUnclaimedJobs(ctx context.Context) ([]job.Job, error) {
 	ret := _m.Called(ctx)
 
-	var r0 []job.SpecDB
-	if rf, ok := ret.Get(0).(func(context.Context) []job.SpecDB); ok {
+	var r0 []job.Job
+	if rf, ok := ret.Get(0).(func(context.Context) []job.Job); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]job.SpecDB)
+			r0 = ret.Get(0).([]job.Job)
 		}
 	}
 
@@ -79,11 +79,11 @@ func (_m *ORM) Close() error {
 }
 
 // CreateJob provides a mock function with given fields: ctx, jobSpec, taskDAG
-func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.SpecDB, taskDAG pipeline.TaskDAG) error {
+func (_m *ORM) CreateJob(ctx context.Context, jobSpec *job.Job, taskDAG pipeline.TaskDAG) error {
 	ret := _m.Called(ctx, jobSpec, taskDAG)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *job.SpecDB, pipeline.TaskDAG) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *job.Job, pipeline.TaskDAG) error); ok {
 		r0 = rf(ctx, jobSpec, taskDAG)
 	} else {
 		r0 = ret.Error(0)
@@ -107,14 +107,14 @@ func (_m *ORM) DeleteJob(ctx context.Context, id int32) error {
 }
 
 // FindJob provides a mock function with given fields: id
-func (_m *ORM) FindJob(id int32) (job.SpecDB, error) {
+func (_m *ORM) FindJob(id int32) (job.Job, error) {
 	ret := _m.Called(id)
 
-	var r0 job.SpecDB
-	if rf, ok := ret.Get(0).(func(int32) job.SpecDB); ok {
+	var r0 job.Job
+	if rf, ok := ret.Get(0).(func(int32) job.Job); ok {
 		r0 = rf(id)
 	} else {
-		r0 = ret.Get(0).(job.SpecDB)
+		r0 = ret.Get(0).(job.Job)
 	}
 
 	var r1 error
@@ -128,15 +128,15 @@ func (_m *ORM) FindJob(id int32) (job.SpecDB, error) {
 }
 
 // JobsV2 provides a mock function with given fields:
-func (_m *ORM) JobsV2() ([]job.SpecDB, error) {
+func (_m *ORM) JobsV2() ([]job.Job, error) {
 	ret := _m.Called()
 
-	var r0 []job.SpecDB
-	if rf, ok := ret.Get(0).(func() []job.SpecDB); ok {
+	var r0 []job.Job
+	if rf, ok := ret.Get(0).(func() []job.Job); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]job.SpecDB)
+			r0 = ret.Get(0).([]job.Job)
 		}
 	}
 

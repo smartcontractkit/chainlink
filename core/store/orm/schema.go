@@ -15,6 +15,7 @@ import (
 
 // ConfigSchema records the schema of configuration at the type level
 type ConfigSchema struct {
+	AdminCredentialsFile                      string          `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
 	AllowOrigins                              string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
 	AuthenticatedRateLimit                    int64           `env:"AUTHENTICATED_RATE_LIMIT" default:"1000"`
 	AuthenticatedRateLimitPeriod              time.Duration   `env:"AUTHENTICATED_RATE_LIMIT_PERIOD" default:"1m"`
@@ -35,6 +36,7 @@ type ConfigSchema struct {
 	EnableExperimentalAdapters                bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
+	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"false"`
 	FeatureOffchainReporting                  bool            `env:"FEATURE_OFFCHAIN_REPORTING" default:"false"`
 	GlobalLockRetryInterval                   models.Duration `env:"GLOBAL_LOCK_RETRY_INTERVAL" default:"1s"`
 	MaximumServiceDuration                    models.Duration `env:"MAXIMUM_SERVICE_DURATION" default:"8760h" `
@@ -68,6 +70,7 @@ type ConfigSchema struct {
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
 	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"168h"`
 	JSONConsole                               bool            `env:"JSON_CONSOLE" default:"false"`
+	KeeperRegistrySyncInterval                time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"5m"`
 	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`

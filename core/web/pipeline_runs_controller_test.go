@@ -37,7 +37,7 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFile job.SpecDB
+	var ocrJobSpecFromFile job.Job
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
@@ -177,7 +177,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 		answer [type=median index=0];
 	"""
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex(), mockHTTP.URL)
-	var ocrJobSpec job.SpecDB
+	var ocrJobSpec job.Job
 	err := toml.Unmarshal([]byte(sp), &ocrJobSpec)
 	require.NoError(t, err)
 	var os job.OffchainReportingOracleSpec

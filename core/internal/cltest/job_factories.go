@@ -72,7 +72,7 @@ func MinimalOCRNonBootstrapSpec(contractAddress, transmitterAddress models.EIP55
 // to do equality comparisons of these structs manually.
 //
 // https://github.com/stretchr/testify/issues/984
-func CompareOCRJobSpecs(t *testing.T, expected, actual job.SpecDB) {
+func CompareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	t.Helper()
 	require.Equal(t, expected.OffchainreportingOracleSpec.ContractAddress, actual.OffchainreportingOracleSpec.ContractAddress)
 	require.Equal(t, expected.OffchainreportingOracleSpec.P2PPeerID, actual.OffchainreportingOracleSpec.P2PPeerID)

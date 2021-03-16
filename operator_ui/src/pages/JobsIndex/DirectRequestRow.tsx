@@ -5,16 +5,16 @@ import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
-import { styles } from './sharedStyles'
+import { tableStyles } from 'components/Table'
 
-interface Props extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof tableStyles> {
   job: DirectRequest
 }
 
-export const DirectRequestRow = withStyles(styles)(
+export const DirectRequestRow = withStyles(tableStyles)(
   ({ job, classes }: Props) => {
     return (
-      <TableRow style={{ transform: 'scale(1)' }} hover>
+      <TableRow className={classes.row} hover>
         <TableCell className={classes.cell} component="th" scope="row">
           <Link className={classes.link} href={`/jobs/${job.id}`}>
             {job.attributes.name || job.id}

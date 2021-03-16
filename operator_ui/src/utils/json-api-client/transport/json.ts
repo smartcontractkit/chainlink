@@ -8,6 +8,7 @@ import pathToRegexp from 'path-to-regexp'
 import {
   AuthenticationError,
   BadRequestError,
+  ConflictError,
   ErrorItem,
   ServerError,
   UnknownResponseError,
@@ -159,6 +160,10 @@ async function parseResponse<T>(response: Response): Promise<T> {
   } else if (response.status === 422) {
     const errors = await errorItems(response)
     throw new UnprocessableEntityError(errors)
+  } else if (response.status === 409) {
+    return response.json().then((doc: Pick<JsonApiResponse, 'errors'>) => {
+      throw new ConflictError(doc)
+    })
   } else if (response.status >= 500) {
     const errors = await errorItems(response)
     throw new ServerError(errors)

@@ -53,7 +53,7 @@ describe('StalenessFlaggingValidator', () => {
       'threshold',
       'flags',
       // Upkeep methods:
-      'checkForUpkeep',
+      'checkUpkeep',
       'performUpkeep',
       // Owned methods:
       'acceptOwnership',
@@ -390,7 +390,7 @@ describe('StalenessFlaggingValidator', () => {
     })
   })
 
-  describe('#checkForUpkeep', () => {
+  describe('#checkUpkeep', () => {
     let agg1: contract.Instance<MockV3Aggregator__factory>
     let agg2: contract.Instance<MockV3Aggregator__factory>
     let aggregators: Array<string>
@@ -415,7 +415,7 @@ describe('StalenessFlaggingValidator', () => {
           ['address[]'],
           [aggregators],
         )
-        const response = await validator.checkForUpkeep(bytesData)
+        const response = await validator.checkUpkeep(bytesData)
 
         assert.equal(response[0], false)
         const decodedResponse = ethers.utils.defaultAbiCoder.decode(
@@ -435,7 +435,7 @@ describe('StalenessFlaggingValidator', () => {
           ['address[]'],
           [[agg3.address]],
         )
-        const response = await validator.checkForUpkeep(bytesData)
+        const response = await validator.checkUpkeep(bytesData)
 
         assert.equal(response[0], false)
         const decodedResponse = ethers.utils.defaultAbiCoder.decode(
@@ -463,7 +463,7 @@ describe('StalenessFlaggingValidator', () => {
           ['address[]'],
           [aggregators],
         )
-        const response = await validator.checkForUpkeep(bytesData)
+        const response = await validator.checkUpkeep(bytesData)
 
         assert.equal(response[0], true)
         const decodedResponse = ethers.utils.defaultAbiCoder.decode(
@@ -502,7 +502,7 @@ describe('StalenessFlaggingValidator', () => {
           ['address[]'],
           [aggregators],
         )
-        const response = await validator.checkForUpkeep(bytesData)
+        const response = await validator.checkUpkeep(bytesData)
 
         assert.equal(response[0], true)
         const decodedResponse = ethers.utils.defaultAbiCoder.decode(

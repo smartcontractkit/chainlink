@@ -160,6 +160,11 @@ func Fatalf(format string, values ...interface{}) {
 	Fatal(fmt.Sprintf(format, values...))
 }
 
+// Fatalw logs a debug message and any additional given information.
+func Fatalw(msg string, keysAndValues ...interface{}) {
+	Default.Fatalw(msg, keysAndValues...)
+}
+
 // Panic logs a panic message then panics.
 func Panic(args ...interface{}) {
 	Default.Panic(args...)
