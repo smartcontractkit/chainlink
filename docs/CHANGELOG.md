@@ -44,6 +44,8 @@ Name: "head_tracker_eth_connection_errors",
 Help: "The total number of eth node connection errors",
 ```
 
+- Support for arbitrum
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
@@ -74,8 +76,6 @@ This means that the application gas price will always be updated correctly
 after reboot before the first transaction is ever sent, eliminating the previous
 scenario where the node could send underpriced or overpriced transactions for a
 period after a reboot, until the gas updater caught up.
-
-- Recognizes arbitrum nonce too low and insufficient funds errors.
 
 
 ### Changed

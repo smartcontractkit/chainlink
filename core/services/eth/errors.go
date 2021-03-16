@@ -1,9 +1,10 @@
 package eth
 
 import (
-	"github.com/ethereum/go-ethereum/core"
 	"regexp"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/core"
 
 	"github.com/pkg/errors"
 )
