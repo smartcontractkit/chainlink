@@ -1601,8 +1601,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		}), &gorm.Config{Logger: newLogger})
 		if err != nil {
 			if err == driver.ErrBadConn {
-				logger.Warnw("retrying to connect", "err", err)
-				// Use the underlying connection with the unique uri for txdb.
+				logger.Warnw("retrying to connect to database", "err", err, "dsn", originalURI)
 				d, err = sql.Open(string(ct.dialect), ct.uri)
 				if err != nil {
 					return nil, err
