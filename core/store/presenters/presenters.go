@@ -596,6 +596,18 @@ type EthTx struct {
 	Value    string          `json:"value,omitempty"`
 }
 
+func NewEthTx(tx models.EthTx) EthTx {
+	return EthTx{
+		ID:       tx.ID,
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    tx.Value.String(),
+	}
+}
+
 func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {
 	return newEthTxWithAttempt(txa.EthTx, txa)
 }
