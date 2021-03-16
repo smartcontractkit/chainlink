@@ -3,12 +3,11 @@ package web
 import (
 	"net/http"
 
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/core/logger"
-
 	"github.com/gin-gonic/gin"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"go.uber.org/zap/zapcore"
 )
 
 // LogController manages the logger config
@@ -17,11 +16,7 @@ type LogController struct {
 }
 
 type loglevelPatchRequest struct {
-	EnableDebugLog *bool `json:"isDebugEnabled"`
-}
-
-type loglevelPatchResponse struct {
-	IsDebugEnabled bool `json:"isDebugEnabled"`
+	EnableDebugLog *bool `json:"debugEnabled"`
 }
 
 // ToggleDebug toggles the debug log mode
@@ -39,8 +34,12 @@ func (cc *LogController) ToggleDebug(c *gin.Context) {
 	}
 	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
 
-	response := &loglevelPatchResponse{
-		IsDebugEnabled: *request.EnableDebugLog,
+	response := &presenters.LogResource{
+		JAID: presenters.JAID{
+			ID: "log",
+		},
+		DebugEnabled: *request.EnableDebugLog,
 	}
+
 	jsonAPIResponse(c, response, "log")
 }
