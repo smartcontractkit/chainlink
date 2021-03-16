@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	filePattern        = "cl_backup_%s.tar.gz"
+	filePattern        = "cl_backup.tar.gz"
 	minBackupFrequency = time.Minute
 )
 
@@ -119,7 +119,7 @@ func (backup *databaseBackup) runBackup() (*backupResult, error) {
 		return nil, errors.Wrap(err, "pg_dump failed")
 	}
 
-	finalFilePath := filepath.Join(backup.outputParentDir, fmt.Sprintf(filePattern, time.Now().UTC().Format("2006-01-02T15-04-05Z")))
+	finalFilePath := filepath.Join(backup.outputParentDir, filePattern)
 	_ = os.Remove(finalFilePath)
 	err = os.Rename(tmpFile.Name(), finalFilePath)
 	if err != nil {
