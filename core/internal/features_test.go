@@ -933,7 +933,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	availableFunds := minPayment * 100
 
 	// Start, connect, and initialize node
-	sub.On("Err").Return(nil)
+	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
