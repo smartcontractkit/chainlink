@@ -75,6 +75,8 @@ after reboot before the first transaction is ever sent, eliminating the previous
 scenario where the node could send underpriced or overpriced transactions for a
 period after a reboot, until the gas updater caught up.
 
+- Recognizes arbitrum nonce too low and insufficient funds errors.
+
 
 ### Changed
 
