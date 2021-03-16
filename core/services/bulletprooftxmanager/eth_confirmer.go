@@ -90,6 +90,11 @@ func (ec *ethConfirmer) Start() error {
 	if !ec.OkayToStart() {
 		return errors.New("EthConfirmer has already been started")
 	}
+	if ec.config.EthGasBumpThreshold() == 0 {
+		logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
+	} else {
+		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
+	}
 	go ec.runLoop()
 	return nil
 }
@@ -611,6 +616,10 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
 func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
+	if gasBumpThreshold == 0 {
+		logger.Debug("EthConfirmer: Gas bumping disabled (gasBumpThreshold set to 0)")
+		return
+	}
 	q := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC")
