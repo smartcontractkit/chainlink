@@ -61,7 +61,7 @@ func (nc *NullClient) CallContext(ctx context.Context, result interface{}, metho
 
 func (nc *NullClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
 	logger.Debug("NullClient#HeaderByNumber")
-	return nil, nil
+	return &models.Head{}, nil
 }
 
 type nullSubscription struct{}

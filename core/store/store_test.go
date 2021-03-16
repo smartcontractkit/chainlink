@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/migrationsv2"
+	"github.com/smartcontractkit/chainlink/core/store/migrations"
 
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
@@ -32,7 +32,7 @@ func TestStore_SquashMigrationUpgrade(t *testing.T) {
 
 	// Latest migrations should work fine.
 	static.Version = "0.9.11"
-	err := migrationsv2.MigrateUp(db, "")
+	err := migrations.MigrateUp(db, "")
 	require.NoError(t, err)
 	err = store.CheckSquashUpgrade(db)
 	require.NoError(t, err)

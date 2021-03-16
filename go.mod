@@ -11,7 +11,6 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/dgraph-io/badger v1.6.1
 	github.com/ethereum/go-ethereum v1.9.25
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
@@ -56,6 +55,7 @@ require (
 	github.com/urfave/cli v1.22.5
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
+	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
@@ -64,7 +64,6 @@ require (
 	golang.org/x/text v0.3.5
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58
 	gonum.org/v1/gonum v0.8.2
-	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/driver/mysql v1.0.3 // indirect
 	gorm.io/driver/postgres v1.0.8
@@ -72,3 +71,5 @@ require (
 	gorm.io/driver/sqlserver v1.0.5 // indirect
 	gorm.io/gorm v1.20.12
 )
+
+replace github.com/DATA-DOG/go-txdb => github.com/smartcontractkit/go-txdb v0.1.4-0.20210313013032-3a5ba5dff784

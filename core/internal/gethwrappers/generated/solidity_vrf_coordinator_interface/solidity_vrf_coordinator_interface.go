@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployVRFCoordinator(auth *bind.TransactOpts, backend bind.ContractBackend,
 
 type VRFCoordinator struct {
 	address common.Address
+	abi     abi.ABI
 	VRFCoordinatorCaller
 	VRFCoordinatorTransactor
 	VRFCoordinatorFilterer
@@ -91,11 +93,15 @@ type VRFCoordinatorTransactorRaw struct {
 }
 
 func NewVRFCoordinator(address common.Address, backend bind.ContractBackend) (*VRFCoordinator, error) {
+	abi, err := abi.JSON(strings.NewReader(VRFCoordinatorABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindVRFCoordinator(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFCoordinator{address: address, VRFCoordinatorCaller: VRFCoordinatorCaller{contract: contract}, VRFCoordinatorTransactor: VRFCoordinatorTransactor{contract: contract}, VRFCoordinatorFilterer: VRFCoordinatorFilterer{contract: contract}}, nil
+	return &VRFCoordinator{address: address, abi: abi, VRFCoordinatorCaller: VRFCoordinatorCaller{contract: contract}, VRFCoordinatorTransactor: VRFCoordinatorTransactor{contract: contract}, VRFCoordinatorFilterer: VRFCoordinatorFilterer{contract: contract}}, nil
 }
 
 func NewVRFCoordinatorCaller(address common.Address, caller bind.ContractCaller) (*VRFCoordinatorCaller, error) {
@@ -753,26 +759,30 @@ type ServiceAgreements struct {
 	JobID     [32]byte
 }
 
-func (_VRFCoordinator *VRFCoordinator) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _VRFCoordinator.VRFCoordinatorFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_VRFCoordinator *VRFCoordinator) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(VRFCoordinatorABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_VRFCoordinator *VRFCoordinator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["NewServiceAgreement"].ID:
+	case _VRFCoordinator.abi.Events["NewServiceAgreement"].ID:
 		return _VRFCoordinator.ParseNewServiceAgreement(log)
-	case abi.Events["RandomnessRequest"].ID:
+	case _VRFCoordinator.abi.Events["RandomnessRequest"].ID:
 		return _VRFCoordinator.ParseRandomnessRequest(log)
-	case abi.Events["RandomnessRequestFulfilled"].ID:
+	case _VRFCoordinator.abi.Events["RandomnessRequestFulfilled"].ID:
 		return _VRFCoordinator.ParseRandomnessRequestFulfilled(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (VRFCoordinatorNewServiceAgreement) Topic() common.Hash {
+	return common.HexToHash("0xae189157e0628c1e62315e9179156e1ea10e90e9c15060002f7021e907dc2cfe")
+}
+
+func (VRFCoordinatorRandomnessRequest) Topic() common.Hash {
+	return common.HexToHash("0x56bd374744a66d531874338def36c906e3a6cf31176eb1e9afd9f1de69725d51")
+}
+
+func (VRFCoordinatorRandomnessRequestFulfilled) Topic() common.Hash {
+	return common.HexToHash("0xa2e7a402243ebda4a69ceeb3dfb682943b7a9b3ac66d6eefa8db65894009611c")
 }
 
 func (_VRFCoordinator *VRFCoordinator) Address() common.Address {
@@ -824,9 +834,7 @@ type VRFCoordinatorInterface interface {
 
 	ParseRandomnessRequestFulfilled(log types.Log) (*VRFCoordinatorRandomnessRequestFulfilled, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

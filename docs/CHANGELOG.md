@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `ADMIN_CREDENTIALS_FILE` configuration variable
+
+This variable defaults to `$ROOT/apicredentials` and when defined / the
+file exists, any command using the CLI that requires authentication will use it
+to automatically log in.
+
 - Add `ETH_MAX_UNCONFIRMED_TRANSACTIONS` configuration variable
 
 Chainlink node now has a maximum number of unconfirmed transactions that
@@ -30,6 +36,17 @@ by setting the `ETH_MAX_UNCONFIRMED_TRANSACTIONS` environment variable.
 
 requestNewRound enables dedicated requesters to request a fresh report to
 be sent to the contract right away regardless of heartbeat or deviation.
+
+- New prometheus metric:
+
+```
+Name: "head_tracker_eth_connection_errors",
+Help: "The total number of eth node connection errors",
+```
+
+- Gas bumping can now be disabled by setting `ETH_GAS_BUMP_THRESHOLD=0`
+
+- Support for arbitrum
 
 ### Fixed
 
