@@ -3,6 +3,8 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"github.com/jpillora/backoff"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
@@ -19,6 +21,10 @@ import (
 )
 
 //go:generate mockery --name Runner --output ./mocks/ --case=underscore
+
+var (
+	ErrRunPanicked = errors.New("pipeline run panicked")
+)
 
 // Runner checks the DB for incomplete TaskRuns and runs them.  For a
 // TaskRun to be eligible to be run, its parent/input tasks must already
@@ -208,7 +214,10 @@ func (r *runner) processRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
+	return r.orm.ProcessNextUnfinishedRun(ctx, func(ctx context.Context, txdb *gorm.DB, pRun Run, l logger.Logger) (TaskRunResults, error) {
+		trrs, _, err := r.executeRun(ctx, txdb, pRun, l)
+		return trrs, err
+	})
 }
 
 type (
@@ -245,15 +254,44 @@ func (m *memoryTaskRun) results() (a []Result) {
 }
 
 func (r *runner) ExecuteRun(ctx context.Context, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
-	return r.executeRun(ctx, r.orm.DB(), run, l)
+	var (
+		retry           bool
+		i               int
+		numPanicRetries = 5
+	)
+	b := &backoff.Backoff{
+		Min:    100 * time.Second,
+		Max:    1 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+	for i = 0; i < numPanicRetries; i++ {
+		trrs, retry, err = r.executeRun(ctx, r.orm.DB(), run, l)
+		if retry {
+			time.Sleep(b.Duration())
+			continue
+		} else {
+			break
+		}
+	}
+	if i == numPanicRetries {
+		trrs = []TaskRunResult{
+			{
+				Result:     Result{Value: []interface{}{}, Error: ErrRunPanicked},
+				FinishedAt: time.Now(),
+				IsTerminal: true,
+			},
+		}
+	}
+	return
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, err error) {
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logger.Logger) (trrs TaskRunResults, retry bool, err error) {
 	l.Debugw("Initiating tasks for pipeline run", "runID", run.ID)
 	startRun := time.Now()
 
 	if run.PipelineSpec.ID == 0 {
-		return nil, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
+		return nil, false, errors.Errorf("run.PipelineSpec.ID may not be 0: %#v", run)
 	}
 
 	// Find "firsts" and work forwards
@@ -261,7 +299,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 	all := make(map[int32]*memoryTaskRun)
 	for _, tr := range run.PipelineTaskRuns {
 		if tr.PipelineTaskSpec.ID == 0 {
-			return nil, errors.Errorf("taskRun.PipelineTaskSpec.ID may not be 0: %#v", tr)
+			return nil, false, errors.Errorf("taskRun.PipelineTaskSpec.ID may not be 0: %#v", tr)
 		}
 		mtr := memoryTaskRun{
 			taskRun: tr,
@@ -305,10 +343,16 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 	// with a mysterious `pq: unexpected Parse response 'C'` error
 	// FIXME: Get rid of this by replacing pq with pgx
 	var txdbMutex sync.Mutex
-
 	for _, mtr := range graph {
 		go func(m *memoryTaskRun) {
-			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+					// No mutex needed: if any goroutine panics, we retry the run.
+					retry = true
+				}
+				wg.Done()
+			}()
 			for m != nil {
 				m.predMu.RLock()
 				nPredecessors := m.nPredecessors
@@ -379,7 +423,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, run Run, l logge
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "runID", run.ID, "runTime", runTime)
 
-	return trrs, err
+	return trrs, retry, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, txdb *gorm.DB, spec Spec, taskRun TaskRun, inputs []Result, txdbMutex *sync.Mutex, l logger.Logger) Result {

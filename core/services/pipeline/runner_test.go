@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"context"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -347,4 +348,23 @@ answer1 [type=median                      index=0];
 			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value)
 		}
 	}
+}
+
+func TestPanicTask_Run(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	s := dotGraphToSpec(t, 1, 1, fmt.Sprintf(`
+ds1          [type=panic msg="test"];
+`))
+
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	r := pipeline.NewRunner(orm, store.Config)
+	run, err := pipeline.NewRun(s, time.Now())
+	require.NoError(t, err)
+	trrs, err := r.ExecuteRun(context.Background(), run, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(trrs))
+	assert.Equal(t, null.NewString("pipeline run panicked", true), trrs[0].Result.ErrorDB())
+	assert.Equal(t, true, trrs[0].Result.OutputDB().Null)
 }
