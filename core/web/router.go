@@ -292,7 +292,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/jobs/:ID/runs", prc.Create)
 
 		lgc := LogController{app}
-		authv2.PATCH("/log/debug/enable", lgc.ToggleDebug)
+		authv2.PATCH("/log", lgc.ToggleDebug)
 	}
 
 	ping := PingController{app}
