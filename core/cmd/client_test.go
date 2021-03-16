@@ -96,28 +96,28 @@ func TestDiskCookieStore_Retrieve(t *testing.T) {
 	defer cleanup()
 	config := tc.Config
 
-	tests := []struct {
-		name      string
-		rootDir   string
-		wantError bool
-	}{
-		{"missing", config.RootDir(), true},
-		{"correct fixture", "../internal/fixtures", false},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			config.Set("ROOT", test.rootDir)
-			store := cmd.DiskCookieStore{Config: config}
-			cookie, err := store.Retrieve()
-			if test.wantError {
-				assert.Error(t, err)
-				assert.Nil(t, cookie)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, cookie)
-			}
-		})
-	}
+	t.Run("missing cookie file", func(t *testing.T) {
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.NoError(t, err)
+		assert.Nil(t, cookie)
+	})
+
+	t.Run("invalid cookie file", func(t *testing.T) {
+		config.Set("ROOT", "../internal/fixtures/badcookie")
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.Error(t, err)
+		assert.Nil(t, cookie)
+	})
+
+	t.Run("valid cookie file", func(t *testing.T) {
+		config.Set("ROOT", "../internal/fixtures")
+		store := cmd.DiskCookieStore{Config: config}
+		cookie, err := store.Retrieve()
+		assert.NoError(t, err)
+		assert.NotNil(t, cookie)
+	})
 }
 
 func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
