@@ -371,7 +371,8 @@ func (c Config) EthReceiptFetchBatchSize() uint32 {
 	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
 }
 
-// EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
+// EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
+// Set to 0 to disable gas bumping
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
 }

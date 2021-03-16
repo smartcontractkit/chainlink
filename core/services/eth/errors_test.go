@@ -22,6 +22,9 @@ func Test_Eth_Errors(t *testing.T) {
 		// Parity
 		err = eth.NewSendErrorS("Transaction nonce is too low. Try incrementing the nonce.")
 		assert.True(t, err.IsNonceTooLowError())
+		// Arbitrum
+		err = eth.NewSendErrorS("transaction rejected: nonce too low")
+		assert.True(t, err.IsNonceTooLowError())
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
@@ -89,6 +92,9 @@ func Test_Eth_Errors(t *testing.T) {
 		err = eth.NewSendErrorS("Insufficient balance for transaction. Balance=100.25, Cost=200.50")
 		assert.True(t, err.IsInsufficientEth())
 		err = eth.NewSendErrorS("Insufficient funds. The account you tried to send transaction from does not have enough funds. Required 200.50 and got: 100.25.")
+		assert.True(t, err.IsInsufficientEth())
+		// Arbitrum
+		err = eth.NewSendErrorS("transaction rejected: insufficient funds for gas * price + value")
 		assert.True(t, err.IsInsufficientEth())
 		// Nil
 		err = eth.NewSendError(nil)

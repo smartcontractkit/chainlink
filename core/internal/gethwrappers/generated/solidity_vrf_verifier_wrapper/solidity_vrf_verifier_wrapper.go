@@ -44,6 +44,7 @@ func DeployVRFTestHelper(auth *bind.TransactOpts, backend bind.ContractBackend) 
 
 type VRFTestHelper struct {
 	address common.Address
+	abi     abi.ABI
 	VRFTestHelperCaller
 	VRFTestHelperTransactor
 	VRFTestHelperFilterer
@@ -90,11 +91,15 @@ type VRFTestHelperTransactorRaw struct {
 }
 
 func NewVRFTestHelper(address common.Address, backend bind.ContractBackend) (*VRFTestHelper, error) {
+	abi, err := abi.JSON(strings.NewReader(VRFTestHelperABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindVRFTestHelper(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFTestHelper{address: address, VRFTestHelperCaller: VRFTestHelperCaller{contract: contract}, VRFTestHelperTransactor: VRFTestHelperTransactor{contract: contract}, VRFTestHelperFilterer: VRFTestHelperFilterer{contract: contract}}, nil
+	return &VRFTestHelper{address: address, abi: abi, VRFTestHelperCaller: VRFTestHelperCaller{contract: contract}, VRFTestHelperTransactor: VRFTestHelperTransactor{contract: contract}, VRFTestHelperFilterer: VRFTestHelperFilterer{contract: contract}}, nil
 }
 
 func NewVRFTestHelperCaller(address common.Address, caller bind.ContractCaller) (*VRFTestHelperCaller, error) {
@@ -461,10 +466,6 @@ func (_VRFTestHelper *VRFTestHelperCallerSession) YSquared(x *big.Int) (*big.Int
 	return _VRFTestHelper.Contract.YSquared(&_VRFTestHelper.CallOpts, x)
 }
 
-func (_VRFTestHelper *VRFTestHelper) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _VRFTestHelper.VRFTestHelperFilterer.contract.UnpackLog(out, event, log)
-}
-
 func (_VRFTestHelper *VRFTestHelper) Address() common.Address {
 	return _VRFTestHelper.address
 }
@@ -497,8 +498,6 @@ type VRFTestHelperInterface interface {
 	VerifyVRFProof(opts *bind.CallOpts, pk [2]*big.Int, gamma [2]*big.Int, c *big.Int, s *big.Int, seed *big.Int, uWitness common.Address, cGammaWitness [2]*big.Int, sHashWitness [2]*big.Int, zInv *big.Int) error
 
 	YSquared(opts *bind.CallOpts, x *big.Int) (*big.Int, error)
-
-	UnpackLog(out interface{}, event string, log types.Log) error
 
 	Address() common.Address
 }

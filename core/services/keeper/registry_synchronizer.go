@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"gorm.io/gorm"
 )
 
 const syncUpkeepQueueSize = 10
@@ -22,14 +23,14 @@ const syncUpkeepQueueSize = 10
 func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
-	orm ORM,
+	db *gorm.DB,
 	syncInterval time.Duration,
 ) *RegistrySynchronizer {
 	return &RegistrySynchronizer{
 		contract:      contract,
 		interval:      syncInterval,
 		job:           job,
-		orm:           orm,
+		orm:           NewORM(db),
 		StartStopOnce: utils.StartStopOnce{},
 		wgDone:        sync.WaitGroup{},
 		chStop:        make(chan struct{}),
