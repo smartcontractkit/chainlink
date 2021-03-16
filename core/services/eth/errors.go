@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/pkg/errors"
 )
 
@@ -58,13 +60,34 @@ var (
 	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
 )
 
+// Arbitrum errors
+var (
+	arbNonceTooLow          = errors.Wrap(core.ErrNonceTooLow, "transaction rejected")
+	arbErrInsufficientFunds = errors.Wrap(core.ErrInsufficientFunds, "transaction rejected")
+)
+
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
 	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	return s != nil && s.err != nil && ((s.Error() == "nonce too low") || s.Error() == parOld)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	switch s.Error() {
+	// Geth
+	case "nonce too low":
+		return true
+	// Arbitrum
+	case arbNonceTooLow.Error():
+		return true
+	// Parity
+	case parOld:
+		return true
+	}
+	return false
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
@@ -90,8 +113,11 @@ func (s *SendError) IsInsufficientEth() bool {
 	// Geth
 	case "insufficient funds for transfer", "insufficient funds for gas * price + value", "insufficient balance for transfer":
 		return true
+	// Arbitrum
+	case arbErrInsufficientFunds.Error():
+		return true
+	// Parity
 	default:
-		// Parity
 		return parInsufficientEth.MatchString(s.Error())
 	}
 }

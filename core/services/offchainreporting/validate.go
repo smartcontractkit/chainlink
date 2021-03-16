@@ -15,54 +15,54 @@ import (
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.SpecDB, error) {
-	var specDB = job.SpecDB{
+func ValidatedOracleSpecToml(config *orm.Config, tomlString string) (job.Job, error) {
+	var jb = job.Job{
 		Pipeline: *pipeline.NewTaskDAG(),
 	}
 	var spec job.OffchainReportingOracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return specDB, errors.Wrap(err, "toml error on load")
+		return jb, errors.Wrap(err, "toml error on load")
 	}
 	// Note this validates all the fields which implement an UnmarshalText
 	// i.e. TransmitterAddress, PeerID...
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return specDB, errors.Wrap(err, "toml unmarshal error on spec")
+		return jb, errors.Wrap(err, "toml unmarshal error on spec")
 	}
-	err = tree.Unmarshal(&specDB)
+	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return specDB, errors.Wrap(err, "toml unmarshal error on specDB")
+		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
-	specDB.OffchainreportingOracleSpec = &spec
+	jb.OffchainreportingOracleSpec = &spec
 
 	// TODO(#175801426): upstream a way to check for undecoded keys in go-toml
 	// TODO(#175801038): upstream support for time.Duration defaults in go-toml
-	if specDB.Type != job.OffchainReporting {
-		return specDB, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", specDB.Type)
+	if jb.Type != job.OffchainReporting {
+		return jb, errors.Errorf("the only supported type is currently 'offchainreporting', got %s", jb.Type)
 	}
-	if specDB.SchemaVersion != uint32(1) {
-		return specDB, errors.Errorf("the only supported schema version is currently 1, got %v", specDB.SchemaVersion)
+	if jb.SchemaVersion != uint32(1) {
+		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 	if !tree.Has("isBootstrapPeer") {
-		return specDB, errors.New("isBootstrapPeer is not defined")
+		return jb, errors.New("isBootstrapPeer is not defined")
 	}
 	for i := range spec.P2PBootstrapPeers {
 		if _, err := multiaddr.NewMultiaddr(spec.P2PBootstrapPeers[i]); err != nil {
-			return specDB, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
+			return jb, errors.Wrapf(err, "p2p bootstrap peer %v is invalid", spec.P2PBootstrapPeers[i])
 		}
 	}
 	if spec.IsBootstrapPeer {
-		if err := validateBootstrapSpec(tree, specDB); err != nil {
-			return specDB, err
+		if err := validateBootstrapSpec(tree, jb); err != nil {
+			return jb, err
 		}
-	} else if err := validateNonBootstrapSpec(tree, config, specDB); err != nil {
-		return specDB, err
+	} else if err := validateNonBootstrapSpec(tree, config, jb); err != nil {
+		return jb, err
 	}
 	if err := validateTimingParameters(config, spec); err != nil {
-		return specDB, err
+		return jb, err
 	}
-	return specDB, nil
+	return jb, nil
 }
 
 // Parameters that must be explicitly set by the operator.
@@ -107,7 +107,7 @@ func validateTimingParameters(config *orm.Config, spec job.OffchainReportingOrac
 	return offchainreporting.SanityCheckLocalConfig(lc)
 }
 
-func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
+func validateBootstrapSpec(tree *toml.Tree, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(nonBootstrapParams)
 	for k := range bootstrapParams {
 		expected[k] = struct{}{}
@@ -118,7 +118,7 @@ func validateBootstrapSpec(tree *toml.Tree, spec job.SpecDB) error {
 	return nil
 }
 
-func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.SpecDB) error {
+func validateNonBootstrapSpec(tree *toml.Tree, config *orm.Config, spec job.Job) error {
 	expected, notExpected := cloneSet(params), cloneSet(bootstrapParams)
 	for k := range nonBootstrapParams {
 		expected[k] = struct{}{}

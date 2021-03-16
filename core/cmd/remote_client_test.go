@@ -57,13 +57,6 @@ func deleteKeyExportFile(t *testing.T) {
 	}
 }
 
-func mustLogIn(t *testing.T, client *cmd.Client) {
-	set := flag.NewFlagSet("test_login", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.RemoteLogin(c))
-}
-
 func requireOCRKeyCount(t *testing.T, store *store.Store, length int) []ocrkey.EncryptedKeyBundle {
 	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
@@ -696,6 +689,7 @@ func TestClient_RemoteLogin(t *testing.T) {
 	defer assertMocksCalled()
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
+	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -816,7 +810,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "401 Unauthorized")
+	require.Contains(t, err.Error(), "Unauthorized")
 }
 
 func TestClient_IndexTransactions(t *testing.T) {
@@ -949,10 +943,6 @@ func TestClient_CreateETHKey(t *testing.T) {
 	require.NoError(t, app.Start())
 
 	client, _ := app.NewClientAndRenderer()
-
-	mustLogIn(t, client)
-	client.PasswordPrompter = cltest.MockPasswordPrompter{Password: cltest.Password}
-
 	assert.NoError(t, client.CreateETHKey(nilContext))
 }
 
@@ -1153,7 +1143,6 @@ func TestClient_P2P_CreateKey(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
-	mustLogIn(t, client)
 	require.NoError(t, client.CreateP2PKey(nilContext))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
@@ -1193,8 +1182,6 @@ func TestClient_P2P_DeleteKey(t *testing.T) {
 
 	requireP2PKeyCount(t, app.Store, 2) // Created  + fixture key
 
-	mustLogIn(t, client)
-
 	set := flag.NewFlagSet("test", 0)
 	set.Bool("yes", true, "")
 	strID := strconv.FormatInt(int64(encKey.ID), 10)
@@ -1225,8 +1212,6 @@ func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
 
 	keys := requireP2PKeyCount(t, store, 1)
 	key := keys[0]
-
-	mustLogIn(t, client)
 
 	keyName := keyNameForTest(t)
 	set := flag.NewFlagSet("test P2P export", 0)
@@ -1266,7 +1251,6 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	client, _ := app.NewClientAndRenderer()
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
-	mustLogIn(t, client)
 	require.NoError(t, client.CreateOCRKeyBundle(nilContext))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
@@ -1306,8 +1290,6 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 
 	requireOCRKeyCount(t, app.Store, 2) // Created key + fixture key
 
-	mustLogIn(t, client)
-
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{key.ID.String()})
 	set.Bool("yes", true, "")
@@ -1335,8 +1317,6 @@ func TestClient_ImportExportOCRKeyBundle(t *testing.T) {
 
 	keys := requireOCRKeyCount(t, store, 1)
 	key := keys[0]
-
-	mustLogIn(t, client)
 
 	keyName := keyNameForTest(t)
 	set := flag.NewFlagSet("test OCR export", 0)
@@ -1376,7 +1356,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client, _ := app.NewClientAndRenderer()
 
-	var ocrJobSpecFromFile job.SpecDB
+	var ocrJobSpecFromFile job.Job
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
@@ -1434,7 +1414,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerPipelineRun(c), "500 Internal Server Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "Error; no job found with id 1 (most likely it was deleted)")
 }
 
 func TestClient_ListJobsV2(t *testing.T) {
@@ -1469,4 +1449,42 @@ func TestClient_ListJobsV2(t *testing.T) {
 	jobs := *r.Renders[0].(*[]cmd.Job)
 	require.Equal(t, 1, len(jobs))
 	assert.Equal(t, job.ID, jobs[0].ID)
+}
+
+func TestClient_CreateJobV2(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client, _ := app.NewClientAndRenderer()
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
+	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
+}
+
+func TestClient_AutoLogin(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+
+	fs := flag.NewFlagSet("", flag.ExitOnError)
+	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
+	require.NoError(t, err)
 }

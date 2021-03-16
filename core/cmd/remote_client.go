@@ -12,8 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
 	"github.com/manyminds/api2go/jsonapi"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pelletier/go-toml"
@@ -31,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
-var errUnauthorized = errors.New("401 Unauthorized")
+var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 
 // CreateServiceAgreement creates a ServiceAgreement based on JSON input
 func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
@@ -253,7 +251,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
-		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
+		fmt.Printf("Error : %v\n", string(body))
 		return cli.errorOut(err)
 	}
 
@@ -262,7 +260,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	ocrJobSpec := job.SpecDB{}
+	ocrJobSpec := Job{}
 	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
 		return cli.errorOut(err)
 	}
@@ -434,7 +432,11 @@ func (cli *Client) RemoveBridge(c *clipkg.Context) (err error) {
 
 // RemoteLogin creates a cookie session to run remote commands.
 func (cli *Client) RemoteLogin(c *clipkg.Context) error {
-	sessionRequest, err := cli.buildSessionRequest(c.String("file"))
+	credentialsFile := c.String("file")
+	if credentialsFile == "" {
+		credentialsFile = cli.Config.AdminCredentialsFile()
+	}
+	sessionRequest, err := cli.buildSessionRequest(credentialsFile)
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -589,7 +591,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -1236,7 +1238,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New(resp.Status)
+		return b, errors.New("Error")
 	}
 	return b, err
 }
