@@ -147,6 +147,17 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "enabledebug",
+					Usage:  "Enable and disable debug logging",
+					Action: client.SetDebugLogging,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "enabled, true",
+							Usage: "enable or disable debug logger",
+						},
+					},
+				},
 			},
 		},
 
@@ -456,24 +467,6 @@ func NewApp(client *Client) *cli.App {
 							Flags:  append(flags("password, p"), flags("file, f")...),
 							Action: client.CreateAndExportWeakVRFKey,
 							Hidden: !client.Config.Dev(), // For when this suite gets promoted out of dev mode
-						},
-					},
-				},
-			},
-		},
-		{
-			Name:    "logs",
-			Aliases: []string{"log"},
-			Usage:   "Commands for dynamic configuration and actions for the logger",
-			Subcommands: []cli.Command{
-				{
-					Name:   "enabledebug",
-					Usage:  "Enable and disable debug logging",
-					Action: client.SetDebugLogging,
-					Flags: []cli.Flag{
-						cli.BoolFlag{
-							Name:  "enabled, true",
-							Usage: "enable or disable debug logger",
 						},
 					},
 				},
