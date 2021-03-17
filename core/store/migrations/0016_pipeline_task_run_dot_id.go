@@ -13,6 +13,7 @@ ALTER TABLE pipeline_task_runs ALTER COLUMN dot_id SET NOT NULL, DROP COLUMN pip
 DROP TABLE pipeline_task_specs;
 
 CREATE UNIQUE INDEX ON pipeline_task_runs(pipeline_run_id, dot_id);
+DROP INDEX idx_pipeline_task_runs_optimise_find_results;
 `
 	down16 = `
 ALTER TABLE pipeline_task_runs DROP COLUMN dot_id;
