@@ -44,6 +44,10 @@ Name: "head_tracker_eth_connection_errors",
 Help: "The total number of eth node connection errors",
 ```
 
+- Gas bumping can now be disabled by setting `ETH_GAS_BUMP_THRESHOLD=0`
+
+- Support for arbitrum
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in
@@ -74,6 +78,10 @@ This means that the application gas price will always be updated correctly
 after reboot before the first transaction is ever sent, eliminating the previous
 scenario where the node could send underpriced or overpriced transactions for a
 period after a reboot, until the gas updater caught up.
+
+- Performance improvements to OCR job adds. Removed the pipeline_task_specs table
+and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
+to a dotID in the pipeline_spec.dot_dag_source.
 
 
 ### Changed

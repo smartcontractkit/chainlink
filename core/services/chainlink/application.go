@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -93,9 +94,10 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Exiter      func(int)
-	HeadTracker *services.HeadTracker
-	StatsPusher synchronization.StatsPusher
+	Exiter          func(int)
+	HeadTracker     *services.HeadTracker
+	HeadBroadcaster *services.HeadBroadcaster
+	StatsPusher     synchronization.StatsPusher
 	services.RunManager
 	RunQueue                 services.RunQueue
 	JobSubscriber            services.JobSubscriber
@@ -166,6 +168,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
 	ethConfirmer := bulletprooftxmanager.NewEthConfirmer(store, config)
+	headBroadcaster := services.NewHeadBroadcaster()
 	var balanceMonitor services.BalanceMonitor
 	if config.BalanceMonitorEnabled() {
 		balanceMonitor = services.NewBalanceMonitor(store)
@@ -186,6 +189,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineRunner,
 				store.DB,
 			),
+			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, config),
 		}
 	)
 
@@ -227,13 +231,14 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debug("Off-chain reporting disabled")
 	}
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
-	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer)
+	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, headBroadcaster)
 
 	store.NotifyNewEthTx = ethBroadcaster
 
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	app := &ChainlinkApplication{
+		HeadBroadcaster:          headBroadcaster,
 		JobSubscriber:            jobSubscriber,
 		EthBroadcaster:           ethBroadcaster,
 		LogBroadcaster:           logBroadcaster,
@@ -266,7 +271,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		pendingConnectionResumer,
 		balanceMonitor,
 		promReporter,
-		logBroadcaster,
+		headBroadcaster,
 	)
 
 	for _, onConnectCallback := range onConnectCallbacks {

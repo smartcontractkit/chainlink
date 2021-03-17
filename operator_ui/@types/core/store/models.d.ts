@@ -473,7 +473,7 @@ declare module 'core/store/models' {
     pipelineSpec: {
       dotDagSource: string
     }    
-    schemaVersion: number;
+    schemaVersion: number
   }
 
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
@@ -489,14 +489,15 @@ declare module 'core/store/models' {
     type: 'fluxmonitor'
     fluxMonitorSpec: {
       contractAddress: common.Address
-      precision: number;
-      threshold: number;
-      absoluteThreshold: number;
-      idleTimerDisabled: false;
-      idleTimerPeriod: string;
-      pollTimerDisabled: false;
-      pollTimerPeriod: string;
-      createdAt: time.Time      
+      precision: number
+      threshold: number
+      absoluteThreshold: number
+      idleTimerDisabled: false
+      idleTimerPeriod: string
+      pollTimerDisabled: false
+      pollTimerPeriod: string
+      minPayment: number | null
+      createdAt: time.Time
     }
     directRequestSpec: null
     offChainReportingOracleSpec: null
@@ -525,35 +526,6 @@ declare module 'core/store/models' {
   }
 
   export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec
-
-  // export interface JobSpecV2 {
-  //   name: string | null
-  //   type: string
-  //   errors: JobSpecError[]
-  //   offChainReportingOracleSpec: {
-  //     contractAddress: common.Address
-  //     p2pPeerID: string
-  //     p2pBootstrapPeers: string[]
-  //     isBootstrapPeer: boolean
-  //     keyBundleID: string
-  //     monitoringEndpoint: string
-  //     transmitterAddress: common.Address
-  //     observationTimeout: string
-  //     blockchainTimeout: string
-  //     contractConfigTrackerSubscribeInterval: string
-  //     contractConfigTrackerPollInterval: string
-  //     contractConfigConfirmations: number
-  //     createdAt: time.Time
-  //     updatedAt: time.Time
-  //   } | null
-  //   directRequestSpec: DirectRequestSpec | null
-  //   fluxMonitorSpec: FluxMonitorSpec | null
-  //   maxTaskDuration: string
-  //   pipelineSpec: {
-  //     dotDagSource: string
-  //   }
-  //   schemaVersion: number;
-  // }
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]

@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/crypto"
 	goEthereumEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,14 +55,6 @@ type fluxAggregatorUniverse struct {
 	nallory *bind.TransactOpts // Node operator Flux Monitor Oracle (Baddie.)
 }
 
-// newIdentity returns a go-ethereum abstraction of an ethereum account for
-// interacting with contract golang wrappers
-func newIdentity(t *testing.T) *bind.TransactOpts {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err, "failed to generate ethereum identity")
-	return cltest.MustNewSimulatedBackendKeyedTransactor(t, key)
-}
-
 // setupFluxAggregatorUniverse returns a fully initialized fluxAggregator universe. The
 // arguments match the arguments of the same name in the FluxAggregator
 // constructor.
@@ -73,9 +64,9 @@ func setupFluxAggregatorUniverse(t *testing.T, key models.Key, min, max *big.Int
 	oracleTransactor := cltest.MustNewSimulatedBackendKeyedTransactor(t, k.PrivateKey)
 
 	var f fluxAggregatorUniverse
-	f.sergey = newIdentity(t)
-	f.neil = newIdentity(t)
-	f.ned = newIdentity(t)
+	f.sergey = cltest.NewSimulatedBackendIdentity(t)
+	f.neil = cltest.NewSimulatedBackendIdentity(t)
+	f.ned = cltest.NewSimulatedBackendIdentity(t)
 	f.nallory = oracleTransactor
 	genesisData := core.GenesisAlloc{
 		f.sergey.From:  {Balance: oneEth},

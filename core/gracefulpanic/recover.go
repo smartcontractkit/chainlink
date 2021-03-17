@@ -1,11 +1,15 @@
 package gracefulpanic
 
-import "github.com/smartcontractkit/chainlink/core/logger"
+import (
+	"runtime/debug"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
+)
 
 func WrapRecover(fn func()) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Default.Errorw("goroutine panicked", "panic", err)
+			logger.Default.Errorw("goroutine panicked", "panic", err, "stacktrace", string(debug.Stack()))
 		}
 	}()
 	fn()
