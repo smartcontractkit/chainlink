@@ -222,7 +222,9 @@ func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	ht.headMutex.Unlock()
 
 	err := ht.store.IdempotentInsertHead(ctx, h)
-	if err != nil {
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return err
 	}
 	return ht.store.TrimOldHeads(ht.store.Config.EthHeadTrackerHistoryDepth())
@@ -267,15 +269,21 @@ func (ht *HeadTracker) listenForNewHeads() {
 		logger.WarnIf(errors.Wrap(err, "HeadTracker failed when unsubscribe from head"))
 	}()
 
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+
 	for {
 		if !ht.subscribe() {
-			return
+			break
 		}
-		if err := ht.receiveHeaders(); err != nil {
+		err := ht.receiveHeaders(ctx)
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			ht.logger.Errorw(fmt.Sprintf("Error in new head subscription, unsubscribed: %s", err.Error()), "err", err)
 			continue
 		} else {
-			return
+			break
 		}
 	}
 }
@@ -303,7 +311,7 @@ func (ht *HeadTracker) backfiller() {
 					defer cancel()
 					if err != nil {
 						logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
-					} else if err := ctx.Err(); err != nil {
+					} else if ctx.Err() != nil {
 						break
 					}
 				}
@@ -339,6 +347,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		"fromBlockHeight", baseHeight,
 		"toBlockHeight", head.Number-1)
 	defer func() {
+		if ctx.Err() != nil {
+			return
+		}
 		logger.Debugw("HeadTracker: finished backfill",
 			"fetched", fetched,
 			"blockNumber", head.Number,
@@ -354,7 +365,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		// NOTE: Sequential requests here mean it's a potential performance bottleneck, be aware!
 		var existingHead *models.Head
 		existingHead, err = ht.store.HeadByHash(ctx, head.ParentHash)
-		if err != nil {
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "HeadByHash failed")
 		}
 		if existingHead != nil {
@@ -363,7 +376,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		}
 		head, err = ht.fetchAndSaveHead(ctx, i)
 		fetched++
-		if err != nil {
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "fetchAndSaveHead failed")
 		}
 	}
@@ -373,7 +388,9 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
 	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
 	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
-	if err != nil {
+	if ctx.Err() != nil {
+		return models.Head{}, nil
+	} else if err != nil {
 		return models.Head{}, err
 	} else if head == nil {
 		return models.Head{}, errors.New("got nil head")
@@ -413,7 +430,7 @@ func (ht *HeadTracker) subscribe() bool {
 }
 
 // This should be safe to run concurrently across multiple nodes connected to the same database
-func (ht *HeadTracker) receiveHeaders() error {
+func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 	for {
 		select {
 		case <-ht.done:
@@ -424,12 +441,16 @@ func (ht *HeadTracker) receiveHeaders() error {
 			}
 			timeBudget := ht.totalNewHeadTimeBudget()
 			{
-				ctx, cancel := utils.CombinedContext(ht.done, timeBudget)
+				deadlineCtx, cancel := context.WithTimeout(ctx, timeBudget)
 				defer cancel()
-				if err := ht.handleNewHead(ctx, blockHeader); err != nil {
+
+				err := ht.handleNewHead(ctx, blockHeader)
+				if ctx.Err() != nil {
+					return nil
+				} else if deadlineCtx.Err() != nil {
+					logger.Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
 					return err
-				} else if err := ctx.Err(); err != nil {
-					logger.Debugw("HeadTracker: handling of new head canceled", "error", err, "timeBudget", timeBudget.String())
+				} else if err != nil {
 					return err
 				}
 			}
@@ -460,7 +481,10 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 		"blockHash", head.Hash,
 	)
 
-	if err := ht.Save(ctx, head); err != nil {
+	err := ht.Save(ctx, head)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return err
 	}
 
@@ -483,7 +507,9 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	promCurrentHead.Set(float64(head.Number))
 
 	headWithChain, err := ht.store.Chain(ctx, head.Hash, ht.store.Config.EthFinalityDepth())
-	if err != nil {
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching chain")
 	}
 	ht.backfillMB.Deliver(headWithChain)
@@ -593,9 +619,7 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 }
 
 func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
-	ctx, cancel := utils.ContextFromChan(ht.done)
-	defer cancel()
-	head, err := ht.store.LastHead(ctx)
+	head, err := ht.store.LastHead(context.Background())
 	if err != nil {
 		return err
 	}
@@ -606,9 +630,7 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
 // chainIDVerify checks whether or not the ChainID from the Chainlink config
 // matches the ChainID reported by the ETH node connected to this Chainlink node.
 func verifyEthereumChainID(ht *HeadTracker) error {
-	ctx, cancel := utils.ContextFromChan(ht.done)
-	defer cancel()
-	ethereumChainID, err := ht.store.EthClient.ChainID(ctx)
+	ethereumChainID, err := ht.store.EthClient.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
