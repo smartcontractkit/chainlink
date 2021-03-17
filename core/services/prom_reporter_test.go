@@ -61,7 +61,6 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		defer cleanup()
 
 		require.NoError(t, store.DB.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_run_id_fkey DEFERRED`).Error)
-		require.NoError(t, store.DB.Exec(`SET CONSTRAINTS pipeline_task_runs_pipeline_task_spec_id_fkey DEFERRED`).Error)
 
 		backend := new(mocks.PrometheusBackend)
 		d, _ := store.DB.DB()

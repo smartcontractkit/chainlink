@@ -10,6 +10,7 @@ import (
 	"math/big"
 	mathrand "math/rand"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -45,7 +46,6 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"github.com/urfave/cli"
-	"gopkg.in/guregu/null.v4"
 )
 
 // NewJob return new NoOp JobSpec
@@ -830,7 +830,8 @@ func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 }
 
 func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipelineRunID int64) pipeline.TaskRun {
-	p := pipeline.TaskRun{PipelineTaskSpecID: mathrand.Int31(), PipelineRunID: pipelineRunID}
+	/* #nosec G404 */
+	p := pipeline.TaskRun{DotID: strconv.Itoa(mathrand.Int()), PipelineRunID: pipelineRunID}
 	require.NoError(t, store.DB.Create(&p).Error)
 	return p
 }
@@ -838,20 +839,14 @@ func MustInsertUnfinishedPipelineTaskRun(t *testing.T, store *strpkg.Store, pipe
 func MustInsertSampleDirectRequestJob(t *testing.T, db *gorm.DB) job.Job {
 	t.Helper()
 
-	pspec := pipeline.Spec{}
+	pspec := pipeline.Spec{DotDagSource: `
+    // data source 1
+    ds1          [type=bridge name=voter_turnout];
+    ds1_parse    [type=jsonparse path="one,two"];
+    ds1_multiply [type=multiply times=1.23];
+`}
+
 	require.NoError(t, db.Create(&pspec).Error)
-
-	finalTspec := pipeline.TaskSpec{PipelineSpecID: pspec.ID}
-	require.NoError(t, db.Create(&finalTspec).Error)
-
-	tspecPath1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
-	require.NoError(t, db.Create(&tspecPath1).Error)
-
-	tspecPath2_2 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(finalTspec.ID))}
-	require.NoError(t, db.Create(&tspecPath2_2).Error)
-
-	tspecPath2_1 := pipeline.TaskSpec{PipelineSpecID: pspec.ID, SuccessorID: null.IntFrom(int64(tspecPath2_2.ID))}
-	require.NoError(t, db.Create(&tspecPath2_1).Error)
 
 	drspec := job.DirectRequestSpec{}
 	require.NoError(t, db.Create(&drspec).Error)
