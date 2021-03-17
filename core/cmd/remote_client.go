@@ -1193,8 +1193,8 @@ func normalizePassword(password string) string {
 	return url.PathEscape(strings.TrimSpace(password))
 }
 
-// ToggleDebugLogging enables or disables debug logging on the node
-func (cli *Client) ToggleDebugLogging(c *clipkg.Context) (err error) {
+// SetDebugLogging enables or disables debug logging on the node
+func (cli *Client) SetDebugLogging(c *clipkg.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must set enabled or disabled (true || false)"))
 	}
