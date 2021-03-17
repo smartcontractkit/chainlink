@@ -247,13 +247,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	}
 	all := make(map[string]*memoryTaskRun)
 	var graph []*memoryTaskRun
+	txMu := new(sync.Mutex)
 	for _, task := range tasks {
 		if task.Type() == TaskTypeHTTP {
 			task.(*HTTPTask).config = r.config
 		}
 		if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).safeTx = SafeTx{txdb, new(sync.Mutex)}
+			task.(*BridgeTask).safeTx = SafeTx{txdb, txMu}
 		}
 		mtr := memoryTaskRun{
 			nPredecessors: task.NPreds(),
