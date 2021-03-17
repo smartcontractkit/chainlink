@@ -22,11 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -369,6 +372,19 @@ func assertNoSubmission(t *testing.T,
 	}
 }
 
+// assertPipelineRunCreated checks that a pipeline exists for a given round and
+// verifies the answer
+func assertPipelineRunCreated(t *testing.T, db *gorm.DB, roundID int64, result float64) {
+	// Fetch the stats to extract the run id
+	stats := fluxmonitorv2.FluxMonitorRoundStatsV2{}
+	db.Where("round_id = ?", roundID).Find(&stats)
+
+	// Verify the pipeline run data
+	run := pipeline.Run{}
+	db.Find(&run, stats.PipelineRunID)
+	assert.Equal(t, []interface{}{result}, run.Outputs.Val)
+}
+
 func TestFluxMonitor_Deviation(t *testing.T) {
 	fa := setupFluxAggregatorUniverse(t)
 
@@ -450,6 +466,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance,
 		receiptBlock,
 	)
+	assertPipelineRunCreated(t, app.Store.DB, 1, float64(100))
 
 	// Change reported price to a value outside the deviation
 	reportPrice = int64(103)
@@ -469,6 +486,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 		initialBalance-fee,
 		receiptBlock,
 	)
+	assertPipelineRunCreated(t, app.Store.DB, 2, float64(103))
 
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
@@ -748,10 +766,11 @@ ds1 -> ds1_parse
 
 	j := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
+	tick := time.NewTicker(500 * time.Millisecond)
+	defer tick.Stop()
 	go func() {
-		for {
+		for range tick.C {
 			fa.backend.Commit()
-			time.Sleep(500 * time.Millisecond)
 		}
 	}()
 
@@ -801,7 +820,10 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 	})
 
 	// - successfully close the round through the submissions of the other nodes
-	// Response by malicious chainlink node, nallory
+	// Response by spammy chainlink node, nallory
+	//
+	// The initial balance is the LINK balance of flux aggregator contract. We
+	// use it to check that the fee for submitting an answer has been paid out.
 	initialBalance := currentBalance(t, &fa).Int64()
 	reportPrice := answer
 	priceResponse := func() string {
