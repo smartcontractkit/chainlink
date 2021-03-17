@@ -58,6 +58,8 @@ describe('OperatorForwarder', () => {
       'authorizedSender3',
       'linkAddr',
       'forward',
+      'destroy',
+      'operator',
     ])
   })
 
@@ -74,6 +76,24 @@ describe('OperatorForwarder', () => {
       assert.equal(auth1, roles.defaultAccount.address)
       assert.equal(auth2, authorizedSenders[0])
       assert.equal(auth3, authorizedSenders[1])
+    })
+  })
+
+  describe('#destroy', () => {
+    describe('when called by the operator', () => {
+      it('selfdestructs', async () => {
+        await operatorForwarderDeployer.destroyForwarder()
+        await matchers.evmRevert(operatorForwarder.authorizedSender1())
+      })
+    })
+
+    describe('when called by anyone other than the operator', () => {
+      it('reverts', async () => {
+        await matchers.evmRevert(
+          operatorForwarder.connect(roles.stranger).destroy(),
+          'Must be operator',
+        )
+      })
     })
   })
 

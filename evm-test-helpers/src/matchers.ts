@@ -62,7 +62,7 @@ export async function evmRevert(
 
   assert(e.message, 'Expected an error to contain a message')
 
-  const ERROR_MESSAGES = ['invalid opcode', 'revert']
+  const ERROR_MESSAGES = ['call exception', 'invalid opcode', 'revert']
   const hasErrored = ERROR_MESSAGES.some((msg) => e?.message?.includes(msg))
 
   if (msg) {

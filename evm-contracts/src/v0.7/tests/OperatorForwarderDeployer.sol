@@ -7,7 +7,9 @@ import "../dev/ConfirmedOwner.sol";
 contract OperatorForwarderDeployer is ConfirmedOwner {
 
   address private immutable linkAddress;
+  bytes32 private immutable salt;
   address[] private s_authorisedSenders;
+  OperatorForwarder public forwarder;
 
   event ForwarderDeployed(address indexed forwarder);
 
@@ -18,7 +20,8 @@ contract OperatorForwarderDeployer is ConfirmedOwner {
     ConfirmedOwner(msg.sender)
   {
     linkAddress = link;
-    s_authorisedSenders = authorizedSenders;
+    setAuthorizedSenders(authorizedSenders);
+    salt = bytes32("1");
   }
 
   function createForwarder()
@@ -27,10 +30,24 @@ contract OperatorForwarderDeployer is ConfirmedOwner {
       address
     )
   {
-    OperatorForwarder newForwarder = new OperatorForwarder(linkAddress);
-    address forwarderAddress = address(newForwarder);
+    forwarder = new OperatorForwarder{salt: salt}(linkAddress);
+    address forwarderAddress = address(forwarder);
     emit ForwarderDeployed(forwarderAddress);
     return forwarderAddress;
+  }
+
+  function destroyForwarder()
+    external
+  {
+    forwarder.destroy();
+  }
+
+  function setAuthorizedSenders(
+    address[] memory authorizedSenders
+  )
+    public
+  {
+    s_authorisedSenders = authorizedSenders;
   }
 
   function getAuthorizedSenders()
