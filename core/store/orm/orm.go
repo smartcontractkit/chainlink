@@ -161,6 +161,9 @@ func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
 	if err == gorm.ErrRecordNotFound {
 		return nil, nil
 	}
+	if err != nil && strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+		return nil, nil
+	}
 	return &nodeVersion, err
 }
 
