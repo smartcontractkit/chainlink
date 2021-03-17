@@ -63,6 +63,7 @@ type ConfigSchema struct {
 	GasUpdaterBlockHistorySize                uint16          `env:"GAS_UPDATER_BLOCK_HISTORY_SIZE" default:"24"`
 	GasUpdaterTransactionPercentile           uint16          `env:"GAS_UPDATER_TRANSACTION_PERCENTILE" default:"60"`
 	GasUpdaterEnabled                         bool            `env:"GAS_UPDATER_ENABLED" default:"true"`
+	HeadTimeBudget                            time.Duration   `env:"HEAD_TIME_BUDGET" default:"8s"`
 	InsecureFastScrypt                        bool            `env:"INSECURE_FAST_SCRYPT" default:"false"`
 	JobPipelineMaxRunDuration                 time.Duration   `env:"JOB_PIPELINE_MAX_RUN_DURATION" default:"10m"`
 	JobPipelineResultWriteQueueDepth          uint64          `env:"JOB_PIPELINE_RESULT_WRITE_QUEUE_DEPTH" default:"100"`
