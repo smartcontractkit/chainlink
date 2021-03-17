@@ -61,6 +61,7 @@ func TestRunner(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
+	geth.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
