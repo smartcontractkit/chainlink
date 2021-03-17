@@ -5,13 +5,17 @@ import "../interfaces/OperatorInterface.sol";
 import "./ConfirmedOwner.sol";
 
 contract OperatorForwarder {
+
+  address payable public immutable operator;
   address public immutable authorizedSender1;
   address public immutable authorizedSender2;
   address public immutable authorizedSender3;
-
   address public immutable linkAddr;
 
-  constructor(address link) {
+  constructor(
+    address link
+  ) {
+    operator = msg.sender;
     linkAddr = link;
     authorizedSender1 = ConfirmedOwner(msg.sender).owner();
     address[] memory authorizedSenders = OperatorInterface(msg.sender).getAuthorizedSenders();
@@ -19,11 +23,17 @@ contract OperatorForwarder {
     authorizedSender3 = (authorizedSenders.length > 1) ? authorizedSenders[1] : address(0);
   }
 
+  /**
+   * @notice Forward calldata to another address
+   * @dev Only callable by an authorized sender
+   * @param to address to forward to
+   * @param data bytes to call on the address
+   */
   function forward(
     address to,
     bytes calldata data
   )
-    public
+    external
     onlyAuthorizedSender()
   {
     require(to != linkAddr, "Cannot #forward to Link token");
@@ -31,12 +41,34 @@ contract OperatorForwarder {
     require(status, "Forwarded call failed.");
   }
 
+  /**
+   * @notice Destroy the current implementation of this contract
+   * @dev Only callable by the operator
+   */
+  function destroy()
+    external
+    onlyOperator()
+  {
+    selfdestruct(operator);
+  }
+
+  /**
+   * @notice Only authorized sender modifier
+   */
   modifier onlyAuthorizedSender() {
     require(msg.sender == authorizedSender1
       || msg.sender == authorizedSender2
       || msg.sender == authorizedSender3,
       "Not authorized to fulfill requests"
     );
+    _;
+  }
+
+  /**
+   * @notice Only Operator modifer
+   */
+  modifier onlyOperator() {
+    require(msg.sender == operator, "Must be operator");
     _;
   }
 }
