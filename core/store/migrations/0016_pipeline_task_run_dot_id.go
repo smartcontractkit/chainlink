@@ -31,6 +31,7 @@ CREATE INDEX idx_pipeline_task_specs_created_at ON public.pipeline_task_specs US
 CREATE INDEX idx_pipeline_task_specs_pipeline_spec_id ON public.pipeline_task_specs USING btree (pipeline_spec_id);
 CREATE UNIQUE INDEX idx_pipeline_task_specs_single_output ON public.pipeline_task_specs USING btree (pipeline_spec_id) WHERE (successor_id IS NULL);
 CREATE INDEX idx_pipeline_task_specs_successor_id ON public.pipeline_task_specs USING btree (successor_id);
+CREATE INDEX idx_pipeline_task_runs_optimise_find_results ON public.pipeline_task_runs USING btree (pipeline_run_id);
 `
 )
 
