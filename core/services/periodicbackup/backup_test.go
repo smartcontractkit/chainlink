@@ -37,7 +37,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
-	result, err := periodicBackup.runBackup("")
+	result, err := periodicBackup.runBackup("unset")
 	require.NoError(t, err, "error not nil for backup")
 
 	defer os.Remove(result.path)
@@ -47,7 +47,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 
 	assert.Greater(t, file.Size(), int64(0))
 	assert.Equal(t, file.Size(), result.size)
-	assert.Contains(t, result.path, "cl_backup_initial")
+	assert.Contains(t, result.path, "cl_backup_unset")
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrl(t *testing.T) {
