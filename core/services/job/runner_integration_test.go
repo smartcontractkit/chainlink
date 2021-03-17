@@ -102,7 +102,7 @@ func TestRunner(t *testing.T) {
 		results, err := runner.ResultsForRun(context.Background(), runID)
 		require.NoError(t, err)
 
-		assert.Len(t, results, 2)
+		require.Len(t, results, 2)
 		assert.NoError(t, results[0].Error)
 		assert.NoError(t, results[1].Error)
 		assert.Equal(t, "6225.6", results[0].Value)
@@ -111,66 +111,67 @@ func TestRunner(t *testing.T) {
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
 		assert.Len(t, runs, 9)
 
 		for _, run := range runs {
-			if run.DotID() == "answer2" {
+			if run.GetDotID() == "answer2" {
 				assert.Equal(t, "Hal Finney", run.Output.Val)
-			} else if run.DotID() == "ds2" {
+			} else if run.GetDotID() == "ds2" {
 				assert.Equal(t, `{"turnout": 61.942}`, run.Output.Val)
-			} else if run.DotID() == "ds2_parse" {
+			} else if run.GetDotID() == "ds2_parse" {
 				assert.Equal(t, float64(61.942), run.Output.Val)
-			} else if run.DotID() == "ds2_multiply" {
+			} else if run.GetDotID() == "ds2_multiply" {
 				assert.Equal(t, "6194.2", run.Output.Val)
-			} else if run.DotID() == "ds1" {
+			} else if run.GetDotID() == "ds1" {
 				assert.Equal(t, `{"data": {"result": 62.57}}`, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.Equal(t, float64(62.57), run.Output.Val)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "6257", run.Output.Val)
-			} else if run.DotID() == "answer1" {
+			} else if run.GetDotID() == "answer1" {
 				assert.Equal(t, "6225.6", run.Output.Val)
-			} else if run.DotID() == "__result__" {
+			} else if run.GetDotID() == "__result__" {
 				assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "testbridge", "blah")
+		_, bridge := cltest.NewBridgeType(t, "testbridge", "http://blah.com")
 		require.NoError(t, db.Create(bridge).Error)
 		dbSpec := makeOCRJobSpecFromToml(t, db, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
-				ds1          [type=bridge name="testbridge" url="http://data.com"];
+				ds1          [type=bridge name="testbridge"];
 			"""
 		`)
 		require.NoError(t, jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline))
 		// Should not be able to delete a bridge in use.
-		require.EqualError(t,
-			db.Delete(&bridge).Error,
-			"ERROR: update or delete on table \"bridge_types\" violates foreign key constraint \"fk_pipeline_task_specs_bridge_name\" on table \"pipeline_task_specs\" (SQLSTATE 23503)")
+		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jids))
 
 		// But if we delete the job, then we can.
 		require.NoError(t, jobORM.DeleteJob(context.Background(), dbSpec.ID))
-		require.NoError(t, db.Delete(&bridge).Error)
+		jids, err = jobORM.FindJobIDsWithBridge(bridge.Name.String())
+		require.NoError(t, err)
+		require.Equal(t, 0, len(jids))
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "testbridge", "blah")
+		_, bridge := cltest.NewBridgeType(t, "testbridge2", "http://blah.com")
 		require.NoError(t, db.Create(bridge).Error)
 		dbSpec := makeOCRJobSpecFromToml(t, db, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			observationSource = """
-				ds1          [type=bridge name="testbridge2" url="http://data.com"];
+				ds1          [type=bridge name="testbridge2"];
 			"""
 		`)
 		require.Error(t,
@@ -214,29 +215,28 @@ func TestRunner(t *testing.T) {
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
 		require.Len(t, runs, 4)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				require.NotNil(t, resp, run.Output)
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
 				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
+			} else if run.GetDotID() == "__result__" {
 				assert.Equal(t, []interface{}{nil}, run.Output.Val)
 				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
@@ -275,27 +275,26 @@ func TestRunner(t *testing.T) {
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
 		require.Len(t, runs, 4)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
+			} else if run.GetDotID() == "__result__" {
 				assert.Equal(t, []interface{}{nil}, run.Output.Val)
 				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
@@ -334,27 +333,26 @@ func TestRunner(t *testing.T) {
 		// Verify individual task results
 		var runs []pipeline.TaskRun
 		err = db.
-			Preload("PipelineTaskSpec").
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
 		require.Len(t, runs, 4)
 
 		for _, run := range runs {
-			if run.DotID() == "ds1" {
+			if run.GetDotID() == "ds1" {
 				assert.True(t, run.Error.IsZero())
 				assert.Equal(t, resp, run.Output.Val)
-			} else if run.DotID() == "ds1_parse" {
+			} else if run.GetDotID() == "ds1_parse" {
 				assert.True(t, run.Error.IsZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "ds1_multiply" {
+			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.DotID() == "__result__" {
+			} else if run.GetDotID() == "__result__" {
 				assert.Equal(t, []interface{}{nil}, run.Output.Val)
 				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
-				t.Fatalf("unknown task '%v'", run.DotID())
+				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
 		}
 	})
@@ -384,7 +382,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -427,7 +425,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
 			First(&jb).Error
@@ -486,7 +484,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -533,7 +531,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").
 			Where("id = ?", os.ID).
 			First(&jb).Error
@@ -573,7 +571,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), &os, os.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", os.ID).
 			First(&jb).Error
 		require.NoError(t, err)
@@ -610,7 +608,7 @@ ds1 -> ds1_parse;
 		err = jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 		var jb job.Job
-		err = db.Preload("PipelineSpec.PipelineTaskSpecs").
+		err = db.Preload("PipelineSpec").
 			Preload("OffchainreportingOracleSpec").Where("id = ?", dbSpec.ID).
 			First(&jb).Error
 		require.NoError(t, err)
