@@ -31,6 +31,7 @@ type ConfigSchema struct {
 	DatabaseMaximumTxDuration                 time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
 	DatabaseBackupEnabled                     bool            `env:"DATABASE_BACKUP_ENABLED" default:"false"`
 	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"0m"`
+	DatabaseBackupURL                         *url.URL        `env:"DATABASE_BACKUP_URL" default:""`
 	DefaultHTTPLimit                          int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
 	DefaultHTTPTimeout                        models.Duration `env:"DEFAULT_HTTP_TIMEOUT" default:"15s"`
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`

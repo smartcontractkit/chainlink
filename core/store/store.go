@@ -254,8 +254,17 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
 	if config.DatabaseBackupEnabled() {
-		databaseBackup := periodicbackup.NewDatabaseBackup(config.DatabaseBackupFrequency(), config.DatabaseURL(), config.RootDir(), logger.Default)
-		databaseBackup.RunBackupGracefully()
+
+		version, err2 := orm.FindLatestNodeVersion()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
+		}
+		var versionString string
+		if version != nil {
+			versionString = version.Version
+		}
+		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger.Default)
+		databaseBackup.RunBackupGracefully(versionString)
 	}
 	if err = CheckSquashUpgrade(orm.DB); err != nil {
 		panic(err)
@@ -269,6 +278,11 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
+	}
+	version := models.NewNodeVersion(static.Version)
+	err = orm.UpsertNodeVersion(version)
+	if err != nil {
+		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
 	orm.SetLogging(config.LogSQLStatements())
 	return orm, nil
