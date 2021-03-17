@@ -160,7 +160,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner.Start()
 		defer spawner.Close()
 
-		eventually.AwaitOrFail(t, 10*time.Second)
+		eventually.AwaitOrFail(t)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Close").Return(nil).Once()
@@ -190,7 +190,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		spawner.Start()
 
-		eventually.AwaitOrFail(t, 10*time.Second)
+		eventually.AwaitOrFail(t)
 		mock.AssertExpectationsForObjects(t, serviceA1, serviceA2)
 
 		serviceA1.On("Close").Return(nil).Once()
@@ -227,7 +227,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner.Start()
 		defer spawner.Close()
 
-		eventuallyStart.AwaitOrFail(t, 10*time.Second)
+		eventuallyStart.AwaitOrFail(t)
 
 		advisoryLockClassID := job.GetORMAdvisoryLockClassID(orm)
 
@@ -248,7 +248,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		require.NoError(t, db.Exec(`DELETE FROM jobs WHERE id = ?`, jobSpecIDA).Error)
 
-		eventuallyClose.AwaitOrFail(t, 10*time.Second)
+		eventuallyClose.AwaitOrFail(t)
 
 		// Wait for the claim lock to be released
 		gomega.NewGomegaWithT(t).Eventually(func() int {
