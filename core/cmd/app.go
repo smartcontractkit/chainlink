@@ -461,7 +461,24 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-
+		{
+			Name:    "logs",
+			Aliases: []string{"log"},
+			Usage:   "Commands for dynamic configuration and actions for the logger",
+			Subcommands: []cli.Command{
+				{
+					Name:   "enabledebug",
+					Usage:  "Enable and disable debug logging",
+					Action: client.ToggleDebugLogging,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "enabled, true",
+							Usage: "enable or disable debug logger",
+						},
+					},
+				},
+			},
+		},
 		{
 			Name:        "node",
 			Aliases:     []string{"local"},
