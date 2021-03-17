@@ -72,6 +72,10 @@ contract Operator is
     address indexed addr
   );
 
+  event ForwarderUpdated(
+    address indexed addr
+  );
+
   /**
    * @notice Deploy with the address of the LINK token
    * @dev Sets the LinkToken address for the imported LinkTokenInterface
@@ -432,6 +436,29 @@ contract Operator is
     require(addr != address(0), "Create2: Failed deployment");
     s_forwardersList.push(addr);
     emit ForwarderCreated(addr);
+  }
+
+  /**
+   * @notice Destroy the forwarder at the index, then redeploy using create2 and the authorized senders
+   * currently set in this contract
+   * @param forwarderId uint256 id of the forwarder
+   * @return addr address of the forwarder
+   */
+  function updateForwarder(
+    uint256 forwarderId
+  )
+    public
+    onlyAuthorizedSender()
+    returns (
+      address addr
+    )
+  {
+    addr = s_forwardersList[forwarderId];
+    bytes32 salt = bytes32(forwarderId);
+    OperatorForwarder(addr).destroy();
+    OperatorForwarder forwarder = new OperatorForwarder{salt: salt}(address(linkToken));
+    require(address(forwarder) == addr, "Create2: Address mismatch");
+    emit ForwarderUpdated(addr);
   }
 
   /**
