@@ -79,6 +79,10 @@ after reboot before the first transaction is ever sent, eliminating the previous
 scenario where the node could send underpriced or overpriced transactions for a
 period after a reboot, until the gas updater caught up.
 
+- Performance improvements to OCR job adds. Removed the pipeline_task_specs table
+and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
+to a dotID in the pipeline_spec.dot_dag_source.
+
 
 ### Changed
 

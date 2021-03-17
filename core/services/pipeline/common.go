@@ -57,6 +57,16 @@ var (
 	ErrBadInput              = errors.New("bad input for task")
 )
 
+// Bundled tx and txmutex for multiple goroutines inside the same transaction.
+// This mutex is necessary to work to avoid
+// concurrent database calls inside the same transaction to fail.
+// With the pq driver: `pq: unexpected Parse response 'C'`
+// With the pgx driver: `conn busy`.
+type SafeTx struct {
+	tx   *gorm.DB
+	txMu *sync.Mutex
+}
+
 // Result is the result of a TaskRun
 type Result struct {
 	Value interface{}
@@ -292,7 +302,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, txdb: txdb, txdbMutex: txdbMutex, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMedian:
 		task = &MedianTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeAny:

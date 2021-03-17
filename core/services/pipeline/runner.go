@@ -259,8 +259,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 		}
 		if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).txdb = txdb
-			task.(*BridgeTask).txdbMutex = &txdbMutex
+			task.(*BridgeTask).safeTx = SafeTx{txdb, &txdbMutex}
 		}
 		mtr := memoryTaskRun{
 			nPredecessors: task.NPreds(),

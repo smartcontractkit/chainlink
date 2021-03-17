@@ -32,7 +32,7 @@ func NewBaseTask(dotID string, t Task, index int32, nPreds int) BaseTask {
 
 func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {
 	t.config = config
-	t.txdb = txdb
+	t.safeTx = SafeTx{tx: txdb}
 }
 
 func (t *HTTPTask) HelperSetConfig(config Config) {
