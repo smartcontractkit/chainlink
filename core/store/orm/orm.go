@@ -146,13 +146,9 @@ func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Exec(`
-        INSERT INTO node_versions (
-            version, created_at
-        ) VALUES (
-            ?, ?
-        ) ON CONFLICT DO NOTHING
-    `, version.Version, version.CreatedAt).Error
+	return orm.DB.Clauses(clause.OnConflict{
+		DoNothing: true,
+	}).Create(&version).Error
 }
 
 // FindLatestNodeVersion looks up the latest node version
