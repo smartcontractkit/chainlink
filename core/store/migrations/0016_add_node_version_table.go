@@ -13,7 +13,6 @@ const up16 = `
 `
 
 const down16 = `
-    DROP TABLE IF EXISTS "node_version";
     DROP TABLE IF EXISTS "node_versions";
 `
 
