@@ -371,7 +371,8 @@ func (c Config) EthReceiptFetchBatchSize() uint32 {
 	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
 }
 
-// EthGasBumpThreshold is the number of blocks to wait for confirmations before bumping gas again
+// EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
+// Set to 0 to disable gas bumping
 func (c Config) EthGasBumpThreshold() uint64 {
 	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
 }
@@ -564,6 +565,10 @@ func (c Config) JobPipelineReaperInterval() time.Duration {
 
 func (c Config) JobPipelineReaperThreshold() time.Duration {
 	return c.getWithFallback("JobPipelineReaperThreshold", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperRegistrySyncInterval() time.Duration {
+	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
 }
 
 // JSONConsole enables the JSON console.
@@ -937,6 +942,11 @@ func (c Config) CertFile() string {
 		return filepath.Join(c.tlsDir(), "server.crt")
 	}
 	return c.TLSCertPath()
+}
+
+// HeadTimeBudget returns the time allowed for context timeout in head tracker
+func (c Config) HeadTimeBudget() time.Duration {
+	return c.getWithFallback("HeadTimeBudget", parseDuration).(time.Duration)
 }
 
 // CreateProductionLogger returns a custom logger for the config's root

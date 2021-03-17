@@ -93,13 +93,13 @@ func (_m *Runner) ExecuteAndInsertNewRun(ctx context.Context, spec pipeline.Spec
 	return r0, r1, r2
 }
 
-// ExecuteRun provides a mock function with given fields: ctx, run, l
-func (_m *Runner) ExecuteRun(ctx context.Context, run pipeline.Run, l logger.Logger) (pipeline.TaskRunResults, error) {
-	ret := _m.Called(ctx, run, l)
+// ExecuteRun provides a mock function with given fields: ctx, spec, l
+func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, l logger.Logger) (pipeline.TaskRunResults, error) {
+	ret := _m.Called(ctx, spec, l)
 
 	var r0 pipeline.TaskRunResults
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, logger.Logger) pipeline.TaskRunResults); ok {
-		r0 = rf(ctx, run, l)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, logger.Logger) pipeline.TaskRunResults); ok {
+		r0 = rf(ctx, spec, l)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(pipeline.TaskRunResults)
@@ -107,8 +107,8 @@ func (_m *Runner) ExecuteRun(ctx context.Context, run pipeline.Run, l logger.Log
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, logger.Logger) error); ok {
-		r1 = rf(ctx, run, l)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, logger.Logger) error); ok {
+		r1 = rf(ctx, spec, l)
 	} else {
 		r1 = ret.Error(1)
 	}
