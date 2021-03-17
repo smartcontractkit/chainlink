@@ -933,18 +933,25 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	availableFunds := minPayment * 100
 
 	// Start, connect, and initialize node
-	sub.On("Err").Return(nil)
-	sub.On("Unsubscribe").Return(nil).Maybe()
-	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
+
 	newHeadsCh := make(chan chan<- *models.Head, 1)
+	rpcClientDone := cltest.NewAwaiter()
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
-		Run(func(args mock.Arguments) { newHeadsCh <- args.Get(1).(chan<- *models.Head) }).
+		Run(func(args mock.Arguments) {
+			rpcClientDone.ItHappened()
+			newHeadsCh <- args.Get(1).(chan<- *models.Head)
+		}).
 		Return(sub, nil)
+
+	sub.On("Err").Maybe().Return(nil)
+	sub.On("Unsubscribe").Maybe().Return(nil)
 
 	err := app.StartAndConnect()
 	require.NoError(t, err)
 
+	rpcClientDone.AwaitOrFail(t)
 	gethClient.AssertExpectations(t)
 	rpcClient.AssertExpectations(t)
 	sub.AssertExpectations(t)
