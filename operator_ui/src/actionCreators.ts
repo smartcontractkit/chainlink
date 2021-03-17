@@ -24,6 +24,7 @@ type Errors =
   | jsonapi.BadRequestError
   | jsonapi.ServerError
   | jsonapi.UnknownResponseError
+  | jsonapi.ConflictError
 
 type RestAction = 'UPSERT' | 'DELETE'
 

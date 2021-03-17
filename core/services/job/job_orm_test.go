@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 )
@@ -262,4 +263,65 @@ func TestORM_UnclaimJob(t *testing.T) {
 	require.NotContains(t, claimedJobs, jobID)
 
 	advisoryLocker.AssertExpectations(t)
+}
+
+func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
+	t.Parallel()
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
+	defer cleanup()
+	db := store.DB
+
+	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
+	defer cleanupORM()
+	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+	defer orm.Close()
+
+	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
+		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+		require.NoError(t, db.Create(bridge).Error)
+		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+		require.NoError(t, db.Create(bridge2).Error)
+
+		key := cltest.MustInsertRandomKey(t, store.DB)
+		address := key.Address.Address()
+		dbSpec := makeOCRJobSpec(t, address)
+
+		err := orm.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
+		require.NoError(t, err)
+
+		var ocrJob job.Job
+		err = store.DB.First(&ocrJob).Error
+		require.NoError(t, err)
+
+		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 1)
+		cltest.AssertCount(t, store, pipeline.Spec{}, 1)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err = orm.DeleteJob(ctx, ocrJob.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, store, job.OffchainReportingOracleSpec{}, 0)
+		cltest.AssertCount(t, store, pipeline.Spec{}, 0)
+		cltest.AssertCount(t, store, job.Job{}, 0)
+	})
+
+	t.Run("it deletes records for keeper jobs", func(t *testing.T) {
+		registry, keeperJob := cltest.MustInsertKeeperRegistry(t, store)
+		cltest.MustInsertUpkeepForRegistry(t, store, registry)
+
+		cltest.AssertCount(t, store, job.KeeperSpec{}, 1)
+		cltest.AssertCount(t, store, keeper.Registry{}, 1)
+		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 1)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		err := orm.DeleteJob(ctx, keeperJob.ID)
+		require.NoError(t, err)
+		cltest.AssertCount(t, store, job.KeeperSpec{}, 0)
+		cltest.AssertCount(t, store, keeper.Registry{}, 0)
+		cltest.AssertCount(t, store, keeper.UpkeepRegistration{}, 0)
+		cltest.AssertCount(t, store, job.Job{}, 0)
+	})
 }

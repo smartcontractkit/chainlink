@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -30,6 +31,7 @@ const OffchainAggregatorABI = "[{\"inputs\":[{\"internalType\":\"uint32\",\"name
 
 type OffchainAggregator struct {
 	address common.Address
+	abi     abi.ABI
 	OffchainAggregatorCaller
 	OffchainAggregatorTransactor
 	OffchainAggregatorFilterer
@@ -76,11 +78,15 @@ type OffchainAggregatorTransactorRaw struct {
 }
 
 func NewOffchainAggregator(address common.Address, backend bind.ContractBackend) (*OffchainAggregator, error) {
+	abi, err := abi.JSON(strings.NewReader(OffchainAggregatorABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindOffchainAggregator(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &OffchainAggregator{address: address, OffchainAggregatorCaller: OffchainAggregatorCaller{contract: contract}, OffchainAggregatorTransactor: OffchainAggregatorTransactor{contract: contract}, OffchainAggregatorFilterer: OffchainAggregatorFilterer{contract: contract}}, nil
+	return &OffchainAggregator{address: address, abi: abi, OffchainAggregatorCaller: OffchainAggregatorCaller{contract: contract}, OffchainAggregatorTransactor: OffchainAggregatorTransactor{contract: contract}, OffchainAggregatorFilterer: OffchainAggregatorFilterer{contract: contract}}, nil
 }
 
 func NewOffchainAggregatorCaller(address common.Address, caller bind.ContractCaller) (*OffchainAggregatorCaller, error) {
@@ -2755,48 +2761,96 @@ type LatestTransmissionDetails struct {
 	LatestTimestamp uint64
 }
 
-func (_OffchainAggregator *OffchainAggregator) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _OffchainAggregator.OffchainAggregatorFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_OffchainAggregator *OffchainAggregator) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(OffchainAggregatorABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_OffchainAggregator *OffchainAggregator) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["AnswerUpdated"].ID:
+	case _OffchainAggregator.abi.Events["AnswerUpdated"].ID:
 		return _OffchainAggregator.ParseAnswerUpdated(log)
-	case abi.Events["BillingAccessControllerSet"].ID:
+	case _OffchainAggregator.abi.Events["BillingAccessControllerSet"].ID:
 		return _OffchainAggregator.ParseBillingAccessControllerSet(log)
-	case abi.Events["BillingSet"].ID:
+	case _OffchainAggregator.abi.Events["BillingSet"].ID:
 		return _OffchainAggregator.ParseBillingSet(log)
-	case abi.Events["ConfigSet"].ID:
+	case _OffchainAggregator.abi.Events["ConfigSet"].ID:
 		return _OffchainAggregator.ParseConfigSet(log)
-	case abi.Events["NewRound"].ID:
+	case _OffchainAggregator.abi.Events["NewRound"].ID:
 		return _OffchainAggregator.ParseNewRound(log)
-	case abi.Events["NewTransmission"].ID:
+	case _OffchainAggregator.abi.Events["NewTransmission"].ID:
 		return _OffchainAggregator.ParseNewTransmission(log)
-	case abi.Events["OraclePaid"].ID:
+	case _OffchainAggregator.abi.Events["OraclePaid"].ID:
 		return _OffchainAggregator.ParseOraclePaid(log)
-	case abi.Events["OwnershipTransferRequested"].ID:
+	case _OffchainAggregator.abi.Events["OwnershipTransferRequested"].ID:
 		return _OffchainAggregator.ParseOwnershipTransferRequested(log)
-	case abi.Events["OwnershipTransferred"].ID:
+	case _OffchainAggregator.abi.Events["OwnershipTransferred"].ID:
 		return _OffchainAggregator.ParseOwnershipTransferred(log)
-	case abi.Events["PayeeshipTransferRequested"].ID:
+	case _OffchainAggregator.abi.Events["PayeeshipTransferRequested"].ID:
 		return _OffchainAggregator.ParsePayeeshipTransferRequested(log)
-	case abi.Events["PayeeshipTransferred"].ID:
+	case _OffchainAggregator.abi.Events["PayeeshipTransferred"].ID:
 		return _OffchainAggregator.ParsePayeeshipTransferred(log)
-	case abi.Events["RequesterAccessControllerSet"].ID:
+	case _OffchainAggregator.abi.Events["RequesterAccessControllerSet"].ID:
 		return _OffchainAggregator.ParseRequesterAccessControllerSet(log)
-	case abi.Events["RoundRequested"].ID:
+	case _OffchainAggregator.abi.Events["RoundRequested"].ID:
 		return _OffchainAggregator.ParseRoundRequested(log)
-	case abi.Events["ValidatorUpdated"].ID:
+	case _OffchainAggregator.abi.Events["ValidatorUpdated"].ID:
 		return _OffchainAggregator.ParseValidatorUpdated(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (OffchainAggregatorAnswerUpdated) Topic() common.Hash {
+	return common.HexToHash("0x0559884fd3a460db3073b7fc896cc77986f16e378210ded43186175bf646fc5f")
+}
+
+func (OffchainAggregatorBillingAccessControllerSet) Topic() common.Hash {
+	return common.HexToHash("0x793cb73064f3c8cde7e187ae515511e6e56d1ee89bf08b82fa60fb70f8d48912")
+}
+
+func (OffchainAggregatorBillingSet) Topic() common.Hash {
+	return common.HexToHash("0xd0d9486a2c673e2a4b57fc82e4c8a556b3e2b82dd5db07e2c04a920ca0f469b6")
+}
+
+func (OffchainAggregatorConfigSet) Topic() common.Hash {
+	return common.HexToHash("0x25d719d88a4512dd76c7442b910a83360845505894eb444ef299409e180f8fb9")
+}
+
+func (OffchainAggregatorNewRound) Topic() common.Hash {
+	return common.HexToHash("0x0109fc6f55cf40689f02fbaad7af7fe7bbac8a3d2186600afc7d3e10cac60271")
+}
+
+func (OffchainAggregatorNewTransmission) Topic() common.Hash {
+	return common.HexToHash("0xf6a97944f31ea060dfde0566e4167c1a1082551e64b60ecb14d599a9d023d451")
+}
+
+func (OffchainAggregatorOraclePaid) Topic() common.Hash {
+	return common.HexToHash("0xe8ec50e5150ae28ae37e493ff389ffab7ffaec2dc4dccfca03f12a3de29d12b2")
+}
+
+func (OffchainAggregatorOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (OffchainAggregatorOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (OffchainAggregatorPayeeshipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0x84f7c7c80bb8ed2279b4aab5f61cd05e6374073d38f46d7f32de8c30e9e38367")
+}
+
+func (OffchainAggregatorPayeeshipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x78af32efdcad432315431e9b03d27e6cd98fb79c405fdc5af7c1714d9c0f75b3")
+}
+
+func (OffchainAggregatorRequesterAccessControllerSet) Topic() common.Hash {
+	return common.HexToHash("0x27b89aede8b560578baaa25ee5ce3852c5eecad1e114b941bbd89e1eb4bae634")
+}
+
+func (OffchainAggregatorRoundRequested) Topic() common.Hash {
+	return common.HexToHash("0x3ea16a923ff4b1df6526e854c9e3a995c43385d70e73359e10623c74f0b52037")
+}
+
+func (OffchainAggregatorValidatorUpdated) Topic() common.Hash {
+	return common.HexToHash("0xcfac5dc75b8d9a7e074162f59d9adcd33da59f0fe8dfb21580db298fc0fdad0d")
 }
 
 func (_OffchainAggregator *OffchainAggregator) Address() common.Address {
@@ -2974,9 +3028,7 @@ type OffchainAggregatorInterface interface {
 
 	ParseValidatorUpdated(log types.Log) (*OffchainAggregatorValidatorUpdated, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

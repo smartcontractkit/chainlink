@@ -44,6 +44,10 @@ Name: "head_tracker_eth_connection_errors",
 Help: "The total number of eth node connection errors",
 ```
 
+- Gas bumping can now be disabled by setting `ETH_GAS_BUMP_THRESHOLD=0`
+
+- Support for arbitrum
+
 ### Fixed
 
 - Improved handling of the case where we exceed the configured TX fee cap in

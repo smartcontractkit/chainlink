@@ -53,3 +53,14 @@ func (m *Mailbox) Retrieve() interface{} {
 	m.queue = m.queue[:len(m.queue)-1]
 	return x
 }
+
+func (m *Mailbox) RetrieveLatestAndClear() interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.queue) == 0 {
+		return nil
+	}
+	x := m.queue[0]
+	m.queue = nil
+	return x
+}

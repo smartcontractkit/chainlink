@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -54,6 +55,7 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool                `json:"pollTimerDisabled"`
 	IdleTimerPeriod   string              `json:"idleTimerPeriod"`
 	IdleTimerDisabled bool                `json:"idleTimerDisabled"`
+	MinPayment        *assets.Link        `json:"minPayment"`
 	CreatedAt         time.Time           `json:"createdAt"`
 	UpdatedAt         time.Time           `json:"updatedAt"`
 }
@@ -70,6 +72,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		PollTimerDisabled: spec.PollTimerDisabled,
 		IdleTimerPeriod:   spec.IdleTimerPeriod.String(),
 		IdleTimerDisabled: spec.IdleTimerDisabled,
+		MinPayment:        spec.MinPayment,
 		CreatedAt:         spec.CreatedAt,
 		UpdatedAt:         spec.UpdatedAt,
 	}
@@ -126,6 +129,24 @@ func NewPipelineSpec(spec *pipeline.Spec) PipelineSpec {
 	}
 }
 
+// KeeperSpec defines the spec details of a Keeper Job
+type KeeperSpec struct {
+	ContractAddress models.EIP55Address `json:"contractAddress"`
+	FromAddress     models.EIP55Address `json:"fromAddress"`
+	CreatedAt       time.Time           `json:"createdAt"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
+}
+
+// NewKeeperSpec generates a new KeeperSpec from a job.KeeperSpec
+func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
+	return &KeeperSpec{
+		ContractAddress: spec.ContractAddress,
+		FromAddress:     spec.FromAddress,
+		CreatedAt:       spec.CreatedAt,
+		UpdatedAt:       spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -155,6 +176,7 @@ type JobResource struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	KeeperSpec            *KeeperSpec            `json:"KeeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -177,6 +199,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+	case job.Keeper:
+		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	}
 
 	jes := []JobError{}
