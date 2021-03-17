@@ -240,12 +240,6 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 		return trrs, err
 	}
 
-	// HACK: This mutex is necessary to work to avoid
-	// concurrent database calls inside the same transaction to fail.
-	// With the pq driver: `pq: unexpected Parse response 'C'`
-	// With the pgx driver: `conn busy`.
-	var txdbMutex sync.Mutex
-
 	// Find "firsts" and work forwards
 	tasks, err := d.TasksInDependencyOrderWithResultTask()
 	if err != nil {
@@ -259,7 +253,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 		}
 		if task.Type() == TaskTypeBridge {
 			task.(*BridgeTask).config = r.config
-			task.(*BridgeTask).safeTx = SafeTx{txdb, &txdbMutex}
+			task.(*BridgeTask).safeTx = SafeTx{txdb, new(sync.Mutex)}
 		}
 		mtr := memoryTaskRun{
 			nPredecessors: task.NPreds(),
