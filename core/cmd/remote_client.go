@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
@@ -1190,6 +1191,35 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 
 func normalizePassword(password string) string {
 	return url.PathEscape(strings.TrimSpace(password))
+}
+
+// ToggleDebugLogging enables or disables debug logging on the node
+func (cli *Client) ToggleDebugLogging(c *clipkg.Context) (err error) {
+	if !c.Args().Present() {
+		return cli.errorOut(errors.New("Must set enabled or disabled (true || false)"))
+	}
+
+	isDebugEnabld := c.Bool("enabled")
+	request := web.LoglevelPatchRequest{EnableDebugLog: &isDebugEnabld}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "from toggling debug logging"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var lR webPresenter.LogResource
+	err = cli.renderAPIResponse(resp, &lR)
+	return err
 }
 
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {

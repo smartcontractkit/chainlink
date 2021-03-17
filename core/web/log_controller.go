@@ -15,13 +15,13 @@ type LogController struct {
 	App chainlink.Application
 }
 
-type loglevelPatchRequest struct {
+type LoglevelPatchRequest struct {
 	EnableDebugLog *bool `json:"debugEnabled"`
 }
 
 // ToggleDebug toggles the debug log mode
 func (cc *LogController) ToggleDebug(c *gin.Context) {
-	request := &loglevelPatchRequest{}
+	request := &LoglevelPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
