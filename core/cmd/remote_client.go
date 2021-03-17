@@ -1199,8 +1199,8 @@ func (cli *Client) SetDebugLogging(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.New("Must set enabled or disabled (true || false)"))
 	}
 
-	isDebugEnabld := c.Bool("enabled")
-	request := web.LoglevelPatchRequest{EnableDebugLog: &isDebugEnabld}
+	isDebugEnabled := c.Bool("enabled")
+	request := web.LoglevelPatchRequest{EnableDebugLog: &isDebugEnabled}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)

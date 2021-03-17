@@ -27,11 +27,19 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		return
 	}
 
+	var err error
 	if *request.EnableDebugLog {
 		cc.App.GetStore().Config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
+		err = cc.App.GetStore().SetConfigValue("LogLevel", zapcore.DebugLevel)
 	} else {
 		cc.App.GetStore().Config.Set("LOG_LEVEL", zapcore.InfoLevel.String())
+		err = cc.App.GetStore().SetConfigValue("LogLevel", zapcore.InfoLevel)
 	}
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
 	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
 
 	response := &presenters.LogResource{
