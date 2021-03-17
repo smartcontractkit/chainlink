@@ -149,6 +149,7 @@ function generateFluxMonitorDefinition(
     idleTimerDisabled,
     pollTimerPeriod,
     pollTimerDisabled,
+    minPayment,
   } = fluxMonitorSpec
 
   return stringifyJobSpec({
@@ -165,6 +166,7 @@ function generateFluxMonitorDefinition(
       pollTimerPeriod,
       pollTimerDisabled,
       maxTaskDuration,
+      minPayment,
       observationSource: pipelineSpec.dotDagSource,
     },
     format: JobSpecFormats.TOML,
