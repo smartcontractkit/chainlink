@@ -48,7 +48,7 @@ func (b *broadcast) WasAlreadyConsumed() (bool, error) {
 
 // MarkConsumed marks the log as having been successfully consumed by the subscriber
 func (b *broadcast) MarkConsumed() error {
-	return b.orm.MarkBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.Index, b.JobID())
+	return b.orm.MarkBroadcastConsumed(b.rawLog.BlockHash, b.rawLog.BlockNumber, b.rawLog.Index, b.JobID())
 }
 
 func (b broadcast) JobID() interface{} {

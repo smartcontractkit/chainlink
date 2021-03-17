@@ -29,7 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/web"
 )
 
-var errUnauthorized = errors.New("401 Unauthorized")
+var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
 
 // CreateServiceAgreement creates a ServiceAgreement based on JSON input
 func (cli *Client) CreateServiceAgreement(c *clipkg.Context) (err error) {
@@ -251,8 +251,7 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, rerr)
 			return cli.errorOut(err)
 		}
-		err = errors.New("client request error")
-		fmt.Printf("Error (status %v): %v\n", resp.StatusCode, string(body))
+		fmt.Printf("Error : %v\n", string(body))
 		return cli.errorOut(err)
 	}
 
@@ -592,7 +591,7 @@ func getTOMLString(s string) (string, error) {
 func (cli *Client) parseResponse(resp *http.Response) ([]byte, error) {
 	b, err := parseResponse(resp)
 	if err == errUnauthorized {
-		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("try logging in")))
+		return nil, cli.errorOut(multierr.Append(err, fmt.Errorf("you must first login through the CLI")))
 	}
 	if err != nil {
 		jae := models.JSONAPIErrors{}
@@ -1239,7 +1238,7 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if resp.StatusCode == http.StatusUnauthorized {
 		return b, errUnauthorized
 	} else if resp.StatusCode >= http.StatusBadRequest {
-		return b, errors.New(resp.Status)
+		return b, errors.New("Error")
 	}
 	return b, err
 }
