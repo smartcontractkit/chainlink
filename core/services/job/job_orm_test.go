@@ -33,9 +33,9 @@ func TestORM(t *testing.T) {
 	orm := job.NewORM(db, config.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer orm.Close()
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
 	key := cltest.MustInsertRandomKey(t, db)
 	address := key.Address.Address()
@@ -137,11 +137,6 @@ func TestORM(t *testing.T) {
 		err = db.Find(&pipelineSpecs).Error
 		require.NoError(t, err)
 		require.Len(t, pipelineSpecs, 1)
-
-		var pipelineTaskSpecs []pipeline.TaskSpec
-		err = db.Find(&pipelineTaskSpecs).Error
-		require.NoError(t, err)
-		require.Len(t, pipelineTaskSpecs, 9) // 8 explicitly-defined tasks + 1 automatically added ResultTask
 	})
 
 	t.Run("increase job spec error occurrence", func(t *testing.T) {
@@ -193,9 +188,9 @@ func TestORM_CheckForDeletedJobs(t *testing.T) {
 	key := cltest.MustInsertRandomKey(t, db)
 	address := key.Address.Address()
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
 
 	pipelineORM, eventBroadcaster, cleanupORM := cltest.NewPipelineORM(t, config, db)
@@ -279,9 +274,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	defer orm.Close()
 
 	t.Run("it deletes records for offchainreporting jobs", func(t *testing.T) {
-		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+		_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 		require.NoError(t, db.Create(bridge).Error)
-		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+		_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 		require.NoError(t, db.Create(bridge2).Error)
 
 		key := cltest.MustInsertRandomKey(t, store.DB)
