@@ -19,8 +19,8 @@ type LoglevelPatchRequest struct {
 	EnableDebugLog *bool `json:"debugEnabled"`
 }
 
-// ToggleDebug toggles the debug log mode
-func (cc *LogController) ToggleDebug(c *gin.Context) {
+// SetDebug sets the debug log mode for the logger
+func (cc *LogController) SetDebug(c *gin.Context) {
 	request := &LoglevelPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)

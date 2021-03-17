@@ -469,7 +469,7 @@ func NewApp(client *Client) *cli.App {
 				{
 					Name:   "enabledebug",
 					Usage:  "Enable and disable debug logging",
-					Action: client.ToggleDebugLogging,
+					Action: client.SetDebugLogging,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "enabled, true",
