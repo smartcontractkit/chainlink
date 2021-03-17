@@ -102,7 +102,7 @@ func (g TaskDAG) TasksInDependencyOrderWithResultTask() ([]Task, error) {
 	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
 	resultPreds := 0
 	for _, task := range tasks {
-		if task.GetDotID() == ResultTaskDotID {
+		if task.DotID() == ResultTaskDotID {
 			return nil, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
 		}
 		if task.OutputTask() == nil {

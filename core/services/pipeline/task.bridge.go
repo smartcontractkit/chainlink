@@ -20,11 +20,10 @@ type BridgeTask struct {
 	RequestData HttpRequestData `json:"requestData"`
 
 	txdb *gorm.DB
-	// HACK: This mutex is necessary to work around a bug in the pq driver that
-	// causes concurrent database calls inside the same transaction to fail
-	// with a mysterious `pq: unexpected Parse response 'C'` error
-	// FIXME: Get rid of this by replacing pq with pgx
-	// https://www.pivotaltracker.com/story/show/174401187
+	// HACK: This mutex is necessary to work to avoid
+	// concurrent database calls inside the same transaction to fail.
+	// With the pq driver: `pq: unexpected Parse response 'C'`
+	// With the pgx driver: `conn busy`.
 	txdbMutex *sync.Mutex
 	config    Config
 }

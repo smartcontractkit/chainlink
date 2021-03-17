@@ -129,7 +129,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 				Type:          ts.Type(),
 				PipelineRunID: run.ID,
 				Index:         ts.OutputIndex(),
-				DotID:         ts.GetDotID(),
+				DotID:         ts.DotID(),
 			})
 		}
 		runID = run.ID

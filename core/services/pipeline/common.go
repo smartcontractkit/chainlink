@@ -26,7 +26,7 @@ import (
 type (
 	Task interface {
 		Type() TaskType
-		GetDotID() string
+		DotID() string
 		Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
@@ -196,7 +196,7 @@ func (t BaseTask) NPreds() int {
 	return t.nPreds
 }
 
-func (t BaseTask) GetDotID() string {
+func (t BaseTask) DotID() string {
 	return t.dotID
 }
 

@@ -86,10 +86,6 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	trrs, err := r.ExecuteRun(context.Background(), spec, *logger.Default)
 	require.NoError(t, err)
-
-	for _, trr := range trrs {
-		t.Log(trr)
-	}
 	require.Len(t, trrs, len(ts)+1) // +1 for the result task
 
 	var finalResults []pipeline.Result

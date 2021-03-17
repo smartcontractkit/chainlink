@@ -142,12 +142,12 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge: %+v", err))
 		return
 	}
 	jobsUsingBridge, err := btc.App.GetStore().FindJobIDsWithBridge(name)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs: %+v", err))
 		return
 	}
 	if len(jobsUsingBridge) > 0 {
@@ -156,7 +156,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 	}
 	v2jobsUsingBridge, err := btc.App.GetJobORM().FindJobIDsWithBridge(name)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated jobs for BTC Destroy: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %+v", err))
 		return
 	}
 	if len(v2jobsUsingBridge) > 0 {

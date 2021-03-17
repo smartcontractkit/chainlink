@@ -240,10 +240,10 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 		return trrs, err
 	}
 
-	// HACK: This mutex is necessary to work around a bug in the pq driver that
-	// causes concurrent database calls inside the same transaction to fail
-	// with a mysterious `pq: unexpected Parse response 'C'` error
-	// FIXME: Get rid of this by replacing pq with pgx
+	// HACK: This mutex is necessary to work to avoid
+	// concurrent database calls inside the same transaction to fail.
+	// With the pq driver: `pq: unexpected Parse response 'C'`
+	// With the pgx driver: `conn busy`.
 	var txdbMutex sync.Mutex
 
 	// Find "firsts" and work forwards
@@ -268,19 +268,19 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 			taskRun: TaskRun{
 				Type:  task.Type(),
 				Index: task.OutputIndex(),
-				DotID: task.GetDotID(),
+				DotID: task.DotID(),
 			},
 		}
 		if mtr.nPredecessors == 0 {
 			graph = append(graph, &mtr)
 		}
-		all[task.GetDotID()] = &mtr
+		all[task.DotID()] = &mtr
 	}
 
 	// Populate next pointers
 	for did, ts := range all {
 		if ts.task.OutputTask() != nil {
-			all[did].next = all[ts.task.OutputTask().GetDotID()]
+			all[did].next = all[ts.task.OutputTask().DotID()]
 		} else {
 			all[did].next = nil
 		}

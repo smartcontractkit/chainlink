@@ -11,10 +11,10 @@ ALTER TABLE pipeline_task_runs ADD COLUMN dot_id text;
 UPDATE pipeline_task_runs SET dot_id = ts.dot_id FROM pipeline_task_specs ts WHERE ts.id = pipeline_task_runs.pipeline_task_spec_id;
 ALTER TABLE pipeline_task_runs ALTER COLUMN dot_id SET NOT NULL; 
 
-ALTER TABLE pipeline_task_runs ALTER COLUMN pipeline_task_spec_id DROP NOT NULL; 
-ALTER TABLE pipeline_task_runs DROP CONSTRAINT pipeline_task_runs_pipeline_task_spec_id_fkey;
 ALTER TABLE pipeline_task_runs DROP COLUMN pipeline_task_spec_id;
 DROP TABLE pipeline_task_specs;
+
+CREATE UNIQUE INDEX ON pipeline_task_runs(pipeline_run_id, dot_id);
 `
 	down16 = `
 ALTER TABLE pipeline_task_runs DROP COLUMN dot_id;
