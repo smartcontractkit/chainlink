@@ -133,9 +133,6 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 		return nil, errors.Wrap(err, "pg_dump failed")
 	}
 
-	if version == "" {
-		version = "initial"
-	}
 	finalFilePath := filepath.Join(backup.outputParentDir, fmt.Sprintf(filePattern, version))
 	_ = os.Remove(finalFilePath)
 	err = os.Rename(tmpFile.Name(), finalFilePath)
