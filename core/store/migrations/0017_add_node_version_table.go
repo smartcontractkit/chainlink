@@ -5,25 +5,25 @@ import (
 	"gorm.io/gorm"
 )
 
-const up16 = `
+const up17 = `
 		CREATE TABLE "node_versions" (
         "version" TEXT PRIMARY KEY,
         "created_at" timestamp without time zone NOT NULL
     );
 `
 
-const down16 = `
+const down17 = `
     DROP TABLE IF EXISTS "node_versions";
 `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0016_add_node_version_table",
+		ID: "0017_add_node_version_table",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up16).Error
+			return db.Exec(up17).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down16).Error
+			return db.Exec(down17).Error
 		},
 	})
 }
