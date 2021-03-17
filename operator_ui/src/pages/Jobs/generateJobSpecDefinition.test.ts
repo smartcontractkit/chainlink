@@ -259,6 +259,7 @@ maxTaskDuration = "10s"
         precision: 2,
         threshold: 0.5,
         updatedAt: '2021-02-19T16:00:01.115227+08:00',
+        minPayment: null,
       },
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
