@@ -1350,9 +1350,9 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client, _ := app.NewClientAndRenderer()
 
