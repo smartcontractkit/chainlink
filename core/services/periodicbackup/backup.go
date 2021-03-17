@@ -11,10 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/static"
 )
 
 var (
-	filePattern        = "cl_backup.tar.gz"
+	filePattern        = "cl_backup_%s.tar.gz"
 	minBackupFrequency = time.Minute
 )
 
@@ -27,7 +28,7 @@ type (
 	DatabaseBackup interface {
 		Start() error
 		Close() error
-		RunBackupGracefully()
+		RunBackupGracefully(version string)
 	}
 
 	databaseBackup struct {
@@ -37,14 +38,27 @@ type (
 		outputParentDir string
 		done            chan bool
 	}
+
+	Config interface {
+		DatabaseBackupFrequency() time.Duration
+		DatabaseBackupURL() *url.URL
+		DatabaseURL() url.URL
+		RootDir() string
+	}
 )
 
-func NewDatabaseBackup(frequency time.Duration, databaseURL url.URL, outputParentDir string, logger *logger.Logger) DatabaseBackup {
+func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
+
+	dbUrl := config.DatabaseURL()
+	dbBackupUrl := config.DatabaseBackupURL()
+	if dbBackupUrl != nil {
+		dbUrl = *dbBackupUrl
+	}
 	return &databaseBackup{
 		logger,
-		databaseURL,
-		frequency,
-		outputParentDir,
+		dbUrl,
+		config.DatabaseBackupFrequency(),
+		config.RootDir(),
 		make(chan bool),
 	}
 }
@@ -64,7 +78,7 @@ func (backup databaseBackup) Start() error {
 				ticker.Stop()
 				return
 			case <-ticker.C:
-				backup.RunBackupGracefully()
+				backup.RunBackupGracefully(static.Version)
 			}
 		}
 	}()
@@ -81,10 +95,10 @@ func (backup *databaseBackup) frequencyIsTooSmall() bool {
 	return backup.frequency < minBackupFrequency
 }
 
-func (backup *databaseBackup) RunBackupGracefully() {
+func (backup *databaseBackup) RunBackupGracefully(version string) {
 	backup.logger.Info("DatabaseBackup: Starting database backup...")
 	startAt := time.Now()
-	result, err := backup.runBackup()
+	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
 		backup.logger.Errorw("DatabaseBackup: Failed", "duration", duration, "error", err)
@@ -93,7 +107,7 @@ func (backup *databaseBackup) RunBackupGracefully() {
 	}
 }
 
-func (backup *databaseBackup) runBackup() (*backupResult, error) {
+func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
 	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "db_backup")
 	if err != nil {
@@ -119,7 +133,10 @@ func (backup *databaseBackup) runBackup() (*backupResult, error) {
 		return nil, errors.Wrap(err, "pg_dump failed")
 	}
 
-	finalFilePath := filepath.Join(backup.outputParentDir, filePattern)
+	if version == "" {
+		version = "initial"
+	}
+	finalFilePath := filepath.Join(backup.outputParentDir, fmt.Sprintf(filePattern, version))
 	_ = os.Remove(finalFilePath)
 	err = os.Rename(tmpFile.Name(), finalFilePath)
 	if err != nil {

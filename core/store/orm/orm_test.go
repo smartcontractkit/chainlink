@@ -39,6 +39,36 @@ func TestORM_AllNotFound(t *testing.T) {
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
 }
 
+func TestORM_NodeVersion(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ver, err := store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Equal(t, ver.Version, "unset")
+
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.8")))
+
+	ver, err = store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Equal(t, ver.Version, "9.9.8")
+
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.8")))
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.7")))
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.9")))
+
+	ver, err = store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Equal(t, ver.Version, "9.9.9")
+}
+
 func TestORM_CreateJob(t *testing.T) {
 	t.Parallel()
 	store, cleanup := cltest.NewStore(t)

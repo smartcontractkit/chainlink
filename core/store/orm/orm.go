@@ -141,6 +141,33 @@ func (orm *ORM) Unscoped() *ORM {
 	}
 }
 
+// UpsertNodeVersion inserts a new NodeVersion
+func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+	return orm.DB.Exec(`
+        INSERT INTO node_versions (
+            version, created_at
+        ) VALUES (
+            ?, ?
+        ) ON CONFLICT DO NOTHING
+    `, version.Version, version.CreatedAt).Error
+}
+
+// FindLatestNodeVersion looks up the latest node version
+func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
+	var nodeVersion models.NodeVersion
+	err := orm.DB.Order("created_at DESC").First(&nodeVersion).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	return &nodeVersion, err
+}
+
 // FindBridge looks up a Bridge by its Name.
 func (orm *ORM) FindBridge(name models.TaskType) (bt models.BridgeType, err error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
