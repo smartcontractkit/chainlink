@@ -81,8 +81,8 @@ type TaskRun struct {
 	Error         null.String       `json:"error"`
 	CreatedAt     time.Time         `json:"createdAt"`
 	FinishedAt    *time.Time        `json:"finishedAt"`
-	Index         int32
-	DotID         string
+	Index         int32             `json:"index"`
+	DotID         string            `json:"dotId"`
 }
 
 func (TaskRun) TableName() string {
