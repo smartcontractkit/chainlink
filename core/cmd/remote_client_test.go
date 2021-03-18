@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -170,7 +171,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	balances := *r.Renders[0].(*[]presenters.ETHKey)
+	balances := *r.Renders[0].(*[]webpresenters.ETHKeyResource)
 	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
 }
 
@@ -841,7 +842,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 0)
+	require.Len(t, *r.Renders[0].(*[]webpresenters.ETHKeyResource), 0)
 
 	r.Renders = nil
 
@@ -858,9 +859,9 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]presenters.ETHKey), 1)
+	require.Len(t, *r.Renders[0].(*[]webpresenters.ETHKeyResource), 1)
 
-	ethkeys := *r.Renders[0].(*[]presenters.ETHKey)
+	ethkeys := *r.Renders[0].(*[]webpresenters.ETHKeyResource)
 	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
 	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
 
