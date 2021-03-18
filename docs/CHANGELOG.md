@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `STATS_PUSHER_LOGGING` to toggle stats pusher raw message logging (DEBUG
+  level).
+
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
 
 This variable defaults to `$ROOT/apicredentials` and when defined / the
