@@ -1531,7 +1531,6 @@ observationSource = """
 			for i := range j.JobSpecErrors {
 				// Non-fatal timing related error, ignore for testing.
 				if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
-					fmt.Println("ignoring this error")
 					ignore++
 				}
 			}
