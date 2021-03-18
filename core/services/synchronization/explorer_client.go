@@ -77,6 +77,7 @@ type explorerClient struct {
 	url              *url.URL
 	accessKey        string
 	secret           string
+	logging          bool
 
 	closeRequested chan struct{}
 	closed         chan struct{}
@@ -86,7 +87,11 @@ type explorerClient struct {
 
 // NewExplorerClient returns a stats pusher using a websocket for
 // delivery.
-func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
+func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bool) ExplorerClient {
+	logging := false
+	if len(loggingArgs) > 0 {
+		logging = loggingArgs[0]
+	}
 	return &explorerClient{
 		url:        url,
 		sendText:   make(chan []byte, SendBufferSize),
@@ -97,6 +102,7 @@ func NewExplorerClient(url *url.URL, accessKey, secret string) ExplorerClient {
 		status:     ConnectionStatusDisconnected,
 		accessKey:  accessKey,
 		secret:     secret,
+		logging:    logging,
 
 		closeRequested: make(chan struct{}),
 		closed:         make(chan struct{}),
@@ -315,6 +321,9 @@ func (ec *explorerClient) writeMessage(message []byte, messageType int) error {
 
 	if _, err := writer.Write(message); err != nil {
 		return err
+	}
+	if ec.logging {
+		logger.Debugw("websocketStatsPusher successfully wrote message", "messageType", messageType, "message", message)
 	}
 
 	return writer.Close()

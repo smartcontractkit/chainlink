@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `STATS_PUSHER_LOGGING` to toggle stats pusher raw message logging (DEBUG
+  level).
+
 ## [0.10.2] - 2021-02-26
 
 ### Fixed
