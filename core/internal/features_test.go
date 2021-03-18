@@ -1379,7 +1379,7 @@ func TestIntegration_OCR(t *testing.T) {
 		// bootstrap node to come up.
 		app.Config.Set("OCR_BOOTSTRAP_CHECK_INTERVAL", "5s")
 		// GracePeriod < ObservationTimeout
-		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "200ms")
+		app.Config.Set("OCR_OBSERVATION_GRACE_PERIOD", "100ms")
 
 		kbs = append(kbs, kb)
 		apps = append(apps, app)
@@ -1473,7 +1473,7 @@ p2pBootstrapPeers  = [
 ]
 keyBundleID        = "%s"
 transmitterAddress = "%s"
-observationTimeout = "200ms"
+observationTimeout = "100ms"
 contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
@@ -1527,7 +1527,15 @@ observationSource = """
 		require.NoError(t, err)
 		// No spec errors
 		for _, j := range jobs {
-			require.Len(t, j.JobSpecErrors, 0)
+			ignore := 0
+			for i := range j.JobSpecErrors {
+				// Non-fatal timing related error, ignore for testing.
+				if strings.Contains(j.JobSpecErrors[i].Description, "leader's phase conflicts tGrace timeout") {
+					fmt.Println("ignoring this error")
+					ignore++
+				}
+			}
+			require.Len(t, j.JobSpecErrors, ignore)
 		}
 	}
 }
