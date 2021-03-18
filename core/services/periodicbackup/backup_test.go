@@ -70,6 +70,7 @@ func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
 
 type testConfig struct {
 	databaseBackupFrequency time.Duration
+	databaseBackupMode      string
 	databaseBackupURL       *url.URL
 	databaseURL             url.URL
 	rootDir                 string
@@ -77,6 +78,9 @@ type testConfig struct {
 
 func (config testConfig) DatabaseBackupFrequency() time.Duration {
 	return config.databaseBackupFrequency
+}
+func (config testConfig) DatabaseBackupMode() string {
+	return config.databaseBackupMode
 }
 func (config testConfig) DatabaseBackupURL() *url.URL {
 	return config.databaseBackupURL

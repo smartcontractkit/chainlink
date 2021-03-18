@@ -264,13 +264,13 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 	return c.getWithFallback("DatabaseMaximumTxDuration", parseDuration).(time.Duration)
 }
 
-// DatabaseBackupEnabled turns on the database backup on node start if set to true
-func (c Config) DatabaseBackupEnabled() bool {
-	return c.getWithFallback("DatabaseBackupEnabled", parseBool).(bool)
+// DatabaseBackupMode sets the database backup mode
+func (c Config) DatabaseBackupMode() DatabaseBackupMode {
+	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
 }
 
 // DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
-// DatabaseBackupEnabled must be then set to true as well
+// DatabaseBackupMode must be then set to a value other than "none"
 func (c Config) DatabaseBackupFrequency() time.Duration {
 	return c.getWithFallback("DatabaseBackupFrequency", parseDuration).(time.Duration)
 }
@@ -1139,5 +1139,22 @@ func (ll LogLevel) ForGin() string {
 		return gin.DebugMode
 	default:
 		return gin.ReleaseMode
+	}
+}
+
+type DatabaseBackupMode string
+
+var (
+	DatabaseBackupModeNone DatabaseBackupMode = "none"
+	DatabaseBackupModeLite DatabaseBackupMode = "lite"
+	DatabaseBackupModeFull DatabaseBackupMode = "full"
+)
+
+func parseDatabaseBackupMode(s string) (interface{}, error) {
+	switch DatabaseBackupMode(s) {
+	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:
+		return DatabaseBackupMode(s), nil
+	default:
+		return "", fmt.Errorf("unable to parse %v into DatabaseBackupMode. Must be one of values: \"%s\", \"%s\", \"%s\"", s, DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull)
 	}
 }

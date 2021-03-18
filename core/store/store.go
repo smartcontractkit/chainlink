@@ -252,13 +252,13 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	dbOrm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if config.DatabaseBackupEnabled() {
+	if config.DatabaseBackupMode() != orm.DatabaseBackupModeNone {
 
-		version, err2 := orm.FindLatestNodeVersion()
+		version, err2 := dbOrm.FindLatestNodeVersion()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
 		}
@@ -269,13 +269,13 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger.Default)
 		databaseBackup.RunBackupGracefully(versionString)
 	}
-	if err = CheckSquashUpgrade(orm.DB); err != nil {
+	if err = CheckSquashUpgrade(dbOrm.DB); err != nil {
 		panic(err)
 	}
 	if config.MigrateDatabase() {
-		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+		dbOrm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
-		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
+		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			return migrations.Migrate(db)
 		})
 		if err != nil {
@@ -288,10 +288,10 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
 	}
 	version := models.NewNodeVersion(nodeVersion)
-	err = orm.UpsertNodeVersion(version)
+	err = dbOrm.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
 	}
-	orm.SetLogging(config.LogSQLStatements())
-	return orm, nil
+	dbOrm.SetLogging(config.LogSQLStatements())
+	return dbOrm, nil
 }

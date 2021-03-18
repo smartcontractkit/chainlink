@@ -240,7 +240,6 @@ func (orm *ORM) FindJobWithErrors(id models.JobID) (models.JobSpec, error) {
 
 // FindInitiator returns the single initiator defined by the passed ID.
 func (orm *ORM) FindInitiator(ID int64) (initr models.Initiator, err error) {
-
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return initr, err
 	}

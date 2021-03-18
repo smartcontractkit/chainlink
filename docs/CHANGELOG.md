@@ -56,15 +56,16 @@ Help: "The total number of eth node connection errors",
 
 - Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
 
-It's now possible to configure database backups: on node start and separately, to be run at given frequency. If set to true,
+It's now possible to configure database backups: on node start and separately, to be run at given frequency.
+
 DATABASE_BACKUP_MODE enables the initial backup on node start (either full or partial). Additionally, if DATABASE_BACKUP_FREQUENCY variable
 is set to a duration of at least '1m', it enables periodic backups.
 
+DATABASE_BACKUP_URL can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one.
 
 ### Fixed
 
-- Improved handling of the case where we exceed the configured TX fee cap in
-  geth.
+- Improved handling of the case where we exceed the configured TX fee cap in geth.
 
 Node will now fatally error jobs if the total transaction costs exceeds the
 configured cap (default 1 Eth). Also, it will no longer continue to bump gas on

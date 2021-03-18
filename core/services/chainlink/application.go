@@ -159,7 +159,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
 	}
 
-	if store.Config.DatabaseBackupEnabled() && store.Config.DatabaseBackupFrequency() > 0 {
+	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
 		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
 
 		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)

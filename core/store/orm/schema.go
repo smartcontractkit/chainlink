@@ -29,7 +29,7 @@ type ConfigSchema struct {
 	DatabaseListenerMinReconnectInterval      time.Duration   `env:"DATABASE_LISTENER_MIN_RECONNECT_INTERVAL" default:"1m"`
 	DatabaseListenerMaxReconnectDuration      time.Duration   `env:"DATABASE_LISTENER_MAX_RECONNECT_DURATION" default:"10m"`
 	DatabaseMaximumTxDuration                 time.Duration   `env:"DATABASE_MAXIMUM_TX_DURATION" default:"30m"`
-	DatabaseBackupEnabled                     bool            `env:"DATABASE_BACKUP_ENABLED" default:"false"`
+	DatabaseBackupMode                        string          `env:"DATABASE_BACKUP_MODE" default:"none"`
 	DatabaseBackupFrequency                   time.Duration   `env:"DATABASE_BACKUP_FREQUENCY" default:"0m"`
 	DatabaseBackupURL                         *url.URL        `env:"DATABASE_BACKUP_URL" default:""`
 	DefaultHTTPLimit                          int64           `env:"DEFAULT_HTTP_LIMIT" default:"32768"`
