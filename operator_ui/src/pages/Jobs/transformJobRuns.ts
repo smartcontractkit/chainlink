@@ -9,11 +9,7 @@ import {
 import { getOcrJobStatus } from './utils'
 
 function getTaskStatus({
-  taskRun: {
-    taskSpec: { dotId },
-    finishedAt,
-    error,
-  },
+  taskRun: { dotId, finishedAt, error },
   stratify,
   taskRuns,
 }: {
@@ -30,7 +26,7 @@ function getTaskStatus({
 
   if (currentNode) {
     currentNode.parentIds.forEach((id) => {
-      const parentTaskRun = taskRuns.find((tr) => tr.taskSpec.dotId === id)
+      const parentTaskRun = taskRuns.find((tr) => tr.dotId === id)
 
       if (parentTaskRun?.error !== null && parentTaskRun?.error === taskError) {
         taskError = 'not_run'
