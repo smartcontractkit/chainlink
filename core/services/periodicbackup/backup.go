@@ -35,8 +35,9 @@ var (
 )
 
 type backupResult struct {
-	size int64
-	path string
+	size            int64
+	path            string
+	pgDumpArguments []string
 }
 
 type (
@@ -179,7 +180,8 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	}
 
 	return &backupResult{
-		size: file.Size(),
-		path: finalFilePath,
+		size:            file.Size(),
+		path:            finalFilePath,
+		pgDumpArguments: args,
 	}, nil
 }
