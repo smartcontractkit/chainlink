@@ -6,14 +6,14 @@ import (
 )
 
 const up17 = `
-		CREATE TABLE IF NOT EXISTS "node_versions" (
-        "version" TEXT PRIMARY KEY,
-        "created_at" timestamp without time zone NOT NULL
-    );
+CREATE TABLE IF NOT EXISTS "node_versions" (
+    "version" TEXT PRIMARY KEY,
+    "created_at" timestamp without time zone NOT NULL
+);
 `
 
 const down17 = `
-    DROP TABLE IF EXISTS "node_versions";
+DROP TABLE IF EXISTS "node_versions";
 `
 
 func init() {

@@ -12,11 +12,26 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/static"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 )
 
 var (
-	filePattern        = "cl_backup_%s.tar.gz"
+	filePattern        = "cl_backup_%s.dump"
 	minBackupFrequency = time.Minute
+
+	excludedDataFromTables = []string{
+		"job_runs",
+		"task_runs",
+		"eth_task_run_txes",
+		"run_requests",
+		"run_results",
+		"sync_events",
+		//"eth_tx_attempts",
+		//"eth_receipts",
+		//"eth_txes",
+		"pipeline_runs",
+		"pipeline_task_runs",
+	}
 )
 
 type backupResult struct {
@@ -34,12 +49,14 @@ type (
 	databaseBackup struct {
 		logger          *logger.Logger
 		databaseURL     url.URL
+		mode            orm.DatabaseBackupMode
 		frequency       time.Duration
 		outputParentDir string
 		done            chan bool
 	}
 
 	Config interface {
+		DatabaseBackupMode() orm.DatabaseBackupMode
 		DatabaseBackupFrequency() time.Duration
 		DatabaseBackupURL() *url.URL
 		DatabaseURL() url.URL
@@ -48,7 +65,6 @@ type (
 )
 
 func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
-
 	dbUrl := config.DatabaseURL()
 	dbBackupUrl := config.DatabaseBackupURL()
 	if dbBackupUrl != nil {
@@ -57,6 +73,7 @@ func NewDatabaseBackup(config Config, logger *logger.Logger) DatabaseBackup {
 	return &databaseBackup{
 		logger,
 		dbUrl,
+		config.DatabaseBackupMode(),
 		config.DatabaseBackupFrequency(),
 		config.RootDir(),
 		make(chan bool),
@@ -96,7 +113,7 @@ func (backup *databaseBackup) frequencyIsTooSmall() bool {
 }
 
 func (backup *databaseBackup) RunBackupGracefully(version string) {
-	backup.logger.Info("DatabaseBackup: Starting database backup...")
+	backup.logger.Debugw("DatabaseBackup: Starting database backup...", "mode", backup.mode, "url", backup.databaseURL.String(), "directory", backup.outputParentDir)
 	startAt := time.Now()
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
@@ -109,7 +126,7 @@ func (backup *databaseBackup) RunBackupGracefully(version string) {
 
 func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
-	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "db_backup")
+	tmpFile, err := ioutil.TempFile(backup.outputParentDir, "cl_backup_tmp_")
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create a tmp file")
 	}
@@ -118,10 +135,22 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 		return nil, errors.Wrap(err, "Failed to remove the tmp file before running backup")
 	}
 
-	cmd := exec.Command(
-		"pg_dump", backup.databaseURL.String(),
+	args := []string{
+		backup.databaseURL.String(),
 		"-f", tmpFile.Name(),
-		"-F", "t", // format: tar
+		"-F", "c", // format: custom (zipped)
+	}
+
+	if backup.mode == orm.DatabaseBackupModeLite {
+		for _, table := range excludedDataFromTables {
+			args = append(args, fmt.Sprintf("--exclude-table-data=%s", table))
+		}
+	}
+
+	backup.logger.Debugf("DatabaseBackup: Running pg_dump with: %v", args)
+
+	cmd := exec.Command(
+		"pg_dump", args...,
 	)
 
 	_, err = cmd.Output()
@@ -134,7 +163,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	}
 
 	if version == "" {
-		version = "unset"
+		version = "unknown"
 	}
 	finalFilePath := filepath.Join(backup.outputParentDir, fmt.Sprintf(filePattern, version))
 	_ = os.Remove(finalFilePath)
