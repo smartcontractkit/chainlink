@@ -6,7 +6,7 @@ import (
 )
 
 const up17 = `
-		CREATE TABLE "node_versions" (
+		CREATE TABLE IF NOT EXISTS "node_versions" (
         "version" TEXT PRIMARY KEY,
         "created_at" timestamp without time zone NOT NULL
     );

@@ -146,9 +146,16 @@ func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	return orm.DB.Clauses(clause.OnConflict{
-		DoNothing: true,
-	}).Create(&version).Error
+
+	return orm.Transaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{
+			DoNothing: true,
+		}).Create(&version).Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // FindLatestNodeVersion looks up the latest node version
