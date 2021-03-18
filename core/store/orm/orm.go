@@ -169,6 +169,7 @@ func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
 		return nil, nil
 	}
 	if err != nil && strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+		logger.Default.Debug("Failed to find any node version in the DB, the node_versions table does not exist yet.")
 		return nil, nil
 	}
 	return &nodeVersion, err
