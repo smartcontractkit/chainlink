@@ -2,6 +2,8 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
@@ -65,13 +67,13 @@ func InsecureKeyStoreGen(config *orm.Config) *KeyStore {
 
 // NewStore will create a new store
 func NewStore(config *orm.Config, ethClient eth.Client, advisoryLock postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal, keyStoreGenerator KeyStoreGenerator) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, advisoryLock, keyStoreGenerator, shutdownSignal, static.Version)
 }
 
 // NewInsecureStore creates a new store with the given config using an insecure keystore.
 // NOTE: Should only be used for testing!
 func NewInsecureStore(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, shutdownSignal gracefulpanic.Signal) (*Store, error) {
-	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal)
+	return newStoreWithKeyStore(config, ethClient, advisoryLocker, InsecureKeyStoreGen, shutdownSignal, fmt.Sprintf("%s_%d", static.Version, rand.Uint32()))
 }
 
 // TODO(sam): Remove ethClient from here completely after legacy tx manager is gone
@@ -82,11 +84,12 @@ func newStoreWithKeyStore(
 	advisoryLocker postgres.AdvisoryLocker,
 	keyStoreGenerator KeyStoreGenerator,
 	shutdownSignal gracefulpanic.Signal,
+	nodeVersion string,
 ) (*Store, error) {
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		return nil, errors.Wrap(err, "error while creating project root dir")
 	}
-	orm, err := initializeORM(config, shutdownSignal)
+	orm, err := initializeORM(config, shutdownSignal, nodeVersion)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize ORM")
 	}
@@ -247,7 +250,7 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 	return nil
 }
 
-func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
+func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal, nodeVersion string) (*orm.ORM, error) {
 	dbURL := config.DatabaseURL()
 	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
@@ -279,7 +282,7 @@ func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*or
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
 	}
-	version := models.NewNodeVersion(static.Version)
+	version := models.NewNodeVersion(nodeVersion)
 	err = orm.UpsertNodeVersion(version)
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")

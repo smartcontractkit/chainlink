@@ -54,11 +54,11 @@ Help: "The total number of eth node connection errors",
 
 - Support for arbitrum
 
-- Experimental: Add `DATABASE_BACKUP_ENABLED` and `DATABASE_BACKUP_FREQUENCY` configuration variables 
-  
-It's now possible to configure database backups: on node start and separately, to be run at given frequency.
-If set to true, DATABASE_BACKUP_ENABLED turns on the initial backup on node start.
-Additionally, if DATABASE_BACKUP_FREQUENCY variable is set to a duration of at least '1m', it enables periodic backups.
+- Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
+
+It's now possible to configure database backups: on node start and separately, to be run at given frequency. If set to true,
+DATABASE_BACKUP_MODE enables the initial backup on node start (either full or partial). Additionally, if DATABASE_BACKUP_FREQUENCY variable
+is set to a duration of at least '1m', it enables periodic backups.
 
 
 ### Fixed
