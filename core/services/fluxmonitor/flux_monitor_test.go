@@ -407,7 +407,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	logBroadcaster := new(logmocks.Broadcaster)
 	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
 		return opts.Contract.Address() == initr.Address
-	})).Return(true)
+	})).Return(true, func() {})
 
 	rm := new(mocks.RunManager)
 	run := cltest.NewJobRun(job)

@@ -122,6 +122,7 @@ func (t *OCRContractTracker) Start() (err error) {
 			offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
 			offchain_aggregator_wrapper.OffchainAggregatorConfigSet{},
 		},
+		NumConfirmations: 1,
 	})
 	t.unsubscribeLogs = unsubscribe
 

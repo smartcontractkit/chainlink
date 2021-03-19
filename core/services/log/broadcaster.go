@@ -2,11 +2,8 @@ package log
 
 import (
 	"context"
-	"math/big"
-	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/tevino/abool"
@@ -35,36 +32,23 @@ type (
 	}
 
 	broadcaster struct {
-		orm         ORM
-		ethClient   eth.Client
-		config      Config
-		connected   *abool.AtomicBool
-		latestBlock uint64
+		orm        ORM
+		config     Config
+		connected  *abool.AtomicBool
+		latestHead *models.Head
 
-		registrations  map[common.Address]map[common.Hash]map[Listener]struct{} // contractAddress => logTopic => Listener
-		decoders       map[common.Address]AbigenContract
-		addSubscriber  *utils.Mailbox
-		rmSubscriber   *utils.Mailbox
-		newHeads       *utils.Mailbox
-		logs           map[common.Address][]types.Log
-		logsMu         sync.Mutex
-		canonicalChain map[common.Hash]struct{}
+		ethSubscriber *ethSubscriber
+		registrations *registrations
+		logPool       *logPool
+
+		addSubscriber *utils.Mailbox
+		rmSubscriber  *utils.Mailbox
+		newHeads      *utils.Mailbox
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
-		chStop chan struct{}
-		chDone chan struct{}
-	}
-
-	// The Listener responds to log events through HandleLog, and contains setup/tear-down
-	// callbacks in the On* functions.
-	Listener interface {
-		OnConnect()
-		OnDisconnect()
-		HandleLog(b Broadcast)
-		JobID() models.JobID
-		JobIDV2() int32
-		IsV2Job() bool
+		chStop        chan struct{}
+		chStartupDone chan struct{}
 	}
 
 	Config interface {
@@ -73,8 +57,9 @@ type (
 	}
 
 	ListenerOpts struct {
-		Contract AbigenContract
-		Logs     []generated.AbigenLog
+		Contract         AbigenContract
+		Logs             []generated.AbigenLog
+		NumConfirmations uint64
 	}
 
 	AbigenContract interface {
@@ -92,20 +77,20 @@ var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
-		ethClient:        ethClient,
 		config:           config,
 		connected:        abool.New(),
-		registrations:    make(map[common.Address]map[common.Hash]map[Listener]struct{}),
-		decoders:         make(map[common.Address]AbigenContract),
+		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
+		registrations:    newRegistrations(),
+		logPool:          newLogPool(),
 		addSubscriber:    utils.NewMailbox(0),
 		rmSubscriber:     utils.NewMailbox(0),
 		newHeads:         utils.NewMailbox(1),
-		logs:             make(map[common.Address][]types.Log),
 		DependentAwaiter: utils.NewDependentAwaiter(),
-		chStop:           make(chan struct{}),
-		chDone:           make(chan struct{}),
+		chStop:           chStop,
+		chStartupDone:    make(chan struct{}),
 	}
 }
 
@@ -119,7 +104,7 @@ func (b *broadcaster) Start() error {
 func (b *broadcaster) Stop() error {
 	return b.StopOnce("Log broadcaster", func() error {
 		close(b.chStop)
-		<-b.chDone
+		<-b.chStartupDone
 		return nil
 	})
 }
@@ -138,7 +123,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			return
 
 		case <-b.chStop:
-			close(b.chDone)
+			close(b.chStartupDone)
 			return
 		}
 	}
@@ -173,19 +158,22 @@ func (b *broadcaster) IsConnected() bool {
 // error, it attempts to reconnect.  Any time there'b a change in connection state, it
 // notifies its subscribers.
 func (b *broadcaster) startResubscribeLoop() {
-	defer close(b.chDone)
+	defer close(b.chStartupDone)
 
 	var subscription managedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()
 
 	var chRawLogs chan types.Log
 	for {
-		newSubscription, abort := b.createSubscription()
+		logger.Debugf("LogBroadcaster: resubscribing and backfilling logs...")
+		addresses, topics := b.registrations.addressesAndTopics()
+
+		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
 		if abort {
 			return
 		}
 
-		chBackfilledLogs, abort := b.backfillLogs()
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(addresses, topics)
 		if abort {
 			return
 		}
@@ -201,7 +189,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		b.connected.Set()
 
-		shouldResubscribe, err := b.process(chRawLogs, subscription.Err())
+		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
 			logger.Warn(err)
 			b.connected.UnSet()
@@ -213,77 +201,7 @@ func (b *broadcaster) startResubscribeLoop() {
 	}
 }
 
-func (b *broadcaster) backfillLogs() (chBackfilledLogs chan types.Log, abort bool) {
-	if len(b.registrations) == 0 {
-		ch := make(chan types.Log)
-		close(ch)
-		return ch, false
-	}
-
-	ctx, cancel := utils.ContextFromChan(b.chStop)
-	defer cancel()
-
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		latestBlock, err := b.ethClient.HeaderByNumber(ctx, nil)
-		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch latest block header", "error", err)
-			return true
-		} else if latestBlock == nil {
-			logger.Warn("got nil block header")
-			return true
-		}
-		currentHeight := uint64(latestBlock.Number)
-
-		// Backfill from `backfillDepth` blocks ago.  It'b up to the subscribers to
-		// filter out logs they've already dealt with.
-		fromBlock := currentHeight - b.config.BlockBackfillDepth()
-		if fromBlock > currentHeight {
-			fromBlock = 0 // Overflow protection
-		}
-
-		addresses, topics := b.registeredAddressesAndTopics()
-
-		q := ethereum.FilterQuery{
-			FromBlock: big.NewInt(int64(fromBlock)),
-			Addresses: addresses,
-			Topics:    [][]common.Hash{topics},
-		}
-
-		logs, err := b.ethClient.FilterLogs(ctx, q)
-		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch logs", "error", err)
-			return true
-		}
-
-		chBackfilledLogs = make(chan types.Log)
-		go b.deliverBackfilledLogs(logs, chBackfilledLogs)
-
-		return false
-	})
-	select {
-	case <-b.chStop:
-		abort = true
-	default:
-		abort = false
-	}
-	return
-}
-
-func (b *broadcaster) deliverBackfilledLogs(logs []types.Log, chBackfilledLogs chan<- types.Log) {
-	defer close(chBackfilledLogs)
-	for _, log := range logs {
-		select {
-		case chBackfilledLogs <- log:
-		case <-b.chStop:
-			return
-		}
-	}
-}
-
-func (b *broadcaster) process(chRawLogs <-chan types.Log, chErr <-chan error) (shouldResubscribe bool, _ error) {
+func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) (shouldResubscribe bool, _ error) {
 	// We debounce requests to subscribe and unsubscribe to avoid making too many
 	// RPC calls to the Ethereum node, particularly on startup.
 	var needsResubscribe bool
@@ -293,7 +211,7 @@ func (b *broadcaster) process(chRawLogs <-chan types.Log, chErr <-chan error) (s
 	for {
 		select {
 		case rawLog := <-chRawLogs:
-			b.processLog(rawLog)
+			b.onNewLog(rawLog)
 
 		case <-b.newHeads.Notify():
 			b.onNewHeads()
@@ -311,6 +229,7 @@ func (b *broadcaster) process(chRawLogs <-chan types.Log, chErr <-chan error) (s
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
+				logger.Debugf("LogBroadcaster: returning from the event loop to resubscribe")
 				return true, nil
 			}
 
@@ -320,22 +239,22 @@ func (b *broadcaster) process(chRawLogs <-chan types.Log, chErr <-chan error) (s
 	}
 }
 
-func (b *broadcaster) processLog(log types.Log) {
+func (b *broadcaster) onNewLog(log types.Log) {
+	logger.Tracef("========== onNewLog %v, %v, %v", log.BlockNumber, log.BlockHash, log.Topics)
 	if log.Removed {
 		return
-	} else if _, exists := b.registrations[log.Address]; !exists {
+	} else if !b.registrations.isAddressRegistered(log.Address) {
 		return
 	}
-
-	b.logsMu.Lock()
-	defer b.logsMu.Unlock()
-	b.logs[log.Address] = append(b.logs[log.Address], log)
+	b.logPool.addLog(log)
 }
 
 func (b *broadcaster) onNewHeads() {
 	for {
-		x := b.newHeads.Retrieve()
+		// We only care about the most recent head
+		x := b.newHeads.RetrieveLatestAndClear()
 		if x == nil {
+			// This should never happen
 			break
 		}
 		head, ok := x.(models.Head)
@@ -343,77 +262,12 @@ func (b *broadcaster) onNewHeads() {
 			logger.Errorf("expected `models.Head`, got %T", x)
 			continue
 		}
-		b.latestBlock = uint64(head.Number)
-
-		b.canonicalChain = make(map[common.Hash]struct{})
-		for h := &head; h.Parent != nil; h = h.Parent {
-			b.canonicalChain[h.Hash] = struct{}{}
-		}
+		logger.Tracef("///////////////////////// onNewHeads %v, %v", head.Number, head.Hash)
+		b.latestHead = &head
 	}
 
-	// Now that we're caught up, broadcast all pending logs
-	b.broadcastPendingLogs()
-}
-
-func (b *broadcaster) broadcastPendingLogs() {
-	b.logsMu.Lock()
-	defer b.logsMu.Unlock()
-
-	for _, logs := range b.logs {
-		for _, log := range logs {
-			// Skip logs that have been reorged away
-			if _, exists := b.canonicalChain[log.BlockHash]; !exists {
-				continue
-			}
-
-			var wg sync.WaitGroup
-			for listener := range b.registrations[log.Address][log.Topics[0]] {
-				listener := listener
-
-				logCopy := copyLog(log)
-				decodedLog, err := b.decoders[log.Address].ParseLog(logCopy)
-				if err != nil {
-					logger.Errorw("could not parse contract log", "error", err)
-					continue
-				}
-
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					listener.HandleLog(&broadcast{
-						orm:        b.orm,
-						rawLog:     logCopy,
-						decodedLog: decodedLog,
-						jobID:      listener.JobID(),
-						jobIDV2:    listener.JobIDV2(),
-						isV2:       listener.IsV2Job(),
-					})
-				}()
-			}
-			wg.Wait()
-		}
-	}
-	b.logs = make(map[common.Address][]types.Log)
-}
-
-func copyLog(l types.Log) types.Log {
-	var cpy types.Log
-	cpy.Address = l.Address
-	if l.Topics != nil {
-		cpy.Topics = make([]common.Hash, len(l.Topics))
-		copy(cpy.Topics, l.Topics)
-	}
-	if l.Data != nil {
-		cpy.Data = make([]byte, len(l.Data))
-		copy(cpy.Data, l.Data)
-	}
-	cpy.BlockNumber = l.BlockNumber
-	cpy.TxHash = l.TxHash
-	cpy.TxIndex = l.TxIndex
-	cpy.BlockHash = l.BlockHash
-	cpy.Index = l.Index
-	cpy.Removed = l.Removed
-	return cpy
+	logs := b.logPool.getLogsToSend(b.latestHead, b.registrations.highestNumConfirmations)
+	b.registrations.sendLogs(logs, b.orm, b.latestHead)
 }
 
 func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
@@ -427,24 +281,9 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-
-		addr := reg.opts.Contract.Address()
-		b.decoders[addr] = reg.opts.Contract
-
-		if _, exists := b.registrations[addr]; !exists {
-			b.registrations[addr] = make(map[common.Hash]map[Listener]struct{})
-		}
-
-		topics := make([]common.Hash, len(reg.opts.Logs))
-		for i, log := range reg.opts.Logs {
-			topic := log.Topic()
-			topics[i] = topic
-
-			if _, exists := b.registrations[addr][topic]; !exists {
-				b.registrations[addr][topic] = make(map[Listener]struct{})
-				needsResubscribe = true
-			}
-			b.registrations[addr][topic][reg.listener] = struct{}{}
+		needsResub := b.registrations.addSubscriber(reg)
+		if needsResub {
+			needsResubscribe = true
 		}
 	}
 	return
@@ -461,87 +300,12 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-
-		addr := reg.opts.Contract.Address()
-
-		if _, exists := b.registrations[addr]; !exists {
-			continue
-		}
-		for _, logType := range reg.opts.Logs {
-			topic := logType.Topic()
-
-			if _, exists := b.registrations[addr][topic]; !exists {
-				continue
-			}
-
-			delete(b.registrations[addr][topic], reg.listener)
-
-			if len(b.registrations[addr][topic]) == 0 {
-				needsResubscribe = true
-				delete(b.registrations[addr], topic)
-			}
-			if len(b.registrations[addr]) == 0 {
-				delete(b.registrations, addr)
-			}
+		needsResub := b.registrations.removeSubscriber(reg)
+		if needsResub {
+			needsResubscribe = true
 		}
 	}
 	return
-}
-
-// createSubscription creates a new log subscription starting at the current block.  If previous logs
-// are needed, they must be obtained through backfilling, as subscriptions can only be started from
-// the current head.
-func (b *broadcaster) createSubscription() (sub managedSubscription, abort bool) {
-	if len(b.registrations) == 0 {
-		return newNoopSubscription(), false
-	}
-
-	ctx, cancel := utils.ContextFromChan(b.chStop)
-	defer cancel()
-
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		addresses, topics := b.registeredAddressesAndTopics()
-
-		filterQuery := ethereum.FilterQuery{
-			Addresses: addresses,
-			Topics:    [][]common.Hash{topics},
-		}
-		chRawLogs := make(chan types.Log)
-
-		ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		defer cancel()
-
-		innerSub, err := b.ethClient.SubscribeFilterLogs(ctx, filterQuery, chRawLogs)
-		if err != nil {
-			logger.Errorw("Log subscriber could not create subscription to Ethereum node", "error", err)
-			return true
-		}
-
-		sub = managedSubscriptionImpl{
-			subscription: innerSub,
-			chRawLogs:    chRawLogs,
-		}
-		return false
-	})
-	select {
-	case <-b.chStop:
-		abort = true
-	default:
-		abort = false
-	}
-	return
-}
-
-func (b *broadcaster) registeredAddressesAndTopics() ([]common.Address, []common.Hash) {
-	var addresses []common.Address
-	var topics []common.Hash
-	for addr := range b.registrations {
-		addresses = append(addresses, addr)
-		for topic := range b.registrations[addr] {
-			topics = append(topics, topic)
-		}
-	}
-	return addresses, topics
 }
 
 func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log {
@@ -574,50 +338,4 @@ func (b *broadcaster) appendLogChannel(ch1, ch2 <-chan types.Log) chan types.Log
 	}()
 
 	return chCombined
-}
-
-// A managedSubscription acts as wrapper for the Subscription. Specifically, the
-// managedSubscription closes the log channel as soon as the unsubscribe request is made
-type managedSubscription interface {
-	Err() <-chan error
-	Logs() chan types.Log
-	Unsubscribe()
-}
-
-type managedSubscriptionImpl struct {
-	subscription ethereum.Subscription
-	chRawLogs    chan types.Log
-}
-
-func (sub managedSubscriptionImpl) Err() <-chan error {
-	return sub.subscription.Err()
-}
-
-func (sub managedSubscriptionImpl) Logs() chan types.Log {
-	return sub.chRawLogs
-}
-
-func (sub managedSubscriptionImpl) Unsubscribe() {
-	sub.subscription.Unsubscribe()
-	close(sub.chRawLogs)
-}
-
-type noopSubscription struct {
-	chRawLogs chan types.Log
-}
-
-func newNoopSubscription() noopSubscription {
-	return noopSubscription{make(chan types.Log)}
-}
-
-func (b noopSubscription) Err() <-chan error    { return nil }
-func (b noopSubscription) Logs() chan types.Log { return b.chRawLogs }
-func (b noopSubscription) Unsubscribe()         { close(b.chRawLogs) }
-
-// ListenerJobID returns the appropriate job ID for a listener
-func ListenerJobID(listener Listener) interface{} {
-	if listener.IsV2Job() {
-		return listener.JobIDV2()
-	}
-	return listener.JobID()
 }
