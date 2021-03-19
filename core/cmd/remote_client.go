@@ -1232,7 +1232,7 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	request := web.LogPatchRequest{SqlEnabled: strconv.FormatBool(logSql)}
+	request := web.LogPatchRequest{SqlEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)

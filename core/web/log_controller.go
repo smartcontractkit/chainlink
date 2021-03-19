@@ -19,7 +19,7 @@ type LogController struct {
 
 type LogPatchRequest struct {
 	Level      string `json:"level"`
-	SqlEnabled string `json:"sqlEnabled"`
+	SqlEnabled *bool  `json:"sqlEnabled"`
 }
 
 // SetDebug sets the debug log mode for the logger
@@ -30,7 +30,7 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		return
 	}
 
-	if request.Level == "" && request.SqlEnabled == "" {
+	if request.Level == "" && request.SqlEnabled == nil {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("please set either logLevel or logSql as params in order to set the log level"))
 		return
 	}
@@ -50,19 +50,14 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		}
 	}
 
-	if request.SqlEnabled != "" {
-		logSql, err := strconv.ParseBool(request.SqlEnabled)
-		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
-		}
+	if request.SqlEnabled != nil {
 		cc.App.GetStore().Config.Set("LOG_SQL", request.SqlEnabled)
-		err = cc.App.GetStore().SetConfigStrValue("LogSQLStatements", request.SqlEnabled)
+		err := cc.App.GetStore().SetConfigStrValue("LogSQLStatements", strconv.FormatBool(*request.SqlEnabled))
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		cc.App.GetStore().SetLogging(logSql)
+		cc.App.GetStore().SetLogging(*request.SqlEnabled)
 	}
 
 	// Set default logger with new configurations
