@@ -994,6 +994,17 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 			head2R, log2R,
 			head3R,
 		}
+
+		//events = []interface{}{
+		//	head0, log0,
+		//	head1, log1,
+		//	head2,
+		//	head3,
+		//	head1R, log1Removed, log1R, log2, log2Removed,
+		//	head2R, log2R,
+		//	head3R,
+		//}
+
 		expected = []types.Log{log0, log1, log2, log1R, log2R}
 	)
 
