@@ -1193,14 +1193,46 @@ func normalizePassword(password string) string {
 	return url.PathEscape(strings.TrimSpace(password))
 }
 
-// SetDebugLogging enables or disables debug logging on the node
-func (cli *Client) SetDebugLogging(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must set enabled or disabled (true || false)"))
+// SetLogLevel sets the log level on the node
+func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
+	if !c.Bool("level") {
+		return cli.errorOut(errors.New("expecting a log level (debug, info, warn, error)"))
 	}
 
-	isDebugEnabled := c.Bool("enabled")
-	request := web.LoglevelPatchRequest{EnableDebugLog: &isDebugEnabled}
+	logLevel := c.Args().Get(0)
+	request := web.LoglevelPatchRequest{LogLevel: logLevel, LogSql: ""}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	if err != nil {
+		return cli.errorOut(errors.Wrap(err, "from toggling debug logging"))
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var lR webPresenter.LogResource
+	err = cli.renderAPIResponse(resp, &lR)
+	return err
+}
+
+// SetLogSQL enables or disables the log sql statemnts
+func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
+	if !c.Bool("enable") {
+		return cli.errorOut(errors.New("Must set --enabled = (true || false)"))
+	}
+
+	logSql, err := strconv.ParseBool(c.Args().Get(0))
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	request := web.LoglevelPatchRequest{LogLevel: "", LogSql: strconv.FormatBool(logSql)}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)

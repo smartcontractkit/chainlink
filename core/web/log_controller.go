@@ -1,7 +1,10 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -16,7 +19,29 @@ type LogController struct {
 }
 
 type LoglevelPatchRequest struct {
-	EnableDebugLog *bool `json:"debugEnabled"`
+	LogLevel string `json:"logLevel"`
+	LogSql   string `json:"logSql"`
+}
+
+func getLogLevelFromStr(logLevel string) (zapcore.Level, error) {
+	switch strings.ToLower(logLevel) {
+	case "debug":
+		return zapcore.DebugLevel, nil
+	case "info":
+		return zapcore.InfoLevel, nil
+	case "warn":
+		return zapcore.WarnLevel, nil
+	case "error":
+		return zapcore.ErrorLevel, nil
+	case "dpanic":
+		return zapcore.DPanicLevel, nil
+	case "panic":
+		return zapcore.PanicLevel, nil
+	case "fatal":
+		return zapcore.FatalLevel, nil
+	default:
+		return zapcore.InfoLevel, fmt.Errorf("could not parse %s as log level (debug, info, warn, error)", logLevel)
+	}
 }
 
 // SetDebug sets the debug log mode for the logger
@@ -27,26 +52,49 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		return
 	}
 
-	var err error
-	if *request.EnableDebugLog {
-		cc.App.GetStore().Config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
-		err = cc.App.GetStore().SetConfigValue("LogLevel", zapcore.DebugLevel)
-	} else {
-		cc.App.GetStore().Config.Set("LOG_LEVEL", zapcore.InfoLevel.String())
-		err = cc.App.GetStore().SetConfigValue("LogLevel", zapcore.InfoLevel)
-	}
-	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, err)
+	if request.LogLevel == "" && request.LogSql == "" {
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("please set either logLevel or logSql as params in order to set the log level"))
 		return
 	}
 
-	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
+	if request.LogLevel != "" {
+		ll, err := getLogLevelFromStr(request.LogLevel)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		cc.App.GetStore().Config.Set("LOG_LEVEL", ll.String())
+		err = cc.App.GetStore().SetConfigStrValue("LogLevel", ll.String())
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+	}
+
+	if request.LogSql != "" {
+		logSql, err := strconv.ParseBool(request.LogSql)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		cc.App.GetStore().Config.Set("LOG_SQL", request.LogSql)
+		err = cc.App.GetStore().SetConfigStrValue("LogSQLStatements", request.LogSql)
+		if err != nil {
+			jsonAPIError(c, http.StatusInternalServerError, err)
+			return
+		}
+		cc.App.GetStore().SetLogging(logSql)
+	}
+
+	// Set default logger with new configurations
+	logger.Default = cc.App.GetStore().Config.CreateProductionLogger()
 
 	response := &presenters.LogResource{
 		JAID: presenters.JAID{
 			ID: "log",
 		},
-		DebugEnabled: *request.EnableDebugLog,
+		LogLevel: cc.App.GetStore().Config.LogLevel().String(),
+		LogSql:   cc.App.GetStore().Config.LogSQLStatements(),
 	}
 
 	jsonAPIResponse(c, response, "log")

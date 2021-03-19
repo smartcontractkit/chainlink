@@ -2,7 +2,8 @@ package presenters
 
 type LogResource struct {
 	JAID
-	DebugEnabled bool `json:"debugEnabled"`
+	LogLevel string `json:"logLevel"`
+	LogSql   bool   `json:"logSql"`
 }
 
 // GetName implements the api2go EntityNamer interface
