@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
 	"gorm.io/gorm"
 
@@ -156,6 +157,15 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTrackables = append(headTrackables, gasUpdater)
 	} else {
 		logger.Debugw("GasUpdater: dynamic gas updating is disabled", "ethGasPriceDefault", store.Config.EthGasPriceDefault())
+	}
+
+	if store.Config.DatabaseBackupMode() != orm.DatabaseBackupModeNone && store.Config.DatabaseBackupFrequency() > 0 {
+		logger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", store.Config.DatabaseBackupFrequency())
+
+		databaseBackup := periodicbackup.NewDatabaseBackup(store.Config, logger.Default)
+		subservices = append(subservices, databaseBackup)
+	} else {
+		logger.Info("DatabaseBackup: periodic database backups are disabled")
 	}
 
 	runExecutor := services.NewRunExecutor(store, statsPusher)
