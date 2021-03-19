@@ -128,6 +128,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 		Return(nil)
 
 	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
+	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -798,6 +799,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	newHeads := make(chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -934,6 +936,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 
 	// Start, connect, and initialize node
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
@@ -1081,6 +1084,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	headsCh := make(chan chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) { headsCh <- args.Get(1).(chan<- *models.Head) }).
@@ -1585,6 +1589,8 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) { chchNewHeads <- args.Get(1).(chan<- *models.Head) }).
 		Return(sub, nil)
+	// Nonce syncer
+	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 
 	// GasUpdater boot calls
 	rpcClient.On("CallContext", mock.Anything, mock.AnythingOfType("**models.Head"), "eth_getBlockByNumber", "latest", false).Return(nil).Run(func(args mock.Arguments) {

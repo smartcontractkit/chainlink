@@ -2084,7 +2084,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 				return tx.Nonce() == uint64(nonce) &&
 					uint64(tx.GasPrice().Int64()) == gasPriceWei &&
 					tx.Gas() == overrideGasLimit &&
-					*tx.To() == utils.ZeroAddress &&
+					*tx.To() == fromAddress &&
 					tx.Value().Cmp(big.NewInt(0)) == 0 &&
 					len(tx.Data()) == 0
 			})).Return(nil).Once()
