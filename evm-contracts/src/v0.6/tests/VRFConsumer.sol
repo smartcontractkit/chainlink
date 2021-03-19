@@ -21,9 +21,9 @@ contract VRFConsumer is VRFConsumerBase {
     requestId = _requestId;
   }
 
-  function testRequestRandomness(bytes32 _keyHash, uint256 _fee, uint256 _seed)
+  function testRequestRandomness(bytes32 _keyHash, uint256 _fee)
     external returns (bytes32 requestId)
   {
-    return requestRandomness(_keyHash, _fee, _seed);
+    return requestRandomness(_keyHash, _fee);
   }
 }

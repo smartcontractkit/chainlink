@@ -42,7 +42,6 @@ contract VRFD20 is VRFConsumerBase, Owned {
     {
         s_keyHash = keyHash;
         s_fee = fee;
-        
     }
 
     /**
@@ -51,13 +50,12 @@ contract VRFD20 is VRFConsumerBase, Owned {
      * as that would give miners/VRF operators latitude about which VRF response arrives first.
      * @dev You must review your implementation details with extreme care.
      *
-     * @param userProvidedSeed uint256 unpredictable seed
      * @param roller address of the roller
      */
-    function rollDice(uint256 userProvidedSeed, address roller) public onlyOwner returns (bytes32 requestId) {
+    function rollDice(address roller) public onlyOwner returns (bytes32 requestId) {
         require(LINK.balanceOf(address(this)) >= s_fee, "Not enough LINK to pay fee");
         require(s_results[roller] == 0, "Already rolled");
-        requestId = requestRandomness(s_keyHash, s_fee, userProvidedSeed);
+        requestId = requestRandomness(s_keyHash, s_fee);
         s_rollers[requestId] = roller;
         s_results[roller] = ROLL_IN_PROGRESS;
         emit DiceRolled(requestId, roller);
