@@ -62,6 +62,10 @@ Ethereum node versions currently tested and supported:
 - [Parity 1.11+](https://github.com/paritytech/parity-ethereum/releases) (due to a [fix with pubsub](https://github.com/paritytech/parity/issues/6590).)
 - [Geth 1.8+](https://github.com/ethereum/go-ethereum/releases)
 
+### Create an environment file
+Create an `.env` file and populate with variables specific to the network you're running on.
+Check out the [docs](https://docs.chain.link)' page on [Running a Chainlink Node](https://docs.chain.link/docs/running-a-chainlink-node#create-an-environment-file) to learn more about the environment file.
+
 ## Run
 
 **NOTE**: By default, chainlink will run in TLS mode. For local development you can either disable this by setting CHAINLINK_DEV to true, or generate self signed certificates using `tools/bin/self-signed-certs` or [manually](https://github.com/smartcontractkit/chainlink/wiki/Creating-Self-Signed-Certificates).
