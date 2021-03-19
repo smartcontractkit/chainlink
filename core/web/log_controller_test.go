@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"testing"
 
 	"github.com/bmizerany/assert"
@@ -16,9 +17,12 @@ import (
 )
 
 type testCase struct {
-	Description      string
-	enableDug        bool
+	Description string
+	logLevel    string
+	logSql      string
+
 	expectedLogLevel zapcore.Level
+	expectedLogSql   bool
 }
 
 func TestLogController_SetDebug(t *testing.T) {
@@ -35,20 +39,35 @@ func TestLogController_SetDebug(t *testing.T) {
 
 	cases := []testCase{
 		{
-			Description:      "Set debug enabled to true",
-			enableDug:        true,
+			Description:      "Set log level to debug",
+			logLevel:         "debug",
+			logSql:           "",
 			expectedLogLevel: zapcore.DebugLevel,
 		},
 		{
-			Description:      "Set debug enabled to false (info)",
-			enableDug:        false,
+			Description:      "Set log level to info",
+			logLevel:         "info",
+			logSql:           "",
 			expectedLogLevel: zapcore.InfoLevel,
+		},
+		{
+			Description:      "Set log level to info and log sql to true",
+			logLevel:         "info",
+			logSql:           "true",
+			expectedLogLevel: zapcore.InfoLevel,
+		},
+		{
+			Description:      "Set log level to warn and log sql to false",
+			logLevel:         "warn",
+			logSql:           "false",
+			expectedLogLevel: zapcore.WarnLevel,
 		},
 	}
 
 	for _, tc := range cases {
 		func() {
-			request := web.LoglevelPatchRequest{EnableDebugLog: &tc.enableDug}
+			request := web.LoglevelPatchRequest{LogLevel: tc.logLevel, LogSql: tc.logSql}
+
 			requestData, _ := json.Marshal(request)
 			buf := bytes.NewBuffer(requestData)
 
@@ -58,7 +77,12 @@ func TestLogController_SetDebug(t *testing.T) {
 
 			lR := presenters.LogResource{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
-			assert.Equal(t, tc.enableDug, lR.DebugEnabled)
+			if tc.logLevel != "" {
+				assert.Equal(t, tc.logLevel, lR.LogLevel)
+			}
+			if tc.logSql != "" {
+				assert.Equal(t, tc.logSql, strconv.FormatBool(lR.LogSql))
+			}
 			assert.Equal(t, tc.expectedLogLevel.String(), app.GetStore().Config.LogLevel().String())
 		}()
 	}

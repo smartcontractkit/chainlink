@@ -644,6 +644,14 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 		FirstOrCreate(&models.Configuration{}).Error
 }
 
+// SetConfigValue returns the value for a named configuration entry
+func (orm *ORM) SetConfigStrValue(field string, value string) error {
+	name := EnvVarName(field)
+	return orm.DB.Where(models.Configuration{Name: name}).
+		Assign(models.Configuration{Name: name, Value: value}).
+		FirstOrCreate(&models.Configuration{}).Error
+}
+
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
 	return orm.createJob(orm.DB, job)

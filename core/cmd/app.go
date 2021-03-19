@@ -148,13 +148,24 @@ func NewApp(client *Client) *cli.App {
 					},
 				},
 				{
-					Name:   "enabledebug",
-					Usage:  "Enable and disable debug logging",
-					Action: client.SetDebugLogging,
+					Name:   "loglevel",
+					Usage:  "Set log level",
+					Action: client.SetLogLevel,
 					Flags: []cli.Flag{
 						cli.BoolFlag{
-							Name:  "enabled, true",
-							Usage: "enable or disable debug logger",
+							Name:  "level",
+							Usage: "set log level for node (debug||info||warn||error)",
+						},
+					},
+				},
+				{
+					Name:   "logsql",
+					Usage:  "Enable/disable sql statement logging",
+					Action: client.SetLogSQL,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "enable",
+							Usage: "enable or disable sql logging",
 						},
 					},
 				},
