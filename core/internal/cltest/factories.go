@@ -709,6 +709,13 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	return key
 }
 
+func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
+	h := models.NewHead(big.NewInt(number), NewHash(), NewHash(), 0)
+	err := store.DB.Create(&h).Error
+	require.NoError(t, err)
+	return h
+}
+
 func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
 	t.Helper()
 
