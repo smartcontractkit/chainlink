@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -23,27 +22,6 @@ type LoglevelPatchRequest struct {
 	LogSql   string `json:"logSql"`
 }
 
-func getLogLevelFromStr(logLevel string) (zapcore.Level, error) {
-	switch strings.ToLower(logLevel) {
-	case "debug":
-		return zapcore.DebugLevel, nil
-	case "info":
-		return zapcore.InfoLevel, nil
-	case "warn":
-		return zapcore.WarnLevel, nil
-	case "error":
-		return zapcore.ErrorLevel, nil
-	case "dpanic":
-		return zapcore.DPanicLevel, nil
-	case "panic":
-		return zapcore.PanicLevel, nil
-	case "fatal":
-		return zapcore.FatalLevel, nil
-	default:
-		return zapcore.InfoLevel, fmt.Errorf("could not parse %s as log level (debug, info, warn, error)", logLevel)
-	}
-}
-
 // SetDebug sets the debug log mode for the logger
 func (cc *LogController) SetDebug(c *gin.Context) {
 	request := &LoglevelPatchRequest{}
@@ -58,7 +36,8 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 	}
 
 	if request.LogLevel != "" {
-		ll, err := getLogLevelFromStr(request.LogLevel)
+		var ll zapcore.Level
+		err := ll.UnmarshalText([]byte(request.LogLevel))
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
