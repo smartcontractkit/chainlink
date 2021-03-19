@@ -98,11 +98,11 @@ func (rt RendererTable) Render(v interface{}) error {
 }
 
 func (rt RendererTable) renderLogResource(logResource webPresenters.LogResource) error {
-	table := rt.newTable([]string{"ID", "LogLevel", "LogSql"})
+	table := rt.newTable([]string{"ID", "Level", "SqlEnabled"})
 	table.Append([]string{
 		logResource.ID,
-		logResource.LogLevel,
-		strconv.FormatBool(logResource.LogSql),
+		logResource.Level,
+		strconv.FormatBool(logResource.SqlEnabled),
 	})
 	render("Logs", table)
 	return nil

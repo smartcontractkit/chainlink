@@ -1200,7 +1200,7 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 	}
 
 	logLevel := c.Args().Get(0)
-	request := web.LoglevelPatchRequest{LogLevel: logLevel, LogSql: ""}
+	request := web.LogPatchRequest{Level: logLevel}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)
@@ -1232,7 +1232,7 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	request := web.LoglevelPatchRequest{LogLevel: "", LogSql: strconv.FormatBool(logSql)}
+	request := web.LogPatchRequest{SqlEnabled: strconv.FormatBool(logSql)}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return cli.errorOut(err)
