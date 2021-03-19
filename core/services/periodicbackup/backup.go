@@ -26,9 +26,6 @@ var (
 		"run_requests",
 		"run_results",
 		"sync_events",
-		//"eth_tx_attempts",
-		//"eth_receipts",
-		//"eth_txes",
 		"pipeline_runs",
 		"pipeline_task_runs",
 	}
