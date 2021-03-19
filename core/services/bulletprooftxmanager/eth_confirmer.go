@@ -393,6 +393,13 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 // In this case we mark these transactions as 'confirmed_missing_receipt' to
 // prevent gas bumping.
 //
+// FIXME: We should continue to attempt to resend eth_txes in this state on
+// every head to guard against the extremely rare scenario of nonce gap due to
+// reorg that excludes the transaction (from another wallet) that had this
+// nonce (until finality depth is reached, after which we make the explicit
+// decision to give up).
+// https://www.pivotaltracker.com/story/show/177389604
+//
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
 func (ec *ethConfirmer) markConfirmedMissingReceipt(ctx context.Context) (err error) {
@@ -414,8 +421,8 @@ AND nonce < (
 
 // markOldTxesMissingReceiptAsErrored
 //
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold,
-// we mark it as fatally errored (never sent).
+// Once eth_tx has all of its attempts broadcast before some cutoff threshold
+// without receiving any receipts, we mark it as fatally errored (never sent).
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
@@ -622,6 +629,8 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // FindEthTxsRequiringGasBump returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
+//
+// It also returns eth_txes that are unconfirmed with no eth_tx_attempts
 func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
 	if gasBumpThreshold == 0 {
 		logger.Debug("EthConfirmer: Gas bumping disabled (gasBumpThreshold set to 0)")
@@ -841,7 +850,12 @@ func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = models.EthTxAttemptBroadcast
-	return errors.Wrap(db.Save(attempt).Error, "saveSentAttempt failed")
+	return postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = NOW() WHERE id = ? AND broadcast_at IS NULL`, attempt.EthTxID).Error; err != nil {
+			return errors.Wrap(err, "saveSentAttempt failed")
+		}
+		return errors.Wrap(db.Save(attempt).Error, "saveSentAttempt failed")
+	})
 }
 
 func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
@@ -849,7 +863,12 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = models.EthTxAttemptInsufficientEth
-	return errors.Wrap(db.Save(attempt).Error, "saveInsufficientEthAttempt failed")
+	return postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = NOW() WHERE id = ? AND broadcast_at IS NULL`, attempt.EthTxID).Error; err != nil {
+			return errors.Wrap(err, "saveInsufficientEthAttempt failed")
+		}
+		return errors.Wrap(db.Save(attempt).Error, "saveInsufficientEthAttempt failed")
+	})
 
 }
 
