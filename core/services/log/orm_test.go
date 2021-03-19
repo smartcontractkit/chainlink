@@ -37,8 +37,24 @@ func TestORM_MarkBroadcastConsumed(t *testing.T) {
 
 			rawLog := cltest.RandomLog(t)
 
-				err := orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
-				require.NoError(t, err)
+			var consumed struct{ Consumed bool }
+			var err error
+			if listener.IsV2Job() {
+				err = store.DB.Raw(`
+                        SELECT consumed FROM log_broadcasts
+                        WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id_v2 = ?
+                    `, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobIDV2()).Scan(&consumed).Error
+			} else {
+				err = store.DB.Raw(`
+                        SELECT consumed FROM log_broadcasts
+                        WHERE block_hash = ? AND block_number = ? AND log_index = ? AND job_id = ?
+                    `, rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID()).Scan(&consumed).Error
+			}
+			require.NoError(t, err)
+			require.False(t, consumed.Consumed)
+
+			err = orm.MarkBroadcastConsumed(rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, log.ListenerJobID(listener))
+			require.NoError(t, err)
 
 			if listener.IsV2Job() {
 				err = store.DB.Raw(`
@@ -84,8 +100,6 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 				listener := test.listener
 
 				rawLog := cltest.RandomLog(t)
-				cltest.MustInsertLog(t, rawLog, store)
-
 				was, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
 				require.NoError(t, err)
 				require.False(t, was)
@@ -120,7 +134,7 @@ func TestORM_WasBroadcastConsumed(t *testing.T) {
 
 				rawLog := cltest.RandomLog(t)
 				_, err := orm.WasBroadcastConsumed(rawLog.BlockHash, rawLog.Index, log.ListenerJobID(listener))
-				require.Error(t, err)
+				require.NoError(t, err)
 			})
 		}
 	})

@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
@@ -591,6 +590,7 @@ func (p *PollingDeviationChecker) consume() {
 			flux_aggregator_wrapper.FluxAggregatorNewRound{},
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 		},
+		NumConfirmations: 1,
 	})
 	defer unsubscribe()
 
@@ -601,6 +601,7 @@ func (p *PollingDeviationChecker) consume() {
 				flags_wrapper.FlagsFlagLowered{},
 				flags_wrapper.FlagsFlagRaised{},
 			},
+			NumConfirmations: 1,
 		})
 		isConnected = isConnected && flagsConnected
 		defer unsubscribe()
