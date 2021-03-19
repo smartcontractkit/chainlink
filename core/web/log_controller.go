@@ -22,8 +22,8 @@ type LogPatchRequest struct {
 	SqlEnabled *bool  `json:"sqlEnabled"`
 }
 
-// SetDebug sets the debug log mode for the logger
-func (cc *LogController) SetDebug(c *gin.Context) {
+// Patch sets a log level and enables sql logging for the logger
+func (cc *LogController) Patch(c *gin.Context) {
 	request := &LogPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
