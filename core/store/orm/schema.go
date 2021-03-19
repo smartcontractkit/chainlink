@@ -74,7 +74,9 @@ type ConfigSchema struct {
 	JobPipelineReaperInterval                 time.Duration   `env:"JOB_PIPELINE_REAPER_INTERVAL" default:"1h"`
 	JobPipelineReaperThreshold                time.Duration   `env:"JOB_PIPELINE_REAPER_THRESHOLD" default:"168h"`
 	JSONConsole                               bool            `env:"JSON_CONSOLE" default:"false"`
-	KeeperRegistrySyncInterval                time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"5m"`
+	KeeperRegistrySyncInterval                time.Duration   `env:"KEEPER_REGISTRY_SYNC_INTERVAL" default:"30m"`
+	KeeperMinimumRequiredConfirmations        uint64          `env:"KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS" default:"12"`
+	KeeperMaximumGracePeriod                  int64           `env:"KEEPER_MAXIMUM_GRACE_PERIOD" default:"100"`
 	LinkContractAddress                       string          `env:"LINK_CONTRACT_ADDRESS" default:"0x514910771AF9Ca656af840dff83E8264EcF986CA"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`
