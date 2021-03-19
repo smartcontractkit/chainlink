@@ -2,8 +2,8 @@ package presenters
 
 type LogResource struct {
 	JAID
-	LogLevel string `json:"logLevel"`
-	LogSql   bool   `json:"logSql"`
+	Level      string `json:"level"`
+	SqlEnabled bool   `json:"sqlEnabled"`
 }
 
 // GetName implements the api2go EntityNamer interface

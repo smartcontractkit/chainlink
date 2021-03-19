@@ -17,27 +17,27 @@ type LogController struct {
 	App chainlink.Application
 }
 
-type LoglevelPatchRequest struct {
-	LogLevel string `json:"logLevel"`
-	LogSql   string `json:"logSql"`
+type LogPatchRequest struct {
+	Level      string `json:"level"`
+	SqlEnabled string `json:"sqlEnabled"`
 }
 
 // SetDebug sets the debug log mode for the logger
 func (cc *LogController) SetDebug(c *gin.Context) {
-	request := &LoglevelPatchRequest{}
+	request := &LogPatchRequest{}
 	if err := c.ShouldBindJSON(request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	if request.LogLevel == "" && request.LogSql == "" {
+	if request.Level == "" && request.SqlEnabled == "" {
 		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("please set either logLevel or logSql as params in order to set the log level"))
 		return
 	}
 
-	if request.LogLevel != "" {
+	if request.Level != "" {
 		var ll zapcore.Level
-		err := ll.UnmarshalText([]byte(request.LogLevel))
+		err := ll.UnmarshalText([]byte(request.Level))
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -50,14 +50,14 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		}
 	}
 
-	if request.LogSql != "" {
-		logSql, err := strconv.ParseBool(request.LogSql)
+	if request.SqlEnabled != "" {
+		logSql, err := strconv.ParseBool(request.SqlEnabled)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
-		cc.App.GetStore().Config.Set("LOG_SQL", request.LogSql)
-		err = cc.App.GetStore().SetConfigStrValue("LogSQLStatements", request.LogSql)
+		cc.App.GetStore().Config.Set("LOG_SQL", request.SqlEnabled)
+		err = cc.App.GetStore().SetConfigStrValue("LogSQLStatements", request.SqlEnabled)
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -72,8 +72,8 @@ func (cc *LogController) SetDebug(c *gin.Context) {
 		JAID: presenters.JAID{
 			ID: "log",
 		},
-		LogLevel: cc.App.GetStore().Config.LogLevel().String(),
-		LogSql:   cc.App.GetStore().Config.LogSQLStatements(),
+		Level:      cc.App.GetStore().Config.LogLevel().String(),
+		SqlEnabled: cc.App.GetStore().Config.LogSQLStatements(),
 	}
 
 	jsonAPIResponse(c, response, "log")

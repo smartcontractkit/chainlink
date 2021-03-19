@@ -66,7 +66,7 @@ func TestLogController_SetDebug(t *testing.T) {
 
 	for _, tc := range cases {
 		func() {
-			request := web.LoglevelPatchRequest{LogLevel: tc.logLevel, LogSql: tc.logSql}
+			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 
 			requestData, _ := json.Marshal(request)
 			buf := bytes.NewBuffer(requestData)
@@ -78,10 +78,10 @@ func TestLogController_SetDebug(t *testing.T) {
 			lR := presenters.LogResource{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
 			if tc.logLevel != "" {
-				assert.Equal(t, tc.logLevel, lR.LogLevel)
+				assert.Equal(t, tc.logLevel, lR.Level)
 			}
 			if tc.logSql != "" {
-				assert.Equal(t, tc.logSql, strconv.FormatBool(lR.LogSql))
+				assert.Equal(t, tc.logSql, strconv.FormatBool(lR.SqlEnabled))
 			}
 			assert.Equal(t, tc.expectedLogLevel.String(), app.GetStore().Config.LogLevel().String())
 		}()
