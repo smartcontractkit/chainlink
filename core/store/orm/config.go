@@ -367,6 +367,8 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
+// EthReceiptFetchBatchSize controls the number of receipts fetched in each
+// request in the EthConfirmer
 func (c Config) EthReceiptFetchBatchSize() uint32 {
 	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
 }
