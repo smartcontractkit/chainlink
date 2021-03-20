@@ -21,7 +21,6 @@ type testCase struct {
 	logSql      *bool
 
 	expectedLogLevel zapcore.Level
-	expectedLogSql   bool
 }
 
 func TestLogController_SetDebug(t *testing.T) {
@@ -79,7 +78,7 @@ func TestLogController_SetDebug(t *testing.T) {
 			lR := presenters.LogResource{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
 			if tc.logLevel != "" {
-				assert.Equal(t, tc.logLevel, lR.Level)
+				assert.Equal(t, tc.expectedLogLevel.String(), lR.Level)
 			}
 			if tc.logSql != nil {
 				assert.Equal(t, tc.logSql, &lR.SqlEnabled)
