@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"testing"
 
 	"github.com/bmizerany/assert"
@@ -19,7 +18,7 @@ import (
 type testCase struct {
 	Description string
 	logLevel    string
-	logSql      string
+	logSql      *bool
 
 	expectedLogLevel zapcore.Level
 	expectedLogSql   bool
@@ -37,29 +36,31 @@ func TestLogController_SetDebug(t *testing.T) {
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
+	sqlTrue := true
+	sqlFalse := false
 	cases := []testCase{
 		{
 			Description:      "Set log level to debug",
 			logLevel:         "debug",
-			logSql:           "",
+			logSql:           nil,
 			expectedLogLevel: zapcore.DebugLevel,
 		},
 		{
 			Description:      "Set log level to info",
 			logLevel:         "info",
-			logSql:           "",
+			logSql:           nil,
 			expectedLogLevel: zapcore.InfoLevel,
 		},
 		{
 			Description:      "Set log level to info and log sql to true",
 			logLevel:         "info",
-			logSql:           "true",
+			logSql:           &sqlTrue,
 			expectedLogLevel: zapcore.InfoLevel,
 		},
 		{
 			Description:      "Set log level to warn and log sql to false",
 			logLevel:         "warn",
-			logSql:           "false",
+			logSql:           &sqlFalse,
 			expectedLogLevel: zapcore.WarnLevel,
 		},
 	}
@@ -80,8 +81,8 @@ func TestLogController_SetDebug(t *testing.T) {
 			if tc.logLevel != "" {
 				assert.Equal(t, tc.logLevel, lR.Level)
 			}
-			if tc.logSql != "" {
-				assert.Equal(t, tc.logSql, strconv.FormatBool(lR.SqlEnabled))
+			if tc.logSql != nil {
+				assert.Equal(t, tc.logSql, &lR.SqlEnabled)
 			}
 			assert.Equal(t, tc.expectedLogLevel.String(), app.GetStore().Config.LogLevel().String())
 		}()
