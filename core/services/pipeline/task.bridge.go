@@ -4,11 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"sync"
 
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
-
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -19,14 +16,8 @@ type BridgeTask struct {
 	Name        string          `json:"name"`
 	RequestData HttpRequestData `json:"requestData"`
 
-	txdb *gorm.DB
-	// HACK: This mutex is necessary to work around a bug in the pq driver that
-	// causes concurrent database calls inside the same transaction to fail
-	// with a mysterious `pq: unexpected Parse response 'C'` error
-	// FIXME: Get rid of this by replacing pq with pgx
-	// https://www.pivotaltracker.com/story/show/174401187
-	txdbMutex *sync.Mutex
-	config    Config
+	safeTx SafeTx
+	config Config
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -58,7 +49,7 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 		logger.Warnw(`"meta" field on task run is malformed, discarding`,
 			"jobID", taskRun.PipelineRun.PipelineSpecID,
 			"taskRunID", taskRun.ID,
-			"task", taskRun.PipelineTaskSpec.DotID,
+			"task", taskRun.DotID,
 			"meta", taskRun.PipelineRun.Meta.Val,
 		)
 	}
@@ -85,12 +76,12 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	task := models.TaskType(t.Name)
 
-	if t.txdbMutex != nil {
-		t.txdbMutex.Lock()
-		defer t.txdbMutex.Unlock()
+	if t.safeTx.txMu != nil {
+		t.safeTx.txMu.Lock()
+		defer t.safeTx.txMu.Unlock()
 	}
 
-	bridge, err := FindBridge(t.txdb, task)
+	bridge, err := FindBridge(t.safeTx.tx, task)
 	if err != nil {
 		return url.URL{}, err
 	}

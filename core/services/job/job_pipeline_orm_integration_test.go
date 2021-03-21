@@ -23,7 +23,7 @@ import (
 )
 
 func clearJobsDb(t *testing.T, db *gorm.DB) {
-	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs, pipeline_task_specs CASCADE`).Error
+	err := db.Exec(`TRUNCATE jobs, pipeline_runs, pipeline_specs, pipeline_task_runs CASCADE`).Error
 	require.NoError(t, err)
 }
 
@@ -41,56 +41,45 @@ func TestPipelineORM_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	result := &pipeline.ResultTask{
-		BaseTask: pipeline.NewBaseTask("__result__", nil, 0),
+		BaseTask: pipeline.NewBaseTask("__result__", nil, 0, 0),
 	}
 	answer1 := &pipeline.MedianTask{
-		BaseTask: pipeline.NewBaseTask("answer1", nil, 0),
+		BaseTask: pipeline.NewBaseTask("answer1", nil, 0, 0),
 	}
 	answer2 := &pipeline.BridgeTask{
 		Name:     "election_winner",
-		BaseTask: pipeline.NewBaseTask("answer2", nil, 1),
+		BaseTask: pipeline.NewBaseTask("answer2", nil, 1, 0),
 	}
 	ds1_multiply := &pipeline.MultiplyTask{
 		Times:    decimal.NewFromFloat(1.23),
-		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0),
+		BaseTask: pipeline.NewBaseTask("ds1_multiply", answer1, 0, 0),
 	}
 	ds1_parse := &pipeline.JSONParseTask{
 		Path:     []string{"one", "two"},
-		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0),
+		BaseTask: pipeline.NewBaseTask("ds1_parse", ds1_multiply, 0, 0),
 	}
 	ds1 := &pipeline.BridgeTask{
 		Name:     "voter_turnout",
-		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0),
+		BaseTask: pipeline.NewBaseTask("ds1", ds1_parse, 0, 0),
 	}
 	ds2_multiply := &pipeline.MultiplyTask{
 		Times:    decimal.NewFromFloat(4.56),
-		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0),
+		BaseTask: pipeline.NewBaseTask("ds2_multiply", answer1, 0, 0),
 	}
 	ds2_parse := &pipeline.JSONParseTask{
 		Path:     []string{"three", "four"},
-		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0),
+		BaseTask: pipeline.NewBaseTask("ds2_parse", ds2_multiply, 0, 0),
 	}
 	ds2 := &pipeline.HTTPTask{
 		URL:         models.WebURL(*u),
 		Method:      "GET",
 		RequestData: pipeline.HttpRequestData{"hi": "hello"},
-		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0),
+		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
 	expectedTasks := []pipeline.Task{result, answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
-	var expectedTaskSpecs []pipeline.TaskSpec
-	for _, task := range expectedTasks {
-		expectedTaskSpecs = append(expectedTaskSpecs, pipeline.TaskSpec{
-			DotID:          task.DotID(),
-			PipelineSpecID: specID,
-			Type:           task.Type(),
-			JSON:           pipeline.JSONSerializable{Val: task},
-			Index:          task.OutputIndex(),
-		})
-	}
-
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, db.Create(bridge2).Error)
 
 	t.Run("creates task DAGs", func(t *testing.T) {
@@ -110,33 +99,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.Len(t, specs, 1)
 		require.Equal(t, specID, specs[0].ID)
 		require.Equal(t, pipeline.DotStr, specs[0].DotDagSource)
-
-		var taskSpecs []pipeline.TaskSpec
-		err = db.Find(&taskSpecs).Error
-		require.NoError(t, err)
-		require.Len(t, taskSpecs, len(expectedTaskSpecs))
-
-		type equalser interface {
-			ExportedEquals(otherTask pipeline.Task) bool
-		}
-
-		for _, taskSpec := range taskSpecs {
-			taskSpec.JSON.Val.(map[string]interface{})["index"] = taskSpec.Index
-			taskSpec.JSON.Val, err = pipeline.UnmarshalTaskFromMap(taskSpec.Type, taskSpec.JSON.Val, taskSpec.DotID, nil, nil, nil)
-			require.NoError(t, err)
-
-			var found bool
-			for _, expected := range expectedTaskSpecs {
-				if taskSpec.PipelineSpecID == specID &&
-					taskSpec.Type == expected.Type &&
-					taskSpec.Index == expected.Index &&
-					taskSpec.JSON.Val.(equalser).ExportedEquals(expected.JSON.Val.(pipeline.Task)) {
-					found = true
-					break
-				}
-			}
-			require.True(t, found)
-		}
 
 		require.NoError(t, db.Exec(`DELETE FROM pipeline_specs`).Error)
 	})
@@ -161,15 +123,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)
 		pipelineSpecID := pipelineSpecs[0].ID
 
-		var taskSpecs []pipeline.TaskSpec
-		err = db.Find(&taskSpecs).Error
-		require.NoError(t, err)
-
-		var taskSpecIDs []int32
-		for _, taskSpec := range taskSpecs {
-			taskSpecIDs = append(taskSpecIDs, taskSpec.ID)
-		}
-
 		// Create the run
 		runID, err = orm.CreateRun(context.Background(), dbSpec.ID, nil)
 		require.NoError(t, err)
@@ -186,11 +139,10 @@ func TestPipelineORM_Integration(t *testing.T) {
 		var taskRuns []pipeline.TaskRun
 		err = db.Where("pipeline_run_id = ?", runID).Find(&taskRuns).Error
 		require.NoError(t, err)
-		require.Len(t, taskRuns, len(taskSpecIDs))
+		require.Len(t, taskRuns, len(expectedTasks))
 
 		for _, taskRun := range taskRuns {
 			require.Equal(t, runID, taskRun.PipelineRunID)
-			require.Contains(t, taskSpecIDs, taskRun.PipelineTaskSpecID)
 			require.Nil(t, taskRun.Output)
 			require.True(t, taskRun.Error.IsZero())
 		}
@@ -313,11 +265,11 @@ func TestPipelineORM_Integration(t *testing.T) {
 				// Process the run
 				{
 					var anyRemaining bool
-					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run, l logger.Logger) (trrs pipeline.TaskRunResults, err error) {
+					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, l logger.Logger) (trrs pipeline.TaskRunResults, err error) {
 						for dotID, result := range test.answers {
 							var tr pipeline.TaskRun
 							require.NoError(t, db.
-								Joins("INNER JOIN pipeline_task_specs ON pipeline_task_specs.id = pipeline_task_runs.pipeline_task_spec_id AND dot_id = ?", dotID).
+								Where("dot_id = ?", dotID).
 								Where("pipeline_run_id = ? ", runID).
 								First(&tr).Error)
 							trr := pipeline.TaskRunResult{
@@ -336,7 +288,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, run pipeline.Run, l logger.Logger) (pipeline.TaskRunResults, error) {
+					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, l logger.Logger) (pipeline.TaskRunResults, error) {
 						t.Fatal("this callback should never be reached")
 						return nil, nil
 					})
@@ -361,16 +313,16 @@ func TestPipelineORM_Integration(t *testing.T) {
 					}
 
 					var finishedTaskRuns []pipeline.TaskRun
-					err = db.Preload("PipelineTaskSpec").Find(&finishedTaskRuns, "pipeline_run_id = ?", runID).Error
+					err = db.Find(&finishedTaskRuns, "pipeline_run_id = ?", runID).Error
 					require.NoError(t, err)
 					require.Len(t, finishedTaskRuns, len(expectedTasks))
 
 					for _, run := range finishedTaskRuns {
 						require.True(t, run.Output != nil || !run.Error.IsZero())
 						if run.Output != nil {
-							require.Equal(t, test.answers[run.DotID()].Value, run.Output.Val)
+							require.Equal(t, test.answers[run.GetDotID()].Value, run.Output.Val)
 						} else if !run.Error.IsZero() {
-							require.Equal(t, test.answers[run.DotID()].Error.Error(), run.Error.ValueOrZero())
+							require.Equal(t, test.answers[run.GetDotID()].Error.Error(), run.Error.ValueOrZero())
 						}
 					}
 

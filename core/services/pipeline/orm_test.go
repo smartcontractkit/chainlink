@@ -27,7 +27,6 @@ func Test_PipelineORM_CreateRun(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that JobRun, TaskRuns were created
-
 	var prs []pipeline.Run
 	var trs []pipeline.TaskRun
 
