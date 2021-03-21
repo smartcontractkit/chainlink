@@ -33,6 +33,7 @@ type (
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
 		SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error
+		NPreds() int
 	}
 
 	Config interface {
@@ -55,6 +56,16 @@ var (
 	ErrWrongInputCardinality = errors.New("wrong number of task inputs")
 	ErrBadInput              = errors.New("bad input for task")
 )
+
+// Bundled tx and txmutex for multiple goroutines inside the same transaction.
+// This mutex is necessary to work to avoid
+// concurrent database calls inside the same transaction to fail.
+// With the pq driver: `pq: unexpected Parse response 'C'`
+// With the pgx driver: `conn busy`.
+type SafeTx struct {
+	tx   *gorm.DB
+	txMu *sync.Mutex
+}
 
 // Result is the result of a TaskRun
 type Result struct {
@@ -129,7 +140,8 @@ func (result FinalResult) SingularResult() (Result, error) {
 // TaskSpecID will always be non-zero
 type TaskRunResult struct {
 	ID         int64
-	TaskSpecID int32
+	Task       Task
+	TaskRun    TaskRun
 	Result     Result
 	FinishedAt time.Time
 	IsTerminal bool
@@ -185,14 +197,31 @@ type RunWithResults struct {
 type BaseTask struct {
 	outputTask Task
 	dotID      string        `mapstructure:"-"`
+	nPreds     int           `mapstructure:"-"`
 	Index      int32         `mapstructure:"index" json:"-" `
 	Timeout    time.Duration `mapstructure:"timeout"`
 }
 
-func (t BaseTask) DotID() string                  { return t.dotID }
-func (t BaseTask) OutputIndex() int32             { return t.Index }
-func (t BaseTask) OutputTask() Task               { return t.outputTask }
-func (t *BaseTask) SetOutputTask(outputTask Task) { t.outputTask = outputTask }
+func (t BaseTask) NPreds() int {
+	return t.nPreds
+}
+
+func (t BaseTask) DotID() string {
+	return t.dotID
+}
+
+func (t BaseTask) OutputIndex() int32 {
+	return t.Index
+}
+
+func (t BaseTask) OutputTask() Task {
+	return t.outputTask
+}
+
+func (t *BaseTask) SetOutputTask(outputTask Task) {
+	t.outputTask = outputTask
+}
+
 func (t BaseTask) TaskTimeout() (time.Duration, bool) {
 	if t.Timeout == time.Duration(0) {
 		return time.Duration(0), false
@@ -257,7 +286,7 @@ const (
 
 const ResultTaskDotID = "__result__"
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, nPreds int) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -271,17 +300,17 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	var task Task
 	switch taskType {
 	case TaskTypeHTTP:
-		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID}}
+		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeBridge:
-		task = &BridgeTask{config: config, txdb: txdb, txdbMutex: txdbMutex, BaseTask: BaseTask{dotID: dotID}}
+		task = &BridgeTask{config: config, safeTx: SafeTx{txdb, txdbMutex}, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &MedianTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeAny:
-		task = &AnyTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &AnyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID}}
+		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeResult:
 		task = &ResultTask{BaseTask: BaseTask{dotID: ResultTaskDotID}}
 	default:

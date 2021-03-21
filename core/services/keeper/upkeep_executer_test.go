@@ -7,7 +7,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -24,18 +23,19 @@ func setup(t *testing.T) (
 	*mocks.Client,
 	*keeper.UpkeepExecutor,
 	keeper.Registry,
+	keeper.UpkeepRegistration,
 	func(),
 ) {
 	store, strCleanup := cltest.NewStore(t)
 	ethMock := new(mocks.Client)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store)
 	headBroadcaster := services.NewHeadBroadcaster()
-	executor := keeper.NewUpkeepExecutor(job, store.DB, ethMock, headBroadcaster)
-	cltest.MustInsertUpkeepForRegistry(t, store, registry)
+	executor := keeper.NewUpkeepExecutor(job, store.DB, ethMock, headBroadcaster, 0)
+	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executor.Start()
 	require.NoError(t, err)
 	cleanup := func() { executor.Close(); strCleanup() }
-	return store, ethMock, executor, registry, cleanup
+	return store, ethMock, executor, registry, upkeep, cleanup
 }
 
 var checkUpkeepResponse = struct {
@@ -54,7 +54,7 @@ var checkUpkeepResponse = struct {
 
 func Test_UpkeepExecutor_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
-	_, _, executor, _, cleanup := setup(t)
+	_, _, executor, _, _, cleanup := setup(t)
 	defer cleanup()
 
 	err := executor.Start() // already started in setup()
@@ -63,7 +63,7 @@ func Test_UpkeepExecutor_ErrorsIfStartedTwice(t *testing.T) {
 
 func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
 	t.Parallel()
-	store, ethMock, executor, registry, cleanup := setup(t)
+	store, ethMock, executor, registry, upkeep, cleanup := setup(t)
 	defer cleanup()
 
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
@@ -71,13 +71,14 @@ func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
 		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-		executor.OnNewLongestChain(context.TODO(), head)
+		executor.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
+		assertLastRunHeight(t, store, upkeep, 20)
 	})
 
 	t.Run("skips upkeep on non-triggering block number", func(t *testing.T) {
 		head := models.NewHead(big.NewInt(21), cltest.NewHash(), cltest.NewHash(), 1000)
-		executor.OnNewLongestChain(context.TODO(), head)
+		executor.OnNewLongestChain(context.Background(), head)
 		cltest.AssertCountStays(t, store, models.EthTx{}, 1)
 	})
 
@@ -88,20 +89,19 @@ func Test_UpkeepExecutor_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	_, ethMock, executor, _, cleanup := setup(t)
+	store, ethMock, executor, registry, _, cleanup := setup(t)
 	defer cleanup()
 
 	wasCalled := atomic.NewBool(false)
-	ethMock.
-		On("CallContract", mock.Anything, mock.Anything, mock.Anything).
-		Return(nil, errors.New("contract call revert")).
-		Run(func(args mock.Arguments) {
-			wasCalled.Store(true)
-		})
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
+	registryMock.MockRevertResponse("checkUpkeep").Run(func(args mock.Arguments) {
+		wasCalled.Store(true)
+	})
 
 	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
 	executor.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
+	cltest.AssertCountStays(t, store, models.EthTx{}, 0)
 	ethMock.AssertExpectations(t)
 }
