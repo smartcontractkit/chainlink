@@ -1195,11 +1195,7 @@ func normalizePassword(password string) string {
 
 // SetLogLevel sets the log level on the node
 func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
-	if !c.Bool("level") {
-		return cli.errorOut(errors.New("Expecting a log level (debug, info, warn, error)"))
-	}
-
-	logLevel := c.Args().Get(0)
+	logLevel := c.String("level")
 	request := web.LogPatchRequest{Level: logLevel}
 	requestData, err := json.Marshal(request)
 	if err != nil {
