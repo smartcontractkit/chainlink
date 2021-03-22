@@ -2,11 +2,15 @@ package store
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/static"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -84,6 +88,7 @@ func newStoreWithKeyStore(
 	if err := utils.EnsureDirAndMaxPerms(config.RootDir(), os.FileMode(0700)); err != nil {
 		return nil, errors.Wrap(err, "error while creating project root dir")
 	}
+
 	orm, err := initializeORM(config, shutdownSignal)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to initialize ORM")
@@ -247,23 +252,46 @@ func CheckSquashUpgrade(db *gorm.DB) error {
 
 func initializeORM(config *orm.Config, shutdownSignal gracefulpanic.Signal) (*orm.ORM, error) {
 	dbURL := config.DatabaseURL()
-	orm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
+	dbOrm, err := orm.NewORM(dbURL.String(), config.DatabaseTimeout(), shutdownSignal, config.GetDatabaseDialectConfiguredOrDefault(), config.GetAdvisoryLockIDConfiguredOrDefault(), config.GlobalLockRetryInterval().Duration(), config.ORMMaxOpenConns(), config.ORMMaxIdleConns())
 	if err != nil {
 		return nil, errors.Wrap(err, "initializeORM#NewORM")
 	}
-	if err = CheckSquashUpgrade(orm.DB); err != nil {
+	if config.DatabaseBackupMode() != orm.DatabaseBackupModeNone {
+
+		version, err2 := dbOrm.FindLatestNodeVersion()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "initializeORM#FindLatestNodeVersion")
+		}
+		var versionString string
+		if version != nil {
+			versionString = version.Version
+		}
+		databaseBackup := periodicbackup.NewDatabaseBackup(config, logger.Default)
+		databaseBackup.RunBackupGracefully(versionString)
+	}
+	if err = CheckSquashUpgrade(dbOrm.DB); err != nil {
 		panic(err)
 	}
 	if config.MigrateDatabase() {
-		orm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
+		dbOrm.SetLogging(config.LogSQLStatements() || config.LogSQLMigrations())
 
-		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
+		err = dbOrm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			return migrations.Migrate(db)
 		})
 		if err != nil {
 			return nil, errors.Wrap(err, "initializeORM#Migrate")
 		}
 	}
-	orm.SetLogging(config.LogSQLStatements())
-	return orm, nil
+
+	nodeVersion := static.Version
+	if nodeVersion == "unset" {
+		nodeVersion = fmt.Sprintf("random_%d", rand.Uint32())
+	}
+	version := models.NewNodeVersion(nodeVersion)
+	err = dbOrm.UpsertNodeVersion(version)
+	if err != nil {
+		return nil, errors.Wrap(err, "initializeORM#UpsertNodeVersion")
+	}
+	dbOrm.SetLogging(config.LogSQLStatements())
+	return dbOrm, nil
 }

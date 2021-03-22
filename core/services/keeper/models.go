@@ -25,11 +25,11 @@ func (Registry) TableName() string {
 	return "keeper_registries"
 }
 
-// todo - upkeep
 type UpkeepRegistration struct {
 	ID                  int32 `gorm:"primary_key"`
 	CheckData           []byte
 	ExecuteGas          int32
+	LastRunBlockHeight  int64
 	RegistryID          int32
 	Registry            Registry
 	UpkeepID            int64

@@ -29,17 +29,15 @@ var _ ocrtypes.DataSource = (*dataSource)(nil)
 func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
 	start := time.Now()
-	run, err := pipeline.NewRun(ds.spec, start)
-	if err != nil {
-		return observation, errors.Wrapf(err, "error creating new run for spec ID %v", ds.spec.ID)
-	}
-
-	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, run, ds.ocrLogger)
+	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, ds.ocrLogger)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	end := time.Now()
 
+	var run pipeline.Run
+	run.PipelineSpecID = ds.spec.ID
+	run.CreatedAt = start
 	run.FinishedAt = &end
 
 	finalResult := trrs.FinalResult()
