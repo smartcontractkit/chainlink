@@ -269,18 +269,19 @@ func (c *SimulatedBackendClient) blockNumber(number interface{}) (blockNumber *b
 }
 
 func (c *SimulatedBackendClient) HeaderByNumber(ctx context.Context, n *big.Int) (*models.Head, error) {
+	if n == nil {
+		n = c.currentBlockNumber()
+	}
 	header, err := c.b.HeaderByNumber(ctx, n)
 	if err != nil {
 		return nil, err
 	} else if header == nil {
 		return nil, ethereum.NotFound
 	}
-	if n == nil {
-		n = c.currentBlockNumber()
-	}
 	return &models.Head{
-		Hash:   NewHash(),
-		Number: n.Int64(),
+		Hash:       header.Hash(),
+		Number:     header.Number.Int64(),
+		ParentHash: header.ParentHash,
 	}, nil
 }
 
@@ -333,7 +334,7 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				case nil:
 					channel <- nil
 				default:
-					channel <- &models.Head{Number: h.Number.Int64(), Hash: NewHash()}
+					channel <- &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash}
 				}
 			case <-subscription.close:
 				return
@@ -416,8 +417,8 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 }
 
 // Mine forces the simulated backend to produce a new block every 2 seconds
-func Mine(backend *backends.SimulatedBackend) (stopMining func()) {
-	timer := time.NewTicker(2 * time.Second)
+func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
+	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})
 	wg := sync.WaitGroup{}
 	wg.Add(1)
