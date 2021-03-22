@@ -20,7 +20,8 @@ type testCase struct {
 	logLevel    string
 	logSql      *bool
 
-	expectedLogLevel zapcore.Level
+	expectedLogLevel  zapcore.Level
+	expectedErrorCode int
 }
 
 func TestLogController_SetDebug(t *testing.T) {
@@ -62,20 +63,31 @@ func TestLogController_SetDebug(t *testing.T) {
 			logSql:           &sqlFalse,
 			expectedLogLevel: zapcore.WarnLevel,
 		},
+		{
+			Description:       "Send no params to updater",
+			expectedErrorCode: http.StatusBadRequest,
+		},
+		{
+			Description:       "Send bad log level request",
+			logLevel:          "test",
+			expectedErrorCode: http.StatusBadRequest,
+		},
 	}
 
 	for _, tc := range cases {
-		func() {
-			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
+		request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
 
-			requestData, _ := json.Marshal(request)
-			buf := bytes.NewBuffer(requestData)
+		requestData, _ := json.Marshal(request)
+		buf := bytes.NewBuffer(requestData)
 
-			resp, cleanup := client.Patch("/v2/log", buf)
-			defer cleanup()
+		resp, cleanup := client.Patch("/v2/log", buf)
+		defer cleanup()
+
+		lR := presenters.LogResource{}
+		if tc.expectedErrorCode != 0 {
+			cltest.AssertServerResponse(t, resp, tc.expectedErrorCode)
+		} else {
 			cltest.AssertServerResponse(t, resp, http.StatusOK)
-
-			lR := presenters.LogResource{}
 			require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
 			if tc.logLevel != "" {
 				assert.Equal(t, tc.expectedLogLevel.String(), lR.Level)
@@ -84,6 +96,6 @@ func TestLogController_SetDebug(t *testing.T) {
 				assert.Equal(t, tc.logSql, &lR.SqlEnabled)
 			}
 			assert.Equal(t, tc.expectedLogLevel.String(), app.GetStore().Config.LogLevel().String())
-		}()
+		}
 	}
 }

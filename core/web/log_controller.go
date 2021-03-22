@@ -31,7 +31,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	}
 
 	if request.Level == "" && request.SqlEnabled == nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("please set either logLevel or logSql as params in order to set the log level"))
+		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("please set either logLevel or logSql as params in order to set the log level"))
 		return
 	}
 
@@ -39,7 +39,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 		var ll zapcore.Level
 		err := ll.UnmarshalText([]byte(request.Level))
 		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
 		cc.App.GetStore().Config.Set("LOG_LEVEL", ll.String())
