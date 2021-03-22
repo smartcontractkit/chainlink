@@ -546,8 +546,6 @@ export interface PipelineTaskRun {
   error: PipelineTaskError
   finishedAt: nullable.Time
   output: PipelineTaskOutput
-  taskSpec: {
-    dotId: string
-  }
+  dotId: string
   type: string
 }
