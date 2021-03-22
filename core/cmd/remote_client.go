@@ -1196,7 +1196,7 @@ func normalizePassword(password string) string {
 // SetLogLevel sets the log level on the node
 func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 	if !c.Bool("level") {
-		return cli.errorOut(errors.New("expecting a log level (debug, info, warn, error)"))
+		return cli.errorOut(errors.New("Expecting a log level (debug, info, warn, error)"))
 	}
 
 	logLevel := c.Args().Get(0)
@@ -1209,7 +1209,7 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 	buf := bytes.NewBuffer(requestData)
 	resp, err := cli.HTTP.Patch("/v2/log", buf)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "from toggling debug logging"))
+		return cli.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -1241,7 +1241,7 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 	buf := bytes.NewBuffer(requestData)
 	resp, err := cli.HTTP.Patch("/v2/log", buf)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "from toggling debug logging"))
+		return cli.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
