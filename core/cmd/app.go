@@ -152,7 +152,7 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Set log level",
 					Action: client.SetLogLevel,
 					Flags: []cli.Flag{
-						cli.BoolFlag{
+						cli.StringFlag{
 							Name:  "level",
 							Usage: "set log level for node (debug||info||warn||error)",
 						},
