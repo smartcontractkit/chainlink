@@ -109,8 +109,9 @@ beforeAll(async () => {
 
   clClient1.login()
   clClient2.login()
-  node1Address = clClient1.getAdminInfo()[0].address
-  node2Address = clClient2.getAdminInfo()[0].address
+  node1Address = clClient1.newEthKey().address
+  node2Address = clClient2.newEthKey().address
+  console.log('new eth keys', node1Address, node2Address)
 
   await t.fundAddress(carol.address)
   await t.fundAddress(node1Address)
@@ -187,6 +188,7 @@ describe('FluxMonitor / FluxAggregator integration with one node', () => {
     // create FM job
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
     assert.equal(clClient1.getJobs().length, initialJobCount + 1)
 
@@ -215,6 +217,7 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     await linkToken.transfer(fluxAggregator.address, deposit).then(t.txWait)
     await fluxAggregator.updateAvailableFunds().then(t.txWait)
 
+    console.log(await fluxAggregator.getOracles())
     await fluxAggregator
       .changeOracles(
         [],
@@ -243,8 +246,11 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
 
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_2_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node2Address
+    console.log(`using keys`, node1Address, node2Address)
     clClient2.createJob(JSON.stringify(fluxMonitorJob))
 
     // initial job run
@@ -306,7 +312,9 @@ describe('FluxMonitor / FluxAggregator integration with two nodes', () => {
     fluxMonitorJob.initiators[0].params.pollTimer.period = '0'
     fluxMonitorJob.initiators[0].params.address = fluxAggregator.address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_URL]
+    fluxMonitorJob.tasks[2].params.fromAddress = node1Address
     clClient1.createJob(JSON.stringify(fluxMonitorJob))
+    fluxMonitorJob.tasks[2].params.fromAddress = node2Address
     fluxMonitorJob.initiators[0].params.feeds = [EXTERNAL_ADAPTER_2_URL]
     clClient2.createJob(JSON.stringify(fluxMonitorJob))
 

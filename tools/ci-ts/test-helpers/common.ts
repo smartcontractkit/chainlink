@@ -178,7 +178,7 @@ export async function assertJobRun(
     console.log(`JOB RUNS ${clClient.name}:`, clClient.name, jobRuns)
     const jobRun = jobRuns[jobRuns.length - 1]
     return jobRuns.length === count && jobRun.status === 'completed'
-  }, `${errorMessage} : job not run on ${clClient.name}`)
+  }, `${errorMessage} : job not run on ${clClient.name} wanted ${count} runs`)
 }
 
 /**

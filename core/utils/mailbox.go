@@ -18,8 +18,8 @@ func NewMailbox(capacity uint64) *Mailbox {
 	}
 	return &Mailbox{
 		chNotify: make(chan struct{}, 1),
-		queue:    make([]interface{}, 0, capacity),
-		capacity: queueCap,
+		queue:    make([]interface{}, 0, queueCap),
+		capacity: capacity,
 	}
 }
 
@@ -51,5 +51,16 @@ func (m *Mailbox) Retrieve() interface{} {
 	}
 	x := m.queue[len(m.queue)-1]
 	m.queue = m.queue[:len(m.queue)-1]
+	return x
+}
+
+func (m *Mailbox) RetrieveLatestAndClear() interface{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if len(m.queue) == 0 {
+		return nil
+	}
+	x := m.queue[0]
+	m.queue = nil
 	return x
 }

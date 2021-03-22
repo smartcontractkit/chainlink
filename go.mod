@@ -29,14 +29,14 @@ require (
 	github.com/jinzhu/gorm v1.9.16
 	github.com/jpillora/backoff v1.0.0
 	github.com/lib/pq v1.8.0
-	github.com/libp2p/go-libp2p-core v0.8.0
+	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.1
-	github.com/olekukonko/tablewriter v0.0.4
-	github.com/onsi/gomega v1.10.4
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/onsi/gomega v1.10.5
 	github.com/pborman/uuid v1.2.1
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
@@ -44,7 +44,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20210211115835-afc9c01fedfd
+	github.com/smartcontractkit/libocr v0.0.0-20210319202758-14aa50f869b7
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
@@ -55,6 +55,7 @@ require (
 	github.com/urfave/cli v1.22.5
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.0.13
+	go.uber.org/atomic v1.7.0
 	go.uber.org/multierr v1.6.0
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
@@ -63,7 +64,6 @@ require (
 	golang.org/x/text v0.3.5
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58
 	gonum.org/v1/gonum v0.8.2
-	gopkg.in/gormigrate.v1 v1.6.0
 	gopkg.in/guregu/null.v4 v4.0.0
 	gorm.io/driver/mysql v1.0.3 // indirect
 	gorm.io/driver/postgres v1.0.8
@@ -71,3 +71,5 @@ require (
 	gorm.io/driver/sqlserver v1.0.5 // indirect
 	gorm.io/gorm v1.20.12
 )
+
+replace github.com/DATA-DOG/go-txdb => github.com/smartcontractkit/go-txdb v0.1.4-0.20210313013032-3a5ba5dff784

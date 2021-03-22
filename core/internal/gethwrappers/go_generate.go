@@ -13,8 +13,10 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.6/Flags.json flags_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.7/Operator.json operator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../../evm-contracts/abi/v0.7/MultiWordConsumer.json multiwordconsumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ./OffchainAggregator.json offchain_aggregator_wrapper
 
 //go:generate mockery --recursive --name FluxAggregatorInterface --output ../mocks/ --case=underscore --structname FluxAggregator --filename flux_aggregator.go
+//go:generate mockery --recursive --name FlagsInterface --output ../mocks/ --case=underscore --structname Flags --filename flags.go
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 

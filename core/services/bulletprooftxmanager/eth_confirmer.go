@@ -88,7 +88,12 @@ func (ec *ethConfirmer) OnNewLongestChain(ctx context.Context, head models.Head)
 
 func (ec *ethConfirmer) Start() error {
 	if !ec.OkayToStart() {
-		return errors.New("Pipeline runner has already been started")
+		return errors.New("EthConfirmer has already been started")
+	}
+	if ec.config.EthGasBumpThreshold() == 0 {
+		logger.Infow("EthConfirmer: Gas bumping is disabled (ETH_GAS_BUMP_THRESHOLD set to 0)", "ethGasBumpThreshold", 0)
+	} else {
+		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
 	}
 	go ec.runLoop()
 	return nil
@@ -96,7 +101,7 @@ func (ec *ethConfirmer) Start() error {
 
 func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
-		return errors.New("Pipeline runner has already been stopped")
+		return errors.New("EthConfirmer has already been stopped")
 	}
 	ec.ctxCancel()
 	<-ec.chDone
@@ -611,6 +616,10 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
 func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
+	if gasBumpThreshold == 0 {
+		logger.Debug("EthConfirmer: Gas bumping disabled (gasBumpThreshold set to 0)")
+		return
+	}
 	q := db.
 		Preload("EthTxAttempts", func(db *gorm.DB) *gorm.DB {
 			return db.Order("eth_tx_attempts.gas_price DESC")
@@ -709,6 +718,37 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		// get it into the mempool
 		logger.Infow("EthConfirmer: Transaction temporarily underpriced", "ethTxID", etx.ID, "attemptID", attempt.ID, "err", sendError.Error(), "gasPriceWei", attempt.GasPrice.String())
 		sendError = nil
+	}
+
+	if sendError.IsTooExpensive() {
+		// The gas price was bumped too high. This transaction attempt cannot be accepted.
+		//
+		// Best thing we can do is to re-send the previous attempt at the old
+		// price and discard this bumped version.
+		logger.Errorw("EthConfirmer: bumped transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
+			"blockHeight", blockHeight,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		if len(etx.EthTxAttempts) > 0 {
+			previousAttempt := etx.EthTxAttempts[0]
+			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
+			l := logger.Default
+			if sendError2 != nil {
+				l = logger.CreateLogger(l.With("err", sendError2))
+			}
+			l.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
+				"ethTxID", etx.ID,
+				"id", "RPCTxFeeCapExceeded",
+			)
+		} else {
+			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)
+		}
+		return deleteInProgressAttempt(ec.store.DB, attempt)
 	}
 
 	if sendError.Fatal() {
@@ -838,7 +878,7 @@ func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
-				logger.Errorw("Error in handleAnyInProgressAttempts", "error", err, "fromAddress", fromAddress)
+				logger.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
 			}
 
 			wg.Done()

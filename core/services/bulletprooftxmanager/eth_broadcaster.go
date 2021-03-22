@@ -36,7 +36,7 @@ import (
 // - existence of a saved eth_tx_attempt
 type EthBroadcaster interface {
 	Start() error
-	Stop() error
+	Close() error
 
 	Trigger()
 
@@ -93,7 +93,7 @@ func (eb *ethBroadcaster) Start() error {
 	return nil
 }
 
-func (eb *ethBroadcaster) Stop() error {
+func (eb *ethBroadcaster) Close() error {
 	if !eb.OkayToStop() {
 		return errors.New("EthBroadcaster is already stopped")
 	}
@@ -262,7 +262,21 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 	defer cancel()
 	sendError := sendTransaction(ctx, eb.ethClient, attempt)
 
+	if sendError.IsTooExpensive() {
+		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
+			"ethTxID", etx.ID,
+			"err", sendError,
+			"gasPrice", attempt.GasPrice,
+			"gasLimit", etx.GasLimit,
+			"id", "RPCTxFeeCapExceeded",
+		)
+		etx.Error = sendError.StrPtr()
+		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
+		return saveFatallyErroredTransaction(eb.store, &etx)
+	}
+
 	if sendError.Fatal() {
+		logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", sendError, "gasLimit", etx.GasLimit, "gasPrice", attempt.GasPrice)
 		etx.Error = sendError.StrPtr()
 		// Attempt is thrown away in this case; we don't need it since it never got accepted by a node
 		return saveFatallyErroredTransaction(eb.store, &etx)
@@ -446,7 +460,6 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 	if etx.Error == nil {
 		return errors.New("expected error field to be set")
 	}
-	logger.Errorw("EthBroadcaster: fatal error sending transaction", "ethTxID", etx.ID, "error", *etx.Error)
 	etx.Nonce = nil
 	etx.State = models.EthTxFatalError
 	return store.Transaction(func(tx *gorm.DB) error {

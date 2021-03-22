@@ -4,39 +4,17 @@ import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { formatInitiators } from 'utils/jobSpecInitiators'
 import { DirectRequest } from './JobsIndex'
-import {
-  createStyles,
-  withStyles,
-  WithStyles,
-  Theme,
-} from '@material-ui/core/styles'
+import { withStyles, WithStyles } from '@material-ui/core/styles'
+import { tableStyles } from 'components/Table'
 
-const styles = (theme: Theme) =>
-  createStyles({
-    cell: {
-      paddingTop: theme.spacing.unit * 2,
-      paddingBottom: theme.spacing.unit * 2,
-    },
-    link: {
-      '&::before': {
-        content: "''",
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-      },
-    },
-  })
-
-interface Props extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof tableStyles> {
   job: DirectRequest
 }
 
-export const DirectRequestRow = withStyles(styles)(
+export const DirectRequestRow = withStyles(tableStyles)(
   ({ job, classes }: Props) => {
     return (
-      <TableRow style={{ transform: 'scale(1)' }} hover>
+      <TableRow className={classes.row} hover>
         <TableCell className={classes.cell} component="th" scope="row">
           <Link className={classes.link} href={`/jobs/${job.id}`}>
             {job.attributes.name || job.id}

@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/core"
+
 	"github.com/pkg/errors"
 )
 
@@ -29,6 +31,12 @@ func (s *SendError) Fatal() bool {
 	return s != nil && s.fatal
 }
 
+// Geth errors
+
+var (
+	gethTxFeeExceedsCap = regexp.MustCompile(`^tx fee \([0-9\.]+ ether\) exceeds the configured cap \([0-9\.]+ ether\)`)
+)
+
 // Parity errors
 var (
 	// Non-fatal
@@ -52,13 +60,34 @@ var (
 	parInvalidRlp       = regexp.MustCompile("^Invalid RLP data:")
 )
 
+// Arbitrum errors
+var (
+	arbNonceTooLow          = errors.Wrap(core.ErrNonceTooLow, "transaction rejected")
+	arbErrInsufficientFunds = errors.Wrap(core.ErrInsufficientFunds, "transaction rejected")
+)
+
 // IsReplacementUnderpriced indicates that a transaction already exists in the mempool with this nonce but a different gas price or payload
 func (s *SendError) IsReplacementUnderpriced() bool {
 	return s != nil && s.err != nil && (s.Error() == "replacement transaction underpriced" || parTooCheapToReplace.MatchString(s.Error()))
 }
 
 func (s *SendError) IsNonceTooLowError() bool {
-	return s != nil && s.err != nil && ((s.Error() == "nonce too low") || s.Error() == parOld)
+	if s == nil || s.err == nil {
+		return false
+	}
+
+	switch s.Error() {
+	// Geth
+	case "nonce too low":
+		return true
+	// Arbitrum
+	case arbNonceTooLow.Error():
+		return true
+	// Parity
+	case parOld:
+		return true
+	}
+	return false
 }
 
 // Geth/parity returns this error if the transaction is already in the node's mempool
@@ -84,10 +113,24 @@ func (s *SendError) IsInsufficientEth() bool {
 	// Geth
 	case "insufficient funds for transfer", "insufficient funds for gas * price + value", "insufficient balance for transfer":
 		return true
+	// Arbitrum
+	case arbErrInsufficientFunds.Error():
+		return true
+	// Parity
 	default:
-		// Parity
 		return parInsufficientEth.MatchString(s.Error())
 	}
+}
+
+// IsTooExpensive returns true if the transaction and gas price are combined in
+// some way that makes the total transaction too expensive for the eth node to
+// accept at all. No amount of retrying at this or higher gas prices can ever
+// succeed.
+func (s *SendError) IsTooExpensive() bool {
+	if s == nil || s.err == nil {
+		return false
+	}
+	return gethTxFeeExceedsCap.MatchString(s.Error())
 }
 
 func NewFatalSendErrorS(s string) *SendError {
@@ -114,19 +157,24 @@ func NewSendError(e error) *SendError {
 }
 
 // Geth/parity returns these errors if the transaction failed in such a way that:
-// 1. It can NEVER be included into a block
-// 2. Resending the transaction even with higher gas price will never change that outcome
+// 1. It will never be included into a block as a result of this send
+// 2. Resending the transaction at a different gas price will never change the outcome
 func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	switch err.Error() {
+	s := err.Error()
+	return isGethFatal(s) || isParityFatal(s)
+}
+
+func isGethFatal(s string) bool {
+	switch s {
 	// Geth errors
 	// See: https://github.com/ethereum/go-ethereum/blob/b9df7ecdc3d3685180ceb29665bab59e9f614da5/core/tx_pool.go#L516
 	case "exceeds block gas limit", "invalid sender", "negative value", "oversized data", "gas uint64 overflow", "intrinsic gas too low", "nonce too high":
 		return true
 	default:
-		return isParityFatal(err.Error())
+		return false
 	}
 }
 

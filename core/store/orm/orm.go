@@ -8,6 +8,7 @@ import (
 	"encoding"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/smartcontractkit/chainlink/core/static"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"gorm.io/gorm/clause"
@@ -76,11 +78,6 @@ func NewORM(uri string, timeout models.Duration, shutdownSignal gracefulpanic.Si
 		advisoryLockTimeout: timeout,
 		shutdownSignal:      shutdownSignal,
 	}
-	logger.Infof("Attempting to lock %v for exclusive access with %v timeout", ct.name, displayTimeout(timeout))
-	if err = orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
-	logger.Info("Got global lock")
 
 	db, err := ct.initializeDatabase()
 	if err != nil {
@@ -617,9 +614,6 @@ func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 
 // Sessions returns all sessions limited by the parameters.
 func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, err
-	}
 	var sessions []models.Session
 	err := orm.DB.
 		Limit(limit).
@@ -630,9 +624,6 @@ func (orm *ORM) Sessions(offset, limit int) ([]models.Session, error) {
 
 // GetConfigValue returns the value for a named configuration entry
 func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	name := EnvVarName(field)
 	config := models.Configuration{}
 	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
@@ -643,9 +634,6 @@ func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) err
 
 // SetConfigValue returns the value for a named configuration entry
 func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	name := EnvVarName(field)
 	textValue, err := value.MarshalText()
 	if err != nil {
@@ -749,6 +737,30 @@ func (orm *ORM) AnyJobWithType(taskTypeName string) (bool, error) {
 		return false, errors.Wrapf(err, "error looking for job of type %s", taskTypeName)
 	}
 	return true, nil
+}
+
+func (orm *ORM) FindJobIDsWithBridge(bridgeName string) ([]models.JobID, error) {
+	// Non-FM jobs specify bridges in task specs.
+	var bridgeJobIDs []models.JobID
+	err := orm.DB.Raw(`SELECT job_spec_id FROM task_specs WHERE type = ? AND deleted_at IS NULL`, bridgeName).Find(&bridgeJobIDs).Error
+	if err != nil {
+		return nil, err
+	}
+	var fmInitiators []models.Initiator
+	err = orm.DB.Raw(`SELECT * FROM initiators WHERE type = ? AND deleted_at IS NULL`, models.InitiatorFluxMonitor).Find(&fmInitiators).Error
+	if err != nil {
+		return nil, err
+	}
+	// FM jobs specify bridges in the initiator.
+	for _, fmi := range fmInitiators {
+		if fmi.Feeds.IsArray() && len(fmi.Feeds.Array()) == 1 {
+			bn := fmi.Feeds.Array()[0].Get("bridge")
+			if bn.String() == bridgeName {
+				bridgeJobIDs = append(bridgeJobIDs, fmi.JobSpecID)
+			}
+		}
+	}
+	return bridgeJobIDs, nil
 }
 
 // IdempotentInsertEthTaskRunTx creates both eth_task_run_transaction and eth_tx in one hit
@@ -899,23 +911,17 @@ func (orm *ORM) MarkRan(i models.Initiator, ran bool) error {
 }
 
 // FindUser will return the one API user, or an error.
-func (orm *ORM) FindUser() (user models.User, err error) {
-	if err = orm.MustEnsureAdvisoryLock(); err != nil {
-		return user, err
-	}
-	err = orm.DB.
-		Preload(clause.Associations).
-		Order("created_at desc").
-		First(&user).Error
-	return user, err
+func (orm *ORM) FindUser() (models.User, error) {
+	return findUser(orm.DB)
+}
+
+func findUser(db *gorm.DB) (user models.User, err error) {
+	return user, db.Preload(clause.Associations).Order("created_at desc").First(&user).Error
 }
 
 // AuthorizedUserWithSession will return the one API user if the Session ID exists
 // and hasn't expired, and update session's LastUsed field.
 func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time.Duration) (models.User, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return models.User{}, err
-	}
 	if len(sessionID) == 0 {
 		return models.User{}, errors.New("Session ID cannot be empty")
 	}
@@ -937,18 +943,18 @@ func (orm *ORM) AuthorizedUserWithSession(sessionID string, sessionDuration time
 }
 
 // DeleteUser will delete the API User in the db.
-func (orm *ORM) DeleteUser() (models.User, error) {
-	user, err := orm.FindUser()
-	if err != nil {
-		return user, err
-	}
-
-	return user, orm.convenientTransaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Delete(&user).Error; err != nil {
+func (orm *ORM) DeleteUser() error {
+	return postgres.GormTransaction(context.Background(), orm.DB, func(dbtx *gorm.DB) error {
+		user, err := findUser(dbtx)
+		if err != nil {
 			return err
 		}
 
-		if err := dbtx.Exec("DELETE FROM sessions").Error; err != nil {
+		if err = dbtx.Delete(&user).Error; err != nil {
+			return err
+		}
+
+		if err = dbtx.Exec("DELETE FROM sessions").Error; err != nil {
 			return err
 		}
 
@@ -958,9 +964,6 @@ func (orm *ORM) DeleteUser() (models.User, error) {
 
 // DeleteUserSession will erase the session ID for the sole API User.
 func (orm *ORM) DeleteUserSession(sessionID string) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Delete(models.Session{ID: sessionID}).Error
 }
 
@@ -975,9 +978,6 @@ func (orm *ORM) DeleteBridgeType(bt *models.BridgeType) error {
 // CreateSession will check the password in the SessionRequest against
 // the hashed API User password in the db.
 func (orm *ORM) CreateSession(sr models.SessionRequest) (string, error) {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return "", err
-	}
 	user, err := orm.FindUser()
 	if err != nil {
 		return "", err
@@ -1007,17 +1007,11 @@ func constantTimeEmailCompare(left, right string) bool {
 
 // ClearSessions removes all sessions.
 func (orm *ORM) ClearSessions() error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Exec("DELETE FROM sessions").Error
 }
 
 // ClearNonCurrentSessions removes all sessions but the id passed in.
 func (orm *ORM) ClearNonCurrentSessions(sessionID string) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Delete(&models.Session{}, "id != ?", sessionID).Error
 }
 
@@ -1101,9 +1095,6 @@ func (orm *ORM) SaveUser(user *models.User) error {
 
 // SaveSession saves the session.
 func (orm *ORM) SaveSession(session *models.Session) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Save(session).Error
 }
 
@@ -1164,7 +1155,7 @@ func (orm *ORM) TrimOldHeads(n uint) (err error) {
 	)`, n).Error
 }
 
-// Chain returns the chain of heads starting at hash and up to lookback parents
+// Chain return the chain of heads starting at hash and up to lookback parents
 // Returns RecordNotFound if no head with the given hash exists
 func (orm *ORM) Chain(ctx context.Context, hash common.Hash, lookback uint) (models.Head, error) {
 	rows, err := orm.DB.WithContext(ctx).Raw(`
@@ -1222,9 +1213,6 @@ func (orm *ORM) LastHead(ctx context.Context) (*models.Head, error) {
 
 // DeleteStaleSessions deletes all sessions before the passed time.
 func (orm *ORM) DeleteStaleSessions(before time.Time) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
 	return orm.DB.Exec("DELETE FROM sessions WHERE last_used < ?", before).Error
 }
 
@@ -1368,62 +1356,6 @@ func (orm *ORM) GetRoundRobinAddress(addresses ...common.Address) (address commo
 	return address, nil
 }
 
-// HasConsumedLog reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLog(blockHash common.Hash, logIndex uint, jobID models.JobID) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=? " +
-		"AND log_index=? " +
-		"AND job_id=?" +
-		")"
-
-	var exists bool
-	err := orm.DB.
-		Raw(query, blockHash, logIndex, jobID).
-		Scan(&exists).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, err
-	}
-	return exists, nil
-}
-
-// HasConsumedLogV2 reports whether the given consumer had already consumed the given log
-func (orm *ORM) HasConsumedLogV2(blockHash common.Hash, logIndex uint, jobID int32) (bool, error) {
-	query := "SELECT exists (" +
-		"SELECT id FROM log_consumptions " +
-		"WHERE block_hash=? " +
-		"AND log_index=? " +
-		"AND job_id_v2=? " +
-		")"
-
-	var exists bool
-	err := orm.DB.
-		Raw(query, blockHash, logIndex, jobID).
-		Scan(&exists).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		return false, err
-	}
-	return exists, nil
-}
-
-// MarkLogConsumed creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumed(blockHash common.Hash, logIndex uint, jobID models.JobID, blockNumber uint64) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	lc := models.NewLogConsumption(blockHash, logIndex, &jobID, nil, blockNumber)
-	return orm.DB.Create(&lc).Error
-}
-
-// MarkLogConsumedV2 creates a new LogConsumption record
-func (orm *ORM) MarkLogConsumedV2(blockHash common.Hash, logIndex uint, jobID int32, blockNumber uint64) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
-	}
-	lc := models.NewLogConsumption(blockHash, logIndex, nil, &jobID, blockNumber)
-	return orm.DB.Create(&lc).Error
-}
-
 // FindOrCreateFluxMonitorRoundStats find the round stats record for a given oracle on a given round, or creates
 // it if no record exists
 func (orm *ORM) FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32) (stats models.FluxMonitorRoundStats, err error) {
@@ -1565,7 +1497,7 @@ func (orm *ORM) getRecords(collection interface{}, order string, offset, limit i
 		Find(collection).Error
 }
 
-func (orm *ORM) RawDB(fn func(*gorm.DB) error) error {
+func (orm *ORM) RawDBWithAdvisoryLock(fn func(*gorm.DB) error) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
@@ -1629,7 +1561,7 @@ func NewConnection(dialect dialects.DialectName, uri string, advisoryLockID int6
 }
 
 func (ct Connection) initializeDatabase() (*gorm.DB, error) {
-	originalUri := ct.uri
+	originalURI := ct.uri
 	if ct.transactionWrapped {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
 		// should be encapsulated in it's own transaction, and thus needs its own
@@ -1639,6 +1571,13 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
 		ct.uri = uuid.NewV4().String()
+	} else {
+		uri, err := url.Parse(ct.uri)
+		if err != nil {
+			return nil, err
+		}
+		static.SetConsumerName(uri, "ORM")
+		ct.uri = uri.String()
 	}
 
 	newLogger := newOrmLogWrapper(logger.Default, false, time.Second)
@@ -1650,7 +1589,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
-		DSN:  originalUri,
+		DSN:  originalURI,
 	}), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
