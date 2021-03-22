@@ -20,7 +20,7 @@ export function jobRunV2(
         error: `error making http request: Post "http://localhost:8001": dial tcp 127.0.0.1:8001: connect: connection refused`,
         finishedAt: '2020-11-19T14:01:25.015681Z',
         output: null,
-        taskSpec: { dotId: 'multiply' },
+        dotId: 'multiply',
         type: 'multiply',
       },
 
@@ -29,7 +29,7 @@ export function jobRunV2(
         error: `error making http request: Post "http://localhost:8001": dial tcp 127.0.0.1:8001: connect: connection refused`,
         finishedAt: '2020-11-19T14:01:25.005568Z',
         output: null,
-        taskSpec: { dotId: 'parse' },
+        dotId: 'parse',
         type: 'jsonparse',
       },
       {
@@ -37,7 +37,7 @@ export function jobRunV2(
         error: `error making http request: Post "http://localhost:8001": dial tcp 127.0.0.1:8001: connect: connection refused`,
         finishedAt: '2020-11-19T14:01:24.997068Z',
         output: null,
-        taskSpec: { dotId: 'fetch' },
+        dotId: 'fetch',
         type: 'http',
       },
     ],

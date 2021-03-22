@@ -523,5 +523,5 @@ func TestClient_SetNextNonce(t *testing.T) {
 	var key models.Key
 	require.NoError(t, store.DB.First(&key).Error)
 	require.NotNil(t, key.NextNonce)
-	require.Equal(t, int64(42), *key.NextNonce)
+	require.Equal(t, int64(42), key.NextNonce)
 }

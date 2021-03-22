@@ -264,6 +264,31 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 	return c.getWithFallback("DatabaseMaximumTxDuration", parseDuration).(time.Duration)
 }
 
+// DatabaseBackupMode sets the database backup mode
+func (c Config) DatabaseBackupMode() DatabaseBackupMode {
+	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
+}
+
+// DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
+// DatabaseBackupMode must be then set to a value other than "none"
+func (c Config) DatabaseBackupFrequency() time.Duration {
+	return c.getWithFallback("DatabaseBackupFrequency", parseDuration).(time.Duration)
+}
+
+// DatabaseBackupURL configures the URL for the database to backup, if it's to be different from the main on
+func (c Config) DatabaseBackupURL() *url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseBackupURL"))
+	if s == "" {
+		return nil
+	}
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database backup url %s", s)
+		return nil
+	}
+	return uri
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
@@ -367,6 +392,8 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
+// EthReceiptFetchBatchSize controls the number of receipts fetched in each
+// request in the EthConfirmer
 func (c Config) EthReceiptFetchBatchSize() uint32 {
 	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
 }
@@ -569,6 +596,14 @@ func (c Config) JobPipelineReaperThreshold() time.Duration {
 
 func (c Config) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperMinimumRequiredConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
+}
+
+func (c Config) KeeperMaximumGracePeriod() int64 {
+	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
 
 // JSONConsole enables the JSON console.
@@ -1112,5 +1147,22 @@ func (ll LogLevel) ForGin() string {
 		return gin.DebugMode
 	default:
 		return gin.ReleaseMode
+	}
+}
+
+type DatabaseBackupMode string
+
+var (
+	DatabaseBackupModeNone DatabaseBackupMode = "none"
+	DatabaseBackupModeLite DatabaseBackupMode = "lite"
+	DatabaseBackupModeFull DatabaseBackupMode = "full"
+)
+
+func parseDatabaseBackupMode(s string) (interface{}, error) {
+	switch DatabaseBackupMode(s) {
+	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:
+		return DatabaseBackupMode(s), nil
+	default:
+		return "", fmt.Errorf("unable to parse %v into DatabaseBackupMode. Must be one of values: \"%s\", \"%s\", \"%s\"", s, DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull)
 	}
 }

@@ -14,14 +14,22 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/libocr/gethwrappers/link_token_interface"
 	"github.com/stretchr/testify/require"
 )
 
-var oneEth = big.NewInt(1000000000000000000)
-var oneHunEth = big.NewInt(0).Mul(oneEth, big.NewInt(100))
+var (
+	oneEth    = big.NewInt(1000000000000000000)
+	tenEth    = big.NewInt(0).Mul(oneEth, big.NewInt(10))
+	oneHunEth = big.NewInt(0).Mul(oneEth, big.NewInt(100))
+
+	payload1 = common.Hex2Bytes("1234")
+	payload2 = common.Hex2Bytes("ABCD")
+	payload3 = common.Hex2Bytes("6789")
+)
 
 func TestKeeperEthIntegration(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -48,8 +56,8 @@ func TestKeeperEthIntegration(t *testing.T) {
 	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 
-	payload1 := common.Hex2Bytes("1234")
-	payload2 := common.Hex2Bytes("ABCD")
+	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads
+	defer stopMining()
 
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
 	require.NoError(t, err)
@@ -73,19 +81,19 @@ func TestKeeperEthIntegration(t *testing.T) {
 	require.NoError(t, err)
 	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
 	require.NoError(t, err)
-	backend.Commit()
-	_, err = registryContract.AddFunds(carrol, big.NewInt(0), oneHunEth)
+	_, err = registryContract.AddFunds(carrol, big.NewInt(0), tenEth)
 	require.NoError(t, err)
 	backend.Commit()
-
-	stopMining := cltest.Mine(backend)
-	defer stopMining()
 
 	// setup app
 	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "keeper_eth_integration", true, true)
 	config.Config.Dialect = dialects.PostgresWithoutLock
 	defer cfgCleanup()
-	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 2*time.Second)
+	config.Set("KEEPER_REGISTRY_SYNC_INTERVAL", 24*time.Hour) // disable full sync ticker for test
+	config.Set("BLOCK_BACKFILL_DEPTH", 0)                     // backfill will trigger sync on startup
+	config.Set("KEEPER_MINIMUM_REQUIRED_CONFIRMATIONS", 1)    // disable reorg protection for this test
+	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)              // avoid waiting to re-submit for upkeeps
+	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 100)       // helps prevent missed heads
 	app, appCleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, backend, nodeKey)
 	defer appCleanup()
 	require.NoError(t, app.StartAndConnect())
@@ -115,4 +123,35 @@ func TestKeeperEthIntegration(t *testing.T) {
 
 	// observe 2nd job run and received payload changes
 	g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+
+	// cancel upkeep
+	_, err = registryContract.CancelUpkeep(carrol, big.NewInt(0))
+	require.NoError(t, err)
+	backend.Commit()
+
+	cltest.WaitForCount(t, app.Store, keeper.UpkeepRegistration{}, 0)
+
+	// add new upkeep (same target contract)
+	_, err = registryContract.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, []byte{})
+	require.NoError(t, err)
+	_, err = upkeepContract.SetBytesToSend(carrol, payload3)
+	require.NoError(t, err)
+	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	require.NoError(t, err)
+	_, err = registryContract.AddFunds(carrol, big.NewInt(1), tenEth)
+	require.NoError(t, err)
+	backend.Commit()
+
+	// observe update
+	g.Eventually(receivedBytes, 20*time.Second, cltest.DBPollingInterval).Should(gomega.Equal(payload3))
+
+	// remove this node from keeper list
+	_, err = registryContract.SetKeepers(steve, []common.Address{nelly.From}, []common.Address{nelly.From})
+	require.NoError(t, err)
+
+	var registry keeper.Registry
+	require.NoError(t, app.Store.DB.First(&registry).Error)
+	cltest.AssertRecordEventually(t, app.Store, &registry, func() bool {
+		return registry.KeeperIndex == -1
+	})
 }

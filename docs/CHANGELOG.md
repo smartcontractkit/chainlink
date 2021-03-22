@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
+
+--- 0.10.3
+
 ### Added
 
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
@@ -48,10 +54,27 @@ Help: "The total number of eth node connection errors",
 
 - Support for arbitrum
 
+- Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
+
+It's now possible to configure database backups: on node start and separately, to be run at given frequency.
+
+`DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
+potentially large tables related to job runs, among others). Additionally, if `DATABASE_BACKUP_FREQUENCY` variable is set to a duration of
+at least '1m', it enables periodic backups.
+
+`DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one.
+
+Example settings:
+
+`DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
+
+
+`DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
+
+
 ### Fixed
 
-- Improved handling of the case where we exceed the configured TX fee cap in
-  geth.
+- Improved handling of the case where we exceed the configured TX fee cap in geth.
 
 Node will now fatally error jobs if the total transaction costs exceeds the
 configured cap (default 1 Eth). Also, it will no longer continue to bump gas on
@@ -82,8 +105,7 @@ period after a reboot, until the gas updater caught up.
 - Performance improvements to OCR job adds. Removed the pipeline_task_specs table
 and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
 to a dotID in the pipeline_spec.dot_dag_source.
-
-
+  
 ### Changed
 
 - Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20

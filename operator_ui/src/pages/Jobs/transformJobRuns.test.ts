@@ -38,9 +38,7 @@ describe('transformPipelineJobRun', () => {
           finishedAt: '2020-11-19T14:01:25.015681Z',
           output: null,
           status: 'not_run',
-          taskSpec: {
-            dotId: 'multiply',
-          },
+          dotId: 'multiply',
           type: 'multiply',
         },
         {
@@ -50,9 +48,7 @@ describe('transformPipelineJobRun', () => {
           finishedAt: '2020-11-19T14:01:25.005568Z',
           output: null,
           status: 'not_run',
-          taskSpec: {
-            dotId: 'parse',
-          },
+          dotId: 'parse',
           type: 'jsonparse',
         },
         {
@@ -62,9 +58,7 @@ describe('transformPipelineJobRun', () => {
           finishedAt: '2020-11-19T14:01:24.997068Z',
           output: null,
           status: 'errored',
-          taskSpec: {
-            dotId: 'fetch',
-          },
+          dotId: 'fetch',
           type: 'http',
         },
       ],

@@ -35,7 +35,7 @@ type ETHKey struct {
 	Address     string         `json:"address"`
 	EthBalance  *assets.Eth    `json:"ethBalance"`
 	LinkBalance *assets.Link   `json:"linkBalance"`
-	NextNonce   *int64         `json:"nextNonce"`
+	NextNonce   int64          `json:"nextNonce"`
 	LastUsed    *time.Time     `json:"lastUsed"`
 	IsFunding   bool           `json:"isFunding"`
 	CreatedAt   time.Time      `json:"createdAt"`
