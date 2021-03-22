@@ -197,6 +197,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
 				pipelineRunner,
+				pipelineORM,
 				ethClient,
 				store.DB,
 			),

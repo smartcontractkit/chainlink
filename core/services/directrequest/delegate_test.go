@@ -26,10 +26,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	runner := new(pipeline_mocks.Runner)
+
 	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
 	defer cleanupDB()
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, gethClient, orm.DB)
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, gethClient, orm.DB)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -60,7 +61,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 	defer jobORM.Close()
 
-	delegate := directrequest.NewDelegate(broadcaster, runner, gethClient, db)
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, gethClient, db)
 
 	spec := factoryJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)

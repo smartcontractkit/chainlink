@@ -20,14 +20,16 @@ import (
 type Delegate struct {
 	logBroadcaster log.Broadcaster
 	pipelineRunner pipeline.Runner
+	pipelineORM    pipeline.ORM
 	db             *gorm.DB
 	ethClient      eth.Client
 }
 
-func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, ethClient eth.Client, db *gorm.DB) *Delegate {
+func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM, ethClient eth.Client, db *gorm.DB) *Delegate {
 	return &Delegate{
 		logBroadcaster,
 		pipelineRunner,
+		pipelineORM,
 		db,
 		ethClient,
 	}
@@ -55,6 +57,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		oracle:         oracle,
 		pipelineRunner: d.pipelineRunner,
 		db:             d.db,
+		pipelineORM:    d.pipelineORM,
 		jobID:          spec.ID,
 	}
 	services = append(services, logListener)
@@ -73,6 +76,7 @@ type listener struct {
 	oracle          oracle_wrapper.OracleInterface
 	pipelineRunner  pipeline.Runner
 	db              *gorm.DB
+	pipelineORM     pipeline.ORM
 	jobID           int32
 }
 
@@ -168,19 +172,7 @@ func (d *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 // Cancels runs that haven't been started yet, with the given request ID
 // TODO: Boy does this ever need testing
 func (d *listener) handleCancelOracleRequest(requestID [32]byte) {
-	err := d.db.Exec(`
-DELETE FROM pipeline_runs
-WHERE id IN (
-	SELECT pipeline_runs.id
-	FROM pipeline_runs
-	INNER JOIN pipeline_task_runs
-	ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-	WHERE pipeline_spec_id = ?
-		AND pipeline_runs.meta->'oracleRequest'->>'requestId' = ?
-		AND pipeline_task_runs.finished_at IS NULL
-	FOR UPDATE OF pipeline_task_runs
-	SKIP LOCKED
-)`, d.jobID, fmt.Sprintf("0x%x", requestID)).Error
+	err := d.pipelineORM.CancelRunByRequestID(d.jobID, requestID)
 	if err != nil {
 		logger.Errorw("Error while deleting pipeline_runs", "error", err)
 	}

@@ -37,6 +37,20 @@ func (_m *ORM) AwaitRun(ctx context.Context, runID int64) error {
 	return r0
 }
 
+// CancelRunByRequestID provides a mock function with given fields: _a0, _a1
+func (_m *ORM) CancelRunByRequestID(_a0 int32, _a1 [32]byte) error {
+	ret := _m.Called(_a0, _a1)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(int32, [32]byte) error); ok {
+		r0 = rf(_a0, _a1)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // CreateRun provides a mock function with given fields: ctx, jobID, meta
 func (_m *ORM) CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	ret := _m.Called(ctx, jobID, meta)
