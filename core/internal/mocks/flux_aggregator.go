@@ -12,6 +12,8 @@ import (
 
 	flux_aggregator_wrapper "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 
+	generated "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/ethereum/go-ethereum/core/types"
@@ -919,6 +921,29 @@ func (_m *FluxAggregator) ParseAvailableFundsUpdated(log types.Log) (*flux_aggre
 	return r0, r1
 }
 
+// ParseLog provides a mock function with given fields: log
+func (_m *FluxAggregator) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	ret := _m.Called(log)
+
+	var r0 generated.AbigenLog
+	if rf, ok := ret.Get(0).(func(types.Log) generated.AbigenLog); ok {
+		r0 = rf(log)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(generated.AbigenLog)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
+		r1 = rf(log)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ParseNewRound provides a mock function with given fields: log
 func (_m *FluxAggregator) ParseNewRound(log types.Log) (*flux_aggregator_wrapper.FluxAggregatorNewRound, error) {
 	ret := _m.Called(log)
@@ -1350,20 +1375,6 @@ func (_m *FluxAggregator) TransferOwnership(opts *bind.TransactOpts, _to common.
 	}
 
 	return r0, r1
-}
-
-// UnpackLog provides a mock function with given fields: out, _a1, log
-func (_m *FluxAggregator) UnpackLog(out interface{}, _a1 string, log types.Log) error {
-	ret := _m.Called(out, _a1, log)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(interface{}, string, types.Log) error); ok {
-		r0 = rf(out, _a1, log)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // UpdateAvailableFunds provides a mock function with given fields: opts

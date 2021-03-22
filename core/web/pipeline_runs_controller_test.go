@@ -30,9 +30,14 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge).Error)
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	require.NoError(t, app.Store.DB.Create(bridge2).Error)
+
 	client := app.NewHTTPClient()
 
-	var ocrJobSpecFromFile job.SpecDB
+	var ocrJobSpecFromFile job.Job
 	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
@@ -172,7 +177,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 		answer [type=median index=0];
 	"""
 	`, cltest.NewAddress().Hex(), cltest.DefaultP2PPeerID, cltest.DefaultOCRKeyBundleID, key.Address.Hex(), mockHTTP.URL)
-	var ocrJobSpec job.SpecDB
+	var ocrJobSpec job.Job
 	err := toml.Unmarshal([]byte(sp), &ocrJobSpec)
 	require.NoError(t, err)
 	var os job.OffchainReportingOracleSpec
@@ -182,15 +187,6 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 	err = app.Store.OCRKeyStore.Unlock(cltest.Password)
 	require.NoError(t, err)
-	p2pkeys, err := app.Store.OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-	decp2pkeys := app.Store.OCRKeyStore.DecryptedP2PKeys()
-	for _, k := range p2pkeys {
-		fmt.Println("- p2p", k.GetID())
-	}
-	for _, k := range decp2pkeys {
-		fmt.Println("- p2p", k.MustGetPeerID())
-	}
 
 	jobID, err := app.AddJobV2(context.Background(), ocrJobSpec, null.String{})
 	require.NoError(t, err)

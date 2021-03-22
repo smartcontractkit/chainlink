@@ -64,11 +64,11 @@ func TestORM_Unscoped(t *testing.T) {
 
 	orm := store.ORM
 	job := cltest.NewJob()
-	err := orm.RawDB(func(db *gorm.DB) error {
+	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		require.NoError(t, orm.CreateJob(&job))
 		require.NoError(t, db.Delete(&job).Error)
 		require.Error(t, db.First(&job).Error)
-		err := store.ORM.Unscoped().RawDB(func(db *gorm.DB) error {
+		err := store.ORM.Unscoped().RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			require.NoError(t, db.First(&job).Error)
 			return nil
 		})
@@ -932,7 +932,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				var bumpedSession models.Session
-				err = store.ORM.RawDB(func(db *gorm.DB) error {
+				err = store.ORM.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 					return db.First(&bumpedSession, "ID = ?", prevSession.ID).Error
 				})
 				require.NoError(t, err)
@@ -951,7 +951,7 @@ func TestORM_DeleteUser(t *testing.T) {
 	_, err := store.FindUser()
 	require.NoError(t, err)
 
-	_, err = store.DeleteUser()
+	err = store.DeleteUser()
 	require.NoError(t, err)
 
 	_, err = store.FindUser()
@@ -1066,7 +1066,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 	var runCount int64
 	orm := store.ORM
 
-	err := orm.RawDB(func(db *gorm.DB) error {
+	err := orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 		job := cltest.NewJobWithWebInitiator()
 		require.NoError(t, store.ORM.CreateJob(&job))
 
@@ -1544,7 +1544,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 	// rollback due to constraint violation for this function
 	tc, orm, cleanup := cltest.BootstrapThrowawayORM(t, "eth_task_run_transactions", true, true)
 	defer cleanup()
-	store, cleanup := cltest.NewStoreWithConfig(tc)
+	store, cleanup := cltest.NewStoreWithConfig(t, tc)
 	store.ORM = orm
 	defer cleanup()
 	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store)
@@ -1576,7 +1576,7 @@ func TestORM_EthTaskRunTx(t *testing.T) {
 		require.NoError(t, err)
 
 		// Ensure it didn't leave a stray EthTx hanging around
-		store.RawDB(func(db *gorm.DB) error {
+		store.RawDBWithAdvisoryLock(func(db *gorm.DB) error {
 			var count int64
 			require.NoError(t, db.Table("eth_txes").Count(&count).Error)
 			assert.Equal(t, 1, int(count))
@@ -1904,25 +1904,4 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
-}
-
-func TestORM_MarkLogConsumed(t *testing.T) {
-	t.Parallel()
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	orm := store.ORM
-
-	blockHash := cltest.NewHash()
-	logIndex := uint(42)
-	job := cltest.MustInsertJobSpec(t, store)
-	blockNumber := uint64(142)
-
-	require.NoError(t, orm.MarkLogConsumed(blockHash, logIndex, job.ID, blockNumber))
-
-	d, _ := orm.DB.DB()
-	res, err := d.Exec(`SELECT * FROM log_consumptions;`)
-	require.NoError(t, err)
-	rowsaffected, err := res.RowsAffected()
-	require.NoError(t, err)
-	require.Equal(t, int64(1), rowsaffected)
 }

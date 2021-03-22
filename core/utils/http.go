@@ -108,13 +108,16 @@ func withRetry(
 		case *HTTPResponseTooLargeError:
 			return responseBody, statusCode, err
 		}
-		// Sleep and retry.
+		// Sleep and retry, unless the parent context is
+		// cancelled.
 		select {
 		case <-timeoutCtx.Done():
 			if timeoutCtx.Err() != context.DeadlineExceeded {
 				return responseBody, statusCode, timeoutCtx.Err()
 			}
 		case <-time.After(bb.Duration()):
+		case <-ctx.Done():
+			return responseBody, statusCode, ctx.Err()
 		}
 		logger.Debugw("http adapter error, will retry", "error", err.Error(), "attempt", bb.Attempt(), "timeout", config.Timeout)
 	}
