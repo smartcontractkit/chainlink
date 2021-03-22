@@ -124,7 +124,6 @@ func (d listener) HandleLog(lb log.Broadcast) {
 	}
 
 	// TODO: Need to filter each job to the _jobId - can we filter upstream?
-	// TODO: Will need to generate a jobID somehow... hash of DAG?
 	switch log := log.(type) {
 	case *oracle_wrapper.OracleOracleRequest:
 		d.handleOracleRequest(log)
@@ -134,7 +133,6 @@ func (d listener) HandleLog(lb log.Broadcast) {
 		}
 	case *oracle_wrapper.OracleCancelOracleRequest:
 		d.handleCancelOracleRequest(log.RequestId)
-		// TODO: Transactional/atomic log consumption would be nice
 		err = lb.MarkConsumed()
 		if err != nil {
 			logger.Errorf("Error marking log as consumed: %v", err)
@@ -170,7 +168,6 @@ func (d *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-// TODO: Boy does this ever need testing
 func (d *listener) handleCancelOracleRequest(requestID [32]byte) {
 	err := d.pipelineORM.CancelRunByRequestID(d.jobID, requestID)
 	if err != nil {
