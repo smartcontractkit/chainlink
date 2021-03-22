@@ -22,6 +22,19 @@ type LogPatchRequest struct {
 	SqlEnabled *bool  `json:"sqlEnabled"`
 }
 
+// Get retrieves the current log config settings
+func (cc *LogController) Get(c *gin.Context) {
+	response := &presenters.LogResource{
+		JAID: presenters.JAID{
+			ID: "log",
+		},
+		Level:      cc.App.GetStore().Config.LogLevel().String(),
+		SqlEnabled: cc.App.GetStore().Config.LogSQLStatements(),
+	}
+
+	jsonAPIResponse(c, response, "log")
+}
+
 // Patch sets a log level and enables sql logging for the logger
 func (cc *LogController) Patch(c *gin.Context) {
 	request := &LogPatchRequest{}
@@ -43,7 +56,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			return
 		}
 		cc.App.GetStore().Config.Set("LOG_LEVEL", ll.String())
-		err = cc.App.GetStore().SetConfigStrValue("LogLevel", ll.String())
+		err = cc.App.GetStore().SetConfigStrValue(c.Request.Context(), "LogLevel", ll.String())
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -52,7 +65,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 
 	if request.SqlEnabled != nil {
 		cc.App.GetStore().Config.Set("LOG_SQL", request.SqlEnabled)
-		err := cc.App.GetStore().SetConfigStrValue("LogSQLStatements", strconv.FormatBool(*request.SqlEnabled))
+		err := cc.App.GetStore().SetConfigStrValue(c.Request.Context(), "LogSQLStatements", strconv.FormatBool(*request.SqlEnabled))
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -61,7 +74,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 	}
 
 	// Set default logger with new configurations
-	logger.Default = cc.App.GetStore().Config.CreateProductionLogger()
+	logger.SetLogger(cc.App.GetStore().Config.CreateProductionLogger())
 
 	response := &presenters.LogResource{
 		JAID: presenters.JAID{

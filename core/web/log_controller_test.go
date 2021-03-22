@@ -24,7 +24,37 @@ type testCase struct {
 	expectedErrorCode int
 }
 
-func TestLogController_SetDebug(t *testing.T) {
+func TestLogController_GetLogConfig(t *testing.T) {
+	t.Parallel()
+
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+
+	// Set log config values
+	logLevel := "warn"
+	sqlEnabled := true
+	app.GetStore().Config.Set("LOG_LEVEL", logLevel)
+	app.GetStore().Config.Set("LOG_SQL", sqlEnabled)
+
+	defer cleanup()
+	require.NoError(t, app.Start())
+	client := app.NewHTTPClient()
+
+	resp, err := client.HTTPClient.Get("/v2/log")
+	require.NoError(t, err)
+
+	lR := presenters.LogResource{}
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
+
+	assert.Equal(t, lR.SqlEnabled, sqlEnabled)
+	assert.Equal(t, lR.Level, logLevel)
+}
+
+func TestLogController_PatchLogConfig(t *testing.T) {
 	t.Parallel()
 
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)

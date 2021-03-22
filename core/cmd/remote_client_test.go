@@ -8,11 +8,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -1487,4 +1490,74 @@ func TestClient_AutoLogin(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
+}
+
+func TestClient_SetLogLevel(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+
+	// Set info level for request
+	infoLevel := "info"
+	lPr := web.LogPatchRequest{Level: infoLevel}
+	request, err := json.Marshal(lPr)
+	assert.NoError(t, err)
+
+	resp, err := client.HTTP.Patch("/v2/log", bytes.NewReader(request))
+
+	var lR webPresenter.LogResource
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
+	assert.NoError(t, err)
+
+	assert.Equal(t, infoLevel, lPr.Level)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+}
+
+func TestClient_SetLogSQL(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+
+	// Set info level for request
+	enabled := true
+	lPr := web.LogPatchRequest{SqlEnabled: &enabled}
+	request, err := json.Marshal(lPr)
+	assert.NoError(t, err)
+
+	resp, err := client.HTTP.Patch("/v2/log", bytes.NewReader(request))
+
+	var lR webPresenter.LogResource
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
+	assert.NoError(t, err)
+
+	assert.Equal(t, enabled, lR.SqlEnabled)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
 }
