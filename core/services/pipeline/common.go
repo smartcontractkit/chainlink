@@ -282,6 +282,9 @@ const (
 	TaskTypeJSONParse TaskType = "jsonparse"
 	TaskTypeResult    TaskType = "result"
 	TaskTypeAny       TaskType = "any"
+
+	// Testing only.
+	TaskTypePanic TaskType = "panic"
 )
 
 const ResultTaskDotID = "__result__"
@@ -299,6 +302,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 
 	var task Task
 	switch taskType {
+	case TaskTypePanic:
+		task = &PanicTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeBridge:
