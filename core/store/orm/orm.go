@@ -679,9 +679,9 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 }
 
 // SetConfigValue returns the value for a named configuration entry
-func (orm *ORM) SetConfigStrValue(field string, value string) error {
+func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value string) error {
 	name := EnvVarName(field)
-	return orm.DB.Where(models.Configuration{Name: name}).
+	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
 		Assign(models.Configuration{Name: name, Value: value}).
 		FirstOrCreate(&models.Configuration{}).Error
 }

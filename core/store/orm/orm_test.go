@@ -1948,7 +1948,7 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 	res := models.Configuration{}
 
 	// Store db config entry as true
-	err := store.SetConfigStrValue(fieldName, strconv.FormatBool(isSqlStatementEnabled))
+	err := store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
 	require.NoError(t, err)
 
 	err = store.DB.First(&res, "name = ?", name).Error
@@ -1957,7 +1957,7 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 
 	// Update db config entry as false
 	isSqlStatementEnabled = false
-	err = store.SetConfigStrValue(fieldName, strconv.FormatBool(isSqlStatementEnabled))
+	err = store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
 	require.NoError(t, err)
 
 	err = store.DB.First(&res, "name = ?", name).Error

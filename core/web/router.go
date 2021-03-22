@@ -292,6 +292,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/jobs/:ID/runs", prc.Create)
 
 		lgc := LogController{app}
+		authv2.GET("/log", lgc.Get)
 		authv2.PATCH("/log", lgc.Patch)
 	}
 
