@@ -131,7 +131,7 @@ type RendererMock struct {
 }
 
 // Render appends values to renderer mock
-func (rm *RendererMock) Render(v interface{}) error {
+func (rm *RendererMock) Render(v interface{}, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
 }

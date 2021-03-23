@@ -21,6 +21,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
@@ -255,18 +256,9 @@ func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	ocrJobSpec := Job{}
-	if err := web.ParseJSONAPIResponse(responseBodyBytes, &ocrJobSpec); err != nil {
-		return cli.errorOut(err)
-	}
-
-	fmt.Printf("Job added (job ID: %v).\n", ocrJobSpec.ID)
-	return nil
+	var js Job
+	err = cli.renderAPIResponse(resp, &js, "Job created")
+	return err
 }
 
 func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
@@ -281,6 +273,8 @@ func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+
+	fmt.Printf("Job %v Deleted\n", c.Args().First())
 	return nil
 }
 
@@ -293,12 +287,15 @@ func (cli *Client) TriggerPipelineRun(c *clipkg.Context) error {
 	if err != nil {
 		return cli.errorOut(err)
 	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	fmt.Printf("Pipeline run successfully triggered for job ID %v.\n", c.Args().First())
-	return nil
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var run pipeline.Run
+	err = cli.renderAPIResponse(resp, &run, "Pipeline run successfully triggered")
+	return err
 }
 
 // CreateJobRun creates job run based on SpecID and optional JSON
@@ -495,7 +492,8 @@ func (cli *Client) SendEther(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	err = cli.printResponseBody(resp)
+	var tx presenters.EthTx
+	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
 
@@ -611,12 +609,13 @@ func (cli *Client) printResponseBody(resp *http.Response) error {
 	return nil
 }
 
-func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}) error {
+func (cli *Client) renderAPIResponse(resp *http.Response, dst interface{}, headers ...string) error {
 	var links jsonapi.Links
 	if err := cli.deserializeAPIResponse(resp, dst, &links); err != nil {
 		return cli.errorOut(err)
 	}
-	return cli.errorOut(cli.Render(dst))
+
+	return cli.errorOut(cli.Render(dst, headers...))
 }
 
 // SetMinimumGasPrice specifies the minimum gas price to use for outgoing transactions
@@ -710,16 +709,11 @@ func (cli *Client) CreateETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = os.Stderr.WriteString("ETH key created.\n\n🔑 New key\n")
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	var keys presenters.ETHKey
-	return cli.renderAPIResponse(resp, &keys)
+	return cli.renderAPIResponse(resp, &keys, "ETH key created.\n\n🔑 New key")
 }
 
-// ListETHKeys renders a table containing the active account address
-// with its ETH & LINK balance
+// ListETHKeys renders the active account address with its ETH & LINK balance
 func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/keys/eth")
 	if err != nil {
@@ -731,12 +725,8 @@ func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = os.Stderr.WriteString("🔑 ETH keys\n")
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	var keys []presenters.ETHKey
-	return cli.renderAPIResponse(resp, &keys)
+	return cli.renderAPIResponse(resp, &keys, "🔑 ETH keys")
 }
 
 func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
@@ -752,9 +742,9 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 	var confirmationMsg string
 	if c.Bool("hard") {
 		queryStr = "?hard=true"
-		confirmationMsg = "ETH key deleted.\n\n"
+		confirmationMsg = "Deleted ETH key"
 	} else {
-		confirmationMsg = "ETH key archived.\n\n"
+		confirmationMsg = "Archived ETH key"
 	}
 
 	address := c.Args().Get(0)
@@ -768,15 +758,8 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode == 200 {
-		fmt.Print(confirmationMsg)
-	}
-	_, err = os.Stderr.WriteString("🔑 Deleted ETH key\n")
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	var key presenters.ETHKey
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, fmt.Sprintf("🔑 %s", confirmationMsg))
 }
 
 func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
@@ -810,12 +793,8 @@ func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = os.Stderr.WriteString("🔑 Imported ETH key\n")
-	if err != nil {
-		return cli.errorOut(err)
-	}
 	var key presenters.ETHKey
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "🔑 Imported ETH key")
 }
 
 func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
@@ -850,6 +829,10 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.New("Error exporting"))
+	}
+
 	keyJSON, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
@@ -864,6 +847,7 @@ func (cli *Client) ExportETHKey(c *clipkg.Context) (err error) {
 	if err != nil {
 		return cli.errorOut(err)
 	}
+
 	return nil
 }
 
@@ -878,11 +862,8 @@ func (cli *Client) CreateP2PKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode == 200 {
-		fmt.Printf("Created P2P keypair.\n\n")
-	}
 	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "Created P2P keypair")
 }
 
 func (cli *Client) ListP2PKeys(c *clipkg.Context) (err error) {
@@ -928,11 +909,8 @@ func (cli *Client) DeleteP2PKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	if resp.StatusCode == 200 {
-		fmt.Printf("P2P key deleted.\n\n")
-	}
 	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "P2P key deleted")
 }
 
 func (cli *Client) ImportP2PKey(c *clipkg.Context) (err error) {
@@ -966,13 +944,8 @@ func (cli *Client) ImportP2PKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = os.Stderr.WriteString("🔑 Imported P2P key\n")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
 	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "🔑 Imported P2P key")
 }
 
 func (cli *Client) ExportP2PKey(c *clipkg.Context) (err error) {
@@ -1007,6 +980,10 @@ func (cli *Client) ExportP2PKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.New("Error exporting"))
+	}
+
 	keyJSON, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
@@ -1017,7 +994,7 @@ func (cli *Client) ExportP2PKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s", ID, filepath))
+	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported P2P key %s to %s\n", ID, filepath))
 	if err != nil {
 		return cli.errorOut(err)
 	}
@@ -1038,11 +1015,8 @@ func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
 		}
 	}()
 
-	if resp.StatusCode == 200 {
-		fmt.Printf("Created OCR key bundle.\n\n")
-	}
 	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "Created OCR key bundle")
 }
 
 // ListOCRKeyBundles lists the available OCR Key Bundles
@@ -1091,11 +1065,8 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 		}
 	}()
 
-	if resp.StatusCode == 200 {
-		fmt.Printf("OCR key bundle deleted.\n\n")
-	}
 	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "OCR key bundle deleted")
 }
 
 func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
@@ -1129,13 +1100,8 @@ func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = os.Stderr.WriteString("🔑 Imported OCR key bundle")
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
 	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key)
+	return cli.renderAPIResponse(resp, &key, "Imported OCR key bundle")
 }
 
 func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
@@ -1170,6 +1136,10 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
+	if resp.StatusCode != http.StatusOK {
+		return cli.errorOut(errors.New("Error exporting"))
+	}
+
 	keyJSON, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "Could not read response body"))
@@ -1180,7 +1150,7 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 		return cli.errorOut(errors.Wrapf(err, "Could not write %v", filepath))
 	}
 
-	_, err = os.Stderr.WriteString(fmt.Sprintf("🔑 Exported OCR key bundle %s to %s", ID, filepath))
+	_, err = os.Stderr.WriteString(fmt.Sprintf("Exported OCR key bundle %s to %s", ID, filepath))
 	if err != nil {
 		return cli.errorOut(err)
 	}
