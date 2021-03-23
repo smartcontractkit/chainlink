@@ -102,7 +102,7 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobsV2([]Job{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
-  case *webPresenters.LogResource:
+	case *webPresenters.LogResource:
 		return rt.renderLogResource(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
