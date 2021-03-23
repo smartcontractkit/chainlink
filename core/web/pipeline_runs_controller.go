@@ -77,7 +77,17 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, job.PipelineRun{ID: jobRunID}, "offChainReportingPipelineRun")
+	pipelineRun := pipeline.Run{}
+	err = preloadPipelineRunDependencies(prc.App.GetStore().DB).
+		Where("pipeline_runs.id = ?", jobRunID).
+		First(&pipelineRun).Error
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	jsonAPIResponse(c, pipelineRun, "offChainReportingPipelineRun")
 }
 
 func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
