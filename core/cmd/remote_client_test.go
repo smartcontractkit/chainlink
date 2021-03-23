@@ -14,8 +14,6 @@ import (
 	"strings"
 	"testing"
 
-	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
-
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -1491,7 +1489,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClient_SetLogLevel(t *testing.T) {
+func TestClient_SetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
@@ -1506,47 +1504,34 @@ func TestClient_SetLogLevel(t *testing.T) {
 		Email:    user.Email,
 		Password: cltest.Password,
 	}
-	client, r := app.NewClientAndRenderer()
+	client, _ := app.NewClientAndRenderer()
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
 	infoLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	set.String("level", "warn", "")
+	set.String("level", infoLevel, "")
 	c := cli.NewContext(nil, set, nil)
 
-	assert.NoError(t, client.SetLogLevel(c))
-	assert.NotNil(t, r.Renders)
-	logResource := *r.Renders[0].(*webPresenter.LogResource)
-	assert.Equal(t, infoLevel, logResource.Level)
-}
-
-func TestClient_SetLogSQL(t *testing.T) {
-	t.Parallel()
-
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	user := cltest.MustRandomUser()
-	require.NoError(t, app.Store.SaveUser(&user))
-	sr := models.SessionRequest{
-		Email:    user.Email,
-		Password: cltest.Password,
-	}
-	client, r := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+	err := client.SetLogLevel(c)
+	assert.NoError(t, err)
+	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
 
 	sqlEnabled := true
-	set := flag.NewFlagSet("logsql", 0)
-	set.Bool("enable", true, "")
-	c := cli.NewContext(nil, set, nil)
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("enable", sqlEnabled, "")
+	c = cli.NewContext(nil, set, nil)
 
-	assert.NoError(t, client.SetLogSQL(c))
-	assert.NotNil(t, r.Renders)
-	lr1 := *r.Renders[0].(*webPresenter.LogResource)
-	assert.Equal(t, sqlEnabled, lr1.SqlEnabled)
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+
+	sqlEnabled = false
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("disable", true, "")
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
 }
