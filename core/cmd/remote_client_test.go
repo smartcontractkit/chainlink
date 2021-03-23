@@ -14,6 +14,8 @@ import (
 	"strings"
 	"testing"
 
+	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
@@ -1504,20 +1506,19 @@ func TestClient_SetLogLevel(t *testing.T) {
 		Email:    user.Email,
 		Password: cltest.Password,
 	}
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	cliapp := cli.NewApp()
 	infoLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
 	set.String("level", "warn", "")
-	c := cli.NewContext(cliapp, set, nil)
+	c := cli.NewContext(nil, set, nil)
 
-	err := client.SetLogLevel(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
+	assert.NoError(t, client.SetLogLevel(c))
+	assert.NotNil(t, r.Renders)
+	logResource := *r.Renders[0].(*webPresenter.LogResource)
+	assert.Equal(t, infoLevel, logResource.Level)
 }
 
 func TestClient_SetLogSQL(t *testing.T) {
@@ -1535,28 +1536,17 @@ func TestClient_SetLogSQL(t *testing.T) {
 		Email:    user.Email,
 		Password: cltest.Password,
 	}
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	cliapp := cli.NewApp()
 	sqlEnabled := true
 	set := flag.NewFlagSet("logsql", 0)
 	set.Bool("enable", true, "")
-	c := cli.NewContext(cliapp, set, nil)
+	c := cli.NewContext(nil, set, nil)
 
-	err := client.SetLogSQL(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
-
-	sqlEnabled = false
-	set = flag.NewFlagSet("logsql", 0)
-	set.Bool("disable", true, "")
-	c = cli.NewContext(cliapp, set, nil)
-
-	err = client.SetLogSQL(c)
-
-	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+	assert.NoError(t, client.SetLogSQL(c))
+	assert.NotNil(t, r.Renders)
+	lr1 := *r.Renders[0].(*webPresenter.LogResource)
+	assert.Equal(t, sqlEnabled, lr1.SqlEnabled)
 }
