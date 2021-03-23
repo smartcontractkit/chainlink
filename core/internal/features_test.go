@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -820,6 +819,11 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(cltest.MustGenericEncode(
+			[]string{"uint80", "int256", "uint256", "uint256", "uint80"},
+			big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
+		), nil).Maybe() // Called 3-4 times.
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	minPayment := app.Store.Config.MinimumContractPayment().ToInt().Uint64()
@@ -830,15 +834,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	require.NoError(t, err)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil).Once()
-
-	// latestRoundData()
-	lrdTypes := []string{"uint80", "int256", "uint256", "uint256", "uint80"}
-	latestRoundDataResult, err := cltest.GenericEncode(
-		lrdTypes, big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
-	)
-	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
-		Return(latestRoundDataResult, nil).Once()
 
 	// oracleRoundState()
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
@@ -963,15 +958,18 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil).Once()
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil).Once()
+	require.NoError(t, err)
+	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+		Return(cltest.MustGenericEncode(
+			[]string{"uint80", "int256", "uint256", "uint256", "uint80"},
+			big.NewInt(2), big.NewInt(1), big.NewInt(1), big.NewInt(1), big.NewInt(1),
+		), nil).Maybe() // Called 3-4 times.
 
 	// Configure fake Eth Node to return 10,000 cents when FM initiates price.
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
 	require.NoError(t, err)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil).Once()
-
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
-		Return(nil, errors.New("first round")).Once()
 
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, availableFunds, minPayment, 1)
 	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").

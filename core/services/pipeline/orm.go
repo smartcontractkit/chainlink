@@ -141,7 +141,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 // TODO: Remove generation of special "result" task
 // TODO: Remove the unique index on successor_id
 // https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, bool, error)
 
 // ProcessNextUnfinishedRun pulls the next available unfinished run from the
 // database and passes it into the provided ProcessRunFunc for execution.
@@ -191,7 +191,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		}
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs, err := fn(ctx, tx, pRun.PipelineSpec, *logger.Default)
+		trrs, _, err := fn(ctx, tx, pRun.PipelineSpec, *logger.Default)
 		if err != nil {
 			return errors.Wrap(err, "error calling ProcessRunFunc")
 		}
