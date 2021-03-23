@@ -9,6 +9,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
@@ -21,7 +22,7 @@ import (
 
 // Renderer implements the Render method.
 type Renderer interface {
-	Render(interface{}) error
+	Render(interface{}, ...string) error
 }
 
 // RendererJSON is used to render JSON data.
@@ -30,11 +31,14 @@ type RendererJSON struct {
 }
 
 // Render writes the given input as a JSON string.
-func (rj RendererJSON) Render(v interface{}) error {
+func (rj RendererJSON) Render(v interface{}, _ ...string) error {
 	b, err := utils.FormatJSON(v)
 	if err != nil {
 		return err
 	}
+
+	// Append a new line
+	b = append(b, []byte("\n")...)
 	if _, err = rj.Write(b); err != nil {
 		return err
 	}
@@ -48,7 +52,11 @@ type RendererTable struct {
 
 // Render returns a formatted table of text for a given Job or presenter
 // and relevant information.
-func (rt RendererTable) Render(v interface{}) error {
+func (rt RendererTable) Render(v interface{}, headers ...string) error {
+	for _, h := range headers {
+		fmt.Println(h)
+	}
+
 	switch typed := v.(type) {
 	case *[]models.JobSpec:
 		return rt.renderJobs(*typed)
@@ -90,7 +98,11 @@ func (rt RendererTable) Render(v interface{}) error {
 		return rt.renderOCRKeys(*typed)
 	case *[]Job:
 		return rt.renderJobsV2(*typed)
-	case *webPresenters.LogResource:
+	case *Job:
+		return rt.renderJobsV2([]Job{*typed})
+	case *pipeline.Run:
+		return rt.renderPipelineRun(*typed)
+  case *webPresenters.LogResource:
 		return rt.renderLogResource(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
@@ -437,6 +449,7 @@ func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
 			deletedAt,
 		})
 	}
+
 	renderList([]string{"Address", "ETH", "LINK", "Next nonce", "Last used", "Is funding", "Created", "Updated", "Deleted"}, rows)
 	return nil
 }
@@ -481,5 +494,24 @@ func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error
 	}
 	fmt.Println("\n🔑 OCR Keys")
 	renderList([]string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}, rows)
+	return nil
+}
+
+func (rt RendererTable) renderPipelineRun(run pipeline.Run) error {
+	table := rt.newTable([]string{"ID", "Created At", "Finished At"})
+
+	var finishedAt string
+	if run.FinishedAt != nil {
+		finishedAt = run.FinishedAt.String()
+	}
+
+	row := []string{
+		run.GetID(),
+		run.CreatedAt.String(),
+		finishedAt,
+	}
+	table.Append(row)
+
+	render("Pipeline Run", table)
 	return nil
 }

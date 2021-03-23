@@ -181,16 +181,6 @@ func NewApp(client *Client) *cli.App {
 			Usage: "Commands for managing Job Specs (jobs V1)",
 			Subcommands: []cli.Command{
 				{
-					Name:   "archive",
-					Usage:  "Archive a Job and all its associated Runs",
-					Action: client.ArchiveJobSpec,
-				},
-				{
-					Name:   "create",
-					Usage:  "Create Job from a Job Specification JSON",
-					Action: client.CreateJobSpec,
-				},
-				{
 					Name:   "list",
 					Usage:  "List all jobs",
 					Action: client.IndexJobSpecs,
@@ -205,6 +195,16 @@ func NewApp(client *Client) *cli.App {
 					Name:   "show",
 					Usage:  "Show a specific Job's details",
 					Action: client.ShowJobSpec,
+				},
+				{
+					Name:   "create",
+					Usage:  "Create Job from a Job Specification JSON",
+					Action: client.CreateJobSpec,
+				},
+				{
+					Name:   "archive",
+					Usage:  "Archive a Job and all its associated Runs",
+					Action: client.ArchiveJobSpec,
 				},
 			},
 		},
@@ -260,7 +260,7 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Deletes the ETH key matching the given address`),
+							Usage: format(`Delete the ETH key by address`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
@@ -275,11 +275,11 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name:  "import",
-							Usage: format(`Imports an ETH key from a JSON file`),
+							Usage: format(`Import an ETH key from a JSON file`),
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "oldpassword, p",
-									Usage: "the password that the key in the JSON file was encrypted with",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 								},
 							},
 							Action: client.ImportETHKey,
@@ -290,11 +290,11 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "newpassword, p",
-									Usage: "the password with which to encrypt the key in the JSON file",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
 								},
 								cli.StringFlag{
 									Name:  "output, o",
-									Usage: "the path where the JSON file will be saved",
+									Usage: "Path where the JSON file will be saved (required)",
 								},
 							},
 							Action: client.ExportETHKey,
@@ -307,15 +307,13 @@ func NewApp(client *Client) *cli.App {
 					Usage: "Remote commands for administering the node's p2p keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create a p2p key, encrypted with password from the
-               password file, and store it in the database.`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  format(`Create a p2p key, encrypted with password from the password file, and store it in the database.`),
 							Action: client.CreateP2PKey,
 						},
 						{
 							Name:  "delete",
-							Usage: format(`Deletes the encrypted P2P key matching the given ID`),
+							Usage: format(`Delete the encrypted P2P key by id`),
 							Flags: []cli.Flag{
 								cli.BoolFlag{
 									Name:  "yes, y",
@@ -339,7 +337,7 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "oldpassword, p",
-									Usage: "the password that the key in the JSON file was encrypted with",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 								},
 							},
 							Action: client.ImportP2PKey,
@@ -350,11 +348,11 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "newpassword, p",
-									Usage: "the password with which to encrypt the key in the JSON file",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
 								},
 								cli.StringFlag{
 									Name:  "output, o",
-									Usage: "the path where the JSON file will be saved",
+									Usage: "`FILE` where the JSON file will be saved (required)",
 								},
 							},
 							Action: client.ExportP2PKey,
@@ -367,10 +365,8 @@ func NewApp(client *Client) *cli.App {
 					Usage: "Remote commands for administering the node's off chain reporting keys",
 					Subcommands: cli.Commands{
 						{
-							Name: "create",
-							Usage: format(`Create an OCR key bundle, encrypted with password from the
-               password file, and store it in the database`),
-							Flags:  flags("password, p"),
+							Name:   "create",
+							Usage:  format(`Create an OCR key bundle, encrypted with password from the password file, and store it in the database`),
 							Action: client.CreateOCRKeyBundle,
 						},
 						{
@@ -399,7 +395,7 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "oldpassword, p",
-									Usage: "the password that the key in the JSON file was encrypted with",
+									Usage: "`FILE` containing the password used to encrypt the key in the JSON file",
 								},
 							},
 							Action: client.ImportOCRKey,
@@ -410,11 +406,11 @@ func NewApp(client *Client) *cli.App {
 							Flags: []cli.Flag{
 								cli.StringFlag{
 									Name:  "newpassword, p",
-									Usage: "the password with which to encrypt the key in the JSON file",
+									Usage: "`FILE` containing the password to encrypt the key (required)",
 								},
 								cli.StringFlag{
 									Name:  "output, o",
-									Usage: "the path where the JSON file will be saved",
+									Usage: "`FILE` where the JSON file will be saved (required)",
 								},
 							},
 							Action: client.ExportOCRKey,
