@@ -916,6 +916,11 @@ func (c Config) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parseDuration).(time.Duration))
 }
 
+// StatsPusherLogging toggles very verbose logging of raw messages for the StatsPusher (also telemetry)
+func (c Config) StatsPusherLogging() bool {
+	return c.getWithFallback("StatsPusherLogging", parseBool).(bool)
+}
+
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c Config) TLSCertPath() string {
