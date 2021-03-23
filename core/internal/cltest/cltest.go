@@ -189,6 +189,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	// Disable gas updater for application tests
 	config.Set("GAS_UPDATER_ENABLED", false)
+	// Disable tx re-sending for application tests
+	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -1835,15 +1837,11 @@ type testifyExpectationsAsserter interface {
 	AssertExpectations(t mock.TestingT) bool
 }
 
-type fakeT struct {
-	didFail bool
-}
+type fakeT struct{}
 
-func (t fakeT) Logf(format string, args ...interface{})   {}
-func (t fakeT) Errorf(format string, args ...interface{}) {}
-func (t fakeT) FailNow() {
-	t.didFail = true
-}
+func (ft fakeT) Logf(format string, args ...interface{})   {}
+func (ft fakeT) Errorf(format string, args ...interface{}) {}
+func (ft fakeT) FailNow()                                  {}
 
 func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
 	t.Helper()
@@ -1851,12 +1849,13 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	chTimeout := time.After(timeout)
 	for {
 		var ft fakeT
-		mock.AssertExpectations(ft)
-		if !ft.didFail {
+		success := mock.AssertExpectations(ft)
+		if success {
 			return
 		}
 		select {
 		case <-chTimeout:
+			mock.AssertExpectations(t)
 			t.FailNow()
 		default:
 			time.Sleep(interval)
