@@ -3,7 +3,6 @@ package web
 import (
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -55,18 +54,14 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		err = cc.App.GetStore().Config.SetLogLevel(ll.String())
-		err = cc.App.GetStore().SetConfigStrValue(c.Request.Context(), "LogLevel", ll.String())
-		if err != nil {
+		if err = cc.App.GetStore().Config.SetLogLevel(c.Request.Context(), ll.String()); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}
 	}
 
 	if request.SqlEnabled != nil {
-		cc.App.GetStore().Config.Set("LOG_SQL", request.SqlEnabled)
-		err := cc.App.GetStore().SetConfigStrValue(c.Request.Context(), "LogSQLStatements", strconv.FormatBool(*request.SqlEnabled))
-		if err != nil {
+		if err := cc.App.GetStore().Config.SetLogSQLStatements(c.Request.Context(), *request.SqlEnabled); err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
 		}

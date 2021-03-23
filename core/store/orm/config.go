@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -781,7 +782,7 @@ func (c Config) LogLevel() LogLevel {
 }
 
 // SetLogLevel saves a runtime value for the default logger level
-func (c Config) SetLogLevel(value string) error {
+func (c Config) SetLogLevel(ctx context.Context, value string) error {
 	if c.runtimeStore == nil {
 		return errors.New("No runtime store installed")
 	}
@@ -790,7 +791,7 @@ func (c Config) SetLogLevel(value string) error {
 	if err != nil {
 		return err
 	}
-	return c.runtimeStore.SetConfigValue("LogLevel", ll)
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogLevel", ll.String())
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -800,7 +801,24 @@ func (c Config) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c Config) LogSQLStatements() bool {
+	if c.runtimeStore != nil {
+		logSqlStatements, err := c.runtimeStore.GetConfigBoolValue("LogSQLStatements")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
+		} else if err == nil {
+			return *logSqlStatements
+		}
+	}
 	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+}
+
+// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c Config) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger

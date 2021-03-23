@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -664,6 +665,20 @@ func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) err
 		return err
 	}
 	return value.UnmarshalText([]byte(config.Value))
+}
+
+// GetConfigBoolValue returns a boolean value for a named configuration entry
+func (orm *ORM) GetConfigBoolValue(field string) (*bool, error) {
+	name := EnvVarName(field)
+	config := models.Configuration{}
+	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
+		return nil, err
+	}
+	value, err := strconv.ParseBool(config.Value)
+	if err != nil {
+		return nil, err
+	}
+	return &value, nil
 }
 
 // SetConfigValue returns the value for a named configuration entry
