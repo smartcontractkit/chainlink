@@ -164,8 +164,16 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 		tm.jobORM,
 		tm.pipelineORM,
 		tm.keyStore,
-		fluxmonitorv2.NewPollTicker(time.Minute, options.pollTickerDisabled),
-		fluxmonitorv2.NewIdleTimer(options.idleTimerPeriod, options.idleTimerDisabled),
+		fluxmonitorv2.NewPollManager(
+			fluxmonitorv2.PollManagerConfig{
+				PollTickerInterval:    time.Minute,
+				PollTickerDisabled:    options.pollTickerDisabled,
+				IdleTimerPeriod:       options.idleTimerPeriod,
+				IdleTimerDisabled:     options.idleTimerDisabled,
+				HibernationPollPeriod: 24 * time.Hour,
+			},
+			logger.Default,
+		),
 		fluxmonitorv2.NewPaymentChecker(assets.NewLink(1), nil),
 		contractAddress,
 		tm.contractSubmitter,
