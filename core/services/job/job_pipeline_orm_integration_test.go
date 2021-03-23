@@ -6,19 +6,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -40,9 +40,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
-	result := &pipeline.ResultTask{
-		BaseTask: pipeline.NewBaseTask("__result__", nil, 0, 0),
-	}
 	answer1 := &pipeline.MedianTask{
 		BaseTask: pipeline.NewBaseTask("answer1", nil, 0, 0),
 	}
@@ -76,7 +73,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		RequestData: pipeline.HttpRequestData{"hi": "hello"},
 		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
-	expectedTasks := []pipeline.Task{result, answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
@@ -166,7 +163,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Value: float64(6)},
 					"answer1":      {Value: float64(7)},
 					"answer2":      {Value: float64(8)},
-					"__result__":   {Value: []interface{}{float64(7), float64(8)}, Error: pipeline.FinalErrors{{}, {}}},
 				},
 				[]interface{}{float64(7), float64(8)},
 				[]interface{}{nil, nil},
@@ -182,7 +178,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Error: errors.New("fail 6")},
 					"answer1":      {Error: errors.New("fail 7")},
 					"answer2":      {Error: errors.New("fail 8")},
-					"__result__":   {Value: []interface{}{nil, nil}, Error: pipeline.FinalErrors{null.StringFrom("fail 7"), null.StringFrom("fail 8")}},
 				},
 				[]interface{}{nil, nil},
 				[]interface{}{"fail 7", "fail 8"},
@@ -198,10 +193,28 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Value: float64(4)},
 					"answer1":      {Error: errors.New("fail 3")},
 					"answer2":      {Value: float64(5)},
-					"__result__":   {Value: []interface{}{nil, float64(5)}, Error: pipeline.FinalErrors{null.StringFrom("fail 3"), {}}},
 				},
 				[]interface{}{nil, float64(5)},
 				[]interface{}{"fail 3", nil},
+			},
+			{
+				name: "different output types",
+				answers: map[string]pipeline.Result{
+					"ds1":          {Value: float64(1)},
+					"ds1_parse":    {Value: float64(2)},
+					"ds1_multiply": {Value: float64(3)},
+					"ds2":          {Value: float64(4)},
+					"ds2_parse":    {Value: float64(5)},
+					"ds2_multiply": {Value: float64(6)},
+					"answer1": {Value: map[string]interface{}{
+						"a": float64(10),
+					}},
+					"answer2": {Value: "blah"},
+				},
+				runOutputs: []interface{}{map[string]interface{}{
+					"a": float64(10),
+				}, "blah"},
+				runErrors: []interface{}{nil, nil},
 			},
 		}
 
@@ -276,7 +289,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 								ID:         tr.ID,
 								Result:     result,
 								FinishedAt: time.Now(),
-								IsTerminal: dotID == "__result__",
+								IsTerminal: dotID == "answer1" || dotID == "answer2",
 							}
 							trrs = append(trrs, trr)
 						}

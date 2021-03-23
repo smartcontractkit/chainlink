@@ -23,13 +23,13 @@ func (Spec) TableName() string {
 	return "pipeline_specs"
 }
 
-func (s Spec) TasksInDependencyOrderWithResultTask() ([]Task, error) {
+func (s Spec) TasksInDependencyOrder() ([]Task, error) {
 	d := TaskDAG{}
 	err := d.UnmarshalText([]byte(s.DotDagSource))
 	if err != nil {
 		return nil, err
 	}
-	tasks, err := d.TasksInDependencyOrderWithResultTask()
+	tasks, err := d.TasksInDependencyOrder()
 	if err != nil {
 		return nil, err
 	}
@@ -37,11 +37,15 @@ func (s Spec) TasksInDependencyOrderWithResultTask() ([]Task, error) {
 }
 
 type Run struct {
-	ID               int64            `json:"-" gorm:"primary_key"`
-	PipelineSpecID   int32            `json:"-"`
-	PipelineSpec     Spec             `json:"pipelineSpec"`
-	Meta             JSONSerializable `json:"meta"`
-	Errors           JSONSerializable `json:"errors" gorm:"type:jsonb"`
+	ID             int64            `json:"-" gorm:"primary_key"`
+	PipelineSpecID int32            `json:"-"`
+	PipelineSpec   Spec             `json:"pipelineSpec"`
+	Meta           JSONSerializable `json:"meta"`
+	// The errors are only ever strings
+	// DB example: [null, null, "my error"]
+	Errors JSONSerializable `json:"errors" gorm:"type:jsonb"`
+	// The outputs can be anything.
+	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       *time.Time       `json:"finishedAt"`
@@ -66,12 +70,7 @@ func (r *Run) SetID(value string) error {
 }
 
 func (r Run) HasErrors() bool {
-	return r.FinalErrors().HasErrors()
-}
-
-func (r Run) FinalErrors() (f FinalErrors) {
-	f, _ = r.Errors.Val.(FinalErrors)
-	return f
+	return r.Errors.Val != nil && !r.Errors.Null
 }
 
 // Status determines the status of the run.

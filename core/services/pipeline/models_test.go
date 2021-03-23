@@ -1,12 +1,12 @@
 package pipeline_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestRunStatus(t *testing.T) {
@@ -50,10 +50,10 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "Error",
 			run: &pipeline.Run{
-				Errors: pipeline.JSONSerializable{
-					Val:  pipeline.FinalErrors{null.StringFrom("Random: String, foo")},
-					Null: false,
-				},
+				Errors: pipeline.FinalResult{
+					Values: nil,
+					Errors: []error{errors.New("Random: String, foo")},
+				}.ErrorsDB(),
 				FinishedAt: nil,
 			},
 			want: pipeline.RunStatusErrored,
