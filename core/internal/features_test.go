@@ -1585,8 +1585,13 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(sub, nil)
 
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
