@@ -109,7 +109,8 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
-	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", head.Number)
+
+	logger.Debugw("UpkeepExecutor: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
@@ -135,20 +136,27 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 
+	logArgs := []interface{}{
+		"jobID", executor.job.ID,
+		"blockNum", headNumber,
+		"registryAddress", upkeep.Registry.ContractAddress.Hex(),
+		"upkeepID", upkeep.UpkeepID,
+	}
+
 	msg, err := constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
 		logger.Error(err)
 		return
 	}
 
-	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+	logger.Debugw("UpkeepExecutor: checking upkeep", logArgs...)
 
 	ctxService, cancel := utils.ContextFromChan(executor.chStop)
 	defer cancel()
 
 	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+		logger.Debugw("UpkeepExecutor: checkUpkeep failed", logArgs...)
 		return
 	}
 
@@ -158,7 +166,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 		return
 	}
 
-	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+	logger.Debugw("UpkeepExecutor: performing upkeep", logArgs...)
 
 	ctxQuery, _ := postgres.DefaultQueryCtx()
 	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
@@ -177,7 +185,9 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 	// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
 	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
 	err = executor.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executor.job.ID, upkeep.UpkeepID, headNumber)
-	logger.ErrorIf(err, "UpkeepExecutor: unable to setLastRunHeightForUpkeep for upkeep")
+	if err != nil {
+		logger.Errorw("UpkeepExecutor: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
+	}
 }
 
 func constructCheckUpkeepCallMsg(upkeep UpkeepRegistration) (ethereum.CallMsg, error) {
