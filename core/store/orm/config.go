@@ -769,7 +769,28 @@ func (c Config) OperatorContractAddress() common.Address {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
+	if c.runtimeStore != nil {
+		var value LogLevel
+		if err := c.runtimeStore.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
+		} else if err == nil {
+			return value
+		}
+	}
 	return c.getWithFallback("LogLevel", parseLogLevel).(LogLevel)
+}
+
+// SetLogLevel saves a runtime value for the default logger level
+func (c Config) SetLogLevel(value string) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+	var ll LogLevel
+	err := ll.Set(value)
+	if err != nil {
+		return err
+	}
+	return c.runtimeStore.SetConfigValue("LogLevel", ll)
 }
 
 // LogToDisk configures disk preservation of logs.

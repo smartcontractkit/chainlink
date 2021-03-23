@@ -21,6 +21,7 @@ type testCase struct {
 	logSql      *bool
 
 	expectedLogLevel  zapcore.Level
+	expectedLogSQL    bool
 	expectedErrorCode int
 }
 
@@ -86,12 +87,14 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			logLevel:         "info",
 			logSql:           &sqlTrue,
 			expectedLogLevel: zapcore.InfoLevel,
+			expectedLogSQL:   true,
 		},
 		{
 			Description:      "Set log level to warn and log sql to false",
 			logLevel:         "warn",
 			logSql:           &sqlFalse,
 			expectedLogLevel: zapcore.WarnLevel,
+			expectedLogSQL:   false,
 		},
 		{
 			Description:       "Send no params to updater",
@@ -124,6 +127,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 			}
 			if tc.logSql != nil {
 				assert.Equal(t, tc.logSql, &lR.SqlEnabled)
+				assert.Equal(t, &tc.expectedLogSQL, &lR.SqlEnabled)
 			}
 			assert.Equal(t, tc.expectedLogLevel.String(), app.GetStore().Config.LogLevel().String())
 		}

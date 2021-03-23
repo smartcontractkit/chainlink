@@ -55,7 +55,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
-		cc.App.GetStore().Config.Set("LOG_LEVEL", ll.String())
+		err = cc.App.GetStore().Config.SetLogLevel(ll.String())
 		err = cc.App.GetStore().SetConfigStrValue(c.Request.Context(), "LogLevel", ll.String())
 		if err != nil {
 			jsonAPIError(c, http.StatusInternalServerError, err)
