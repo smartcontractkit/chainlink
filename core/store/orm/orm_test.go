@@ -1964,3 +1964,15 @@ func TestORM_SetConfigStrValue(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
 }
+
+func TestORM_GetConfigBoolValue(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.Config.SetRuntimeStore(store.ORM)
+
+	isSqlStatementEnabled := true
+	err := store.Config.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)
+	require.NoError(t, err)
+	assert.Equal(t, isSqlStatementEnabled, store.Config.LogSQLStatements())
+}
