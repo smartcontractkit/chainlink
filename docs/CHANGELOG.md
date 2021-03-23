@@ -26,6 +26,8 @@ Example settings:
 
 `DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
 
+- Logging can now be configured in the Operator UI. 
+
 ### Fixed
 
 - Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
