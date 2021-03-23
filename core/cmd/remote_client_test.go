@@ -1508,10 +1508,11 @@ func TestClient_SetLogLevel(t *testing.T) {
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
+	cliapp := cli.NewApp()
 	infoLevel := "warn"
-	set := flag.NewFlagSet("test", 0)
+	set := flag.NewFlagSet("loglevel", 0)
 	set.String("level", "warn", "")
-	c := cli.NewContext(nil, set, nil)
+	c := cli.NewContext(cliapp, set, nil)
 
 	err := client.SetLogLevel(c)
 
@@ -1538,10 +1539,11 @@ func TestClient_SetLogSQL(t *testing.T) {
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
+	cliapp := cli.NewApp()
 	sqlEnabled := true
-	set := flag.NewFlagSet("test", 0)
+	set := flag.NewFlagSet("logsql", 0)
 	set.Bool("enable", true, "")
-	c := cli.NewContext(nil, set, nil)
+	c := cli.NewContext(cliapp, set, nil)
 
 	err := client.SetLogSQL(c)
 
@@ -1549,9 +1551,9 @@ func TestClient_SetLogSQL(t *testing.T) {
 	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
 
 	sqlEnabled = false
-	set = flag.NewFlagSet("test", 0)
+	set = flag.NewFlagSet("logsql", 0)
 	set.Bool("disable", true, "")
-	c = cli.NewContext(nil, set, nil)
+	c = cli.NewContext(cliapp, set, nil)
 
 	err = client.SetLogSQL(c)
 
