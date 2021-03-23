@@ -125,6 +125,7 @@ type ConfigSchema struct {
 	RootDir                                   string          `env:"ROOT" default:"~/.chainlink"`
 	SecureCookies                             bool            `env:"SECURE_COOKIES" default:"true"`
 	SessionTimeout                            models.Duration `env:"SESSION_TIMEOUT" default:"15m"`
+	StatsPusherLogging                        string          `env:"STATS_PUSHER_LOGGING" default:"false"`
 	TriggerFallbackDBPollInterval             time.Duration   `env:"TRIGGER_FALLBACK_DB_POLL_INTERVAL" default:"30s"`
 	TLSCertPath                               string          `env:"TLS_CERT_PATH" `
 	TLSHost                                   string          `env:"CHAINLINK_TLS_HOST" `
