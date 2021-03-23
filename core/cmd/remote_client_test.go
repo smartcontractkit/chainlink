@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
-
-	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -1511,20 +1508,15 @@ func TestClient_SetLogLevel(t *testing.T) {
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	// Set info level for request
-	infoLevel := "info"
-	lPr := web.LogPatchRequest{Level: infoLevel}
-	request, err := json.Marshal(lPr)
+	infoLevel := "warn"
+	set := flag.NewFlagSet("test", 0)
+	set.String("level", "warn", "")
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.SetLogLevel(c)
+
 	assert.NoError(t, err)
-
-	resp, err := client.HTTP.Patch("/v2/log", bytes.NewReader(request))
-
-	var lR webPresenter.LogResource
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
-	assert.NoError(t, err)
-
-	assert.Equal(t, infoLevel, lPr.Level)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
 }
 
 func TestClient_SetLogSQL(t *testing.T) {
@@ -1546,18 +1538,23 @@ func TestClient_SetLogSQL(t *testing.T) {
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	// Set info level for request
-	enabled := true
-	lPr := web.LogPatchRequest{SqlEnabled: &enabled}
-	request, err := json.Marshal(lPr)
+	sqlEnabled := true
+	set := flag.NewFlagSet("test", 0)
+	set.Bool("enable", true, "")
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.SetLogSQL(c)
+
 	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
 
-	resp, err := client.HTTP.Patch("/v2/log", bytes.NewReader(request))
+	sqlEnabled = false
+	set = flag.NewFlagSet("test", 0)
+	set.Bool("disable", true, "")
+	c = cli.NewContext(nil, set, nil)
 
-	var lR webPresenter.LogResource
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &lR))
+	err = client.SetLogSQL(c)
+
 	assert.NoError(t, err)
-
-	assert.Equal(t, enabled, lR.SqlEnabled)
-	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
 }

@@ -1220,11 +1220,15 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 
 // SetLogSQL enables or disables the log sql statemnts
 func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
-	if !c.Bool("enable") {
-		return cli.errorOut(errors.New("Must set --enabled = (true || false)"))
+
+	// Enforces selection of --enable or --disable
+	if !c.Bool("enable") && !c.Bool("disable") {
+		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
 	}
 
-	logSql, err := strconv.ParseBool(c.Args().Get(0))
+	// Sets logSql to true || false based on the --enabled flag
+	logSql := c.Bool("enable")
+
 	if err != nil {
 		return cli.errorOut(err)
 	}
