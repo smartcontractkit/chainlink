@@ -1157,7 +1157,7 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		return prs
-	}, timeout, poll).ShouldNot(gomega.HaveLen(want))
+	}, timeout, poll).Should(gomega.HaveLen(want))
 
 	return prs
 }

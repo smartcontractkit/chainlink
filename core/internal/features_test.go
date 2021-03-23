@@ -1573,7 +1573,15 @@ observationSource = """
 func TestIntegration_DirectRequest(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
-	config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
+
+	httpServer, assertCalled := cltest.NewHTTPMockServer(
+		t,
+		http.StatusOK,
+		"GET",
+		`{"USD": "31982"}`,
+		func(header http.Header, _ string) {},
+	)
+	defer assertCalled()
 
 	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
 	defer assertMockCalls()
@@ -1607,11 +1615,16 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
-	job := cltest.FixtureCreateJobSpecV2ViaWeb(t, app, "../web/testdata/direct-request-spec.toml")
+	directRequestSpec := string(cltest.MustReadFile(t, "../web/testdata/direct-request-spec.toml"))
+	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
+	request := models.CreateJobSpecRequest{TOML: directRequestSpec}
+	output, err := json.Marshal(request)
+	require.NoError(t, err)
+	job := cltest.CreateJobViaWeb(t, app, output)
 
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, cltest.NewAddress(), cltest.NewAddress(), 1, `{}`)
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
 	var logs chan<- models.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
@@ -1624,6 +1637,18 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	runs := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, jobORM, 5*time.Second, 30*time.Millisecond)
 	require.Len(t, runs, 1)
+
+	runs := cltest.WaitForPipelineRuns(t, 0, job.ID, jobORM, 1, 5*time.Second, 300*time.Millisecond)
+	require.Len(t, runs, 1)
+
+	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+
+	run := cltest.WaitForPipelineComplete(t, 0, job.ID, jobORM, 5*time.Second, 300*time.Millisecond)
+	require.Len(t, run.PipelineTaskRuns, 3)
+	assert.Empty(t, run.PipelineTaskRuns[0].Error)
+	assert.Empty(t, run.PipelineTaskRuns[1].Error)
+	assert.Empty(t, run.PipelineTaskRuns[2].Error)
+	assert.NotNil(t, run.FinishedAt)
 }
 
 func TestIntegration_GasUpdater(t *testing.T) {
