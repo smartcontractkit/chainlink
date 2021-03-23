@@ -165,7 +165,11 @@ func NewApp(client *Client) *cli.App {
 					Flags: []cli.Flag{
 						cli.BoolFlag{
 							Name:  "enable",
-							Usage: "enable or disable sql logging",
+							Usage: "enable sql logging",
+						},
+						cli.BoolFlag{
+							Name:  "disable",
+							Usage: "disable sql logging",
 						},
 					},
 				},
