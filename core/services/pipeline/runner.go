@@ -3,9 +3,13 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/jpillora/backoff"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -53,6 +57,7 @@ var (
 	},
 		[]string{"pipeline_spec_id", "task_type"},
 	)
+	ErrRunPanicked = errors.New("pipeline run panicked")
 )
 
 func NewRunner(orm ORM, config Config) *runner {
@@ -222,11 +227,81 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (trrs TaskRunResults, err error) {
-	return r.executeRun(ctx, r.orm.DB(), spec, l)
+func (r *runner) ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (TaskRunResults, error) {
+	var (
+		trrs            TaskRunResults
+		err             error
+		retry           bool
+		i               int
+		numPanicRetries = 5
+	)
+	b := &backoff.Backoff{
+		Min:    100 * time.Second,
+		Max:    1 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+	for i = 0; i < numPanicRetries; i++ {
+		trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, l)
+		if retry {
+			time.Sleep(b.Duration())
+			continue
+		} else {
+			break
+		}
+	}
+	if i == numPanicRetries {
+		return r.panickedRunResults(spec)
+	}
+	return trrs, err
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, error) {
+// Generate a errored run from the spec.
+func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
+	var panickedTrrs []TaskRunResult
+	var finalVals []interface{}
+	var finalErrs FinalErrors
+	tasks, err := spec.TasksInDependencyOrderWithResultTask()
+	if err != nil {
+		return nil, err
+	}
+	f := time.Now()
+	for _, task := range tasks {
+		if task.Type() == TaskTypeResult {
+			continue
+		}
+		if task.OutputTask() != nil && task.OutputTask().Type() == TaskTypeResult {
+			finalVals = append(finalVals, nil)
+			finalErrs = append(finalErrs, null.StringFrom(ErrRunPanicked.Error()))
+		}
+		panickedTrrs = append(panickedTrrs, TaskRunResult{
+			Task: task,
+			TaskRun: TaskRun{
+				CreatedAt:  f,
+				FinishedAt: &f,
+				Index:      task.OutputIndex(),
+				DotID:      task.DotID(),
+			},
+			Result:     Result{Value: nil, Error: ErrRunPanicked},
+			FinishedAt: time.Now(),
+			IsTerminal: false,
+		})
+	}
+	panickedTrrs = append(panickedTrrs, TaskRunResult{
+		TaskRun: TaskRun{
+			CreatedAt:  f,
+			FinishedAt: &f,
+			Index:      0,
+			DotID:      ResultTaskDotID,
+		},
+		Result:     Result{Value: finalVals, Error: finalErrs},
+		FinishedAt: f,
+		IsTerminal: true,
+	})
+	return panickedTrrs, nil
+}
+
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, bool, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "spec", spec.ID)
 	var (
 		err  error
@@ -237,13 +312,13 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	d := TaskDAG{}
 	err = d.UnmarshalText([]byte(spec.DotDagSource))
 	if err != nil {
-		return trrs, err
+		return trrs, false, err
 	}
 
 	// Find "firsts" and work forwards
 	tasks, err := d.TasksInDependencyOrderWithResultTask()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	all := make(map[string]*memoryTaskRun)
 	var graph []*memoryTaskRun
@@ -285,10 +360,18 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	// 3. Execute tasks using "fan in" job processing
 	var updateMu sync.Mutex
 	var wg sync.WaitGroup
+	var retry bool
 	wg.Add(len(graph))
 	for _, mtr := range graph {
 		go func(m *memoryTaskRun) {
-			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+					// No mutex needed: if any goroutine panics, we retry the run.
+					retry = true
+				}
+				wg.Done()
+			}()
 			for m != nil {
 				m.predMu.RLock()
 				nPredecessors := m.nPredecessors
@@ -361,7 +444,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
 
-	return trrs, err
+	return trrs, retry, err
 }
 
 func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, taskRun TaskRun, inputs []Result, l logger.Logger) Result {

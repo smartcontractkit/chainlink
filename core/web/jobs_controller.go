@@ -125,7 +125,6 @@ func (jc *JobsController) Create(c *gin.Context) {
 	}
 
 	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
-
 }
 
 // Delete soft deletes an OCR job spec.
