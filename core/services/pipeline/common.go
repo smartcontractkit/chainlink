@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -147,9 +148,13 @@ type TaskRunResult struct {
 type TaskRunResults []TaskRunResult
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
+// It needs to respect the output index of each task
 func (trrs TaskRunResults) FinalResult() FinalResult {
 	var found bool
 	var fr FinalResult
+	sort.Slice(trrs, func(i, j int) bool {
+		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
+	})
 	for _, trr := range trrs {
 		if trr.IsTerminal {
 			fr.Values = append(fr.Values, trr.Result.Value)
@@ -221,7 +226,6 @@ const (
 	TaskTypeMedian    TaskType = "median"
 	TaskTypeMultiply  TaskType = "multiply"
 	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeResult    TaskType = "result"
 	TaskTypeAny       TaskType = "any"
 
 	// Testing only.

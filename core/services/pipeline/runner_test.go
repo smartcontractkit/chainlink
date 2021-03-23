@@ -89,39 +89,16 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.NoError(t, err)
 	require.Len(t, trrs, len(ts))
 
-	var finalResults []pipeline.Result
-	for _, trr := range trrs {
-		if trr.IsTerminal {
-			finalResults = append(finalResults, trr.Result)
-		}
-	}
+	finalResults := trrs.FinalResult()
+	require.Len(t, finalResults.Values, 3)
+	require.Len(t, finalResults.Errors, 3)
+	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
+	assert.Nil(t, finalResults.Errors[0])
+	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
+	assert.Nil(t, finalResults.Errors[1])
+	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
+	assert.Nil(t, finalResults.Errors[2])
 
-	require.Len(t, finalResults, 3)
-	var expected = map[string]struct{}{
-		"9650000000000000000000": {},
-		"foo-index-1":            {},
-		"bar-index-2":            {},
-	}
-	for _, result := range finalResults {
-		require.Nil(t, result.Error)
-		switch v := result.Value.(type) {
-		case decimal.Decimal:
-			if _, ok := expected[v.String()]; !ok {
-				t.Errorf("unexpected value %v", v.String())
-			} else {
-				delete(expected, v.String())
-			}
-		case string:
-			if _, ok := expected[v]; !ok {
-				t.Errorf("unexpected value %v", v)
-			} else {
-				delete(expected, v)
-			}
-		}
-	}
-	if len(expected) != 0 {
-		t.Errorf("missing expected results %v", expected)
-	}
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
 		if trr.Result.Error != nil && !trr.IsTerminal {

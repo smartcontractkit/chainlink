@@ -231,7 +231,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 		PipelineTaskSpecID int32 `json:"-"`
 	}
 	tr1 := PipelineTaskRun{
-		Type:               pipeline.TaskTypeResult,
+		Type:               pipeline.TaskTypeAny,
 		PipelineRunID:      pr.ID,
 		PipelineTaskSpecID: result.ID,
 		Output:             &pipeline.JSONSerializable{Null: true},

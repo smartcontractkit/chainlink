@@ -73,6 +73,16 @@ func TestPipelineORM_Integration(t *testing.T) {
 		RequestData: pipeline.HttpRequestData{"hi": "hello"},
 		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
+	taskMap := map[string]pipeline.Task{
+		"answer1":      answer1,
+		"answer2":      answer2,
+		"ds1":          ds1,
+		"ds2":          ds2,
+		"ds1_parse":    ds1_parse,
+		"ds2_parse":    ds2_parse,
+		"ds1_multiply": ds1_multiply,
+		"ds2_multiply": ds2_multiply,
+	}
 	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
@@ -287,6 +297,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 								First(&tr).Error)
 							trr := pipeline.TaskRunResult{
 								ID:         tr.ID,
+								Task:       taskMap[dotID],
 								Result:     result,
 								FinishedAt: time.Now(),
 								IsTerminal: dotID == "answer1" || dotID == "answer2",
