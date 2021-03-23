@@ -23,6 +23,19 @@ func (Spec) TableName() string {
 	return "pipeline_specs"
 }
 
+func (s Spec) TasksInDependencyOrderWithResultTask() ([]Task, error) {
+	d := TaskDAG{}
+	err := d.UnmarshalText([]byte(s.DotDagSource))
+	if err != nil {
+		return nil, err
+	}
+	tasks, err := d.TasksInDependencyOrderWithResultTask()
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 type Run struct {
 	ID               int64            `json:"-" gorm:"primary_key"`
 	PipelineSpecID   int32            `json:"-"`
