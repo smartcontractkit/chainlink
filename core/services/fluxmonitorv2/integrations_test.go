@@ -367,7 +367,7 @@ func assertNoSubmission(t *testing.T,
 ) {
 	select {
 	case <-submissionReceived:
-		assert.Fail(t, "flags are up, but submission was sent")
+		assert.Fail(t, "submission was sent")
 	case <-time.After(2 * time.Second):
 	}
 }
@@ -425,7 +425,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	absoluteThreshold = 0.0
 
 	idleTimerPeriod = "1s"
-	idleTimerDisabled = false
+	idleTimerDisabled = true
 
 	pollTimerPeriod = "%s"
 	pollTimerDisabled = false

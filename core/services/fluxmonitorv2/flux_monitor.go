@@ -731,7 +731,13 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
+	// Reset polling. If the round has not started, reset the idle timer from now
+	// for the idleDuration
 	fm.pollManager.Reset(roundState)
+	if roundState.StartedAt == 0 {
+		fm.pollManager.ResetIdleTimer(uint64(time.Now().UTC().Unix()))
+	}
+
 	l = l.With("reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)
@@ -793,15 +799,13 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		l.Infow("starting first round")
 	}
 
-	// --> Create an ETH transaction by calling a 'submit' method on the contract
-
 	if roundState.PaymentAmount == nil {
 		l.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
 	err = fm.submitTransaction(runID, *answer, roundState.RoundId)
 	if err != nil {
-		l.Errorw("can't create job run", "err", err)
+		l.Errorw("unable to submit transaction", "err", err)
 
 		return
 	}
