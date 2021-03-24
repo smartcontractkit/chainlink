@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/shopspring/decimal"
@@ -174,5 +177,36 @@ answer1 [type=median                      index=0];
 		if trr.IsTerminal {
 			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.([]interface{})[0].(decimal.Decimal))
 		}
+	}
+}
+
+func TestPanicTask_Run(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	orm := new(mocks.ORM)
+	orm.On("DB").Return(store.DB)
+	s := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte(`{"result":10}`))
+	}))
+	r := pipeline.NewRunner(orm, store.Config)
+	trrs, err := r.ExecuteRun(context.Background(), pipeline.Spec{
+		DotDagSource: fmt.Sprintf(`
+ds1 [type=http url="%s"]
+ds_parse [type=jsonparse path="result"]
+ds_multiply [type=multiply times=10]
+ds_panic [type=panic msg="oh no"]
+ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
+	}, *logger.Default)
+	require.NoError(t, err)
+	require.Equal(t, 5, len(trrs))
+	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
+	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
+	for _, trr := range trrs {
+		if trr.IsTerminal {
+			continue
+		}
+		assert.Equal(t, null.NewString("pipeline run panicked", true), trr.Result.ErrorDB())
+		assert.Equal(t, true, trr.Result.OutputDB().Null)
 	}
 }
