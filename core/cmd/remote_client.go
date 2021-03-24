@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
@@ -1156,6 +1157,67 @@ func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
 
 func normalizePassword(password string) string {
 	return url.PathEscape(strings.TrimSpace(password))
+}
+
+// SetLogLevel sets the log level on the node
+func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
+	logLevel := c.String("level")
+	request := web.LogPatchRequest{Level: logLevel}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var lR webPresenter.LogResource
+	err = cli.renderAPIResponse(resp, &lR)
+	return err
+}
+
+// SetLogSQL enables or disables the log sql statemnts
+func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
+
+	// Enforces selection of --enable or --disable
+	if !c.Bool("enable") && !c.Bool("disable") {
+		return cli.errorOut(errors.New("Must set logSql --enabled || --disable"))
+	}
+
+	// Sets logSql to true || false based on the --enabled flag
+	logSql := c.Bool("enable")
+
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	request := web.LogPatchRequest{SqlEnabled: &logSql}
+	requestData, err := json.Marshal(request)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+
+	buf := bytes.NewBuffer(requestData)
+	resp, err := cli.HTTP.Patch("/v2/log", buf)
+	if err != nil {
+		return cli.errorOut(err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	var lR webPresenter.LogResource
+	err = cli.renderAPIResponse(resp, &lR)
+	return err
 }
 
 func getBufferFromJSON(s string) (*bytes.Buffer, error) {

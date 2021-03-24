@@ -147,6 +147,32 @@ func NewApp(client *Client) *cli.App {
 						},
 					},
 				},
+				{
+					Name:   "loglevel",
+					Usage:  "Set log level",
+					Action: client.SetLogLevel,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:  "level",
+							Usage: "set log level for node (debug||info||warn||error)",
+						},
+					},
+				},
+				{
+					Name:   "logsql",
+					Usage:  "Enable/disable sql statement logging",
+					Action: client.SetLogSQL,
+					Flags: []cli.Flag{
+						cli.BoolFlag{
+							Name:  "enable",
+							Usage: "enable sql logging",
+						},
+						cli.BoolFlag{
+							Name:  "disable",
+							Usage: "disable sql logging",
+						},
+					},
+				},
 			},
 		},
 
@@ -457,7 +483,6 @@ func NewApp(client *Client) *cli.App {
 				},
 			},
 		},
-
 		{
 			Name:        "node",
 			Aliases:     []string{"local"},
