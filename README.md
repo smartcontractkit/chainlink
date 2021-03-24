@@ -63,7 +63,10 @@ Ethereum node versions currently tested and supported:
 - [Geth 1.8+](https://github.com/ethereum/go-ethereum/releases)
 
 ### Create an environment file
-Create an `.env` file and populate with variables specific to the network you're running on.
+Create an `.env` file and populate with variables specific to the network you're running on:
+```bash
+cp example.env .env
+```
 Check out the [docs](https://docs.chain.link)' page on [Running a Chainlink Node](https://docs.chain.link/docs/running-a-chainlink-node#create-an-environment-file) to learn more about the environment file.
 
 ## Run

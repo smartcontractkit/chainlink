@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `example.env` sample configuration files
+
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
 
 This variable defaults to `$ROOT/apicredentials` and when defined / the
