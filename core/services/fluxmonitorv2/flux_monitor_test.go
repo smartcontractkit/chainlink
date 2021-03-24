@@ -2,11 +2,12 @@ package fluxmonitorv2_test
 
 import (
 	"context"
-	"gopkg.in/guregu/null.v4"
 	"math"
 	"math/big"
 	"testing"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"

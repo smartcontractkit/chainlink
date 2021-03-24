@@ -2,10 +2,11 @@ package job_test
 
 import (
 	"context"
-	"gopkg.in/guregu/null.v4"
 	"net/url"
 	"testing"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/pkg/errors"
 
@@ -355,7 +356,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 					err = db.First(&pipelineRun).Error
 					require.NoError(t, err)
 
-					require.True(t, len(pipelineRun.Errors) == 0)
 					require.Equal(t, test.runErrors, pipelineRun.Errors)
 					require.NotNil(t, pipelineRun.Outputs.Val)
 					require.Equal(t, test.runOutputs, pipelineRun.Outputs.Val)

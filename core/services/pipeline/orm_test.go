@@ -3,9 +3,10 @@ package pipeline_test
 import (
 	"context"
 	"errors"
-	"gopkg.in/guregu/null.v4"
 	"testing"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
