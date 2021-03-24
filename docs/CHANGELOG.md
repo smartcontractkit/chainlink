@@ -29,6 +29,7 @@ Example settings:
 ### Fixed
 
 - Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
+- Flux monitor jobs should now work correctly with [outlier-detection](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/outlier-detection) and [market-closure](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/market-closure) external adapters.
 
 - Performance improvements to OCR job adds. Removed the pipeline_task_specs table
 and added a new column `dot_id` to the pipeline_task_runs table which links a pipeline_task_run
@@ -37,6 +38,9 @@ to a dotID in the pipeline_spec.dot_dag_source.
 ## [0.10.3] - 2021-03-22
 
 ### Added
+
+- Add `STATS_PUSHER_LOGGING` to toggle stats pusher raw message logging (DEBUG
+  level).
 
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
 
