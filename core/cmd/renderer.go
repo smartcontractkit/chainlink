@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // Renderer implements the Render method.
@@ -101,9 +102,22 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobsV2([]Job{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
+	case *webPresenters.LogResource:
+		return rt.renderLogResource(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
+}
+
+func (rt RendererTable) renderLogResource(logResource webPresenters.LogResource) error {
+	table := rt.newTable([]string{"ID", "Level", "SqlEnabled"})
+	table.Append([]string{
+		logResource.ID,
+		logResource.Level,
+		strconv.FormatBool(logResource.SqlEnabled),
+	})
+	render("Logs", table)
+	return nil
 }
 
 func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
