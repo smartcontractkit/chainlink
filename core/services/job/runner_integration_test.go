@@ -105,8 +105,8 @@ func TestRunner(t *testing.T) {
 		require.Len(t, results, 2)
 		assert.NoError(t, results[0].Error)
 		assert.NoError(t, results[1].Error)
-		assert.Equal(t, "6225.6", results[1].Value)
-		assert.Equal(t, "Hal Finney", results[0].Value)
+		assert.Equal(t, "6225.6", results[0].Value)
+		assert.Equal(t, "Hal Finney", results[1].Value)
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
