@@ -26,7 +26,16 @@ library BufferChainlink {
   * @param capacity The number of bytes of space to allocate the buffer.
   * @return The buffer, for chaining.
   */
-  function init(buffer memory buf, uint capacity) internal pure returns(buffer memory) {
+  function init(
+    buffer memory buf,
+    uint capacity
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     if (capacity % 32 != 0) {
       capacity += 32 - (capacity % 32);
     }
@@ -47,20 +56,43 @@ library BufferChainlink {
   * @param b The bytes object to initialize the buffer with.
   * @return A new buffer.
   */
-  function fromBytes(bytes memory b) internal pure returns(buffer memory) {
+  function fromBytes(
+    bytes memory b
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     buffer memory buf;
     buf.buf = b;
     buf.capacity = b.length;
     return buf;
   }
 
-  function resize(buffer memory buf, uint capacity) private pure {
+  function resize(
+    buffer memory buf,
+    uint capacity
+  )
+    private
+    pure
+  {
     bytes memory oldbuf = buf.buf;
     init(buf, capacity);
     append(buf, oldbuf);
   }
 
-  function max(uint a, uint b) private pure returns(uint) {
+  function max(
+    uint a,
+    uint b
+  )
+    private
+    pure
+    returns(
+      uint
+    )
+  {
     if (a > b) {
       return a;
     }
@@ -72,7 +104,15 @@ library BufferChainlink {
   * @param buf The buffer to truncate.
   * @return The original buffer, for chaining..
   */
-  function truncate(buffer memory buf) internal pure returns (buffer memory) {
+  function truncate(
+    buffer memory buf
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     assembly {
       let bufptr := mload(buf)
       mstore(bufptr, 0)
@@ -89,7 +129,18 @@ library BufferChainlink {
   * @param len The number of bytes to copy.
   * @return The original buffer, for chaining.
   */
-  function write(buffer memory buf, uint off, bytes memory data, uint len) internal pure returns(buffer memory) {
+  function write(
+    buffer memory buf,
+    uint off,
+    bytes memory data,
+    uint len
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     require(len <= data.length);
 
     if (off + len > buf.capacity) {
@@ -140,7 +191,17 @@ library BufferChainlink {
   * @param len The number of bytes to copy.
   * @return The original buffer, for chaining.
   */
-  function append(buffer memory buf, bytes memory data, uint len) internal pure returns (buffer memory) {
+  function append(
+    buffer memory buf,
+    bytes memory data,
+    uint len
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     return write(buf, buf.buf.length, data, len);
   }
 
@@ -151,7 +212,16 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chaining.
   */
-  function append(buffer memory buf, bytes memory data) internal pure returns (buffer memory) {
+  function append(
+    buffer memory buf,
+    bytes memory data
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     return write(buf, buf.buf.length, data, data.length);
   }
 
@@ -163,7 +233,17 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chaining.
   */
-  function writeUint8(buffer memory buf, uint off, uint8 data) internal pure returns(buffer memory) {
+  function writeUint8(
+    buffer memory buf,
+    uint off,
+    uint8 data
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     if (off >= buf.capacity) {
       resize(buf, buf.capacity * 2);
     }
@@ -191,7 +271,16 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chaining.
   */
-  function appendUint8(buffer memory buf, uint8 data) internal pure returns(buffer memory) {
+  function appendUint8(
+    buffer memory buf,
+    uint8 data
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     return writeUint8(buf, buf.buf.length, data);
   }
 
@@ -204,7 +293,18 @@ library BufferChainlink {
   * @param len The number of bytes to write (left-aligned).
   * @return The original buffer, for chaining.
   */
-  function write(buffer memory buf, uint off, bytes32 data, uint len) private pure returns(buffer memory) {
+  function write(
+    buffer memory buf,
+    uint off,
+    bytes32 data,
+    uint len
+  )
+    private
+    pure
+    returns(
+      buffer memory
+    )
+  {
     if (len + off > buf.capacity) {
       resize(buf, (len + off) * 2);
     }
@@ -234,7 +334,17 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chaining.
   */
-  function writeBytes20(buffer memory buf, uint off, bytes20 data) internal pure returns (buffer memory) {
+  function writeBytes20(
+    buffer memory buf,
+    uint off,
+    bytes20 data
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     return write(buf, off, bytes32(data), 20);
   }
 
@@ -245,7 +355,16 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chhaining.
   */
-  function appendBytes20(buffer memory buf, bytes20 data) internal pure returns (buffer memory) {
+  function appendBytes20(
+    buffer memory buf,
+    bytes20 data
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     return write(buf, buf.buf.length, bytes32(data), 20);
   }
 
@@ -256,7 +375,16 @@ library BufferChainlink {
   * @param data The data to append.
   * @return The original buffer, for chaining.
   */
-  function appendBytes32(buffer memory buf, bytes32 data) internal pure returns (buffer memory) {
+  function appendBytes32(
+    buffer memory buf,
+    bytes32 data
+  )
+    internal
+    pure
+    returns (
+      buffer memory
+    )
+  {
     return write(buf, buf.buf.length, data, 32);
   }
 
@@ -269,7 +397,18 @@ library BufferChainlink {
   * @param len The number of bytes to write (right-aligned).
   * @return The original buffer, for chaining.
   */
-  function writeInt(buffer memory buf, uint off, uint data, uint len) private pure returns(buffer memory) {
+  function writeInt(
+    buffer memory buf,
+    uint off,
+    uint data,
+    uint len
+  )
+    private
+    pure
+    returns(
+      buffer memory
+    )
+  {
     if (len + off > buf.capacity) {
       resize(buf, (len + off) * 2);
     }
@@ -296,7 +435,17 @@ library BufferChainlink {
     * @param data The data to append.
     * @return The original buffer.
     */
-  function appendInt(buffer memory buf, uint data, uint len) internal pure returns(buffer memory) {
+  function appendInt(
+    buffer memory buf,
+    uint data,
+    uint len
+  )
+    internal
+    pure
+    returns(
+      buffer memory
+    )
+  {
     return writeInt(buf, buf.buf.length, data, len);
   }
 }
