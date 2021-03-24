@@ -2,6 +2,7 @@ package fluxmonitorv2_test
 
 import (
 	"context"
+	"gopkg.in/guregu/null.v4"
 	"math"
 	"math/big"
 	"testing"
@@ -317,9 +318,8 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					now := time.Now()
 					run.FinishedAt = &now
 				case pipeline.RunStatusErrored:
-					run.Errors = pipeline.JSONSerializable{
-						Val:  errors.New("Random: String, foo"),
-						Null: false,
+					run.Errors = []null.String{
+						null.StringFrom("Random: String, foo"),
 					}
 				default:
 				}

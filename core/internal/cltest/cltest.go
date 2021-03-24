@@ -1155,9 +1155,7 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, 
 		assert.NoError(t, err)
 		for i := range prs {
 			if !prs[i].Outputs.Null {
-				errs, err := prs[i].Errors.MarshalJSON()
-				assert.NoError(t, err)
-				if string(errs) != "[null]" {
+				if prs[i].Errors.HasError() {
 					return nil
 				}
 				pr = prs[i]

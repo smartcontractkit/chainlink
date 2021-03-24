@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -43,7 +45,7 @@ type Run struct {
 	Meta           JSONSerializable `json:"meta"`
 	// The errors are only ever strings
 	// DB example: [null, null, "my error"]
-	Errors JSONSerializable `json:"errors" gorm:"type:jsonb"`
+	Errors RunErrors `json:"errors" gorm:"type:jsonb"`
 	// The outputs can be anything.
 	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
@@ -69,32 +71,11 @@ func (r *Run) SetID(value string) error {
 	return nil
 }
 
-// A run in memory has r.Errors = []null.String{null.String{}, null.String{}, null.StringFrom("my error")}
-// When marshalled to the DB, it's saved as `[null,null,"my error"]`.
-// When read from the DB into a JSONSerializable object, we simply get
-// []interface{nil, nil, "my error"...}.
 func (r Run) HasErrors() bool {
-	if r.Errors.Val == nil {
-		return false
-	}
-	_, db := r.Errors.Val.([]interface{})
-	if db {
-		for _, err := range r.Errors.Val.([]interface{}) {
-			if err != nil {
-				return true
-			}
+	for _, err := range r.Errors {
+		if !err.IsZero() {
+			return true
 		}
-	}
-	_, mem := r.Errors.Val.([]null.String)
-	if mem {
-		for _, err := range r.Errors.Val.([]null.String) {
-			if !err.IsZero() {
-				return true
-			}
-		}
-	}
-	if !db && !mem {
-		panic("expected either []null.String or []interface{}")
 	}
 	return false
 }
@@ -108,6 +89,35 @@ func (r *Run) Status() RunStatus {
 	}
 
 	return RunStatusInProgress
+}
+
+type RunErrors []null.String
+
+func (re *RunErrors) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("RunErrors#Scan received a value of type %T", value)
+	}
+	return json.Unmarshal(bytes, re)
+}
+
+func (re RunErrors) Value() (driver.Value, error) {
+	if len(re) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(re)
+}
+
+func (re RunErrors) HasError() bool {
+	for _, e := range re {
+		if !e.IsZero() {
+			return true
+		}
+	}
+	return false
 }
 
 type TaskRun struct {

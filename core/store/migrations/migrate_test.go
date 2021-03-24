@@ -212,7 +212,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	pr := pipeline.Run{
 		PipelineSpecID: ps.ID,
 		Meta:           pipeline.JSONSerializable{},
-		Errors:         pipeline.JSONSerializable{Null: true},
+		Errors:         pipeline.RunErrors{},
 		Outputs:        pipeline.JSONSerializable{Null: true},
 	}
 	require.NoError(t, orm.DB.Create(&pr).Error)

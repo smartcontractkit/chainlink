@@ -100,7 +100,7 @@ func (result FinalResult) OutputsDB() JSONSerializable {
 }
 
 // ErrorsDB dumps a result error for a pipeline_run
-func (result FinalResult) ErrorsDB() JSONSerializable {
+func (result FinalResult) ErrorsDB() RunErrors {
 	errStrs := make([]null.String, len(result.Errors))
 	for i, err := range result.Errors {
 		if err == nil {
@@ -110,7 +110,7 @@ func (result FinalResult) ErrorsDB() JSONSerializable {
 		}
 	}
 
-	return JSONSerializable{Val: errStrs, Null: false}
+	return errStrs
 }
 
 // HasErrors returns true if the final result has any errors

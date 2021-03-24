@@ -74,7 +74,7 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "In Progress",
 			run: &pipeline.Run{
-				Errors:     pipeline.JSONSerializable{},
+				Errors:     pipeline.RunErrors{},
 				Outputs:    pipeline.JSONSerializable{},
 				FinishedAt: nil,
 			},

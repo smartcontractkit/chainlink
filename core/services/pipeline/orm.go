@@ -255,8 +255,8 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	if run.FinishedAt.IsZero() {
 		return 0, errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || run.Errors.Val == nil {
-		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
+	if run.Outputs.Val == nil || len(run.Errors) == 0 {
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
@@ -365,7 +365,6 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 		}
 
 		var values []interface{}
-		var errs []interface{}
 		if !run.Outputs.Null {
 			vals, is := run.Outputs.Val.([]interface{})
 			if !is {
@@ -373,22 +372,15 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 			}
 			values = vals
 		}
-		if !run.Errors.Null {
-			errs1, is := run.Errors.Val.([]interface{})
-			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's error must be []interface{}, got %T", run.Errors.Val)
-			}
-			errs = errs1
-		}
 
-		if len(values) != len(errs) {
-			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(errs))
+		if len(values) != len(run.Errors) {
+			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(run.Errors))
 		}
 		results = make([]Result, len(values))
 		for i := range values {
 			results[i].Value = values[i]
-			if errs[i] != nil {
-				results[i].Error = errors.New(errs[i].(string))
+			if !run.Errors[i].IsZero() {
+				results[i].Error = errors.New(run.Errors[i].String)
 			}
 		}
 		return nil

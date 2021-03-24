@@ -2,6 +2,7 @@ package job_test
 
 import (
 	"context"
+	"gopkg.in/guregu/null.v4"
 	"net/url"
 	"testing"
 	"time"
@@ -160,7 +161,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 			name       string
 			answers    map[string]pipeline.Result
 			runOutputs interface{}
-			runErrors  interface{}
+			runErrors  pipeline.RunErrors
 		}{
 			{
 				"all succeeded",
@@ -175,7 +176,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"answer2":      {Value: float64(8)},
 				},
 				[]interface{}{float64(7), float64(8)},
-				[]interface{}{nil, nil},
+				[]null.String{{}, {}},
 			},
 			{
 				"all failed",
@@ -190,7 +191,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"answer2":      {Error: errors.New("fail 8")},
 				},
 				[]interface{}{nil, nil},
-				[]interface{}{"fail 7", "fail 8"},
+				[]null.String{null.StringFrom("fail 7"), null.StringFrom("fail 8")},
 			},
 			{
 				"some succeeded, some failed",
@@ -205,7 +206,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"answer2":      {Value: float64(5)},
 				},
 				[]interface{}{nil, float64(5)},
-				[]interface{}{"fail 3", nil},
+				[]null.String{null.StringFrom("fail 3"), {}},
 			},
 			{
 				name: "different output types",
@@ -224,7 +225,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				runOutputs: []interface{}{map[string]interface{}{
 					"a": float64(10),
 				}, "blah"},
-				runErrors: []interface{}{nil, nil},
+				runErrors: []null.String{{}, {}},
 			},
 		}
 
@@ -354,8 +355,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 					err = db.First(&pipelineRun).Error
 					require.NoError(t, err)
 
-					require.NotNil(t, pipelineRun.Errors.Val)
-					require.Equal(t, test.runErrors, pipelineRun.Errors.Val)
+					require.True(t, len(pipelineRun.Errors) == 0)
+					require.Equal(t, test.runErrors, pipelineRun.Errors)
 					require.NotNil(t, pipelineRun.Outputs.Val)
 					require.Equal(t, test.runOutputs, pipelineRun.Outputs.Val)
 				}

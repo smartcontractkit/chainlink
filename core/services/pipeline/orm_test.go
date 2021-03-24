@@ -3,6 +3,7 @@ package pipeline_test
 import (
 	"context"
 	"errors"
+	"gopkg.in/guregu/null.v4"
 	"testing"
 	"time"
 
@@ -41,6 +42,7 @@ func Test_PipelineORM_CreateRun(t *testing.T) {
 func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
+
 	db := store.DB
 
 	require.NoError(t, db.Exec(`SET CONSTRAINTS pipeline_runs_pipeline_spec_id_fkey DEFERRED`).Error)
@@ -79,7 +81,7 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, []interface{}{nil, float64(1)}, run.Outputs.Val)
-		require.Equal(t, []interface{}{"Random: String, foo", nil}, run.Errors.Val)
+		require.Equal(t, pipeline.RunErrors([]null.String{null.StringFrom("Random: String, foo"), null.String{}}), run.Errors)
 		require.NotNil(t, run.FinishedAt)
 	})
 }
