@@ -89,7 +89,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		runner.On("CreateRun", mock.Anything, mock.Anything, mock.Anything).Return(int64(0), nil)
 
-		err := service.Start()
+		err = service.Start()
 		require.NoError(t, err)
 
 		listener.HandleLog(log)
