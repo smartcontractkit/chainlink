@@ -39,6 +39,9 @@ to a dotID in the pipeline_spec.dot_dag_source.
 
 ### Added
 
+- Add `STATS_PUSHER_LOGGING` to toggle stats pusher raw message logging (DEBUG
+  level).
+
 - Add `ADMIN_CREDENTIALS_FILE` configuration variable
 
 This variable defaults to `$ROOT/apicredentials` and when defined / the
