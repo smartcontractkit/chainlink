@@ -685,15 +685,14 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	eip, err := models.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
-	var nextNonce *int64
+	var nextNonce int64
 	var funding bool
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case int:
-			i := int64(v)
-			nextNonce = &i
+			nextNonce = int64(v)
 		case int64:
-			nextNonce = &v
+			nextNonce = v
 		case bool:
 			funding = v
 		default:
@@ -708,6 +707,13 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 		IsFunding: funding,
 	}
 	return key
+}
+
+func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
+	h := models.NewHead(big.NewInt(number), NewHash(), NewHash(), 0)
+	err := store.DB.Create(&h).Error
+	require.NoError(t, err)
+	return h
 }
 
 func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
