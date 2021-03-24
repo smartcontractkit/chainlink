@@ -369,14 +369,14 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 		if !run.Outputs.Null {
 			vals, is := run.Outputs.Val.([]interface{})
 			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", run.Errors.Val)
+				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", run.Outputs.Val)
 			}
 			values = vals
 		}
 		if !run.Errors.Null {
 			errs1, is := run.Errors.Val.([]interface{})
 			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []error, got %T", run.Outputs.Val)
+				return errors.Errorf("Pipeline runner invariant violation: result task run's error must be []interface{}, got %T", run.Errors.Val)
 			}
 			errs = errs1
 		}

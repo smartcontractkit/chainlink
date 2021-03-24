@@ -53,7 +53,9 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 		trrs := pipeline.TaskRunResults{
 			pipeline.TaskRunResult{
 				IsTerminal: true,
-				Task:       &pipeline.HTTPTask{},
+				Task: &pipeline.HTTPTask{BaseTask: pipeline.BaseTask{
+					Index: 0,
+				}},
 				Result: pipeline.Result{
 					Value: nil,
 					Error: errors.New("Random: String, foo"),
@@ -62,7 +64,9 @@ func Test_PipelineORM_UpdatePipelineRun(t *testing.T) {
 			},
 			pipeline.TaskRunResult{
 				IsTerminal: true,
-				Task:       &pipeline.HTTPTask{},
+				Task: &pipeline.HTTPTask{BaseTask: pipeline.BaseTask{
+					Index: 1,
+				}},
 				Result: pipeline.Result{
 					Value: 1,
 					Error: nil,

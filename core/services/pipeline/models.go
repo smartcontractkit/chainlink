@@ -69,8 +69,34 @@ func (r *Run) SetID(value string) error {
 	return nil
 }
 
+// A run in memory has r.Errors = []null.String{null.String{}, null.String{}, null.StringFrom("my error")}
+// When marshalled to the DB, it's saved as `[null,null,"my error"]`.
+// When read from the DB into a JSONSerializable object, we simply get
+// []interface{nil, nil, "my error"...}.
 func (r Run) HasErrors() bool {
-	return r.Errors.Val != nil && !r.Errors.Null
+	if r.Errors.Val == nil {
+		return false
+	}
+	_, db := r.Errors.Val.([]interface{})
+	if db {
+		for _, err := range r.Errors.Val.([]interface{}) {
+			if err != nil {
+				return true
+			}
+		}
+	}
+	_, mem := r.Errors.Val.([]null.String)
+	if mem {
+		for _, err := range r.Errors.Val.([]null.String) {
+			if !err.IsZero() {
+				return true
+			}
+		}
+	}
+	if !db && !mem {
+		panic("expected either []null.String or []interface{}")
+	}
+	return false
 }
 
 // Status determines the status of the run.
