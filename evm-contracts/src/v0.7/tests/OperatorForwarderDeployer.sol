@@ -9,7 +9,9 @@ contract OperatorForwarderDeployer is ConfirmedOwner {
   address private immutable linkAddress;
   address[] private s_authorisedSenders;
 
-  event ForwarderDeployed(address indexed forwarder);
+  event ForwarderDeployed(
+    address indexed forwarder
+  );
 
   constructor(
     address link,
