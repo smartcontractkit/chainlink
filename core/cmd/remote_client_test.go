@@ -1306,7 +1306,7 @@ func TestClient_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestClient_SetLogConfig(t *testing.T) {
+func TestClient_SetLogLevel(t *testing.T) {
 	t.Parallel()
 
 	config, cleanup := cltest.NewConfig(t)
@@ -1333,22 +1333,33 @@ func TestClient_SetLogConfig(t *testing.T) {
 	err := client.SetLogLevel(c)
 	assert.NoError(t, err)
 	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
+}
+
+func TestClient_SetLogSql(t *testing.T) {
+	t.Parallel()
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithConfig(t, config)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	user := cltest.MustRandomUser()
+	require.NoError(t, app.Store.SaveUser(&user))
+	sr := models.SessionRequest{
+		Email:    user.Email,
+		Password: cltest.Password,
+	}
+	client, _ := app.NewClientAndRenderer()
+	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
 	sqlEnabled := true
-	set = flag.NewFlagSet("logsql", 0)
+	set := flag.NewFlagSet("logsql", 0)
 	set.Bool("enable", sqlEnabled, "")
-	c = cli.NewContext(nil, set, nil)
+	c := cli.NewContext(nil, set, nil)
 
-	err = client.SetLogSQL(c)
-	assert.NoError(t, err)
-	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
-
-	sqlEnabled = false
-	set = flag.NewFlagSet("logsql", 0)
-	set.Bool("disable", true, "")
-	c = cli.NewContext(nil, set, nil)
-
-	err = client.SetLogSQL(c)
+	err := client.SetLogSQL(c)
 	assert.NoError(t, err)
 	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
 }
