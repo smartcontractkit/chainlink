@@ -373,8 +373,17 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 				Return(roundState, nil).Maybe()
 
 			if tc.expectedToPoll {
+				tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
+					Answer:    big.NewInt(10),
+					UpdatedAt: big.NewInt(100),
+				}, nil)
 				tm.pipelineRunner.
-					On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+					On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{
+						Val: map[string]interface{}{
+							"latestAnswer": float64(10),
+							"updatedAt":    float64(100),
+						},
+					}, defaultLogger).
 					Return(int64(1), pipeline.FinalResult{
 						Values: []interface{}{decimal.NewFromInt(answers.polledAnswer)},
 						Errors: []error{nil},

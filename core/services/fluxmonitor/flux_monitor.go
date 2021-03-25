@@ -918,7 +918,7 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 		return
 	}
 	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+	metaDataForBridge, err := models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
 		logger.Warnw("Error marshalling roundState for request meta", "err", err)
 		return
@@ -1055,7 +1055,7 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+	metaDataForBridge, err := models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
 		logger.Warnw("Error marshalling roundState for request meta", "err", err)
 		return
