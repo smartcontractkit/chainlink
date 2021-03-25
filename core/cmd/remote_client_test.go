@@ -1314,6 +1314,7 @@ func TestClient_SetLogLevel(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	require.NoError(t, app.Start())
+	defer app.Stop()
 
 	user := cltest.MustRandomUser()
 	require.NoError(t, app.Store.SaveUser(&user))
@@ -1325,14 +1326,14 @@ func TestClient_SetLogLevel(t *testing.T) {
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
 	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	infoLevel := "warn"
+	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	set.String("level", infoLevel, "")
+	set.String("level", logLevel, "")
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.SetLogLevel(c)
 	assert.NoError(t, err)
-	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
+	assert.Equal(t, logLevel, app.Config.LogLevel().String())
 }
 
 func TestClient_SetLogSql(t *testing.T) {
@@ -1343,6 +1344,7 @@ func TestClient_SetLogSql(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	require.NoError(t, app.Start())
+	defer app.Stop()
 
 	user := cltest.MustRandomUser()
 	require.NoError(t, app.Store.SaveUser(&user))
