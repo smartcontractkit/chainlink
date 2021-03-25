@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/jpillora/backoff"
-	"gopkg.in/guregu/null.v4"
-
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -95,10 +93,7 @@ func (r *runner) Start() error {
 			for {
 				select {
 				case <-newRunEvents:
-					_, err = r.processRun()
-					if err != nil {
-						logger.Errorf("Error processing incomplete task runs: %v", err)
-					}
+					r.processUnfinishedRuns()
 				case <-r.chStop:
 					return
 				}
@@ -180,17 +175,13 @@ func (r *runner) ResultsForRun(ctx context.Context, runID int64) ([]Result, erro
 // NOTE: This could potentially run on a different machine in the cluster than
 // the one that originally added the job run.
 func (r *runner) processUnfinishedRuns() {
-	_, err := r.processRun()
-	if err != nil {
-		logger.Errorf("Error processing unfinished run: %v", err)
-	}
-}
-
-func (r *runner) processRun() (anyRemaining bool, err error) {
 	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
 	defer cancel()
 
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
+	_, err := r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
+	if err != nil {
+		logger.Errorf("Error processing unfinished run: %v", err)
+	}
 }
 
 type (
@@ -259,21 +250,12 @@ func (r *runner) ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (Ta
 // Generate a errored run from the spec.
 func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
 	var panickedTrrs []TaskRunResult
-	var finalVals []interface{}
-	var finalErrs FinalErrors
-	tasks, err := spec.TasksInDependencyOrderWithResultTask()
+	tasks, err := spec.TasksInDependencyOrder()
 	if err != nil {
 		return nil, err
 	}
 	f := time.Now()
 	for _, task := range tasks {
-		if task.Type() == TaskTypeResult {
-			continue
-		}
-		if task.OutputTask() != nil && task.OutputTask().Type() == TaskTypeResult {
-			finalVals = append(finalVals, nil)
-			finalErrs = append(finalErrs, null.StringFrom(ErrRunPanicked.Error()))
-		}
 		panickedTrrs = append(panickedTrrs, TaskRunResult{
 			Task: task,
 			TaskRun: TaskRun{
@@ -284,20 +266,9 @@ func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
 			},
 			Result:     Result{Value: nil, Error: ErrRunPanicked},
 			FinishedAt: time.Now(),
-			IsTerminal: false,
+			IsTerminal: task.OutputTask() == nil,
 		})
 	}
-	panickedTrrs = append(panickedTrrs, TaskRunResult{
-		TaskRun: TaskRun{
-			CreatedAt:  f,
-			FinishedAt: &f,
-			Index:      0,
-			DotID:      ResultTaskDotID,
-		},
-		Result:     Result{Value: finalVals, Error: finalErrs},
-		FinishedAt: f,
-		IsTerminal: true,
-	})
 	return panickedTrrs, nil
 }
 
@@ -316,7 +287,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	}
 
 	// Find "firsts" and work forwards
-	tasks, err := d.TasksInDependencyOrderWithResultTask()
+	tasks, err := d.TasksInDependencyOrder()
 	if err != nil {
 		return nil, false, err
 	}
@@ -470,18 +441,14 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, taskR
 	}
 
 	result := task.Run(ctx, taskRun, inputs)
-	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
-		f := append(loggerFields, "error", result.Error)
-		l.Warnw("Pipeline task run errored", f...)
-	} else {
-		f := append(loggerFields, "result", result.Value)
-		switch v := result.Value.(type) {
-		case []byte:
-			f = append(f, "resultString", fmt.Sprintf("%q", v))
-			f = append(f, "resultHex", fmt.Sprintf("%x", v))
-		}
-		l.Debugw("Pipeline task completed", f...)
+	loggerFields = append(loggerFields, "result value", result.Value)
+	loggerFields = append(loggerFields, "result error", result.Error)
+	switch v := result.Value.(type) {
+	case []byte:
+		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
+		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
 	}
+	l.Debugw("Pipeline task completed", loggerFields...)
 
 	return result
 }
