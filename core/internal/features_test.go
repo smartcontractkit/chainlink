@@ -1622,9 +1622,6 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	require.NoError(t, err)
 	job := cltest.CreateJobViaWeb(t, app, output)
 
-	// XXX: Create a second one to test the association handling is done right via gorm
-	cltest.CreateJobViaWeb(t, app, output)
-
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
 	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
