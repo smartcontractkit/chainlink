@@ -828,7 +828,7 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
 		Outputs:    pipeline.JSONSerializable{Null: true},
-		Errors:     pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.RunErrors{},
 		FinishedAt: nil,
 	}
 	require.NoError(t, db.Create(&run).Error)

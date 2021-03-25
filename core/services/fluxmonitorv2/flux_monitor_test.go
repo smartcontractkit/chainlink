@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +31,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 const oracleCount uint8 = 17
@@ -318,9 +319,8 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					now := time.Now()
 					run.FinishedAt = &now
 				case pipeline.RunStatusErrored:
-					run.Errors = pipeline.JSONSerializable{
-						Val:  pipeline.FinalErrors{null.StringFrom("Random: String, foo")},
-						Null: false,
+					run.Errors = []null.String{
+						null.StringFrom("Random: String, foo"),
 					}
 				default:
 				}

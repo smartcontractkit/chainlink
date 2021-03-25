@@ -39,16 +39,6 @@ func (t *HTTPTask) HelperSetConfig(config Config) {
 	t.config = config
 }
 
-func (t ResultTask) ExportedEquals(otherTask Task) bool {
-	other, ok := otherTask.(*ResultTask)
-	if !ok {
-		return false
-	} else if t.Index != other.Index {
-		return false
-	}
-	return true
-}
-
 func (t MultiplyTask) ExportedEquals(otherTask Task) bool {
 	other, ok := otherTask.(*MultiplyTask)
 	if !ok {
