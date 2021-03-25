@@ -180,7 +180,15 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
-		err = tx.Create(jobSpec).Error
+		if jobSpec.DirectRequestSpec != nil {
+			err := tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "error creating direct request spec")
+			}
+			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
+		}
+
+		err = tx.Omit("DirectRequestSpec").Create(jobSpec).Error
 		pqErr, ok := err.(*pgconn.PgError)
 		if err != nil && ok && pqErr.Code == "23503" {
 			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {

@@ -145,8 +145,7 @@ func (OffchainReportingOracleSpec) TableName() string {
 
 type DirectRequestSpec struct {
 	IDEmbed
-	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
-	// OnChainJobSpecID is the sha256 of the TOML that created this job spec
+	ContractAddress  models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
 	OnChainJobSpecID gethCommon.Hash
 	CreatedAt        time.Time `json:"createdAt" toml:"-"`
 	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
