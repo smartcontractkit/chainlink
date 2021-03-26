@@ -1309,21 +1309,8 @@ func TestClient_AutoLogin(t *testing.T) {
 func TestClient_SetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	user := cltest.MustRandomUser()
-	require.NoError(t, app.Store.SaveUser(&user))
-	sr := models.SessionRequest{
-		Email:    user.Email,
-		Password: cltest.Password,
-	}
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
 	infoLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
