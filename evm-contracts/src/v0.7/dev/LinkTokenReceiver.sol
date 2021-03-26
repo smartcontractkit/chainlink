@@ -50,7 +50,9 @@ abstract contract LinkTokenReceiver {
    * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
    * @param data The data payload of the request
    */
-  modifier permittedFunctionsForLINK(bytes memory data) {
+  modifier permittedFunctionsForLINK(
+    bytes memory data
+  ) {
     bytes4 funcSelector;
     assembly {
       // solhint-disable-next-line avoid-low-level-calls
@@ -64,7 +66,9 @@ abstract contract LinkTokenReceiver {
    * @dev Reverts if the given payload is less than needed to create a request
    * @param data The request payload
    */
-  modifier validRequestLength(bytes memory data) {
+  modifier validRequestLength(
+    bytes memory data
+  ) {
     require(data.length >= MINIMUM_REQUEST_LENGTH, "Invalid request length");
     _;
   }

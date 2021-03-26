@@ -1,12 +1,12 @@
 package pipeline_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestRunStatus(t *testing.T) {
@@ -25,6 +25,46 @@ func TestRunStatus(t *testing.T) {
 
 func TestRun_Status(t *testing.T) {
 	now := time.Now()
+	var success = pipeline.TaskRunResults{
+		{
+			Task: &pipeline.HTTPTask{},
+			Result: pipeline.Result{
+				Value: 10,
+				Error: nil,
+			},
+			FinishedAt: time.Now(),
+			IsTerminal: true,
+		},
+		{
+			Task: &pipeline.HTTPTask{},
+			Result: pipeline.Result{
+				Value: 10,
+				Error: nil,
+			},
+			FinishedAt: time.Now(),
+			IsTerminal: true,
+		},
+	}
+	var fail = pipeline.TaskRunResults{
+		{
+			Task: &pipeline.HTTPTask{},
+			Result: pipeline.Result{
+				Value: nil,
+				Error: errors.New("fail"),
+			},
+			FinishedAt: time.Now(),
+			IsTerminal: true,
+		},
+		{
+			Task: &pipeline.HTTPTask{},
+			Result: pipeline.Result{
+				Value: nil,
+				Error: errors.New("fail"),
+			},
+			FinishedAt: time.Now(),
+			IsTerminal: true,
+		},
+	}
 
 	testCases := []struct {
 		name string
@@ -34,7 +74,8 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "In Progress",
 			run: &pipeline.Run{
-				Errors:     pipeline.JSONSerializable{},
+				Errors:     pipeline.RunErrors{},
+				Outputs:    pipeline.JSONSerializable{},
 				FinishedAt: nil,
 			},
 			want: pipeline.RunStatusInProgress,
@@ -42,7 +83,8 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "Completed",
 			run: &pipeline.Run{
-				Errors:     pipeline.JSONSerializable{},
+				Errors:     success.FinalResult().ErrorsDB(),
+				Outputs:    success.FinalResult().OutputsDB(),
 				FinishedAt: &now,
 			},
 			want: pipeline.RunStatusCompleted,
@@ -50,10 +92,8 @@ func TestRun_Status(t *testing.T) {
 		{
 			name: "Error",
 			run: &pipeline.Run{
-				Errors: pipeline.JSONSerializable{
-					Val:  pipeline.FinalErrors{null.StringFrom("Random: String, foo")},
-					Null: false,
-				},
+				Outputs:    fail.FinalResult().OutputsDB(),
+				Errors:     fail.FinalResult().ErrorsDB(),
 				FinishedAt: nil,
 			},
 			want: pipeline.RunStatusErrored,

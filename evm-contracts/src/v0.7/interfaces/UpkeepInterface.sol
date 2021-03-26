@@ -13,6 +13,5 @@ interface UpkeepInterface {
 
   function performUpkeep(
     bytes calldata data
-  )
-    external;
+  ) external;
 }
