@@ -1,3 +1,4 @@
+import React, { useEffect } from 'react'
 import { PaddedCard } from 'components/PaddedCard'
 import { KeyValueList } from 'components/KeyValueList'
 import Grid from '@material-ui/core/Grid'
@@ -5,26 +6,30 @@ import Typography from '@material-ui/core/Typography'
 import { fetchConfiguration } from 'actionCreators'
 import Content from 'components/Content'
 import DeleteJobRuns from 'pages/Configuration/DeleteJobRuns'
-import PropTypes from 'prop-types'
-import React, { useEffect } from 'react'
-import { connect } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import configurationSelector from 'selectors/configuration'
 import extractBuildInfo from 'utils/extractBuildInfo'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
+import { LoggingCard } from './LoggingCard'
 
 const buildInfo = extractBuildInfo()
 
-export const Configuration = ({ fetchConfiguration, data }) => {
+export const Configuration = () => {
+  const dispatch = useDispatch()
+  const config = useSelector(configurationSelector)
+
   useEffect(() => {
     document.title = 'Configuration'
-    fetchConfiguration()
-  }, [fetchConfiguration])
+  })
+
+  useEffect(() => {
+    dispatch(fetchConfiguration())
+  }, [dispatch])
 
   return (
     <Content>
       <Grid container>
         <Grid item sm={12} md={8}>
-          <KeyValueList title="Configuration" entries={data} showHead />
+          <KeyValueList title="Configuration" entries={config} showHead />
         </Grid>
         <Grid item sm={12} md={4}>
           <Grid container>
@@ -51,6 +56,9 @@ export const Configuration = ({ fetchConfiguration, data }) => {
             <Grid item xs={12}>
               <DeleteJobRuns />
             </Grid>
+            <Grid item xs={12}>
+              <LoggingCard />
+            </Grid>
           </Grid>
         </Grid>
       </Grid>
@@ -58,18 +66,4 @@ export const Configuration = ({ fetchConfiguration, data }) => {
   )
 }
 
-Configuration.propTypes = {
-  data: PropTypes.array.isRequired,
-}
-
-const mapStateToProps = (state) => {
-  const data = configurationSelector(state)
-  return { data }
-}
-
-export const ConnectedConfiguration = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({ fetchConfiguration }),
-)(Configuration)
-
-export default ConnectedConfiguration
+export default Configuration
