@@ -112,7 +112,7 @@ func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, *offch
 	app, cleanup := cltest.NewApplication(t,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 	client := app.NewHTTPClient()
 
 	OCRKeyStore := app.GetStore().OCRKeyStore

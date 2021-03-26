@@ -1309,30 +1309,17 @@ func TestClient_AutoLogin(t *testing.T) {
 func TestClient_SetLogConfig(t *testing.T) {
 	t.Parallel()
 
-	config, cleanup := cltest.NewConfig(t)
-	defer cleanup()
-	app, cleanup := cltest.NewApplicationWithConfig(t, config)
-	defer cleanup()
-	require.NoError(t, app.Start())
-
-	user := cltest.MustRandomUser()
-	require.NoError(t, app.Store.SaveUser(&user))
-	sr := models.SessionRequest{
-		Email:    user.Email,
-		Password: cltest.Password,
-	}
+	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
-	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
 
-	infoLevel := "warn"
+	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	set.String("level", infoLevel, "")
+	set.String("level", logLevel, "")
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.SetLogLevel(c)
-	assert.NoError(t, err)
-	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
+	require.NoError(t, err)
+	assert.Equal(t, logLevel, app.Config.LogLevel().String())
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)

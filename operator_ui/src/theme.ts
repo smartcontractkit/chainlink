@@ -114,6 +114,11 @@ const mainTheme: ThemeOptions = {
         fontSize: '1rem',
       },
     },
+    MuiCardHeader: {
+      title: {
+        marginBottom: spacing.unit,
+      },
+    },
   },
   typography: {
     useNextVariants: true,
