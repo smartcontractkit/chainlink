@@ -511,7 +511,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    1,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}{"latestAnswer": nil, "updatedAt": nil}}, defaultLogger).
 		Return(int64(1), pipeline.FinalResult{
 			Values: []interface{}{decimal.NewFromInt(fetchedValue)},
 			Errors: []error{nil},
@@ -537,7 +537,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}{"latestAnswer": nil, "updatedAt": nil}}, defaultLogger).
 		Return(int64(2), pipeline.FinalResult{
 			Values: []interface{}{decimal.NewFromInt(fetchedValue)},
 			Errors: []error{nil},
@@ -563,7 +563,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			RoundID:    3,
 		}, nil)
 	tm.pipelineRunner.
-		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+		On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, pipeline.JSONSerializable{Val: map[string]interface{}{"latestAnswer": nil, "updatedAt": nil}}, defaultLogger).
 		Return(int64(3), pipeline.FinalResult{
 			Values: []interface{}{decimal.NewFromInt(fetchedValue)},
 			Errors: []error{nil},
