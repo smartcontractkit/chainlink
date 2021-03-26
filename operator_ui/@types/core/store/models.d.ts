@@ -539,6 +539,18 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
   }
+
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+
+  export interface LogConfig {
+     level: LogConfigLevel
+     sqlEnabled: boolean
+  }  
+
+  export interface LogConfigRequest {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }  
 }
 
 export interface PipelineTaskRun {
@@ -549,3 +561,4 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
+

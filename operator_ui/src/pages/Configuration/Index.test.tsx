@@ -1,17 +1,10 @@
-/* eslint-env jest */
-import { ConnectedConfiguration as Configuration } from 'pages/Configuration/Index'
-import configurationFactory from 'factories/configuration'
 import React from 'react'
-import mountWithinStoreAndRouter from 'test-helpers/mountWithinStoreAndRouter'
+import { Route } from 'react-router-dom'
+import { mountWithProviders } from 'test-helpers/mountWithTheme'
 import syncFetch from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
-
-const classes = {}
-const mount = (props) => {
-  return mountWithinStoreAndRouter(
-    <Configuration classes={classes} {...props} />,
-  )
-}
+import Configuration from 'pages/Configuration/Index'
+import configurationFactory from 'factories/configuration'
 
 describe('pages/Configuration', () => {
   it('renders the list of configuration options', async () => {
@@ -23,9 +16,14 @@ describe('pages/Configuration', () => {
     })
     global.fetch.getOnce(globPath('/v2/config'), configurationResponse)
 
-    const wrapper = mount()
-
+    const wrapper = mountWithProviders(
+      <Route path="/config" component={Configuration} />,
+      {
+        initialEntries: [`/config`],
+      },
+    )
     await syncFetch(wrapper)
+
     expect(wrapper.text()).toContain('BAND')
     expect(wrapper.text()).toContain('Major Lazer')
     expect(wrapper.text()).toContain('SINGER')

@@ -249,6 +249,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 			// didn't actually broadcast the transaction, but including it
 			// allows us to avoid changing the state machine limitations and
 			// represents roughly the time we read the tx from the blockchain
+			// so we can pretty much assume it was "broadcast" at this time.
 			ins.Etx.BroadcastAt = &now
 			if err := dbtx.Create(&ins.Etx).Error; err != nil {
 				return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to create eth_tx")
