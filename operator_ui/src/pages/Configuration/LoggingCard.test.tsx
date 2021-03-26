@@ -4,7 +4,7 @@ import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
 import { logConfigFactory } from 'factories/jsonApiLogConfig'
 import { LoggingCard } from './LoggingCard'
-// import { Checkbox } from '@material-ui/core'
+import { act } from 'react-dom/test-utils'
 
 describe('pages/Configuration/LoggingCard', () => {
   it('renders the logging configuration card', async () => {
@@ -38,13 +38,21 @@ describe('pages/Configuration/LoggingCard', () => {
     const wrapper = mountWithProviders(<LoggingCard />)
     await syncFetch(wrapper)
 
-    // Cannot figure out how to change the select and checkbox inputs for submit
+    act(() => {
+      const selectInput = wrapper.find('#select-level').first()
+      const selectOnChange = selectInput.prop('onChange')
+      if (selectOnChange) {
+        selectOnChange({
+          target: { name: 'level', value: 'debug' },
+        } as any)
+      }
+    })
 
     wrapper.find('form').simulate('submit')
     await syncFetch(wrapper)
 
     expect(submit.lastCall()[1].body).toEqual(
-      '{"level":"info","sqlEnabled":false}',
+      '{"level":"debug","sqlEnabled":false}',
     )
   })
 })
