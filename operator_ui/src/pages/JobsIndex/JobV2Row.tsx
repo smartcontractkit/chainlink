@@ -13,17 +13,18 @@ interface Props extends WithStyles<typeof tableStyles> {
 export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
   const createdAt = React.useMemo(() => {
     switch (job.attributes.type) {
+      case 'directrequest':
+        return job.attributes.directRequestSpec.createdAt
       case 'fluxmonitor':
         return job.attributes.fluxMonitorSpec.createdAt
       case 'offchainreporting':
         return job.attributes.offChainReportingOracleSpec.createdAt
-      case 'directrequest':
-        return job.attributes.directRequestSpec.createdAt
     }
   }, [job])
 
   const type = React.useMemo(() => {
     switch (job.attributes.type) {
+      case 'directrequest':
       case 'fluxmonitor':
         return 'Direct Request'
       case 'offchainreporting':
@@ -35,6 +36,8 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
 
   const initiator = React.useMemo(() => {
     switch (job.attributes.type) {
+      // TODO - Need to get the API to return the 'initiator' type to implement
+      // this
       case 'fluxmonitor':
         return 'fluxmonitor'
       case 'offchainreporting':

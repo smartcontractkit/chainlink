@@ -1,6 +1,7 @@
 import { partialAsFull } from 'support/test-helpers/partialAsFull'
 import {
   JobSpecV2,
+  DirectRequestJobV2Spec,
   FluxMonitorJobV2Spec,
   OffChainReportingOracleJobV2Spec,
 } from 'core/store/models'
@@ -78,6 +79,41 @@ export function fluxMonitorJobV2(
     directRequestSpec: null,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource:
+        typeof config.dotDagSource === 'string'
+          ? config.dotDagSource
+          : '   fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -\u003e parse -\u003e multiply;\n',
+    },
+  }
+}
+
+export function directRequestJobV2(
+  spec: Partial<DirectRequestJobV2Spec['directRequestSpec']> = {},
+  config: Partial<
+    {
+      name?: string
+      id?: string
+      maxTaskDuration?: string
+    } & {
+      dotDagSource?: string
+    }
+  > = {},
+): JobSpecV2 {
+  const directRequestSpec = partialAsFull<
+    DirectRequestJobV2Spec['directRequestSpec']
+  >({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Direct Request V2 job',
+    type: 'directrequest',
+    schemaVersion: 1,
+    directRequestSpec: directRequestSpec,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
