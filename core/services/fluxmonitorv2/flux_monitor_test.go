@@ -47,7 +47,7 @@ var (
 		}
 	}
 	freshContractRoundDataResponse = func() (flux_aggregator_wrapper.LatestRoundData, error) {
-		return flux_aggregator_wrapper.LatestRoundData{}, errors.New("unstarted")
+		return flux_aggregator_wrapper.LatestRoundData{}, errors.New("No data present")
 	}
 
 	jobID             = int32(1)
@@ -484,7 +484,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 
 	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
 
-	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
+	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Maybe()
 	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(1)).
 		Return(makeRoundStateForRoundID(1), nil).
 		Run(func(mock.Arguments) {
