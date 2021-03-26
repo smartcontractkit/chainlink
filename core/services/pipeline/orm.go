@@ -412,18 +412,12 @@ func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
 
 func (o *orm) CancelRunByRequestID(jobID int32, requestID [32]byte) error {
 	return o.db.Exec(`
-DELETE FROM pipeline_runs
-WHERE id IN (
-	SELECT pipeline_runs.id
-	FROM pipeline_runs
-	INNER JOIN pipeline_task_runs
-	ON pipeline_task_runs.pipeline_run_id = pipeline_runs.id
-	WHERE pipeline_spec_id = ?
-		AND pipeline_runs.meta->'oracleRequest'->>'requestId' = ?
-		AND pipeline_task_runs.finished_at IS NULL
-	FOR UPDATE OF pipeline_task_runs
-	SKIP LOCKED
-)`, jobID, fmt.Sprintf("0x%x", requestID)).Error
+DELETE
+FROM pipeline_runs
+WHERE pipeline_spec_id = ?
+	AND meta->'oracleRequest'->>'requestId' = ?
+	AND finished_at IS NULL
+`, jobID, fmt.Sprintf("0x%x", requestID)).Error
 }
 
 func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
@@ -53,12 +54,13 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	}
 
 	logListener := listener{
-		logBroadcaster: d.logBroadcaster,
-		oracle:         oracle,
-		pipelineRunner: d.pipelineRunner,
-		db:             d.db,
-		pipelineORM:    d.pipelineORM,
-		jobID:          spec.ID,
+		logBroadcaster:   d.logBroadcaster,
+		oracle:           oracle,
+		pipelineRunner:   d.pipelineRunner,
+		db:               d.db,
+		pipelineORM:      d.pipelineORM,
+		jobID:            spec.ID,
+		onChainJobSpecID: spec.DirectRequestSpec.OnChainJobSpecID,
 	}
 	services = append(services, logListener)
 
@@ -71,13 +73,14 @@ var (
 )
 
 type listener struct {
-	logBroadcaster  log.Broadcaster
-	unsubscribeLogs func()
-	oracle          oracle_wrapper.OracleInterface
-	pipelineRunner  pipeline.Runner
-	db              *gorm.DB
-	pipelineORM     pipeline.ORM
-	jobID           int32
+	logBroadcaster   log.Broadcaster
+	unsubscribeLogs  func()
+	oracle           oracle_wrapper.OracleInterface
+	pipelineRunner   pipeline.Runner
+	db               *gorm.DB
+	pipelineORM      pipeline.ORM
+	jobID            int32
+	onChainJobSpecID common.Hash
 }
 
 // Start complies with job.Service
@@ -120,13 +123,19 @@ func (l listener) HandleLog(lb log.Broadcast) {
 		return
 	}
 
+	logJobSpecID := lb.RawLog().Topics[1]
+	if logJobSpecID.String() == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
+		logJobSpecID != l.onChainJobSpecID {
+		logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.onChainJobSpecID)
+		return
+	}
+
 	log := lb.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
 		logger.Error("HandleLog: ignoring nil value")
 		return
 	}
 
-	// TODO: Need to filter each job to the _jobId - can we filter upstream?
 	switch log := log.(type) {
 	case *oracle_wrapper.OracleOracleRequest:
 		l.handleOracleRequest(log)
