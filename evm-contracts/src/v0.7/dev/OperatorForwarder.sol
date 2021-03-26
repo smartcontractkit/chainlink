@@ -11,7 +11,9 @@ contract OperatorForwarder {
 
   address public immutable linkAddr;
 
-  constructor(address link) {
+  constructor(
+    address link
+  ) {
     linkAddr = link;
     authorizedSender1 = ConfirmedOwner(msg.sender).owner();
     address[] memory authorizedSenders = OperatorInterface(msg.sender).getAuthorizedSenders();

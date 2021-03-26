@@ -212,7 +212,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	pr := pipeline.Run{
 		PipelineSpecID: ps.ID,
 		Meta:           pipeline.JSONSerializable{},
-		Errors:         pipeline.JSONSerializable{Null: true},
+		Errors:         pipeline.RunErrors{},
 		Outputs:        pipeline.JSONSerializable{Null: true},
 	}
 	require.NoError(t, orm.DB.Create(&pr).Error)
@@ -231,7 +231,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 		PipelineTaskSpecID int32 `json:"-"`
 	}
 	tr1 := PipelineTaskRun{
-		Type:               pipeline.TaskTypeResult,
+		Type:               pipeline.TaskTypeAny,
 		PipelineRunID:      pr.ID,
 		PipelineTaskSpecID: result.ID,
 		Output:             &pipeline.JSONSerializable{Null: true},

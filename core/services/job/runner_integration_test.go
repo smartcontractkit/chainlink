@@ -114,7 +114,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		assert.Len(t, runs, 9)
+		assert.Len(t, runs, 8)
 
 		for _, run := range runs {
 			if run.GetDotID() == "answer2" {
@@ -133,8 +133,6 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, "6257", run.Output.Val)
 			} else if run.GetDotID() == "answer1" {
 				assert.Equal(t, "6225.6", run.Output.Val)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -218,7 +216,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -232,9 +230,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -278,7 +273,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -290,9 +285,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -336,7 +328,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -348,9 +340,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}

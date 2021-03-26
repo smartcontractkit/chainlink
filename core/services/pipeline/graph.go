@@ -92,28 +92,6 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 	return tasks, nil
 }
 
-func (g TaskDAG) TasksInDependencyOrderWithResultTask() ([]Task, error) {
-	tasks, err := g.TasksInDependencyOrder()
-	if err != nil {
-		return nil, err
-	}
-	// Create the final result task that collects the answers from the pipeline's
-	// outputs.  This is a Postgres-related performance optimization.
-	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
-	resultPreds := 0
-	for _, task := range tasks {
-		if task.DotID() == ResultTaskDotID {
-			return nil, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
-		}
-		if task.OutputTask() == nil {
-			task.SetOutputTask(&resultTask)
-			resultPreds++
-		}
-	}
-	resultTask.nPreds = resultPreds
-	return append([]Task{&resultTask}, tasks...), nil
-}
-
 func (g TaskDAG) MinTimeout() (time.Duration, bool, error) {
 	var minTimeout time.Duration = 1<<63 - 1
 	var aTimeoutSet bool

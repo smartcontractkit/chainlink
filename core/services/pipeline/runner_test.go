@@ -23,8 +23,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TODO: Add a test for multiple terminal tasks after __result__ is deprecated
-// https://www.pivotaltracker.com/story/show/176557536
 func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -89,37 +87,17 @@ ds5 [type=http method="GET" url="%s" index=2]
 	}
 	trrs, err := r.ExecuteRun(context.Background(), spec, *logger.Default)
 	require.NoError(t, err)
-	require.Len(t, trrs, len(ts)+1) // +1 for the result task
+	require.Len(t, trrs, len(ts))
 
-	var finalResults []pipeline.Result
-	for _, trr := range trrs {
-		if trr.IsTerminal {
-			finalResults = append(finalResults, trr.Result)
-		}
-	}
-
-	require.Len(t, finalResults, 1)
-	result := finalResults[0]
-
-	require.Len(t, result.Value, 3)
-	finalValues := result.Value.([]interface{})
-
-	{
-		// Median
-		finalValue := finalValues[0].(decimal.Decimal)
-		require.Equal(t, "9650000000000000000000", finalValue.String())
-
-	}
-
-	{
-		// Strings 1 and 2
-		require.Equal(t, "foo-index-1", finalValues[1].(string))
-		require.Equal(t, "bar-index-2", finalValues[2].(string))
-	}
-
-	require.Len(t, result.Error, 3)
-	finalError := result.Error.(pipeline.FinalErrors)
-	require.False(t, finalError.HasErrors())
+	finalResults := trrs.FinalResult()
+	require.Len(t, finalResults.Values, 3)
+	require.Len(t, finalResults.Errors, 3)
+	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
+	assert.Nil(t, finalResults.Errors[0])
+	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
+	assert.Nil(t, finalResults.Errors[1])
+	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
+	assert.Nil(t, finalResults.Errors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -175,7 +153,7 @@ answer1 [type=median                      index=0];
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {
-			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.([]interface{})[0].(decimal.Decimal))
+			require.Equal(t, decimal.RequireFromString("1100"), trr.Result.Value.(decimal.Decimal))
 		}
 	}
 }
@@ -199,13 +177,10 @@ ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
 	}, *logger.Default)
 	require.NoError(t, err)
-	require.Equal(t, 5, len(trrs))
+	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
 	assert.Equal(t, pipeline.ErrRunPanicked.Error(), trrs.FinalResult().Errors[0].Error())
 	for _, trr := range trrs {
-		if trr.IsTerminal {
-			continue
-		}
 		assert.Equal(t, null.NewString("pipeline run panicked", true), trr.Result.ErrorDB())
 		assert.Equal(t, true, trr.Result.OutputDB().Null)
 	}

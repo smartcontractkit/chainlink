@@ -9,8 +9,30 @@ interface OracleInterface {
     bytes4 callbackFunctionId,
     uint256 expiration,
     bytes32 data
-  ) external returns (bool);
-  function isAuthorizedSender(address node) external view returns (bool);
-  function withdraw(address recipient, uint256 amount) external;
-  function withdrawable() external view returns (uint256);
+  )
+    external
+    returns (
+      bool
+    );
+
+  function isAuthorizedSender(
+    address node
+  )
+    external
+    view
+    returns (
+      bool
+    );
+
+  function withdraw(
+    address recipient,
+    uint256 amount
+  ) external;
+
+  function withdrawable()
+    external
+    view
+    returns (
+      uint256
+    );
 }

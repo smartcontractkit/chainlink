@@ -81,7 +81,7 @@ const HeadCol = ({ children }: HeadColProps) => (
 
 interface KeyValueListProps {
   entries: Array<Array<any>>
-  titleize: boolean
+  titleize?: boolean
   showHead: boolean
   title?: string
   error?: string
