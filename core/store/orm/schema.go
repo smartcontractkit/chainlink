@@ -57,6 +57,7 @@ type ConfigSchema struct {
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY" default:"1"`
 	EthReceiptFetchBatchSize                  uint32          `env:"ETH_RECEIPT_FETCH_BATCH_SIZE" default:"100"`
+	EthTxResendAfterThreshold                 time.Duration   `env:"ETH_TX_RESEND_AFTER_THRESHOLD" default:"30s"`
 	EthereumURL                               string          `env:"ETH_URL" default:"ws://localhost:8546"`
 	EthereumSecondaryURL                      string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`

@@ -514,11 +514,17 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
-	timeNow := time.Now()
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	broadcastAt := time.Now()
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case time.Time:
+			broadcastAt = v
+		}
+	}
 	etx := NewEthTx(t, store, fromAddress)
 
-	etx.BroadcastAt = &timeNow
+	etx.BroadcastAt = &broadcastAt
 	n := nonce
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
@@ -828,7 +834,7 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
 		Outputs:    pipeline.JSONSerializable{Null: true},
-		Errors:     pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.RunErrors{},
 		FinishedAt: nil,
 	}
 	require.NoError(t, db.Create(&run).Error)

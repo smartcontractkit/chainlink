@@ -50,7 +50,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	listener.On("OnConnect").Return()
 	listener.On("OnDisconnect").Return()
 
-	sub.On("Unsubscribe").Return()
+	sub.On("Unsubscribe").Maybe().Return()
 	sub.On("Err").Return(nil)
 
 	chSubscribe := make(chan struct{}, 10)
