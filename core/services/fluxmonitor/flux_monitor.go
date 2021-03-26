@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -912,16 +911,16 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	l.Infow("Responding to new round request")
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
 	lrd, err := p.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		l.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
@@ -1049,16 +1048,16 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
 	lrd, err := p.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		l.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
