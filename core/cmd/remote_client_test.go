@@ -1312,14 +1312,14 @@ func TestClient_SetLogConfig(t *testing.T) {
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
 
-	infoLevel := "warn"
+	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
-	set.String("level", infoLevel, "")
+	set.String("level", logLevel, "")
 	c := cli.NewContext(nil, set, nil)
 
 	err := client.SetLogLevel(c)
-	assert.NoError(t, err)
-	assert.Equal(t, infoLevel, app.Config.LogLevel().String())
+	require.NoError(t, err)
+	assert.Equal(t, logLevel, app.Config.LogLevel().String())
 
 	sqlEnabled := true
 	set = flag.NewFlagSet("logsql", 0)
