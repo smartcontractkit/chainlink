@@ -479,6 +479,8 @@ declare module 'core/store/models' {
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
     type: 'directrequest'
     directRequestSpec: {
+      initiator: 'runlog'
+      contractAddress: common.Address
       createdAt: time.Time
     }
     fluxMonitorSpec: null
