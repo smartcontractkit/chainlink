@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/gin-gonic/gin"
 )
@@ -34,5 +35,5 @@ func (tc *TransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, etx, "eth_tx")
+	jsonAPIResponse(c, presenters.NewEthTx(etx), "eth_tx")
 }
