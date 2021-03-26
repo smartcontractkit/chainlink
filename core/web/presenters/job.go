@@ -30,6 +30,7 @@ const (
 type DirectRequestSpec struct {
 	ContractAddress  models.EIP55Address `json:"contractAddress"`
 	OnChainJobSpecID string              `json:"onChainJobSpecId"`
+	Initiator        string              `json:"initiator"`
 	CreatedAt        time.Time           `json:"createdAt"`
 	UpdatedAt        time.Time           `json:"updatedAt"`
 }
@@ -40,8 +41,11 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
 		ContractAddress:  spec.ContractAddress,
 		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
-		CreatedAt:        spec.CreatedAt,
-		UpdatedAt:        spec.UpdatedAt,
+		// This is hardcoded to runlog. When we support other intiators, we need
+		// to change this
+		Initiator: "runlog",
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
 	}
 }
 
