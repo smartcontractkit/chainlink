@@ -1447,8 +1447,8 @@ isBootstrapPeer    = true
 	var jids []int32
 	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
 	// We expect metadata of:
-	//	latestAnswer:nil // First call
-	//	latestAnswer:0
+	//  latestAnswer:nil // First call
+	//  latestAnswer:0
 	//  latestAnswer:10
 	//  latestAnswer:20
 	//  latestAnswer:30

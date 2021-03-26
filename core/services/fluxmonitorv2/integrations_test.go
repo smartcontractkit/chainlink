@@ -407,8 +407,8 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	// Create mock server
 	// We expect metadata of:
-	//	latestAnswer:nil updatedAt:nil // First call
-	//	latestAnswer:100 updatedAt:50
+	//  latestAnswer:nil updatedAt:nil // First call
+	//  latestAnswer:100 updatedAt:50
 	//  latestAnswer:103 updatedAt:60
 	type k struct{ latestAnswer, updatedAt string }
 	expectedMeta := map[k]struct{}{
