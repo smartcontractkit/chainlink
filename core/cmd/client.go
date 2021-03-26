@@ -222,28 +222,20 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
-	cookie, err := h.cookieAuth.Cookie()
+
+	var cookie *http.Cookie
+	if h.sessionRequest.Email != "" || h.sessionRequest.Password != "" {
+		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
+	} else {
+		cookie, err = h.cookieAuth.Cookie()
+	}
 	if err != nil {
 		return nil, err
-	} else if cookie != nil {
-		request.AddCookie(cookie)
 	}
-
+	request.AddCookie(cookie)
 	response, err := h.client.Do(request)
 	if err != nil {
 		return response, err
-	}
-	if response.StatusCode == http.StatusUnauthorized && (h.sessionRequest.Email != "" || h.sessionRequest.Password != "") {
-		var cookieerr error
-		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
-		if cookieerr != nil {
-			return response, err
-		}
-		request.AddCookie(cookie)
-		response, err = h.client.Do(request)
-		if err != nil {
-			return response, err
-		}
 	}
 	return response, nil
 }

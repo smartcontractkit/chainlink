@@ -418,7 +418,7 @@ func (ht *HeadTracker) subscribe() bool {
 			err := ht.subscribeToHead()
 			if err != nil {
 				promEthConnectionErrors.Inc()
-				ht.logger.Warnw(fmt.Sprintf("HeadTracker: Failed to connect to ethereum node %v", ht.store.Config.EthereumURL()), "err", err)
+				// ht.logger.Warnw(fmt.Sprintf("HeadTracker: Failed to connect to ethereum node %v", ht.store.Config.EthereumURL()), "err", err)
 			} else {
 				ht.logger.Info("HeadTracker: Connected to ethereum node ", ht.store.Config.EthereumURL())
 				return true
