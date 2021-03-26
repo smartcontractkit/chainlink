@@ -36,10 +36,10 @@ export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
 
   const initiator = React.useMemo(() => {
     switch (job.attributes.type) {
-      // TODO - Need to get the API to return the 'initiator' type to implement
-      // this
       case 'fluxmonitor':
         return 'fluxmonitor'
+      case 'directrequest':
+        return job.attributes.directRequestSpec.initiator
       case 'offchainreporting':
         return 'N/A'
       default:

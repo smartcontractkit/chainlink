@@ -111,7 +111,7 @@ export function directRequestJobV2(
     name: config.name || 'Direct Request V2 job',
     type: 'directrequest',
     schemaVersion: 1,
-    directRequestSpec: directRequestSpec,
+    directRequestSpec,
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     errors: [],
