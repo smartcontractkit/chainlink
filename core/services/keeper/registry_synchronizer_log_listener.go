@@ -28,9 +28,16 @@ func (rs *RegistrySynchronizer) IsV2Job() bool {
 func (rs *RegistrySynchronizer) HandleLog(broadcast log.Broadcast) {
 	log := broadcast.DecodedLog()
 	if log == nil || reflect.ValueOf(log).IsNil() {
-		logger.Error("HandleLog: ignoring nil value")
+		logger.Errorf("RegistrySynchronizer: HandleLog: ignoring nil value, type: %T", broadcast)
 		return
 	}
+
+	logger.Debugw(
+		"RegistrySynchronizer: received log, waiting for confirmations",
+		"jobID", rs.job.ID,
+		"logType", reflect.TypeOf(log),
+		"txHash", broadcast.RawLog().TxHash.Hex(),
+	)
 
 	switch log := log.(type) {
 	case *keeper_registry_wrapper.KeeperRegistryKeepersUpdated:
