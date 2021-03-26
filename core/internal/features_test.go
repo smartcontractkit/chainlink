@@ -89,6 +89,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 	config.Set("ADMIN_CREDENTIALS_FILE", "")
+	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
 
 	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
