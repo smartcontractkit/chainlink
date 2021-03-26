@@ -1061,7 +1061,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+			On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 			Return(int64(1), pipeline.FinalResult{
 				Values: []interface{}{decimal.NewFromInt(answer)},
 				Errors: []error{nil},
@@ -1079,6 +1079,10 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.SetOracleAddress()
 		fm.OnConnect()
 
+		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
+			Answer:    big.NewInt(10),
+			UpdatedAt: big.NewInt(100),
+		}, nil)
 		// Fire off the NewRound log, which the node should respond to
 		tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(roundID)).
 			Return(flux_aggregator_wrapper.OracleRoundState{
@@ -1146,6 +1150,10 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		fm.OnConnect()
 
 		// First, force the node to try to poll, which should result in a submission
+		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
+			Answer:    big.NewInt(10),
+			UpdatedAt: big.NewInt(100),
+		}, nil)
 		tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).
 			Return(flux_aggregator_wrapper.OracleRoundState{
 				RoundId:          roundID,
@@ -1163,7 +1171,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				RoundID:    roundID,
 			}, nil).Once()
 		tm.pipelineRunner.
-			On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, defaultLogger).
+			On("ExecuteAndInsertNewRun", context.Background(), pipelineSpec, mock.Anything, defaultLogger).
 			Return(int64(1), pipeline.FinalResult{
 				Values: []interface{}{decimal.NewFromInt(answer)},
 				Errors: []error{nil},
