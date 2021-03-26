@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -16,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -84,6 +86,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
+		log.On("RawLog").Return(models.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
 		log.On("DecodedLog").Return(&logOracleRequest)
 		log.On("MarkConsumed").Return(nil)
 
@@ -99,14 +107,30 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runner.AssertExpectations(t)
 	})
 
-	t.Run("Log is a CancelOracleRequest", func(t *testing.T) {
+	t.Run("Log has wrong jobID", func(t *testing.T) {
+		log := new(log_mocks.Broadcast)
+		defer log.AssertExpectations(t)
 
+		log.On("WasAlreadyConsumed").Return(false, nil)
+		log.On("RawLog").Return(models.Log{
+			Topics: []common.Hash{common.Hash{}, common.Hash{}},
+		})
+
+		err = service.Start()
+		require.NoError(t, err)
+
+		listener.HandleLog(log)
+
+		service.Close()
+		broadcaster.AssertExpectations(t)
+		runner.AssertExpectations(t)
+	})
+
+	t.Run("Log is a CancelOracleRequest", func(t *testing.T) {
 		// Create one run with a matching request ID ...
 		meta := make(map[string]interface{})
-		request := oracle_wrapper.OracleOracleRequest{
-			RequestId: cltest.NewHash(),
-		}
-		meta["oracleRequest"] = map[string]string{"requestId": fmt.Sprintf("0x%x", request.RequestId)}
+		requestID := fmt.Sprintf("0x%x", spec.DirectRequestSpec.OnChainJobSpecID)
+		meta["oracleRequest"] = map[string]string{"requestId": requestID}
 		_, err = orm.CreateRun(context.Background(), spec.ID, meta)
 		require.NoError(t, err)
 		// And one without
@@ -117,9 +141,13 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		defer log.AssertExpectations(t)
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
-		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{
-			RequestId: request.RequestId,
-		}
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: spec.DirectRequestSpec.OnChainJobSpecID}
+		log.On("RawLog").Return(models.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
 		log.On("DecodedLog").Return(&logCancelOracleRequest)
 		log.On("MarkConsumed").Return(nil)
 
@@ -141,11 +169,16 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 func factoryJobSpec(t *testing.T) *job.Job {
 	t.Helper()
+	pipeline := pipeline.NewTaskDAG()
+	onChainJobSpecID, err := pipeline.Digest()
+	require.NoError(t, err)
 	spec := &job.Job{
-		Type:              job.DirectRequest,
-		SchemaVersion:     1,
-		DirectRequestSpec: &job.DirectRequestSpec{},
-		Pipeline:          *pipeline.NewTaskDAG(),
+		Type:          job.DirectRequest,
+		SchemaVersion: 1,
+		DirectRequestSpec: &job.DirectRequestSpec{
+			OnChainJobSpecID: onChainJobSpecID,
+		},
+		Pipeline: *pipeline,
 	}
 	return spec
 }
