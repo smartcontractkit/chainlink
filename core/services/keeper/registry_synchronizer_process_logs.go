@@ -33,6 +33,8 @@ func (rs *RegistrySynchronizer) handleSyncRegistryLog(head models.Head, done fun
 		logger.Errorf("RegistrySynchronizer: invariant violation, expected log.Broadcast but got %T", broadcast)
 		return
 	}
+	txHash := broadcast.RawLog().TxHash.Hex()
+	logger.Debugw("RegistrySynchronizer: processing SyncRegistry log", "jobID", rs.job.ID, "txHash", txHash)
 	was, err := broadcast.WasAlreadyConsumed()
 	if err != nil {
 		logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
@@ -66,6 +68,8 @@ func (rs *RegistrySynchronizer) handleUpkeepCanceledLogs(head models.Head, done 
 			logger.Errorf("RegistrySynchronizer: invariant violation, expected log.Broadcast but got %T", broadcast)
 			continue
 		}
+		txHash := broadcast.RawLog().TxHash.Hex()
+		logger.Debugw("RegistrySynchronizer: processing UpkeepCanceled log", "jobID", rs.job.ID, "txHash", txHash)
 		was, err := broadcast.WasAlreadyConsumed()
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
@@ -114,6 +118,8 @@ func (rs *RegistrySynchronizer) handleUpkeepRegisteredLogs(head models.Head, don
 			logger.Errorf("RegistrySynchronizer: invariant violation, expected log.Broadcast but got %T", broadcast)
 			continue
 		}
+		txHash := broadcast.RawLog().TxHash.Hex()
+		logger.Debugw("RegistrySynchronizer: processing UpkeepRegistered log", "jobID", rs.job.ID, "txHash", txHash)
 		was, err := broadcast.WasAlreadyConsumed()
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
@@ -153,6 +159,8 @@ func (rs *RegistrySynchronizer) handleUpkeepPerformedLogs(head models.Head, done
 			logger.Errorf("RegistrySynchronizer: invariant violation, expected log.Broadcast but got %T", broadcast)
 			continue
 		}
+		txHash := broadcast.RawLog().TxHash.Hex()
+		logger.Debugw("RegistrySynchronizer: processing UpkeepPerformed log", "jobID", rs.job.ID, "txHash", txHash)
 		was, err := broadcast.WasAlreadyConsumed()
 		if err != nil {
 			logger.Warn(errors.Wrapf(err, "RegistrySynchronizer: unable to check if log was consumed, jobID: %d", rs.job.ID))
