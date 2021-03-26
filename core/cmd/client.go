@@ -228,9 +228,9 @@ func (h *authenticatedHTTPClient) doRequest(verb, path string, body io.Reader, h
 		cookie, err = h.cookieAuth.Authenticate(h.sessionRequest)
 	} else {
 		cookie, err = h.cookieAuth.Cookie()
-		if err != nil {
-			return nil, err
-		}
+	}
+	if err != nil {
+		return nil, err
 	}
 	request.AddCookie(cookie)
 	response, err := h.client.Do(request)
