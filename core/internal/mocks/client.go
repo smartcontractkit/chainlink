@@ -389,6 +389,20 @@ func (_m *Client) PendingNonceAt(ctx context.Context, account common.Address) (u
 	return r0, r1
 }
 
+// RoundRobinBatchCallContext provides a mock function with given fields: ctx, b
+func (_m *Client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	ret := _m.Called(ctx, b)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, []rpc.BatchElem) error); ok {
+		r0 = rf(ctx, b)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SendRawTx provides a mock function with given fields: bytes
 func (_m *Client) SendRawTx(bytes []byte) (common.Hash, error) {
 	ret := _m.Called(bytes)
