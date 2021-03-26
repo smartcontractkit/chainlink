@@ -1289,7 +1289,6 @@ func TestClient_AutoLogin(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-
 	user := cltest.MustRandomUser()
 	require.NoError(t, app.Store.SaveUser(&user))
 
@@ -1314,7 +1313,6 @@ func TestClient_SetLogLevel(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	defer app.Stop()
 
 	user := cltest.MustRandomUser()
 	require.NoError(t, app.Store.SaveUser(&user))
@@ -1324,7 +1322,7 @@ func TestClient_SetLogLevel(t *testing.T) {
 	}
 	client, _ := app.NewClientAndRenderer()
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	logLevel := "warn"
 	set := flag.NewFlagSet("loglevel", 0)
@@ -1344,7 +1342,6 @@ func TestClient_SetLogSql(t *testing.T) {
 	app, cleanup := cltest.NewApplicationWithConfig(t, config)
 	defer cleanup()
 	require.NoError(t, app.Start())
-	defer app.Stop()
 
 	user := cltest.MustRandomUser()
 	require.NoError(t, app.Store.SaveUser(&user))
@@ -1354,7 +1351,7 @@ func TestClient_SetLogSql(t *testing.T) {
 	}
 	client, _ := app.NewClientAndRenderer()
 	client.CookieAuthenticator = cmd.NewSessionCookieAuthenticator(app.Config.Config, &cmd.MemoryCookieStore{})
-	client.HTTP = cmd.NewAuthenticatedHTTPClient(config, client.CookieAuthenticator, sr)
+	client.HTTP = cmd.NewAuthenticatedHTTPClient(app.Config, client.CookieAuthenticator, sr)
 
 	sqlEnabled := true
 	set := flag.NewFlagSet("logsql", 0)
