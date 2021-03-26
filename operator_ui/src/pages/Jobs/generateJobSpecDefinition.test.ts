@@ -294,4 +294,41 @@ observationSource = """
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)
   })
+
+  it('generates a valid Direct Request definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'DR Job Spec',
+      schemaVersion: 1,
+      type: 'directrequest',
+      fluxMonitorSpec: null,
+      directRequestSpec: {
+        initiator: 'runlog',
+        contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        createdAt: '2021-02-19T16:00:01.115227+08:00',
+      },
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "directrequest"
+schemaVersion = 1
+name = "DR Job Spec"
+contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+maxTaskDuration = "10s"
+observationSource = """
+    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
+    parse    [type=jsonparse path="data,result"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+"""
+`
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
 })
