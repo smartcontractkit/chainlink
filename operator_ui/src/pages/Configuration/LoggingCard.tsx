@@ -100,7 +100,7 @@ export const LoggingCard = () => {
     }
 
     fetch()
-  }, [])
+  }, [setError])
 
   return (
     <Card>
