@@ -1305,3 +1305,37 @@ func TestClient_AutoLogin(t *testing.T) {
 	err := client.ListJobsV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
+
+func TestClient_SetLogConfig(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	client, _ := app.NewClientAndRenderer()
+
+	logLevel := "warn"
+	set := flag.NewFlagSet("loglevel", 0)
+	set.String("level", logLevel, "")
+	c := cli.NewContext(nil, set, nil)
+
+	err := client.SetLogLevel(c)
+	require.NoError(t, err)
+	assert.Equal(t, logLevel, app.Config.LogLevel().String())
+
+	sqlEnabled := true
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("enable", sqlEnabled, "")
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+
+	sqlEnabled = false
+	set = flag.NewFlagSet("logsql", 0)
+	set.Bool("disable", true, "")
+	c = cli.NewContext(nil, set, nil)
+
+	err = client.SetLogSQL(c)
+	assert.NoError(t, err)
+	assert.Equal(t, sqlEnabled, app.Config.LogSQLStatements())
+}

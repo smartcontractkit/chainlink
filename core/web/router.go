@@ -290,6 +290,10 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)
 		authv2.POST("/jobs/:ID/runs", prc.Create)
+
+		lgc := LogController{app}
+		authv2.GET("/log", lgc.Get)
+		authv2.PATCH("/log", lgc.Patch)
 	}
 
 	ping := PingController{app}

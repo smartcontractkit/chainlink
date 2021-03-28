@@ -52,10 +52,12 @@ type EthTx struct {
 	Value          assets.Eth
 	GasLimit       uint64
 	Error          *string
-	BroadcastAt    *time.Time
-	CreatedAt      time.Time
-	State          EthTxState
-	EthTxAttempts  []EthTxAttempt `gorm:"->"`
+	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// In almost all cases it will be within a second or so of the actual send time.
+	BroadcastAt   *time.Time
+	CreatedAt     time.Time
+	State         EthTxState
+	EthTxAttempts []EthTxAttempt `gorm:"->"`
 }
 
 func (e EthTx) GetError() error {

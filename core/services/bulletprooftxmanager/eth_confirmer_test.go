@@ -1128,7 +1128,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), keys, currentHead))
 	})
 
-	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress)
+	originalBroadcastAt := time.Unix(1616509100, 0)
+	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress, originalBroadcastAt)
 	nonce++
 	attempt1_1 := etx.EthTxAttempts[0]
 	attempt1_1.BroadcastBeforeBlockNum = &oldEnough
@@ -1195,7 +1196,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	ethClient = new(mocks.Client)
 	bulletprooftxmanager.SetEthClientOnEthConfirmer(ethClient, ec)
 
-	t.Run("resubmits previous attempt and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
+	t.Run("does nothing and continues if bumped attempt transaction was too expensive", func(t *testing.T) {
 		ethTx := gethTypes.Transaction{}
 		kst.On("SignTx",
 			mock.AnythingOfType("accounts.Account"),
@@ -1214,10 +1215,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(25000000000)
 		})).Return(errors.New("tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")).Once()
-		// Once for the resubmitted previous attempt
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(*etx.Nonce) && tx.GasPrice().Int64() == int64(342)
-		})).Return(nil).Once()
 
 		// Do the thing
 		require.NoError(t, ec.RebroadcastWhereNecessary(context.TODO(), keys, currentHead))
@@ -1227,6 +1224,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// Did not create an additional attempt
 		require.Len(t, etx.EthTxAttempts, 1)
+
+		// broadcast_at did not change
+		require.Equal(t, etx.BroadcastAt.Unix(), originalBroadcastAt.Unix())
 
 		kst.AssertExpectations(t)
 		ethClient.AssertExpectations(t)
