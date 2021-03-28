@@ -40,6 +40,8 @@ func (parseRandomnessRequest) parseJSON(log Log) (js JSON, err error) {
 		"blockHash": log.BlockHash.Hex(),
 		// Number/height of the block in which this request appeared
 		"blockNum": log.BlockNumber,
+		// requestID is identifier of the on-chain randomness request to fulfill
+		"requestID": parsedLog.RequestID.Hex(),
 	})
 }
 
