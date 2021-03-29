@@ -107,8 +107,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	sqldb, _ := store.DB.DB()
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
-		Signers:              []common.Address{cltest.NewAddress()},
-		Transmitters:         []common.Address{cltest.NewAddress()},
+		Signers:              []common.Address{cltest.NewAddress(), cltest.NewAddress()},
+		Transmitters:         []common.Address{cltest.NewAddress(), cltest.NewAddress()},
 		Threshold:            uint8(35),
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
