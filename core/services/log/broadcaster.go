@@ -29,6 +29,8 @@ type (
 		Start() error
 		Stop() error
 		Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func())
+		HandlePreviousHead(head *models.Head)
+		LatestHead() *models.Head
 	}
 
 	broadcaster struct {
@@ -96,9 +98,17 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("Log broadcaster", func() error {
-		go b.awaitInitialSubscribers()
 		return nil
 	})
+}
+
+func (b *broadcaster) HandlePreviousHead(head *models.Head) {
+	b.latestHead = head
+	go b.awaitInitialSubscribers()
+}
+
+func (b *broadcaster) LatestHead() *models.Head {
+	return b.latestHead
 }
 
 func (b *broadcaster) Stop() error {
@@ -173,7 +183,7 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(addresses, topics)
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHead, addresses, topics)
 		if abort {
 			return
 		}
@@ -208,6 +218,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
+	logger.Debugf("LogBroadcaster: starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
@@ -281,6 +292,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
+		logger.Debugf("LogBroadcaster: Subscribing listener with %v required block confirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -300,6 +312,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
+		logger.Debugf("LogBroadcaster: Unsubscribing listener with %v required block confirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true

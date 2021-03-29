@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
@@ -29,7 +30,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 	}
 }
 
-func (sub *ethSubscriber) backfillLogs(addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(latestHeadInDb *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
 		ch := make(chan types.Log)
 		close(ch)
@@ -59,6 +60,14 @@ func (sub *ethSubscriber) backfillLogs(addresses []common.Address, topics []comm
 		if fromBlock > currentHeight {
 			fromBlock = 0 // Overflow protection
 		}
+
+		if latestHeadInDb != nil && uint64(latestHeadInDb.Number) > fromBlock {
+			logger.Infow("LogBroadcaster: Using the latest stored head a limit of backfill", "blockNumber", latestHeadInDb.Number, "blockHash", latestHeadInDb.Hash)
+			// if the latest head stored in DB is newer, we use it instead as the limit of backfill
+			fromBlock = uint64(latestHeadInDb.Number)
+		}
+
+		logger.Infow("LogBroadcaster: Backfilling logs from", "blockNumber", fromBlock)
 
 		q := ethereum.FilterQuery{
 			FromBlock: big.NewInt(int64(fromBlock)),

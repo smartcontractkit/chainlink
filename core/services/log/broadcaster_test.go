@@ -37,10 +37,6 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	var listener = helper.newLogListener("A")
 	helper.register(listener, newMockContract(), 1)
 
-	sub.On("Unsubscribe").Maybe().Return()
-	sub.On("Err").Return(nil)
-
-
 	require.Eventually(t, func() bool { return helper.mockEth.subscribeCallCount() == 0 }, 5*time.Second, 10*time.Millisecond)
 	g.Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
@@ -641,8 +637,10 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				// Validate that the ethereum.FilterQuery is specified correctly for the backfill that we expect
 				fromBlock := args.Get(1).(ethereum.FilterQuery).FromBlock
 				expected := big.NewInt(0)
-				if test.blockHeight2 > backfillDepth {
-					expected = big.NewInt(int64(test.blockHeight2 - backfillDepth))
+				if helper.lb.LatestHead() != nil && helper.lb.LatestHead().Number > test.blockHeight2-backfillDepth {
+					expected = big.NewInt(helper.lb.LatestHead().Number)
+				} else if test.blockHeight2 > backfillDepth {
+					expected = big.NewInt(test.blockHeight2 - backfillDepth)
 				}
 				require.Equal(t, expected, fromBlock)
 			})
