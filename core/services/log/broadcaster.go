@@ -29,7 +29,7 @@ type (
 		Start() error
 		Stop() error
 		Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func())
-		HandlePreviousHead(head *models.Head)
+		HandleLatestStoredHead(head *models.Head)
 		LatestHead() *models.Head
 	}
 
@@ -49,6 +49,8 @@ type (
 
 		utils.StartStopOnce
 		utils.DependentAwaiter
+
+		headAwaiter   utils.DependentAwaiter
 		chStop        chan struct{}
 		chStartupDone chan struct{}
 	}
@@ -79,6 +81,8 @@ var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+	headAwaiter := utils.NewDependentAwaiter()
+	headAwaiter.AddDependents(1)
 	chStop := make(chan struct{})
 	return &broadcaster{
 		orm:              orm,
@@ -91,6 +95,7 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		rmSubscriber:     utils.NewMailbox(0),
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
+		headAwaiter:      headAwaiter,
 		chStop:           chStop,
 		chStartupDone:    make(chan struct{}),
 	}
@@ -98,13 +103,14 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("Log broadcaster", func() error {
+		go b.awaitInitialSubscribers()
 		return nil
 	})
 }
 
-func (b *broadcaster) HandlePreviousHead(head *models.Head) {
+func (b *broadcaster) HandleLatestStoredHead(head *models.Head) {
 	b.latestHead = head
-	go b.awaitInitialSubscribers()
+	b.headAwaiter.DependentReady()
 }
 
 func (b *broadcaster) LatestHead() *models.Head {
@@ -129,6 +135,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			b.onRmSubscribers()
 
 		case <-b.DependentAwaiter.AwaitDependents():
+			<-b.headAwaiter.AwaitDependents()
 			go b.startResubscribeLoop()
 			return
 

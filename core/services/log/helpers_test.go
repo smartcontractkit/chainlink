@@ -79,7 +79,7 @@ func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener 
 func (helper *broadcasterHelper) start() {
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
-	helper.lb.HandlePreviousHead(nil)
+	helper.lb.HandleLatestStoredHead(nil)
 }
 
 func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
