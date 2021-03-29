@@ -50,18 +50,18 @@ type ExplorerClient interface {
 	Status() ConnectionStatus
 	Start() error
 	Close() error
-	Send([]byte, ...int)
-	Receive(...time.Duration) ([]byte, error)
+	Send(context.Context, []byte, ...int)
+	Receive(context.Context, ...time.Duration) ([]byte, error)
 }
 
 type NoopExplorerClient struct{}
 
-func (NoopExplorerClient) Url() url.URL                             { return url.URL{} }
-func (NoopExplorerClient) Status() ConnectionStatus                 { return ConnectionStatusDisconnected }
-func (NoopExplorerClient) Start() error                             { return nil }
-func (NoopExplorerClient) Close() error                             { return nil }
-func (NoopExplorerClient) Send([]byte, ...int)                      {}
-func (NoopExplorerClient) Receive(...time.Duration) ([]byte, error) { return nil, nil }
+func (NoopExplorerClient) Url() url.URL                                              { return url.URL{} }
+func (NoopExplorerClient) Status() ConnectionStatus                                  { return ConnectionStatusDisconnected }
+func (NoopExplorerClient) Start() error                                              { return nil }
+func (NoopExplorerClient) Close() error                                              { return nil }
+func (NoopExplorerClient) Send(context.Context, []byte, ...int)                      {}
+func (NoopExplorerClient) Receive(context.Context, ...time.Duration) ([]byte, error) { return nil, nil }
 
 type explorerClient struct {
 	boot             *sync.RWMutex
@@ -144,12 +144,15 @@ func (ec *explorerClient) Start() error {
 // holds it in a small buffer until connection, throwing away messages
 // once buffer is full.
 // func (ec *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
-func (ec *explorerClient) Send(data []byte, messageTypes ...int) {
-	ec.boot.RLock()
-	defer ec.boot.RUnlock()
-	if !ec.started {
-		panic("send on unstarted explorer client")
-	}
+func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ...int) {
+	func() {
+		ec.boot.RLock()
+		defer ec.boot.RUnlock()
+		if !ec.started {
+			panic("send on unstarted explorer client")
+		}
+	}()
+
 	messageType := ExplorerTextMessage
 	if len(messageTypes) > 0 {
 		messageType = messageTypes[0]
@@ -166,6 +169,8 @@ func (ec *explorerClient) Send(data []byte, messageTypes ...int) {
 	select {
 	case send <- data:
 		atomic.StoreUint32(&ec.dropMessageCount, 0)
+	case <-ctx.Done():
+		return
 	default:
 		ec.logBufferFullWithExpBackoff(data)
 	}
@@ -192,17 +197,19 @@ func (ec *explorerClient) logBufferFullWithExpBackoff(data []byte) {
 
 // Receive blocks the caller while waiting for a response from the server,
 // returning the raw response bytes
-func (ec *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
+func (ec *explorerClient) Receive(ctx context.Context, durationParams ...time.Duration) ([]byte, error) {
 	duration := defaultReceiveTimeout
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
 	}
 
 	select {
-	case <-time.After(duration):
-		return nil, ErrReceiveTimeout
 	case data := <-ec.receive:
 		return data, nil
+	case <-time.After(duration):
+		return nil, ErrReceiveTimeout
+	case <-ctx.Done():
+		return nil, nil
 	}
 }
 
