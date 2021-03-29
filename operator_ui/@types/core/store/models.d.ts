@@ -479,6 +479,8 @@ declare module 'core/store/models' {
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
     type: 'directrequest'
     directRequestSpec: {
+      initiator: 'runlog'
+      contractAddress: common.Address
       createdAt: time.Time
     }
     fluxMonitorSpec: null
@@ -539,6 +541,18 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
   }
+
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+
+  export interface LogConfig {
+     level: LogConfigLevel
+     sqlEnabled: boolean
+  }  
+
+  export interface LogConfigRequest {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }  
 }
 
 export interface PipelineTaskRun {
@@ -546,8 +560,7 @@ export interface PipelineTaskRun {
   error: PipelineTaskError
   finishedAt: nullable.Time
   output: PipelineTaskOutput
-  taskSpec: {
-    dotId: string
-  }
+  dotId: string
   type: string
 }
+

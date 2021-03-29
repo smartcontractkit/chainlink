@@ -514,11 +514,17 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
-	timeNow := time.Now()
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	broadcastAt := time.Now()
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case time.Time:
+			broadcastAt = v
+		}
+	}
 	etx := NewEthTx(t, store, fromAddress)
 
-	etx.BroadcastAt = &timeNow
+	etx.BroadcastAt = &broadcastAt
 	n := nonce
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
@@ -685,15 +691,14 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	eip, err := models.EIP55AddressFromAddress(k.Address)
 	require.NoError(t, err)
 
-	var nextNonce *int64
+	var nextNonce int64
 	var funding bool
 	for _, opt := range opts {
 		switch v := opt.(type) {
 		case int:
-			i := int64(v)
-			nextNonce = &i
+			nextNonce = int64(v)
 		case int64:
-			nextNonce = &v
+			nextNonce = v
 		case bool:
 			funding = v
 		default:
@@ -708,6 +713,13 @@ func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 		IsFunding: funding,
 	}
 	return key
+}
+
+func MustInsertHead(t *testing.T, store *strpkg.Store, number int64) models.Head {
+	h := models.NewHead(big.NewInt(number), NewHash(), NewHash(), 0)
+	err := store.DB.Create(&h).Error
+	require.NoError(t, err)
+	return h
 }
 
 func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress common.Address) job.Job {
@@ -822,7 +834,7 @@ func NewRoundStateForRoundID(store *strpkg.Store, roundID uint32, latestSubmissi
 func MustInsertPipelineRun(t *testing.T, db *gorm.DB) pipeline.Run {
 	run := pipeline.Run{
 		Outputs:    pipeline.JSONSerializable{Null: true},
-		Errors:     pipeline.JSONSerializable{Null: true},
+		Errors:     pipeline.RunErrors{},
 		FinishedAt: nil,
 	}
 	require.NoError(t, db.Create(&run).Error)

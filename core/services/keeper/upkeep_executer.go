@@ -2,9 +2,10 @@ package keeper
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -28,6 +29,7 @@ func NewUpkeepExecutor(
 	db *gorm.DB,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
+	maxGracePeriod int64,
 ) *UpkeepExecutor {
 	return &UpkeepExecutor{
 		chStop:          make(chan struct{}),
@@ -36,6 +38,7 @@ func NewUpkeepExecutor(
 		headBroadcaster: headBroadcaster,
 		job:             job,
 		mailbox:         utils.NewMailbox(1),
+		maxGracePeriod:  maxGracePeriod,
 		orm:             NewORM(db),
 		wgDone:          sync.WaitGroup{},
 		StartStopOnce:   utils.StartStopOnce{},
@@ -53,6 +56,7 @@ type UpkeepExecutor struct {
 	headBroadcaster *services.HeadBroadcaster
 	job             job.Job
 	mailbox         *utils.Mailbox
+	maxGracePeriod  int64
 	orm             ORM
 	wgDone          sync.WaitGroup
 	utils.StartStopOnce
@@ -105,11 +109,12 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
-	logger.Debug("received new block, running checkUpkeep for keeper registrations", "blockheight", head.Number)
+
+	logger.Debugw("UpkeepExecutor: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, head.Number)
+	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, head.Number, executor.maxGracePeriod)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -120,7 +125,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 	done := func() { <-executor.executionQueue; wg.Done() }
 	for _, reg := range activeUpkeeps {
 		executor.executionQueue <- struct{}{}
-		go executor.execute(reg, done)
+		go executor.execute(reg, head.Number, done)
 	}
 
 	wg.Wait()
@@ -128,8 +133,15 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 // execute will call checkForUpkeep and, if it succeeds, trigger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) {
+func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
+
+	logArgs := []interface{}{
+		"jobID", executor.job.ID,
+		"blockNum", headNumber,
+		"registryAddress", upkeep.Registry.ContractAddress.Hex(),
+		"upkeepID", upkeep.UpkeepID,
+	}
 
 	msg, err := constructCheckUpkeepCallMsg(upkeep)
 	if err != nil {
@@ -137,14 +149,14 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 		return
 	}
 
-	logger.Debugf("Checking upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+	logger.Debugw("UpkeepExecutor: checking upkeep", logArgs...)
 
 	ctxService, cancel := utils.ContextFromChan(executor.chStop)
 	defer cancel()
 
 	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugf("checkUpkeep failed on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+		logger.Debugw("UpkeepExecutor: checkUpkeep failed", logArgs...)
 		return
 	}
 
@@ -154,7 +166,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 		return
 	}
 
-	logger.Debugf("Performing upkeep on registry: %s, upkeepID %d", upkeep.Registry.ContractAddress.Hex(), upkeep.UpkeepID)
+	logger.Debugw("UpkeepExecutor: performing upkeep", logArgs...)
 
 	ctxQuery, _ := postgres.DefaultQueryCtx()
 	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
@@ -163,6 +175,18 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, done func()) 
 	err = executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
+	}
+
+	ctxQuery, cancel = postgres.DefaultQueryCtx()
+	defer cancel()
+	ctxCombined, cancel = utils.CombinedContext(executor.chStop, ctxQuery)
+	defer cancel()
+	// DEV: this is the block that initiated the run, not the block height when broadcast nor the block
+	// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
+	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
+	err = executor.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executor.job.ID, upkeep.UpkeepID, headNumber)
+	if err != nil {
+		logger.Errorw("UpkeepExecutor: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
 	}
 }
 

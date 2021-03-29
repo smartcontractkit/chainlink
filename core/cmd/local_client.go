@@ -55,10 +55,7 @@ func (cli *Client) RunNode(c *clipkg.Context) error {
 	logger.SetLogger(cli.Config.CreateProductionLogger())
 	logger.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "id", "boot", "Version", static.Version, "SHA", static.Sha, "InstanceUUID", static.InstanceUUID)
 
-	app, err := cli.AppFactory.NewApplication(cli.Config, func(app chainlink.Application) {
-		store := app.GetStore()
-		checkAccountsForExternalUse(store)
-	})
+	app, err := cli.AppFactory.NewApplication(cli.Config)
 	if err != nil {
 		return cli.errorOut(errors.Wrap(err, "creating application"))
 	}
@@ -198,32 +195,6 @@ func passwordFromFile(pwdFile string) (string, error) {
 	return strings.TrimSpace(string(dat)), err
 }
 
-func checkAccountsForExternalUse(store *strpkg.Store) {
-	keys, err := store.AllKeys()
-	if err != nil {
-		logger.Error("database error while retrieving send keys:", err)
-		return
-	}
-	for _, key := range keys {
-		logIfNonceOutOfSync(store, key)
-	}
-}
-
-func logIfNonceOutOfSync(store *strpkg.Store, key models.Key) {
-	onChainNonce, err := store.EthClient.PendingNonceAt(context.TODO(), key.Address.Address())
-	if err != nil {
-		logger.Error(fmt.Sprintf("error determining nonce for address %s: %v", key.Address.Hex(), err))
-		return
-	}
-	var nonce int64
-	if key.NextNonce != nil {
-		nonce = *key.NextNonce
-	}
-	if nonce < int64(onChainNonce) {
-		logger.Warn(fmt.Sprintf("The account %s is being used by another wallet and is not safe to use with chainlink", key.Address.Hex()))
-	}
-}
-
 func updateConfig(config *orm.Config, debug bool, replayFromBlock int64) {
 	if debug {
 		config.Set("LOG_LEVEL", zapcore.DebugLevel.String())
@@ -263,14 +234,12 @@ func setupFundingKey(ctx context.Context, str *strpkg.Store, pwd string) (*model
 	if err != nil {
 		return nil, nil, err
 	}
-	var firstNonce int64 = 0
 	key = models.Key{
 		Address:   models.EIP55Address(ethAccount.Address.Hex()),
 		IsFunding: true,
 		JSON: models.JSON{
 			Result: gjson.ParseBytes(exportedJSON),
 		},
-		NextNonce: &firstNonce,
 	}
 	// The key does not exist at this point, so we're only creating it here.
 	if err = str.CreateKeyIfNotExists(key); err != nil {

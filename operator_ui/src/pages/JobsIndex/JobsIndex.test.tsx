@@ -3,6 +3,7 @@ import React from 'react'
 import { Route } from 'react-router-dom'
 import { jsonApiJobSpecs } from 'factories/jsonApiJobSpecs'
 import {
+  directRequestResource,
   jsonApiJobSpecsV2,
   fluxMonitorJobResource,
   ocrJobResource,
@@ -39,6 +40,10 @@ describe('pages/JobsIndex/JobsIndex', () => {
           id: '2000000',
           createdAt: new Date().toISOString(),
         }),
+        directRequestResource({
+          id: '3000000',
+          createdAt: new Date().toISOString(),
+        }),
       ]),
     )
 
@@ -56,6 +61,9 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     // Flux Monitor V2 Job
     expect(wrapper.text()).toContain('2000000')
+
+    // Direct Request V2 Job
+    expect(wrapper.text()).toContain('3000000')
   })
 
   it('allows searching', async () => {

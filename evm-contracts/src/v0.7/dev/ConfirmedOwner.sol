@@ -27,7 +27,9 @@ contract ConfirmedOwner {
    * @notice Allows an owner to begin transferring ownership to a new address,
    * pending.
    */
-  function transferOwnership(address to)
+  function transferOwnership(
+    address to
+  )
     external
     onlyOwner()
   {
@@ -56,7 +58,13 @@ contract ConfirmedOwner {
   /**
    * @notice Get the current owner
    */
-  function owner() public view returns (address) {
+  function owner()
+    public
+    view
+    returns (
+      address
+    )
+  {
     return s_owner;
   }
 

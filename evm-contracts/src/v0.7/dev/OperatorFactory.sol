@@ -9,22 +9,27 @@ import "./Operator.sol";
  */
 contract OperatorFactory {
 
-    address public link;
+  address public link;
 
-    event OperatorCreated(address indexed operator, address indexed owner);
+  event OperatorCreated(
+    address indexed operator,
+    address indexed owner
+  );
 
-    /**
-     * @param linkAddress address
-     */
-    constructor(address linkAddress) {
-        link = linkAddress;
-    }
+  /**
+   * @param linkAddress address
+   */
+  constructor(
+    address linkAddress
+  ) {
+    link = linkAddress;
+  }
 
-    /**
-     * @notice fallback to create a new Operator contract with the msg.sender as owner
-     */
-    fallback() external {
-        Operator operator = new Operator(link, msg.sender);
-        emit OperatorCreated(address(operator), msg.sender);
-    }
+  /**
+   * @notice fallback to create a new Operator contract with the msg.sender as owner
+   */
+  fallback() external {
+    Operator operator = new Operator(link, msg.sender);
+    emit OperatorCreated(address(operator), msg.sender);
+  }
 }

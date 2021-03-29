@@ -33,6 +33,14 @@ func (korm ORM) Registries(ctx context.Context) (registries []Registry, _ error)
 	return registries, err
 }
 
+func (korm ORM) RegistryForJob(ctx context.Context, jobID int32) (registry Registry, _ error) {
+	err := korm.DB.
+		WithContext(ctx).
+		First(&registry, "job_id = ?", jobID).
+		Error
+	return registry, err
+}
+
 func (korm ORM) UpsertRegistry(ctx context.Context, registry *Registry) error {
 	return korm.DB.
 		WithContext(ctx).
@@ -51,40 +59,45 @@ func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistrati
 		WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "registry_id"}, {Name: "upkeep_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{"execute_gas", "check_data"}),
+			DoUpdates: clause.AssignmentColumns([]string{"execute_gas", "check_data", "positioning_constant"}),
 		}).
 		Create(registration).
 		Error
 }
 
-func (korm ORM) BatchDeleteUpkeeps(ctx context.Context, registryID int32, upkeedIDs []int64) error {
+func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) error {
 	return korm.DB.
-		WithContext(ctx).
-		Where("registry_id = ? AND upkeep_id IN (?)", registryID, upkeedIDs).
-		Delete(UpkeepRegistration{}).
-		Error
+		WithContext(ctx).Exec(
+		`DELETE FROM upkeep_registrations WHERE registry_id = (
+			SELECT id from keeper_registries where job_id = ?
+		) AND upkeep_id IN (?)`,
+		jobID,
+		upkeedIDs,
+	).Error
 }
 
-func (korm ORM) DeleteRegistryByJobID(ctx context.Context, jobID int32) error {
-	return korm.DB.
-		WithContext(ctx).
-		Where("job_id = ?", jobID).
-		Delete(Registry{}). // auto deletes upkeep registrations
-		Error
-}
-
-func (korm ORM) EligibleUpkeeps(ctx context.Context, blockNumber int64) (upkeeps []UpkeepRegistration, _ error) {
+func (korm ORM) EligibleUpkeeps(
+	ctx context.Context,
+	blockNumber int64,
+	gracePeriod int64,
+) (upkeeps []UpkeepRegistration, _ error) {
+	lastValidBlockHeight := blockNumber - gracePeriod
+	if lastValidBlockHeight < 1 {
+		lastValidBlockHeight = 1 // ensure that upkeeps with last_run_block_height = 0 are always eligible
+	}
 	err := korm.DB.
 		WithContext(ctx).
 		Preload("Registry").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
 		Where(`
 			? % keeper_registries.block_count_per_turn = 0 AND
+			keeper_registries.num_keepers > 0 AND
+			upkeep_registrations.last_run_block_height < ? AND
 			keeper_registries.keeper_index =
 			(
 				upkeep_registrations.positioning_constant + (? / keeper_registries.block_count_per_turn)
 			) % keeper_registries.num_keepers
-		`, blockNumber, blockNumber).
+		`, blockNumber, lastValidBlockHeight, blockNumber).
 		Find(&upkeeps).
 		Error
 
@@ -102,6 +115,21 @@ func (korm ORM) LowestUnsyncedID(ctx context.Context, reg Registry) (nextID int6
 		Row().
 		Scan(&nextID)
 	return nextID, err
+}
+
+func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32, upkeepID int64, height int64) error {
+	return korm.DB.
+		WithContext(ctx).Exec(
+		`UPDATE upkeep_registrations
+		SET last_run_block_height = ?
+		WHERE upkeep_id = ? AND
+		registry_id = (
+			SELECT id FROM keeper_registries WHERE job_id = ?
+		);`,
+		height,
+		upkeepID,
+		jobID,
+	).Error
 }
 
 func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) error {

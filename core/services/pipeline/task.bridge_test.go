@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -15,7 +16,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -157,17 +157,12 @@ func TestBridgeTask_Meta(t *testing.T) {
 		body, _ := ioutil.ReadAll(r.Body)
 		err := json.Unmarshal(body, &req)
 		require.NoError(t, err)
-		require.Equal(t, false, req.Meta["eligibleToSubmit"])
-		require.Equal(t, float64(0), req.Meta["oracleCount"])
-		require.Equal(t, float64(7), req.Meta["reportableRoundID"])
-		require.Equal(t, float64(0), req.Meta["startedAt"])
-		require.Equal(t, float64(11), req.Meta["timeout"])
+		require.Equal(t, 10, req.Meta["latestAnswer"])
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	roundState := flux_aggregator_wrapper.OracleRoundState{RoundId: 7, Timeout: 11}
-	request, err := models.MarshalToMap(&roundState)
+	metaDataForBridge, err := models.BridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)
@@ -188,7 +183,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	task.Run(context.Background(), pipeline.TaskRun{
 		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{request, false},
+			Meta: pipeline.JSONSerializable{metaDataForBridge, false},
 		},
 	}, nil)
 }

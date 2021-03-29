@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -29,7 +31,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 const oracleCount uint8 = 17
@@ -164,8 +165,16 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 		tm.jobORM,
 		tm.pipelineORM,
 		tm.keyStore,
-		fluxmonitorv2.NewPollTicker(time.Minute, options.pollTickerDisabled),
-		fluxmonitorv2.NewIdleTimer(options.idleTimerPeriod, options.idleTimerDisabled),
+		fluxmonitorv2.NewPollManager(
+			fluxmonitorv2.PollManagerConfig{
+				PollTickerInterval:    time.Minute,
+				PollTickerDisabled:    options.pollTickerDisabled,
+				IdleTimerPeriod:       options.idleTimerPeriod,
+				IdleTimerDisabled:     options.idleTimerDisabled,
+				HibernationPollPeriod: 24 * time.Hour,
+			},
+			logger.Default,
+		),
 		fluxmonitorv2.NewPaymentChecker(assets.NewLink(1), nil),
 		contractAddress,
 		tm.contractSubmitter,
@@ -310,9 +319,8 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					now := time.Now()
 					run.FinishedAt = &now
 				case pipeline.RunStatusErrored:
-					run.Errors = pipeline.JSONSerializable{
-						Val:  pipeline.FinalErrors{null.StringFrom("Random: String, foo")},
-						Null: false,
+					run.Errors = []null.String{
+						null.StringFrom("Random: String, foo"),
 					}
 				default:
 				}
