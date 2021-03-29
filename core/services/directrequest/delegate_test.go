@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -170,15 +171,15 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 func factoryJobSpec(t *testing.T) *job.Job {
 	t.Helper()
 	pipeline := pipeline.NewTaskDAG()
-	onChainJobSpecID, err := pipeline.Digest()
+	drs := &job.DirectRequestSpec{}
+	onChainJobSpecID, err := uuid.NewV4()
 	require.NoError(t, err)
+	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
 	spec := &job.Job{
-		Type:          job.DirectRequest,
-		SchemaVersion: 1,
-		DirectRequestSpec: &job.DirectRequestSpec{
-			OnChainJobSpecID: onChainJobSpecID,
-		},
-		Pipeline: *pipeline,
+		Type:              job.DirectRequest,
+		SchemaVersion:     1,
+		DirectRequestSpec: drs,
+		Pipeline:          *pipeline,
 	}
 	return spec
 }

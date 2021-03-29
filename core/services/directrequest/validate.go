@@ -1,6 +1,7 @@
 package directrequest
 
 import (
+	"github.com/gofrs/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -24,11 +25,11 @@ func ValidatedDirectRequestSpec(tomlString string) (job.Job, error) {
 	if err != nil {
 		return jb, err
 	}
-	digest, err := jb.Pipeline.Digest()
+	onChainJobSpecID, err := uuid.NewV4()
 	if err != nil {
 		return jb, err
 	}
-	spec.OnChainJobSpecID = digest
+	copy(spec.OnChainJobSpecID[:], onChainJobSpecID[:])
 	jb.DirectRequestSpec = &spec
 
 	if jb.Type != job.DirectRequest {

@@ -181,7 +181,7 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		jobSpec.PipelineSpecID = pipelineSpecID
 
 		if jobSpec.DirectRequestSpec != nil {
-			err := tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
+			err = tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
 			if err != nil {
 				return errors.Wrap(err, "error creating direct request spec")
 			}

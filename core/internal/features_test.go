@@ -1628,27 +1628,20 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	var logs chan<- models.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
-		return
 	}, 5*time.Second)
 	cltest.CallbackOrTimeout(t, "send run log", func() {
 		logs <- runLog
-		return
 	}, 30*time.Second)
-
-	runs := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, jobORM, 5*time.Second, 30*time.Millisecond)
-	require.Len(t, runs, 1)
-
-	runs := cltest.WaitForPipelineRuns(t, 0, job.ID, jobORM, 1, 5*time.Second, 300*time.Millisecond)
-	require.Len(t, runs, 1)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
 
-	run := cltest.WaitForPipelineComplete(t, 0, job.ID, jobORM, 5*time.Second, 300*time.Millisecond)
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jobORM, 5*time.Second, 300*time.Millisecond)
+	require.Len(t, runs, 1)
+	run := runs[0]
 	require.Len(t, run.PipelineTaskRuns, 3)
-	assert.Empty(t, run.PipelineTaskRuns[0].Error)
-	assert.Empty(t, run.PipelineTaskRuns[1].Error)
-	assert.Empty(t, run.PipelineTaskRuns[2].Error)
-	assert.NotNil(t, run.FinishedAt)
+	require.Empty(t, run.PipelineTaskRuns[0].Error)
+	require.Empty(t, run.PipelineTaskRuns[1].Error)
+	require.Empty(t, run.PipelineTaskRuns[2].Error)
 }
 
 func TestIntegration_GasUpdater(t *testing.T) {
