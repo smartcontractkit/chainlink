@@ -45,7 +45,7 @@ module.exports = {
   output: {
     filename: '[name].[hash].js',
     path: path.resolve(__dirname, 'dist'),
-    publicPath: '/',
+    publicPath: '/assets/', // JS files are served from `/assets` by web
   },
   plugins: [
     new CleanWebpackPlugin(),

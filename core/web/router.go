@@ -110,7 +110,7 @@ func Router(app chainlink.Application) *gin.Engine {
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 
-	guiAssetRoutes(app.NewBox(), engine)
+	guiAssetRoutes(app.NewBox(), engine, config)
 
 	return engine
 }
@@ -306,32 +306,55 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 	userOrEI.GET("/ping", ping.Show)
 }
 
-func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
-	boxList := box.List()
+// This is higher because it serves main.js and any static images. There are
+// 5 assets which must be served, so this allows for 20 requests/min
+var staticAssetsRateLimit = int64(100)
+var staticAssetsRateLimitPeriod = 1 * time.Minute
+var indexRateLimit = int64(20)
+var indexRateLimitPeriod = 1 * time.Minute
 
-	engine.NoRoute(func(c *gin.Context) {
+// guiAssetRoutes serves the operator UI static files and index.html. Rate
+// limiting is disabled when in dev mode.
+func guiAssetRoutes(box packr.Box, engine *gin.Engine, config *orm.Config) {
+	// Serve static files
+	assetsRouterHandlers := []gin.HandlerFunc{}
+	if !config.Dev() {
+		assetsRouterHandlers = append(assetsRouterHandlers, rateLimiter(
+			staticAssetsRateLimitPeriod,
+			staticAssetsRateLimit,
+		))
+	}
+
+	assetsRouter := engine.Group("/assets", assetsRouterHandlers...)
+	assetsRouter.StaticFS("/", http.FileSystem(box))
+
+	// Serve the index HTML file unless it is an api path
+	noRouteHandlers := []gin.HandlerFunc{}
+	if !config.Dev() {
+		noRouteHandlers = append(noRouteHandlers, rateLimiter(
+			indexRateLimitPeriod,
+			indexRateLimit,
+		))
+	}
+	noRouteHandlers = append(noRouteHandlers, func(c *gin.Context) {
 		path := c.Request.URL.Path
-		matchedBoxPath := MatchExactBoxPath(boxList, path)
 
-		var is404 bool
-		if matchedBoxPath == "" {
-			isApiRequest, _ := regexp.MatchString(`^/v[0-9]+/.*`, path)
-
-			if filepath.Ext(path) != "" {
-				is404 = true
-			} else if isApiRequest {
-				is404 = true
-			} else {
-				matchedBoxPath = "index.html"
-			}
-		}
-
-		if is404 {
+		// Return a 404 if the path is an unmatched API path
+		if match, _ := regexp.MatchString(`^/v[0-9]+/.*`, path); match {
 			c.AbortWithStatus(http.StatusNotFound)
+
 			return
 		}
 
-		file, err := box.Open(matchedBoxPath)
+		// Return a 404 for unknown extensions
+		if filepath.Ext(path) != "" {
+			c.AbortWithStatus(http.StatusNotFound)
+
+			return
+		}
+
+		// Render the React index page for any other unknown requests
+		file, err := box.Open("index.html")
 		if err != nil {
 			if err == os.ErrNotExist {
 				c.AbortWithStatus(http.StatusNotFound)
@@ -339,12 +362,14 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine) {
 				logger.Errorf("failed to open static file '%s': %+v", path, err)
 				c.AbortWithStatus(http.StatusInternalServerError)
 			}
-			return
+
 		}
 		defer logger.ErrorIfCalling(file.Close, "failed when close file")
 
 		http.ServeContent(c.Writer, c.Request, path, time.Time{}, file)
 	})
+
+	engine.NoRoute(noRouteHandlers...)
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
@@ -458,11 +483,11 @@ func redact(values url.Values) string {
 
 // NOTE: keys must be in lowercase for case insensitive match
 var blacklist = map[string]struct{}{
-	"password":             struct{}{},
-	"newpassword":          struct{}{},
-	"oldpassword":          struct{}{},
-	"current_password":     struct{}{},
-	"new_account_password": struct{}{},
+	"password":             {},
+	"newpassword":          {},
+	"oldpassword":          {},
+	"current_password":     {},
+	"new_account_password": {},
 }
 
 func isBlacklisted(k string) bool {
