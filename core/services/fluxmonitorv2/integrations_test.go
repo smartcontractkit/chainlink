@@ -601,6 +601,10 @@ ds1 -> ds1_parse
 		completesAnswer: false,
 	})
 
+	// Logs from log broadcaster are sent only after a next block is received.
+	time.Sleep(2 * time.Second)
+	fa.backend.Commit()
+
 	// Wait for the node's submission, and ensure it submits to the round
 	// started by the fake node
 	receiptBlock, _ := awaitSubmission(t, submissionReceived)
