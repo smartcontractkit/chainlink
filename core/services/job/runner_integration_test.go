@@ -621,21 +621,25 @@ ds1 -> ds1_parse;
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
-		// Start and stop the service to generate errors.
-		// We expect a database timeout and a context cancellation
-		// error to show up as pipeline_spec_errors.
+		// Return an error getting the contract code.
+		geth.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
 		for _, s := range services {
 			err = s.Start()
 			require.NoError(t, err)
+		}
+		var se []job.SpecError
+		require.Eventually(t, func() bool {
+			err = db.Find(&se).Error
+			require.NoError(t, err)
+			return len(se) == 1
+		}, time.Second, 100*time.Millisecond)
+		require.Len(t, se, 1)
+		assert.Equal(t, uint(1), se[0].Occurrences)
+
+		for _, s := range services {
 			err = s.Close()
 			require.NoError(t, err)
 		}
-
-		var se []job.SpecError
-		err = db.Find(&se).Error
-		require.NoError(t, err)
-		require.Len(t, se, 1)
-		assert.Equal(t, uint(1), se[0].Occurrences)
 
 		// Ensure we can delete an errored
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())
