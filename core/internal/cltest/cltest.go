@@ -967,8 +967,8 @@ const (
 	DBWaitTimeout = 20 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
-	// AsertNoActionTimeout shouldn't be too long, or it will slow down tests
-	AsertNoActionTimeout = 3 * time.Second
+	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
+	AssertNoActionTimeout = 3 * time.Second
 )
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -1137,7 +1137,7 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+		}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
@@ -1180,7 +1180,7 @@ func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want i
 		jrs, err = store.JobRunsFor(j.ID)
 		assert.NoError(t, err)
 		return jrs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return jrs
 }
 
@@ -1196,7 +1196,7 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 			Find(&prs).Error
 		assert.NoError(t, err)
 		return prs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
 }
 
@@ -1255,7 +1255,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) [
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
 }
 
@@ -1286,7 +1286,7 @@ func AssertSyncEventCountStays(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -1892,7 +1892,7 @@ func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, AsertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}, check func() bool) {
