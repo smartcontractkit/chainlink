@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -648,16 +647,16 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 
 	newRoundLogger.Info("Responding to new round request")
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
 	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		newRoundLogger.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			newRoundLogger.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	// Call the v2 pipeline to execute a new job run
@@ -770,17 +769,17 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
+	var metaDataForBridge map[string]interface{}
 	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		l.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
+
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
