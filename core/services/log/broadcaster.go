@@ -29,7 +29,7 @@ type (
 		Start() error
 		Stop() error
 		Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func())
-		HandleLatestStoredHead(head *models.Head)
+		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 	}
 
@@ -50,9 +50,9 @@ type (
 		utils.StartStopOnce
 		utils.DependentAwaiter
 
-		headAwaiter   utils.DependentAwaiter
-		chStop        chan struct{}
-		chStartupDone chan struct{}
+		headFromStorageAwaiter utils.DependentAwaiter
+		chStop                 chan struct{}
+		chStartupDone          chan struct{}
 	}
 
 	Config interface {
@@ -85,19 +85,19 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 	headAwaiter.AddDependents(1)
 	chStop := make(chan struct{})
 	return &broadcaster{
-		orm:              orm,
-		config:           config,
-		connected:        abool.New(),
-		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
-		registrations:    newRegistrations(),
-		logPool:          newLogPool(),
-		addSubscriber:    utils.NewMailbox(0),
-		rmSubscriber:     utils.NewMailbox(0),
-		newHeads:         utils.NewMailbox(1),
-		DependentAwaiter: utils.NewDependentAwaiter(),
-		headAwaiter:      headAwaiter,
-		chStop:           chStop,
-		chStartupDone:    make(chan struct{}),
+		orm:                    orm,
+		config:                 config,
+		connected:              abool.New(),
+		ethSubscriber:          newEthSubscriber(ethClient, config, chStop),
+		registrations:          newRegistrations(),
+		logPool:                newLogPool(),
+		addSubscriber:          utils.NewMailbox(0),
+		rmSubscriber:           utils.NewMailbox(0),
+		newHeads:               utils.NewMailbox(1),
+		DependentAwaiter:       utils.NewDependentAwaiter(),
+		headFromStorageAwaiter: headAwaiter,
+		chStop:                 chStop,
+		chStartupDone:          make(chan struct{}),
 	}
 }
 
@@ -108,9 +108,9 @@ func (b *broadcaster) Start() error {
 	})
 }
 
-func (b *broadcaster) HandleLatestStoredHead(head *models.Head) {
+func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 	b.latestHead = head
-	b.headAwaiter.DependentReady()
+	b.headFromStorageAwaiter.DependentReady()
 }
 
 func (b *broadcaster) LatestHead() *models.Head {
@@ -135,7 +135,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			b.onRmSubscribers()
 
 		case <-b.DependentAwaiter.AwaitDependents():
-			<-b.headAwaiter.AwaitDependents()
+			<-b.headFromStorageAwaiter.AwaitDependents()
 			go b.startResubscribeLoop()
 			return
 
