@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- VRF Jobs now support an optional `coordinatorAddress` field that, when present, will tell the node to check the fulfillment status of any VRF request before attempting the fulfillment transaction. This will assist in the effort to run multiple nodes with one VRF key.
+
 - Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
 
 It's now possible to configure database backups: on node start and separately, to be run at given frequency.
@@ -30,7 +32,7 @@ Example settings:
 
 Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
 
-- Logging can now be configured in the Operator UI. 
+- Logging can now be configured in the Operator UI.
 
 ### Fixed
 
@@ -119,7 +121,7 @@ This means that the application gas price will always be updated correctly
 after reboot before the first transaction is ever sent, eliminating the previous
 scenario where the node could send underpriced or overpriced transactions for a
 period after a reboot, until the gas updater caught up.
-  
+
 ### Changed
 
 - Bump `ORM_MAX_OPEN_CONNS` default from 10 to 20
