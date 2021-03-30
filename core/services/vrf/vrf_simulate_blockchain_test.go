@@ -57,8 +57,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
 
 	j := cltest.NewJobWithRandomnessLog()
-	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"PublicKey": "%s"}`, rawKey))
-	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, cu.rootContractAddress.String())
+	contractAddress := cu.rootContractAddress.String()
+	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"publicKey": "%s", "coordinatorAddress": "%s"}`, rawKey, contractAddress))
+	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, contractAddress)
 	task2Params := cltest.JSONFromString(t, task2JSON)
 
 	j.Initiators[0].Address = cu.rootContractAddress
