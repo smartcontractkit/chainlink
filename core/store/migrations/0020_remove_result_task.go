@@ -8,6 +8,7 @@ import (
 const (
 	up20 = `
 		ALTER TABLE pipeline_task_runs DROP CONSTRAINT chk_pipeline_task_run_fsm;
+		DELETE FROM pipeline_task_runs WHERE type = 'result';
 		ALTER TABLE pipeline_task_runs 
     		ADD CONSTRAINT chk_pipeline_task_run_fsm CHECK (
 				((finished_at IS NOT NULL) AND (num_nonnulls(output, error) != 2))
