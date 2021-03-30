@@ -55,7 +55,7 @@ func TestWebSocketClient_ReconnectLoop(t *testing.T) {
 }
 
 func TestWebSocketClient_Authentication(t *testing.T) {
-	headerChannel := make(chan http.Header)
+	headerChannel := make(chan http.Header, 1)
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		headerChannel <- r.Header
 	}
