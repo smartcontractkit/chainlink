@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/static"
@@ -89,7 +90,7 @@ func TestWebSocketClient_Send_DefaultsToTextMessage(t *testing.T) {
 	explorerClient.Send(context.Background(), []byte(expectation))
 	cltest.CallbackOrTimeout(t, "receive stats", func() {
 		require.Equal(t, expectation, <-wsserver.ReceivedText)
-	})
+	}, 1*time.Second)
 }
 
 func TestWebSocketClient_Send_TextMessage(t *testing.T) {
@@ -192,15 +193,18 @@ func TestWebSocketClient_Status_ConnectAndServerDisconnect(t *testing.T) {
 	cltest.CallbackOrTimeout(t, "ws client connects", func() {
 		<-wsserver.Connected
 	})
-	assert.Equal(t, synchronization.ConnectionStatusConnected, explorerClient.Status())
+	gomega.NewGomegaWithT(t).Eventually(func() synchronization.ConnectionStatus {
+		return explorerClient.Status()
+	}).Should(gomega.Equal(synchronization.ConnectionStatusConnected))
 
 	wsserver.WriteCloseMessage()
 	wsserver.Close()
 
 	time.Sleep(synchronization.CloseTimeout + (100 * time.Millisecond))
 
-	assert.Equal(t, synchronization.ConnectionStatusError, explorerClient.Status())
-
+	gomega.NewGomegaWithT(t).Eventually(func() synchronization.ConnectionStatus {
+		return explorerClient.Status()
+	}).Should(gomega.Equal(synchronization.ConnectionStatusError))
 }
 
 func TestWebSocketClient_Status_ConnectError(t *testing.T) {
