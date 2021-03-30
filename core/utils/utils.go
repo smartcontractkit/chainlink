@@ -170,6 +170,15 @@ func AddHexPrefix(str string) string {
 	return str
 }
 
+func IsEmpty(bytes []byte) bool {
+	for _, b := range bytes {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // Sleeper interface is used for tasks that need to be done on some
 // interval, excluding Cron, like reconnecting.
 type Sleeper interface {
