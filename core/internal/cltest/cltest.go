@@ -1152,23 +1152,23 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, j
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
 	var pr []pipeline.Run
-	g.Eventually(func() []pipeline.Run {
+	g.Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		var completed []pipeline.Run
 		for i := range prs {
 			if !prs[i].Outputs.Null {
-				if prs[i].Errors.HasError() {
-					return nil
+				if !prs[i].Errors.HasError() {
+					completed = append(completed, prs[i])
 				}
-				completed = append(completed, prs[i])
 			}
 		}
-		if len(completed) == count {
+		if len(completed) >= count {
 			pr = completed
+			return true
 		}
-		return completed
-	}, timeout, poll).Should(gomega.HaveLen(count), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
+		return false
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
 	return pr
 }
 

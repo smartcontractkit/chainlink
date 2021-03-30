@@ -1531,7 +1531,7 @@ observationSource = """
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// Want 2 runs so we see all the metadata.
+			// Want at least 2 runs so we see all the metadata.
 			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
