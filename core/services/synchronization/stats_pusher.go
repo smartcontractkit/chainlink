@@ -1,7 +1,6 @@
 package synchronization
 
 import (
-	"context"
 	"encoding/json"
 	"net/url"
 	"reflect"
@@ -59,9 +58,9 @@ type statsPusher struct {
 	DB             *gorm.DB
 	ExplorerClient ExplorerClient
 	Period         time.Duration
-	cancel         context.CancelFunc
 	clock          utils.Afterer
 	backoffSleeper backoff.Backoff
+	done           chan struct{}
 	waker          chan struct{}
 }
 
@@ -88,6 +87,7 @@ func NewStatsPusher(db *gorm.DB, explorerClient ExplorerClient, afters ...utils.
 			Min: 1 * time.Second,
 			Max: 5 * time.Minute,
 		},
+		done:  make(chan struct{}),
 		waker: make(chan struct{}, 1),
 	}
 }
@@ -115,17 +115,13 @@ func (sp *statsPusher) Start() error {
 	}
 	gormCallbacksMutex.Unlock()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	sp.cancel = cancel
-	go sp.eventLoop(ctx)
+	go sp.eventLoop()
 	return nil
 }
 
 // Close shuts down the stats pusher
 func (sp *statsPusher) Close() error {
-	if sp.cancel != nil {
-		sp.cancel()
-	}
+	close(sp.done)
 
 	gormCallbacksMutex.Lock()
 	if err := sp.DB.Callback().Create().Remove(createCallbackName); err != nil {
@@ -151,10 +147,11 @@ type response struct {
 	Status int `json:"status"`
 }
 
-func (sp *statsPusher) eventLoop(parentCtx context.Context) {
+func (sp *statsPusher) eventLoop() {
 	logger.Debugw("Entered StatsPusher event loop")
+
 	for {
-		err := sp.pusherLoop(parentCtx)
+		err := sp.pusherLoop()
 		if err == nil {
 			return
 		}
@@ -163,7 +160,7 @@ func (sp *statsPusher) eventLoop(parentCtx context.Context) {
 		logger.Warnw("Failure during event synchronization", "error", err.Error(), "sleep_duration", duration)
 
 		select {
-		case <-parentCtx.Done():
+		case <-sp.done:
 			return
 		case <-sp.clock.After(duration):
 			continue
@@ -171,7 +168,7 @@ func (sp *statsPusher) eventLoop(parentCtx context.Context) {
 	}
 }
 
-func (sp *statsPusher) pusherLoop(parentCtx context.Context) error {
+func (sp *statsPusher) pusherLoop() error {
 	for {
 		select {
 		case <-sp.waker:
@@ -184,7 +181,7 @@ func (sp *statsPusher) pusherLoop(parentCtx context.Context) error {
 			if err != nil {
 				return err
 			}
-		case <-parentCtx.Done():
+		case <-sp.done:
 			return nil
 		}
 	}
@@ -225,11 +222,19 @@ func (sp *statsPusher) AllSyncEvents(cb func(models.SyncEvent) error) error {
 }
 
 func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
-	sp.ExplorerClient.Send([]byte(event.Body))
+	ctx, cancel := utils.ContextFromChan(sp.done)
+	defer cancel()
+
+	sp.ExplorerClient.Send(ctx, []byte(event.Body))
+	if ctx.Err() != nil {
+		return nil
+	}
 	numberEventsSent.Inc()
 
-	message, err := sp.ExplorerClient.Receive()
-	if err != nil {
+	message, err := sp.ExplorerClient.Receive(ctx)
+	if ctx.Err() != nil {
+		return nil
+	} else if err != nil {
 		return errors.Wrap(err, "syncEvent#ExplorerClient.Receive failed")
 	}
 
@@ -243,8 +248,9 @@ func (sp *statsPusher) syncEvent(event models.SyncEvent) error {
 		return errors.New("event not created")
 	}
 
-	err = sp.DB.Delete(event).Error
-	if err != nil {
+	err = sp.DB.WithContext(ctx).Delete(event).Error
+	if ctx.Err() != nil {
+	} else if err != nil {
 		return errors.Wrap(err, "syncEvent#DB.Delete failed")
 	}
 
