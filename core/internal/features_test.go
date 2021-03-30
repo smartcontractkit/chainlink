@@ -1531,8 +1531,9 @@ observationSource = """
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
-			jb, err := pr.Outputs.MarshalJSON()
+			// Want 2 runs so we see all the metadata.
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
 			require.NoError(t, err)
