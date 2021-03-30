@@ -1468,8 +1468,6 @@ isBootstrapPeer    = true
 		}))
 		defer slowServers[i].Close()
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"data":10}`))
 			b, err := ioutil.ReadAll(req.Body)
 			require.NoError(t, err)
 			var m models.BridgeMetaDataJSON
@@ -1477,6 +1475,8 @@ isBootstrapPeer    = true
 			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
 				delete(expectedMeta, m.Meta.LatestAnswer.String())
 			}
+			res.WriteHeader(http.StatusOK)
+			res.Write([]byte(`{"data":10}`))
 		}))
 		defer servers[i].Close()
 		u, _ := url.Parse(servers[i].URL)
