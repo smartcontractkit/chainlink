@@ -525,19 +525,19 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			expectedFilteredA: []uint{1, 2, 7, 8},
 			expectedFilteredB: []uint{7, 8},
 		},
-		//{
-		//	name: "no backfilled logs, overlap",
-		//
-		//	blockHeight1: 0,
-		//	batch1:       []uint{1, 2},
-		//
-		//	blockHeight2:     2,
-		//	backfillableLogs: nil,
-		//	batch2:           []uint{2, 3},
-		//
-		//	expectedFilteredA: []uint{1, 2, 3},
-		//	expectedFilteredB: []uint{2, 3},
-		//},
+		{
+			name: "no backfilled logs, overlap",
+
+			blockHeight1: 0,
+			batch1:       []uint{1, 2},
+
+			blockHeight2:     2,
+			backfillableLogs: nil,
+			batch2:           []uint{2, 3},
+
+			expectedFilteredA: []uint{1, 2, 3},
+			expectedFilteredB: []uint{2, 3},
+		},
 		{
 			name: "backfilled logs, no overlap",
 
@@ -602,7 +602,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			chRawLogs1 := <-helper.chchRawLogs
 			cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock:    test.blockHeight1,
-				EndBlock:      test.blockHeight2,
+				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
 				Hashes:        blockHashes,
 				HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
@@ -623,9 +623,9 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				})},
 			})
 
+			requireBroadcastCount(t, helper.store, len(test.batch1))
 			expectedA := newReceived(pickLogs(t, logsA, test.batch1))
 			logListenerA.requireAllReceived(t, expectedA)
-			requireBroadcastCount(t, helper.store, len(test.batch1))
 
 			cleanup()
 
@@ -645,7 +645,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				require.Equal(t, expected, fromBlock)
 			})
 
-			// Register listener B (triggers resubscription)
+			// Register listener B (triggers re-subscription)
 			helper.register(logListenerB, contractB, 1)
 
 			// Send second batch of new logs
@@ -786,7 +786,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	helper.mockEth.ethClient.AssertExpectations(t)
 }
 
-func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
+func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	const startBlockHeight int64 = 0
 	helper := newBroadcasterHelper(t, startBlockHeight, 1)
 	helper.start()
@@ -811,9 +811,9 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		log1R       = cltest.RawNewRoundLog(t, addr, blockHash1R, 1, 0, false)
 		log2R       = cltest.RawNewRoundLog(t, addr, blockHash2R, 2, 0, false)
 
-		head0  = models.Head{Hash: blockHash0, Number: 0}
-		head1  = models.Head{Hash: blockHash1, Number: 1, Parent: &head0}
-		head2  = models.Head{Hash: blockHash2, Number: 2, Parent: &head1}
+		head0 = models.Head{Hash: blockHash0, Number: 0}
+		// head1 - missing
+		head2  = models.Head{Hash: blockHash2, Number: 2, Parent: &head0}
 		head3  = models.Head{Hash: blockHash3, Number: 3, Parent: &head2}
 		head1R = models.Head{Hash: blockHash1R, Number: 1, Parent: &head0}
 		head2R = models.Head{Hash: blockHash2R, Number: 2, Parent: &head1R}
@@ -821,7 +821,7 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 
 		events = []interface{}{
 			head0, log0,
-			head1, log1,
+			log1,
 			head2, log2,
 			head3,
 			head1R, log1Removed, log2Removed, log1R,
@@ -836,7 +836,7 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 	require.NoError(t, err)
 
 	listener := helper.newLogListener("listener")
-	helper.register(listener, contract, 1)
+	helper.register(listener, contract, 2)
 
 	chRawLogs := <-helper.chchRawLogs
 	go func() {
