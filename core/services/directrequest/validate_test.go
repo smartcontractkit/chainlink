@@ -1,10 +1,10 @@
 package directrequest
 
 import (
-	"crypto/sha256"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -25,11 +25,9 @@ observationSource   = """
 	s, err := ValidatedDirectRequestSpec(toml)
 	require.NoError(t, err)
 
-	sha := sha256.Sum256([]byte(toml))
-
-	require.Equal(t, int32(0), s.ID)
-	require.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.DirectRequestSpec.ContractAddress.Hex())
-	require.Equal(t, sha[:], s.DirectRequestSpec.OnChainJobSpecID[:])
-	require.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
-	require.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
+	assert.Equal(t, int32(0), s.ID)
+	assert.Equal(t, "0x613a38AC1659769640aaE063C651F48E0250454C", s.DirectRequestSpec.ContractAddress.Hex())
+	assert.NotZero(t, s.DirectRequestSpec.OnChainJobSpecID[:])
+	assert.Equal(t, time.Time{}, s.DirectRequestSpec.CreatedAt)
+	assert.Equal(t, time.Time{}, s.DirectRequestSpec.UpdatedAt)
 }

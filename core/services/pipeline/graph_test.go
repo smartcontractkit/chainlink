@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/graph"
@@ -194,4 +195,80 @@ func TestGraph_HasCycles(t *testing.T) {
     `), g)
 	require.NoError(t, err)
 	require.True(t, g.HasCycles())
+}
+
+func TestGraph_Digest(t *testing.T) {
+	t.Run("Attribute order does not affect digest", func(t *testing.T) {
+		g := NewTaskDAG()
+		err := dot.Unmarshal([]byte(`
+			digraph {
+					a;
+					b [a=1 b=2 c=3 d=4 e=5];
+					a -> b;
+			}
+		`), g)
+		require.NoError(t, err)
+
+		digest, err := g.Digest()
+		require.NoError(t, err)
+		require.Equal(t, common.HexToHash("0x77c015ccaf370e85712cf4098f18b608dd7990629af90d7b5e9a7977322dc0c9"), digest)
+
+		// change the order of the attrs in b node, failure if implemented improperly is non-deterministic
+		g = NewTaskDAG()
+		err = dot.Unmarshal([]byte(`
+			digraph {
+					a;
+					b [e=5 d=4 c=3 b=2 a=1];
+					a -> b;
+			}
+		`), g)
+		require.NoError(t, err)
+
+		digest2, err := g.Digest()
+		require.NoError(t, err)
+		require.Equal(t, digest, digest2)
+	})
+
+	t.Run("Graph order does not affect digest", func(t *testing.T) {
+		g := NewTaskDAG()
+		err := dot.Unmarshal([]byte(`
+			digraph {
+					a;
+					b;
+					c;
+					d;
+					e;
+					a -> b;
+					b -> c;
+					c -> d;
+					d -> e;
+			}
+		`), g)
+		require.NoError(t, err)
+
+		digest, err := g.Digest()
+		require.NoError(t, err)
+		require.Equal(t, common.HexToHash("0x4920da56e4f22bcd05c61ff469d2fd59f6f8c26fc4ca32b5bd8247bf24b2b051"), digest)
+
+		// change the order of the graph declarations
+		g = NewTaskDAG()
+		err = dot.Unmarshal([]byte(`
+			digraph {
+					e;
+					d;
+					c;
+					b;
+					a;
+					d -> e;
+					c -> d;
+					b -> c;
+					a -> b;
+			}
+		`), g)
+		require.NoError(t, err)
+
+		digest2, err := g.Digest()
+		require.NoError(t, err)
+		require.Equal(t, digest, digest2)
+	})
 }
