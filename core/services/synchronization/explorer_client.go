@@ -78,7 +78,8 @@ type explorerClient struct {
 	secret           string
 	logging          bool
 
-	done chan struct{}
+	done          chan struct{}
+	writePumpDone chan struct{}
 
 	statusMtx sync.RWMutex
 }
@@ -99,6 +100,9 @@ func NewExplorerClient(url *url.URL, accessKey, secret string, loggingArgs ...bo
 		accessKey: accessKey,
 		secret:    secret,
 		logging:   logging,
+
+		sendText:   make(chan []byte, SendBufferSize),
+		sendBinary: make(chan []byte, SendBufferSize),
 	}
 }
 
@@ -124,12 +128,7 @@ func (ec *explorerClient) Start() error {
 	}
 
 	ec.done = make(chan struct{})
-
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go ec.connectAndWritePump(wg)
-	wg.Wait()
-
+	go ec.connectAndWritePump()
 	ec.started = true
 	return nil
 }
@@ -227,9 +226,7 @@ const (
 // Inspired by https://github.com/gorilla/websocket/blob/master/examples/chat/client.go
 // lexical confinement of done chan allows multiple connectAndWritePump routines
 // to clean up independent of itself by reducing shared state. i.e. a passed done, not ec.done.
-func (ec *explorerClient) connectAndWritePump(wg *sync.WaitGroup) {
-	var doneOnce sync.Once
-	defer doneOnce.Do(wg.Done)
+func (ec *explorerClient) connectAndWritePump() {
 	for {
 		select {
 		case <-time.After(ec.sleeper.After()):
@@ -241,19 +238,16 @@ func (ec *explorerClient) connectAndWritePump(wg *sync.WaitGroup) {
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				doneOnce.Do(wg.Done)
 				ec.setStatus(ConnectionStatusError)
 				logger.Warn("Failed to connect to explorer (", ec.url.String(), "): ", err)
 				break
 			}
 
-			ec.sendText = make(chan []byte, SendBufferSize)
-			ec.sendBinary = make(chan []byte, SendBufferSize)
 			ec.setStatus(ConnectionStatusConnected)
 
-			doneOnce.Do(wg.Done)
 			logger.Infow("Connected to explorer", "url", ec.url)
 			ec.sleeper.Reset()
+			ec.writePumpDone = make(chan struct{})
 			go ec.readPump()
 			ec.writePump()
 
@@ -308,6 +302,8 @@ func (ec *explorerClient) writePump() {
 				return
 			}
 
+		case <-ec.writePumpDone:
+			return
 		case <-ec.done:
 			return
 		}
@@ -373,8 +369,7 @@ func (ec *explorerClient) readPump() {
 			if websocket.IsUnexpectedCloseError(err, expectedCloseMessages...) {
 				logger.Warnw("Unexpected close error on ExplorerClient", "err", err)
 			}
-			close(ec.sendText)
-			close(ec.sendBinary)
+			close(ec.writePumpDone)
 			return
 		}
 
