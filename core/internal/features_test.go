@@ -1582,8 +1582,19 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	)
 	defer cleanup()
 
-	store := app.Store
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return(nil).Maybe()
 
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
+
+	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
+
+	require.NoError(t, app.StartAndConnect())
+
+	store := app.Store
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
 	eventBroadcaster.Start()
 	defer eventBroadcaster.Stop()
@@ -1591,25 +1602,20 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
-	sub.On("Err").Return(nil).Maybe()
-	sub.On("Unsubscribe").Return(nil).Maybe()
+	job := cltest.FixtureCreateJobSpecV2ViaWeb(t, app, "../web/testdata/direct-request-spec.toml")
 
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil)
-	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
-	newHeads := make(chan<- *models.Head, 10)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
-		Run(func(args mock.Arguments) {
-			newHeads = args.Get(1).(chan<- *models.Head)
-		}).
-		Return(sub, nil)
-	require.NoError(t, app.StartAndConnect())
-
-	j := cltest.FixtureCreateJobSpecV2ViaWeb(t, app, "../web/testdata/direct-request-spec.toml")
-
-	runlog := cltest.NewRunLog(t, j.DirectRequestSpec.OnChainJobSpecID, cltest.NewAddress(), cltest.NewAddress(), 1, `{}`)
-	runlog.BlockHash = cltest.NewHash()
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, cltest.NewAddress(), cltest.NewAddress(), 1, `{}`)
+	var logs chan<- models.Log
+	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
+		logs = <-logsCh
+		return
+	}, 5*time.Second)
+	cltest.CallbackOrTimeout(t, "send run log", func() {
+		logs <- runLog
+		return
+	}, 30*time.Second)
 
 	runs := cltest.WaitForPipelineComplete(t, 0, j.ID, 1, jobORM, 5*time.Second, 30*time.Millisecond)
 	require.Len(t, runs, 1)

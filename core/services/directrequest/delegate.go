@@ -81,22 +81,25 @@ type listener struct {
 }
 
 // Start complies with job.Service
-func (d listener) Start() error {
-	connected, unsubscribe := d.logBroadcaster.Register(d, log.ListenerOpts{
-		Contract: d.oracle,
-		Logs:     []generated.AbigenLog{},
+func (l listener) Start() error {
+	connected, unsubscribe := l.logBroadcaster.Register(&l, log.ListenerOpts{
+		Contract: l.oracle,
+		Logs: []generated.AbigenLog{
+			oracle_wrapper.OracleOracleRequest{},
+			oracle_wrapper.OracleCancelOracleRequest{},
+		},
 	})
 	if !connected {
 		return errors.New("Failed to register listener with logBroadcaster")
 	}
-	d.unsubscribeLogs = unsubscribe
+	l.unsubscribeLogs = unsubscribe
 	return nil
 }
 
 // Close complies with job.Service
-func (d listener) Close() error {
-	if d.unsubscribeLogs != nil {
-		d.unsubscribeLogs()
+func (l listener) Close() error {
+	if l.unsubscribeLogs != nil {
+		l.unsubscribeLogs()
 	}
 	return nil
 }
@@ -108,7 +111,7 @@ func (listener) OnConnect() {}
 func (listener) OnDisconnect() {}
 
 // OnConnect complies with log.Listener
-func (d listener) HandleLog(lb log.Broadcast) {
+func (l listener) HandleLog(lb log.Broadcast) {
 	was, err := lb.WasAlreadyConsumed()
 	if err != nil {
 		logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
@@ -126,13 +129,13 @@ func (d listener) HandleLog(lb log.Broadcast) {
 	// TODO: Need to filter each job to the _jobId - can we filter upstream?
 	switch log := log.(type) {
 	case *oracle_wrapper.OracleOracleRequest:
-		d.handleOracleRequest(log)
+		l.handleOracleRequest(log)
 		err = lb.MarkConsumed()
 		if err != nil {
 			logger.Errorf("Error marking log as consumed: %v", err)
 		}
 	case *oracle_wrapper.OracleCancelOracleRequest:
-		d.handleCancelOracleRequest(log.RequestId)
+		l.handleCancelOracleRequest(log.RequestId)
 		err = lb.MarkConsumed()
 		if err != nil {
 			logger.Errorf("Error marking log as consumed: %v", err)
@@ -157,19 +160,19 @@ func oracleRequestToMap(req *oracle_wrapper.OracleOracleRequest) map[string]inte
 	return result
 }
 
-func (d *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) {
+func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) {
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(req)
 	ctx := context.TODO()
-	_, err := d.pipelineRunner.CreateRun(ctx, d.jobID, meta)
+	_, err := l.pipelineRunner.CreateRun(ctx, l.jobID, meta)
 	if err != nil {
 		logger.Errorw("DirectRequest failed to create run", "err", err)
 	}
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (d *listener) handleCancelOracleRequest(requestID [32]byte) {
-	err := d.pipelineORM.CancelRunByRequestID(d.jobID, requestID)
+func (l *listener) handleCancelOracleRequest(requestID [32]byte) {
+	err := l.pipelineORM.CancelRunByRequestID(l.jobID, requestID)
 	if err != nil {
 		logger.Errorw("Error while deleting pipeline_runs", "error", err)
 	}
@@ -181,8 +184,8 @@ func (listener) JobID() models.JobID {
 }
 
 // Job complies with log.Listener
-func (d listener) JobIDV2() int32 {
-	return d.jobID
+func (l listener) JobIDV2() int32 {
+	return l.jobID
 }
 
 // IsV2Job complies with log.Listener

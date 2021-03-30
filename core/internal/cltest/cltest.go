@@ -1165,12 +1165,12 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
-	g := gomega.NewGomegaWithT(t)
 	var pr []pipeline.Run
-	g.Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() *pipeline.Run {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		var completed []pipeline.Run
+
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
