@@ -54,19 +54,19 @@ var (
 		Name: "pipeline_run_errors",
 		Help: "Number of errors for each pipeline spec",
 	},
-		[]string{"pipeline_spec_id"},
+		[]string{"job_id", "job_name"},
 	)
 	promPipelineRunTotalTimeToCompletion = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pipeline_run_total_time_to_completion",
 		Help: "How long each pipeline run took to finish (from the moment it was created)",
 	},
-		[]string{"pipeline_spec_id"},
+		[]string{"job_id", "job_name"},
 	)
 	promPipelineTasksTotalFinished = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"pipeline_spec_id", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_type", "status"},
 	)
 )
 
@@ -193,10 +193,10 @@ func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (
 		}
 
 		elapsed := time.Since(pRun.CreatedAt)
-		promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Set(float64(elapsed))
+		promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpec.JobID), pRun.PipelineSpec.JobName).Set(float64(elapsed))
 
 		if pRun.HasErrors() {
-			promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpecID)).Inc()
+			promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", pRun.PipelineSpec.JobID), pRun.PipelineSpec.JobName).Inc()
 		}
 
 		return nil

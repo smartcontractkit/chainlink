@@ -53,7 +53,7 @@ var (
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
 	},
-		[]string{"pipeline_spec_id", "task_type"},
+		[]string{"job_id", "job_name", "task_type"},
 	)
 	ErrRunPanicked = errors.New("pipeline run panicked")
 )
@@ -273,7 +273,7 @@ func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
 }
 
 func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, bool, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "spec", spec.ID)
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 	var (
 		err  error
 		trrs TaskRunResults
@@ -387,14 +387,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 
 				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type)).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(m.taskRun.Type)).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type), status).Inc()
+				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(m.taskRun.Type), status).Inc()
 
 				if m.next == nil {
 					return
@@ -414,6 +414,10 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
+	promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+	if trrs.FinalResult().HasErrors() {
+		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+	}
 
 	return trrs, retry, err
 }
