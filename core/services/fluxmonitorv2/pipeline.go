@@ -35,9 +35,9 @@ func NewPipelineRun(
 
 // Execute executes a pipeline run, extracts the singular result and converts it
 // to a decimal.
-func (run *PipelineRun) Execute() (int64, *decimal.Decimal, error) {
+func (run *PipelineRun) Execute(meta map[string]interface{}) (int64, *decimal.Decimal, error) {
 	ctx := context.Background()
-	runID, results, err := run.runner.ExecuteAndInsertNewRun(ctx, run.spec, run.logger)
+	runID, results, err := run.runner.ExecuteAndInsertNewRun(ctx, run.spec, pipeline.JSONSerializable{Val: meta}, run.logger)
 	if err != nil {
 		return runID, nil, errors.Wrapf(err, "error executing new run for job ID %v", run.jobID)
 	}

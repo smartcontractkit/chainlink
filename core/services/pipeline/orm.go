@@ -140,7 +140,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 	return runID, errors.WithStack(err)
 }
 
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, bool, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, bool, error)
 
 func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error) {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
@@ -164,7 +164,7 @@ func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (
 		}
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs, _, err := fn(ctx, tx, pRun.PipelineSpec, *logger.Default)
+		trrs, _, err := fn(ctx, tx, pRun.PipelineSpec, pRun.Meta, *logger.Default)
 		if err != nil {
 			return errors.Wrap(err, "error calling ProcessRunFunc")
 		}
@@ -173,7 +173,7 @@ func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (
 		// IDs.
 		for i, trr := range trrs {
 			for _, tr := range pRun.PipelineTaskRuns {
-				if trr.TaskRun.DotID == tr.DotID {
+				if trr.Task.DotID() == tr.DotID {
 					trrs[i].ID = tr.ID
 				}
 			}
@@ -273,7 +273,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 		valueArgs := []interface{}{}
 		for _, trr := range trrs {
 			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
-			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.TaskRun.DotID, trr.TaskRun.CreatedAt, trr.TaskRun.FinishedAt)
+			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
 		}
 
 		/* #nosec G201 */

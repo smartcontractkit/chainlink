@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -1445,6 +1446,15 @@ isBootstrapPeer    = true
 
 	var jids []int32
 	var servers, slowServers = make([]*httptest.Server, 4), make([]*httptest.Server, 4)
+	// We expect metadata of:
+	//  latestAnswer:nil // First call
+	//  latestAnswer:0
+	//  latestAnswer:10
+	//  latestAnswer:20
+	//  latestAnswer:30
+	expectedMeta := map[string]struct{}{
+		"0": {}, "10": {}, "20": {}, "30": {},
+	}
 	for i := 0; i < 4; i++ {
 		err = apps[i].StartAndConnect()
 		require.NoError(t, err)
@@ -1458,10 +1468,22 @@ isBootstrapPeer    = true
 		}))
 		defer slowServers[i].Close()
 		servers[i] = httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			b, err := ioutil.ReadAll(req.Body)
+			require.NoError(t, err)
+			var m models.BridgeMetaDataJSON
+			require.NoError(t, json.Unmarshal(b, &m))
+			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				delete(expectedMeta, m.Meta.LatestAnswer.String())
+			}
 			res.WriteHeader(http.StatusOK)
 			res.Write([]byte(`{"data":10}`))
 		}))
 		defer servers[i].Close()
+		u, _ := url.Parse(servers[i].URL)
+		apps[i].Store.CreateBridgeType(&models.BridgeType{
+			Name: models.TaskType(fmt.Sprintf("bridge%d", i)),
+			URL:  models.WebURL(*u),
+		})
 
 		// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 		// So 200ms + 200ms + 500ms < 1s
@@ -1481,7 +1503,7 @@ contractConfigConfirmations = 1
 contractConfigTrackerPollInterval = "1s"
 observationSource = """
     // data source 1
-    ds1          [type=http method=GET url="%s"];
+    ds1          [type=bridge name="%s"];
     ds1_parse    [type=jsonparse path="data"];
     ds1_multiply [type=multiply times=%d];
 
@@ -1495,7 +1517,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], servers[i].URL, i, slowServers[i].URL, i))
+`, ocrContractAddress, bootstrapPeerID, kbs[i].ID, transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 		require.NoError(t, err)
 		jid, err := apps[i].AddJobV2(context.Background(), ocrJob, null.NewString("testocr", true))
 		require.NoError(t, err)
@@ -1509,8 +1531,9 @@ observationSource = """
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
-			jb, err := pr.Outputs.MarshalJSON()
+			// Want at least 2 runs so we see all the metadata.
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
 			require.NoError(t, err)
@@ -1540,6 +1563,7 @@ observationSource = """
 			require.Len(t, j.JobSpecErrors, ignore)
 		}
 	}
+	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 }
 
 func TestIntegration_GasUpdater(t *testing.T) {
