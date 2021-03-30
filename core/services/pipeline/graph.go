@@ -1,14 +1,20 @@
 package pipeline
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/sha3"
 	"gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/encoding"
 	"gonum.org/v1/gonum/graph/encoding/dot"
 	"gonum.org/v1/gonum/graph/simple"
 	"gonum.org/v1/gonum/graph/topo"
+
+	gethCommon "github.com/ethereum/go-ethereum/common"
 )
 
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
@@ -44,6 +50,77 @@ func (g *TaskDAG) UnmarshalText(bs []byte) (err error) {
 
 func (g *TaskDAG) HasCycles() bool {
 	return len(topo.DirectedCyclesIn(g)) > 0
+}
+
+func (g TaskDAG) Digest() (hash gethCommon.Hash, err error) {
+	nodes := []string{}
+	nodeIter := g.Nodes()
+	for nodeIter.Next() {
+		node, is := nodeIter.Node().(*taskDAGNode)
+		if !is {
+			panic("this is impossible but we must appease go staticcheck")
+		}
+
+		nodeName := strings.Builder{}
+		_, err = nodeName.WriteString(fmt.Sprintf("%s [ ", node.dotID))
+		if err != nil {
+			return
+		}
+
+		// Sort the attributes before hashing
+		keys := make([]string, 0, len(node.attrs))
+		for k := range node.attrs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			input := fmt.Sprintf("%s=%s ", k, node.attrs[k])
+			_, err = nodeName.WriteString(input)
+			if err != nil {
+				return
+			}
+		}
+
+		_, err = nodeName.WriteString("]")
+		if err != nil {
+			return hash, errors.Wrap(err, "sha256 write error")
+		}
+
+		nodes = append(nodes, nodeName.String())
+	}
+
+	edges := []string{}
+	edgeIter := g.Edges()
+	for edgeIter.Next() {
+		edge := edgeIter.Edge()
+
+		input := fmt.Sprintf("%s -> %s;", edge.From(), edge.To())
+		edges = append(edges, input)
+	}
+
+	hasher := sha3.New256()
+
+	// g.Nodes is not deterministically ordered, so sort
+	sort.Strings(nodes)
+	for _, node := range nodes {
+		_, err := hasher.Write([]byte(node))
+		if err != nil {
+			return hash, errors.Wrap(err, "sha256 write error")
+		}
+	}
+
+	// g.Edges is not deterministically ordered, so sort
+	sort.Strings(edges)
+	for _, edge := range edges {
+		_, err := hasher.Write([]byte(edge))
+		if err != nil {
+			return hash, errors.Wrap(err, "sha256 write error")
+		}
+	}
+
+	copy(hash[:], hasher.Sum(nil))
+	return
 }
 
 // Returns a slice of Tasks starting at the outputs of the DAG and ending at

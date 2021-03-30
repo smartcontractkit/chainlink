@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -194,8 +193,7 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
 
-	sha := sha256.Sum256(tomlBytes)
-	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
+	require.NotZero(t, jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
