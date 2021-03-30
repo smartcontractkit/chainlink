@@ -41,7 +41,7 @@ func (_m *Broadcaster) DependentReady() {
 }
 
 // HandlePreviousHead provides a mock function with given fields: head
-func (_m *Broadcaster) HandleLatestStoredHead(head *models.Head) {
+func (_m *Broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 	_m.Called(head)
 }
 
