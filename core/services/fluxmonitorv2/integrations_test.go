@@ -3,7 +3,10 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -403,11 +406,34 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	// Create mock server
+	// We expect metadata of:
+	//  latestAnswer:nil updatedAt:nil // First call
+	//  latestAnswer:100 updatedAt:50
+	//  latestAnswer:103 updatedAt:60
+	type k struct{ latestAnswer, updatedAt string }
+	expectedMeta := map[k]struct{}{
+		{"100", "50"}: {},
+		{"103", "60"}: {},
+	}
 	reportPrice := int64(100)
-	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 		generatePriceResponseFn(&reportPrice),
+		func(r *http.Request) {
+			b, err1 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err1)
+			var m models.BridgeMetaDataJSON
+			require.NoError(t, json.Unmarshal(b, &m))
+			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				delete(expectedMeta, k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()})
+			}
+		},
 	)
 	t.Cleanup(mockServer.Close)
+	u, _ := url.Parse(mockServer.URL)
+	app.Store.CreateBridgeType(&models.BridgeType{
+		Name: "bridge",
+		URL:  models.WebURL(*u),
+	})
 
 	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := fa.WatchSubmissionReceived(t,
@@ -431,14 +457,14 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	pollTimerDisabled = false
 
 	observationSource = """
-	ds1 [type=http method=GET url="%s"];
+	ds1 [type=bridge name=bridge];
 	ds1_parse [type=jsonparse path="data,result"];
 
 	ds1 -> ds1_parse
 	"""
 		`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod, mockServer.URL)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
 
 	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(s),
@@ -491,6 +517,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
 	assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
+	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {

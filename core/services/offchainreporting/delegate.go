@@ -195,7 +195,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		jobSpec.PipelineSpec.JobID = jobSpec.ID
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
-			Datasource: dataSource{
+			Datasource: &dataSource{
 				pipelineRunner: d.pipelineRunner,
 				ocrLogger:      *loggerWith,
 				spec:           *jobSpec.PipelineSpec,
