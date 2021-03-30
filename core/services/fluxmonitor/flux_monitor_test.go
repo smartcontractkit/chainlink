@@ -1681,7 +1681,7 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 				OracleCount:      1,
 			}, nil).
 			Once()
-		md, _ := models.BridgeMetaData(big.NewInt(100), big.NewInt(1616447984))
+		md, _ := models.MarshalBridgeMetaData(big.NewInt(100), big.NewInt(1616447984))
 		fetcher.On("Fetch", mock.Anything, md).
 			Return(decimal.NewFromInt(answer), nil).
 			Once()

@@ -85,7 +85,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(context.Background(), spec, *logger.Default)
+	trrs, err := r.ExecuteRun(context.Background(), spec, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(ts))
 
@@ -149,7 +149,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(ctx, spec, *logger.Default)
+	trrs, err := r.ExecuteRun(ctx, spec, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {
@@ -175,7 +175,7 @@ ds_parse [type=jsonparse path="result"]
 ds_multiply [type=multiply times=10]
 ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}, *logger.Default)
+	}, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)
