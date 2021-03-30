@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -116,6 +117,7 @@ func TestInitiatorParams(t *testing.T) {
 			FromBlock:         big,
 			ToBlock:           big,
 			Topics:            topics,
+			JobIDTopicFilter:  models.JobID(uuid.NewV4()),
 			RequestData:       json,
 			Feeds:             json,
 			Threshold:         42.42,
