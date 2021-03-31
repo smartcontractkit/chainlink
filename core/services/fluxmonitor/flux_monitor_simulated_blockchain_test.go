@@ -602,7 +602,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	initr.InitiatorParams.Precision = 8
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	closer := cltest.CommitLoop(fa.backend)
+	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
 	defer closer()
 
 	// We should see a spec error because the value is too large to submit on-chain.
