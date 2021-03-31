@@ -793,7 +793,7 @@ ds1 -> ds1_parse
 
 	j := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
-	closer := cltest.CommitLoop(fa.backend)
+	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
 	defer closer()
 
 	// We should see a spec error because the value is too large to submit on-chain.
