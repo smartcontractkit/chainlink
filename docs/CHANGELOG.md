@@ -36,6 +36,8 @@ Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` e
 
 ### Fixed
 
+- Under certain circumstances a poorly configured Explorer could delay Chainlink node startup by up to 45 seconds.
+
 - Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
 
 - Flux monitor jobs should now work correctly with [outlier-detection](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/outlier-detection) and [market-closure](https://github.com/smartcontractkit/external-adapters-js/tree/develop/composite/market-closure) external adapters.

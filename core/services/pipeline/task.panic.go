@@ -17,6 +17,6 @@ func (t *PanicTask) SetDefaults(_ map[string]string, _ TaskDAG, _ taskDAGNode) e
 	return nil
 }
 
-func (t *PanicTask) Run(_ context.Context, _ TaskRun, _ []Result) (result Result) {
+func (t *PanicTask) Run(_ context.Context, _ JSONSerializable, _ []Result) (result Result) {
 	panic(t.Msg)
 }

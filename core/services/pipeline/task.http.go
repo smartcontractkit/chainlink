@@ -92,7 +92,7 @@ func (t *HTTPTask) SetDefaults(inputValues map[string]string, g TaskDAG, self ta
 	return nil
 }
 
-func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result {
+func (t *HTTPTask) Run(ctx context.Context, _ JSONSerializable, inputs []Result) Result {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "HTTPTask requires 0 inputs")}
 	}
@@ -133,8 +133,8 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 		return Result{Error: errors.Wrapf(err, "error making http request")}
 	}
 	elapsed := time.Since(start)
-	promHTTPFetchTime.WithLabelValues(taskRun.DotID).Set(float64(elapsed))
-	promHTTPResponseBodySize.WithLabelValues(taskRun.DotID).Set(float64(len(responseBytes)))
+	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
+	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
 	if statusCode >= 400 {
 		maybeErr := bestEffortExtractError(responseBytes)
@@ -144,7 +144,7 @@ func (t *HTTPTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) Re
 	logger.Debugw("HTTP task got response",
 		"response", string(responseBytes),
 		"url", t.URL.String(),
-		"pipelineTaskSpecID", taskRun.DotID,
+		"dotID", t.DotID(),
 	)
 	// NOTE: We always stringify the response since this is required for all current jobs.
 	// If a binary response is required we might consider adding an adapter

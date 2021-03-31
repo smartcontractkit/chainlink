@@ -119,7 +119,7 @@ func TestHTTPFetcher_Meta(t *testing.T) {
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	md, err := models.BridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
+	md, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)
