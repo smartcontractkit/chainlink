@@ -602,12 +602,9 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	initr.InitiatorParams.Precision = 8
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	go func() {
-		for {
-			fa.backend.Commit()
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
+	closer := cltest.CommitLoop(fa.backend)
+	defer closer()
+
 	// We should see a spec error because the value is too large to submit on-chain.
 	jse := cltest.WaitForSpecError(t, app.Store, j.ID, 1)
 	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
