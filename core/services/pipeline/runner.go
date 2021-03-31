@@ -28,12 +28,15 @@ import (
 type Runner interface {
 	Start() error
 	Close() error
-	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
+	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (trrs TaskRunResults, err error)
 	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (runID int64, finalResult FinalResult, err error)
+	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
+
+	// Deprecated
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
 }
 
 type runner struct {
