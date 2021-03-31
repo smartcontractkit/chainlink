@@ -791,7 +791,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	kst := new(mocks.KeyStoreInterface)
 	kst.On("HasAccountWithAddress", address).Return(true)
 	kst.On("GetAccountByAddress", mock.Anything).Maybe().Return(accounts.Account{}, nil)
-	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(&types.Transaction{}, nil)
+	kst.On("SignTx", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(types.NewTx(&types.LegacyTx{}), nil)
 	kst.On("Accounts").Return([]accounts.Account{})
 
 	app.Store.KeyStore = kst
