@@ -678,6 +678,8 @@ func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.
 func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
+	//  < Geth 1.10 id type []byte
+	//  >= Geth 1.10 id type [16]byte
 	id := googleuuid.New()
 	k := &keystore.Key{
 		Id:         id,
