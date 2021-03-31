@@ -190,13 +190,6 @@ func TestORM(t *testing.T) {
 
 		err = orm.CreateJob(context.Background(), &spec, spec.Pipeline)
 		require.NoError(t, err)
-
-		// Create another Job with same DirectRequestSpec
-		spec = job.Job{DirectRequestSpec: &drSpec}
-		err = tree.Unmarshal(&spec)
-		require.NoError(t, err)
-		err = orm.CreateJob(context.Background(), &spec, spec.Pipeline)
-		require.NoError(t, err)
 	})
 }
 
