@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -79,7 +80,7 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 		carol.From:   {Balance: oneEth},
 		nallory.From: {Balance: oneEth},
 	}
-	gasLimit := eth.DefaultConfig.Miner.GasCeil
+	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
 	require.NoError(t, err)
