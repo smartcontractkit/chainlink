@@ -141,9 +141,6 @@ func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ..
 	func() {
 		ec.boot.RLock()
 		defer ec.boot.RUnlock()
-		if !ec.started {
-			panic("send on unstarted explorer client")
-		}
 	}()
 
 	messageType := ExplorerTextMessage
