@@ -138,10 +138,8 @@ func (ec *explorerClient) Start() error {
 // once buffer is full.
 // func (ec *explorerClient) Receive(durationParams ...time.Duration) ([]byte, error) {
 func (ec *explorerClient) Send(ctx context.Context, data []byte, messageTypes ...int) {
-	func() {
-		ec.boot.RLock()
-		defer ec.boot.RUnlock()
-	}()
+	ec.boot.RLock()
+	defer ec.boot.RUnlock()
 
 	messageType := ExplorerTextMessage
 	if len(messageTypes) > 0 {
