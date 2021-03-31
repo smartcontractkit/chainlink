@@ -401,7 +401,7 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta 
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
 	promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
-	if trrs.FinalResult().HasErrors() {
+	if retry || trrs.FinalResult().HasErrors() {
 		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
 	}
 
