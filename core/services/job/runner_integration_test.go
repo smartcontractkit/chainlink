@@ -2,7 +2,9 @@ package job_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -66,9 +68,22 @@ func TestRunner(t *testing.T) {
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`)
+			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				})
 			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`)
+			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				},
+			)
 			defer cleanupVoterTurnout()
 			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 			defer cleanupHTTP()
@@ -89,7 +104,9 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
+		require.NoError(t, err)
+		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, m)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
