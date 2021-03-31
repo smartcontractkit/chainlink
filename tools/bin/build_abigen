@@ -6,9 +6,7 @@
 set -e
 
 # Version of abigen to install. Must be run within chainlink project
-# TODO Re-enable when geth 1.10 is released.
 GETH_VERSION=$(go list -json -m github.com/ethereum/go-ethereum | jq -r .Version)
-#GETH_VERSION="9aa606358e06"
 GETH_REPO_URL="https://github.com/ethereum/go-ethereum"
 
 function realpath { echo $(cd $(dirname $1); pwd)/$(basename $1); }
