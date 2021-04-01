@@ -48,6 +48,7 @@ type coordinatorUniverse struct {
 	// Cast of participants
 	sergey *bind.TransactOpts // Owns all the LINK initially
 	neil   *bind.TransactOpts // Node operator running VRF service
+	ned    *bind.TransactOpts // Secondary node operator
 	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
@@ -71,12 +72,14 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 	var (
 		sergey  = newIdentity(t)
 		neil    = newIdentity(t)
+		ned     = newIdentity(t)
 		carol   = newIdentity(t)
 		nallory = oracleTransactor
 	)
 	genesisData := core.GenesisAlloc{
 		sergey.From:  {Balance: oneEth},
 		neil.From:    {Balance: oneEth},
+		ned.From:     {Balance: oneEth},
 		carol.From:   {Balance: oneEth},
 		nallory.From: {Balance: oneEth},
 	}
@@ -118,6 +121,7 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 		consumerABI:             &consumerABI,
 		sergey:                  sergey,
 		neil:                    neil,
+		ned:                     ned,
 		carol:                   carol,
 	}
 }
