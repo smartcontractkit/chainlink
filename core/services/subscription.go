@@ -301,7 +301,7 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 	batchSize := int64(sub.backfillBatchSize)
 	for i := q.FromBlock.Int64(); i < latest.Int64(); i += batchSize {
 		q.FromBlock = big.NewInt(i)
-		to := utils.BigIntSlice{big.NewInt(i + batchSize), latest}
+		to := utils.BigIntSlice{big.NewInt(i + batchSize - 1), latest}
 		q.ToBlock = to.Min()
 		batchLogs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
 		if err != nil {
