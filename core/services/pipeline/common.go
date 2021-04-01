@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,7 +28,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result
+		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -73,14 +74,6 @@ type Result struct {
 	Error error
 }
 
-// FinalResult is the result of a Run
-// TODO: Get rid of FinalErrors and use FinalResult instead
-// https://www.pivotaltracker.com/story/show/176557536
-type FinalResult struct {
-	Values []interface{}
-	Errors []error
-}
-
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
 func (result Result) OutputDB() JSONSerializable {
 	return JSONSerializable{Val: result.Value, Null: result.Value == nil}
@@ -89,12 +82,16 @@ func (result Result) OutputDB() JSONSerializable {
 // ErrorDB dumps a single result error for a pipeline_task_run
 func (result Result) ErrorDB() null.String {
 	var errString null.String
-	if finalErrors, is := result.Error.(FinalErrors); is {
-		errString = null.StringFrom(finalErrors.Error())
-	} else if result.Error != nil {
+	if result.Error != nil {
 		errString = null.StringFrom(result.Error.Error())
 	}
 	return errString
+}
+
+// FinalResult is the result of a Run
+type FinalResult struct {
+	Values []interface{}
+	Errors []error
 }
 
 // OutputsDB dumps a result output for a pipeline_run
@@ -103,7 +100,7 @@ func (result FinalResult) OutputsDB() JSONSerializable {
 }
 
 // ErrorsDB dumps a result error for a pipeline_run
-func (result FinalResult) ErrorsDB() JSONSerializable {
+func (result FinalResult) ErrorsDB() RunErrors {
 	errStrs := make([]null.String, len(result.Errors))
 	for i, err := range result.Errors {
 		if err == nil {
@@ -113,7 +110,7 @@ func (result FinalResult) ErrorsDB() JSONSerializable {
 		}
 	}
 
-	return JSONSerializable{Val: errStrs, Null: false}
+	return errStrs
 }
 
 // HasErrors returns true if the final result has any errors
@@ -143,6 +140,7 @@ type TaskRunResult struct {
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
+	CreatedAt  time.Time
 	FinishedAt time.Time
 	IsTerminal bool
 }
@@ -151,33 +149,17 @@ type TaskRunResult struct {
 type TaskRunResults []TaskRunResult
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
-func (trrs TaskRunResults) FinalResult() (result FinalResult) {
+// It needs to respect the output index of each task
+func (trrs TaskRunResults) FinalResult() FinalResult {
 	var found bool
+	var fr FinalResult
+	sort.Slice(trrs, func(i, j int) bool {
+		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
+	})
 	for _, trr := range trrs {
 		if trr.IsTerminal {
-			// FIXME: This is a mess because of the special `__result__` task.
-			// It gets much simpler and will change when the magical
-			// "__result__" type is removed.
-			// https://www.pivotaltracker.com/story/show/176557536
-			values, is := trr.Result.Value.([]interface{})
-			if !is {
-				panic("expected terminal task run result to have multiple values")
-			}
-			result.Values = append(result.Values, values...)
-
-			finalErrs, is := trr.Result.Error.(FinalErrors)
-			if !is {
-				panic("expected terminal task run result to be FinalErrors")
-			}
-			errs := make([]error, len(finalErrs))
-			for i, finalErr := range finalErrs {
-				if finalErr.IsZero() {
-					errs[i] = nil
-				} else {
-					errs[i] = errors.New(finalErr.ValueOrZero())
-				}
-			}
-			result.Errors = append(result.Errors, errs...)
+			fr.Values = append(fr.Values, trr.Result.Value)
+			fr.Errors = append(fr.Errors, trr.Result.Error)
 			found = true
 		}
 	}
@@ -186,47 +168,12 @@ func (trrs TaskRunResults) FinalResult() (result FinalResult) {
 		logger.Errorw("expected at least one task to be final", "tasks", trrs)
 		panic("expected at least one task to be final")
 	}
-	return
+	return fr
 }
 
 type RunWithResults struct {
 	Run            Run
 	TaskRunResults TaskRunResults
-}
-
-type BaseTask struct {
-	outputTask Task
-	dotID      string        `mapstructure:"-"`
-	nPreds     int           `mapstructure:"-"`
-	Index      int32         `mapstructure:"index" json:"-" `
-	Timeout    time.Duration `mapstructure:"timeout"`
-}
-
-func (t BaseTask) NPreds() int {
-	return t.nPreds
-}
-
-func (t BaseTask) DotID() string {
-	return t.dotID
-}
-
-func (t BaseTask) OutputIndex() int32 {
-	return t.Index
-}
-
-func (t BaseTask) OutputTask() Task {
-	return t.outputTask
-}
-
-func (t *BaseTask) SetOutputTask(outputTask Task) {
-	t.outputTask = outputTask
-}
-
-func (t BaseTask) TaskTimeout() (time.Duration, bool) {
-	if t.Timeout == time.Duration(0) {
-		return time.Duration(0), false
-	}
-	return t.Timeout, true
 }
 
 type JSONSerializable struct {
@@ -280,11 +227,11 @@ const (
 	TaskTypeMedian    TaskType = "median"
 	TaskTypeMultiply  TaskType = "multiply"
 	TaskTypeJSONParse TaskType = "jsonparse"
-	TaskTypeResult    TaskType = "result"
 	TaskTypeAny       TaskType = "any"
-)
 
-const ResultTaskDotID = "__result__"
+	// Testing only.
+	TaskTypePanic TaskType = "panic"
+)
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, config Config, txdb *gorm.DB, txdbMutex *sync.Mutex, nPreds int) (_ Task, err error) {
 	defer utils.WrapIfError(&err, "UnmarshalTaskFromMap")
@@ -299,6 +246,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 
 	var task Task
 	switch taskType {
+	case TaskTypePanic:
+		task = &PanicTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeHTTP:
 		task = &HTTPTask{config: config, BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeBridge:
@@ -311,8 +260,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMultiply:
 		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
-	case TaskTypeResult:
-		task = &ResultTask{BaseTask: BaseTask{dotID: ResultTaskDotID}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -373,13 +320,6 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 		return nil, err
 	}
 	return task, nil
-}
-
-func WrapResultIfError(result *Result, msg string, args ...interface{}) {
-	if result.Error != nil {
-		logger.Errorf(msg+": %+v", append(args, result.Error)...)
-		result.Error = errors.Wrapf(result.Error, msg, args...)
-	}
 }
 
 type HttpRequestData map[string]interface{}

@@ -6,19 +6,21 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 
-	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -40,9 +42,6 @@ func TestPipelineORM_Integration(t *testing.T) {
 	u, err := url.Parse("https://chain.link/voter_turnout/USA-2020")
 	require.NoError(t, err)
 
-	result := &pipeline.ResultTask{
-		BaseTask: pipeline.NewBaseTask("__result__", nil, 0, 0),
-	}
 	answer1 := &pipeline.MedianTask{
 		BaseTask: pipeline.NewBaseTask("answer1", nil, 0, 0),
 	}
@@ -76,7 +75,17 @@ func TestPipelineORM_Integration(t *testing.T) {
 		RequestData: pipeline.HttpRequestData{"hi": "hello"},
 		BaseTask:    pipeline.NewBaseTask("ds2", ds2_parse, 0, 0),
 	}
-	expectedTasks := []pipeline.Task{result, answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
+	taskMap := map[string]pipeline.Task{
+		"answer1":      answer1,
+		"answer2":      answer2,
+		"ds1":          ds1,
+		"ds2":          ds2,
+		"ds1_parse":    ds1_parse,
+		"ds2_parse":    ds2_parse,
+		"ds1_multiply": ds1_multiply,
+		"ds2_multiply": ds2_multiply,
+	}
+	expectedTasks := []pipeline.Task{answer1, answer2, ds1_multiply, ds1_parse, ds1, ds2_multiply, ds2_parse, ds2}
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, db.Create(bridge).Error)
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
@@ -153,7 +162,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 			name       string
 			answers    map[string]pipeline.Result
 			runOutputs interface{}
-			runErrors  interface{}
+			runErrors  pipeline.RunErrors
 		}{
 			{
 				"all succeeded",
@@ -166,10 +175,9 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Value: float64(6)},
 					"answer1":      {Value: float64(7)},
 					"answer2":      {Value: float64(8)},
-					"__result__":   {Value: []interface{}{float64(7), float64(8)}, Error: pipeline.FinalErrors{{}, {}}},
 				},
 				[]interface{}{float64(7), float64(8)},
-				[]interface{}{nil, nil},
+				[]null.String{{}, {}},
 			},
 			{
 				"all failed",
@@ -182,10 +190,9 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Error: errors.New("fail 6")},
 					"answer1":      {Error: errors.New("fail 7")},
 					"answer2":      {Error: errors.New("fail 8")},
-					"__result__":   {Value: []interface{}{nil, nil}, Error: pipeline.FinalErrors{null.StringFrom("fail 7"), null.StringFrom("fail 8")}},
 				},
 				[]interface{}{nil, nil},
-				[]interface{}{"fail 7", "fail 8"},
+				[]null.String{null.StringFrom("fail 7"), null.StringFrom("fail 8")},
 			},
 			{
 				"some succeeded, some failed",
@@ -198,10 +205,28 @@ func TestPipelineORM_Integration(t *testing.T) {
 					"ds2_multiply": {Value: float64(4)},
 					"answer1":      {Error: errors.New("fail 3")},
 					"answer2":      {Value: float64(5)},
-					"__result__":   {Value: []interface{}{nil, float64(5)}, Error: pipeline.FinalErrors{null.StringFrom("fail 3"), {}}},
 				},
 				[]interface{}{nil, float64(5)},
-				[]interface{}{"fail 3", nil},
+				[]null.String{null.StringFrom("fail 3"), {}},
+			},
+			{
+				name: "different output types",
+				answers: map[string]pipeline.Result{
+					"ds1":          {Value: float64(1)},
+					"ds1_parse":    {Value: float64(2)},
+					"ds1_multiply": {Value: float64(3)},
+					"ds2":          {Value: float64(4)},
+					"ds2_parse":    {Value: float64(5)},
+					"ds2_multiply": {Value: float64(6)},
+					"answer1": {Value: map[string]interface{}{
+						"a": float64(10),
+					}},
+					"answer2": {Value: "blah"},
+				},
+				runOutputs: []interface{}{map[string]interface{}{
+					"a": float64(10),
+				}, "blah"},
+				runErrors: []null.String{{}, {}},
 			},
 		}
 
@@ -265,7 +290,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 				// Process the run
 				{
 					var anyRemaining bool
-					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, l logger.Logger) (trrs pipeline.TaskRunResults, err error) {
+					anyRemaining, err = orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, _ pipeline.JSONSerializable, l logger.Logger) (trrs pipeline.TaskRunResults, retry bool, err error) {
 						for dotID, result := range test.answers {
 							var tr pipeline.TaskRun
 							require.NoError(t, db.
@@ -274,13 +299,14 @@ func TestPipelineORM_Integration(t *testing.T) {
 								First(&tr).Error)
 							trr := pipeline.TaskRunResult{
 								ID:         tr.ID,
+								Task:       taskMap[dotID],
 								Result:     result,
 								FinishedAt: time.Now(),
-								IsTerminal: dotID == "__result__",
+								IsTerminal: dotID == "answer1" || dotID == "answer2",
 							}
 							trrs = append(trrs, trr)
 						}
-						return trrs, nil
+						return trrs, false, nil
 					})
 					require.NoError(t, err)
 					require.True(t, anyRemaining)
@@ -288,9 +314,9 @@ func TestPipelineORM_Integration(t *testing.T) {
 
 				// Ensure that the ORM doesn't think there are more runs
 				{
-					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, l logger.Logger) (pipeline.TaskRunResults, error) {
+					anyRemaining, err2 := orm.ProcessNextUnfinishedRun(context.Background(), func(_ context.Context, db *gorm.DB, spec pipeline.Spec, _ pipeline.JSONSerializable, l logger.Logger) (pipeline.TaskRunResults, bool, error) {
 						t.Fatal("this callback should never be reached")
-						return nil, nil
+						return nil, false, nil
 					})
 					require.NoError(t, err2)
 					require.False(t, anyRemaining)
@@ -330,8 +356,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 					err = db.First(&pipelineRun).Error
 					require.NoError(t, err)
 
-					require.NotNil(t, pipelineRun.Errors.Val)
-					require.Equal(t, test.runErrors, pipelineRun.Errors.Val)
+					require.Equal(t, test.runErrors, pipelineRun.Errors)
 					require.NotNil(t, pipelineRun.Outputs.Val)
 					require.Equal(t, test.runOutputs, pipelineRun.Outputs.Val)
 				}

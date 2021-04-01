@@ -145,7 +145,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	monitoringEndpoint := ocrtypes.MonitoringEndpoint(&telemetry.NoopAgent{})
 
 	if config.ExplorerURL() != nil {
-		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret())
+		explorerClient = synchronization.NewExplorerClient(config.ExplorerURL(), config.ExplorerAccessKey(), config.ExplorerSecret(), config.StatsPusherLogging())
 		statsPusher = synchronization.NewStatsPusher(store.DB, explorerClient)
 		monitoringEndpoint = telemetry.NewAgent(explorerClient)
 	}

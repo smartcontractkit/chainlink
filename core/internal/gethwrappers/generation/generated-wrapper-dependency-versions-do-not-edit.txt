@@ -1,4 +1,4 @@
-GETH_VERSION: 1.9.25
+GETH_VERSION: 1.10.0
 flags_wrapper: ../../../evm-contracts/abi/v0.6/Flags.json 1e005d86b01fc1c6e013453a73428d210aa0873872dd1b0cfd0adcf51d3b2a38
 flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 66e886b3d571e5caaaedbf46f41e052929149c12febd94781b8035753aad2448
 multiwordconsumer_wrapper: ../../../evm-contracts/abi/v0.7/MultiWordConsumer.json c56412fac629f4c063e93daf6e92e23237a7c0974ade9f58b544cc92a3d10cf6

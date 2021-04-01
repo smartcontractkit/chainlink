@@ -27,8 +27,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const hibernationPollPeriod = 24 * time.Hour
-
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
 	jobID             int32
@@ -39,6 +37,7 @@ type FluxMonitor struct {
 	jobORM            job.ORM
 	pipelineORM       pipeline.ORM
 	keyStore          KeyStoreInterface
+	pollManager       *PollManager
 	paymentChecker    *PaymentChecker
 	contractSubmitter ContractSubmitter
 	deviationChecker  *DeviationChecker
@@ -50,15 +49,9 @@ type FluxMonitor struct {
 	logger    *logger.Logger
 	precision int32
 
-	isHibernating bool
 	connected     *abool.AtomicBool
 	backlog       *utils.BoundedPriorityQueue
 	chProcessLogs chan struct{}
-
-	pollTicker       *PollTicker
-	hibernationTimer utils.ResettableTimer
-	idleTimer        *IdleTimer
-	roundTimer       utils.ResettableTimer
 
 	readyForLogs func()
 	chStop       chan struct{}
@@ -73,8 +66,7 @@ func NewFluxMonitor(
 	jobORM job.ORM,
 	pipelineORM pipeline.ORM,
 	keyStore KeyStoreInterface,
-	pollTicker *PollTicker,
-	idleTimer *IdleTimer,
+	pollManager *PollManager,
 	paymentChecker *PaymentChecker,
 	contractAddress common.Address,
 	contractSubmitter ContractSubmitter,
@@ -94,25 +86,19 @@ func NewFluxMonitor(
 		jobORM:            jobORM,
 		pipelineORM:       pipelineORM,
 		keyStore:          keyStore,
-		pollTicker:        pollTicker,
-		idleTimer:         idleTimer,
+		pollManager:       pollManager,
 		paymentChecker:    paymentChecker,
 		contractAddress:   contractAddress,
 		contractSubmitter: contractSubmitter,
 		deviationChecker:  deviationChecker,
 		submissionChecker: submissionChecker,
 		flags:             flags,
-
-		readyForLogs:   readyForLogs,
-		logBroadcaster: logBroadcaster,
-		fluxAggregator: fluxAggregator,
-		precision:      precision,
-		logger:         fmLogger,
-
-		hibernationTimer: utils.NewResettableTimer(),
-		roundTimer:       utils.NewResettableTimer(),
-		isHibernating:    false,
-		connected:        abool.New(),
+		readyForLogs:      readyForLogs,
+		logBroadcaster:    logBroadcaster,
+		fluxAggregator:    fluxAggregator,
+		precision:         precision,
+		logger:            fmLogger,
+		connected:         abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
@@ -207,6 +193,17 @@ func NewFromJobSpec(
 		),
 	)
 
+	pollManager := NewPollManager(
+		PollManagerConfig{
+			PollTickerInterval:    fmSpec.PollTimerPeriod,
+			PollTickerDisabled:    fmSpec.PollTimerDisabled,
+			IdleTimerPeriod:       fmSpec.IdleTimerPeriod,
+			IdleTimerDisabled:     fmSpec.IdleTimerDisabled,
+			HibernationPollPeriod: 24 * time.Hour, // Not currently configurable
+		},
+		fmLogger,
+	)
+
 	return NewFluxMonitor(
 		jobSpec.ID,
 		pipelineRun,
@@ -214,8 +211,7 @@ func NewFromJobSpec(
 		jobORM,
 		pipelineORM,
 		keyStore,
-		NewPollTicker(fmSpec.PollTimerPeriod, fmSpec.PollTimerDisabled),
-		NewIdleTimer(fmSpec.IdleTimerPeriod, fmSpec.IdleTimerDisabled),
+		pollManager,
 		paymentChecker,
 		fmSpec.ContractAddress.Address(),
 		contractSubmitter,
@@ -251,30 +247,25 @@ func (fm *FluxMonitor) Start() error {
 	return nil
 }
 
-func (fm *FluxMonitor) setIsHibernatingStatus() {
+func (fm *FluxMonitor) IsHibernating() bool {
 	if !fm.flags.ContractExists() {
-		fm.isHibernating = false
-
-		return
+		return false
 	}
 
 	isFlagLowered, err := fm.flags.IsLowered(fm.contractAddress)
 	if err != nil {
-		fm.logger.Errorf("unable to set hibernation status: %v", err)
+		fm.logger.Errorf("unable to determine hibernation status: %v", err)
 
-		fm.isHibernating = false
-	} else {
-		fm.isHibernating = !isFlagLowered
+		return false
 	}
+
+	return !isFlagLowered
 }
 
 // Close implements the job.Service interface. It stops this instance from
 // polling, cleaning up resources.
 func (fm *FluxMonitor) Close() error {
-	fm.pollTicker.Stop()
-	fm.hibernationTimer.Stop()
-	fm.idleTimer.Stop()
-	fm.roundTimer.Stop()
+	fm.pollManager.Stop()
 	close(fm.chStop)
 	<-fm.waitOnStop
 
@@ -390,9 +381,13 @@ func (fm *FluxMonitor) consume() {
 	}
 
 	fm.readyForLogs()
-	fm.setIsHibernatingStatus()
-	fm.setInitialTickers()
+	fm.pollManager.Start(fm.IsHibernating(), fm.initialRoundState())
 	fm.performInitialPoll()
+
+	tickLogger := fm.logger.With(
+		"pollInterval", fm.pollManager.cfg.PollTickerInterval,
+		"idlePeriod", fm.pollManager.cfg.IdleTimerPeriod,
+	)
 
 	for {
 		select {
@@ -402,20 +397,20 @@ func (fm *FluxMonitor) consume() {
 		case <-fm.chProcessLogs:
 			fm.processLogs()
 
-		case <-fm.pollTicker.Ticks():
-			fm.logger.Debugw("Poll ticker fired", fm.loggerFieldsForTick()...)
+		case <-fm.pollManager.PollTickerTicks():
+			tickLogger.Debugw("Poll ticker fired")
 			fm.pollIfEligible(fm.deviationChecker)
 
-		case <-fm.idleTimer.Ticks():
-			fm.logger.Debugw("Idle ticker fired", fm.loggerFieldsForTick()...)
+		case <-fm.pollManager.IdleTimerTicks():
+			tickLogger.Debugw("Idle timer fired")
 			fm.pollIfEligible(NewZeroDeviationChecker())
 
-		case <-fm.roundTimer.Ticks():
-			fm.logger.Debugw("Round timeout ticker fired", fm.loggerFieldsForTick()...)
+		case <-fm.pollManager.RoundTimerTicks():
+			tickLogger.Debugw("Round timer fired")
 			fm.pollIfEligible(fm.deviationChecker)
 
-		case <-fm.hibernationTimer.Ticks():
-			fm.logger.Debugw("Hibernation timout ticker fired", fm.loggerFieldsForTick()...)
+		case <-fm.pollManager.HibernationTimerTicks():
+			tickLogger.Debugw("Hibernation timer fired")
 			fm.pollIfEligible(NewZeroDeviationChecker())
 		}
 	}
@@ -458,28 +453,9 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 
 // performInitialPoll performs the initial poll if required
 func (fm *FluxMonitor) performInitialPoll() {
-	if fm.shouldPerformInitialPoll() {
+	if fm.pollManager.ShouldPerformInitialPoll() {
 		fm.pollIfEligible(fm.deviationChecker)
 	}
-}
-
-func (fm *FluxMonitor) shouldPerformInitialPoll() bool {
-	return !(fm.pollTicker.IsDisabled() && fm.idleTimer.IsDisabled() || fm.isHibernating)
-}
-
-// hibernate restarts the PollingDeviationChecker in hibernation mode
-func (fm *FluxMonitor) hibernate() {
-	fm.logger.Info("entering hibernation mode")
-	fm.isHibernating = true
-	fm.resetTickers(flux_aggregator_wrapper.OracleRoundState{})
-}
-
-// reactivate restarts the PollingDeviationChecker without hibernation mode
-func (fm *FluxMonitor) reactivate() {
-	fm.logger.Info("exiting hibernation mode, reactivating contract")
-	fm.isHibernating = false
-	fm.setInitialTickers()
-	fm.pollIfEligible(NewZeroDeviationChecker())
 }
 
 func (fm *FluxMonitor) processLogs() {
@@ -517,12 +493,14 @@ func (fm *FluxMonitor) processLogs() {
 			isFlagLowered, err = fm.flags.IsLowered(fm.contractAddress)
 			fm.logger.ErrorIf(err, "Error determining if flag is still raised")
 			if !isFlagLowered {
-				fm.hibernate()
+				fm.pollManager.Hibernate()
 			}
 			err = broadcast.MarkConsumed()
 
 		case *flags_wrapper.FlagsFlagLowered:
-			fm.reactivate()
+			fm.pollManager.Awaken(fm.initialRoundState())
+			fm.pollIfEligible(NewZeroDeviationChecker())
+
 			err = broadcast.MarkConsumed()
 
 		default:
@@ -537,21 +515,34 @@ func (fm *FluxMonitor) processLogs() {
 // answer.  We update our view of the oracleRoundState in case this log was
 // generated by a chain reorg.
 func (fm *FluxMonitor) respondToAnswerUpdatedLog(log flux_aggregator_wrapper.FluxAggregatorAnswerUpdated) {
-	fm.logger.Debugw("AnswerUpdated log", fm.loggerFieldsForAnswerUpdated(log)...)
+	answerUpdatedLogger := fm.logger.With(
+		"round", log.RoundId,
+		"answer", log.Current.String(),
+		"timestamp", log.UpdatedAt.String(),
+	)
+
+	answerUpdatedLogger.Debug("AnswerUpdated log")
 
 	roundState, err := fm.roundState(0)
 	if err != nil {
-		logger.Errorw(fmt.Sprintf("could not fetch oracleRoundState: %v", err), fm.loggerFieldsForAnswerUpdated(log)...)
+		answerUpdatedLogger.Errorf("could not fetch oracleRoundState: %v", err)
+
 		return
 	}
-	fm.resetTickers(roundState)
+
+	fm.pollManager.Reset(roundState)
 }
 
 // The NewRound log tells us that an oracle has initiated a new round.  This tells us that we
 // need to poll and submit an answer to the contract regardless of the deviation.
 func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggregatorNewRound) {
-	fm.logger.Debugw("NewRound log", fm.loggerFieldsForNewRound(log)...)
+	newRoundLogger := fm.logger.With(
+		"round", log.RoundId,
+		"startedBy", log.StartedBy.Hex(),
+		"startedAt", log.StartedAt.String(),
+	)
 
+	newRoundLogger.Debug("NewRound log")
 	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.jobID)), log.RoundId)
 
 	//
@@ -600,25 +591,25 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	logRoundID := uint32(log.RoundId.Uint64())
 
 	// We always want to reset the idle timer upon receiving a NewRound log, so we do it before any `return` statements.
-	fm.resetIdleTimer(log.StartedAt.Uint64())
+	fm.pollManager.ResetIdleTimer(log.StartedAt.Uint64())
 
 	mostRecentRoundID, err := fm.orm.MostRecentFluxMonitorRoundID(fm.contractAddress)
 	if err != nil && err != gorm.ErrRecordNotFound {
-		fm.logger.Errorw(fmt.Sprintf("error fetching Flux Monitor most recent round ID from DB: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Errorf("error fetching Flux Monitor most recent round ID from DB: %v", err)
 		return
 	}
 
 	if logRoundID < mostRecentRoundID {
 		err = fm.orm.DeleteFluxMonitorRoundsBackThrough(fm.contractAddress, logRoundID)
 		if err != nil {
-			fm.logger.Errorw(fmt.Sprintf("error deleting reorged Flux Monitor rounds from DB: %v", err), fm.loggerFieldsForNewRound(log)...)
+			newRoundLogger.Errorf("error deleting reorged Flux Monitor rounds from DB: %v", err)
 			return
 		}
 	}
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(logRoundID)
 	if err != nil {
-		fm.logger.Errorw(fmt.Sprintf("error determining round stats / run status for round: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Errorf("error determining round stats / run status for round: %v", err)
 		return
 	}
 
@@ -629,36 +620,49 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 		// If our previous attempt is still pending, return early and don't re-submit
 		// If our previous attempt is already over (completed or errored), we should retry
 		if !jobRunStatus.Finished() {
-			fm.logger.Debugw("Ignoring new round request: started round simultaneously with another node", fm.loggerFieldsForNewRound(log)...)
+			newRoundLogger.Debug("Ignoring new round request: started round simultaneously with another node")
 			return
 		}
 	}
 
 	// Ignore rounds we started
 	if fm.oracleAddress == log.StartedBy {
-		fm.logger.Infow("Ignoring new round request: we started this round", fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Info("Ignoring new round request: we started this round")
 		return
 	}
 
 	// Ignore rounds we're not eligible for, or for which we won't be paid
 	roundState, err := fm.roundState(logRoundID)
 	if err != nil {
-		fm.logger.Errorw(fmt.Sprintf("Ignoring new round request: error fetching eligibility from contract: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Errorf("Ignoring new round request: error fetching eligibility from contract: %v", err)
 		return
 	}
-	fm.resetTickers(roundState)
+
+	fm.pollManager.Reset(roundState)
 	err = fm.checkEligibilityAndAggregatorFunding(roundState)
 	if err != nil {
-		fm.logger.Infow(fmt.Sprintf("Ignoring new round request: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Infof("Ignoring new round request: %v", err)
 		return
 	}
 
-	logger.Infow("Responding to new round request", fm.loggerFieldsForNewRound(log)...)
+	newRoundLogger.Info("Responding to new round request")
+
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			newRoundLogger.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
+	}
 
 	// Call the v2 pipeline to execute a new job run
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
-		fm.logger.Errorw(fmt.Sprintf("unable to fetch median price: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Errorf("unable to fetch median price: %v", err)
 
 		return
 	}
@@ -668,12 +672,12 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	if roundState.PaymentAmount == nil {
-		fm.logger.Error("roundState.PaymentAmount shouldn't be nil")
+		newRoundLogger.Error("roundState.PaymentAmount shouldn't be nil")
 	}
 
 	err = fm.submitTransaction(runID, *answer, roundState.RoundId)
 	if err != nil {
-		fm.logger.Errorw(fmt.Sprintf("unable to create job run: %v", err), fm.loggerFieldsForNewRound(log)...)
+		newRoundLogger.Errorf("unable to create job run: %v", err)
 
 		return
 	}
@@ -739,7 +743,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
-	fm.resetTickers(roundState)
+	fm.pollManager.Reset(roundState)
 	l = l.With("reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)
@@ -760,15 +764,26 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 	// Don't submit if we're not eligible, or won't get paid
 	err = fm.checkEligibilityAndAggregatorFunding(roundState)
 	if err != nil {
-		l.Infow(fmt.Sprintf("skipping poll: %v", err))
+		l.Infof("skipping poll: %v", err)
 
 		return
+	}
+
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.RecordError(context.Background(), fm.jobID, "Error polling")
@@ -867,85 +882,6 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 	return latestRoundState
 }
 
-func (fm *FluxMonitor) resetTickers(roundState flux_aggregator_wrapper.OracleRoundState) {
-	fm.resetPollTicker()
-	fm.resetHibernationTimer()
-	fm.resetIdleTimer(roundState.StartedAt)
-	fm.resetRoundTimer(roundStateTimesOutAt(roundState))
-}
-
-func (fm *FluxMonitor) setInitialTickers() {
-	fm.resetTickers(fm.initialRoundState())
-}
-
-func (fm *FluxMonitor) resetPollTicker() {
-	if fm.pollTicker.IsEnabled() && !fm.isHibernating {
-		fm.pollTicker.Resume()
-	} else {
-		fm.pollTicker.Pause()
-	}
-}
-
-func (fm *FluxMonitor) resetHibernationTimer() {
-	if !fm.isHibernating {
-		fm.hibernationTimer.Stop()
-	} else {
-		fm.hibernationTimer.Reset(hibernationPollPeriod)
-	}
-}
-
-func (fm *FluxMonitor) resetRoundTimer(roundTimesOutAt uint64) {
-	if fm.isHibernating {
-		fm.roundTimer.Stop()
-		return
-	}
-
-	loggerFields := fm.loggerFields("timesOutAt", roundTimesOutAt)
-
-	if roundTimesOutAt == 0 {
-		fm.roundTimer.Stop()
-		fm.logger.Debugw("disabling roundTimer, no active round", loggerFields...)
-
-	} else {
-		timesOutAt := time.Unix(int64(roundTimesOutAt), 0)
-		timeUntilTimeout := time.Until(timesOutAt)
-
-		if timeUntilTimeout <= 0 {
-			fm.roundTimer.Stop()
-			fm.logger.Debugw("roundTimer has run down; disabling", loggerFields...)
-		} else {
-			fm.roundTimer.Reset(timeUntilTimeout)
-			loggerFields = append(loggerFields, "value", roundTimesOutAt)
-			fm.logger.Debugw("updating roundState.TimesOutAt", loggerFields...)
-		}
-	}
-}
-
-func (fm *FluxMonitor) resetIdleTimer(roundStartedAtUTC uint64) {
-	if fm.isHibernating || fm.idleTimer.IsDisabled() {
-		fm.idleTimer.Stop()
-		return
-	} else if roundStartedAtUTC == 0 {
-		// There is no active round, so keep using the idleTimer we already have
-		return
-	}
-
-	startedAt := time.Unix(int64(roundStartedAtUTC), 0)
-	idleDeadline := startedAt.Add(fm.idleTimer.Period())
-	timeUntilIdleDeadline := time.Until(idleDeadline)
-	loggerFields := fm.loggerFields(
-		"startedAt", roundStartedAtUTC,
-		"timeUntilIdleDeadline", timeUntilIdleDeadline,
-	)
-
-	if timeUntilIdleDeadline <= 0 {
-		fm.logger.Debugw("not resetting idleTimer, negative duration", loggerFields...)
-		return
-	}
-	fm.idleTimer.Reset(timeUntilIdleDeadline)
-	fm.logger.Debugw("resetting idleTimer", loggerFields...)
-}
-
 func (fm *FluxMonitor) submitTransaction(
 	runID int64,
 	answer decimal.Decimal,
@@ -978,36 +914,6 @@ func (fm *FluxMonitor) submitTransaction(
 	return nil
 }
 
-func (fm *FluxMonitor) loggerFields(added ...interface{}) []interface{} {
-	return append(added, []interface{}{
-		"pollFrequency", fm.pollTicker.Interval,
-		"idleDuration", fm.idleTimer.Period,
-	}...)
-}
-
-func (fm *FluxMonitor) loggerFieldsForNewRound(log flux_aggregator_wrapper.FluxAggregatorNewRound) []interface{} {
-	return []interface{}{
-		"round", log.RoundId,
-		"startedBy", log.StartedBy.Hex(),
-		"startedAt", log.StartedAt.String(),
-	}
-}
-
-func (fm *FluxMonitor) loggerFieldsForAnswerUpdated(log flux_aggregator_wrapper.FluxAggregatorAnswerUpdated) []interface{} {
-	return []interface{}{
-		"round", log.RoundId,
-		"answer", log.Current.String(),
-		"timestamp", log.UpdatedAt.String(),
-	}
-}
-
-func (fm *FluxMonitor) loggerFieldsForTick() []interface{} {
-	return []interface{}{
-		"pollPeriod", fm.pollTicker.Interval,
-		"idleDuration", fm.idleTimer.Period,
-	}
-}
-
 func (fm *FluxMonitor) statsAndStatusForRound(roundID uint32) (
 	FluxMonitorRoundStatsV2,
 	pipeline.RunStatus,
@@ -1028,8 +934,4 @@ func (fm *FluxMonitor) statsAndStatusForRound(roundID uint32) (
 	}
 
 	return roundStats, run.Status(), nil
-}
-
-func roundStateTimesOutAt(rs flux_aggregator_wrapper.OracleRoundState) uint64 {
-	return rs.StartedAt + rs.Timeout
 }

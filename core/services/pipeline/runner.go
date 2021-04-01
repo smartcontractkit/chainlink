@@ -3,10 +3,12 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/jpillora/backoff"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
@@ -27,8 +29,8 @@ type Runner interface {
 	Start() error
 	Close() error
 	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
-	ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (trrs TaskRunResults, err error)
-	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, finalResult FinalResult, err error)
+	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (trrs TaskRunResults, err error)
+	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
@@ -53,6 +55,7 @@ var (
 	},
 		[]string{"pipeline_spec_id", "task_type"},
 	)
+	ErrRunPanicked = errors.New("pipeline run panicked")
 )
 
 func NewRunner(orm ORM, config Config) *runner {
@@ -90,10 +93,7 @@ func (r *runner) Start() error {
 			for {
 				select {
 				case <-newRunEvents:
-					_, err = r.processRun()
-					if err != nil {
-						logger.Errorf("Error processing incomplete task runs: %v", err)
-					}
+					r.processUnfinishedRuns()
 				case <-r.chStop:
 					return
 				}
@@ -175,23 +175,18 @@ func (r *runner) ResultsForRun(ctx context.Context, runID int64) ([]Result, erro
 // NOTE: This could potentially run on a different machine in the cluster than
 // the one that originally added the job run.
 func (r *runner) processUnfinishedRuns() {
-	_, err := r.processRun()
+	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
+	defer cancel()
+
+	_, err := r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
 	if err != nil {
 		logger.Errorf("Error processing unfinished run: %v", err)
 	}
 }
 
-func (r *runner) processRun() (anyRemaining bool, err error) {
-	ctx, cancel := utils.CombinedContext(r.chStop, r.config.JobPipelineMaxRunDuration())
-	defer cancel()
-
-	return r.orm.ProcessNextUnfinishedRun(ctx, r.executeRun)
-}
-
 type (
 	memoryTaskRun struct {
 		task          Task
-		taskRun       TaskRun
 		next          *memoryTaskRun
 		nPredecessors int
 		finished      bool
@@ -222,11 +217,56 @@ func (m *memoryTaskRun) results() (a []Result) {
 	return
 }
 
-func (r *runner) ExecuteRun(ctx context.Context, spec Spec, l logger.Logger) (trrs TaskRunResults, err error) {
-	return r.executeRun(ctx, r.orm.DB(), spec, l)
+func (r *runner) ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, error) {
+	var (
+		trrs            TaskRunResults
+		err             error
+		retry           bool
+		i               int
+		numPanicRetries = 5
+	)
+	b := &backoff.Backoff{
+		Min:    100 * time.Second,
+		Max:    1 * time.Second,
+		Factor: 2,
+		Jitter: false,
+	}
+	for i = 0; i < numPanicRetries; i++ {
+		trrs, retry, err = r.executeRun(ctx, r.orm.DB(), spec, meta, l)
+		if retry {
+			time.Sleep(b.Duration())
+			continue
+		} else {
+			break
+		}
+	}
+	if i == numPanicRetries {
+		return r.panickedRunResults(spec)
+	}
+	return trrs, err
 }
 
-func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, error) {
+// Generate a errored run from the spec.
+func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
+	var panickedTrrs []TaskRunResult
+	tasks, err := spec.TasksInDependencyOrder()
+	if err != nil {
+		return nil, err
+	}
+	f := time.Now()
+	for _, task := range tasks {
+		panickedTrrs = append(panickedTrrs, TaskRunResult{
+			Task:       task,
+			CreatedAt:  f,
+			Result:     Result{Value: nil, Error: ErrRunPanicked},
+			FinishedAt: time.Now(),
+			IsTerminal: task.OutputTask() == nil,
+		})
+	}
+	return panickedTrrs, nil
+}
+
+func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, bool, error) {
 	l.Debugw("Initiating tasks for pipeline run of spec", "spec", spec.ID)
 	var (
 		err  error
@@ -237,13 +277,13 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	d := TaskDAG{}
 	err = d.UnmarshalText([]byte(spec.DotDagSource))
 	if err != nil {
-		return trrs, err
+		return trrs, false, err
 	}
 
 	// Find "firsts" and work forwards
-	tasks, err := d.TasksInDependencyOrderWithResultTask()
+	tasks, err := d.TasksInDependencyOrder()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	all := make(map[string]*memoryTaskRun)
 	var graph []*memoryTaskRun
@@ -259,11 +299,6 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 		mtr := memoryTaskRun{
 			nPredecessors: task.NPreds(),
 			task:          task,
-			taskRun: TaskRun{
-				Type:  task.Type(),
-				Index: task.OutputIndex(),
-				DotID: task.DotID(),
-			},
 		}
 		if mtr.nPredecessors == 0 {
 			graph = append(graph, &mtr)
@@ -285,10 +320,18 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	// 3. Execute tasks using "fan in" job processing
 	var updateMu sync.Mutex
 	var wg sync.WaitGroup
+	var retry bool
 	wg.Add(len(graph))
 	for _, mtr := range graph {
 		go func(m *memoryTaskRun) {
-			defer wg.Done()
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Default.Errorw("goroutine panicked executing run", "panic", err, "stacktrace", string(debug.Stack()))
+					// No mutex needed: if any goroutine panics, we retry the run.
+					retry = true
+				}
+				wg.Done()
+			}()
 			for m != nil {
 				m.predMu.RLock()
 				nPredecessors := m.nPredecessors
@@ -313,16 +356,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 
 				startTaskRun := time.Now()
 
-				result := r.executeTaskRun(ctx, spec, m.task, m.taskRun, m.results(), l)
+				result := r.executeTaskRun(ctx, spec, m.task, meta, m.results(), l)
 
 				finishedAt := time.Now()
 
-				m.taskRun.CreatedAt = startTaskRun
-				m.taskRun.FinishedAt = &finishedAt
 				trr := TaskRunResult{
-					TaskRun:    m.taskRun,
 					Task:       m.task,
 					Result:     result,
+					CreatedAt:  startTaskRun,
 					FinishedAt: finishedAt,
 					IsTerminal: m.next == nil,
 				}
@@ -333,14 +374,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 
 				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type)).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.task.Type())).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.taskRun.Type), status).Inc()
+				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.task.Type()), status).Inc()
 
 				if m.next == nil {
 					return
@@ -361,14 +402,12 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, l log
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
 
-	return trrs, err
+	return trrs, retry, err
 }
 
-func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, taskRun TaskRun, inputs []Result, l logger.Logger) Result {
+func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, meta JSONSerializable, inputs []Result, l logger.Logger) Result {
 	loggerFields := []interface{}{
-		"taskName", taskRun.DotID,
-		"runID", taskRun.PipelineRunID,
-		"taskRunID", taskRun.ID,
+		"taskName", task.DotID(),
 	}
 
 	// Order of precedence for task timeout:
@@ -386,30 +425,26 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, taskR
 		defer cancel()
 	}
 
-	result := task.Run(ctx, taskRun, inputs)
-	if _, is := result.Error.(FinalErrors); !is && result.Error != nil {
-		f := append(loggerFields, "error", result.Error)
-		l.Warnw("Pipeline task run errored", f...)
-	} else {
-		f := append(loggerFields, "result", result.Value)
-		switch v := result.Value.(type) {
-		case []byte:
-			f = append(f, "resultString", fmt.Sprintf("%q", v))
-			f = append(f, "resultHex", fmt.Sprintf("%x", v))
-		}
-		l.Debugw("Pipeline task completed", f...)
+	result := task.Run(ctx, meta, inputs)
+	loggerFields = append(loggerFields, "result value", result.Value)
+	loggerFields = append(loggerFields, "result error", result.Error)
+	switch v := result.Value.(type) {
+	case []byte:
+		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
+		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
 	}
+	l.Debugw("Pipeline task completed", loggerFields...)
 
 	return result
 }
 
 // ExecuteAndInsertNewRun bypasses the job pipeline entirely.
 // It executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, l logger.Logger) (runID int64, result FinalResult, err error) {
+func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (runID int64, result FinalResult, err error) {
 	var run Run
 	run.PipelineSpecID = spec.ID
 	run.CreatedAt = time.Now()
-	trrs, err := r.ExecuteRun(ctx, spec, l)
+	trrs, err := r.ExecuteRun(ctx, spec, meta, l)
 	if err != nil {
 		return run.ID, result, errors.Wrapf(err, "error executing run for spec ID %v", spec.ID)
 	}

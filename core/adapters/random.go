@@ -3,10 +3,12 @@ package adapters
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
+	"github.com/smartcontractkit/chainlink/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -57,7 +59,8 @@ type Random struct {
 	//
 	// This is just a hex string because Random is instantiated by json.Unmarshal.
 	// (See adapters.For function.)
-	PublicKey string `json:"publicKey"`
+	PublicKey          string              `json:"publicKey"`
+	CoordinatorAddress models.EIP55Address `json:"coordinatorAddress"`
 }
 
 // TaskType returns the type of Adapter.
@@ -67,6 +70,14 @@ func (ra *Random) TaskType() models.TaskType {
 
 // Perform returns the the proof for the VRF output given seed, or an error.
 func (ra *Random) Perform(input models.RunInput, store *store.Store) models.RunOutput {
+	shouldFulfill, err := checkFulfillment(ra, input, store)
+	if err != nil {
+		return models.NewRunOutputError(errors.Wrapf(err, "unable to determine if fulfillment needed"))
+	}
+	if !shouldFulfill {
+		return models.NewRunOutputError(errors.New("randomness request already fulfilled"))
+	}
+
 	key, i, err := getInputs(ra, input, store)
 	if err != nil {
 		return models.NewRunOutputError(err)
@@ -216,4 +227,35 @@ func extractHex(input models.RunInput, key string) ([]byte, error) {
 			"32 bytes", rawValue.String())
 	}
 	return hexutil.Decode(rawValue.String())
+}
+
+// checkFulfillment checks to see if the randomness request has already been fulfilled or not
+func checkFulfillment(ra *Random, input models.RunInput, store *store.Store) (bool, error) {
+	if len(ra.CoordinatorAddress) == 0 {
+		return true, nil // only perform this check if the optional address field is present
+	}
+
+	contract, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(
+		ra.CoordinatorAddress.Address(),
+		store.EthClient,
+	)
+	if err != nil {
+		return false, errors.Wrapf(
+			err, "unable to create vrf coordinator wrapper, address: %s", ra.CoordinatorAddress.Hex(),
+		)
+	}
+	requestID, err := extractHex(input, "requestID")
+	if err != nil {
+		return false, err
+	}
+	requestID32 := [32]byte{}
+	copy(requestID32[:], requestID)
+
+	callback, err := contract.Callbacks(nil, requestID32)
+	if err != nil {
+		return false, err
+	}
+
+	// If seedAndBlockNumber is non-zero then the response has not yet been fulfilled
+	return !utils.IsEmpty(callback.SeedAndBlockNum[:]), nil
 }

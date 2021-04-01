@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
@@ -23,12 +25,29 @@ func (Spec) TableName() string {
 	return "pipeline_specs"
 }
 
+func (s Spec) TasksInDependencyOrder() ([]Task, error) {
+	d := TaskDAG{}
+	err := d.UnmarshalText([]byte(s.DotDagSource))
+	if err != nil {
+		return nil, err
+	}
+	tasks, err := d.TasksInDependencyOrder()
+	if err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
 type Run struct {
-	ID               int64            `json:"-" gorm:"primary_key"`
-	PipelineSpecID   int32            `json:"-"`
-	PipelineSpec     Spec             `json:"pipelineSpec"`
-	Meta             JSONSerializable `json:"meta"`
-	Errors           JSONSerializable `json:"errors" gorm:"type:jsonb"`
+	ID             int64            `json:"-" gorm:"primary_key"`
+	PipelineSpecID int32            `json:"-"`
+	PipelineSpec   Spec             `json:"pipelineSpec"`
+	Meta           JSONSerializable `json:"meta"`
+	// The errors are only ever strings
+	// DB example: [null, null, "my error"]
+	Errors RunErrors `json:"errors" gorm:"type:jsonb"`
+	// The outputs can be anything.
+	// DB example: [1234, {"a": 10}, null]
 	Outputs          JSONSerializable `json:"outputs" gorm:"type:jsonb"`
 	CreatedAt        time.Time        `json:"createdAt"`
 	FinishedAt       *time.Time       `json:"finishedAt"`
@@ -53,12 +72,12 @@ func (r *Run) SetID(value string) error {
 }
 
 func (r Run) HasErrors() bool {
-	return r.FinalErrors().HasErrors()
-}
-
-func (r Run) FinalErrors() (f FinalErrors) {
-	f, _ = r.Errors.Val.(FinalErrors)
-	return f
+	for _, err := range r.Errors {
+		if !err.IsZero() {
+			return true
+		}
+	}
+	return false
 }
 
 // Status determines the status of the run.
@@ -70,6 +89,35 @@ func (r *Run) Status() RunStatus {
 	}
 
 	return RunStatusInProgress
+}
+
+type RunErrors []null.String
+
+func (re *RunErrors) Scan(value interface{}) error {
+	if value == nil {
+		return nil
+	}
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.Errorf("RunErrors#Scan received a value of type %T", value)
+	}
+	return json.Unmarshal(bytes, re)
+}
+
+func (re RunErrors) Value() (driver.Value, error) {
+	if len(re) == 0 {
+		return nil, nil
+	}
+	return json.Marshal(re)
+}
+
+func (re RunErrors) HasError() bool {
+	for _, e := range re {
+		if !e.IsZero() {
+			return true
+		}
+	}
+	return false
 }
 
 type TaskRun struct {

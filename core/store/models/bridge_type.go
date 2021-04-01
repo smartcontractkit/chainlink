@@ -2,7 +2,9 @@ package models
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -140,4 +142,30 @@ func incomingTokenHash(token, salt string) (string, error) {
 		return "", err
 	}
 	return hash, nil
+}
+
+// NOTE: latestAnswer and updatedAt is the only metadata used.
+// Currently market closer adapter and outlier detection depend latestAnswer.
+// https://github.com/smartcontractkit/external-adapters-js/tree/f474bd2e2de13ebe5c9dc3df36ebb7018817005e/composite/market-closure
+// https://github.com/smartcontractkit/external-adapters-js/tree/5abb8e5ec2024f724fd39122897baa63c3cd0167/composite/outlier-detection
+type BridgeMetaData struct {
+	LatestAnswer *big.Int `json:"latestAnswer"`
+	UpdatedAt    *big.Int `json:"updatedAt"` // A unix timestamp
+}
+
+type BridgeMetaDataJSON struct {
+	Meta BridgeMetaData
+}
+
+func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]interface{}, error) {
+	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
+	if err != nil {
+		return nil, err
+	}
+	var mp map[string]interface{}
+	err = json.Unmarshal(b, &mp)
+	if err != nil {
+		return nil, err
+	}
+	return mp, nil
 }

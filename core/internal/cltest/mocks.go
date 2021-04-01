@@ -131,7 +131,7 @@ type RendererMock struct {
 }
 
 // Render appends values to renderer mock
-func (rm *RendererMock) Render(v interface{}) error {
+func (rm *RendererMock) Render(v interface{}, headers ...string) error {
 	rm.Renders = append(rm.Renders, v)
 	return nil
 }
@@ -293,6 +293,17 @@ func NewHTTPMockServerWithAlterableResponse(
 	t *testing.T, response func() string) (server *httptest.Server) {
 	server = httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
+func NewHTTPMockServerWithAlterableResponseAndRequest(
+	t *testing.T, response func() string, callback func(r *http.Request)) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callback(r)
 			w.WriteHeader(http.StatusOK)
 			io.WriteString(w, response())
 		}))
