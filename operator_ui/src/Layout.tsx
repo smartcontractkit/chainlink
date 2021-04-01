@@ -1,5 +1,4 @@
 import React from 'react'
-import universal from 'react-universal-component'
 import {
   Route,
   Switch,
@@ -8,13 +7,8 @@ import {
 } from 'react-router-dom'
 import CssBaseline from '@material-ui/core/CssBaseline'
 import Private from './Private'
-import Loading from 'components/Loading'
 import { useOperatorUiSelector } from 'reducers'
-
-// Asynchronously load routes that are chunked via code-splitting
-// 'import' as a function must take a string. It can't take a variable.
-const uniOpts = { loading: Loading }
-const SignIn = universal(import('./pages/SignIn'), uniOpts)
+import SignIn from 'pages/SignIn'
 
 const Layout = () => {
   // Remove the server-side injected CSS.
@@ -33,8 +27,12 @@ const Layout = () => {
       <CssBaseline />
 
       <Switch>
-        <Route exact path="/signin" component={SignIn} />
+        <Route exact path="/signin">
+          <SignIn />
+        </Route>
+
         {redirectTo && <Redirect to={redirectTo} />}
+
         <Route component={Private} />
       </Switch>
     </Router>

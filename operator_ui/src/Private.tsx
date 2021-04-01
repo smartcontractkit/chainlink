@@ -1,59 +1,29 @@
 import React from 'react'
 import { Theme } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
-import universal, { UniversalComponent } from 'react-universal-component'
-import { StyledComponentProps } from '@material-ui/core/styles'
 
 import { Switch } from 'react-router-dom'
 import { hot } from 'react-hot-loader'
 import { withStyles } from '@material-ui/core/styles'
 import Header from 'pages/Header'
-import Loading from 'components/Loading'
 import Notifications from 'pages/Notifications'
 import PrivateRoute from './PrivateRoute'
 
-// Asynchronously load routes that are chunked via code-splitting
-// 'import' as a function must take a string. It can't take a variable.
-
-const uniOpts = { loading: Loading }
-const DashboardsIndex: UniversalComponent<
-  Pick<
-    {
-      classes: any
-    },
-    never
-  > &
-    StyledComponentProps<'wrapper' | 'text'> & {
-      recentJobRunsCount: number
-      recentlyCreatedPageSize: number
-    }
-> = universal(import('./pages/Dashboards/Index'), uniOpts)
-const JobRunsIndex: UniversalComponent<
-  Pick<
-    {
-      classes: any
-    },
-    never
-  > & {
-    pagePath: string
-  }
-> = universal(import('./pages/JobRuns/Index'), uniOpts)
-const JobsIndex = universal(import('./pages/JobsIndex/JobsIndex'), uniOpts)
-const JobsShow = universal(import('./pages/Jobs/Show'), uniOpts)
-const JobsNew = universal(import('./pages/Jobs/New'), uniOpts)
-const BridgesIndex = universal(import('./pages/Bridges/Index'), uniOpts)
-const BridgesNew = universal(import('./pages/Bridges/New'), uniOpts)
-const BridgesShow = universal(import('./pages/Bridges/Show'), uniOpts)
-const BridgesEdit = universal(import('./pages/Bridges/Edit'), uniOpts)
-const JobRunsShowOverview = universal(import('./pages/Jobs/Runs/Show'), uniOpts)
-const TransactionsIndex = universal(
-  import('./pages/Transactions/Index'),
-  uniOpts,
-)
-const TransactionsShow = universal(import('./pages/Transactions/Show'), uniOpts)
-const Configuration = universal(import('./pages/Configuration/Index'), uniOpts)
-const NotFound = universal(import('./pages/NotFound'), uniOpts)
-const KeysIndex = universal(import('./pages/Keys/Index'), uniOpts)
+import DashboardIndex from 'pages/Dashboards/Index'
+import BridgesIndex from 'pages/Bridges/Index'
+import BridgesShow from 'pages/Bridges/Show'
+import BridgesNew from 'pages/Bridges/New'
+import BridgesEdit from 'pages/Bridges/Edit'
+import Configuration from 'pages/Configuration/Index'
+import JobsIndex from 'pages/JobsIndex/JobsIndex'
+import JobsShow from 'pages/Jobs/Show'
+import JobsNew from 'pages/Jobs/New'
+import JobRunsIndex from 'pages/JobRuns/Index'
+import JobRunsShowOverview from 'pages/Jobs/Runs/Show'
+import KeysIndex from 'pages/Keys/Index'
+import NotFound from 'pages/NotFound'
+import TransactionsIndex from 'pages/Transactions/Index'
+import TransactionsShow from 'pages/Transactions/Show'
 
 const styles = (theme: Theme) => {
   return {
@@ -85,24 +55,28 @@ const Private = ({ classes }: { classes: { content: string } }) => {
 
           <div className={classes.content}>
             <Switch>
-              <PrivateRoute
-                exact
-                path="/"
-                render={(props) => (
-                  <DashboardsIndex
-                    {...props}
-                    recentJobRunsCount={5}
-                    recentlyCreatedPageSize={4}
-                  />
-                )}
-              />
-              <PrivateRoute exact path="/jobs" component={JobsIndex} />
-              <PrivateRoute exact path="/jobs/new" component={JobsNew} />
+              <PrivateRoute exact path="/">
+                <DashboardIndex
+                  recentJobRunsCount={5}
+                  recentlyCreatedPageSize={4}
+                />
+              </PrivateRoute>
+
+              <PrivateRoute exact path="/jobs">
+                <JobsIndex />
+              </PrivateRoute>
+              <PrivateRoute exact path="/jobs/new">
+                <JobsNew />
+              </PrivateRoute>
+              <PrivateRoute exact path="/jobs/:jobSpecId">
+                <JobsShow />
+              </PrivateRoute>
+
               <PrivateRoute
                 path="/jobs/:jobSpecId/runs/:jobRunId"
                 component={JobRunsShowOverview}
               />
-              <PrivateRoute path="/jobs/:jobSpecId" component={JobsShow} />
+
               <PrivateRoute
                 exact
                 path="/runs"
@@ -117,7 +91,8 @@ const Private = ({ classes }: { classes: { content: string } }) => {
                   <JobRunsIndex {...props} pagePath="/runs/page" />
                 )}
               />
-              ;<PrivateRoute exact path="/bridges" component={BridgesIndex} />
+              <PrivateRoute exact path="/bridges" component={BridgesIndex} />
+
               <PrivateRoute
                 exact
                 path="/bridges/page/:bridgePage"
