@@ -39,6 +39,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2), // +1 from log
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
 
 	var count int32
