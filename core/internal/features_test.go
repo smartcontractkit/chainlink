@@ -205,7 +205,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
@@ -263,7 +263,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
 			gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			newHeads := make(chan<- *models.Head, 10)
 			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -858,7 +858,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	// Initial tx attempt sent
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -1004,7 +1004,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 			*head = cltest.Head(1)
 		}).
 		Return(nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
 	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")

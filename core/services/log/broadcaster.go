@@ -52,7 +52,7 @@ type (
 
 		headFromStorageAwaiter utils.DependentAwaiter
 		chStop                 chan struct{}
-		chStartupDone          chan struct{}
+		chDone                 chan struct{}
 	}
 
 	Config interface {
@@ -97,7 +97,7 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		headFromStorageAwaiter: headAwaiter,
 		chStop:                 chStop,
-		chStartupDone:          make(chan struct{}),
+		chDone:                 make(chan struct{}),
 	}
 }
 
@@ -120,12 +120,13 @@ func (b *broadcaster) LatestHead() *models.Head {
 func (b *broadcaster) Stop() error {
 	return b.StopOnce("Log broadcaster", func() error {
 		close(b.chStop)
-		<-b.chStartupDone
+		<-b.chDone
 		return nil
 	})
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
+	defer close(b.chDone)
 	for {
 		select {
 		case <-b.addSubscriber.Notify():
@@ -140,7 +141,6 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			return
 
 		case <-b.chStop:
-			close(b.chStartupDone)
 			return
 		}
 	}
@@ -175,7 +175,6 @@ func (b *broadcaster) IsConnected() bool {
 // error, it attempts to reconnect.  Any time there'b a change in connection state, it
 // notifies its subscribers.
 func (b *broadcaster) startResubscribeLoop() {
-	defer close(b.chStartupDone)
 
 	var subscription managedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()

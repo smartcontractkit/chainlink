@@ -270,8 +270,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
 
-type Log = types.Log
-
 var emptyHash = common.Hash{}
 
 // Unconfirmed returns true if the transaction is not confirmed.

@@ -293,7 +293,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 	return json
 }
 
-// NewRunLog create models.Log for given jobid, address, block, and json
+// NewRunLog create types.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
 	jobID common.Hash,
@@ -301,8 +301,8 @@ func NewRunLog(
 	requester common.Address,
 	blk int,
 	json string,
-) models.Log {
-	return models.Log{
+) types.Log {
+	return types.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        StringToVersionedLogData20190207withoutIndexes(t, "internalID", requester, json),
@@ -318,10 +318,10 @@ func NewRunLog(
 // NewRandomnessRequestLog(t, r, emitter, blk) is a RandomnessRequest log for
 // the randomness request log represented by r.
 func NewRandomnessRequestLog(t *testing.T, r models.RandomnessRequestLog,
-	emitter common.Address, blk int) models.Log {
+	emitter common.Address, blk int) types.Log {
 	rawData, err := r.RawData()
 	require.NoError(t, err)
-	return models.Log{
+	return types.Log{
 		Address:     emitter,
 		BlockNumber: uint64(blk),
 		Data:        rawData,
