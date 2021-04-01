@@ -82,7 +82,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
 		query := args.Get(1).(ethereum.FilterQuery)
 		assert.Equal(t, big.NewInt(101), query.FromBlock)
-		assert.Equal(t, big.NewInt(201), query.ToBlock)
+		assert.Equal(t, big.NewInt(113), query.ToBlock)
 	})
 
 	var count int32
