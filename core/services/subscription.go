@@ -290,7 +290,6 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 	if q.FromBlock == nil {
 		return backfilledSet
 	}
-	// Get latest block
 	b, err := sub.logSubscriber.BlockByNumber(context.Background(), nil)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
@@ -300,10 +299,9 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 	var logs []types.Log
 	latest := b.Number()
 	batchSize := int64(sub.backfillBatchSize)
-
 	for i := q.FromBlock.Int64(); i < latest.Int64(); i += batchSize {
 		q.FromBlock = big.NewInt(i)
-		q.ToBlock = big.NewInt(i + batchSize%latest.Int64())
+		q.ToBlock = big.NewInt((i + batchSize) % latest.Int64())
 		batchLogs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
 		if err != nil {
 			logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
