@@ -1,19 +1,24 @@
 {
   "private": true,
   "license": "MIT",
-  "workspaces": [
-    "evm-test-helpers",
-    "evm-contracts",
-    "integration",
-    "integration-scripts",
-    "operator_ui",
-    "tools",
-    "tools/ci-ts",
-    "tools/cypress-job-server",
-    "tools/echo-server",
-    "tools/external-adapter",
-    "belt"
-  ],
+  "workspaces": {
+    "packages": [
+      "evm-test-helpers",
+      "evm-contracts",
+      "integration",
+      "integration-scripts",
+      "operator_ui",
+      "tools",
+      "tools/ci-ts",
+      "tools/cypress-job-server",
+      "tools/echo-server",
+      "tools/external-adapter",
+      "belt"
+    ],
+    "nohoist": [
+      "**/belt/**"
+    ]
+  },
   "engines": {
     "node": "^12.0.0"
   },
@@ -26,8 +31,7 @@
     "setup:chainlink": "yarn wsrun -mre -p @chainlink/contracts -p @chainlink/operator-ui -t setup",
     "setup:contracts": "yarn wsrun -mre -p @chainlink/contracts -t setup",
     "setup:integration": "yarn wsrun -mre -p @chainlink/integration* -t setup",
-    "clean": "wsrun -me clean",
-    "postinstall": "patch-package"
+    "clean": "wsrun -me clean"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^2.15.0",
