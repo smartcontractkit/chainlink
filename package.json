@@ -14,9 +14,6 @@
       "tools/echo-server",
       "tools/external-adapter",
       "belt"
-    ],
-    "nohoist": [
-      "**/belt/**"
     ]
   },
   "engines": {
