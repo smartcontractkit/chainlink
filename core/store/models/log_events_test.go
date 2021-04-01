@@ -26,7 +26,7 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -71,7 +71,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          models.Log
+		el          types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -96,7 +96,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) types.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -361,7 +361,7 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
@@ -390,7 +390,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        common.Address
 	}{
@@ -419,7 +419,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           models.Log
+		log           types.Log
 		wantRequestID common.Hash
 		wantTxHash    string
 		wantBlockHash string

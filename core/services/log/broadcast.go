@@ -11,7 +11,7 @@ import (
 //go:generate mockery --name Broadcast --output ./mocks/ --case=underscore --structname Broadcast --filename broadcast.go
 
 type (
-	// The Broadcast type wraps a models.Log but provides additional functionality
+	// The Broadcast type wraps a types.Log but provides additional functionality
 	// for determining whether or not the log has been consumed and for marking
 	// the log as consumed
 	Broadcast interface {
