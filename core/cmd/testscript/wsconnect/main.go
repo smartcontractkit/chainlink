@@ -23,7 +23,7 @@ func main() {
 	panicErr(err)
 	err = c.Dial(context.Background())
 	panicErr(err)
-	sub, err := services.NewManagedSubscription(c, ethereum.FilterQuery{}, cb)
+	sub, err := services.NewManagedSubscription(c, ethereum.FilterQuery{}, cb, 0)
 	panicErr(err)
 	fmt.Println(sub)
 	time.Sleep(30 * time.Second)
