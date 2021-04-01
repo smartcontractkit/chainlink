@@ -9,7 +9,7 @@
   },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
-    "postinstall": "patch-package",
+    "postinstall": "patch-package || true",
     "prepack": "yarn setup --force && oclif-dev manifest && oclif-dev readme",
     "setup": "tsc -b",
     "clean": "tsc -b --clean",
