@@ -6,6 +6,7 @@ FROM smartcontract/builder:1.0.39
 RUN apt-get update \
     #
     # Install Docker CE CLI
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - 2>/dev/null \
     && apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common lsb-release \
     && curl -fsSL https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]')/gpg | apt-key add - 2>/dev/null \
     && add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/$(lsb_release -is | tr '[:upper:]' '[:lower:]') $(lsb_release -cs) stable" \
