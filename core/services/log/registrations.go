@@ -9,6 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
+// How it works in general:
+// 1. All received logs are kept in a data structure and deleted ONLY after they are too old for all subscribers
+// 2. The logs are attempted to be sent after every new head arrival:
+// 		Each stored log is then checked against every matched listener and is sent unless:
+//    A) is too young for that listener
+//    B) the corresponding block height is known to be already processed for that listener
+// So in the normal case, each log will be only processed once, and then its corresponding head will be remembered, so it's not double-sent
+// In case of a re-org, the stored lowestAllowedBlockNumber is reset, so the logs from that chain are considered unprocessed at first.
 type (
 	registrations struct {
 		registrations map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
