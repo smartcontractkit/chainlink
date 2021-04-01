@@ -39,6 +39,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2), // +1 from log
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
 
 	var count int32
@@ -51,6 +55,51 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	gomega.NewGomegaWithT(t).Eventually(func() int32 {
 		return atomic.LoadInt32(&count)
 	}).Should(gomega.Equal(int32(1)))
+}
+
+func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ethClient := new(mocks.Client)
+	defer ethClient.AssertExpectations(t)
+	store.EthClient = ethClient
+
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(213),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(1), query.FromBlock)
+		assert.Equal(t, big.NewInt(100), query.ToBlock)
+	})
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(101), query.FromBlock)
+		assert.Equal(t, big.NewInt(200), query.ToBlock)
+	})
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(201), query.FromBlock)
+		assert.Equal(t, big.NewInt(213), query.ToBlock)
+	})
+
+	var count int32
+	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
+	fromBlock := cltest.Head(0)
+	jm := new(mocks.RunManager)
+	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, fromBlock.NextInt(), store.Config, callback)
+	assert.NoError(t, err)
+	defer sub.Unsubscribe()
+	gomega.NewGomegaWithT(t).Eventually(func() int32 {
+		return atomic.LoadInt32(&count)
+	}).Should(gomega.Equal(int32(3)))
 }
 
 func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {

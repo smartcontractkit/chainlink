@@ -163,3 +163,10 @@ func (s BigIntSlice) Max() *big.Int {
 	tmp.Sort()
 	return tmp[len(tmp)-1]
 }
+
+func (s BigIntSlice) Min() *big.Int {
+	tmp := make(BigIntSlice, len(s))
+	copy(tmp, s)
+	tmp.Sort()
+	return tmp[0]
+}
