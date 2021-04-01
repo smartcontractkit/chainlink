@@ -237,9 +237,9 @@ func (_VRFCoordinator *VRFCoordinatorCaller) Callbacks(opts *bind.CallOpts, arg0
 		return *outstruct, err
 	}
 
-	outstruct.CallbackContract = out[0].(common.Address)
-	outstruct.RandomnessFee = out[1].(*big.Int)
-	outstruct.SeedAndBlockNum = out[2].([32]byte)
+	outstruct.CallbackContract = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.RandomnessFee = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.SeedAndBlockNum = *abi.ConvertType(out[2], new([32]byte)).(*[32]byte)
 
 	return *outstruct, err
 
@@ -290,9 +290,9 @@ func (_VRFCoordinator *VRFCoordinatorCaller) ServiceAgreements(opts *bind.CallOp
 		return *outstruct, err
 	}
 
-	outstruct.VRFOracle = out[0].(common.Address)
-	outstruct.Fee = out[1].(*big.Int)
-	outstruct.JobID = out[2].([32]byte)
+	outstruct.VRFOracle = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+	outstruct.Fee = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.JobID = *abi.ConvertType(out[2], new([32]byte)).(*[32]byte)
 
 	return *outstruct, err
 
