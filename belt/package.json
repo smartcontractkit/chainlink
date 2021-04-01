@@ -2,7 +2,7 @@
   "name": "@chainlink/belt",
   "private": false,
   "description": "A toolbelt for performing various commands on chainlink smart contracts.",
-  "version": "0.0.3",
+  "version": "0.0.5-alpha.1",
   "author": "Chainlink Devs",
   "bin": {
     "belt": "./bin/run"
@@ -58,7 +58,8 @@
     "/bin",
     "/lib",
     "/npm-shrinkwrap.json",
-    "/oclif.manifest.json"
+    "/oclif.manifest.json",
+    "/patches"
   ],
   "homepage": "https://github.com/smartcontractkit/chainlink",
   "keywords": [
