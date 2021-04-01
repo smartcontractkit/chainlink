@@ -164,6 +164,7 @@ func (s BigIntSlice) Max() *big.Int {
 	return tmp[len(tmp)-1]
 }
 
+// Min returns the smallest element
 func (s BigIntSlice) Min() *big.Int {
 	tmp := make(BigIntSlice, len(s))
 	copy(tmp, s)
