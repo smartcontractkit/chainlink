@@ -1079,7 +1079,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		signingAccount := gethAccounts.Account{Address: fromAddress}
 		kst.On("GetAccountByAddress", fromAddress).Return(signingAccount, nil).Once()
 
-		tx := gethTypes.Transaction{}
+		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
 		kst.On("SignTx",
 			mock.AnythingOfType("accounts.Account"),
 			mock.AnythingOfType("*types.Transaction"),

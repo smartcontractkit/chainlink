@@ -249,6 +249,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 			// didn't actually broadcast the transaction, but including it
 			// allows us to avoid changing the state machine limitations and
 			// represents roughly the time we read the tx from the blockchain
+			// so we can pretty much assume it was "broadcast" at this time.
 			ins.Etx.BroadcastAt = &now
 			if err := dbtx.Create(&ins.Etx).Error; err != nil {
 				return errors.Wrap(err, "NonceSyncer#fastForwardNonceIfNecessary failed to create eth_tx")
@@ -317,7 +318,7 @@ func (s NonceSyncer) makeInserts(acct accounts.Account, blockNum int64, txes []t
 // and bump gas etc exactly like any other transaction we might have sent.
 func (s NonceSyncer) MakeInsert(tx types.Transaction, acct accounts.Account, blockNum, nonce int64) (ins NSinserttx, err error) {
 	v, _, _ := tx.RawSignatureValues()
-	if v == nil {
+	if v.BitLen() == 0 {
 		// Believe it or not, this is the only way to determine if the tx
 		// is a zero struct without panicking. Thank you, geth.
 		logger.Warnw("NonceSyncer: tx was empty/unsigned. Falling back to zero transaction", "err", err, "txHash", tx.Hash(), "nonce", nonce, "address", acct.Address.Hex())

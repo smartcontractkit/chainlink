@@ -24,10 +24,20 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   uint256 constant private PHASE_SIZE = 16;
   uint256 constant private MAX_ID = 2**(PHASE_OFFSET+PHASE_SIZE) - 1;
 
-  event AggregatorProposed(address indexed current, address indexed proposed);
-  event AggregatorConfirmed(address indexed previous, address indexed latest);
+  event AggregatorProposed(
+    address indexed current,
+    address indexed proposed
+  );
+  event AggregatorConfirmed(
+    address indexed previous,
+    address indexed latest
+  );
 
-  constructor(address aggregatorAddress) ConfirmedOwner(msg.sender) {
+  constructor(
+    address aggregatorAddress
+  )
+    ConfirmedOwner(msg.sender)
+  {
     setAggregator(aggregatorAddress);
   }
 
@@ -44,7 +54,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     view
     virtual
     override
-    returns (int256 answer)
+    returns (
+      int256 answer
+    )
   {
     return s_currentPhase.aggregator.latestAnswer();
   }
@@ -62,7 +74,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     view
     virtual
     override
-    returns (uint256 updatedAt)
+    returns (
+      uint256 updatedAt
+    )
   {
     return s_currentPhase.aggregator.latestTimestamp();
   }
@@ -76,12 +90,16 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
    */
-  function getAnswer(uint256 roundId)
+  function getAnswer(
+    uint256 roundId
+  )
     public
     view
     virtual
     override
-    returns (int256 answer)
+    returns (
+      int256 answer
+    )
   {
     if (roundId > MAX_ID) return 0;
 
@@ -101,12 +119,16 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * an already answered Aggregator or use the recommended getRoundData
    * instead which includes better verification information.
    */
-  function getTimestamp(uint256 roundId)
+  function getTimestamp(
+    uint256 roundId
+  )
     public
     view
     virtual
     override
-    returns (uint256 updatedAt)
+    returns (
+      uint256 updatedAt
+    )
   {
     if (roundId > MAX_ID) return 0;
 
@@ -132,7 +154,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     view
     virtual
     override
-    returns (uint256 roundId)
+    returns (
+      uint256 roundId
+    )
   {
     Phase memory phase = s_currentPhase; // cache storage reads
     return addPhase(phase.id, uint64(phase.aggregator.latestRound()));
@@ -163,7 +187,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * (Only some AggregatorV3Interface implementations return meaningful values)
    * @dev Note that answer and updatedAt may change between queries.
    */
-  function getRoundData(uint80 roundId)
+  function getRoundData(
+    uint80 roundId
+  )
     public
     view
     virtual
@@ -249,7 +275,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * @return answeredInRound is the round ID of the round in which the answer
    * was computed.
   */
-  function proposedGetRoundData(uint80 roundId)
+  function proposedGetRoundData(
+    uint80 roundId
+  )
     external
     view
     virtual
@@ -301,7 +329,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(s_currentPhase.aggregator);
   }
@@ -313,7 +343,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (uint16)
+    returns (
+      uint16
+    )
   {
     return s_currentPhase.id;
   }
@@ -325,7 +357,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (uint8)
+    returns (
+      uint8
+    )
   {
     return s_currentPhase.aggregator.decimals();
   }
@@ -338,7 +372,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (uint256)
+    returns (
+      uint256
+    )
   {
     return s_currentPhase.aggregator.version();
   }
@@ -350,7 +386,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (string memory)
+    returns (
+      string memory
+    )
   {
     return s_currentPhase.aggregator.description();
   }
@@ -362,7 +400,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
     external
     view
     override
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(s_proposedAggregator);
   }
@@ -372,11 +412,15 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    *
    * @param phaseId uint16
    */
-  function phaseAggregators(uint16 phaseId)
+  function phaseAggregators(
+    uint16 phaseId
+  )
     external
     view
     override
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(s_phaseAggregators[phaseId]);
   }
@@ -385,7 +429,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * @notice Allows the owner to propose a new address for the aggregator
    * @param aggregatorAddress The new address for the aggregator contract
    */
-  function proposeAggregator(address aggregatorAddress)
+  function proposeAggregator(
+    address aggregatorAddress
+  )
     external
     onlyOwner()
   {
@@ -400,7 +446,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * proposed
    * @param aggregatorAddress The new address for the aggregator contract
    */
-  function confirmAggregator(address aggregatorAddress)
+  function confirmAggregator(
+    address aggregatorAddress
+  )
     external
     onlyOwner()
   {
@@ -416,7 +464,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
    * Internal
    */
 
-  function setAggregator(address aggregatorAddress)
+  function setAggregator(
+    address aggregatorAddress
+  )
     internal
   {
     uint16 id = s_currentPhase.id + 1;
@@ -430,7 +480,9 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   )
     internal
     pure
-    returns (uint80)
+    returns (
+      uint80
+    )
   {
     return uint80(uint256(phase) << PHASE_OFFSET | originalId);
   }
@@ -440,7 +492,10 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   )
     internal
     pure
-    returns (uint16, uint64)
+    returns (
+      uint16,
+      uint64
+    )
   {
     uint16 phaseId = uint16(roundId >> PHASE_OFFSET);
     uint64 aggregatorRoundId = uint64(roundId);
@@ -458,7 +513,13 @@ contract AggregatorProxy is AggregatorProxyInterface, ConfirmedOwner {
   )
     internal
     pure
-    returns (uint80, int256, uint256, uint256, uint80)
+    returns (
+      uint80,
+      int256,
+      uint256,
+      uint256,
+      uint80
+    )
   {
     return (
       addPhase(phaseId, uint64(roundId)),

@@ -125,7 +125,7 @@ type EnvPrinter struct {
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
 	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
-	OperatorContractAddress               common.Address  `json:"oracleContractAddress"`
+	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
 	Port                                  uint16          `json:"chainlinkPort"`
 	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                       int64           `json:"replayFromBlock"`
@@ -594,6 +594,18 @@ type EthTx struct {
 	SentAt   string          `json:"sentAt,omitempty"`
 	To       *common.Address `json:"to,omitempty"`
 	Value    string          `json:"value,omitempty"`
+}
+
+func NewEthTx(tx models.EthTx) EthTx {
+	return EthTx{
+		ID:       tx.ID,
+		Data:     hexutil.Bytes(tx.EncodedPayload),
+		From:     &tx.FromAddress,
+		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
+		State:    string(tx.State),
+		To:       &tx.ToAddress,
+		Value:    tx.Value.String(),
+	}
 }
 
 func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {

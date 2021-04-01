@@ -212,7 +212,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 	pr := pipeline.Run{
 		PipelineSpecID: ps.ID,
 		Meta:           pipeline.JSONSerializable{},
-		Errors:         pipeline.JSONSerializable{Null: true},
+		Errors:         pipeline.RunErrors{},
 		Outputs:        pipeline.JSONSerializable{Null: true},
 	}
 	require.NoError(t, orm.DB.Create(&pr).Error)
@@ -231,7 +231,7 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 		PipelineTaskSpecID int32 `json:"-"`
 	}
 	tr1 := PipelineTaskRun{
-		Type:               pipeline.TaskTypeResult,
+		Type:               pipeline.TaskTypeAny,
 		PipelineRunID:      pr.ID,
 		PipelineTaskSpecID: result.ID,
 		Output:             &pipeline.JSONSerializable{Null: true},
@@ -255,4 +255,49 @@ func TestMigrate_PipelineTaskRunDotID(t *testing.T) {
 
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0016_pipeline_task_run_dot_id"))
 
+}
+
+func TestMigrate_RemoveResultTask(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_result_task", false)
+	defer cleanup()
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0019_last_run_height_column_to_keeper_table"))
+	// Add some task specs
+	ps := pipeline.Spec{
+		DotDagSource: "blah",
+	}
+	require.NoError(t, orm.DB.Create(&ps).Error)
+	// Add a pipeline run
+	pr := pipeline.Run{
+		PipelineSpecID: ps.ID,
+		Meta:           pipeline.JSONSerializable{},
+		Errors:         pipeline.RunErrors{},
+		Outputs:        pipeline.JSONSerializable{Null: true},
+	}
+	require.NoError(t, orm.DB.Create(&pr).Error)
+	tr1 := pipeline.TaskRun{
+		Type:          pipeline.TaskTypeAny,
+		DotID:         "any",
+		PipelineRunID: pr.ID,
+		Output:        &pipeline.JSONSerializable{Null: true},
+		Error:         null.String{},
+	}
+	require.NoError(t, orm.DB.Create(&tr1).Error)
+	f := time.Now()
+	tr2 := pipeline.TaskRun{
+		Type:          "result",
+		DotID:         "result",
+		PipelineRunID: pr.ID,
+		Output:        &pipeline.JSONSerializable{Val: "10"},
+		Error:         null.StringFrom("[null]"),
+		FinishedAt:    &f,
+	}
+	require.NoError(t, orm.DB.Create(&tr2).Error)
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0020_remove_result_task"))
+	var ptrs []pipeline.TaskRun
+	require.NoError(t, orm.DB.Find(&ptrs).Error)
+	assert.Equal(t, 1, len(ptrs))
+
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0020_remove_result_task"))
 }

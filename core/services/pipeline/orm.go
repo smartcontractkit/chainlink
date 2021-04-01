@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -27,19 +26,19 @@ var (
 
 type ORM interface {
 	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
-	ListenForNewRuns() (postgres.Subscription, error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
-	AwaitRun(ctx context.Context, runID int64) error
-	RunFinished(runID int64) (bool, error)
-	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	DeleteRunsOlderThan(threshold time.Duration) error
-
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
-
 	DB() *gorm.DB
+
+	// Note below methods are not currently used to process runs.
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	AwaitRun(ctx context.Context, runID int64) error
+	ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
+	ListenForNewRuns() (postgres.Subscription, error)
+	RunFinished(runID int64) (bool, error)
+	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 }
 
 type orm struct {
@@ -120,7 +119,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		}
 
 		var trs []TaskRun
-		tasks, err := d.TasksInDependencyOrderWithResultTask()
+		tasks, err := d.TasksInDependencyOrder()
 		if err != nil {
 			return err
 		}
@@ -133,43 +132,17 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 			})
 		}
 		runID = run.ID
-		return tx.Create(&trs).Error
+		if len(trs) > 0 {
+			return tx.Create(&trs).Error
+		}
+		return nil
 	})
 	return runID, errors.WithStack(err)
 }
 
-// TODO: Remove generation of special "result" task
-// TODO: Remove the unique index on successor_id
-// https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, bool, error)
 
-// ProcessNextUnfinishedRun pulls the next available unfinished run from the
-// database and passes it into the provided ProcessRunFunc for execution.
-func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (anyRemaining bool, err error) {
-	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		err = o.processNextUnfinishedRun(ctx, fn)
-		// "Record not found" errors mean that we're done with all unclaimed
-		// job runs.
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			anyRemaining = false
-			retry = false
-			err = nil
-		} else if err != nil {
-			retry = true
-			err = errors.Wrap(err, "Pipeline runner could not process job run")
-			logger.Error(err)
-
-		} else {
-			anyRemaining = true
-			retry = false
-		}
-		return
-	})
-	return anyRemaining, errors.WithStack(err)
-}
-
-func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) error {
+func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error) {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
 	defer cancel()
@@ -187,11 +160,11 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 			}).
 			First(&pRun).Error
 		if err != nil {
-			return errors.Wrap(err, "error loading run associations")
+			return errors.Wrap(err, "error finding unfinished run")
 		}
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs, err := fn(ctx, tx, pRun.PipelineSpec, *logger.Default)
+		trrs, _, err := fn(ctx, tx, pRun.PipelineSpec, pRun.Meta, *logger.Default)
 		if err != nil {
 			return errors.Wrap(err, "error calling ProcessRunFunc")
 		}
@@ -200,7 +173,7 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		// IDs.
 		for i, trr := range trrs {
 			for _, tr := range pRun.PipelineTaskRuns {
-				if trr.TaskRun.DotID == tr.DotID {
+				if trr.Task.DotID() == tr.DotID {
 					trrs[i].ID = tr.ID
 				}
 			}
@@ -229,10 +202,13 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "while processing run")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "while processing run")
 	}
 	logger.Infow("Pipeline run completed", "runID", pRun.ID)
-	return nil
+	return true, nil
 }
 
 // updateTaskRuns updates multiple task runs in one query
@@ -279,8 +255,8 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	if run.FinishedAt.IsZero() {
 		return 0, errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || run.Errors.Val == nil {
-		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
+	if run.Outputs.Val == nil || len(run.Errors) == 0 {
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
@@ -297,7 +273,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 		valueArgs := []interface{}{}
 		for _, trr := range trrs {
 			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
-			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.TaskRun.DotID, trr.TaskRun.CreatedAt, trr.TaskRun.FinishedAt)
+			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.Task.DotID(), trr.CreatedAt, trr.FinishedAt)
 		}
 
 		/* #nosec G201 */
@@ -377,41 +353,34 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 
 	var results []Result
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		var resultTaskRun TaskRun
+		var run Run
 		err = tx.Raw(`
-			SELECT * FROM pipeline_task_runs
-			WHERE pipeline_run_id = ? 
+			SELECT * FROM pipeline_runs 
+				WHERE id = ? 
 				AND finished_at IS NOT NULL
-				AND dot_id = ?
-`, runID, ResultTaskDotID).Scan(&resultTaskRun).
+`, runID).Scan(&run).
 			Error
 		if err != nil {
 			return errors.Wrapf(err, "Pipeline runner could not fetch pipeline results (runID: %v)", runID)
 		}
 
 		var values []interface{}
-		var errs FinalErrors
-		if resultTaskRun.Output != nil && resultTaskRun.Output.Val != nil {
-			vals, is := resultTaskRun.Output.Val.([]interface{})
+		if !run.Outputs.Null {
+			vals, is := run.Outputs.Val.([]interface{})
 			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", resultTaskRun.Output.Val)
+				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", run.Outputs.Val)
 			}
 			values = vals
 		}
-		if !resultTaskRun.Error.IsZero() {
-			err = json.Unmarshal([]byte(resultTaskRun.Error.ValueOrZero()), &errs)
-			if err != nil {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's errors must be []error, got %v", resultTaskRun.Error.ValueOrZero())
-			}
-		}
-		if len(values) != len(errs) {
-			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(errs))
+
+		if len(values) != len(run.Errors) {
+			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(run.Errors))
 		}
 		results = make([]Result, len(values))
 		for i := range values {
 			results[i].Value = values[i]
-			if !errs[i].IsZero() {
-				results[i].Error = errors.New(errs[i].ValueOrZero())
+			if !run.Errors[i].IsZero() {
+				results[i].Error = errors.New(run.Errors[i].String)
 			}
 		}
 		return nil

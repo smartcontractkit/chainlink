@@ -22,13 +22,17 @@ contract MockV2Aggregator is AggregatorInterface {
 
   constructor(
     int256 _initialAnswer
-  ) public {
+  )
+    public
+  {
     updateAnswer(_initialAnswer);
   }
 
   function updateAnswer(
     int256 _answer
-  ) public {
+  )
+    public
+  {
     latestAnswer = _answer;
     latestTimestamp = block.timestamp;
     latestRound++;
@@ -41,7 +45,9 @@ contract MockV2Aggregator is AggregatorInterface {
     int256 _answer,
     uint256 _timestamp,
     uint256 _startedAt
-  ) public {
+  )
+    public
+  {
     latestRound = _roundId;
     latestAnswer = _answer;
     latestTimestamp = _timestamp;

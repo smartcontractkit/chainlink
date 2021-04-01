@@ -189,6 +189,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	// Disable gas updater for application tests
 	config.Set("GAS_UPDATER_ENABLED", false)
+	// Disable tx re-sending for application tests
+	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -965,8 +967,8 @@ const (
 	DBWaitTimeout = 20 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
-	// AsertNoActionTimeout shouldn't be too long, or it will slow down tests
-	AsertNoActionTimeout = 3 * time.Second
+	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
+	AssertNoActionTimeout = 3 * time.Second
 )
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -1135,7 +1137,7 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+		}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
@@ -1146,26 +1148,27 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
-	var pr pipeline.Run
-	g.Eventually(func() *pipeline.Run {
+	var pr []pipeline.Run
+	g.Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
+		var completed []pipeline.Run
 		for i := range prs {
 			if !prs[i].Outputs.Null {
-				errs, err := prs[i].Errors.MarshalJSON()
-				assert.NoError(t, err)
-				if string(errs) != "[null]" {
-					return nil
+				if !prs[i].Errors.HasError() {
+					completed = append(completed, prs[i])
 				}
-				pr = prs[i]
-				return &prs[i]
 			}
 		}
-		return nil
-	}, timeout, poll).ShouldNot(gomega.BeNil(), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+		if len(completed) >= count {
+			pr = completed
+			return true
+		}
+		return false
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
 	return pr
 }
 
@@ -1180,7 +1183,7 @@ func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want i
 		jrs, err = store.JobRunsFor(j.ID)
 		assert.NoError(t, err)
 		return jrs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return jrs
 }
 
@@ -1196,7 +1199,7 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.S
 			Find(&prs).Error
 		assert.NoError(t, err)
 		return prs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return prs
 }
 
@@ -1255,7 +1258,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) [
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
 }
 
@@ -1286,7 +1289,7 @@ func AssertSyncEventCountStays(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -1837,15 +1840,11 @@ type testifyExpectationsAsserter interface {
 	AssertExpectations(t mock.TestingT) bool
 }
 
-type fakeT struct {
-	didFail bool
-}
+type fakeT struct{}
 
-func (t fakeT) Logf(format string, args ...interface{})   {}
-func (t fakeT) Errorf(format string, args ...interface{}) {}
-func (t fakeT) FailNow() {
-	t.didFail = true
-}
+func (ft fakeT) Logf(format string, args ...interface{})   {}
+func (ft fakeT) Errorf(format string, args ...interface{}) {}
+func (ft fakeT) FailNow()                                  {}
 
 func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
 	t.Helper()
@@ -1853,12 +1852,13 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	chTimeout := time.After(timeout)
 	for {
 		var ft fakeT
-		mock.AssertExpectations(ft)
-		if !ft.didFail {
+		success := mock.AssertExpectations(ft)
+		if success {
 			return
 		}
 		select {
 		case <-chTimeout:
+			mock.AssertExpectations(t)
 			t.FailNow()
 		default:
 			time.Sleep(interval)
@@ -1895,7 +1895,7 @@ func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, AsertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}, check func() bool) {

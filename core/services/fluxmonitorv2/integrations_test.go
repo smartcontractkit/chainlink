@@ -3,12 +3,17 @@ package fluxmonitorv2_test
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -17,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	goEthereumEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
@@ -111,7 +115,7 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 		f.ned.From:     {Balance: oneEth},
 		f.nallory.From: {Balance: oneEth},
 	}
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = backends.NewSimulatedBackend(genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
@@ -403,11 +407,34 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	require.NoError(t, app.StartAndConnect())
 
 	// Create mock server
+	// We expect metadata of:
+	//  latestAnswer:nil updatedAt:nil // First call
+	//  latestAnswer:100 updatedAt:50
+	//  latestAnswer:103 updatedAt:60
+	type k struct{ latestAnswer, updatedAt string }
+	expectedMeta := map[k]struct{}{
+		{"100", "50"}: {},
+		{"103", "60"}: {},
+	}
 	reportPrice := int64(100)
-	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t,
+	mockServer := cltest.NewHTTPMockServerWithAlterableResponseAndRequest(t,
 		generatePriceResponseFn(&reportPrice),
+		func(r *http.Request) {
+			b, err1 := ioutil.ReadAll(r.Body)
+			require.NoError(t, err1)
+			var m models.BridgeMetaDataJSON
+			require.NoError(t, json.Unmarshal(b, &m))
+			if m.Meta.LatestAnswer != nil && m.Meta.UpdatedAt != nil {
+				delete(expectedMeta, k{m.Meta.LatestAnswer.String(), m.Meta.UpdatedAt.String()})
+			}
+		},
 	)
 	t.Cleanup(mockServer.Close)
+	u, _ := url.Parse(mockServer.URL)
+	app.Store.CreateBridgeType(&models.BridgeType{
+		Name: "bridge",
+		URL:  models.WebURL(*u),
+	})
 
 	// When event appears on submissionReceived, flux monitor job run is complete
 	submissionReceived := fa.WatchSubmissionReceived(t,
@@ -431,14 +458,14 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	pollTimerDisabled = false
 
 	observationSource = """
-	ds1 [type=http method=GET url="%s"];
+	ds1 [type=bridge name=bridge];
 	ds1_parse [type=jsonparse path="data,result"];
 
 	ds1 -> ds1_parse
 	"""
 		`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod, mockServer.URL)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
 
 	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(s),
@@ -491,6 +518,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	// Should not received a submission as it is inside the deviation
 	reportPrice = int64(104)
 	assertNoSubmission(t, submissionReceived, 2*time.Second, "Should not receive a submission")
+	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
 }
 
 func TestFluxMonitor_NewRound(t *testing.T) {
@@ -766,13 +794,8 @@ ds1 -> ds1_parse
 
 	j := cltest.CreateJobViaWeb2(t, app, string(requestBody))
 
-	tick := time.NewTicker(500 * time.Millisecond)
-	defer tick.Stop()
-	go func() {
-		for range tick.C {
-			fa.backend.Commit()
-		}
-	}()
+	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
+	defer closer()
 
 	// We should see a spec error because the value is too large to submit on-chain.
 	jobID, err := strconv.ParseInt(j.ID, 10, 32)

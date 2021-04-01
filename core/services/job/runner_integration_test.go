@@ -2,7 +2,9 @@ package job_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -66,9 +68,22 @@ func TestRunner(t *testing.T) {
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`)
+			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				})
 			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`)
+			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				},
+			)
 			defer cleanupVoterTurnout()
 			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 			defer cleanupHTTP()
@@ -89,7 +104,9 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
+		require.NoError(t, err)
+		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, m)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -114,7 +131,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		assert.Len(t, runs, 9)
+		assert.Len(t, runs, 8)
 
 		for _, run := range runs {
 			if run.GetDotID() == "answer2" {
@@ -133,8 +150,6 @@ func TestRunner(t *testing.T) {
 				assert.Equal(t, "6257", run.Output.Val)
 			} else if run.GetDotID() == "answer1" {
 				assert.Equal(t, "6225.6", run.Output.Val)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{"6225.6", "Hal Finney"}, run.Output.Val)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -218,7 +233,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -232,9 +247,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -278,7 +290,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -290,9 +302,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"could not resolve path [\\\"USD\\\"] in {\\\"Response\\\":\\\"Error\\\",\\\"Message\\\":\\\"You are over your rate limit please upgrade your account!\\\",\\\"HasWarning\\\":false,\\\"Type\\\":99,\\\"RateLimit\\\":{\\\"calls_made\\\":{\\\"second\\\":5,\\\"minute\\\":5,\\\"hour\\\":955,\\\"day\\\":10004,\\\"month\\\":15146,\\\"total_calls\\\":15152},\\\"max_calls\\\":{\\\"second\\\":20,\\\"minute\\\":300,\\\"hour\\\":3000,\\\"day\\\":10000,\\\"month\\\":75000}},\\\"Data\\\":{}}\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -336,7 +345,7 @@ func TestRunner(t *testing.T) {
 			Where("pipeline_run_id = ?", runID).
 			Find(&runs).Error
 		assert.NoError(t, err)
-		require.Len(t, runs, 4)
+		require.Len(t, runs, 3)
 
 		for _, run := range runs {
 			if run.GetDotID() == "ds1" {
@@ -348,9 +357,6 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds1_multiply" {
 				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
 				assert.Nil(t, run.Output)
-			} else if run.GetDotID() == "__result__" {
-				assert.Equal(t, []interface{}{nil}, run.Output.Val)
-				assert.Equal(t, "[\"type \\u003cnil\\u003e cannot be converted to decimal.Decimal\"]", run.Error.ValueOrZero())
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
 			}
@@ -632,21 +638,25 @@ ds1 -> ds1_parse;
 		services, err := sd.ServicesForSpec(jb)
 		require.NoError(t, err)
 
-		// Start and stop the service to generate errors.
-		// We expect a database timeout and a context cancellation
-		// error to show up as pipeline_spec_errors.
+		// Return an error getting the contract code.
+		geth.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
 		for _, s := range services {
 			err = s.Start()
 			require.NoError(t, err)
+		}
+		var se []job.SpecError
+		require.Eventually(t, func() bool {
+			err = db.Find(&se).Error
+			require.NoError(t, err)
+			return len(se) == 1
+		}, time.Second, 100*time.Millisecond)
+		require.Len(t, se, 1)
+		assert.Equal(t, uint(1), se[0].Occurrences)
+
+		for _, s := range services {
 			err = s.Close()
 			require.NoError(t, err)
 		}
-
-		var se []job.SpecError
-		err = db.Find(&se).Error
-		require.NoError(t, err)
-		require.Len(t, se, 1)
-		assert.Equal(t, uint(1), se[0].Occurrences)
 
 		// Ensure we can delete an errored
 		_, err = jobORM.ClaimUnclaimedJobs(context.Background())

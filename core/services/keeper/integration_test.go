@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	goEthereumEth "github.com/ethereum/go-ethereum/eth"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/basic_upkeep_contract"
@@ -53,7 +54,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 		nodeAddress: {Balance: oneEth},
 	}
 
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 
 	stopMining := cltest.Mine(backend, 1*time.Second) // >> 2 seconds and the test gets slow, << 1 second and the app may miss heads

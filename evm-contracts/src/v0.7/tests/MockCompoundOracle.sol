@@ -18,7 +18,9 @@ contract MockCompoundOracle is UniswapAnchoredView {
     external
     override
     view
-    returns (uint256)
+    returns (
+      uint256
+    )
   {
     return s_oracleDetails[symbol].price;
   }
