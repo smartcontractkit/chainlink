@@ -347,8 +347,7 @@ func (fm *FluxMonitor) consume() {
 	if err := fm.SetOracleAddress(); err != nil {
 		fm.logger.Warnw(
 			"unable to set oracle address, this flux monitor job may not work correctly",
-			"err",
-			err,
+			"err", err,
 		)
 	}
 
@@ -421,6 +420,7 @@ func (fm *FluxMonitor) consume() {
 func (fm *FluxMonitor) SetOracleAddress() error {
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
+		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
 	accounts := fm.keyStore.Accounts()
@@ -433,22 +433,23 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		}
 	}
 
-	l := fm.logger.With(
+	log := fm.logger.With(
 		"accounts", accounts,
 		"oracleAddresses", oracleAddrs,
 	)
 
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		l.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
+		log.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
 			"address", addr.Hex(),
 		)
 		fm.oracleAddress = addr
-	} else {
-		l.Error("No keys found. This flux monitor job may not work correctly")
+
+		return nil
 	}
 
-	return errors.New("none of the node's keys matched any oracle addresses")
+	log.Error("No keys found. This flux monitor job may not work correctly")
+	return errors.New("No keys found")
 }
 
 // performInitialPoll performs the initial poll if required
