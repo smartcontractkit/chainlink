@@ -32,6 +32,7 @@ ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
 
 COPY yarn.lock package.json .yarnrc ./
+COPY patches patches
 COPY solc_bin solc_bin
 COPY tools/bin/restore-solc-cache tools/bin/restore-solc-cache
 COPY .yarn .yarn
