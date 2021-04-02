@@ -601,8 +601,10 @@ ds1 -> ds1_parse
 		completesAnswer: false,
 	})
 
-	// Logs from log broadcaster are sent only after a next block is received.
+	// The wait time must be sufficient to allow for flux monitor to finish Register process in log broadcaster
+	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
 	time.Sleep(2 * time.Second)
+	// Finally, the logs from log broadcaster are sent only after a next block is received.
 	fa.backend.Commit()
 
 	// Wait for the node's submission, and ensure it submits to the round

@@ -28,7 +28,8 @@ type (
 		utils.DependentAwaiter
 		Start() error
 		Stop() error
-		Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func())
+		IsConnected() bool
+		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
 	}
@@ -146,12 +147,12 @@ func (b *broadcaster) awaitInitialSubscribers() {
 	}
 }
 
-func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func()) {
+func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
 	if len(opts.Logs) < 1 {
 		logger.Fatal("Must supply at least 1 Log to Register")
 	}
 	b.addSubscriber.Deliver(registration{listener, opts})
-	return b.IsConnected(), func() {
+	return func() {
 		b.rmSubscriber.Deliver(registration{listener, opts})
 	}
 }

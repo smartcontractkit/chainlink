@@ -62,13 +62,3 @@ func (_m *Listener) JobIDV2() int32 {
 
 	return r0
 }
-
-// OnConnect provides a mock function with given fields:
-func (_m *Listener) OnConnect() {
-	_m.Called()
-}
-
-// OnDisconnect provides a mock function with given fields:
-func (_m *Listener) OnDisconnect() {
-	_m.Called()
-}

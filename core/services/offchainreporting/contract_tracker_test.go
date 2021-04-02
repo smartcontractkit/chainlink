@@ -270,7 +270,9 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			Raw:          rawLog,
 		}
 
-		broadcaster.On("Register", tracker, mock.Anything).Return(true, func() {})
+		broadcaster.On("Register", tracker, mock.Anything).Return(func() {})
+		broadcaster.On("IsConnected").Return(true).Maybe()
+
 		db.On("LoadLatestRoundRequested").Return(rr, nil)
 
 		require.NoError(t, tracker.Start())

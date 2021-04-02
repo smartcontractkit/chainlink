@@ -29,8 +29,6 @@ type (
 	// The Listener responds to log events through HandleLog, and contains setup/tear-down
 	// callbacks in the On* functions.
 	Listener interface {
-		OnConnect()
-		OnDisconnect()
 		HandleLog(b Broadcast)
 		JobID() models.JobID
 		JobIDV2() int32

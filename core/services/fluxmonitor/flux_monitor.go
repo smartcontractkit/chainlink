@@ -29,7 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
-	"github.com/tevino/abool"
 	"gorm.io/gorm"
 )
 
@@ -396,7 +395,6 @@ type PollingDeviationChecker struct {
 	precision     int32
 
 	isHibernating    bool
-	connected        *abool.AtomicBool
 	backlog          *utils.BoundedPriorityQueue
 	chProcessLogs    chan struct{}
 	pollTicker       utils.PausableTicker
@@ -442,7 +440,6 @@ func NewPollingDeviationChecker(
 		minSubmission:    minSubmission,
 		maxSubmission:    maxSubmission,
 		isHibernating:    false,
-		connected:        abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
@@ -519,22 +516,6 @@ func (p *PollingDeviationChecker) Stop() {
 	<-p.waitOnStop
 }
 
-func (p *PollingDeviationChecker) OnConnect() {
-	logger.Debugw("PollingDeviationChecker connected to Ethereum node",
-		"jobID", p.initr.JobSpecID.String(),
-		"address", p.initr.Address.Hex(),
-	)
-	p.connected.Set()
-}
-
-func (p *PollingDeviationChecker) OnDisconnect() {
-	logger.Debugw("PollingDeviationChecker disconnected from Ethereum node",
-		"jobID", p.initr.JobSpecID.String(),
-		"address", p.initr.Address.Hex(),
-	)
-	p.connected.UnSet()
-}
-
 func (p *PollingDeviationChecker) JobID() models.JobID {
 	return p.initr.JobSpecID
 }
@@ -584,7 +565,7 @@ func (p *PollingDeviationChecker) consume() {
 	}
 
 	// subscribe to contract logs
-	isConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+	unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
 		Contract: p.fluxAggregator,
 		Logs: []generated.AbigenLog{
 			flux_aggregator_wrapper.FluxAggregatorNewRound{},
@@ -595,7 +576,7 @@ func (p *PollingDeviationChecker) consume() {
 	defer unsubscribe()
 
 	if p.flags != nil {
-		flagsConnected, unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
+		unsubscribe := p.logBroadcaster.Register(p, log.ListenerOpts{
 			Contract: p.flags,
 			Logs: []generated.AbigenLog{
 				flags_wrapper.FlagsFlagLowered{},
@@ -603,15 +584,10 @@ func (p *PollingDeviationChecker) consume() {
 			},
 			NumConfirmations: 1,
 		})
-		isConnected = isConnected && flagsConnected
 		defer unsubscribe()
 	}
 
-	if isConnected {
-		p.connected.Set()
-	} else {
-		p.connected.UnSet()
-	}
+	logger.Info("FluxMonitor: Registered with LogBroadcaster.")
 
 	p.readyForLogs()
 	p.setIsHibernatingStatus()
@@ -1010,8 +986,8 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		"absoluteThreshold", thresholds.Abs,
 	)
 
-	if !p.connected.IsSet() {
-		l.Warnw("not connected to Ethereum node, skipping poll")
+	if !p.logBroadcaster.IsConnected() {
+		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return
 	}
 

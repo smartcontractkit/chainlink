@@ -40,9 +40,18 @@ func (_m *Broadcaster) DependentReady() {
 	_m.Called()
 }
 
-// HandlePreviousHead provides a mock function with given fields: head
-func (_m *Broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	_m.Called(head)
+// IsConnected provides a mock function with given fields:
+func (_m *Broadcaster) IsConnected() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // LatestHead provides a mock function with given fields:
@@ -62,26 +71,24 @@ func (_m *Broadcaster) LatestHead() *models.Head {
 }
 
 // Register provides a mock function with given fields: listener, opts
-func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) (bool, func()) {
+func (_m *Broadcaster) Register(listener log.Listener, opts log.ListenerOpts) func() {
 	ret := _m.Called(listener, opts)
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(log.Listener, log.ListenerOpts) bool); ok {
+	var r0 func()
+	if rf, ok := ret.Get(0).(func(log.Listener, log.ListenerOpts) func()); ok {
 		r0 = rf(listener, opts)
 	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 func()
-	if rf, ok := ret.Get(1).(func(log.Listener, log.ListenerOpts) func()); ok {
-		r1 = rf(listener, opts)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).(func())
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(func())
 		}
 	}
 
-	return r0, r1
+	return r0
+}
+
+// SetLatestHeadFromStorage provides a mock function with given fields: head
+func (_m *Broadcaster) SetLatestHeadFromStorage(head *models.Head) {
+	_m.Called(head)
 }
 
 // Start provides a mock function with given fields:

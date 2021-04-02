@@ -116,7 +116,7 @@ func (t *OCRContractTracker) Start() (err error) {
 	if !t.OkayToStart() {
 		return errors.New("OCRContractTracker: already started")
 	}
-	connected, unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
+	unsubscribe := t.logBroadcaster.Register(t, log.ListenerOpts{
 		Contract: t.contract,
 		Logs: []generated.AbigenLog{
 			offchain_aggregator_wrapper.OffchainAggregatorRoundRequested{},
@@ -126,9 +126,6 @@ func (t *OCRContractTracker) Start() (err error) {
 	})
 	t.unsubscribeLogs = unsubscribe
 
-	if !connected {
-		t.logger.Warnw("OCRContractTracker#Start: log broadcaster is not connected", "jobID", t.jobID, "address", t.contract.Address())
-	}
 	t.latestRoundRequested, err = t.db.LoadLatestRoundRequested()
 	if err != nil {
 		unsubscribe()
