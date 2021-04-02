@@ -289,6 +289,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 // imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
 // Therefore TxManager.FilterLogs does a one time retrieval of old logs.
 func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.FilterQuery) map[string]bool {
+	start := time.Now()
 	backfilledSet := map[string]bool{}
 	if q.FromBlock == nil {
 		return backfilledSet
@@ -312,12 +313,21 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 		q.ToBlock = to.Min()
 		batchLogs, err := sub.logSubscriber.FilterLogs(ctx, q)
 		if err != nil {
-			logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			if ctx.Err() != nil {
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Now().Sub(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			} else {
+				logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			}
 			return backfilledSet
 		}
 		for _, log := range batchLogs {
 			backfilledSet[log.BlockHash.String()] = true
-			sub.callback(log)
+			select {
+			case <-ctx.Done():
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Now().Sub(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			default:
+				sub.callback(log)
+			}
 		}
 	}
 	return backfilledSet
