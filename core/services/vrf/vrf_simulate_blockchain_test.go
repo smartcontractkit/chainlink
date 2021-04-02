@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -64,8 +65,9 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 
 	j.Initiators[0].Address = cu.rootContractAddress
 	j.Tasks = []models.TaskSpec{{
-		Type:   adapters.TaskTypeRandom,
-		Params: task1Params,
+		Type:                             adapters.TaskTypeRandom,
+		Params:                           task1Params,
+		MinRequiredIncomingConfirmations: null.NewUint32(1, true),
 	}, {
 		Type:   adapters.TaskTypeEthTx,
 		Params: task2Params,
