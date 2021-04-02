@@ -19,6 +19,9 @@ type Spec struct {
 	DotDagSource    string          `json:"dotDagSource"`
 	CreatedAt       time.Time       `json:"-"`
 	MaxTaskDuration models.Interval `json:"-"`
+
+	JobID   int32  `gorm:"-" json:"-"`
+	JobName string `gorm:"-" json:"-"`
 }
 
 func (Spec) TableName() string {
