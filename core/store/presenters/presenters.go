@@ -125,7 +125,7 @@ type EnvPrinter struct {
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
 	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
-	OperatorContractAddress               common.Address  `json:"oracleContractAddress"`
+	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
 	Port                                  uint16          `json:"chainlinkPort"`
 	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                       int64           `json:"replayFromBlock"`
