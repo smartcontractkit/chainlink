@@ -91,7 +91,7 @@ func (helper *broadcasterHelper) register(listener log.Listener, contract log.Ab
 }
 
 func (helper *broadcasterHelper) registerWithTopics(listener log.Listener, contract log.AbigenContract, topics []generated.AbigenLog, numConfirmations uint64) {
-	_, unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
+	unsubscribe := helper.lb.Register(listener, log.ListenerOpts{
 		Contract:         contract,
 		Logs:             topics,
 		NumConfirmations: numConfirmations,

@@ -92,7 +92,7 @@ func (rs *RegistrySynchronizer) Start() error {
 			},
 			NumConfirmations: 1,
 		}
-		_, lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
+		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 		hbUnsubscribe := rs.headBroadcaster.Subscribe(rs)
 
 		go func() {
