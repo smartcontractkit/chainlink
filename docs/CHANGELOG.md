@@ -50,6 +50,8 @@ to a dotID in the pipeline_spec.dot_dag_source.
 
 - Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
 
+- Corrected outdated log message in `http_allowed_ips`.
+
 ## [0.10.3] - 2021-03-22
 
 ### Added
