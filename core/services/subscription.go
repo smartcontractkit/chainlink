@@ -314,7 +314,7 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 		batchLogs, err := sub.logSubscriber.FilterLogs(ctx, q)
 		if err != nil {
 			if ctx.Err() != nil {
-				logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Now().Sub(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 			} else {
 				logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 			}
@@ -324,7 +324,7 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 			backfilledSet[log.BlockHash.String()] = true
 			select {
 			case <-ctx.Done():
-				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Now().Sub(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 			default:
 				sub.callback(log)
 			}
