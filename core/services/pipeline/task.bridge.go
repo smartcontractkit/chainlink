@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 
 	"github.com/pkg/errors"
@@ -30,7 +29,7 @@ func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self 
 	return nil
 }
 
-func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) (result Result) {
+func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Result) (result Result) {
 	if len(inputs) > 0 {
 		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
 	}
@@ -40,29 +39,27 @@ func (t *BridgeTask) Run(ctx context.Context, taskRun TaskRun, inputs []Result) 
 		return Result{Error: err}
 	}
 
-	var meta map[string]interface{}
-	switch v := taskRun.PipelineRun.Meta.Val.(type) {
+	var metaMap map[string]interface{}
+	switch v := meta.Val.(type) {
 	case map[string]interface{}:
-		meta = v
+		metaMap = v
 	case nil:
 	default:
 		logger.Warnw(`"meta" field on task run is malformed, discarding`,
-			"jobID", taskRun.PipelineRun.PipelineSpecID,
-			"taskRunID", taskRun.ID,
-			"task", taskRun.DotID,
-			"meta", taskRun.PipelineRun.Meta.Val,
+			"task", t.DotID(),
+			"meta", meta,
 		)
 	}
 
 	result = (&HTTPTask{
 		URL:         models.WebURL(url),
 		Method:      "POST",
-		RequestData: withIDAndMeta(t.RequestData, taskRun.PipelineRunID, meta),
+		RequestData: withMeta(t.RequestData, metaMap),
 		// URL is "safe" because it comes from the node's own database
 		// Some node operators may run external adapters on their own hardware
 		AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
 		config:                         t.config,
-	}).Run(ctx, taskRun, inputs)
+	}).Run(ctx, meta, inputs)
 	if result.Error != nil {
 		return result
 	}
@@ -89,12 +86,11 @@ func (t BridgeTask) getBridgeURLFromName() (url.URL, error) {
 	return bridgeURL, nil
 }
 
-func withIDAndMeta(request HttpRequestData, runID int64, meta HttpRequestData) HttpRequestData {
+func withMeta(request HttpRequestData, meta HttpRequestData) HttpRequestData {
 	output := make(HttpRequestData)
 	for k, v := range request {
 		output[k] = v
 	}
-	output["id"] = fmt.Sprintf("%d", runID)
 	output["meta"] = meta
 	return output
 }

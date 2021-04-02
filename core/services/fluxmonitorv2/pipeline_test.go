@@ -87,10 +87,10 @@ func TestPipelineRun_Execute(t *testing.T) {
 			)
 
 			runner.
-				On("ExecuteAndInsertNewRun", context.Background(), spec, l).
+				On("ExecuteAndInsertNewRun", context.Background(), spec, pipeline.JSONSerializable{Val: map[string]interface{}{}}, l).
 				Return(tc.runID, tc.results, tc.err)
 
-			aRunID, aDecimal, aErr := pipelineRun.Execute()
+			aRunID, aDecimal, aErr := pipelineRun.Execute(map[string]interface{}{})
 
 			assert.Equal(t, tc.expRunID, aRunID)
 			assert.Equal(t, tc.expDecimal, aDecimal)

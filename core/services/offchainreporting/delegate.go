@@ -193,7 +193,7 @@ func (d Delegate) ServicesForSpec(jobSpec job.Job) (services []job.Service, err 
 		runResults := make(chan pipeline.RunWithResults, d.config.JobPipelineResultWriteQueueDepth())
 		oracle, err := ocr.NewOracle(ocr.OracleArgs{
 			Database: ocrdb,
-			Datasource: dataSource{
+			Datasource: &dataSource{
 				pipelineRunner: d.pipelineRunner,
 				jobID:          jobSpec.ID,
 				ocrLogger:      *loggerWith,

@@ -266,11 +266,11 @@ func (_OffchainAggregator *OffchainAggregatorCaller) GetBilling(opts *bind.CallO
 		return *outstruct, err
 	}
 
-	outstruct.MaximumGasPrice = out[0].(uint32)
-	outstruct.ReasonableGasPrice = out[1].(uint32)
-	outstruct.MicroLinkPerEth = out[2].(uint32)
-	outstruct.LinkGweiPerObservation = out[3].(uint32)
-	outstruct.LinkGweiPerTransmission = out[4].(uint32)
+	outstruct.MaximumGasPrice = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.ReasonableGasPrice = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.MicroLinkPerEth = *abi.ConvertType(out[2], new(uint32)).(*uint32)
+	outstruct.LinkGweiPerObservation = *abi.ConvertType(out[3], new(uint32)).(*uint32)
+	outstruct.LinkGweiPerTransmission = *abi.ConvertType(out[4], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
@@ -299,11 +299,11 @@ func (_OffchainAggregator *OffchainAggregatorCaller) GetRoundData(opts *bind.Cal
 		return *outstruct, err
 	}
 
-	outstruct.RoundId = out[0].(*big.Int)
-	outstruct.Answer = out[1].(*big.Int)
-	outstruct.StartedAt = out[2].(*big.Int)
-	outstruct.UpdatedAt = out[3].(*big.Int)
-	outstruct.AnsweredInRound = out[4].(*big.Int)
+	outstruct.RoundId = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Answer = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.StartedAt = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.UpdatedAt = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.AnsweredInRound = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -376,9 +376,9 @@ func (_OffchainAggregator *OffchainAggregatorCaller) LatestConfigDetails(opts *b
 		return *outstruct, err
 	}
 
-	outstruct.ConfigCount = out[0].(uint32)
-	outstruct.BlockNumber = out[1].(uint32)
-	outstruct.ConfigDigest = out[2].([16]byte)
+	outstruct.ConfigCount = *abi.ConvertType(out[0], new(uint32)).(*uint32)
+	outstruct.BlockNumber = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.ConfigDigest = *abi.ConvertType(out[2], new([16]byte)).(*[16]byte)
 
 	return *outstruct, err
 
@@ -429,11 +429,11 @@ func (_OffchainAggregator *OffchainAggregatorCaller) LatestRoundData(opts *bind.
 		return *outstruct, err
 	}
 
-	outstruct.RoundId = out[0].(*big.Int)
-	outstruct.Answer = out[1].(*big.Int)
-	outstruct.StartedAt = out[2].(*big.Int)
-	outstruct.UpdatedAt = out[3].(*big.Int)
-	outstruct.AnsweredInRound = out[4].(*big.Int)
+	outstruct.RoundId = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Answer = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.StartedAt = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.UpdatedAt = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.AnsweredInRound = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -484,11 +484,11 @@ func (_OffchainAggregator *OffchainAggregatorCaller) LatestTransmissionDetails(o
 		return *outstruct, err
 	}
 
-	outstruct.ConfigDigest = out[0].([16]byte)
-	outstruct.Epoch = out[1].(uint32)
-	outstruct.Round = out[2].(uint8)
-	outstruct.LatestAnswer = out[3].(*big.Int)
-	outstruct.LatestTimestamp = out[4].(uint64)
+	outstruct.ConfigDigest = *abi.ConvertType(out[0], new([16]byte)).(*[16]byte)
+	outstruct.Epoch = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.Round = *abi.ConvertType(out[2], new(uint8)).(*uint8)
+	outstruct.LatestAnswer = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.LatestTimestamp = *abi.ConvertType(out[4], new(uint64)).(*uint64)
 
 	return *outstruct, err
 

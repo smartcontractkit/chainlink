@@ -647,8 +647,20 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 
 	newRoundLogger.Info("Responding to new round request")
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			newRoundLogger.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
+	}
+
 	// Call the v2 pipeline to execute a new job run
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		newRoundLogger.Errorf("unable to fetch median price: %v", err)
 
@@ -757,10 +769,21 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
+	}
+
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
 		fm.jobORM.RecordError(context.Background(), fm.jobID, "Error polling")
