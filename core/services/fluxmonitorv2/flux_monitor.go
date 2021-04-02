@@ -29,7 +29,6 @@ import (
 
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
-	jobID             int32
 	contractAddress   common.Address
 	oracleAddress     common.Address
 	pipelineRun       PipelineRun
@@ -60,7 +59,6 @@ type FluxMonitor struct {
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
 func NewFluxMonitor(
-	jobID int32,
 	pipelineRun PipelineRun,
 	orm ORM,
 	jobORM job.ORM,
@@ -80,7 +78,6 @@ func NewFluxMonitor(
 	fmLogger *logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
-		jobID:             jobID,
 		pipelineRun:       pipelineRun,
 		orm:               orm,
 		jobORM:            jobORM,
@@ -169,10 +166,11 @@ func NewFromJobSpec(
 		MinJobPayment:      fmSpec.MinPayment,
 	}
 
+	jobSpec.PipelineSpec.JobID = jobSpec.ID
+	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	pipelineRun := PipelineRun{
 		runner: pipelineRunner,
 		spec:   *jobSpec.PipelineSpec,
-		jobID:  jobSpec.ID,
 		logger: *logger.Default,
 	}
 
@@ -205,7 +203,6 @@ func NewFromJobSpec(
 	)
 
 	return NewFluxMonitor(
-		jobSpec.ID,
 		pipelineRun,
 		orm,
 		jobORM,
@@ -298,7 +295,7 @@ func (fm *FluxMonitor) JobID() models.JobID {
 // JobIDV2 implements the listener.Listener interface.
 //
 // Returns the v2 job id
-func (fm *FluxMonitor) JobIDV2() int32 { return fm.jobID }
+func (fm *FluxMonitor) JobIDV2() int32 { return fm.pipelineRun.spec.JobID }
 
 // IsV2Job implements the listener.Listener interface.
 //
@@ -543,7 +540,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	)
 
 	newRoundLogger.Debug("NewRound log")
-	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.jobID)), log.RoundId)
+	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.pipelineRun.spec.JobID)), log.RoundId)
 
 	//
 	// NewRound answer submission logic:
@@ -736,7 +733,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err)
 		fm.jobORM.RecordError(
 			context.Background(),
-			fm.jobID,
+			fm.pipelineRun.spec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		)
 
@@ -786,7 +783,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(context.Background(), fm.jobID, "Error polling")
+		fm.jobORM.RecordError(context.Background(), fm.pipelineRun.spec.JobID, "Error polling")
 
 		return
 	}
@@ -795,7 +792,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
-	jobID := fmt.Sprintf("%d", fm.jobID)
+	jobID := fmt.Sprintf("%d", fm.pipelineRun.spec.JobID)
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, -fm.precision)
 	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobID), *answer)
 
@@ -845,7 +842,7 @@ func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.De
 		"max", fm.submissionChecker.Max,
 		"answer", answer,
 	)
-	fm.jobORM.RecordError(context.Background(), fm.jobID, "Answer is outside acceptable range")
+	fm.jobORM.RecordError(context.Background(), fm.pipelineRun.spec.JobID, "Answer is outside acceptable range")
 
 	return false
 }
