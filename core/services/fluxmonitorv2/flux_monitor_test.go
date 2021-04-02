@@ -50,7 +50,6 @@ var (
 		return flux_aggregator_wrapper.LatestRoundData{}, errors.New("No data present")
 	}
 
-	jobID             = int32(1)
 	contractAddress   = cltest.NewAddress()
 	threshold         = float64(0.5)
 	absoluteThreshold = float64(0.01)
@@ -73,6 +72,7 @@ ds2 -> ds2_parse -> answer1;
 
 answer1 [type=median index=0];
 `,
+		JobID: 1,
 	}
 )
 
@@ -145,7 +145,6 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 	pipelineRun := fluxmonitorv2.NewPipelineRun(
 		tm.pipelineRunner,
 		pipelineSpec,
-		jobID,
 		defaultLogger,
 	)
 
@@ -159,7 +158,6 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 	}
 
 	fm, err := fluxmonitorv2.NewFluxMonitor(
-		jobID,
 		pipelineRun,
 		options.orm,
 		tm.jobORM,
@@ -435,7 +433,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 	tm.jobORM.
 		On("RecordError",
 			context.Background(),
-			jobID,
+			pipelineSpec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		).Once()
 
