@@ -1680,6 +1680,7 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", ct.uri, d)
 	}
+	db = db.Omit(clause.Associations).Session(&gorm.Session{})
 
 	if err = dbutil.SetTimezone(db); err != nil {
 		return nil, err
