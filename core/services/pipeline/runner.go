@@ -28,12 +28,15 @@ import (
 type Runner interface {
 	Start() error
 	Close() error
-	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
+	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (trrs TaskRunResults, err error)
 	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (runID int64, finalResult FinalResult, err error)
+	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
+
+	// Deprecated
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
-	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
 }
 
 type runner struct {
@@ -53,7 +56,7 @@ var (
 		Name: "pipeline_task_execution_time",
 		Help: "How long each pipeline task took to execute",
 	},
-		[]string{"pipeline_spec_id", "task_type"},
+		[]string{"job_id", "job_name", "task_type"},
 	)
 	ErrRunPanicked = errors.New("pipeline run panicked")
 )
@@ -267,7 +270,7 @@ func (r *runner) panickedRunResults(spec Spec) ([]TaskRunResult, error) {
 }
 
 func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta JSONSerializable, l logger.Logger) (TaskRunResults, bool, error) {
-	l.Debugw("Initiating tasks for pipeline run of spec", "spec", spec.ID)
+	l.Debugw("Initiating tasks for pipeline run of spec", "job ID", spec.JobID, "job name", spec.JobName)
 	var (
 		err  error
 		trrs TaskRunResults
@@ -374,15 +377,14 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta 
 
 				elapsed := finishedAt.Sub(startTaskRun)
 
-				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.task.Type())).Set(float64(elapsed))
+				promPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(m.task.Type())).Set(float64(elapsed))
 				var status string
 				if result.Error != nil {
 					status = "error"
 				} else {
 					status = "completed"
 				}
-				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.ID), string(m.task.Type()), status).Inc()
-
+				promPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, string(m.task.Type()), status).Inc()
 				if m.next == nil {
 					return
 				}
@@ -401,6 +403,10 @@ func (r *runner) executeRun(ctx context.Context, txdb *gorm.DB, spec Spec, meta 
 
 	runTime := time.Since(startRun)
 	l.Debugw("Finished all tasks for pipeline run", "specID", spec.ID, "runTime", runTime)
+	promPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Set(float64(runTime))
+	if retry || trrs.FinalResult().HasErrors() {
+		promPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName).Inc()
+	}
 
 	return trrs, retry, err
 }
