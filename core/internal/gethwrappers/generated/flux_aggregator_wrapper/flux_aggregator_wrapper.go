@@ -325,11 +325,11 @@ func (_FluxAggregator *FluxAggregatorCaller) GetRoundData(opts *bind.CallOpts, _
 		return *outstruct, err
 	}
 
-	outstruct.RoundId = out[0].(*big.Int)
-	outstruct.Answer = out[1].(*big.Int)
-	outstruct.StartedAt = out[2].(*big.Int)
-	outstruct.UpdatedAt = out[3].(*big.Int)
-	outstruct.AnsweredInRound = out[4].(*big.Int)
+	outstruct.RoundId = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Answer = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.StartedAt = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.UpdatedAt = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.AnsweredInRound = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -424,11 +424,11 @@ func (_FluxAggregator *FluxAggregatorCaller) LatestRoundData(opts *bind.CallOpts
 		return *outstruct, err
 	}
 
-	outstruct.RoundId = out[0].(*big.Int)
-	outstruct.Answer = out[1].(*big.Int)
-	outstruct.StartedAt = out[2].(*big.Int)
-	outstruct.UpdatedAt = out[3].(*big.Int)
-	outstruct.AnsweredInRound = out[4].(*big.Int)
+	outstruct.RoundId = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	outstruct.Answer = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.StartedAt = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.UpdatedAt = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+	outstruct.AnsweredInRound = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
@@ -611,14 +611,14 @@ func (_FluxAggregator *FluxAggregatorCaller) OracleRoundState(opts *bind.CallOpt
 		return *outstruct, err
 	}
 
-	outstruct.EligibleToSubmit = out[0].(bool)
-	outstruct.RoundId = out[1].(uint32)
-	outstruct.LatestSubmission = out[2].(*big.Int)
-	outstruct.StartedAt = out[3].(uint64)
-	outstruct.Timeout = out[4].(uint64)
-	outstruct.AvailableFunds = out[5].(*big.Int)
-	outstruct.OracleCount = out[6].(uint8)
-	outstruct.PaymentAmount = out[7].(*big.Int)
+	outstruct.EligibleToSubmit = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.RoundId = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.LatestSubmission = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.StartedAt = *abi.ConvertType(out[3], new(uint64)).(*uint64)
+	outstruct.Timeout = *abi.ConvertType(out[4], new(uint64)).(*uint64)
+	outstruct.AvailableFunds = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	outstruct.OracleCount = *abi.ConvertType(out[6], new(uint8)).(*uint8)
+	outstruct.PaymentAmount = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
 
 	return *outstruct, err
 
