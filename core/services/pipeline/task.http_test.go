@@ -47,11 +47,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta, false},
-		},
-	}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -90,7 +86,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -121,7 +117,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 	}
 	task.HelperSetConfig(config)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
