@@ -48,11 +48,7 @@ func Abigen(a AbigenArgs) {
 	}
 	version := string(regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+`).Find(
 		versionResponse.Bytes()))
-	// TODO: Re-enable once geth 1.10 is released with the abigen patch included.
-	// We do this to avoid running un-released code in geth which is also present in the abigen bug fix patch.
-	// This way we _only_ use the patched abigen for code generation.
-	// if version != gethParams.Version {
-	if version != "1.9.26" {
+	if version != gethParams.Version {
 		Exit(fmt.Sprintf("wrong version (%s) of abigen; install the correct one "+
 			"(%s) with `make abigen` in the chainlink root dir", version,
 			gethParams.Version),
