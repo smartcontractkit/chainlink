@@ -39,6 +39,8 @@ const (
 	FluxMonitorJob JobType = "fluxmonitor"
 	// OffChainReportingJob defines an OCR Job
 	OffChainReportingJob JobType = "offchainreporting"
+	// KeeperJob defines a Keeper Job
+	KeeperJob JobType = "keeper"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -61,6 +63,12 @@ type OffChainReportingSpec struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// KeeperSpec defines the spec details of a Keeper Job
+type KeeperSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"ID"`
@@ -75,6 +83,7 @@ type Job struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"DirectRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 }
 
@@ -135,6 +144,10 @@ func (j Job) FriendlyCreatedAt() string {
 		if j.OffChainReportingSpec != nil {
 			return j.OffChainReportingSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case KeeperJob:
+		if j.KeeperSpec != nil {
+			return j.KeeperSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}
@@ -144,18 +157,31 @@ func (j Job) FriendlyCreatedAt() string {
 	return "N/A"
 }
 
-// ToRow returns the job as a multiple rows per task
-func (j Job) ToRow() [][]string {
+// ToRows returns the job as a multiple rows per task
+func (j Job) ToRows() [][]string {
 	row := [][]string{}
 
-	for _, t := range j.FriendlyTasks() {
-		row = append(row, []string{
-			j.ID,
-			j.Name,
-			j.Type.String(),
-			t,
-			j.FriendlyCreatedAt(),
-		})
+	// Produce a row when there are no tasks
+	if len(j.FriendlyTasks()) == 0 {
+		row = append(row, j.toRow(""))
+
+		return row
 	}
+
+	for _, t := range j.FriendlyTasks() {
+		row = append(row, j.toRow(t))
+	}
+
 	return row
+}
+
+// ToRow generates a row for a task
+func (j Job) toRow(task string) []string {
+	return []string{
+		j.ID,
+		j.Name,
+		j.Type.String(),
+		task,
+		j.FriendlyCreatedAt(),
+	}
 }
