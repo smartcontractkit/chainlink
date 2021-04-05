@@ -125,7 +125,8 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 
 	orm := store.ORM
 	retrievedJob, err := orm.FindJobSpec(job.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, retrievedJob.Tasks, 4)
 	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
 	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
 	assert.Equal(t, string(retrievedJob.Tasks[2].Type), "task3")
