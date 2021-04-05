@@ -68,14 +68,14 @@ const Private = ({ classes }: { classes: { content: string } }) => {
               <PrivateRoute exact path="/jobs/new">
                 <JobsNew />
               </PrivateRoute>
-              <PrivateRoute exact path="/jobs/:jobSpecId">
-                <JobsShow />
-              </PrivateRoute>
 
               <PrivateRoute
                 path="/jobs/:jobSpecId/runs/:jobRunId"
                 component={JobRunsShowOverview}
               />
+              <PrivateRoute path="/jobs/:jobSpecId">
+                <JobsShow />
+              </PrivateRoute>
 
               <PrivateRoute
                 exact
