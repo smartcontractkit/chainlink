@@ -97,6 +97,10 @@ export const JobsShow = () => {
                 createdAt = jobSpec.attributes.directRequestSpec.createdAt
 
                 break
+              case 'keeper':
+                createdAt = jobSpec.attributes.keeperSpec.createdAt
+
+                break
             }
 
             const job: JobV2 = {
