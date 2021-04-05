@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	webPresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // Renderer implements the Render method.
@@ -84,9 +84,9 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
-	case *presenters.ETHKey:
-		return rt.renderETHKeys([]presenters.ETHKey{*typed})
-	case *[]presenters.ETHKey:
+	case *webpresenters.ETHKeyResource:
+		return rt.renderETHKeys([]webpresenters.ETHKeyResource{*typed})
+	case *[]webpresenters.ETHKeyResource:
 		return rt.renderETHKeys(*typed)
 	case *p2pkey.EncryptedP2PKey:
 		return rt.renderP2PKeys([]p2pkey.EncryptedP2PKey{*typed})
@@ -102,14 +102,14 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobsV2([]Job{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
-	case *webPresenters.LogResource:
+	case *webpresenters.LogResource:
 		return rt.renderLogResource(*typed)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
 }
 
-func (rt RendererTable) renderLogResource(logResource webPresenters.LogResource) error {
+func (rt RendererTable) renderLogResource(logResource webpresenters.LogResource) error {
 	table := rt.newTable([]string{"ID", "Level", "SqlEnabled"})
 	table.Append([]string{
 		logResource.ID,
@@ -425,7 +425,7 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 	return nil
 }
 
-func (rt RendererTable) renderETHKeys(keys []presenters.ETHKey) error {
+func (rt RendererTable) renderETHKeys(keys []webpresenters.ETHKeyResource) error {
 	var rows [][]string
 	for _, key := range keys {
 		nextNonce := fmt.Sprintf("%d", key.NextNonce)
