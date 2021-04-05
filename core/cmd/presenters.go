@@ -144,18 +144,31 @@ func (j Job) FriendlyCreatedAt() string {
 	return "N/A"
 }
 
-// ToRow returns the job as a multiple rows per task
-func (j Job) ToRow() [][]string {
+// ToRows returns the job as a multiple rows per task
+func (j Job) ToRows() [][]string {
 	row := [][]string{}
 
-	for _, t := range j.FriendlyTasks() {
-		row = append(row, []string{
-			j.ID,
-			j.Name,
-			j.Type.String(),
-			t,
-			j.FriendlyCreatedAt(),
-		})
+	// Produce a row when there are no tasks
+	if len(j.FriendlyTasks()) == 0 {
+		row = append(row, j.toRow(""))
+
+		return row
 	}
+
+	for _, t := range j.FriendlyTasks() {
+		row = append(row, j.toRow(t))
+	}
+
 	return row
+}
+
+// ToRow generates a row for a task
+func (j Job) toRow(task string) []string {
+	return []string{
+		j.ID,
+		j.Name,
+		j.Type.String(),
+		task,
+		j.FriendlyCreatedAt(),
+	}
 }
