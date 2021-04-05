@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/DATA-DOG/go-txdb"
@@ -188,6 +189,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", true)
 	// Disable gas updater for application tests
 	config.Set("GAS_UPDATER_ENABLED", false)
+	// Disable tx re-sending for application tests
+	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
 	return config, cleanup
 }
 
@@ -452,6 +455,7 @@ func NewEthMocks(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subs
 func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
 	r, g, s, assertMocksCalled := NewEthMocks(t)
 	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
+	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
@@ -813,6 +817,20 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
 	return createdJob
 }
 
+func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
+	t.Helper()
+
+	client := app.NewHTTPClient()
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	defer cleanup()
+	AssertServerResponse(t, resp, http.StatusOK)
+
+	var jobResponse webpresenters.JobResource
+	err := ParseJSONAPIResponse(t, resp, &jobResponse)
+	require.NoError(t, err)
+	return jobResponse
+}
+
 // CreateJobRunViaWeb creates JobRun via web using /v2/specs/ID/runs
 func CreateJobRunViaWeb(t testing.TB, app *TestApplication, j models.JobSpec, body ...string) models.JobRun {
 	t.Helper()
@@ -949,8 +967,8 @@ const (
 	DBWaitTimeout = 20 * time.Second
 	// DBPollingInterval can't be too short to avoid DOSing the test database
 	DBPollingInterval = 100 * time.Millisecond
-	// AsertNoActionTimeout shouldn't be too long, or it will slow down tests
-	AsertNoActionTimeout = 3 * time.Second
+	// AssertNoActionTimeout shouldn't be too long, or it will slow down tests
+	AssertNoActionTimeout = 3 * time.Second
 )
 
 // WaitForJobRunToComplete waits for a JobRun to reach Completed Status
@@ -1090,6 +1108,23 @@ func WaitForSpecError(t *testing.T, store *strpkg.Store, jobID models.JobID, cou
 	return jse
 }
 
+// WaitForSpecErrorV2 polls until the passed in jobID has count number
+// of job spec errors.
+func WaitForSpecErrorV2(t *testing.T, store *strpkg.Store, jobID int32, count int) []job.SpecError {
+	t.Helper()
+
+	g := gomega.NewGomegaWithT(t)
+	var jse []job.SpecError
+	g.Eventually(func() []job.SpecError {
+		err := store.DB.
+			Where("job_id = ?", jobID).
+			Find(&jse).Error
+		assert.NoError(t, err)
+		return jse
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(count))
+	return jse
+}
+
 // WaitForRuns waits for the wanted number of runs then returns a slice of the JobRuns
 func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) []models.JobRun {
 	t.Helper()
@@ -1102,7 +1137,7 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 			jrs, err = store.JobRunsFor(j.ID)
 			assert.NoError(t, err)
 			return jrs
-		}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+		}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	} else {
 		g.Eventually(func() []models.JobRun {
 			jrs, err = store.JobRunsFor(j.ID)
@@ -1113,26 +1148,27 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 	g := gomega.NewGomegaWithT(t)
-	var pr pipeline.Run
-	g.Eventually(func() *pipeline.Run {
+	var pr []pipeline.Run
+	g.Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
+		var completed []pipeline.Run
 		for i := range prs {
 			if !prs[i].Outputs.Null {
-				errs, err := prs[i].Errors.MarshalJSON()
-				assert.NoError(t, err)
-				if string(errs) != "[null]" {
-					return nil
+				if !prs[i].Errors.HasError() {
+					completed = append(completed, prs[i])
 				}
-				pr = prs[i]
-				return &prs[i]
 			}
 		}
-		return nil
-	}, timeout, poll).ShouldNot(gomega.BeNil(), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+		if len(completed) >= count {
+			pr = completed
+			return true
+		}
+		return false
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
 	return pr
 }
 
@@ -1147,8 +1183,24 @@ func AssertRunsStays(t testing.TB, j models.JobSpec, store *strpkg.Store, want i
 		jrs, err = store.JobRunsFor(j.ID)
 		assert.NoError(t, err)
 		return jrs
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return jrs
+}
+
+// AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
+func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, store *strpkg.Store, want int) []pipeline.Run {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+
+	var prs []pipeline.Run
+	g.Consistently(func() []pipeline.Run {
+		err := store.DB.
+			Where("pipeline_spec_id = ?", pipelineSpecID).
+			Find(&prs).Error
+		assert.NoError(t, err)
+		return prs
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	return prs
 }
 
 // WaitForRunsAtLeast waits for at least the passed number of runs to start.
@@ -1206,7 +1258,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, store *strpkg.Store, want int) [
 		err = store.DB.Find(&txas).Error
 		assert.NoError(t, err)
 		return txas
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
 	return txas
 }
 
@@ -1237,7 +1289,7 @@ func AssertSyncEventCountStays(
 		count, err := orm.CountOf(&models.SyncEvent{})
 		assert.NoError(t, err)
 		return count
-	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 // ParseISO8601 given the time string it Must parse the time and return it
@@ -1472,11 +1524,16 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 
 func (a Awaiter) ItHappened() { close(a) }
 
-func (a Awaiter) AwaitOrFail(t testing.TB, d time.Duration) {
+func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	duration := 10 * time.Second
+	if len(durationParams) > 0 {
+		duration = durationParams[0]
+	}
+
 	select {
 	case <-a:
-	case <-time.After(d):
-		t.Fatal("timed out")
+	case <-time.After(duration):
+		t.Fatal("timed out waiting for Awaiter to get ItHappened")
 	}
 }
 
@@ -1646,6 +1703,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	sub.On("Err").Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil)
 	ethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 
 	// Stop
 	sub.On("Unsubscribe").Return(nil)
@@ -1681,13 +1739,47 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
+	BackfillDepth        int64
 	Interval             time.Duration
 	Timeout              time.Duration
 	HeadTrackables       []strpkg.HeadTrackable
+	Hashes               map[int64]common.Hash
 }
 
 func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanup func()) {
 	t.Helper()
+
+	if args.BackfillDepth == 0 {
+		t.Fatal("BackfillDepth must be > 0")
+	}
+
+	// Build the full chain of heads
+	heads := make(map[int64]*models.Head)
+	first := args.StartBlock - args.BackfillDepth
+	if first < 0 {
+		first = 0
+	}
+	last := args.EndBlock
+	if last == 0 {
+		last = args.StartBlock + 300 // If no .EndBlock is provided, assume we want 300 heads
+	}
+	for i := first; i <= last; i++ {
+		// If a particular block should have a particular
+		// hash, use that. Otherwise, generate a random one.
+		var hash common.Hash
+		if args.Hashes != nil {
+			if h, exists := args.Hashes[i]; exists {
+				hash = h
+			}
+		}
+		if hash == (common.Hash{}) {
+			hash = NewHash()
+		}
+		heads[i] = &models.Head{Hash: hash, Number: i}
+		if i > first {
+			heads[i].Parent = heads[i-1]
+		}
+	}
 
 	if args.Timeout == 0 {
 		args.Timeout = 60 * time.Second
@@ -1701,6 +1793,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 
 	chDone := make(chan struct{})
 	go func() {
+		current := int64(args.StartBlock)
 		for {
 			select {
 			case <-chDone:
@@ -1708,13 +1801,20 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 			case <-chTimeout:
 				return
 			default:
-				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChain(ctx, models.Head{Number: args.StartBlock})
+				// Trim chain to backfill depth
+				ptr := heads[current]
+				for i := int64(0); i < args.BackfillDepth && ptr.Parent != nil; i++ {
+					ptr = ptr.Parent
 				}
-				if args.EndBlock >= 0 && args.StartBlock == args.EndBlock {
+				ptr.Parent = nil
+
+				for _, ht := range args.HeadTrackables {
+					ht.OnNewLongestChain(ctx, *heads[current])
+				}
+				if args.EndBlock >= 0 && current == args.EndBlock {
 					return
 				}
-				args.StartBlock++
+				current++
 				time.Sleep(args.Interval)
 			}
 		}
@@ -1740,15 +1840,11 @@ type testifyExpectationsAsserter interface {
 	AssertExpectations(t mock.TestingT) bool
 }
 
-type fakeT struct {
-	didFail bool
-}
+type fakeT struct{}
 
-func (t fakeT) Logf(format string, args ...interface{})   {}
-func (t fakeT) Errorf(format string, args ...interface{}) {}
-func (t fakeT) FailNow() {
-	t.didFail = true
-}
+func (ft fakeT) Logf(format string, args ...interface{})   {}
+func (ft fakeT) Errorf(format string, args ...interface{}) {}
+func (ft fakeT) FailNow()                                  {}
 
 func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, timeout time.Duration, interval time.Duration) {
 	t.Helper()
@@ -1756,12 +1852,13 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	chTimeout := time.After(timeout)
 	for {
 		var ft fakeT
-		mock.AssertExpectations(ft)
-		if !ft.didFail {
+		success := mock.AssertExpectations(ft)
+		if success {
 			return
 		}
 		select {
 		case <-chTimeout:
+			mock.AssertExpectations(t)
 			t.FailNow()
 		default:
 			time.Sleep(interval)
@@ -1770,6 +1867,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 }
 
 func AssertCount(t *testing.T, store *strpkg.Store, model interface{}, expected int64) {
+	t.Helper()
 	var count int64
 	err := store.DB.Model(model).Count(&count).Error
 	require.NoError(t, err)
@@ -1785,7 +1883,7 @@ func WaitForCount(t testing.TB, store *strpkg.Store, model interface{}, want int
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, 5*time.Second, DBPollingInterval).Should(gomega.Equal(want))
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.Equal(want))
 }
 
 func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want int64) {
@@ -1797,5 +1895,15 @@ func AssertCountStays(t testing.TB, store *strpkg.Store, model interface{}, want
 		err = store.DB.Model(model).Count(&count).Error
 		assert.NoError(t, err)
 		return count
-	}, AsertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
+	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
+}
+
+func AssertRecordEventually(t *testing.T, store *strpkg.Store, model interface{}, check func() bool) {
+	t.Helper()
+	g := gomega.NewGomegaWithT(t)
+	g.Eventually(func() bool {
+		err := store.DB.Find(model).Error
+		require.NoError(t, err, "unable to find record in DB")
+		return check()
+	}, DBWaitTimeout, DBPollingInterval).Should(gomega.BeTrue())
 }

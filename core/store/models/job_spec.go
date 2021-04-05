@@ -221,6 +221,9 @@ type InitiatorParams struct {
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
+	// JobIDTopicFilter, if present, is used in addition to the job's actual ID when filtering
+	// initiator logs
+	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`
 
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`

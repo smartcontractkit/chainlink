@@ -10,7 +10,10 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -47,7 +50,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	listener.On("OnConnect").Return()
 	listener.On("OnDisconnect").Return()
 
-	sub.On("Unsubscribe").Return()
+	sub.On("Unsubscribe").Maybe().Return()
 	sub.On("Err").Return(nil)
 
 	chSubscribe := make(chan struct{}, 10)
@@ -66,7 +69,14 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	contract := new(logmocks.AbigenContract)
 	contract.On("Address").Return(common.Address{})
 
-	lb.Register(contract, listener)
+	_, unsubscribe := lb.Register(listener, log.ListenerOpts{
+		Contract: contract,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
 
 	g.Consistently(func() int { return len(chSubscribe) }).Should(gomega.Equal(0))
 	lb.DependentReady()
@@ -120,6 +130,7 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		log.Listener
 	}
 	registrations := make([]registration, numContracts)
+	var unsubscribes []func()
 	for i := 0; i < numContracts; i++ {
 		contract := new(logmocks.AbigenContract)
 		contract.On("Address").Return(cltest.NewAddress())
@@ -131,15 +142,23 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 		listener.On("JobIDV2").Return(int32(i))
 		listener.On("IsV2Job").Return(i%2 == 0)
 		registrations[i] = registration{contract, listener}
-		lb.Register(contract, listener)
+		_, unsubscribe := lb.Register(listener, log.ListenerOpts{
+			Contract: contract,
+			Logs: []generated.AbigenLog{
+				flux_aggregator_wrapper.FluxAggregatorNewRound{},
+				flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+			},
+		})
+		unsubscribes = append(unsubscribes, unsubscribe)
+		defer unsubscribe()
 	}
 
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&subscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return atomic.LoadInt32(&subscribeCalls) }).Should(gomega.Equal(int32(1)))
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return atomic.LoadInt32(&unsubscribeCalls) }).Should(gomega.Equal(int32(0)))
 
-	for _, r := range registrations {
-		lb.Unregister(r.AbigenContract, r.Listener)
+	for _, unsub := range unsubscribes {
+		unsub()
 	}
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&unsubscribeCalls) == 1 }, 5*time.Second, 10*time.Millisecond)
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return atomic.LoadInt32(&subscribeCalls) }).Should(gomega.Equal(int32(1)))
@@ -164,25 +183,29 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		sub           = new(mocks.Subscription)
 		addr1         = cltest.NewAddress()
 		addr2         = cltest.NewAddress()
-		contract1     = new(logmocks.AbigenContract)
-		contract2     = new(logmocks.AbigenContract)
+		blockHash1    = cltest.NewHash()
+		blockHash2    = cltest.NewHash()
+		blockHash3    = cltest.NewHash()
+		blockHash4    = cltest.NewHash()
+		blockHash5    = cltest.NewHash()
+		blockHash6    = cltest.NewHash()
 		addr1SentLogs = []types.Log{
-			{Address: addr1, BlockNumber: 1, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr1, BlockNumber: 2, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr1, BlockNumber: 3, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
+			cltest.RawNewRoundLog(t, addr1, blockHash1, 1, 0, false),
+			cltest.RawNewRoundLog(t, addr1, blockHash2, 2, 0, false),
+			cltest.RawNewRoundLog(t, addr1, blockHash3, 3, 0, false),
 		}
 		addr2SentLogs = []types.Log{
-			{Address: addr2, BlockNumber: 4, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr2, BlockNumber: 5, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr2, BlockNumber: 6, BlockHash: cltest.NewHash(), Topics: []common.Hash{}, Data: []byte{}},
+			cltest.RawNewRoundLog(t, addr2, blockHash4, 4, 0, false),
+			cltest.RawNewRoundLog(t, addr2, blockHash5, 5, 0, false),
+			cltest.RawNewRoundLog(t, addr2, blockHash6, 6, 0, false),
 		}
 	)
 	store.EthClient = ethClient
 
-	contract1.On("Address").Return(addr1)
-	contract2.On("Address").Return(addr2)
-	contract1.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
-	contract2.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(addr1, nil)
+	require.NoError(t, err)
+	contract2, err := flux_aggregator_wrapper.NewFluxAggregator(addr2, nil)
+	require.NoError(t, err)
 
 	chchRawLogs := make(chan chan<- types.Log, 1)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
@@ -203,50 +226,67 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 	var addr1Logs1, addr1Logs2, addr2Logs1, addr2Logs2 []types.Log
 
-	listener1 := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
-			require.NoError(t, err)
+	listener1 := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			addr1Logs1 = append(addr1Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: createJob(t, store).ID,
 	}
-	listener2 := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
-			require.NoError(t, err)
+	listener2 := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			addr1Logs2 = append(addr1Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: createJob(t, store).ID,
 	}
-	listener3 := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
-			require.NoError(t, err)
+	listener3 := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			addr2Logs1 = append(addr2Logs1, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: createJob(t, store).ID,
 	}
-	listener4 := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
-			require.NoError(t, err)
+	listener4 := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			addr2Logs2 = append(addr2Logs2, lb.RawLog())
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: createJob(t, store).ID,
 	}
 
-	cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     6,
-		HeadTrackables: []strpkg.HeadTrackable{lb},
+	_, unsubscribe := lb.Register(listener1, log.ListenerOpts{
+		Contract: contract1,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
 	})
-
-	defer cleanup()
-
-	lb.Register(contract1, &listener1)
-	lb.Register(contract1, &listener2)
-	lb.Register(contract2, &listener3)
-	lb.Register(contract2, &listener4)
+	defer unsubscribe()
+	_, unsubscribe = lb.Register(listener2, log.ListenerOpts{
+		Contract: contract1,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
+	_, unsubscribe = lb.Register(listener3, log.ListenerOpts{
+		Contract: contract2,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
+	_, unsubscribe = lb.Register(listener4, log.ListenerOpts{
+		Contract: contract2,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
 
 	chRawLogs := <-chchRawLogs
 
@@ -257,10 +297,10 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		chRawLogs <- log
 	}
 
-	require.Eventually(t, func() bool { return len(addr1Logs1) == len(addr1SentLogs) }, time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return len(addr1Logs2) == len(addr1SentLogs) }, time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return len(addr2Logs1) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
-	require.Eventually(t, func() bool { return len(addr2Logs2) == len(addr2SentLogs) }, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(addr1Logs1) == len(addr1SentLogs) }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(addr1Logs2) == len(addr1SentLogs) }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(addr2Logs1) == len(addr2SentLogs) }, 5*time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return len(addr2Logs2) == len(addr2SentLogs) }, 5*time.Second, 10*time.Millisecond)
 	requireBroadcastCount(t, store, 12)
 
 	lb.Stop()
@@ -378,16 +418,65 @@ func TestBroadcaster_Register_ResubscribesToMostRecentlySeenBlock(t *testing.T) 
 	orm := log.NewORM(store.DB)
 	lb := log.NewBroadcaster(orm, ethClient, store.Config)
 	lb.AddDependents(1)
-	lb.Start() // Subscribe #0
+	lb.Start()
 	defer lb.Stop()
-	lb.Register(contract0, listener0)
+
+	// Subscribe #0
+	_, unsubscribe := lb.Register(listener0, log.ListenerOpts{
+		Contract: contract0,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
+
 	lb.DependentReady()
-	<-chStarted // Await startup
-	<-chchRawLogs
-	lb.Register(contract1, listener1) // Subscribe #1
-	<-chchRawLogs
-	lb.Register(contract2, listener2) // Subscribe #2
-	<-chchRawLogs
+
+	// Await startup
+	select {
+	case <-chStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("never started")
+	}
+
+	select {
+	case <-chchRawLogs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not subscribe")
+	}
+
+	// Subscribe #1
+	_, unsubscribe = lb.Register(listener1, log.ListenerOpts{
+		Contract: contract1,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
+
+	select {
+	case <-chchRawLogs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not subscribe")
+	}
+
+	// Subscribe #2
+	_, unsubscribe = lb.Register(listener1, log.ListenerOpts{
+		Contract: contract2,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
+
+	select {
+	case <-chchRawLogs:
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not subscribe")
+	}
 
 	cltest.EventuallyExpectationsMet(t, ethClient, 5*time.Second, 10*time.Millisecond)
 	cltest.EventuallyExpectationsMet(t, listener0, 5*time.Second, 10*time.Millisecond)
@@ -402,26 +491,14 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 	addrA := common.HexToAddress("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	addrB := common.HexToAddress("0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 
+	blockHashes := make(map[int64]common.Hash)
 	logsA := make(map[uint]types.Log)
 	logsB := make(map[uint]types.Log)
 	for n := 1; n < 18; n++ {
 		blockHash := cltest.NewHash()
-		logsA[uint(n)] = types.Log{
-			Address:     addrA,
-			BlockNumber: uint64(n),
-			BlockHash:   blockHash,
-			Index:       uint(n),
-			Topics:      []common.Hash{},
-			Data:        []byte{},
-		}
-		logsB[uint(n)] = types.Log{
-			Address:     addrB,
-			BlockNumber: uint64(n),
-			BlockHash:   blockHash,
-			Index:       uint(100 + n),
-			Topics:      []common.Hash{},
-			Data:        []byte{},
-		}
+		blockHashes[int64(n)] = blockHash
+		logsA[uint(n)] = cltest.RawNewRoundLog(t, addrA, blockHash, uint64(n), uint(n), false)
+		logsB[uint(n)] = cltest.RawNewRoundLog(t, addrB, blockHash, uint64(n), uint(100+n), false)
 	}
 
 	tests := []struct {
@@ -445,8 +522,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			batch2:           []uint{3, 4},
 
 			expectedFilteredA: []uint{1, 2, 3, 4},
-			expectedFilteredB: []uint{3, 4},
-		},
+			expectedFilteredB: []uint{3, 4}},
 		{
 			name: "no backfilled logs, overlap",
 
@@ -538,8 +614,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			var recvdB received
 
 			logListenerA := &simpleLogListener{
-				handler: func(lb log.Broadcast, err error) {
-					require.NoError(t, err)
+				handler: func(lb log.Broadcast) {
+					logger.Debugf("log A: %v", lb.RawLog().BlockNumber)
 					consumed, err := lb.WasAlreadyConsumed()
 					require.NoError(t, err)
 
@@ -555,8 +631,8 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			}
 
 			logListenerB := &simpleLogListener{
-				handler: func(lb log.Broadcast, err error) {
-					require.NoError(t, err)
+				handler: func(lb log.Broadcast) {
+					logger.Infof("log B: %v", lb.RawLog().BlockNumber)
 					consumed, err := lb.WasAlreadyConsumed()
 					require.NoError(t, err)
 
@@ -571,28 +647,39 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				consumerID: createJob(t, store).ID,
 			}
 
-			contractA := new(logmocks.AbigenContract)
-			contractB := new(logmocks.AbigenContract)
-			contractA.On("Address").Return(addrA)
-			contractB.On("Address").Return(addrB)
-			contractA.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
-			contractB.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+			contractA, err := flux_aggregator_wrapper.NewFluxAggregator(addrA, nil)
+			require.NoError(t, err)
+			contractB, err := flux_aggregator_wrapper.NewFluxAggregator(addrB, nil)
+			require.NoError(t, err)
 
 			// Register listener A
-			lb.Register(contractA, logListenerA)
+			_, unsubscribe := lb.Register(logListenerA, log.ListenerOpts{
+				Contract: contractA,
+				Logs: []generated.AbigenLog{
+					flux_aggregator_wrapper.FluxAggregatorNewRound{},
+					flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+				},
+			})
+			defer unsubscribe()
 
 			// Send initial logs
 			chRawLogs1 := <-chchRawLogs
 			cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-				StartBlock: test.blockHeight1,
-				EndBlock:   test.blockHeight2,
-				HeadTrackables: []strpkg.HeadTrackable{lb, cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				StartBlock:    test.blockHeight1,
+				EndBlock:      test.blockHeight2,
+				BackfillDepth: backfillDepth,
+				Hashes:        blockHashes,
+				HeadTrackables: []strpkg.HeadTrackable{cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						return
 					} else if !batchContains(test.batch1, uint(head.Number)) {
 						return
 					}
-					chRawLogs1 <- logsA[uint(head.Number)]
+					select {
+					case chRawLogs1 <- logsA[uint(head.Number)]:
+					case <-time.After(5 * time.Second):
+						t.Fatal("could not send")
+					}
 				})},
 			})
 			defer cleanup()
@@ -620,18 +707,35 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			})
 
 			// Register listener B (triggers resubscription)
-			lb.Register(contractB, logListenerB)
+			_, unsubscribe = lb.Register(logListenerB, log.ListenerOpts{
+				Contract: contractB,
+				Logs: []generated.AbigenLog{
+					flux_aggregator_wrapper.FluxAggregatorNewRound{},
+					flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+				},
+			})
+			defer unsubscribe()
 
 			// Send second batch of new logs
 			chRawLogs2 := <-chchRawLogs
 			cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-				StartBlock: test.blockHeight2,
-				HeadTrackables: []strpkg.HeadTrackable{lb, cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
+				StartBlock:    test.blockHeight2,
+				BackfillDepth: backfillDepth,
+				Hashes:        blockHashes,
+				HeadTrackables: []strpkg.HeadTrackable{cltest.HeadTrackableFunc(func(_ context.Context, head models.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
-						chRawLogs2 <- logsA[uint(head.Number)]
+						select {
+						case chRawLogs2 <- logsA[uint(head.Number)]:
+						case <-time.After(5 * time.Second):
+							t.Fatal("could not send")
+						}
 					}
 					if _, exists := logsB[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
-						chRawLogs2 <- logsB[uint(head.Number)]
+						select {
+						case chRawLogs2 <- logsB[uint(head.Number)]:
+						case <-time.After(5 * time.Second):
+							t.Fatal("could not send")
+						}
 					}
 				})},
 			})
@@ -751,9 +855,8 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	var broadcastCount int32 = 0
 
 	job := createJob(t, store)
-	logListener := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
-			require.NoError(t, err)
+	logListener := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			consumed, err := lb.WasAlreadyConsumed()
 			require.NoError(t, err)
 			require.False(t, consumed)
@@ -769,19 +872,27 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	addr := cltest.NewAddress()
 	contract := new(logmocks.AbigenContract)
 	contract.On("Address").Return(addr)
-	contract.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
+	contract.On("ParseLog", mock.Anything).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil).Once()
+	contract.On("ParseLog", mock.Anything).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil).Once()
 
-	lb.Register(contract, &logListener)
-
-	cleanup = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
-		StartBlock:     3,
-		HeadTrackables: []strpkg.HeadTrackable{lb},
+	_, unsubscribe := lb.Register(logListener, log.ListenerOpts{
+		Contract: contract,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
 	})
-	defer cleanup()
+	defer unsubscribe()
+
+	hash0 := cltest.NewHash()
+	hash1 := cltest.NewHash()
+
+	newRoundTopic := (flux_aggregator_wrapper.FluxAggregatorNewRound{}).Topic()
+	answerUpdatedTopic := (flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}).Topic()
 
 	chRawLogs := <-chchRawLogs
-	chRawLogs <- types.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 0, Index: 0}
-	chRawLogs <- types.Log{Address: addr, BlockHash: cltest.NewHash(), BlockNumber: 1, Index: 0}
+	chRawLogs <- types.Log{Address: addr, BlockHash: hash0, BlockNumber: 0, Index: 0, Topics: []common.Hash{newRoundTopic, cltest.NewHash()}}
+	chRawLogs <- types.Log{Address: addr, BlockHash: hash1, BlockNumber: 1, Index: 0, Topics: []common.Hash{answerUpdatedTopic, cltest.NewHash()}}
 
 	require.Eventually(t, func() bool { return atomic.LoadInt32(&broadcastCount) == 2 }, 5*time.Second, 10*time.Millisecond)
 	requireBroadcastCount(t, store, 2)
@@ -822,58 +933,73 @@ func TestBroadcaster_ProcessesLogsFromReorgs(t *testing.T) {
 		blockHash2R = cltest.NewHash()
 
 		addr = cltest.NewAddress()
+
+		log0        = cltest.RawNewRoundLog(t, addr, blockHash0, 0, 0, false)
+		log1        = cltest.RawNewRoundLog(t, addr, blockHash1, 1, 0, false)
+		log2        = cltest.RawNewRoundLog(t, addr, blockHash2, 2, 0, false)
+		log1Removed = cltest.RawNewRoundLog(t, addr, blockHash1, 1, 0, true)
+		log2Removed = cltest.RawNewRoundLog(t, addr, blockHash2, 2, 0, true)
+		log1R       = cltest.RawNewRoundLog(t, addr, blockHash1R, 1, 0, false)
+		log2R       = cltest.RawNewRoundLog(t, addr, blockHash2R, 2, 0, false)
+
 		logs = []types.Log{
-			{Address: addr, BlockHash: blockHash0, BlockNumber: 0, Index: 0, Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0, Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0, Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr, BlockHash: blockHash1, BlockNumber: 1, Index: 0, Topics: []common.Hash{}, Data: []byte{}, Removed: true},
-			{Address: addr, BlockHash: blockHash2, BlockNumber: 2, Index: 0, Topics: []common.Hash{}, Data: []byte{}, Removed: true},
-			{Address: addr, BlockHash: blockHash1R, BlockNumber: 1, Index: 0, Topics: []common.Hash{}, Data: []byte{}},
-			{Address: addr, BlockHash: blockHash2R, BlockNumber: 2, Index: 0, Topics: []common.Hash{}, Data: []byte{}},
+			log0,
+			log1,
+			log2,
+			log1Removed,
+			log2Removed,
+			log1R,
+			log2R,
 		}
+		expected = []types.Log{log0, log1, log2, log1R, log2R}
 	)
 
 	job := createJob(t, store)
 	var recvd []log.Broadcast
 	var recvdMu sync.Mutex
-	listener := simpleLogListener{
-		handler: func(lb log.Broadcast, err error) {
+	listener := &simpleLogListener{
+		handler: func(lb log.Broadcast) {
 			recvdMu.Lock()
 			defer recvdMu.Unlock()
 			recvd = append(recvd, lb)
-			require.NoError(t, err)
 			handleLogBroadcast(t, lb)
 		},
 		consumerID: job.ID,
 	}
 
-	contract := new(logmocks.AbigenContract)
-	contract.On("Address").Return(addr)
-	contract.On("ParseLog", mock.Anything).Return(struct{}{}, nil)
-	lb.Register(contract, &listener)
+	contract, err := flux_aggregator_wrapper.NewFluxAggregator(addr, nil)
+	require.NoError(t, err)
+
+	_, unsubscribe := lb.Register(listener, log.ListenerOpts{
+		Contract: contract,
+		Logs: []generated.AbigenLog{
+			flux_aggregator_wrapper.FluxAggregatorNewRound{},
+			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
+		},
+	})
+	defer unsubscribe()
 
 	chRawLogs := <-chchRawLogs
-	for i := 0; i < len(logs); i++ {
-		lb.OnNewLongestChain(context.Background(), models.NewHead(big.NewInt(int64(logs[i].BlockNumber)), logs[i].BlockHash, common.Hash{123}, 0))
-		chRawLogs <- logs[i]
-		time.Sleep(500 * time.Millisecond)
+
+	for _, log := range logs {
+		chRawLogs <- log
 	}
 
 	require.Eventually(t, func() bool {
+		recvdMu.Lock()
+		defer recvdMu.Unlock()
 		return len(recvd) == 5
 	}, 5*time.Second, 10*time.Millisecond)
-	requireBroadcastCount(t, store, 3)
+	requireBroadcastCount(t, store, 5)
 
-	var nonRemoved []types.Log
-	for _, log := range logs {
-		if !log.Removed {
-			nonRemoved = append(nonRemoved, log)
-		}
+	var recvdRawLogs []types.Log
+	for _, broadcast := range recvd {
+		recvdRawLogs = append(recvdRawLogs, broadcast.RawLog())
 	}
-	require.Len(t, nonRemoved, 5)
-	for idx, broadcast := range recvd {
-		require.Equal(t, nonRemoved[idx], broadcast.RawLog())
-	}
+
+	recvdMu.Lock()
+	defer recvdMu.Unlock()
+	require.Equal(t, expected, recvdRawLogs)
 
 	ethClient.AssertExpectations(t)
 }

@@ -120,9 +120,15 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
 	case initiationRequiresJobSpecID(i.Type):
+		jobIDFilters := JobSpecIDTopics(i.JobSpecID)
+
+		if !utils.IsEmpty(i.InitiatorParams.JobIDTopicFilter.UUID().Bytes()) {
+			jobIDFilters = append(jobIDFilters, JobSpecIDTopics(i.InitiatorParams.JobIDTopicFilter)...)
+		}
+
 		q.Topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
-			JobSpecIDTopics(i.JobSpecID),
+			jobIDFilters,
 		}
 	default:
 		return ethereum.FilterQuery{},

@@ -26,14 +26,16 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
   constructor(
     uint8 _decimals,
     int256 _initialAnswer
-  ) public {
+  ) {
     decimals = _decimals;
     updateAnswer(_initialAnswer);
   }
 
   function updateAnswer(
     int256 _answer
-  ) public {
+  ) 
+    public
+  {
     latestAnswer = _answer;
     latestTimestamp = block.timestamp;
     latestRound++;
@@ -47,7 +49,9 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
     int256 _answer,
     uint256 _timestamp,
     uint256 _startedAt
-  ) public {
+  )
+    public
+  {
     latestRound = _roundId;
     latestAnswer = _answer;
     latestTimestamp = _timestamp;
@@ -56,7 +60,9 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
     getStartedAt[latestRound] = _startedAt;
   }
 
-  function getRoundData(uint80 _roundId)
+  function getRoundData(
+    uint80 _roundId
+  )
     external
     view
     override
@@ -100,9 +106,11 @@ contract MockV3Aggregator is AggregatorV2V3Interface {
 
   function description()
     external
-    view
+    pure
     override
-    returns (string memory)
+    returns (
+      string memory
+    )
   {
     return "v0.6/tests/MockV3Aggregator.sol";
   }

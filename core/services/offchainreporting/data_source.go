@@ -2,7 +2,10 @@ package offchainreporting
 
 import (
 	"context"
+	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/models"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -15,31 +18,35 @@ import (
 // and capturing the result. Additionally, it converts the result to an
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
-	pipelineRunner pipeline.Runner
-	jobID          int32
-	spec           pipeline.Spec
-	ocrLogger      logger.Logger
-	runResults     chan<- pipeline.RunWithResults
+	pipelineRunner        pipeline.Runner
+	spec                  pipeline.Spec
+	ocrLogger             logger.Logger
+	runResults            chan<- pipeline.RunWithResults
+	currentBridgeMetadata models.BridgeMetaData
 }
 
 var _ ocrtypes.DataSource = (*dataSource)(nil)
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
+func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) {
 	var observation ocrtypes.Observation
 	start := time.Now()
-	run, err := pipeline.NewRun(ds.spec, start)
+	md, err := models.MarshalBridgeMetaData(ds.currentBridgeMetadata.LatestAnswer, ds.currentBridgeMetadata.UpdatedAt)
 	if err != nil {
-		return observation, errors.Wrapf(err, "error creating new run for spec ID %v", ds.spec.ID)
+		logger.Warnw("unable to attach metadata for run", "err", err)
 	}
-
-	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, run, ds.ocrLogger)
+	trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, pipeline.JSONSerializable{
+		Val: md,
+	}, ds.ocrLogger)
 	if err != nil {
 		return observation, errors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 	end := time.Now()
 
+	var run pipeline.Run
+	run.PipelineSpecID = ds.spec.ID
+	run.CreatedAt = start
 	run.FinishedAt = &end
 
 	finalResult := trrs.FinalResult()
@@ -58,12 +65,12 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 		TaskRunResults: trrs,
 	}:
 	default:
-		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.jobID)
+		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.spec.JobID)
 	}
 
 	result, err := finalResult.SingularResult()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.jobID)
+		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.spec.JobID)
 	}
 
 	if result.Error != nil {
@@ -73,6 +80,10 @@ func (ds dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error) 
 	asDecimal, err := utils.ToDecimal(result.Value)
 	if err != nil {
 		return nil, err
+	}
+	ds.currentBridgeMetadata = models.BridgeMetaData{
+		LatestAnswer: asDecimal.BigInt(),
+		UpdatedAt:    big.NewInt(time.Now().Unix()),
 	}
 	return asDecimal.BigInt(), nil
 }

@@ -473,33 +473,38 @@ declare module 'core/store/models' {
     pipelineSpec: {
       dotDagSource: string
     }    
-    schemaVersion: number;
+    schemaVersion: number
   }
 
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
     type: 'directrequest'
     directRequestSpec: {
+      initiator: 'runlog'
+      contractAddress: common.Address
       createdAt: time.Time
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null 
+    keeperSpec: null
   }  
 
   export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
     type: 'fluxmonitor'
     fluxMonitorSpec: {
       contractAddress: common.Address
-      precision: number;
-      threshold: number;
-      absoluteThreshold: number;
-      idleTimerDisabled: false;
-      idleTimerPeriod: string;
-      pollTimerDisabled: false;
-      pollTimerPeriod: string;
-      createdAt: time.Time      
+      precision: number
+      threshold: number
+      absoluteThreshold: number
+      idleTimerDisabled: false
+      idleTimerPeriod: string
+      pollTimerDisabled: false
+      pollTimerPeriod: string
+      minPayment: number | null
+      createdAt: time.Time
     }
     directRequestSpec: null
     offChainReportingOracleSpec: null
+    keeperSpec: null
   }
 
   export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
@@ -522,38 +527,23 @@ declare module 'core/store/models' {
     } 
     directRequestSpec: null
     fluxMonitorSpec: null
+    keeperSpec: null
   }
 
-  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec
+  export type KeeperV2Spec = BaseJobSpecV2 & {
+    type: 'keeper',
+    keeperSpec: {
+      contractAddress: common.Address
+      fromAddress: common.Address
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
 
-  // export interface JobSpecV2 {
-  //   name: string | null
-  //   type: string
-  //   errors: JobSpecError[]
-  //   offChainReportingOracleSpec: {
-  //     contractAddress: common.Address
-  //     p2pPeerID: string
-  //     p2pBootstrapPeers: string[]
-  //     isBootstrapPeer: boolean
-  //     keyBundleID: string
-  //     monitoringEndpoint: string
-  //     transmitterAddress: common.Address
-  //     observationTimeout: string
-  //     blockchainTimeout: string
-  //     contractConfigTrackerSubscribeInterval: string
-  //     contractConfigTrackerPollInterval: string
-  //     contractConfigConfirmations: number
-  //     createdAt: time.Time
-  //     updatedAt: time.Time
-  //   } | null
-  //   directRequestSpec: DirectRequestSpec | null
-  //   fluxMonitorSpec: FluxMonitorSpec | null
-  //   maxTaskDuration: string
-  //   pipelineSpec: {
-  //     dotDagSource: string
-  //   }
-  //   schemaVersion: number;
-  // }
+  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec | KeeperV2Spec
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]
@@ -567,6 +557,18 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
   }
+
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+
+  export interface LogConfig {
+     level: LogConfigLevel
+     sqlEnabled: boolean
+  }  
+
+  export interface LogConfigRequest {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }  
 }
 
 export interface PipelineTaskRun {
@@ -574,8 +576,7 @@ export interface PipelineTaskRun {
   error: PipelineTaskError
   finishedAt: nullable.Time
   output: PipelineTaskOutput
-  taskSpec: {
-    dotId: string
-  }
+  dotId: string
   type: string
 }
+

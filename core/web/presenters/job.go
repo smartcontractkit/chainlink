@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -29,6 +30,7 @@ const (
 type DirectRequestSpec struct {
 	ContractAddress  models.EIP55Address `json:"contractAddress"`
 	OnChainJobSpecID string              `json:"onChainJobSpecId"`
+	Initiator        string              `json:"initiator"`
 	CreatedAt        time.Time           `json:"createdAt"`
 	UpdatedAt        time.Time           `json:"updatedAt"`
 }
@@ -39,8 +41,11 @@ func NewDirectRequestSpec(spec *job.DirectRequestSpec) *DirectRequestSpec {
 	return &DirectRequestSpec{
 		ContractAddress:  spec.ContractAddress,
 		OnChainJobSpecID: spec.OnChainJobSpecID.String(),
-		CreatedAt:        spec.CreatedAt,
-		UpdatedAt:        spec.UpdatedAt,
+		// This is hardcoded to runlog. When we support other intiators, we need
+		// to change this
+		Initiator: "runlog",
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
 	}
 }
 
@@ -54,6 +59,7 @@ type FluxMonitorSpec struct {
 	PollTimerDisabled bool                `json:"pollTimerDisabled"`
 	IdleTimerPeriod   string              `json:"idleTimerPeriod"`
 	IdleTimerDisabled bool                `json:"idleTimerDisabled"`
+	MinPayment        *assets.Link        `json:"minPayment"`
 	CreatedAt         time.Time           `json:"createdAt"`
 	UpdatedAt         time.Time           `json:"updatedAt"`
 }
@@ -70,6 +76,7 @@ func NewFluxMonitorSpec(spec *job.FluxMonitorSpec) *FluxMonitorSpec {
 		PollTimerDisabled: spec.PollTimerDisabled,
 		IdleTimerPeriod:   spec.IdleTimerPeriod.String(),
 		IdleTimerDisabled: spec.IdleTimerDisabled,
+		MinPayment:        spec.MinPayment,
 		CreatedAt:         spec.CreatedAt,
 		UpdatedAt:         spec.UpdatedAt,
 	}
@@ -173,7 +180,7 @@ type JobResource struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
-	KeeperSpec            *KeeperSpec            `json:"KeeperSpec"`
+	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }

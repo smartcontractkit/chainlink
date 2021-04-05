@@ -50,6 +50,15 @@ export class ServerError extends Error {
   }
 }
 
+export class ConflictError extends Error {
+  errors: JsonApiResponse['errors']
+
+  constructor({ errors }: Pick<JsonApiResponse, 'errors'>) {
+    super('ConflictError')
+    this.errors = errors
+  }
+}
+
 export class UnknownResponseError extends Error {
   errors: ErrorItem[]
 

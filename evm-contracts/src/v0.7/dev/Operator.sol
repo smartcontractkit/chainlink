@@ -443,7 +443,9 @@ contract Operator is
     public
     view
     override
-    returns (address)
+    returns (
+      address
+    )
   {
     return address(linkToken);
   }

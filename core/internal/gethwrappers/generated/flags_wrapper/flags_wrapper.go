@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 )
 
 var (
@@ -45,6 +46,7 @@ func DeployFlags(auth *bind.TransactOpts, backend bind.ContractBackend, racAddre
 
 type Flags struct {
 	address common.Address
+	abi     abi.ABI
 	FlagsCaller
 	FlagsTransactor
 	FlagsFilterer
@@ -91,11 +93,15 @@ type FlagsTransactorRaw struct {
 }
 
 func NewFlags(address common.Address, backend bind.ContractBackend) (*Flags, error) {
+	abi, err := abi.JSON(strings.NewReader(FlagsABI))
+	if err != nil {
+		return nil, err
+	}
 	contract, err := bindFlags(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &Flags{address: address, FlagsCaller: FlagsCaller{contract: contract}, FlagsTransactor: FlagsTransactor{contract: contract}, FlagsFilterer: FlagsFilterer{contract: contract}}, nil
+	return &Flags{address: address, abi: abi, FlagsCaller: FlagsCaller{contract: contract}, FlagsTransactor: FlagsTransactor{contract: contract}, FlagsFilterer: FlagsFilterer{contract: contract}}, nil
 }
 
 func NewFlagsCaller(address common.Address, caller bind.ContractCaller) (*FlagsCaller, error) {
@@ -1534,38 +1540,66 @@ func (_Flags *FlagsFilterer) ParseRemovedAccess(log types.Log) (*FlagsRemovedAcc
 	return event, nil
 }
 
-func (_Flags *Flags) UnpackLog(out interface{}, event string, log types.Log) error {
-	return _Flags.FlagsFilterer.contract.UnpackLog(out, event, log)
-}
-
-func (_Flags *Flags) ParseLog(log types.Log) (interface{}, error) {
-	abi, err := abi.JSON(strings.NewReader(FlagsABI))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse ABI: " + err.Error())
-	}
+func (_Flags *Flags) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case abi.Events["AddedAccess"].ID:
+	case _Flags.abi.Events["AddedAccess"].ID:
 		return _Flags.ParseAddedAccess(log)
-	case abi.Events["CheckAccessDisabled"].ID:
+	case _Flags.abi.Events["CheckAccessDisabled"].ID:
 		return _Flags.ParseCheckAccessDisabled(log)
-	case abi.Events["CheckAccessEnabled"].ID:
+	case _Flags.abi.Events["CheckAccessEnabled"].ID:
 		return _Flags.ParseCheckAccessEnabled(log)
-	case abi.Events["FlagLowered"].ID:
+	case _Flags.abi.Events["FlagLowered"].ID:
 		return _Flags.ParseFlagLowered(log)
-	case abi.Events["FlagRaised"].ID:
+	case _Flags.abi.Events["FlagRaised"].ID:
 		return _Flags.ParseFlagRaised(log)
-	case abi.Events["OwnershipTransferRequested"].ID:
+	case _Flags.abi.Events["OwnershipTransferRequested"].ID:
 		return _Flags.ParseOwnershipTransferRequested(log)
-	case abi.Events["OwnershipTransferred"].ID:
+	case _Flags.abi.Events["OwnershipTransferred"].ID:
 		return _Flags.ParseOwnershipTransferred(log)
-	case abi.Events["RaisingAccessControllerUpdated"].ID:
+	case _Flags.abi.Events["RaisingAccessControllerUpdated"].ID:
 		return _Flags.ParseRaisingAccessControllerUpdated(log)
-	case abi.Events["RemovedAccess"].ID:
+	case _Flags.abi.Events["RemovedAccess"].ID:
 		return _Flags.ParseRemovedAccess(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
+}
+
+func (FlagsAddedAccess) Topic() common.Hash {
+	return common.HexToHash("0x87286ad1f399c8e82bf0c4ef4fcdc570ea2e1e92176e5c848b6413545b885db4")
+}
+
+func (FlagsCheckAccessDisabled) Topic() common.Hash {
+	return common.HexToHash("0x3be8a977a014527b50ae38adda80b56911c267328965c98ddc385d248f539638")
+}
+
+func (FlagsCheckAccessEnabled) Topic() common.Hash {
+	return common.HexToHash("0xaebf329500988c6488a0074e5a0a9ff304561fc5c6fc877aeb1d59c8282c3480")
+}
+
+func (FlagsFlagLowered) Topic() common.Hash {
+	return common.HexToHash("0xd86728e2e5cbaa28c1d357b5fbccc9c1ab0add09950eb7cac42df9acb24c4bc8")
+}
+
+func (FlagsFlagRaised) Topic() common.Hash {
+	return common.HexToHash("0x881febd4cd194dd4ace637642862aef1fb59a65c7e5551a5d9208f268d11c006")
+}
+
+func (FlagsOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (FlagsOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
+func (FlagsRaisingAccessControllerUpdated) Topic() common.Hash {
+	return common.HexToHash("0xbaf9ea078655a4fffefd08f9435677bbc91e457a6d015fe7de1d0e68b8802cac")
+}
+
+func (FlagsRemovedAccess) Topic() common.Hash {
+	return common.HexToHash("0x3d68a6fce901d20453d1a7aa06bf3950302a735948037deb182a8db66df2a0d1")
 }
 
 func (_Flags *Flags) Address() common.Address {
@@ -1659,9 +1693,7 @@ type FlagsInterface interface {
 
 	ParseRemovedAccess(log types.Log) (*FlagsRemovedAccess, error)
 
-	UnpackLog(out interface{}, event string, log types.Log) error
-
-	ParseLog(log types.Log) (interface{}, error)
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }

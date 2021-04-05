@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -37,6 +38,36 @@ func TestORM_AllNotFound(t *testing.T) {
 
 	jobs := cltest.AllJobs(t, store)
 	assert.Equal(t, 0, len(jobs), "Queried array should be empty")
+}
+
+func TestORM_NodeVersion(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ver, err := store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Contains(t, ver.Version, "random")
+
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.8")))
+
+	ver, err = store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Equal(t, "9.9.8", ver.Version)
+
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.8")))
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.7")))
+	require.NoError(t, store.UpsertNodeVersion(models.NewNodeVersion("9.9.9")))
+
+	ver, err = store.FindLatestNodeVersion()
+
+	require.NoError(t, err)
+	require.NotNil(t, ver)
+	require.Equal(t, "9.9.9", ver.Version)
 }
 
 func TestORM_CreateJob(t *testing.T) {
@@ -1908,4 +1939,44 @@ func TestORM_GetRoundRobinAddress(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, "no keys available", err.Error())
 	})
+}
+
+func TestORM_SetConfigStrValue(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	fieldName := "LogSQLStatements"
+	name := orm.EnvVarName(fieldName)
+	isSqlStatementEnabled := true
+	res := models.Configuration{}
+
+	// Store db config entry as true
+	err := store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
+	require.NoError(t, err)
+
+	err = store.DB.First(&res, "name = ?", name).Error
+	require.NoError(t, err)
+	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
+
+	// Update db config entry as false
+	isSqlStatementEnabled = false
+	err = store.SetConfigStrValue(context.TODO(), fieldName, strconv.FormatBool(isSqlStatementEnabled))
+	require.NoError(t, err)
+
+	err = store.DB.First(&res, "name = ?", name).Error
+	require.NoError(t, err)
+	require.Equal(t, strconv.FormatBool(isSqlStatementEnabled), res.Value)
+}
+
+func TestORM_GetConfigBoolValue(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	store.Config.SetRuntimeStore(store.ORM)
+
+	isSqlStatementEnabled := true
+	err := store.Config.SetLogSQLStatements(context.TODO(), isSqlStatementEnabled)
+	require.NoError(t, err)
+	assert.Equal(t, isSqlStatementEnabled, store.Config.LogSQLStatements())
 }

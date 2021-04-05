@@ -4,30 +4,35 @@ import { TimeAgo } from 'components/TimeAgo'
 import Link from 'components/Link'
 import { JobSpecV2 } from './JobsIndex'
 import { withStyles, WithStyles } from '@material-ui/core/styles'
-import { styles } from './sharedStyles'
+import { tableStyles } from 'components/Table'
 
-interface Props extends WithStyles<typeof styles> {
+interface Props extends WithStyles<typeof tableStyles> {
   job: JobSpecV2
 }
 
-export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
+export const JobV2Row = withStyles(tableStyles)(({ job, classes }: Props) => {
   const createdAt = React.useMemo(() => {
     switch (job.attributes.type) {
+      case 'directrequest':
+        return job.attributes.directRequestSpec.createdAt
       case 'fluxmonitor':
         return job.attributes.fluxMonitorSpec.createdAt
       case 'offchainreporting':
         return job.attributes.offChainReportingOracleSpec.createdAt
-      case 'directrequest':
-        return job.attributes.directRequestSpec.createdAt
+      case 'keeper':
+        return job.attributes.keeperSpec.createdAt
     }
   }, [job])
 
   const type = React.useMemo(() => {
     switch (job.attributes.type) {
+      case 'directrequest':
       case 'fluxmonitor':
         return 'Direct Request'
       case 'offchainreporting':
         return 'Off-chain reporting'
+      case 'keeper':
+        return 'Keeper'
       default:
         return ''
     }
@@ -37,6 +42,9 @@ export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
     switch (job.attributes.type) {
       case 'fluxmonitor':
         return 'fluxmonitor'
+      case 'directrequest':
+        return job.attributes.directRequestSpec.initiator
+      case 'keeper':
       case 'offchainreporting':
         return 'N/A'
       default:
@@ -45,7 +53,7 @@ export const JobV2Row = withStyles(styles)(({ job, classes }: Props) => {
   }, [job])
 
   return (
-    <TableRow style={{ transform: 'scale(1)' }} hover>
+    <TableRow className={classes.row} hover>
       <TableCell className={classes.cell} component="th" scope="row">
         <Link className={classes.link} href={`/jobs/${job.id}`}>
           {job.attributes.name || job.id}

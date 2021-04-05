@@ -152,3 +152,7 @@ func (nc *NullClient) CodeAt(ctx context.Context, account common.Address, blockN
 func (nc *NullClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	return nil
 }
+
+func (nc *NullClient) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	return nil
+}
