@@ -1574,12 +1574,15 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
 
+	httpAwaiter := cltest.NewAwaiter()
 	httpServer, assertCalled := cltest.NewHTTPMockServer(
 		t,
 		http.StatusOK,
 		"GET",
 		`{"USD": "31982"}`,
-		func(header http.Header, _ string) {},
+		func(header http.Header, _ string) {
+			httpAwaiter.ItHappened()
+		},
 	)
 	defer assertCalled()
 
@@ -1634,6 +1637,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}, 30*time.Second)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+
+	httpAwaiter.AwaitOrFail(t)
 
 	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jobORM, 5*time.Second, 300*time.Millisecond)
 	require.Len(t, runs, 1)
