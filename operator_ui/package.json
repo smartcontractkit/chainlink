@@ -7,18 +7,17 @@
     "node": "^12.0.0"
   },
   "scripts": {
-    "start": "webpack serve --env development",
-    "serve": "serve dist -p 3000",
+    "start": "webpack serve --config webpack.dev.js",
+    "serve": "serve dist -p 3000 --config webpack.prod.js",
     "test": "jest",
     "test:ci": "yarn test --reporters jest-silent-reporter --maxWorkers=50%",
     "watch": "yarn test --watchAll --notify",
     "clean": "tsc -b --clean && rimraf -rf artifacts tmp dist",
-    "build": "NODE_ENV=production webpack",
+    "build": "NODE_ENV=production webpack --config webpack.prod.js",
     "setup": "tsc -b",
     "depcheck": "echo '@chainlink/operator-ui' && depcheck --ignore-dirs=dist || true"
   },
   "dependencies": {
-    "@babel/polyfill": "7.7.0",
     "@iarna/toml": "3.0.0",
     "@material-ui/core": "^3.9.2",
     "@material-ui/icons": "^4.5.1",
@@ -28,7 +27,6 @@
     "change-case": "^4.1.1",
     "classnames": "^2.2.6",
     "cookie": "^0.4.1",
-    "core-js": "^3.4.0",
     "d3": "^6.2.0",
     "d3-dag": "^0.4.7",
     "formik": "^2.2.6",
@@ -53,10 +51,11 @@
     "react-redux": "^7.2.1",
     "react-resize-detector": "^4.2.1",
     "react-router-dom": "^5.0.1",
-    "react-time-ago": "5.0.7",
+    "react-time-ago": "6.2.2",
     "redux": "^4.0.5",
     "redux-object": "^1.0.0",
     "redux-thunk": "^2.3.0",
+    "stream-browserify": "^3.0.0",
     "title-case": "^3.0.2",
     "url": "^0.11.0",
     "uuid": "^8.0.0"
@@ -94,7 +93,7 @@
     "enzyme-adapter-react-16": "^1.15.5",
     "fetch-mock": "^9.0.0",
     "file-loader": "^6.2.0",
-    "html-webpack-plugin": "^4.5.1",
+    "html-webpack-plugin": "^5.3.1",
     "jest": "^26.6.3",
     "jest-silent-reporter": "^0.2.1",
     "mock-local-storage": "^1.1.11",
@@ -105,10 +104,10 @@
     "serve": "^11.2.0",
     "style-loader": "^2.0.0",
     "ts-jest": "^26.5.0",
-    "tsconfig-paths-webpack-plugin": "^3.3.0",
+    "tsconfig-paths-webpack-plugin": "^3.5.1",
     "typescript": "^4.1.3",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^4.1.0",
+    "webpack": "^5.30.0",
+    "webpack-cli": "^4.6.0",
     "webpack-dev-server": "^3.11.2"
   }
 }
