@@ -27,7 +27,11 @@ export type BaseJob = {
   name: string | null
 }
 
-export type JobSpecType = 'directrequest' | 'fluxmonitor' | 'offchainreporting'
+export type JobSpecType =
+  | 'directrequest'
+  | 'fluxmonitor'
+  | 'offchainreporting'
+  | 'keeper'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string

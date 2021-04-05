@@ -180,7 +180,7 @@ type JobResource struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"directRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
-	KeeperSpec            *KeeperSpec            `json:"KeeperSpec"`
+	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
