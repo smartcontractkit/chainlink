@@ -39,6 +39,8 @@ const (
 	FluxMonitorJob JobType = "fluxmonitor"
 	// OffChainReportingJob defines an OCR Job
 	OffChainReportingJob JobType = "offchainreporting"
+	// KeeperJob defines a Keeper Job
+	KeeperJob JobType = "keeper"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -61,6 +63,12 @@ type OffChainReportingSpec struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// KeeperSpec defines the spec details of a Keeper Job
+type KeeperSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // PipelineSpec defines the spec details of the pipeline
 type PipelineSpec struct {
 	ID           int32  `json:"ID"`
@@ -75,6 +83,7 @@ type Job struct {
 	DirectRequestSpec     *DirectRequestSpec     `json:"DirectRequestSpec"`
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
+	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 }
 
@@ -134,6 +143,10 @@ func (j Job) FriendlyCreatedAt() string {
 	case OffChainReportingJob:
 		if j.OffChainReportingSpec != nil {
 			return j.OffChainReportingSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case KeeperJob:
+		if j.KeeperSpec != nil {
+			return j.KeeperSpec.CreatedAt.Format(time.RFC3339)
 		}
 	default:
 		return "unknown"
