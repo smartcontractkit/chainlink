@@ -706,7 +706,7 @@ func (cli *Client) CreateETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var keys presenters.ETHKey
+	var keys webPresenter.ETHKeyResource
 	return cli.renderAPIResponse(resp, &keys, "ETH key created.\n\n🔑 New key")
 }
 
@@ -722,7 +722,7 @@ func (cli *Client) ListETHKeys(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var keys []presenters.ETHKey
+	var keys []webPresenter.ETHKeyResource
 	return cli.renderAPIResponse(resp, &keys, "🔑 ETH keys")
 }
 
@@ -755,7 +755,7 @@ func (cli *Client) DeleteETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var key presenters.ETHKey
+	var key webPresenter.ETHKeyResource
 	return cli.renderAPIResponse(resp, &key, fmt.Sprintf("🔑 %s", confirmationMsg))
 }
 
@@ -790,7 +790,7 @@ func (cli *Client) ImportETHKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var key presenters.ETHKey
+	var key webPresenter.ETHKeyResource
 	return cli.renderAPIResponse(resp, &key, "🔑 Imported ETH key")
 }
 
