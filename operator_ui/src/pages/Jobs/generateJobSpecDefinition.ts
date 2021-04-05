@@ -5,6 +5,7 @@ import {
   JobSpec,
   JobSpecV2,
   OffChainReportingOracleJobV2Spec,
+  KeeperV2Spec,
 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
@@ -110,6 +111,10 @@ export const generateTOMLDefinition = (
     return generateOCRDefinition(jobSpecAttributes)
   }
 
+  if (jobSpecAttributes.type === 'keeper') {
+    return generateKeeperDefinition(jobSpecAttributes)
+  }
+
   return ''
 }
 
@@ -199,6 +204,24 @@ function generateDirectRequestDefinition(
       contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateKeeperDefinition(
+  attrs: ApiResponse<KeeperV2Spec>['data']['attributes'],
+) {
+  const { keeperSpec, name, schemaVersion, type } = attrs
+  const { contractAddress, fromAddress } = keeperSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      contractAddress,
+      fromAddress,
     },
     format: JobSpecFormats.TOML,
   })
