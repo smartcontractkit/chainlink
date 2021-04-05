@@ -19,7 +19,6 @@ import (
 // ocrtypes.Observation (*big.Int), as expected by the offchain reporting library.
 type dataSource struct {
 	pipelineRunner        pipeline.Runner
-	jobID                 int32
 	spec                  pipeline.Spec
 	ocrLogger             logger.Logger
 	runResults            chan<- pipeline.RunWithResults
@@ -66,12 +65,12 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 		TaskRunResults: trrs,
 	}:
 	default:
-		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.jobID)
+		return nil, errors.Errorf("unable to enqueue run save for job ID %v, buffer full", ds.spec.JobID)
 	}
 
 	result, err := finalResult.SingularResult()
 	if err != nil {
-		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.jobID)
+		return nil, errors.Wrapf(err, "error getting singular result for job ID %v", ds.spec.JobID)
 	}
 
 	if result.Error != nil {
