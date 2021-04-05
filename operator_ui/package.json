@@ -54,7 +54,6 @@
     "react-resize-detector": "^4.2.1",
     "react-router-dom": "^5.0.1",
     "react-time-ago": "5.0.7",
-    "react-universal-component": "^4.0.1",
     "redux": "^4.0.5",
     "redux-object": "^1.0.0",
     "redux-thunk": "^2.3.0",

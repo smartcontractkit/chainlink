@@ -10,6 +10,10 @@ type JAID struct {
 	ID string `json:"-"`
 }
 
+func NewJAID(id string) JAID {
+	return JAID{id}
+}
+
 // NewJAIDInt32 converts an int32 into a JAID
 func NewJAIDInt32(id int32) JAID {
 	return JAID{strconv.Itoa(int(id))}

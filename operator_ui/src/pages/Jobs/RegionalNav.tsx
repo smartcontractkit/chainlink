@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useMemo } from 'react'
 import { connect } from 'react-redux'
 import { Redirect, useLocation } from 'react-router-dom'
 
@@ -176,6 +176,32 @@ const RegionalNavComponent = ({
     )
     setArchived(true)
   }
+
+  const typeDetail = useMemo(() => {
+    let type = 'unknown'
+
+    if (!job) {
+      return 'Unknown job type'
+    }
+
+    if (job.type === 'v2') {
+      switch (job.specType) {
+        case 'offchainreporting':
+          type = 'Off-chain reporting'
+          break
+        case 'keeper':
+          type = 'Keeper'
+          break
+        default:
+          type = 'Direct request'
+      }
+    } else {
+      type = job.type
+    }
+
+    return `${type} job spec detail`
+  }, [job])
+
   return (
     <>
       <Dialog
@@ -242,12 +268,7 @@ const RegionalNavComponent = ({
           <Grid item xs={12}>
             {job && (
               <Typography variant="subtitle2" color="secondary" gutterBottom>
-                {job?.type === 'v2'
-                  ? job.specType === 'offchainreporting'
-                    ? 'Off-chain reporting'
-                    : 'Direct request'
-                  : job?.type}{' '}
-                job spec detail
+                {typeDetail}
               </Typography>
             )}
           </Grid>
