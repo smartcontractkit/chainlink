@@ -7,6 +7,7 @@ import {
   jsonApiJobSpecsV2,
   fluxMonitorJobResource,
   ocrJobResource,
+  keeperJobResource,
 } from 'support/factories/jsonApiJobs'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
@@ -44,6 +45,10 @@ describe('pages/JobsIndex/JobsIndex', () => {
           id: '3000000',
           createdAt: new Date().toISOString(),
         }),
+        keeperJobResource({
+          id: '4000000',
+          createdAt: new Date().toISOString(),
+        }),
       ]),
     )
 
@@ -64,6 +69,9 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     // Direct Request V2 Job
     expect(wrapper.text()).toContain('3000000')
+
+    // Keeper V2 Job
+    expect(wrapper.text()).toContain('4000000')
   })
 
   it('allows searching', async () => {
