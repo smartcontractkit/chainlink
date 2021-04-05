@@ -110,6 +110,7 @@ func (er *EthResender) resendUnconfirmed() error {
 	}
 
 	now := time.Now()
+	// FIXME: Needs to be split into batches of EthRPCDefaultBatchSize
 	if err := er.ethClient.RoundRobinBatchCallContext(context.Background(), reqs); err != nil {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}

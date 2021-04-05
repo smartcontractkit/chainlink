@@ -42,8 +42,9 @@ type ConfigReader interface {
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthNonceAutoSync() bool
 	EthFinalityDepth() uint
-	EthReceiptFetchBatchSize() uint32
+	EthRPCDefaultBatchSize() uint32
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
 	EthTxResendAfterThreshold() time.Duration

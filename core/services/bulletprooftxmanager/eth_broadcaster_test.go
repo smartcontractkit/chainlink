@@ -228,6 +228,8 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
+	config.Set("ETH_NONCE_AUTO_SYNC", "true")
+
 	ethNodeNonce := uint64(22)
 
 	// Insert new key to test we only update the intended one
