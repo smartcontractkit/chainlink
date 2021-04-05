@@ -1,8 +1,8 @@
 import React from 'react'
-import { v2 } from 'api'
-import { Route, RouteComponentProps, Switch } from 'react-router-dom'
+import { Route, Switch, useParams, useRouteMatch } from 'react-router-dom'
 import { useErrorHandler } from 'hooks/useErrorHandler'
 import { useLoadingPlaceholder } from 'hooks/useLoadingPlaceholder'
+import { v2 } from 'api'
 import {
   generateJSONDefinition,
   generateTOMLDefinition,
@@ -19,14 +19,16 @@ import {
   transformPipelineJobRun,
 } from './transformJobRuns'
 
-type Props = RouteComponentProps<{
+interface RouteParams {
   jobSpecId: string
-}>
+}
 
 const DEFAULT_PAGE = 1
 const RECENT_RUNS_COUNT = 5
 
-export const JobsShow: React.FC<Props> = ({ match }) => {
+export const JobsShow = () => {
+  const { path } = useRouteMatch()
+  const { jobSpecId } = useParams<RouteParams>()
   const [state, setState] = React.useState<JobData>({
     recentRuns: [],
     recentRunsCount: 0,
@@ -34,8 +36,6 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
   const { job, jobSpec } = state
   const { error, ErrorComponent, setError } = useErrorHandler()
   const { LoadingPlaceholder } = useLoadingPlaceholder(!error && !jobSpec)
-
-  const { jobSpecId } = match.params
 
   const getJobSpecRuns = React.useCallback(
     ({ page = DEFAULT_PAGE, size = RECENT_RUNS_COUNT } = {}) => {
@@ -151,65 +151,50 @@ export const JobsShow: React.FC<Props> = ({ match }) => {
         runsCount={state.recentRunsCount}
       />
       <Switch>
-        <Route
-          exact
-          path={`${match.path}/definition`}
-          render={() => (
-            <JobDefinition
-              {...{
-                ...state,
-                ErrorComponent,
-                LoadingPlaceholder,
-                error,
-              }}
-            />
-          )}
-        />
-        <Route
-          exact
-          path={`${match.path}/errors`}
-          render={() => (
-            <JobsErrors
-              {...{
-                ...state,
-                ErrorComponent,
-                LoadingPlaceholder,
-                error,
-                getJobSpec,
-                setState,
-              }}
-            />
-          )}
-        />
-        <Route
-          exact
-          path={`${match.path}/runs`}
-          render={() => (
-            <JobRuns
-              {...{
-                ...state,
-                error,
-                ErrorComponent,
-                LoadingPlaceholder,
-                getJobSpecRuns,
-              }}
-            />
-          )}
-        />
-        <Route
-          path={`${match.path}`}
-          render={() => (
-            <RecentRuns
-              {...{
-                ...state,
-                error,
-                ErrorComponent,
-                LoadingPlaceholder,
-                getJobSpecRuns,
-              }}
-            />
-          )}
-        />
+        <Route path={`${path}/definition`}>
+          <JobDefinition
+            {...{
+              ...state,
+              ErrorComponent,
+              LoadingPlaceholder,
+              error,
+            }}
+          />
+        </Route>
+        <Route exact path={`${path}/errors`}>
+          <JobsErrors
+            {...{
+              ...state,
+              ErrorComponent,
+              LoadingPlaceholder,
+              error,
+              getJobSpec,
+              setState,
+            }}
+          />
+        </Route>
+        <Route exact path={`${path}/runs`}>
+          <JobRuns
+            {...{
+              ...state,
+              error,
+              ErrorComponent,
+              LoadingPlaceholder,
+              getJobSpecRuns,
+            }}
+          />
+        </Route>
+        <Route path={path}>
+          <RecentRuns
+            {...{
+              ...state,
+              error,
+              ErrorComponent,
+              LoadingPlaceholder,
+              getJobSpecRuns,
+            }}
+          />
+        </Route>
       </Switch>
     </div>
   )

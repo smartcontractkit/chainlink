@@ -134,7 +134,7 @@ func (rt RendererTable) renderJobsV2(jobs []Job) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
 	table.SetAutoMergeCells(true)
 	for _, j := range jobs {
-		for _, r := range j.ToRow() {
+		for _, r := range j.ToRows() {
 			table.Append(r)
 		}
 	}
