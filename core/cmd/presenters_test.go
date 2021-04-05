@@ -156,7 +156,7 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 	}
 }
 
-func TestJob_ToRow(t *testing.T) {
+func TestJob_ToRows(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
@@ -177,5 +177,11 @@ func TestJob_ToRow(t *testing.T) {
 		{"1", "Test Job", "directrequest", "ds1 http", now.Format(time.RFC3339)},
 		{"1", "Test Job", "directrequest", "ds1_parse jsonparse", now.Format(time.RFC3339)},
 		{"1", "Test Job", "directrequest", "ds1_multiply multiply", now.Format(time.RFC3339)},
-	}, job.ToRow())
+	}, job.ToRows())
+
+	// Produce a single row even if there is not DAG
+	job.PipelineSpec.DotDAGSource = ""
+	assert.Equal(t, [][]string{
+		{"1", "Test Job", "directrequest", "", now.Format(time.RFC3339)},
+	}, job.ToRows())
 }

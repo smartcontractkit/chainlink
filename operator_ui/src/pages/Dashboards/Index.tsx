@@ -1,13 +1,11 @@
 import React, { useEffect } from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
+import { useDispatch, useSelector } from 'react-redux'
 import Grid from '@material-ui/core/Grid'
 import Activity from 'components/Dashboards/Activity'
 import TokenBalanceCard from 'components/Cards/TokenBalance'
 import RecentlyCreatedJobs from 'components/Jobs/RecentlyCreated'
 import Footer from 'components/Footer'
 import Content from 'components/Content'
-import matchRouteAndMapDispatchToProps from 'utils/matchRouteAndMapDispatchToProps'
 import {
   fetchRecentJobRuns,
   fetchRecentlyCreatedJobs,
@@ -18,29 +16,36 @@ import dashboardJobRunsCountSelector from 'selectors/dashboardJobRunsCount'
 import recentJobRunsSelector from 'selectors/recentJobRuns'
 import recentlyCreatedJobsSelector from 'selectors/recentlyCreatedJobs'
 
+type Props = {
+  recentJobRunsCount: number
+  recentlyCreatedPageSize: number
+}
+
 export const Index = ({
-  accountBalance,
-  fetchAccountBalance,
-  fetchRecentJobRuns,
-  fetchRecentlyCreatedJobs,
-  jobRunsCount,
-  recentJobRuns,
-  recentJobRunsCount,
-  recentlyCreatedJobs,
-  recentlyCreatedPageSize,
-}) => {
+  recentJobRunsCount = 2,
+  recentlyCreatedPageSize = 2,
+}: Props) => {
+  const dispatch = useDispatch()
+  const accountBalance = useSelector(accountBalanceSelector)
+  const jobRunsCount = useSelector(dashboardJobRunsCountSelector)
+  const recentJobRuns = useSelector(recentJobRunsSelector)
+  const recentlyCreatedJobs = useSelector(recentlyCreatedJobsSelector)
+
   useEffect(() => {
     document.title = 'Dashboard'
-    fetchAccountBalance()
-    fetchRecentJobRuns(recentJobRunsCount)
-    fetchRecentlyCreatedJobs(recentlyCreatedPageSize)
-  }, [
-    fetchAccountBalance,
-    fetchRecentJobRuns,
-    fetchRecentlyCreatedJobs,
-    recentJobRunsCount,
-    recentlyCreatedPageSize,
-  ])
+  }, [])
+
+  useEffect(() => {
+    dispatch(fetchAccountBalance())
+  }, [dispatch])
+
+  useEffect(() => {
+    dispatch(fetchRecentJobRuns(recentJobRunsCount))
+  }, [dispatch, recentJobRunsCount])
+
+  useEffect(() => {
+    dispatch(fetchRecentlyCreatedJobs(recentlyCreatedPageSize))
+  }, [dispatch, recentlyCreatedPageSize])
 
   return (
     <Content>
@@ -77,36 +82,4 @@ export const Index = ({
   )
 }
 
-Index.propTypes = {
-  accountBalance: PropTypes.object,
-  recentJobRunsCount: PropTypes.number.isRequired,
-  jobRunsCount: PropTypes.number,
-  recentJobRuns: PropTypes.array,
-  recentlyCreatedJobs: PropTypes.array,
-  recentlyCreatedPageSize: PropTypes.number,
-}
-
-Index.defaultProps = {
-  recentJobRunsCount: 2,
-  recentlyCreatedPageSize: 2,
-}
-
-const mapStateToProps = (state) => {
-  return {
-    accountBalance: accountBalanceSelector(state),
-    jobRunsCount: dashboardJobRunsCountSelector(state),
-    recentJobRuns: recentJobRunsSelector(state),
-    recentlyCreatedJobs: recentlyCreatedJobsSelector(state),
-  }
-}
-
-export const ConnectedIndex = connect(
-  mapStateToProps,
-  matchRouteAndMapDispatchToProps({
-    fetchAccountBalance,
-    fetchRecentJobRuns,
-    fetchRecentlyCreatedJobs,
-  }),
-)(Index)
-
-export default ConnectedIndex
+export default Index
