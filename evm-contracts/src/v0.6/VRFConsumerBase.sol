@@ -125,7 +125,7 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    * @dev In order to keep backwards compatibility we have kept the user
    * seed field around. We remove the use of it because given that the blockhash
    * enters later, it overrides whatever randomness the used seed provides.
-   * Given that it adds very little security, we have removed it from usage
+   * Given that it adds no security, and can easily lead to misunderstandings, we have removed it from usage
    * and can now provide a simpler API.
    */
   uint256 constant private USER_SEED_PLACEHOLDER = 0;
