@@ -86,9 +86,11 @@ func (eb *ethBroadcaster) Start() error {
 		return errors.Wrap(err, "EthBroadcaster could not start")
 	}
 
-	syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
-	if err := syncer.SyncAll(eb.ctx); err != nil {
-		return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+	if eb.config.EthNonceAutoSync() {
+		syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
+		if err := syncer.SyncAll(eb.ctx); err != nil {
+			return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+		}
 	}
 
 	eb.wg.Add(1)
@@ -265,9 +267,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	ctx, cancel := context.WithTimeout(eb.ctx, maxEthNodeRequestTime)
-	defer cancel()
-	sendError := sendTransaction(ctx, eb.ethClient, attempt)
+	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
 
 	if sendError.IsTooExpensive() {
 		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",

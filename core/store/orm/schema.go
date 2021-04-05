@@ -14,6 +14,8 @@ import (
 )
 
 // ConfigSchema records the schema of configuration at the type level
+// FIXME: NonceSyncer is temporarily disabled by default because it's buggy
+// See: https://app.clubhouse.io/chainlinklabs/story/6701/noncesyncer-has-problems-we-should-disable-it-until-it-has-been-a-t-d-and-problems-below-have-been-addressed
 type ConfigSchema struct {
 	AdminCredentialsFile                      string          `env:"ADMIN_CREDENTIALS_FILE" default:"$ROOT/apicredentials"`
 	AllowOrigins                              string          `env:"ALLOW_ORIGINS" default:"http://localhost:3000,http://localhost:6688"`
@@ -52,6 +54,7 @@ type ConfigSchema struct {
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT" default:"20000000000"`
 	EthMaxGasPriceWei                         uint64          `env:"ETH_MAX_GAS_PRICE_WEI" default:"1500000000000"`
 	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
+	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"false"`
 	EthFinalityDepth                          uint            `env:"ETH_FINALITY_DEPTH" default:"50"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH" default:"100"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
