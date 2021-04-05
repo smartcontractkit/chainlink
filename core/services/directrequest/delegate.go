@@ -53,7 +53,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return
 	}
 
-	logListener := listener{
+	logListener := &listener{
 		logBroadcaster:   d.logBroadcaster,
 		oracle:           oracle,
 		pipelineRunner:   d.pipelineRunner,
@@ -84,8 +84,8 @@ type listener struct {
 }
 
 // Start complies with job.Service
-func (l listener) Start() error {
-	connected, unsubscribe := l.logBroadcaster.Register(&l, log.ListenerOpts{
+func (l *listener) Start() error {
+	connected, unsubscribe := l.logBroadcaster.Register(l, log.ListenerOpts{
 		Contract: l.oracle,
 		Logs: []generated.AbigenLog{
 			oracle_wrapper.OracleOracleRequest{},
