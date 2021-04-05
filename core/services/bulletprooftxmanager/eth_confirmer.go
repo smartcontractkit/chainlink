@@ -851,7 +851,9 @@ func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broadcastAt time
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = models.EthTxAttemptBroadcast
-	return postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	return postgres.GormTransaction(ctx, db, func(tx *gorm.DB) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error
@@ -867,7 +869,9 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broad
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = models.EthTxAttemptInsufficientEth
-	return postgres.GormTransaction(context.Background(), db, func(tx *gorm.DB) error {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	return postgres.GormTransaction(ctx, db, func(tx *gorm.DB) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error
