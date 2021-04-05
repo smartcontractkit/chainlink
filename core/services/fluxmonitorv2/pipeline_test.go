@@ -80,10 +80,9 @@ func TestPipelineRun_Execute(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var (
 				runner      = new(mocks.Runner)
-				spec        = pipeline.Spec{}
-				jobID       = int32(1)
+				spec        = pipeline.Spec{JobID: int32(1)}
 				l           = *logger.Default
-				pipelineRun = fluxmonitorv2.NewPipelineRun(runner, spec, jobID, l)
+				pipelineRun = fluxmonitorv2.NewPipelineRun(runner, spec, l)
 			)
 
 			runner.
