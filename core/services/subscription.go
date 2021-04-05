@@ -321,11 +321,12 @@ func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.Filt
 			return backfilledSet
 		}
 		for _, log := range batchLogs {
-			backfilledSet[log.BlockHash.String()] = true
 			select {
 			case <-ctx.Done():
 				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				return backfilledSet
 			default:
+				backfilledSet[log.BlockHash.String()] = true
 				sub.callback(log)
 			}
 		}
