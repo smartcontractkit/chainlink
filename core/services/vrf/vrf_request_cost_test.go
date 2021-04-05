@@ -20,6 +20,7 @@ func TestMeasureRandomnessRequestGasCost(t *testing.T) {
 
 	assert.Greater(t, estimate, uint64(134000),
 		"requestRandomness tx gas cost lower than expected")
-	assert.Less(t, estimate, uint64(160000),
+	// Note: changed from 160000 to 164079 in the Berlin hard fork (Geth 1.10)
+	assert.Less(t, estimate, uint64(164080),
 		"requestRandomness tx gas cost higher than expected")
 }

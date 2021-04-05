@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +74,7 @@ func setupFluxAggregatorUniverse(t *testing.T, key models.Key, min, max *big.Int
 		f.ned.From:     {Balance: oneEth},
 		f.nallory.From: {Balance: oneEth},
 	}
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = backends.NewSimulatedBackend(genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
@@ -602,12 +602,9 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	initr.InitiatorParams.Precision = 8
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	go func() {
-		for {
-			fa.backend.Commit()
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
+	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
+	defer closer()
+
 	// We should see a spec error because the value is too large to submit on-chain.
 	jse := cltest.WaitForSpecError(t, app.Store, j.ID, 1)
 	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")
