@@ -27,6 +27,12 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	// processHeadTimeout represents a sanity limit on how long ProcessHead
+	// should take to complete
+	processHeadTimeout = 10 * time.Minute
+)
+
 var (
 	// ErrCouldNotGetReceipt is the error string we save if we reach our finality depth for a confirmed transaction without ever getting a receipt
 	// This most likely happened because an external wallet used the account for this nonce
@@ -154,18 +160,24 @@ func (ec *ethConfirmer) runLoop() {
 
 // ProcessHead takes all required transactions for the confirmer on a new head
 func (ec *ethConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
-	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
+	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
+	defer cancel()
+
+	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.Background(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
 		return ec.processHead(ctx, head)
 	})
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
 func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error {
+	mark := time.Now()
+
+	// TODO: Use a local logger?
+	logger.Debugw("EthConfirmer: processHead", "headNum", head.Number, "time", mark, "id", "eth_confirmer")
+
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
-
-	mark := time.Now()
 
 	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
@@ -203,7 +215,7 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 }
 
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	batchSize := int(ec.config.EthReceiptFetchBatchSize())
+	batchSize := int(ec.config.EthRPCDefaultBatchSize())
 
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
 	if err != nil {
@@ -229,16 +241,16 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
-		if err := ec.saveFetchedReceipts(ctx, receipts); err != nil {
+		if err := ec.saveFetchedReceipts(receipts); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 	}
 
-	if err := ec.markConfirmedMissingReceipt(ctx); err != nil {
+	if err := ec.markConfirmedMissingReceipt(); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.markOldTxesMissingReceiptAsErrored(ctx, blockNum); err != nil {
+	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 
@@ -265,6 +277,9 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		}
 		reqs = append(reqs, req)
 	}
+
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
 
 	err = ec.ethClient.BatchCallContext(ctx, reqs)
 	if err != nil {
@@ -326,7 +341,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 	return
 }
 
-func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Receipt) (err error) {
+func (ec *ethConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -392,6 +407,10 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 	`
 
 	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	_, err = ec.store.MustSQLDB().ExecContext(ctx, stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
@@ -416,11 +435,15 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 //
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
-func (ec *ethConfirmer) markConfirmedMissingReceipt(ctx context.Context) (err error) {
+func (ec *ethConfirmer) markConfirmedMissingReceipt() (err error) {
 	d, err := ec.store.DB.DB()
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	_, err = d.ExecContext(ctx, `
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
@@ -440,7 +463,7 @@ AND nonce < (
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64) error {
+func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error {
 	// cutoff is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
 	// We will not try to query for receipts for this transaction any more
@@ -452,6 +475,10 @@ func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, 
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	rows, err := d.QueryContext(ctx, `
 UPDATE eth_txes
 SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
@@ -558,10 +585,8 @@ func (ec *ethConfirmer) rebroadcastWhereNecessary(ctx context.Context, address g
 // re-org, so multiple attempts are allowed to be in in_progress state (but
 // only one per eth_tx).
 func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address gethCommon.Address, blockHeight int64) error {
-	attempts, err := getInProgressEthTxAttempts(ctx, ec.store, address)
-	if ctx.Err() != nil {
-		return nil
-	} else if err != nil {
+	attempts, err := getInProgressEthTxAttempts(ec.store, address)
+	if err != nil {
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
@@ -575,7 +600,10 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 	return nil
 }
 
-func getInProgressEthTxAttempts(ctx context.Context, s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
+func getInProgressEthTxAttempts(s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	var attempts []models.EthTxAttempt
 	err := s.DB.
 		WithContext(ctx).
