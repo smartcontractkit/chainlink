@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -516,48 +515,6 @@ func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
 // readable format.
 func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
 	return sa.Encumbrance.AggFulfillSelector.String()
-}
-
-// UserPresenter wraps the user record for shipping as a jsonapi response in
-// the API.
-type UserPresenter struct {
-	*models.User
-}
-
-// GetID returns the jsonapi ID.
-func (u UserPresenter) GetID() string {
-	return u.User.Email
-}
-
-// GetName returns the collection name for jsonapi.
-func (u UserPresenter) GetName() string {
-	return "users"
-}
-
-// MarshalJSON returns the User as json.
-func (u UserPresenter) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		Email     string `json:"email"`
-		CreatedAt string `json:"createdAt"`
-	}{
-		Email:     u.User.Email,
-		CreatedAt: utils.ISO8601UTC(u.User.CreatedAt),
-	})
-}
-
-// NewAccount is a jsonapi wrapper for an Ethereum account.
-type NewAccount struct {
-	*accounts.Account
-}
-
-// GetID returns the jsonapi ID.
-func (a NewAccount) GetID() string {
-	return a.Address.String()
-}
-
-// GetName returns the collection name for jsonapi.
-func (a NewAccount) GetName() string {
-	return "keys"
 }
 
 // EthTx is a jsonapi wrapper for an Ethereum Transaction.
