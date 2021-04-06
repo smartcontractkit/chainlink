@@ -3,12 +3,13 @@ package services_test
 import (
 	"context"
 	"errors"
-	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
