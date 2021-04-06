@@ -677,10 +677,6 @@ func (c Config) EthLogBackfillBatchSize() uint32 {
 	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
 }
 
-func (c Config) EthLogBackfillBatchSize() uint32 {
-	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
-}
-
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
 func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
