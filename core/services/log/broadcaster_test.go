@@ -600,7 +600,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 
 			// Send initial logs
 			chRawLogs1 := <-helper.chchRawLogs
-			cleanup, _ := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+			cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock:    test.blockHeight1,
 				EndBlock:      test.blockHeight2 + 1,
 				BackfillDepth: backfillDepth,
@@ -627,6 +627,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			expectedA := newReceived(pickLogs(t, logsA, test.batch1))
 			logListenerA.requireAllReceived(t, expectedA)
 
+			<-headsDone
 			cleanup()
 
 			helper.mockEth.ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: test.blockHeight2}, nil).Once()

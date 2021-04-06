@@ -600,12 +600,16 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 }
 
 func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
-	head, err := ht.store.LastHead(context.Background())
+	head, err := ht.HighestSeenHeadFromDB()
 	if err != nil {
 		return err
 	}
 	ht.highestSeenHead = head
 	return nil
+}
+
+func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+	return ht.store.LastHead(context.Background())
 }
 
 // chainIDVerify checks whether or not the ChainID from the Chainlink config

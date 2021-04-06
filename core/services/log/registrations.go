@@ -10,19 +10,29 @@ import (
 )
 
 // How it works in general:
-// 1. All received logs are kept in a data structure and deleted ONLY after they are too old for all subscribers
-// 2. The logs are attempted to be sent after every new head arrival:
+// 1. Each listener being registered can specify a custom NumConfirmations - number of block confirmations required for any log being sent to it.
+// 2. Adding and removing listeners updates the highestNumConfirmations - a number tracking what's the current highest NumConfirmations globally
+//
+// 3. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers
+// (when given log height is lower than (latest height - highestNumConfirmations) ) -> see: pool.go
+//
+// 4. The logs are attempted to be sent after every new head arrival:
 // 		Each stored log is then checked against every matched listener and is sent unless:
 //    A) is too young for that listener
 //    B) the corresponding block height is known to be already processed for that listener
-// So in the normal case, each log will be only processed once, and then its corresponding head will be remembered, so it's not double-sent
-// In case of a re-org, the stored lowestAllowedBlockNumber is reset, so the logs from that chain are considered unprocessed at first.
+// In the normal case, each log will be only processed once, and then its corresponding head will be remembered, so it's not double-sent
+//
+// After processing the whole batch of logs considered for sending, the per-listener metadata is updated in applyListenerInfoUpdates.
+// If a re-org happens, the stored lowestAllowedBlockNumber (per-listener) is re-set,
+// so the logs from that chain are then considered unprocessed, and will be sent again.
+//
 type (
 	registrations struct {
 		registrations map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
 		decoders      map[common.Address]AbigenContract
 
-		// highest 'num_confirmations' per all listeners, used to know when to delete old logs
+		// highest 'NumConfirmations' per all listeners, used to decide when it's safe to delete older logs
+		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}
 
@@ -158,7 +168,7 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead *models.Head) {
 	updates := make([]listenerMetadataUpdate, 0)
 	for _, log := range logs {
-		logger.Tracef("Sending log at block num: %v", log.BlockNumber)
+		logger.Tracew("LogBroadcaster: Sending a log", "logBlockNumber", log.BlockNumber)
 		r.sendLog(log, orm, latestHead, &updates)
 	}
 	applyListenerInfoUpdates(updates, latestHead)
@@ -172,7 +182,7 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 		numConfirmations := metadata.opts.NumConfirmations
 
 		if latestBlockNumber < numConfirmations {
-			logger.Tracef("Skipping send because not enough height to send: %v - num confirmations: %v", latestBlockNumber, numConfirmations)
+			logger.Tracew("LogBroadcaster: Skipping send because not enough height to send", "latestBlockNumber", latestBlockNumber, "numConfirmations", numConfirmations)
 			continue
 		}
 
@@ -186,12 +196,12 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 
 		// all logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
 		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
-			logger.Tracef("Skipping send because height %v is below lowest unprocessed: %v in current chain (ending at %v - %v)",
-				log.BlockNumber, metadata.lowestAllowedBlockNumber, metadata.lastSeenChain.Number, metadata.lastSeenChain.Hash)
+			logger.Tracew("LogBroadcaster: Skipping send because the log height is below lowest unprocessed in the currently remembered chain",
+				"logBlockNumber", log.BlockNumber, "lowestAllowedBlockNumber", metadata.lowestAllowedBlockNumber, "lastSeenChainHash", metadata.lastSeenChain.Hash)
 			continue
 		} else {
-			logger.Tracef("height %v, lowest unprocessed: %v in current chain (chain %v)",
-				log.BlockNumber, metadata.lowestAllowedBlockNumber, metadata.lastSeenChain)
+			logger.Tracew("LogBroadcaster: Sending out the log",
+				"logBlockNumber", log.BlockNumber, "lowestAllowedBlockNumber", metadata.lowestAllowedBlockNumber)
 		}
 
 		// make sure that this log is not sent again on the next head by increasing the newLowestAllowedBlockNumber
@@ -234,17 +244,20 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 	for _, update := range updates {
 		if update.toUpdate.lastSeenChain == nil || latestHead.IsInChain(update.toUpdate.lastSeenChain.Hash) {
 			if update.toUpdate.lastSeenChain == nil {
-				logger.Tracef("No chain saved for listener on address (%v), confirmations: %v", update.toUpdate.opts.Contract.Address(), update.toUpdate.opts.NumConfirmations)
+				logger.Tracew("LogBroadcaster: No chain saved for this listener yet",
+					"contractAddress", update.toUpdate.opts.Contract.Address(), "numConfirmations", update.toUpdate.opts.NumConfirmations)
 			}
 			if update.toUpdate.lowestAllowedBlockNumber < update.newLowestAllowedBlockNumber {
 				update.toUpdate.lowestAllowedBlockNumber = update.newLowestAllowedBlockNumber
 			}
 		} else {
-			logger.Debugf("Chain reorg on height %v, hash: %v is not in %v (%v)", latestHead.Number, latestHead.Hash, update.toUpdate.lastSeenChain.Number, update.toUpdate.lastSeenChain.Hash)
+			logger.Debugw("LogBroadcaster: Chain reorg - resetting lowestAllowedBlockNumber",
+				"blockNumber", latestHead.Number, "blockHash", latestHead.Hash,
+				"lastSeenChainNumber", update.toUpdate.lastSeenChain.Number, "lastSeenChainHash", update.toUpdate.lastSeenChain.Hash)
 			// re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
 			update.toUpdate.lowestAllowedBlockNumber = 0
 		}
-		logger.Tracef("Setting (%v %v) as latest head", latestHead.Number, latestHead.Hash)
+		logger.Tracew("LogBroadcaster: Setting as latest head for this listener", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
 
 		update.toUpdate.lastSeenChain = latestHead
 	}
