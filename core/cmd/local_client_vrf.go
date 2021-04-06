@@ -322,9 +322,7 @@ func (cli *Client) ListVRFKeys(c *cli.Context) error {
 		})
 	}
 
-	cli.Render(&presenters, "🔑 VRF Keys")
-
-	return nil
+	return cli.errorOut(cli.Render(&presenters, "🔑 VRF Keys"))
 }
 
 func noFileToOverwrite(path string) bool {

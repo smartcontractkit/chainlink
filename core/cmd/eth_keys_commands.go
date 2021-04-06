@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
-	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 )
@@ -79,7 +78,7 @@ func (cli *Client) DeleteETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var key webPresenter.ETHKeyResource
+	var key presenters.ETHKeyResource
 	return cli.renderAPIResponse(resp, &key, fmt.Sprintf("🔑 %s", confirmationMsg))
 }
 
@@ -116,7 +115,7 @@ func (cli *Client) ImportETHKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var key webPresenter.ETHKeyResource
+	var key presenters.ETHKeyResource
 	return cli.renderAPIResponse(resp, &key, "🔑 Imported ETH key")
 }
 
