@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
@@ -78,7 +79,11 @@ func Test_EthResender_Start(t *testing.T) {
 			return len(b) == 2 &&
 				b[0].Method == "eth_sendRawTransaction" && b[0].Args[0] == hexutil.Encode(etx.EthTxAttempts[0].SignedRawTx) &&
 				b[1].Method == "eth_sendRawTransaction" && b[1].Args[0] == hexutil.Encode(etx2.EthTxAttempts[0].SignedRawTx)
-		})).Return(nil)
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			// It should update BroadcastAt even if there is an error here
+			elems[1].Error = errors.New("kaboom")
+		})
 
 		func() {
 			er.Start()

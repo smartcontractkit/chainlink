@@ -97,15 +97,16 @@ func (er *EthResender) resendUnconfirmed() error {
 
 	logger.Debugw(fmt.Sprintf("EthResender: re-sending %d transactions that were last sent over %s ago", len(attempts), er.ageThreshold), "n", len(attempts))
 
-	var reqs []rpc.BatchElem
-	for _, attempt := range attempts {
+	reqs := make([]rpc.BatchElem, len(attempts))
+	ethTxIDs := make([]int64, len(attempts))
+	for i, attempt := range attempts {
+		ethTxIDs[i] = attempt.EthTxID
 		req := rpc.BatchElem{
 			Method: "eth_sendRawTransaction",
 			Args:   []interface{}{hexutil.Encode(attempt.SignedRawTx)},
 			Result: &common.Hash{},
 		}
-
-		reqs = append(reqs, req)
+		reqs[i] = req
 	}
 
 	now := time.Now()
@@ -113,20 +114,11 @@ func (er *EthResender) resendUnconfirmed() error {
 		return errors.Wrap(err, "failed to re-send transactions")
 	}
 
-	var succeeded []int64
-	for i, req := range reqs {
-		if req.Error == nil {
-			succeeded = append(succeeded, attempts[i].EthTxID)
-		}
-	}
-
-	if err := er.updateBroadcastAts(now, succeeded); err != nil {
+	if err := er.updateBroadcastAts(now, ethTxIDs); err != nil {
 		return errors.Wrap(err, "failed to update last succeeded on attempts")
 	}
-	nSuccess := len(succeeded)
-	nErrored := len(attempts) - nSuccess
 
-	logger.Debugw("EthResender: completed", "nSuccess", nSuccess, "nErrored", nErrored)
+	logResendResult(reqs)
 
 	return nil
 }
@@ -155,4 +147,18 @@ func (er *EthResender) updateBroadcastAts(now time.Time, etxIDs []int64) error {
 	// priced transaction always wins) we only want to update broadcast_at if
 	// our version is later.
 	return er.db.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ANY(?) AND broadcast_at < ?`, now, pq.Array(etxIDs), now).Error
+}
+
+func logResendResult(reqs []rpc.BatchElem) {
+	var nNew int
+	var nFatal int
+	for _, req := range reqs {
+		serr := eth.NewSendError(req.Error)
+		if serr == nil {
+			nNew++
+		} else if serr.Fatal() {
+			nFatal++
+		}
+	}
+	logger.Debugw("EthResender: completed", "n", len(reqs), "nNew", nNew, "nFatal", nFatal)
 }

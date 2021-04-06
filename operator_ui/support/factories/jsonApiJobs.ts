@@ -1,7 +1,12 @@
 import { ApiResponse } from 'utils/json-api-client'
 import { ResourceObject } from 'json-api-normalizer'
 import { JobSpecV2 } from 'core/store/models'
-import { directRequestJobV2, fluxMonitorJobV2, ocrJobSpecV2 } from './jobSpecV2'
+import {
+  directRequestJobV2,
+  fluxMonitorJobV2,
+  keeperJobV2,
+  ocrJobSpecV2,
+} from './jobSpecV2'
 
 function getRandomInt(max: number) {
   return Math.floor(Math.random() * Math.floor(max))
@@ -60,5 +65,17 @@ export const fluxMonitorJobResource = (
     type: 'jobs',
     id,
     attributes: fluxMonitorJobV2(job, { name: job.name }),
+  } as ResourceObject<JobSpecV2>
+}
+
+export const keeperJobResource = (
+  job: Partial<JobSpecV2['keeperSpec'] & { id?: string; name?: string }>,
+) => {
+  const id = job.id || getRandomInt(1_000_000).toString()
+
+  return {
+    type: 'jobs',
+    id,
+    attributes: keeperJobV2(job, { name: job.name }),
   } as ResourceObject<JobSpecV2>
 }
