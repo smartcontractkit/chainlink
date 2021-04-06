@@ -99,7 +99,7 @@ func (l *listener) Start() error {
 }
 
 // Close complies with job.Service
-func (l listener) Close() error {
+func (l *listener) Close() error {
 	if l.unsubscribeLogs != nil {
 		l.unsubscribeLogs()
 	}
@@ -107,13 +107,13 @@ func (l listener) Close() error {
 }
 
 // OnConnect complies with log.Listener
-func (listener) OnConnect() {}
+func (*listener) OnConnect() {}
 
 // OnDisconnect complies with log.Listener
-func (listener) OnDisconnect() {}
+func (*listener) OnDisconnect() {}
 
 // OnConnect complies with log.Listener
-func (l listener) HandleLog(lb log.Broadcast) {
+func (l *listener) HandleLog(lb log.Broadcast) {
 	was, err := lb.WasAlreadyConsumed()
 	if err != nil {
 		logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
@@ -187,16 +187,16 @@ func (l *listener) handleCancelOracleRequest(requestID [32]byte) {
 }
 
 // JobID complies with log.Listener
-func (listener) JobID() models.JobID {
+func (*listener) JobID() models.JobID {
 	return models.NilJobID
 }
 
 // Job complies with log.Listener
-func (l listener) JobIDV2() int32 {
+func (l *listener) JobIDV2() int32 {
 	return l.jobID
 }
 
 // IsV2Job complies with log.Listener
-func (listener) IsV2Job() bool {
+func (*listener) IsV2Job() bool {
 	return true
 }
