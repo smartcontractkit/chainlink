@@ -19,6 +19,11 @@ func NewJAIDInt32(id int32) JAID {
 	return JAID{strconv.Itoa(int(id))}
 }
 
+// NewJAIDInt64 converts an int64 into a JAID
+func NewJAIDInt64(id int64) JAID {
+	return JAID{strconv.Itoa(int(id))}
+}
+
 // GetID implements the api2go MarshalIdentifier interface.
 func (jaid JAID) GetID() string {
 	return jaid.ID
