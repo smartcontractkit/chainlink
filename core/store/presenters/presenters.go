@@ -14,8 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -29,30 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 )
-
-// ETHKey holds the hex representation of the address plus it's ETH & LINK balances
-type ETHKey struct {
-	Address     string         `json:"address"`
-	EthBalance  *assets.Eth    `json:"ethBalance"`
-	LinkBalance *assets.Link   `json:"linkBalance"`
-	NextNonce   int64          `json:"nextNonce"`
-	LastUsed    *time.Time     `json:"lastUsed"`
-	IsFunding   bool           `json:"isFunding"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `json:"deletedAt"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (k ETHKey) GetID() string {
-	return k.Address
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (k *ETHKey) SetID(value string) error {
-	k.Address = value
-	return nil
-}
 
 // ConfigPrinter are the non-secret values of the node
 //
@@ -125,7 +99,7 @@ type EnvPrinter struct {
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
 	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
-	OperatorContractAddress               common.Address  `json:"oracleContractAddress"`
+	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
 	Port                                  uint16          `json:"chainlinkPort"`
 	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                       int64           `json:"replayFromBlock"`
