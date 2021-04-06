@@ -390,10 +390,10 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
-// EthReceiptFetchBatchSize controls the number of receipts fetched in each
+// EthRPCDefaultBatchSize controls the number of receipts fetched in each
 // request in the EthConfirmer
-func (c Config) EthReceiptFetchBatchSize() uint32 {
-	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
+func (c Config) EthRPCDefaultBatchSize() uint32 {
+	return c.viper.GetUint32(EnvVarName("EthRPCDefaultBatchSize"))
 }
 
 // EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
@@ -431,6 +431,11 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 // 0 value disables
 func (c Config) EthMaxUnconfirmedTransactions() uint64 {
 	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
+// EthNonceAutoSync enables/disables running the NonceSyncer on application start
+func (c Config) EthNonceAutoSync() bool {
+	return c.getWithFallback("EthNonceAutoSync", parseBool).(bool)
 }
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
