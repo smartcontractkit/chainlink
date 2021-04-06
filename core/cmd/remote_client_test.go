@@ -659,7 +659,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.NoError(t, err)
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
-		ChangePasswordRequest: models.ChangePasswordRequest{
+		UpdatePasswordRequest: web.UpdatePasswordRequest{
 			OldPassword: cltest.Password,
 			NewPassword: "_p4SsW0rD1!@#",
 		},
