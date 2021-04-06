@@ -246,6 +246,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 	// If we spend too long backfilling without processing
 	// logs from our subscription, geth will consider the client dead
 	// and drop the subscription, so we set an upper bound on backlog processing time.
+	// https://github.com/ethereum/go-ethereum/blob/2e5d14170846ae72adc47467a1129e41d6800349/rpc/client.go#L430
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	backfilledSet := sub.backfillLogs(ctx, q)
