@@ -1199,8 +1199,8 @@ func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
 }
 
 // TrimOldHeads deletes heads such that only the top N block numbers remain
-func (orm *ORM) TrimOldHeads(n uint) (err error) {
-	return orm.DB.Exec(`
+func (orm *ORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
+	return orm.DB.WithContext(ctx).Exec(`
 	DELETE FROM heads
 	WHERE number < (
 		SELECT min(number) FROM (
