@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -662,8 +661,15 @@ func (p *PollingDeviationChecker) consume() {
 }
 
 func (p *PollingDeviationChecker) SetOracleAddress() error {
+	log := logger.Default.With(
+		"jobID", p.initr.JobSpecID.String(),
+		"contract", p.initr.Address.Hex(),
+	)
+
 	oracleAddrs, err := p.fluxAggregator.GetOracles(nil)
 	if err != nil {
+		log.Error("failed to get list of oracles from FluxAggregator contract")
+
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
 	accounts := p.store.KeyStore.Accounts()
@@ -676,9 +682,7 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 		}
 	}
 
-	l := logger.Default.With(
-		"jobID", p.initr.JobSpecID.String(),
-		"contract", p.initr.Address.Hex(),
+	log = log.With(
 		"accounts", accounts,
 		"oracleAddresses", oracleAddrs,
 	)
@@ -686,16 +690,17 @@ func (p *PollingDeviationChecker) SetOracleAddress() error {
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
 
-		l.Warnw(
+		log.Warnw(
 			"None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
 			"address", addr.Hex(),
 		)
 		p.oracleAddress = addr
-	} else {
-		l.Error("No keys found. This flux monitor job may not work correctly")
+
+		return nil
 	}
 
-	return errors.New("none of the node's keys matched any oracle addresses")
+	log.Error("No keys found. This flux monitor job may not work correctly")
+	return errors.New("No keys found")
 }
 
 func (p *PollingDeviationChecker) performInitialPoll() {
@@ -912,16 +917,16 @@ func (p *PollingDeviationChecker) respondToNewRoundLog(log flux_aggregator_wrapp
 
 	l.Infow("Responding to new round request")
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
 	lrd, err := p.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		l.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	ctx, cancel := utils.CombinedContext(p.chStop)
@@ -1049,16 +1054,16 @@ func (p *PollingDeviationChecker) pollIfEligible(thresholds DeviationThresholds)
 		return
 	}
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
 	lrd, err := p.fluxAggregator.LatestRoundData(nil)
-	if err != nil && !strings.Contains(err.Error(), "No data present") {
-		l.Warnw("Error reading latest round data for request meta", "err", err)
-		return
-	}
-	// If no data present, just send 0 for backwards compatibility.
-	metaDataForBridge, err := models.BridgeMetaData(lrd.Answer, lrd.UpdatedAt)
 	if err != nil {
-		logger.Warnw("Error marshalling roundState for request meta", "err", err)
-		return
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
 	}
 
 	ctx, cancel := utils.CombinedContext(p.chStop)

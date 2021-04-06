@@ -128,11 +128,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta, false},
-		},
-	}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.NoError(t, result.Error)
 	require.NotNil(t, result.Value)
 	var x struct {
@@ -158,11 +154,12 @@ func TestBridgeTask_Meta(t *testing.T) {
 		err := json.Unmarshal(body, &req)
 		require.NoError(t, err)
 		require.Equal(t, 10, req.Meta["latestAnswer"])
+		require.Equal(t, 1616447984, req.Meta["updatedAt"])
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(empty))
 	})
 
-	metaDataForBridge, err := models.BridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
+	metaDataForBridge, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(1616447984))
 	require.NoError(t, err)
 
 	s1 := httptest.NewServer(handler)
@@ -181,11 +178,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{metaDataForBridge, false},
-		},
-	}, nil)
+	task.Run(context.Background(), pipeline.JSONSerializable{metaDataForBridge, false}, nil)
 }
 
 func TestBridgeTask_ErrorMessage(t *testing.T) {
@@ -219,7 +212,7 @@ func TestBridgeTask_ErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "could not hit data fetcher")
 	require.Nil(t, result.Value)
@@ -254,7 +247,7 @@ func TestBridgeTask_OnlyErrorMessage(t *testing.T) {
 	bridge.URL = *feedWebURL
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{}, nil)
 	require.Error(t, result.Error)
 	require.Contains(t, result.Error.Error(), "RequestId")
 	require.Nil(t, result.Value)
@@ -277,11 +270,7 @@ func TestBridgeTask_ErrorIfBridgeMissing(t *testing.T) {
 	}
 	task.HelperSetConfigAndTxDB(store.Config, store.DB)
 
-	result := task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta, false},
-		},
-	}, nil)
+	result := task.Run(context.Background(), pipeline.JSONSerializable{emptyMeta, false}, nil)
 	require.Nil(t, result.Value)
 	require.Error(t, result.Error)
 	require.Equal(t, "could not find bridge with name 'foo': record not found", result.Error.Error())
@@ -311,49 +300,4 @@ func TestAdapterResponse_UnmarshalJSON_Happy(t *testing.T) {
 			require.Equal(t, test.expect.String(), result.String())
 		})
 	}
-}
-
-func TestBridgeTask_AddsID(t *testing.T) {
-	t.Parallel()
-
-	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-
-	var empty adapterResponse
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req adapterRequest
-		body, _ := ioutil.ReadAll(r.Body)
-		err := json.Unmarshal(body, &req)
-		require.NoError(t, err)
-		require.NotEmpty(t, req.ID)
-		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(empty))
-	})
-
-	s1 := httptest.NewServer(handler)
-	defer s1.Close()
-	feedURL, err := url.ParseRequestURI(s1.URL)
-	require.NoError(t, err)
-	feedWebURL := (*models.WebURL)(feedURL)
-
-	task := pipeline.BridgeTask{
-		Name:        "test",
-		RequestData: pipeline.HttpRequestData(ethUSDPairing),
-	}
-	// Bridge task should be true by default.
-	store.Config.Set("DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS", false)
-	task.HelperSetConfigAndTxDB(store.Config, store.DB)
-
-	_, bridge := cltest.NewBridgeType(t)
-	bridge.URL = *feedWebURL
-	bridge.Name = "test"
-	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
-
-	r := task.Run(context.Background(), pipeline.TaskRun{
-		PipelineRun: pipeline.Run{
-			Meta: pipeline.JSONSerializable{emptyMeta, false},
-		},
-	}, nil)
-	require.NoError(t, r.Error)
 }

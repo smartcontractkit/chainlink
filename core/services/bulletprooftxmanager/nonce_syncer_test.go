@@ -268,9 +268,9 @@ func Test_NonceSyncer_MakeInsert(t *testing.T) {
 	t.Run("falls back to zero insert if encodeRLP would fail for some reason, e.g. tx is zero struct", func(t *testing.T) {
 		ns := bulletprooftxmanager.NewNonceSyncer(store, store.Config, ethClient)
 
-		tx := types.Transaction{}
+		tx := types.NewTx(&types.LegacyTx{})
 
-		ins, err := ns.MakeInsert(tx, acct, blockNum, int64(nonce))
+		ins, err := ns.MakeInsert(*tx, acct, blockNum, int64(nonce))
 		require.NoError(t, err)
 
 		assertZero(t, ins, store, from, int64(nonce), blockNum)
