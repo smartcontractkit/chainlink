@@ -41,7 +41,6 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec returns the log listener service for a direct request job
-// TODO: This will need heavy test coverage
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
 	if spec.DirectRequestSpec == nil {
 		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", spec)
