@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_consumer_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_multiword_consumer_interface"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_request_id"
 )
 
@@ -33,13 +34,15 @@ import (
 // is fulfilled.
 type coordinatorUniverse struct {
 	// Golang wrappers ofr solidity contracts
-	rootContract            *solidity_vrf_coordinator_interface.VRFCoordinator
-	linkContract            *link_token_interface.LinkToken
-	consumerContract        *solidity_vrf_consumer_interface.VRFConsumer
-	requestIDBase           *solidity_vrf_request_id.VRFRequestIDBaseTestHelper
-	rootContractAddress     common.Address
-	consumerContractAddress common.Address
-	linkContractAddress     common.Address
+	rootContract              *solidity_vrf_coordinator_interface.VRFCoordinator
+	linkContract              *link_token_interface.LinkToken
+	consumerContract          *solidity_vrf_consumer_interface.VRFConsumer
+	multiwordConsumerContract *solidity_vrf_multiword_consumer_interface.VRFMultiWordConsumer
+	requestIDBase             *solidity_vrf_request_id.VRFRequestIDBaseTestHelper
+	rootContractAddress       common.Address
+	consumerContractAddress   common.Address
+	multiwordConsumerAddress  common.Address
+	linkContractAddress       common.Address
 	// Abstraction representation of the ethereum blockchain
 	backend        *backends.SimulatedBackend
 	coordinatorABI *abi.ABI
@@ -101,23 +104,30 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 	_, _, requestIDBase, err :=
 		solidity_vrf_request_id.DeployVRFRequestIDBaseTestHelper(neil, backend)
 	require.NoError(t, err, "failed to deploy VRFRequestIDBaseTestHelper contract to simulated ethereum blockchain")
+	multiwordConsumerAddress, _, multiwordConsumerContract, err :=
+		solidity_vrf_multiword_consumer_interface.DeployVRFMultiWordConsumer(carol,
+			backend, coordinatorAddress, linkAddress)
 	_, err = linkContract.Transfer(sergey, consumerContractAddress, oneEth) // Actually, LINK
 	require.NoError(t, err, "failed to send LINK to VRFConsumer contract on simulated ethereum blockchain")
+	_, err = linkContract.Transfer(sergey, multiwordConsumerAddress, oneEth) // Actually, LINK
+	require.NoError(t, err, "failed to send LINK to VRFMultiWordConsumer contract on simulated ethereum blockchain")
 	backend.Commit()
 	return coordinatorUniverse{
-		rootContract:            coordinatorContract,
-		rootContractAddress:     coordinatorAddress,
-		linkContract:            linkContract,
-		linkContractAddress:     linkAddress,
-		consumerContract:        consumerContract,
-		requestIDBase:           requestIDBase,
-		consumerContractAddress: consumerContractAddress,
-		backend:                 backend,
-		coordinatorABI:          &coordinatorABI,
-		consumerABI:             &consumerABI,
-		sergey:                  sergey,
-		neil:                    neil,
-		carol:                   carol,
+		rootContract:              coordinatorContract,
+		rootContractAddress:       coordinatorAddress,
+		linkContract:              linkContract,
+		linkContractAddress:       linkAddress,
+		consumerContract:          consumerContract,
+		requestIDBase:             requestIDBase,
+		multiwordConsumerContract: multiwordConsumerContract,
+		consumerContractAddress:   consumerContractAddress,
+		multiwordConsumerAddress:  multiwordConsumerAddress,
+		backend:                   backend,
+		coordinatorABI:            &coordinatorABI,
+		consumerABI:               &consumerABI,
+		sergey:                    sergey,
+		neil:                      neil,
+		carol:                     carol,
 	}
 }
 
