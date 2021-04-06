@@ -34,7 +34,7 @@ func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations ui
 				logsToKeep = append(logsToKeep, log)
 			}
 		}
-		logger.Tracef("latestBlockNum (%v) > highestNumConfirmations (%v) so deleting older logs. Remaining: %v", latestBlockNum, highestNumConfirmations, len(logsToKeep))
+		logger.Tracew("LogBroadcaster: latestBlockNum > highestNumConfirmations so deleting older logs", "latestBlockNum", latestBlockNum, "highestNumConfirmations", highestNumConfirmations, "remainingLogsCount", len(logsToKeep))
 		pool.allLogs = logsToKeep
 	}
 	return logsToReturn

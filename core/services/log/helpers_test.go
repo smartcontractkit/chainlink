@@ -174,8 +174,8 @@ func newLogListener(t *testing.T, store *store.Store, name string) *simpleLogLis
 	}
 }
 
-func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
-	logger.Warnf(">>>>>>>>>>>>>>> Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
+func (listener simpleLogListener) HandleLog(lb log.Broadcast) {
+	logger.Warnf("Listener %v HandleLog for block %v %v received at %v %v", listener.name, lb.RawLog().BlockNumber, lb.RawLog().BlockHash, lb.LatestBlockNumber(), lb.LatestBlockHash())
 	listener.received.Lock()
 	defer listener.received.Unlock()
 	listener.received.logs = append(listener.received.logs, lb.RawLog())
@@ -187,23 +187,23 @@ func (listener *simpleLogListener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func (listener *simpleLogListener) OnConnect()    {}
-func (listener *simpleLogListener) OnDisconnect() {}
-func (listener *simpleLogListener) JobID() models.JobID {
+func (listener simpleLogListener) OnConnect()    {}
+func (listener simpleLogListener) OnDisconnect() {}
+func (listener simpleLogListener) JobID() models.JobID {
 	return listener.consumerID
 }
-func (listener *simpleLogListener) IsV2Job() bool {
+func (listener simpleLogListener) IsV2Job() bool {
 	return false
 }
-func (listener *simpleLogListener) JobIDV2() int32 {
+func (listener simpleLogListener) JobIDV2() int32 {
 	return 0
 }
 
-func (listener *simpleLogListener) getUniqueLogs() []types.Log {
+func (listener simpleLogListener) getUniqueLogs() []types.Log {
 	return listener.received.uniqueLogs
 }
 
-func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
+func (listener simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
 	require.Eventually(t, func() bool {
 		received.Lock()

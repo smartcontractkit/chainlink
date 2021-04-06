@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -24,6 +25,14 @@ type (
 	// of creating a new subscription for each request, it multiplexes all subscriptions
 	// to all of the relevant contracts over a single connection and forwards the logs to the
 	// relevant subscribers.
+	//
+	// In case of node crash and/or restart, the logs will be backfilled from the latest head from DB,
+	// for subscribers that are added before all dependents of LogBroadcaster are done.
+	//
+	// If a subscriber is added after the LogBroadcaster does the initial backfill,
+	// then it's possible/likely that the backfill fill only have depth: 1 (from latest head)
+	//
+	// Of course, these backfilled logs + any new logs will only be sent after the NumConfirmations for given subscriber.
 	Broadcaster interface {
 		utils.DependentAwaiter
 		Start() error
@@ -32,6 +41,7 @@ type (
 		Register(listener Listener, opts ListenerOpts) (unsubscribe func())
 		SetLatestHeadFromStorage(head *models.Head)
 		LatestHead() *models.Head
+		TrackedAddressesCount() uint32
 	}
 
 	broadcaster struct {
@@ -51,9 +61,9 @@ type (
 		utils.StartStopOnce
 		utils.DependentAwaiter
 
-		headFromStorageAwaiter utils.DependentAwaiter
-		chStop                 chan struct{}
-		chDone                 chan struct{}
+		chStop                chan struct{}
+		chDone                chan struct{}
+		trackedAddressesCount uint32
 	}
 
 	Config interface {
@@ -82,40 +92,45 @@ var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
 func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
-	headAwaiter := utils.NewDependentAwaiter()
-	headAwaiter.AddDependents(1)
 	chStop := make(chan struct{})
 	return &broadcaster{
-		orm:                    orm,
-		config:                 config,
-		connected:              abool.New(),
-		ethSubscriber:          newEthSubscriber(ethClient, config, chStop),
-		registrations:          newRegistrations(),
-		logPool:                newLogPool(),
-		addSubscriber:          utils.NewMailbox(0),
-		rmSubscriber:           utils.NewMailbox(0),
-		newHeads:               utils.NewMailbox(1),
-		DependentAwaiter:       utils.NewDependentAwaiter(),
-		headFromStorageAwaiter: headAwaiter,
-		chStop:                 chStop,
-		chDone:                 make(chan struct{}),
+		orm:              orm,
+		config:           config,
+		connected:        abool.New(),
+		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
+		registrations:    newRegistrations(),
+		logPool:          newLogPool(),
+		addSubscriber:    utils.NewMailbox(0),
+		rmSubscriber:     utils.NewMailbox(0),
+		newHeads:         utils.NewMailbox(1),
+		DependentAwaiter: utils.NewDependentAwaiter(),
+		chStop:           chStop,
+		chDone:           make(chan struct{}),
 	}
+}
+
+func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
+	b.latestHead = head
 }
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("Log broadcaster", func() error {
+		if b.latestHead != nil {
+			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHead.Number, "blockHash", b.latestHead.Hash)
+		} else {
+			logger.Warn("LogBroadcaster: Latest head from DB was not set or does not exist.")
+		}
 		go b.awaitInitialSubscribers()
 		return nil
 	})
 }
 
-func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	b.latestHead = head
-	b.headFromStorageAwaiter.DependentReady()
-}
-
 func (b *broadcaster) LatestHead() *models.Head {
 	return b.latestHead
+}
+
+func (b *broadcaster) TrackedAddressesCount() uint32 {
+	return atomic.LoadUint32(&b.trackedAddressesCount)
 }
 
 func (b *broadcaster) Stop() error {
@@ -137,7 +152,6 @@ func (b *broadcaster) awaitInitialSubscribers() {
 			b.onRmSubscribers()
 
 		case <-b.DependentAwaiter.AwaitDependents():
-			<-b.headFromStorageAwaiter.AwaitDependents()
 			go b.startResubscribeLoop()
 			return
 
@@ -182,7 +196,7 @@ func (b *broadcaster) startResubscribeLoop() {
 
 	var chRawLogs chan types.Log
 	for {
-		logger.Debugf("LogBroadcaster: resubscribing and backfilling logs...")
+		logger.Debug("LogBroadcaster: resubscribing and backfilling logs...")
 		addresses, topics := b.registrations.addressesAndTopics()
 
 		newSubscription, abort := b.ethSubscriber.createSubscription(addresses, topics)
@@ -206,6 +220,8 @@ func (b *broadcaster) startResubscribeLoop() {
 
 		b.connected.Set()
 
+		atomic.StoreUint32(&b.trackedAddressesCount, uint32(len(addresses)))
+
 		shouldResubscribe, err := b.eventLoop(chRawLogs, subscription.Err())
 		if err != nil {
 			logger.Warn(err)
@@ -225,7 +241,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 	debounceResubscribe := time.NewTicker(1 * time.Second)
 	defer debounceResubscribe.Stop()
 
-	logger.Debugf("LogBroadcaster: starting the event loop")
+	logger.Debug("LogBroadcaster: starting the event loop")
 	for {
 		select {
 		case rawLog := <-chRawLogs:
@@ -247,7 +263,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 
 		case <-debounceResubscribe.C:
 			if needsResubscribe {
-				logger.Debugf("LogBroadcaster: returning from the event loop to resubscribe")
+				logger.Debug("LogBroadcaster: returning from the event loop to resubscribe")
 				return true, nil
 			}
 
@@ -258,7 +274,7 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
-	logger.Tracef("========== onNewLog %v, %v, %v", log.BlockNumber, log.BlockHash, log.Topics)
+	logger.Tracef("LogBroadcaster: ========== onNewLog %v, %v, %v", log.BlockNumber, log.BlockHash, log.Topics)
 	if log.Removed {
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
@@ -280,7 +296,7 @@ func (b *broadcaster) onNewHeads() {
 			logger.Errorf("expected `models.Head`, got %T", x)
 			continue
 		}
-		logger.Tracef("///////////////////////// onNewHeads %v, %v", head.Number, head.Hash)
+		logger.Tracew("LogBroadcaster: ///////////////////////// onNewHeads", "blockNumber", head.Number, "blockHash", head.Hash)
 		b.latestHead = &head
 	}
 
@@ -299,7 +315,7 @@ func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugf("LogBroadcaster: Subscribing listener with %v required block confirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Subscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.addSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true
@@ -319,7 +335,7 @@ func (b *broadcaster) onRmSubscribers() (needsResubscribe bool) {
 			logger.Errorf("expected `registration`, got %T", x)
 			continue
 		}
-		logger.Debugf("LogBroadcaster: Unsubscribing listener with %v required block confirmations", reg.opts.NumConfirmations)
+		logger.Debugw("LogBroadcaster: Unsubscribing listener", "requiredBlockConfirmations", reg.opts.NumConfirmations)
 		needsResub := b.registrations.removeSubscriber(reg)
 		if needsResub {
 			needsResubscribe = true

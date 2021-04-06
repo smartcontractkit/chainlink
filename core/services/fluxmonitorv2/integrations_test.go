@@ -601,9 +601,12 @@ ds1 -> ds1_parse
 		completesAnswer: false,
 	})
 
-	// The wait time must be sufficient to allow for flux monitor to finish Register process in log broadcaster
+	// Waiting for flux monitor to finish Register process in log broadcaster
 	// and then to have log broadcaster backfill logs after the debounceResubscribe period of ~ 1 sec
-	time.Sleep(2 * time.Second)
+	assert.Eventually(t, func() bool {
+		return app.LogBroadcaster.TrackedAddressesCount() >= 2
+	}, 3*time.Second, 200*time.Millisecond)
+
 	// Finally, the logs from log broadcaster are sent only after a next block is received.
 	fa.backend.Commit()
 
