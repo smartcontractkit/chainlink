@@ -67,6 +67,9 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	store := app.GetStore()
 	client, _ := app.NewClientAndRenderer()
 
+	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
+	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+
 	// Create the key
 	account, err := store.KeyStore.NewAccount()
 	require.NoError(t, err)
@@ -78,6 +81,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 	set.Parse([]string{account.Address.Hex()})
 	c := cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
+	require.NoError(t, err)
 
 	_, err = store.KeyByAddress(account.Address)
 	assert.Error(t, err)
