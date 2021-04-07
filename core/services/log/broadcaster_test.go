@@ -242,6 +242,7 @@ func TestBroadcaster_DeletesOldLogs(t *testing.T) {
 
 	const blockHeight int64 = 0
 	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(3))
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
@@ -297,6 +298,87 @@ func TestBroadcaster_DeletesOldLogs(t *testing.T) {
 	// the new listener should still receive 2 of the 3 logs
 	requireBroadcastCount(t, helper.store, 8)
 	require.Equal(t, 2, len(listener3.received.uniqueLogs))
+
+	helper.register(listener4, contract1, 1)
+	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     10,
+		EndBlock:       11,
+		BackfillDepth:  1,
+		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		Hashes:         blocks.hashesMap(),
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	// but this one should receive none
+	require.Equal(t, 0, len(listener4.received.uniqueLogs))
+
+	helper.stop()
+}
+
+func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
+	t.Parallel()
+
+	const blockHeight int64 = 0
+	helper := newBroadcasterHelper(t, blockHeight, 1)
+	helper.store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint(4))
+	helper.start()
+
+	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(cltest.NewAddress(), nil)
+	require.NoError(t, err)
+
+	blocks := newBlocks(t, 20)
+	addr1SentLogs := []types.Log{
+		blocks.logOnBlockNum(1, contract1.Address()),
+		blocks.logOnBlockNum(2, contract1.Address()),
+		blocks.logOnBlockNum(3, contract1.Address()),
+	}
+
+	listener1 := helper.newLogListener("listener 1")
+	listener2 := helper.newLogListener("listener 2")
+	listener3 := helper.newLogListener("listener 3")
+	listener4 := helper.newLogListener("listener 4")
+
+	helper.register(listener1, contract1, 1)
+	helper.register(listener2, contract1, 3)
+
+	cleanup, headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     0,
+		EndBlock:       5,
+		BackfillDepth:  10,
+		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		Hashes:         blocks.hashesMap(),
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	chRawLogs := <-helper.chchRawLogs
+
+	for _, log := range addr1SentLogs {
+		chRawLogs <- log
+	}
+
+	requireBroadcastCount(t, helper.store, 6)
+	<-headsDone
+
+	helper.register(listener3, contract1, 1)
+	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
+		StartBlock:     7,
+		EndBlock:       8,
+		BackfillDepth:  1,
+		HeadTrackables: []strpkg.HeadTrackable{(helper.lb).(strpkg.HeadTrackable)},
+		Hashes:         blocks.hashesMap(),
+		Interval:       250 * time.Millisecond,
+	})
+	defer cleanup()
+
+	<-headsDone
+
+	// the new listener should still receive 3 logs because of finality depth being higher than max NumConfirmations
+	requireBroadcastCount(t, helper.store, 9)
+	require.Equal(t, 3, len(listener3.received.uniqueLogs))
 
 	helper.register(listener4, contract1, 1)
 	cleanup, headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
