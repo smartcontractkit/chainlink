@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-pragma experimental ABIEncoderV2;
 
 import "./UniswapConfig.sol";
 import "./UniswapLib.sol";
@@ -19,9 +18,6 @@ contract UniswapAnchoredView is UniswapConfig {
   /// @notice A common scaling factor to maintain precision
   uint public constant expScale = 1e18;
 
-  /// @notice The Open Oracle Reporter
-  address public immutable reporter;
-
   /// @notice The highest ratio of the new price to the anchor price that will still trigger the price to be updated
   uint public immutable upperBoundAnchorRatio;
 
@@ -33,9 +29,6 @@ contract UniswapAnchoredView is UniswapConfig {
 
   /// @notice Official prices by symbol hash
   mapping(bytes32 => uint) public prices;
-
-  /// @notice Circuit breaker for using anchor price oracle directly, ignoring reporter
-  bool public reporterInvalidated;
 
   /// @notice The old observation for each symbolHash
   mapping(bytes32 => Observation) public oldObservations;
@@ -84,13 +77,11 @@ contract UniswapAnchoredView is UniswapConfig {
   /**
     * @notice Construct a uniswap anchored view for a set of token configurations
     * @dev Note that to avoid immature TWAPs, the system must run for at least a single anchorPeriod before using.
-    * @param reporter_ The reporter whose prices are to be used
     * @param anchorToleranceMantissa_ The percentage tolerance that the reporter may deviate from the uniswap anchor
     * @param anchorPeriod_ The minimum amount of time required for the old uniswap price accumulator to be replaced
     * @param configs The static token configurations which define what prices are supported and how
     */
   constructor(
-    address reporter_,
     uint anchorToleranceMantissa_,
     uint anchorPeriod_,
     TokenConfig[] memory configs
@@ -98,7 +89,6 @@ contract UniswapAnchoredView is UniswapConfig {
     UniswapConfig(configs)
     public
   {
-    reporter = reporter_;
     anchorPeriod = anchorPeriod_;
 
     // Allow the tolerance to be whatever the deployer chooses, but prevent under/overflow (and prices from being 0)
@@ -156,7 +146,7 @@ contract UniswapAnchoredView is UniswapConfig {
     if (config.priceSource == PriceSource.FIXED_ETH) {
       uint usdPerEth = prices[ethHash];
       require(usdPerEth > 0, "ETH price not set, cannot convert to dollars");
-      return mul(usdPerEth, config.fixedPrice) / ethBaseUnit;
+      return (usdPerEth * config.fixedPrice) / ethBaseUnit;
     }
   }
 
@@ -178,7 +168,7 @@ contract UniswapAnchoredView is UniswapConfig {
     TokenConfig memory config = getTokenConfigByCToken(cToken);
     // Comptroller needs prices in the format: ${raw price} * 1e(36 - baseUnit)
     // Since the prices in this view have 6 decimals, we must scale them by 1e(36 - 6 - baseUnit)
-    return mul(1e30, priceInternal(config)) / config.baseUnit;
+    return (1e30 * priceInternal(config)) / config.baseUnit;
   }
 
   /**
@@ -250,7 +240,7 @@ contract UniswapAnchoredView is UniswapConfig {
     )
   {
     if (reporterPrice > 0) {
-      uint anchorRatio = mul(anchorPrice, 100e16) / reporterPrice;
+      uint anchorRatio = (anchorPrice * 100e16) / reporterPrice;
       return anchorRatio <= upperBoundAnchorRatio && anchorRatio >= lowerBoundAnchorRatio;
     }
     return false;
@@ -314,7 +304,7 @@ contract UniswapAnchoredView is UniswapConfig {
     // Underflow is a property of the accumulators: https://uniswap.org/audit.html#orgc9b3190
     FixedPoint.uq112x112 memory priceAverage = FixedPoint.uq112x112(uint224((nowCumulativePrice - oldCumulativePrice) / timeElapsed));
     uint rawUniswapPriceMantissa = priceAverage.decode112with18();
-    uint unscaledPriceMantissa = mul(rawUniswapPriceMantissa, conversionFactor);
+    uint unscaledPriceMantissa = rawUniswapPriceMantissa * conversionFactor;
     uint anchorPrice;
 
     // Adjust rawUniswapPrice according to the units of the non-ETH asset
@@ -328,7 +318,7 @@ contract UniswapAnchoredView is UniswapConfig {
     // anchorPrice = priceAverage * tokenBaseUnit / ethBaseUnit * ETH_price * 1e6
     //             = priceAverage * conversionFactor * tokenBaseUnit / ethBaseUnit
     //             = unscaledPriceMantissa / expScale * tokenBaseUnit / ethBaseUnit
-    anchorPrice = mul(unscaledPriceMantissa, config.baseUnit) / ethBaseUnit / expScale;
+    anchorPrice = (unscaledPriceMantissa * config.baseUnit) / ethBaseUnit / expScale;
 
     emit AnchorPriceUpdated(symbol, anchorPrice, oldTimestamp, block.timestamp);
 
@@ -365,65 +355,5 @@ contract UniswapAnchoredView is UniswapConfig {
       emit UniswapWindowUpdated(config.symbolHash, newObservation.timestamp, block.timestamp, newObservation.acc, cumulativePrice);
     }
     return (cumulativePrice, oldObservations[symbolHash].acc, oldObservations[symbolHash].timestamp);
-  }
-
-  /**
-    * @notice Invalidate the reporter, and fall back to using anchor directly in all cases
-    * @dev Only the reporter may sign a message which allows it to invalidate itself.
-    *  To be used in cases of emergency, if the reporter thinks their key may be compromised.
-    * @param message The data that was presumably signed
-    * @param signature The fingerprint of the data + private key
-    */
-  function invalidateReporter(
-    bytes memory message,
-    bytes memory signature
-  )
-    external
-  {
-      (string memory decodedMessage, ) = abi.decode(message, (string, address));
-      require(keccak256(abi.encodePacked(decodedMessage)) == rotateHash, "invalid message must be 'rotate'");
-      require(source(message, signature) == reporter, "invalidation message must come from the reporter");
-      reporterInvalidated = true;
-      emit ReporterInvalidated(reporter);
-  }
-
-  /**
-    * @notice Recovers the source address which signed a message
-    * @dev Comparing to a claimed address would add nothing,
-    *  as the caller could simply perform the recover and claim that address.
-    * @param message The data that was presumably signed
-    * @param signature The fingerprint of the data + private key
-    * @return The source address which signed the message, presumably
-    */
-  function source(
-    bytes memory message,
-    bytes memory signature
-  )
-    public
-    pure
-    returns (
-      address
-    )
-  {
-      (bytes32 r, bytes32 s, uint8 v) = abi.decode(signature, (bytes32, bytes32, uint8));
-      bytes32 hash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", keccak256(message)));
-      return ecrecover(hash, v, r, s);
-  }
-
-  /// @dev Overflow proof multiplication
-  function mul(
-    uint a,
-    uint b
-  )
-    internal
-    pure
-    returns (
-      uint
-    )
-  {
-      if (a == 0) return 0;
-      uint c = a * b;
-      require(c / a == b, "multiplication overflow");
-      return c;
   }
 }
