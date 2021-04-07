@@ -175,10 +175,12 @@ func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 		"jobName", l.spec.JobName,
 		"jobID", l.spec.JobID,
 	))
-	_, err := l.pipelineRunner.ExecuteRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
-	if err != nil {
-		logger.Errorw("DirectRequest failed to create run", "err", err)
-	}
+	go func() {
+		_, err := l.pipelineRunner.ExecuteAndInsertNewRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+		if err != nil {
+			logger.Errorw("DirectRequest failed to create run", "err", err)
+		}
+	}()
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
