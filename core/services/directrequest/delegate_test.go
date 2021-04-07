@@ -2,9 +2,9 @@ package directrequest_test
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gofrs/uuid"
@@ -96,12 +96,16 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("DecodedLog").Return(&logOracleRequest)
 		log.On("MarkConsumed").Return(nil)
 
-		runner.On("CreateRun", mock.Anything, mock.Anything, mock.Anything).Return(int64(0), nil)
+		runBeganAwaiter := cltest.NewAwaiter()
+		runner.On("ExecuteAndInsertNewRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			runBeganAwaiter.ItHappened()
+		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
 
 		err = service.Start()
 		require.NoError(t, err)
 
 		listener.HandleLog(log)
+		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		service.Close()
 		broadcaster.AssertExpectations(t)
@@ -127,17 +131,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runner.AssertExpectations(t)
 	})
 
-	t.Run("Log is a CancelOracleRequest", func(t *testing.T) {
-		// Create one run with a matching request ID ...
-		meta := make(map[string]interface{})
-		requestID := fmt.Sprintf("0x%x", spec.DirectRequestSpec.OnChainJobSpecID)
-		meta["oracleRequest"] = map[string]string{"requestId": requestID}
-		_, err = orm.CreateRun(context.Background(), spec.ID, meta)
-		require.NoError(t, err)
-		// And one without
-		_, err = orm.CreateRun(context.Background(), spec.ID, nil)
-		require.NoError(t, err)
-
+	t.Run("Log is a CancelOracleRequest with no matching run", func(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 		defer log.AssertExpectations(t)
 
@@ -157,10 +151,64 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		listener.HandleLog(log)
 
-		// Only one should remain
-		_, count, err := jobORM.PipelineRunsByJobID(spec.ID, 0, 2)
+		service.Close()
+		broadcaster.AssertExpectations(t)
+		runner.AssertExpectations(t)
+	})
+
+	t.Run("Log is a CancelOracleRequest with a matching run", func(t *testing.T) {
+		runLog := new(log_mocks.Broadcast)
+
+		runLog.On("WasAlreadyConsumed").Return(false, nil)
+		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+			CancelExpiration: big.NewInt(0),
+			RequestId:        spec.DirectRequestSpec.OnChainJobSpecID,
+		}
+		runLog.On("RawLog").Return(models.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
+		runLog.On("DecodedLog").Return(&logOracleRequest)
+		runLog.On("MarkConsumed").Return(nil)
+
+		cancelLog := new(log_mocks.Broadcast)
+
+		cancelLog.On("WasAlreadyConsumed").Return(false, nil)
+		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: spec.DirectRequestSpec.OnChainJobSpecID}
+		cancelLog.On("RawLog").Return(models.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
+		cancelLog.On("DecodedLog").Return(&logCancelOracleRequest)
+		cancelLog.On("MarkConsumed").Return(nil)
+
+		err = service.Start()
 		require.NoError(t, err)
-		assert.Equal(t, 1, count)
+
+		timeout := 5 * time.Second
+		runBeganAwaiter := cltest.NewAwaiter()
+		runCancelledAwaiter := cltest.NewAwaiter()
+		runner.On("ExecuteAndInsertNewRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			runBeganAwaiter.ItHappened()
+			ctx := args[0].(context.Context)
+			select {
+			case <-time.After(timeout):
+				t.Fatalf("Timed out waiting for Run to be canceled (%v)", timeout)
+			case <-ctx.Done():
+				runCancelledAwaiter.ItHappened()
+			}
+		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
+		listener.HandleLog(runLog)
+		runBeganAwaiter.AwaitOrFail(t, timeout)
+		runLog.AssertExpectations(t)
+
+		listener.HandleLog(cancelLog)
+		runCancelledAwaiter.AwaitOrFail(t, timeout)
+		cancelLog.AssertExpectations(t)
 
 		service.Close()
 		broadcaster.AssertExpectations(t)
@@ -170,7 +218,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 func factoryJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	pipeline := pipeline.NewTaskDAG()
 	drs := &job.DirectRequestSpec{}
 	onChainJobSpecID, err := uuid.NewV4()
 	require.NoError(t, err)
@@ -179,7 +226,8 @@ func factoryJobSpec(t *testing.T) *job.Job {
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
 		DirectRequestSpec: drs,
-		Pipeline:          *pipeline,
+		Pipeline:          *pipeline.NewTaskDAG(),
+		PipelineSpec:      &pipeline.Spec{},
 	}
 	return spec
 }

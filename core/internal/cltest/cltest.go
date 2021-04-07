@@ -1540,6 +1540,8 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 func (a Awaiter) ItHappened() { close(a) }
 
 func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	t.Helper()
+
 	duration := 10 * time.Second
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -1548,7 +1550,7 @@ func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	select {
 	case <-a:
 	case <-time.After(duration):
-		t.Fatal("timed out waiting for Awaiter to get ItHappened")
+		t.Fatal("Timed out waiting for Awaiter to get ItHappened")
 	}
 }
 
