@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -372,15 +373,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	var ereJobSpecFromFileDB job.Job
-	tree, err = toml.LoadFile("testdata/direct-request-spec.toml")
+	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "testdata/direct-request-spec.toml")))
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ereJobSpecFromFileDB)
-	require.NoError(t, err)
-	var drSpec job.DirectRequestSpec
-	err = tree.Unmarshal(&drSpec)
-	require.NoError(t, err)
-	ereJobSpecFromFileDB.DirectRequestSpec = &drSpec
 	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
 	return client, cleanup, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
