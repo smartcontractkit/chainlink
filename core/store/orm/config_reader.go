@@ -86,4 +86,5 @@ type ConfigReader interface {
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
 	TriggerFallbackDBPollInterval() time.Duration
+	EthLogBackfillBatchSize() uint32
 }

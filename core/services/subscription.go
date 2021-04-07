@@ -114,7 +114,7 @@ func NewInitiatorSubscription(
 		callback:   callback,
 	}
 
-	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog)
+	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog, config.EthLogBackfillBatchSize())
 	if err != nil {
 		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
@@ -189,19 +189,16 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	logSubscriber   eth.Client
-	logs            chan models.Log
-	ethSubscription ethereum.Subscription
-	callback        func(models.Log)
+	logSubscriber     eth.Client
+	logs              chan models.Log
+	ethSubscription   ethereum.Subscription
+	callback          func(models.Log)
+	backfillBatchSize uint32
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
-func NewManagedSubscription(
-	logSubscriber eth.Client,
-	filter ethereum.FilterQuery,
-	callback func(models.Log),
-) (*ManagedSubscription, error) {
+func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
 	logs := make(chan models.Log)
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
@@ -210,10 +207,11 @@ func NewManagedSubscription(
 	}
 
 	sub := &ManagedSubscription{
-		logSubscriber:   logSubscriber,
-		callback:        callback,
-		logs:            logs,
-		ethSubscription: es,
+		logSubscriber:     logSubscriber,
+		callback:          callback,
+		logs:              logs,
+		ethSubscription:   es,
+		backfillBatchSize: backfillBatchSize,
 	}
 	go sub.listenToLogs(filter)
 	return sub, nil
@@ -245,7 +243,13 @@ func timedUnsubscribe(unsubscriber Unsubscriber) {
 }
 
 func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
-	backfilledSet := sub.backfillLogs(q)
+	// If we spend too long backfilling without processing
+	// logs from our subscription, geth will consider the client dead
+	// and drop the subscription, so we set an upper bound on backlog processing time.
+	// https://github.com/ethereum/go-ethereum/blob/2e5d14170846ae72adc47467a1129e41d6800349/rpc/client.go#L430
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	backfilledSet := sub.backfillLogs(ctx, q)
 	for {
 		select {
 		case log, open := <-sub.logs:
@@ -285,21 +289,48 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 // Manually retrieve old logs since SubscribeFilterLogs(ctx, filter, chLogs) only returns newly
 // imported blocks: https://github.com/ethereum/go-ethereum/wiki/RPC-PUB-SUB#logs
 // Therefore TxManager.FilterLogs does a one time retrieval of old logs.
-func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]bool {
+func (sub ManagedSubscription) backfillLogs(ctx context.Context, q ethereum.FilterQuery) map[string]bool {
+	start := time.Now()
 	backfilledSet := map[string]bool{}
 	if q.FromBlock == nil {
 		return backfilledSet
 	}
-
-	logs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
+	b, err := sub.logSubscriber.BlockByNumber(ctx, nil)
 	if err != nil {
-		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+		logger.Errorw("Unable to backfill logs: couldn't read latest block", "err", err)
 		return backfilledSet
 	}
 
-	for _, log := range logs {
-		backfilledSet[log.BlockHash.String()] = true
-		sub.callback(log)
+	// If we are significantly behind the latest head, there could be a very large (1000s)
+	// of blocks to check for logs. We read the blocks in batches to avoid hitting the websocket
+	// request data limit.
+	// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
+	// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
+	latest := b.Number()
+	batchSize := int64(sub.backfillBatchSize)
+	for i := q.FromBlock.Int64(); i < latest.Int64(); i += batchSize {
+		q.FromBlock = big.NewInt(i)
+		to := utils.BigIntSlice{big.NewInt(i + batchSize - 1), latest}
+		q.ToBlock = to.Min()
+		batchLogs, err := sub.logSubscriber.FilterLogs(ctx, q)
+		if err != nil {
+			if ctx.Err() != nil {
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			} else {
+				logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			}
+			return backfilledSet
+		}
+		for _, log := range batchLogs {
+			select {
+			case <-ctx.Done():
+				logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				return backfilledSet
+			default:
+				backfilledSet[log.BlockHash.String()] = true
+				sub.callback(log)
+			}
+		}
 	}
 	return backfilledSet
 }
