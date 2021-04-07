@@ -9,12 +9,14 @@ import (
 )
 
 type PollManagerConfig struct {
-	IsHibernating         bool
-	PollTickerInterval    time.Duration
-	PollTickerDisabled    bool
-	IdleTimerPeriod       time.Duration
-	IdleTimerDisabled     bool
-	HibernationPollPeriod time.Duration
+	IsHibernating           bool
+	PollTickerInterval      time.Duration
+	PollTickerDisabled      bool
+	IdleTimerPeriod         time.Duration
+	IdleTimerDisabled       bool
+	HibernationPollPeriod   time.Duration
+	MinRetryBackoffDuration time.Duration
+	MaxRetryBackoffDuration time.Duration
 }
 
 // PollManager manages the tickers/timers which cause the Flux Monitor to start
@@ -37,6 +39,10 @@ type PollManagerConfig struct {
 //
 // RoundTimer - The round timer requests a poll when the round state provided by
 // the contract has timed out.
+//
+// RetryTicker - The retry ticker requests a poll with a backoff duration. This
+// is started when the idle timer fails, and will poll with a maximum backoff
+// of either 1 hour or the idle timer period if it is lower
 type PollManager struct {
 	cfg PollManagerConfig
 
@@ -44,12 +50,22 @@ type PollManager struct {
 	pollTicker       utils.PausableTicker
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
+	retryTicker      utils.BackoffTicker
 
 	logger *logger.Logger
 }
 
 // NewPollManager initializes a new PollManager
 func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
+	minBackoffDuration := cfg.MinRetryBackoffDuration
+	if cfg.IdleTimerPeriod < minBackoffDuration {
+		minBackoffDuration = cfg.IdleTimerPeriod
+	}
+	maxBackoffDuration := cfg.MaxRetryBackoffDuration
+	if cfg.IdleTimerPeriod < maxBackoffDuration {
+		maxBackoffDuration = cfg.IdleTimerPeriod
+	}
+
 	return &PollManager{
 		cfg:    cfg,
 		logger: logger,
@@ -58,6 +74,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 		pollTicker:       utils.NewPausableTicker(cfg.PollTickerInterval),
 		idleTimer:        utils.NewResettableTimer(),
 		roundTimer:       utils.NewResettableTimer(),
+		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
 	}
 }
 
@@ -79,6 +96,10 @@ func (pm *PollManager) HibernationTimerTicks() <-chan time.Time {
 // RoundTimerTicks ticks after a given period
 func (pm *PollManager) RoundTimerTicks() <-chan time.Time {
 	return pm.roundTimer.Ticks()
+}
+
+func (pm *PollManager) RetryTickerTicks() <-chan time.Time {
+	return pm.retryTicker.Ticks()
 }
 
 // Start initializes all the timers and determines whether to go into immediate
@@ -111,6 +132,16 @@ func (pm *PollManager) ResetIdleTimer(roundStartedAtUTC uint64) {
 	if !pm.cfg.IsHibernating {
 		pm.startIdleTimer(roundStartedAtUTC)
 	}
+}
+
+// StartRetryTicker starts the retry ticker
+func (pm *PollManager) StartRetryTicker() {
+	pm.retryTicker.Start()
+}
+
+// StopRetryTicker stops the retry ticker
+func (pm *PollManager) StopRetryTicker() {
+	pm.retryTicker.Stop()
 }
 
 // Stop stops all timers/tickers
@@ -164,6 +195,9 @@ func (pm *PollManager) startPollTicker() {
 
 // startIdleTimer starts the idle timer if it is enabled
 func (pm *PollManager) startIdleTimer(roundStartedAtUTC uint64) {
+	// Stop the retry timer when the idle timer is started
+	pm.retryTicker.Stop()
+
 	if pm.cfg.IdleTimerDisabled {
 		pm.idleTimer.Stop()
 
