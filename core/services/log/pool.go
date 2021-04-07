@@ -22,15 +22,19 @@ func (pool *logPool) addLog(log types.Log) {
 	pool.allLogs = append(pool.allLogs, log)
 }
 
-func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations uint64) []types.Log {
+func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations uint64, finalityDepth uint64) []types.Log {
 	latestBlockNum := uint64(head.Number)
 	logsToReturn := pool.allLogs
 	logsToKeep := make([]types.Log, 0)
 
+	keptLogsDepth := finalityDepth
+	if highestNumConfirmations > keptLogsDepth {
+		keptLogsDepth = highestNumConfirmations
+	}
 	// deleting old logs that will never be sent for any listener anymore
-	if latestBlockNum > highestNumConfirmations && len(pool.allLogs) > 0 {
+	if latestBlockNum > keptLogsDepth && len(pool.allLogs) > 0 {
 		for _, log := range pool.allLogs {
-			if log.BlockNumber >= latestBlockNum-highestNumConfirmations {
+			if log.BlockNumber >= latestBlockNum-keptLogsDepth {
 				logsToKeep = append(logsToKeep, log)
 			}
 		}

@@ -68,7 +68,7 @@ type (
 
 	Config interface {
 		BlockBackfillDepth() uint64
-		TriggerFallbackDBPollInterval() time.Duration
+		EthFinalityDepth() uint
 	}
 
 	ListenerOpts struct {
@@ -300,7 +300,7 @@ func (b *broadcaster) onNewHeads() {
 		b.latestHead = &head
 	}
 
-	logs := b.logPool.getLogsToSend(b.latestHead, b.registrations.highestNumConfirmations)
+	logs := b.logPool.getLogsToSend(b.latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
 	b.registrations.sendLogs(logs, b.orm, b.latestHead)
 }
 

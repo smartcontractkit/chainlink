@@ -14,7 +14,7 @@ import (
 // 2. Adding and removing listeners updates the highestNumConfirmations - a number tracking what's the current highest NumConfirmations globally
 //
 // 3. All received logs are kept in an array and deleted ONLY after they are outside the confirmation range for all subscribers
-// (when given log height is lower than (latest height - highestNumConfirmations) ) -> see: pool.go
+// (when given log height is lower than (latest height - max(highestNumConfirmations, ETH_FINALITY_DEPTH)) ) -> see: pool.go
 //
 // 4. The logs are attempted to be sent after every new head arrival:
 // 		Each stored log is then checked against every matched listener and is sent unless:
