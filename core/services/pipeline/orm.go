@@ -28,7 +28,6 @@ type ORM interface {
 	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
-	CancelRunByRequestID(int32, [32]byte) error
 
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
@@ -408,16 +407,6 @@ func (o *orm) DeleteRunsOlderThan(threshold time.Duration) error {
 		return err
 	}
 	return nil
-}
-
-func (o *orm) CancelRunByRequestID(jobID int32, requestID [32]byte) error {
-	return o.db.Exec(`
-DELETE
-FROM pipeline_runs
-WHERE pipeline_spec_id = ?
-	AND meta->'oracleRequest'->>'requestId' = ?
-	AND finished_at IS NULL
-`, jobID, fmt.Sprintf("0x%x", requestID)).Error
 }
 
 func (o *orm) FindBridge(name models.TaskType) (models.BridgeType, error) {

@@ -58,7 +58,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		pipelineRunner:   d.pipelineRunner,
 		db:               d.db,
 		pipelineORM:      d.pipelineORM,
-		jobID:            spec.ID,
+		spec:             *spec.PipelineSpec,
 		onChainJobSpecID: spec.DirectRequestSpec.OnChainJobSpecID,
 	}
 	services = append(services, logListener)
@@ -78,7 +78,7 @@ type listener struct {
 	pipelineRunner   pipeline.Runner
 	db               *gorm.DB
 	pipelineORM      pipeline.ORM
-	jobID            int32
+	spec             pipeline.Spec
 	onChainJobSpecID common.Hash
 }
 
@@ -171,7 +171,11 @@ func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 	meta := make(map[string]interface{})
 	meta["oracleRequest"] = oracleRequestToMap(req)
 	ctx := context.TODO()
-	_, err := l.pipelineRunner.CreateRun(ctx, l.jobID, meta)
+	logger := logger.CreateLogger(logger.Default.With(
+		"jobName", l.spec.JobName,
+		"jobID", l.spec.JobID,
+	))
+	_, err := l.pipelineRunner.ExecuteRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
 	if err != nil {
 		logger.Errorw("DirectRequest failed to create run", "err", err)
 	}
@@ -179,10 +183,7 @@ func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 
 // Cancels runs that haven't been started yet, with the given request ID
 func (l *listener) handleCancelOracleRequest(requestID [32]byte) {
-	err := l.pipelineORM.CancelRunByRequestID(l.jobID, requestID)
-	if err != nil {
-		logger.Errorw("Error while deleting pipeline_runs", "error", err)
-	}
+	// TODO: Not implemented yet
 }
 
 // JobID complies with log.Listener
@@ -192,7 +193,7 @@ func (*listener) JobID() models.JobID {
 
 // Job complies with log.Listener
 func (l *listener) JobIDV2() int32 {
-	return l.jobID
+	return l.spec.ID
 }
 
 // IsV2Job complies with log.Listener
