@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
+
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
@@ -254,7 +256,12 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, cleanup := cltest.NewStore(t)
+	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
+	// close and go-txdb rollback.
+	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "last_saved_header", true)
+	defer cleanupDB()
+	config.Config.Dialect = dialects.Postgres
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	sub := new(mocks.Subscription)
@@ -305,16 +312,21 @@ func TestHeadTracker_StartConnectsFromLastSavedHeader(t *testing.T) {
 
 	assert.NoError(t, ht.Stop())
 
-	// Check that it saved the head
 	h, err := store.LastHead(context.TODO())
 	require.NoError(t, err)
+	require.NotNil(t, h)
 	assert.Equal(t, h.Number, currentBN.Int64())
 }
 
 func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	t.Parallel()
 
-	store, cleanup := cltest.NewStore(t)
+	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
+	// close and go-txdb rollback.
+	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "switches_longest_chain", true)
+	defer cleanupDB()
+	config.Config.Dialect = dialects.Postgres
+	store, cleanup := cltest.NewStoreWithConfig(t, config)
 	defer cleanup()
 
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
