@@ -123,8 +123,7 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 	}
 
 	logJobSpecID := lb.RawLog().Topics[1]
-	if logJobSpecID.String() == "0x0000000000000000000000000000000000000000000000000000000000000000" ||
-		logJobSpecID != l.onChainJobSpecID {
+	if logJobSpecID == (common.Hash{}) || logJobSpecID != l.onChainJobSpecID {
 		logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.onChainJobSpecID)
 		return
 	}
