@@ -165,11 +165,13 @@ func setup(t *testing.T, optionFns ...func(*setupOptions)) (*fluxmonitorv2.FluxM
 		tm.keyStore,
 		fluxmonitorv2.NewPollManager(
 			fluxmonitorv2.PollManagerConfig{
-				PollTickerInterval:    time.Minute,
-				PollTickerDisabled:    options.pollTickerDisabled,
-				IdleTimerPeriod:       options.idleTimerPeriod,
-				IdleTimerDisabled:     options.idleTimerDisabled,
-				HibernationPollPeriod: 24 * time.Hour,
+				PollTickerInterval:      time.Minute,
+				PollTickerDisabled:      options.pollTickerDisabled,
+				IdleTimerPeriod:         options.idleTimerPeriod,
+				IdleTimerDisabled:       options.idleTimerDisabled,
+				HibernationPollPeriod:   24 * time.Hour,
+				MinRetryBackoffDuration: 1 * time.Minute,
+				MaxRetryBackoffDuration: 1 * time.Hour,
 			},
 			logger.Default,
 		),
@@ -693,6 +695,97 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
+	t.Parallel()
+
+	_, nodeAddr := setupStoreWithKey(t)
+	oracles := []common.Address{nodeAddr, cltest.NewAddress()}
+
+	fm, tm := setup(t,
+		disablePollTicker(true),
+		setIdleTimerPeriod(2*time.Second),
+	)
+
+	tm.keyStore.On("Accounts").Return([]accounts.Account{{Address: nodeAddr}}).Once()
+
+	const fetchedAnswer = 100
+	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(precision))))
+
+	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
+	tm.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {})
+
+	tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(freshContractRoundDataResponse()).Once()
+
+	idleDurationOccured := make(chan struct{}, 3)
+
+	// Initial Poll
+	roundState1 := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1, nil).Once()
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	fm.OnConnect()
+	fm.Start()
+	t.Cleanup(func() { fm.Close() })
+	require.Len(t, idleDurationOccured, 0, "no Job Runs created")
+
+	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer
+	roundState1Responded := flux_aggregator_wrapper.OracleRoundState{RoundId: 1, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now() + 1}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState1Responded, nil).Once().Run(func(args mock.Arguments) {
+		idleDurationOccured <- struct{}{}
+	})
+	// Finds an existing run created by the initial poll
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			PipelineRunID:  corenull.NewInt64(int64(1), true),
+			Aggregator:     contractAddress,
+			RoundID:        1,
+			NumSubmissions: 1,
+		}, nil).Once()
+	finishedAt := time.Now()
+	tm.pipelineORM.On("FindRun", int64(1)).Return(pipeline.Run{
+		FinishedAt: &finishedAt,
+	}, nil)
+
+	require.Eventually(t, func() bool { return len(idleDurationOccured) == 1 }, 3*time.Second, 10*time.Millisecond)
+
+	// idleDuration 2 triggers a new round. Started at is 0
+	roundState2 := flux_aggregator_wrapper.OracleRoundState{RoundId: 2, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: 0}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState2, nil).Once().Run(func(args mock.Arguments) {
+		idleDurationOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(2)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        2,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	require.Eventually(t, func() bool { return len(idleDurationOccured) == 2 }, 3*time.Second, 10*time.Millisecond)
+
+	// idleDuration 3 triggers from the previous new round
+	roundState3 := flux_aggregator_wrapper.OracleRoundState{RoundId: 3, EligibleToSubmit: false, LatestSubmission: answerBigInt, StartedAt: now()}
+	tm.fluxAggregator.On("OracleRoundState", nilOpts, nodeAddr, uint32(0)).Return(roundState3, nil).Once().Run(func(args mock.Arguments) {
+		idleDurationOccured <- struct{}{}
+	})
+	tm.orm.
+		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(3)).
+		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
+			Aggregator:     contractAddress,
+			RoundID:        3,
+			NumSubmissions: 0,
+		}, nil).Once()
+
+	require.Eventually(t, func() bool { return len(idleDurationOccured) == 3 }, 3*time.Second, 10*time.Millisecond)
 }
 
 func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
