@@ -160,7 +160,7 @@ func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]
 	result := make(map[string]interface{})
 	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
 	result["requester"] = request.Requester.Hex()
-	result["requestId"] = fmt.Sprintf("0x%x", request.RequestId)
+	result["requestId"] = formatRequestId(request.RequestId)
 	result["payment"] = fmt.Sprintf("%v", request.Payment)
 	result["callbackAddr"] = request.CallbackAddr.Hex()
 	result["callbackFunctionId"] = fmt.Sprintf("0x%x", request.CallbackFunctionId)
@@ -181,9 +181,9 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 
 	go func() {
 		runCloserChannel := make(chan struct{})
-		runCloserChannelIf, loaded := l.runs.LoadOrStore(request.RequestId, runCloserChannel)
+		runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
 		if loaded {
-			runCloserChannel = runCloserChannelIf.(chan struct{})
+			runCloserChannel, _ = runCloserChannelIf.(chan struct{})
 		}
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
@@ -197,7 +197,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 
 // Cancels runs that haven't been started yet, with the given request ID
 func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCancelOracleRequest) {
-	runCloserChannel, loaded := l.runs.LoadAndDelete(request.RequestId)
+	runCloserChannel, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
 		close(runCloserChannel.(chan struct{}))
 	}
@@ -216,4 +216,8 @@ func (l *listener) JobIDV2() int32 {
 // IsV2Job complies with log.Listener
 func (*listener) IsV2Job() bool {
 	return true
+}
+
+func formatRequestId(requestId [32]byte) string {
+	return fmt.Sprintf("0x%x", requestId)
 }
