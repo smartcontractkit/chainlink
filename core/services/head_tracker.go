@@ -225,7 +225,7 @@ func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	} else if err != nil {
 		return err
 	}
-	return ht.store.TrimOldHeads(ht.store.Config.EthHeadTrackerHistoryDepth())
+	return ht.store.TrimOldHeads(ctx, ht.store.Config.EthHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil
