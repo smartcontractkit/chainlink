@@ -30,9 +30,11 @@ import { Copy } from './Copy'
 
 const styles = (theme: Theme) =>
   createStyles({
-    card: {
-      padding: theme.spacing.unit,
-      marginBottom: theme.spacing.unit * 3,
+    cardContent: {
+      padding: 0,
+      '&:last-child': {
+        padding: 0,
+      },
     },
     avatar: {
       backgroundColor: theme.palette.grey[800],
@@ -97,7 +99,7 @@ export const P2PKeys = withStyles(styles)(
         <ErrorComponent />
         <LoadingPlaceholder />
 
-        <Card className={classes.card}>
+        <Card>
           <CardHeader
             action={
               <Button
@@ -111,7 +113,7 @@ export const P2PKeys = withStyles(styles)(
             title={`${KEY_TYPE} Keys`}
             subheader={`Manage your ${KEY_TYPE} Key Bundles.`}
           />
-          <CardContent>
+          <CardContent className={classes.cardContent}>
             <Table>
               <TableHead>
                 <TableRow>
@@ -125,11 +127,7 @@ export const P2PKeys = withStyles(styles)(
                       Created
                     </Typography>
                   </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body1" color="textSecondary">
-                      Delete
-                    </Typography>
-                  </TableCell>
+                  <TableCell align="right"></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
