@@ -55,14 +55,14 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	}
 
 	logListener := &listener{
-		logBroadcaster:   d.logBroadcaster,
-		oracle:           oracle,
-		pipelineRunner:   d.pipelineRunner,
-		db:               d.db,
-		pipelineORM:      d.pipelineORM,
-		spec:             *spec.PipelineSpec,
-		onChainJobSpecID: spec.DirectRequestSpec.OnChainJobSpecID,
+		logBroadcaster: d.logBroadcaster,
+		oracle:         oracle,
+		pipelineRunner: d.pipelineRunner,
+		db:             d.db,
+		pipelineORM:    d.pipelineORM,
+		spec:           *spec.PipelineSpec,
 	}
+	copy(logListener.onChainJobSpecID[:], spec.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
 
 	return
