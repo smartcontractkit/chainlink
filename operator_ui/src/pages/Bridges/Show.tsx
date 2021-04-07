@@ -31,16 +31,6 @@ import ErrorMessage from 'components/Notifications/DefaultError'
 
 export const styles = (theme: Theme) =>
   createStyles({
-    headerRoot: {
-      borderBottom: `1px solid ${theme.palette.divider}`,
-    },
-    headerAction: {
-      marginTop: -2,
-      marginRight: 0,
-      '& >*': {
-        marginLeft: theme.spacing.unit * 2,
-      },
-    },
     action: {
       marginLeft: theme.spacing.unit,
     },
@@ -142,10 +132,6 @@ export const Show = withStyles(styles)(({ classes }: Props) => {
         <Grid item xs={12} md={11} lg={9}>
           <Card>
             <CardHeader
-              classes={{
-                root: classes.headerRoot,
-                action: classes.headerAction,
-              }}
               action={
                 bridge && (
                   <>
@@ -167,7 +153,6 @@ export const Show = withStyles(styles)(({ classes }: Props) => {
                 )
               }
               title="Bridge Info"
-              titleTypographyProps={{ color: 'secondary' }}
             />
 
             {bridge ? (

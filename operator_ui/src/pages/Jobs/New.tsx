@@ -28,7 +28,6 @@ import {
   FormControl,
   FormLabel,
   RadioGroup,
-  Divider,
   CardHeader,
   CircularProgress,
   Typography,
@@ -149,6 +148,8 @@ export const New = ({
 }: {
   classes: WithStyles<typeof styles>['classes']
 }) => {
+  const dispatch = useDispatch()
+  const history = useHistory()
   const location = useLocation()
   const [initialValues] = React.useState(() =>
     getInitialValues({
@@ -164,8 +165,6 @@ export const New = ({
   const [tasks, setTasks] = React.useState(() =>
     getTaskList({ value: initialValues.jobSpec }),
   )
-  const dispatch = useDispatch()
-  const history = useHistory()
 
   React.useEffect(() => {
     const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
@@ -219,7 +218,6 @@ export const New = ({
         <Grid item xs={12} lg={8}>
           <Card className={classes.card}>
             <CardHeader title="New Job" />
-            <Divider />
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
@@ -286,10 +284,10 @@ export const New = ({
             </CardContent>
           </Card>
         </Grid>
+
         <Grid item xs={12} lg={4}>
           <Card style={{ overflow: 'visible' }} className={classes.card}>
             <CardHeader title="Task list preview" />
-            <Divider />
             {tasks.format === JobSpecFormats.JSON && tasks.list && (
               <TaskList tasks={tasks.list as TaskSpec[]} />
             )}
