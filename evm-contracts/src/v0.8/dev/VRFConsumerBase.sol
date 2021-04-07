@@ -122,6 +122,15 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
     virtual;
 
   /**
+   * @dev In order to keep backwards compatibility we have kept the user
+   * seed field around. We remove the use of it because given that the blockhash
+   * enters later, it overrides whatever randomness the used seed provides.
+   * Given that it adds no security, and can easily lead to misunderstandings,
+   * we have removed it from usage and can now provide a simpler API.
+   */
+  uint256 constant private USER_SEED_PLACEHOLDER = 0;
+
+  /**
    * @notice requestRandomness initiates a request for VRF output given _seed
    *
    * @dev The fulfillRandomness method receives the output, once it's provided
@@ -139,7 +148,6 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    *
    * @param _keyHash ID of public key against which randomness is generated
    * @param _fee The amount of LINK to send with the request
-   * @param _seed seed mixed into the input of the VRF.
    *
    * @return requestId unique ID for this request
    *
@@ -149,19 +157,18 @@ abstract contract VRFConsumerBase is VRFRequestIDBase {
    */
   function requestRandomness(
     bytes32 _keyHash,
-    uint256 _fee,
-    uint256 _seed
+    uint256 _fee
   )
     internal
     returns (
       bytes32 requestId
     )
   {
-    LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, _seed));
+    LINK.transferAndCall(vrfCoordinator, _fee, abi.encode(_keyHash, USER_SEED_PLACEHOLDER));
     // This is the seed passed to VRFCoordinator. The oracle will mix this with
     // the hash of the block containing this request to obtain the seed/input
     // which is finally passed to the VRF cryptographic machinery.
-    uint256 vRFSeed  = makeVRFInputSeed(_keyHash, _seed, address(this), nonces[_keyHash]);
+    uint256 vRFSeed  = makeVRFInputSeed(_keyHash, USER_SEED_PLACEHOLDER, address(this), nonces[_keyHash]);
     // nonces[_keyHash] must stay in sync with
     // VRFCoordinator.nonces[_keyHash][this], which was incremented by the above
     // successful LINK.transferAndCall (in VRFCoordinator.randomnessRequest).
