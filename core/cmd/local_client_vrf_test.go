@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 const (
 	vrfPasswordFilePath = "./testdata/vrf_password.txt"
 	vrfKeyFilePath      = "./testdata/vrf_key.json"
-	// This is the public key found in the vrk key file
+	// This is the public key found in the vrf key file
 	vrfPublicKey = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
 )
 
@@ -75,11 +76,11 @@ func TestLocalClientVRF_CreateVRFKey(t *testing.T) {
 	set.String("password", vrfPasswordFilePath, "")
 	c = cli.NewContext(nil, set, nil)
 
+	requireVRFKeysCount(t, store, 0)
+
 	require.NoError(t, client.CreateVRFKey(c))
 
-	keys := []vrfkey.EncryptedVRFKey{}
-	app.GetStore().DB.Find(&keys)
-	assert.Len(t, keys, 1)
+	requireVRFKeysCount(t, store, 1)
 }
 
 func TestLocalClientVRF_ImportVRFKey(t *testing.T) {
@@ -230,4 +231,11 @@ func TestLocalClientVRF_DeleteVRFKey(t *testing.T) {
 	keys := []vrfkey.EncryptedVRFKey{}
 	app.GetStore().DB.Find(&keys)
 	assert.Len(t, keys, 0)
+}
+
+func requireVRFKeysCount(t *testing.T, store *store.Store, length int) []*vrfkey.PublicKey {
+	keys, err := store.VRFKeyStore.ListKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, length)
+	return keys
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRendererJSON_RenderVRKKeys(t *testing.T) {
+func TestRendererJSON_RenderVRFKeys(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()

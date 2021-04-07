@@ -42,14 +42,16 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 
 	app := startNewApplication(t)
 	client, _ := app.NewClientAndRenderer()
+	store := app.GetStore()
 
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
+
+	requireOCRKeyCount(t, store, 1) // The initial fixture key
+
 	require.NoError(t, client.CreateOCRKeyBundle(nilContext))
 
 	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
 	require.NoError(t, err)
-
-	// Created key + fixture key
 	require.Len(t, keys, 2)
 
 	for _, e := range keys {

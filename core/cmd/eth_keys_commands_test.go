@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -48,12 +49,17 @@ func TestClient_CreateETHKey(t *testing.T) {
 		withKey(),
 		withMocks(eth.NewClientWith(rpcClient, gethClient)),
 	)
+	store := app.GetStore()
 	client, _ := app.NewClientAndRenderer()
 
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
 
+	requireEthKeysCount(t, store, 1) // The initial funding key
+
 	assert.NoError(t, client.CreateETHKey(nilContext))
+
+	requireEthKeysCount(t, store, 2)
 }
 
 func TestClient_DeleteEthKey(t *testing.T) {
@@ -90,7 +96,7 @@ func TestClient_DeleteEthKey(t *testing.T) {
 func TestClient_ImportExportETHKey(t *testing.T) {
 	t.Parallel()
 
-	defer deleteKeyExportFile(t)
+	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	rpcClient, gethClient := newEthMocks(t)
 	app := startNewApplication(t,
@@ -180,4 +186,11 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	err = client.ExportETHKey(c)
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
+}
+
+func requireEthKeysCount(t *testing.T, store *store.Store, length int) []models.Key {
+	keys, err := store.AllKeys()
+	require.NoError(t, err)
+	require.Len(t, keys, length)
+	return keys
 }
