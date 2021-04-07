@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
 
@@ -80,6 +82,7 @@ type listener struct {
 	pipelineORM      pipeline.ORM
 	spec             pipeline.Spec
 	onChainJobSpecID common.Hash
+	runs             sync.Map
 }
 
 // Start complies with job.Service
@@ -142,7 +145,7 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 			logger.Errorf("Error marking log as consumed: %v", err)
 		}
 	case *oracle_wrapper.OracleCancelOracleRequest:
-		l.handleCancelOracleRequest(log.RequestId)
+		l.handleCancelOracleRequest(log)
 		err = lb.MarkConsumed()
 		if err != nil {
 			logger.Errorf("Error marking log as consumed: %v", err)
@@ -153,30 +156,39 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 	}
 }
 
-func oracleRequestToMap(req *oracle_wrapper.OracleOracleRequest) map[string]interface{} {
+func oracleRequestToMap(request *oracle_wrapper.OracleOracleRequest) map[string]interface{} {
 	result := make(map[string]interface{})
-	result["specId"] = fmt.Sprintf("0x%x", req.SpecId)
-	result["requester"] = req.Requester.Hex()
-	result["requestId"] = fmt.Sprintf("0x%x", req.RequestId)
-	result["payment"] = fmt.Sprintf("%v", req.Payment)
-	result["callbackAddr"] = req.CallbackAddr.Hex()
-	result["callbackFunctionId"] = fmt.Sprintf("0x%x", req.CallbackFunctionId)
-	result["cancelExpiration"] = fmt.Sprintf("%v", req.CancelExpiration)
-	result["dataVersion"] = fmt.Sprintf("%v", req.DataVersion)
-	result["data"] = fmt.Sprintf("0x%x", req.Data)
+	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
+	result["requester"] = request.Requester.Hex()
+	result["requestId"] = fmt.Sprintf("0x%x", request.RequestId)
+	result["payment"] = fmt.Sprintf("%v", request.Payment)
+	result["callbackAddr"] = request.CallbackAddr.Hex()
+	result["callbackFunctionId"] = fmt.Sprintf("0x%x", request.CallbackFunctionId)
+	result["cancelExpiration"] = fmt.Sprintf("%v", request.CancelExpiration)
+	result["dataVersion"] = fmt.Sprintf("%v", request.DataVersion)
+	result["data"] = fmt.Sprintf("0x%x", request.Data)
 	return result
 }
 
-func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) {
+func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleRequest) {
 	meta := make(map[string]interface{})
-	meta["oracleRequest"] = oracleRequestToMap(req)
-	ctx := context.TODO()
+	meta["oracleRequest"] = oracleRequestToMap(request)
+
 	logger := logger.CreateLogger(logger.Default.With(
 		"jobName", l.spec.JobName,
 		"jobID", l.spec.JobID,
 	))
+
 	go func() {
-		_, err := l.pipelineRunner.ExecuteAndInsertNewRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
+		runCloserChannel := make(chan struct{})
+		runCloserChannelIf, loaded := l.runs.LoadOrStore(request.RequestId, runCloserChannel)
+		if loaded {
+			runCloserChannel = runCloserChannelIf.(chan struct{})
+		}
+		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
+		defer cancel()
+
+		_, _, err := l.pipelineRunner.ExecuteAndInsertNewRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
 		if err != nil {
 			logger.Errorw("DirectRequest failed to create run", "err", err)
 		}
@@ -184,8 +196,11 @@ func (l *listener) handleOracleRequest(req *oracle_wrapper.OracleOracleRequest) 
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (l *listener) handleCancelOracleRequest(requestID [32]byte) {
-	// TODO: Not implemented yet
+func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCancelOracleRequest) {
+	runCloserChannel, loaded := l.runs.LoadAndDelete(request.RequestId)
+	if loaded {
+		close(runCloserChannel.(chan struct{}))
+	}
 }
 
 // JobID complies with log.Listener
