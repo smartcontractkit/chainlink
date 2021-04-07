@@ -605,7 +605,7 @@ contract UniswapConfig {
     if (cToken == cToken28) return 28;
     if (cToken == cToken29) return 29;
 
-    return uint(-1);
+    return type(uint).max;
   }
 
   function getUnderlyingIndex(
@@ -648,7 +648,7 @@ contract UniswapConfig {
     if (underlying == underlying28) return 28;
     if (underlying == underlying29) return 29;
 
-    return uint(-1);
+    return type(uint).max;
   }
 
   function getSymbolHashIndex(
@@ -691,7 +691,7 @@ contract UniswapConfig {
     if (symbolHash == symbolHash28) return 28;
     if (symbolHash == symbolHash29) return 29;
 
-    return uint(-1);
+    return type(uint).max;
   }
 
   /**
@@ -776,7 +776,7 @@ contract UniswapConfig {
     )
   {
     uint index = getSymbolHashIndex(symbolHash);
-    if (index != uint(-1)) {
+    if (index != type(uint).max) {
       return getTokenConfig(index);
     }
 
@@ -799,7 +799,7 @@ contract UniswapConfig {
     )
   {
     uint index = getCTokenIndex(cToken);
-    if (index != uint(-1)) {
+    if (index != type(uint).max) {
       return getTokenConfig(index);
     }
 
@@ -821,7 +821,7 @@ contract UniswapConfig {
     )
   {
     uint index = getUnderlyingIndex(underlying);
-    if (index != uint(-1)) {
+    if (index != type(uint).max) {
       return getTokenConfig(index);
     }
 
