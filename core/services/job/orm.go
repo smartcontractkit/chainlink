@@ -174,6 +174,41 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 	defer cancel()
 
 	return postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
+		switch jobSpec.Type {
+		case DirectRequest:
+			err := tx.Create(&jobSpec.DirectRequestSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create DirectRequestSpec for jobSpec")
+			}
+			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
+		case FluxMonitor:
+			err := tx.Create(&jobSpec.FluxMonitorSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create FluxMonitorSpec for jobSpec")
+			}
+			jobSpec.FluxMonitorSpecID = &jobSpec.FluxMonitorSpec.ID
+		case OffchainReporting:
+			err := tx.Create(&jobSpec.OffchainreportingOracleSpec).Error
+			pqErr, ok := err.(*pgconn.PgError)
+			if err != nil && ok && pqErr.Code == "23503" {
+				if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+					if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
+						return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
+					}
+				}
+			}
+			if err != nil {
+				return errors.Wrap(err, "failed to create OffchainreportingOracleSpec for jobSpec")
+			}
+			jobSpec.OffchainreportingOracleSpecID = &jobSpec.OffchainreportingOracleSpec.ID
+		case Keeper:
+			err := tx.Create(&jobSpec.KeeperSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
+			}
+			jobSpec.KeeperSpecID = &jobSpec.KeeperSpec.ID
+		}
+
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG, jobSpec.MaxTaskDuration)
 		if err != nil {
 			return errors.Wrap(err, "failed to create pipeline spec")
@@ -195,9 +230,6 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
 			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
-				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
-					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
-				}
 				if pqErr.ConstraintName == "offchainreporting_oracle_specs_encrypted_ocr_key_bundle_id_fkey" {
 					return errors.Wrapf(ErrNoSuchKeyBundle, "%v", jobSpec.OffchainreportingOracleSpec.EncryptedOCRKeyBundleID)
 				}
