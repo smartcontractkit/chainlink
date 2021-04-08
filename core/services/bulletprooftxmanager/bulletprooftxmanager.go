@@ -21,6 +21,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
@@ -57,7 +58,7 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 		GasLimit:       s.Config.EthGasLimitDefault(),
 		State:          models.EthTxUnstarted,
 	}
-	err = s.DB.Create(&etx).Error
+	err = s.DB.Omit(clause.Associations).Create(&etx).Error
 	return etx, err
 }
 
@@ -157,10 +158,10 @@ func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.Eth
 		return errors.New("expected oldAttempt to have an ID")
 	}
 	return store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
-		return errors.Wrap(tx.Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
+		return errors.Wrap(tx.Omit(clause.Associations).Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
 	})
 }
 
