@@ -140,6 +140,9 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (connected bool, unsubscribe func()) {
+	if len(opts.Logs) < 1 {
+		logger.Fatal("Must supply at least 1 Log to Register")
+	}
 	b.addSubscriber.Deliver(registration{listener, opts})
 	return b.IsConnected(), func() {
 		b.rmSubscriber.Deliver(registration{listener, opts})
