@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./UniswapConfig.sol";
 import "./UniswapV2OracleLibrary.sol";
+import "../ConfirmedOwner.sol";
 import "../../interfaces/AggregatorValidatorInterface.sol";
 
 struct Observation {
@@ -10,7 +11,7 @@ struct Observation {
   uint acc;
 }
 
-contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
+contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, ConfirmedOwner {
   using FixedPoint for *;
 
   /// @notice The number of wei in 1 ETH
@@ -29,13 +30,16 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
   uint public immutable anchorPeriod;
 
   /// @notice Official prices by symbol hash
-  mapping(bytes32 => uint) public prices;
+  mapping(bytes32 => uint) public s_prices;
 
   /// @notice The old observation for each symbolHash
-  mapping(bytes32 => Observation) public oldObservations;
+  mapping(bytes32 => Observation) public s_oldObservations;
 
   /// @notice The new observation for each symbolHash
-  mapping(bytes32 => Observation) public newObservations;
+  mapping(bytes32 => Observation) public s_newObservations;
+
+  /// @notice Reporters that have been invalidated by the owner
+  mapping(address => bool) public s_reporterInvalidated;
 
   /// @notice The event emitted when new prices are posted but the stored price is not updated due to the anchor
   event PriceGuarded(
@@ -73,7 +77,6 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
   );
 
   bytes32 constant ethHash = keccak256(abi.encodePacked("ETH"));
-  bytes32 constant rotateHash = keccak256(abi.encodePacked("rotate"));
 
   /**
     * @notice Construct a uniswap anchored view for a set of token configurations
@@ -88,6 +91,7 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
     TokenConfig[] memory configs
   )
     UniswapConfig(configs)
+    ConfirmedOwner(msg.sender)
   {
     anchorPeriod = anchorPeriod_;
 
@@ -103,10 +107,10 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
         require(uniswapMarket != address(0), "reported prices must have an anchor");
         bytes32 symbolHash = config.symbolHash;
         uint cumulativePrice = currentCumulativePrice(config);
-        oldObservations[symbolHash].timestamp = block.timestamp;
-        newObservations[symbolHash].timestamp = block.timestamp;
-        oldObservations[symbolHash].acc = cumulativePrice;
-        newObservations[symbolHash].acc = cumulativePrice;
+        s_oldObservations[symbolHash].timestamp = block.timestamp;
+        s_newObservations[symbolHash].timestamp = block.timestamp;
+        s_oldObservations[symbolHash].acc = cumulativePrice;
+        s_newObservations[symbolHash].acc = cumulativePrice;
         emit UniswapWindowUpdated(symbolHash, block.timestamp, block.timestamp, cumulativePrice, cumulativePrice);
       } else {
           require(uniswapMarket == address(0), "only reported prices utilize an anchor");
@@ -141,10 +145,10 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
       uint
     )
   {
-    if (config.priceSource == PriceSource.REPORTER) return prices[config.symbolHash];
+    if (config.priceSource == PriceSource.REPORTER) return s_prices[config.symbolHash];
     if (config.priceSource == PriceSource.FIXED_USD) return config.fixedPrice;
     if (config.priceSource == PriceSource.FIXED_ETH) {
-      uint usdPerEth = prices[ethHash];
+      uint usdPerEth = s_prices[ethHash];
       require(usdPerEth > 0, "ETH price not set, cannot convert to dollars");
       return (usdPerEth * config.fixedPrice) / ethBaseUnit;
     }
@@ -196,15 +200,15 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
       anchorPrice = fetchAnchorPrice(config.symbolHash, config, ethPrice);
     }
 
-    // TODO - add this reporterInvalidated option back in
-    // if (config.reporterInvalidated) {
-    //   prices[symbolHash] = anchorPrice;
-    //   emit PriceUpdated(symbol, anchorPrice);
-    // } else
-    if (isWithinAnchor(reporterPrice, anchorPrice)) {
-      prices[config.symbolHash] = reporterPrice;
+    if (s_reporterInvalidated[msg.sender]) {
+      s_prices[config.symbolHash] = anchorPrice;
+      emit PriceUpdated(config.symbolHash, anchorPrice);
+    }
+    else if (isWithinAnchor(reporterPrice, anchorPrice)) {
+      s_prices[config.symbolHash] = reporterPrice;
       emit PriceUpdated(config.symbolHash, reporterPrice);
-    } else {
+    }
+    else {
       emit PriceGuarded(config.symbolHash, reporterPrice, anchorPrice);
     }
   }
@@ -322,21 +326,33 @@ contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
     bytes32 symbolHash = config.symbolHash;
     uint cumulativePrice = currentCumulativePrice(config);
 
-    Observation memory newObservation = newObservations[symbolHash];
+    Observation memory newObservation = s_newObservations[symbolHash];
 
     // Update new and old observations if elapsed time is greater than or equal to anchor period
     uint timeElapsed = block.timestamp - newObservation.timestamp;
     if (timeElapsed >= anchorPeriod) {
-      oldObservations[symbolHash].timestamp = newObservation.timestamp;
-      oldObservations[symbolHash].acc = newObservation.acc;
+      s_oldObservations[symbolHash].timestamp = newObservation.timestamp;
+      s_oldObservations[symbolHash].acc = newObservation.acc;
 
-      newObservations[symbolHash].timestamp = block.timestamp;
-      newObservations[symbolHash].acc = cumulativePrice;
+      s_newObservations[symbolHash].timestamp = block.timestamp;
+      s_newObservations[symbolHash].acc = cumulativePrice;
       emit UniswapWindowUpdated(config.symbolHash, newObservation.timestamp, block.timestamp, newObservation.acc, cumulativePrice);
     }
-    return (cumulativePrice, oldObservations[symbolHash].acc, oldObservations[symbolHash].timestamp);
+    return (cumulativePrice, s_oldObservations[symbolHash].acc, s_oldObservations[symbolHash].timestamp);
   }
 
-  // TODO Multisig can invalidate a reporter
-    // Add reporterInvalidated back into the config for this
+  /**
+    * @notice Invalidate the reporter, and fall back to using anchor directly in all cases
+    * @dev Only the reporter may sign a message which allows it to invalidate itself.
+    *  To be used in cases of emergency, if the reporter thinks their key may be compromised.
+    */
+  function invalidateReporter(
+    address reporter
+  )
+    external
+    onlyOwner()
+  {
+    s_reporterInvalidated[reporter] = true;
+    emit ReporterInvalidated(reporter);
+  }
 }
