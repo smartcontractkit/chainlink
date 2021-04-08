@@ -13,9 +13,7 @@ type (
 )
 
 func newLogPool() *logPool {
-	return &logPool{
-		allLogs: make([]types.Log, 0),
-	}
+	return &logPool{}
 }
 
 func (pool *logPool) addLog(log types.Log) {
@@ -25,7 +23,7 @@ func (pool *logPool) addLog(log types.Log) {
 func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations uint64, finalityDepth uint64) []types.Log {
 	latestBlockNum := uint64(head.Number)
 	logsToReturn := pool.allLogs
-	logsToKeep := make([]types.Log, 0)
+	var logsToKeep []types.Log
 
 	keptLogsDepth := finalityDepth
 	if highestNumConfirmations > keptLogsDepth {

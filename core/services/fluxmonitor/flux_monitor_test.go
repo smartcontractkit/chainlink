@@ -196,7 +196,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 			fetcher := new(mocks.Fetcher)
 			fluxAggregator := new(mocks.FluxAggregator)
 			logBroadcaster := new(logmocks.Broadcaster)
-			logBroadcaster.On("IsConnected").Return(test.connected).Maybe()
+			logBroadcaster.On("IsConnected").Return(test.connected).Once()
 
 			job := cltest.NewJobWithFluxMonitorInitiator()
 			initr := job.Initiators[0]
@@ -278,6 +278,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 
 			checker.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 
+			logBroadcaster.AssertExpectations(t)
 			fluxAggregator.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
 			rm.AssertExpectations(t)
@@ -297,7 +298,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	fetcher := new(mocks.Fetcher)
 	fluxAggregator := new(mocks.FluxAggregator)
 	logBroadcaster := new(logmocks.Broadcaster)
-	logBroadcaster.On("IsConnected").Return(true).Maybe()
+	logBroadcaster.On("IsConnected").Return(true).Once()
 
 	job := cltest.NewJobWithFluxMonitorInitiator()
 	initr := job.Initiators[0]
@@ -331,6 +332,7 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 	require.NoError(t, err)
 	require.Len(t, job.Errors, 1)
 
+	logBroadcaster.AssertExpectations(t)
 	fluxAggregator.AssertExpectations(t)
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
@@ -403,7 +405,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	fetcher.On("Fetch", mock.Anything, mock.Anything).Return(decimal.NewFromInt(fetchedValue), nil)
 
 	logBroadcaster := new(logmocks.Broadcaster)
-	logBroadcaster.On("IsConnected").Return(true).Maybe()
 	logBroadcaster.On("Register", mock.Anything, mock.MatchedBy(func(opts log.ListenerOpts) bool {
 		return opts.Contract.Address() == initr.Address
 	})).Return(func() {})
@@ -453,6 +454,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	close(chBlock)
 	<-chSafeToAssert
 
+	logBroadcaster.AssertExpectations(t)
 	fluxAggregator.AssertExpectations(t)
 	fetcher.AssertExpectations(t)
 	rm.AssertExpectations(t)
@@ -565,6 +567,7 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				require.Len(t, idleDurationOccured, 0)
 			}
 
+			logBroadcaster.AssertExpectations(t)
 			fetcher.AssertExpectations(t)
 			runManager.AssertExpectations(t)
 			fluxAggregator.AssertExpectations(t)
@@ -595,7 +598,6 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 	const fetchedAnswer = 100
 	answerBigInt := big.NewInt(fetchedAnswer * int64(math.Pow10(int(initr.InitiatorParams.Precision))))
 	logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
-	logBroadcaster.On("IsConnected").Return(true).Maybe()
 
 	fluxAggregator.On("LatestRoundData", nilOpts).Return(makeRoundDataForRoundID(1), nil).Maybe()
 	fluxAggregator.On("Address").Return(initr.Address).Maybe()
@@ -636,6 +638,7 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 
 	deviationChecker.Stop()
 
+	logBroadcaster.AssertExpectations(t)
 	fetcher.AssertExpectations(t)
 	runManager.AssertExpectations(t)
 	fluxAggregator.AssertExpectations(t)
@@ -719,6 +722,7 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 			}
 
 			deviationChecker.Stop()
+			logBroadcaster.AssertExpectations(t)
 			fluxAggregator.AssertExpectations(t)
 		})
 	}
