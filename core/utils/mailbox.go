@@ -4,6 +4,10 @@ import (
 	"sync"
 )
 
+// Mailbox contains a notify channel,
+// a mutual exclusive lock,
+// a queue of interfaces,
+// and a queue capacity.
 type Mailbox struct {
 	chNotify chan struct{}
 	mu       sync.Mutex
@@ -11,6 +15,7 @@ type Mailbox struct {
 	capacity uint64
 }
 
+// NewMailbox creates a new mailbox instance
 func NewMailbox(capacity uint64) *Mailbox {
 	queueCap := capacity
 	if queueCap == 0 {
@@ -23,10 +28,12 @@ func NewMailbox(capacity uint64) *Mailbox {
 	}
 }
 
+// Notify returns the contents of the notify channel
 func (m *Mailbox) Notify() chan struct{} {
 	return m.chNotify
 }
 
+// Deliver appends an interface to the queue
 func (m *Mailbox) Deliver(x interface{}) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -42,6 +49,7 @@ func (m *Mailbox) Deliver(x interface{}) {
 	}
 }
 
+// Retrieve fetches an interface from the queue
 func (m *Mailbox) Retrieve() interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()

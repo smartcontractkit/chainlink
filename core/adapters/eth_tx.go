@@ -232,9 +232,9 @@ func getConfirmedReceipt(ethTxID int64, db *gorm.DB, minRequiredOutgoingConfirma
 
 }
 
+// A base set of supported types, expand as needed.
 var (
 	ErrInvalidABIEncoding = errors.New("invalid abi encoding")
-	// A base set of supported types, expand as needed.
 	// The corresponding go type is the type we need to pass into abi.Arguments.PackValues.
 	solidityTypeToGoType = map[string]reflect.Type{
 		"int256":  reflect.TypeOf(big.Int{}),
