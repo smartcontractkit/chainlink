@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./UniswapConfig.sol";
-import "./UniswapLib.sol";
+import "./UniswapV2OracleLibrary.sol";
 import "../../interfaces/AggregatorValidatorInterface.sol";
 
 struct Observation {
