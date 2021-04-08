@@ -39,7 +39,7 @@ func (r *RunResultSaver) Start() error {
 			select {
 			case rr := <-r.runResults:
 				logger.Debugw("RunSaver: saving job run", "run", rr.Run, "task results", rr.TaskRunResults)
-				if _, err := r.pipelineRunner.InsertFinishedRunWithResults(context.Background(), rr.Run, rr.TaskRunResults); err != nil {
+				if _, err := r.pipelineRunner.InsertFinishedRunWithResults(context.Background(), rr.Run, rr.TaskRunResults, false); err != nil {
 					logger.Errorw(fmt.Sprintf("error inserting finished results for job ID %v", r.jobID), "err", err)
 				}
 			case <-r.done:
@@ -62,7 +62,7 @@ func (r *RunResultSaver) Close() error {
 		select {
 		case rr := <-r.runResults:
 			logger.Debugw("RunSaver: saving job run before exiting", "run", rr.Run, "task results", rr.TaskRunResults)
-			if _, err := r.pipelineRunner.InsertFinishedRunWithResults(context.Background(), rr.Run, rr.TaskRunResults); err != nil {
+			if _, err := r.pipelineRunner.InsertFinishedRunWithResults(context.Background(), rr.Run, rr.TaskRunResults, false); err != nil {
 				logger.Errorw(fmt.Sprintf("error inserting finished results for job %v", r.jobID), "err", err)
 			}
 		default:
