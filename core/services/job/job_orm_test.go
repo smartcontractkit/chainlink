@@ -7,6 +7,7 @@ import (
 
 	gormpostgres "gorm.io/driver/postgres"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/stretchr/testify/mock"
@@ -172,6 +173,22 @@ func TestORM(t *testing.T) {
 			Preload("JobSpecErrors").
 			First(&j2, "jobs.id = ?", jobSpec.ID).
 			Error
+		require.NoError(t, err)
+	})
+
+	t.Run("creates a job with a direct request spec", func(t *testing.T) {
+		spec := job.Job{}
+		tree, err := toml.LoadFile("../../cmd/testdata/direct-request-spec.toml")
+		require.NoError(t, err)
+		err = tree.Unmarshal(&spec)
+		require.NoError(t, err)
+
+		var drSpec job.DirectRequestSpec
+		err = tree.Unmarshal(&drSpec)
+		require.NoError(t, err)
+		spec.DirectRequestSpec = &drSpec
+
+		err = orm.CreateJob(context.Background(), &spec, spec.Pipeline)
 		require.NoError(t, err)
 	})
 }
