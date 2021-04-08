@@ -189,7 +189,9 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		defer cancel()
 
 		_, _, err := l.pipelineRunner.ExecuteAndInsertNewRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger)
-		if err != nil {
+		if ctx.Err() != nil {
+			return
+		} else if err != nil {
 			logger.Errorw("DirectRequest failed to create run", "err", err)
 		}
 	}()
