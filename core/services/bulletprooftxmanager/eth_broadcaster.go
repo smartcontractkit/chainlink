@@ -17,6 +17,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -390,10 +391,10 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 	}
 	etx.State = models.EthTxInProgress
 	return eb.store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(attempt).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Create(attempt).Error; err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
-		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
 	})
 }
 
@@ -422,10 +423,10 @@ func saveAttempt(store *store.Store, etx *models.EthTx, attempt models.EthTxAtte
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
-		if err := tx.Save(etx).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Save(etx).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx")
 		}
-		if err := tx.Save(&attempt).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Save(&attempt).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx_attempt")
 		}
 		for _, f := range callbacks {
@@ -473,7 +474,7 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 
