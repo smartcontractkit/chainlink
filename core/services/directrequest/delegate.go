@@ -74,15 +74,16 @@ var (
 )
 
 type listener struct {
-	logBroadcaster   log.Broadcaster
-	unsubscribeLogs  func()
-	oracle           oracle_wrapper.OracleInterface
-	pipelineRunner   pipeline.Runner
-	db               *gorm.DB
-	pipelineORM      pipeline.ORM
-	spec             pipeline.Spec
-	onChainJobSpecID common.Hash
-	runs             sync.Map
+	logBroadcaster    log.Broadcaster
+	unsubscribeLogs   func()
+	oracle            oracle_wrapper.OracleInterface
+	pipelineRunner    pipeline.Runner
+	db                *gorm.DB
+	pipelineORM       pipeline.ORM
+	spec              pipeline.Spec
+	onChainJobSpecID  common.Hash
+	runs              sync.Map
+	shutdownWaitGroup sync.WaitGroup
 }
 
 // Start complies with job.Service
@@ -106,6 +107,12 @@ func (l *listener) Close() error {
 	if l.unsubscribeLogs != nil {
 		l.unsubscribeLogs()
 	}
+	l.runs.Range(func(key, runCloserChannelIf interface{}) bool {
+		runCloserChannel, _ := runCloserChannelIf.(chan struct{})
+		close(runCloserChannel)
+		return true
+	})
+	l.shutdownWaitGroup.Wait()
 	return nil
 }
 
@@ -179,7 +186,10 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		"jobID", l.spec.JobID,
 	))
 
+	l.shutdownWaitGroup.Add(1)
 	go func() {
+		defer l.shutdownWaitGroup.Done()
+
 		runCloserChannel := make(chan struct{})
 		runCloserChannelIf, loaded := l.runs.LoadOrStore(formatRequestId(request.RequestId), runCloserChannel)
 		if loaded {
@@ -199,9 +209,9 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 
 // Cancels runs that haven't been started yet, with the given request ID
 func (l *listener) handleCancelOracleRequest(request *oracle_wrapper.OracleCancelOracleRequest) {
-	runCloserChannel, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
+	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
-		close(runCloserChannel.(chan struct{}))
+		close(runCloserChannelIf.(chan struct{}))
 	}
 }
 
