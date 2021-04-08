@@ -127,10 +127,11 @@ type listener struct {
 func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
-		Contract:         l.oracle,
-		Logs:             []generated.AbigenLog{
-				oracle_wrapper.OracleOracleRequest{},
-				oracle_wrapper.OracleCancelOracleRequest{},
+		Contract: l.oracle,
+		Logs: []generated.AbigenLog{
+			oracle_wrapper.OracleOracleRequest{},
+			oracle_wrapper.OracleCancelOracleRequest{},
+
 			},
 			NumConfirmations: 1,
 		})

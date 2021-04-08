@@ -286,7 +286,6 @@ func (f pollingDeviationCheckerFactory) New(
 		return nil, err
 	}
 
-	f.logBroadcaster.AddDependents(1)
 	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(initr.Address, f.store.EthClient)
 	if err != nil {
 		return nil, err
@@ -319,7 +318,6 @@ func (f pollingDeviationCheckerFactory) New(
 		minJobPayment,
 		runManager,
 		fetcher,
-		func() { f.logBroadcaster.DependentReady() },
 		min,
 		max,
 	)
@@ -404,9 +402,8 @@ type PollingDeviationChecker struct {
 
 	minSubmission, maxSubmission *big.Int
 
-	readyForLogs func()
-	chStop       chan struct{}
-	waitOnStop   chan struct{}
+	chStop     chan struct{}
+	waitOnStop chan struct{}
 }
 
 // NewPollingDeviationChecker returns a new instance of PollingDeviationChecker.
@@ -419,11 +416,9 @@ func NewPollingDeviationChecker(
 	minJobPayment *assets.Link,
 	runManager RunManager,
 	fetcher Fetcher,
-	readyForLogs func(),
 	minSubmission, maxSubmission *big.Int,
 ) (*PollingDeviationChecker, error) {
 	pdc := &PollingDeviationChecker{
-		readyForLogs:     readyForLogs,
 		store:            store,
 		logBroadcaster:   logBroadcaster,
 		fluxAggregator:   fluxAggregator,
@@ -587,7 +582,6 @@ func (p *PollingDeviationChecker) consume() {
 		defer unsubscribe()
 	}
 
-	p.readyForLogs()
 	p.setIsHibernatingStatus()
 	p.setInitialTickers()
 	p.performInitialPoll()

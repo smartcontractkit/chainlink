@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -1611,7 +1610,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 		Return(sub, nil)
 
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 
 	require.NoError(t, app.StartAndConnect())
@@ -1634,7 +1633,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
 	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
-	var logs chan<- models.Log
+	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
 	}, 5*time.Second)
