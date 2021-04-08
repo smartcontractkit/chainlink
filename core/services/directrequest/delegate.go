@@ -112,6 +112,7 @@ func (l *listener) Close() error {
 		close(runCloserChannel)
 		return true
 	})
+	l.runs = sync.Map{}
 	l.shutdownWaitGroup.Wait()
 	return nil
 }
