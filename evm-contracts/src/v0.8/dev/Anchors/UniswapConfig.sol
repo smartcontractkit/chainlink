@@ -5,6 +5,12 @@ interface CErc20 {
   function underlying() external view returns (address);
 }
 
+/**
+ * @notice This contract is based on [UniswapConfig](https://github.com/compound-finance/open-oracle/blob/master/contracts/Uniswap/UniswapConfig.sol) in Compound Finance's Open Oracle.
+ * Its purpose is to serve as immutable storage for market configuration.
+ *
+ * This contract differs from the original in that it facilitates each TokenConfig to have its own reporter.
+ */
 contract UniswapConfig {
   /// @dev Describe how to interpret the fixedPrice in the TokenConfig.
   enum PriceSource {

@@ -11,6 +11,22 @@ struct Observation {
   uint acc;
 }
 
+/**
+ * @notice This contract is based on [UniswapAnchoredView](https://github.com/compound-finance/open-oracle/blob/master/contracts/Uniswap/UniswapAnchoredView.sol) in Compound Finance's Open Oracle.
+ * Its purpose is to serve as Compound Finance's price feed.
+ *
+ * The ORIGINAL UniswapAnchoredView accepts signed prices posted to it via a single reporter.
+ * It verifies the signatures, checks that the prices are within certain acceptable bounds of the Uniswap V2 TWAP anchor price (updating this anchor price if necessary).
+ * If the reported price is inside the anchor price's acceptable bounds, it is stored and exposed as the current price of the asset. Otherwise, the anchor price is used.
+ * The reporter can invalidate itself if at any point if it believes it is compromised, at which point the Uniswap TWAP anchor price is used indefinitely.
+ *
+ * This contract differs from the original in several ways:
+ *   - Instead of a reporter posting prices, an AccessControlledOffChainAggregator contract submits prices via the validate function defined in the AggregatorValidatorInterface.
+ *   - Each configured TokenConfig has its own reporter (aggregator) instead of a single reporter. This reporter is responsible for posting prices for a particular token.
+ *   - This contract has an owner (community multisig) with a single privilege: the ability to invalidate a specific reporter.
+ *       Each reporter is invalidated individually, affecting one market at a time rather than every single market. This is because each reporter will consist of a unique decentralised price feed with independent operators.
+ *   - SafeMath functions are removed since this is written for Solidity version ^0.8.0.
+ */
 contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, ConfirmedOwner {
   using FixedPoint for *;
 
