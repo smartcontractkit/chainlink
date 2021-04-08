@@ -33,7 +33,7 @@ type Runner interface {
 	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (runID int64, finalResult FinalResult, err error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults) (int64, error)
 
-	// Deprecated
+	// XXX: These methods are deprecated, you should be using the above
 	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (runID int64, err error)
 	AwaitRun(ctx context.Context, runID int64) error
 	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)

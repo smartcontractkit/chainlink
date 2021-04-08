@@ -96,7 +96,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, models.JobID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -125,7 +125,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			defer cleanup()
 
 			js := test.job
-			log := test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			log := test.logFactory(t, models.IDToTopic(js.ID), cltest.NewAddress(), test.requester, 1, `{}`)
 
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)

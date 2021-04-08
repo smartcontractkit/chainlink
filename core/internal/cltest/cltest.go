@@ -803,11 +803,11 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -1148,14 +1148,29 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
+func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
+
+	var err error
+	prs := []pipeline.Run{}
+	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
+		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
+		assert.NoError(t, err)
+		return prs
+	}, timeout, poll).Should(gomega.HaveLen(want))
+
+	return prs
+}
+
 func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
+
 	var pr []pipeline.Run
-	g.Eventually(func() bool {
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
 		var completed []pipeline.Run
+
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
@@ -1525,6 +1540,8 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 func (a Awaiter) ItHappened() { close(a) }
 
 func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	t.Helper()
+
 	duration := 10 * time.Second
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -1533,7 +1550,7 @@ func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	select {
 	case <-a:
 	case <-time.After(duration):
-		t.Fatal("timed out waiting for Awaiter to get ItHappened")
+		t.Fatal("Timed out waiting for Awaiter to get ItHappened")
 	}
 }
 

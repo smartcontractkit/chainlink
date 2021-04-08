@@ -28,6 +28,7 @@ type ORM interface {
 	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
+
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
 	DB() *gorm.DB
@@ -102,7 +103,7 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 		err = tx.Raw(`
             INSERT INTO pipeline_runs (pipeline_spec_id, meta, created_at)
             SELECT pipeline_spec_id, ?, NOW()
-            FROM jobs WHERE id = ? 
+            FROM jobs WHERE id = ?
             RETURNING *`, JSONSerializable{Val: meta}, jobID).Scan(&run).Error
 		if run.ID == 0 {
 			return errors.Errorf("no job found with id %v (most likely it was deleted)", jobID)
