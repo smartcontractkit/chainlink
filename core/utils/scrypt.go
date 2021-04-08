@@ -5,13 +5,16 @@ import (
 )
 
 const (
+	// FastN is a shorter N parameter for testing
 	FastN = 2
+	// FastP is a shorter P parameter for testing
 	FastP = 1
 )
 
 type (
+	// ScryptParams represents two integers, N and P.
 	ScryptParams struct{ N, P int }
-
+	// ScryptConfigReader can check for an insecure, fast flag
 	ScryptConfigReader interface {
 		InsecureFastScrypt() bool
 	}
@@ -27,6 +30,7 @@ var DefaultScryptParams = ScryptParams{N: keystore.StandardScryptN, P: keystore.
 // encrypted keys will be easy to brute-force!
 var FastScryptParams = ScryptParams{N: FastN, P: FastP}
 
+// GetScryptParams fetches ScryptParams from a ScryptConfigReader
 func GetScryptParams(config ScryptConfigReader) ScryptParams {
 	if config.InsecureFastScrypt() {
 		return FastScryptParams
