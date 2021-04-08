@@ -554,18 +554,22 @@ func TestORM_JobRunsSortedFor(t *testing.T) {
 
 	jr1 := cltest.NewJobRun(includedJob)
 	jr1.CreatedAt = time.Now().AddDate(0, 0, -1)
+	jr1.Status = models.RunStatusCompleted
 	require.NoError(t, store.CreateJobRun(&jr1))
 	jr2 := cltest.NewJobRun(includedJob)
 	jr2.CreatedAt = time.Now().AddDate(0, 0, 1)
+	jr2.Status = models.RunStatusErrored
 	require.NoError(t, store.CreateJobRun(&jr2))
 
 	excludedJobRun := cltest.NewJobRun(excludedJob)
 	excludedJobRun.CreatedAt = time.Now().AddDate(0, 0, -9)
 	require.NoError(t, store.CreateJobRun(&excludedJobRun))
 
-	runs, count, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
+	runs, count, completedCount, errorCount, err := store.JobRunsSortedFor(includedJob.ID, orm.Descending, 0, 100)
 	assert.NoError(t, err)
 	require.Equal(t, 2, count)
+	require.Equal(t, 1, completedCount)
+	require.Equal(t, 1, errorCount)
 	actual := []uuid.UUID{runs[0].ID, runs[1].ID} // doesn't include excludedJobRun
 	assert.Equal(t, []uuid.UUID{jr2.ID, jr1.ID}, actual)
 }
