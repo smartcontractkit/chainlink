@@ -118,6 +118,8 @@ contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, Con
     }
   }
 
+  //// PRICE RETRIEVAL FUNCTIONS ////
+
   /**
     * @notice Get the official price for a symbol
     * @param symbol The symbol to fetch the price of
@@ -175,16 +177,24 @@ contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, Con
     return (1e30 * priceInternal(config)) / config.baseUnit;
   }
 
+  //// PRICE REPORTING FUNCTIONS ////
+
+  /**
+   * @notice This is called by the reporter whenever a new price is posted on-chain
+   * @dev called by AccessControlledOffChainAggregator
+   * @param currentAnswer the price
+   * @return valid bool
+   */
   function validate(
-    uint256 previousRoundId,
-    int256 previousAnswer,
-    uint256 currentRoundId,
+    uint256,
+    int256,
+    uint256,
     int256 currentAnswer
   )
     external
     override
     returns (
-      bool
+      bool valid
     )
   {
     require(currentAnswer >= 0, "current answer cannot be negative");
@@ -207,6 +217,7 @@ contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, Con
     else if (isWithinAnchor(reporterPrice, anchorPrice)) {
       s_prices[config.symbolHash] = reporterPrice;
       emit PriceUpdated(config.symbolHash, reporterPrice);
+      valid = true;
     }
     else {
       emit PriceGuarded(config.symbolHash, reporterPrice, anchorPrice);
@@ -229,6 +240,8 @@ contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, Con
     }
     return false;
   }
+
+  //// UNISWAP V2 TWAP FUNCTIONS ////
 
   /**
     * @dev Fetches the current token/eth price accumulator from uniswap.
@@ -341,10 +354,11 @@ contract UniswapAnchoredView is AggregatorValidatorInterface, UniswapConfig, Con
     return (cumulativePrice, s_oldObservations[symbolHash].acc, s_oldObservations[symbolHash].timestamp);
   }
 
+  //// OWNABLE FUNCTIONS ////
+
   /**
-    * @notice Invalidate the reporter, and fall back to using anchor directly in all cases
-    * @dev Only the reporter may sign a message which allows it to invalidate itself.
-    *  To be used in cases of emergency, if the reporter thinks their key may be compromised.
+    * @notice Invalidate a reporter, and fall back to using anchor directly in all cases
+    * @dev Only the owner can call this function
     */
   function invalidateReporter(
     address reporter
