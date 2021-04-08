@@ -144,7 +144,7 @@ func newReceived(logs []types.Log) *received {
 }
 
 func (rec *received) logsOnBlocks() []logOnBlock {
-	blocks := make([]logOnBlock, 0)
+	var blocks []logOnBlock
 	for _, broadcast := range rec.broadcasts {
 		blocks = append(blocks, logOnBlock{
 			logBlockNumber: broadcast.RawLog().BlockNumber,

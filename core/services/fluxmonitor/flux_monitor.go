@@ -587,8 +587,6 @@ func (p *PollingDeviationChecker) consume() {
 		defer unsubscribe()
 	}
 
-	logger.Info("FluxMonitor: Registered with LogBroadcaster.")
-
 	p.readyForLogs()
 	p.setIsHibernatingStatus()
 	p.setInitialTickers()

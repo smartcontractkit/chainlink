@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 )
@@ -210,7 +211,7 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 			newLowestAllowedBlockNumber: log.BlockNumber + 1,
 		})
 
-		logCopy := copyLog(log)
+		logCopy := gethwrappers.CopyLog(log)
 		decodedLog, err := r.decoders[log.Address].ParseLog(logCopy)
 		if err != nil {
 			logger.Errorw("Could not parse contract log", "error", err)
@@ -261,24 +262,4 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 
 		update.toUpdate.lastSeenChain = latestHead
 	}
-}
-
-func copyLog(l types.Log) types.Log {
-	var cpy types.Log
-	cpy.Address = l.Address
-	if l.Topics != nil {
-		cpy.Topics = make([]common.Hash, len(l.Topics))
-		copy(cpy.Topics, l.Topics)
-	}
-	if l.Data != nil {
-		cpy.Data = make([]byte, len(l.Data))
-		copy(cpy.Data, l.Data)
-	}
-	cpy.BlockNumber = l.BlockNumber
-	cpy.TxHash = l.TxHash
-	cpy.TxIndex = l.TxIndex
-	cpy.BlockHash = l.BlockHash
-	cpy.Index = l.Index
-	cpy.Removed = l.Removed
-	return cpy
 }
