@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
@@ -19,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
-	"github.com/smartcontractkit/chainlink/core/store/models"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -133,7 +132,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
-		log.On("RawLog").Return(models.Log{
+		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
 				uni.spec.DirectRequestSpec.OnChainJobSpecID,
@@ -219,7 +218,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log := new(log_mocks.Broadcast)
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
-		log.On("RawLog").Return(models.Log{
+		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{common.Hash{}, common.Hash{}},
 		})
 
@@ -244,7 +243,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
 		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID}
-		log.On("RawLog").Return(models.Log{
+		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
 				uni.spec.DirectRequestSpec.OnChainJobSpecID,
@@ -277,7 +276,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 			CancelExpiration: big.NewInt(0),
 			RequestId:        uni.spec.DirectRequestSpec.OnChainJobSpecID,
 		}
-		runLog.On("RawLog").Return(models.Log{
+		runLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
 				uni.spec.DirectRequestSpec.OnChainJobSpecID,
@@ -290,7 +289,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		cancelLog.On("WasAlreadyConsumed").Return(false, nil)
 		logCancelOracleRequest := oracle_wrapper.OracleCancelOracleRequest{RequestId: uni.spec.DirectRequestSpec.OnChainJobSpecID}
-		cancelLog.On("RawLog").Return(models.Log{
+		cancelLog.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
 				uni.spec.DirectRequestSpec.OnChainJobSpecID,

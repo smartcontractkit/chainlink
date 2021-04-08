@@ -266,7 +266,6 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 				nil,
 				rm,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
@@ -317,7 +316,6 @@ func TestPollingDeviationChecker_PollIfEligible_Creates_JobSpecErr(t *testing.T)
 		nil,
 		rm,
 		fetcher,
-		func() {},
 		big.NewInt(0),
 		big.NewInt(100000000000),
 	)
@@ -427,7 +425,6 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		nil,
 		rm,
 		fetcher,
-		func() {},
 		big.NewInt(0),
 		big.NewInt(100000000000),
 	)
@@ -526,7 +523,6 @@ func TestPollingDeviationChecker_TriggerIdleTimeThreshold(t *testing.T) {
 				nil,
 				runManager,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
@@ -622,7 +618,6 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutAtZero(t *testin
 		nil,
 		runManager,
 		fetcher,
-		func() {},
 		big.NewInt(0),
 		big.NewInt(100000000000),
 	)
@@ -707,7 +702,6 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_RoundTimeout(t 
 				nil,
 				runManager,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
@@ -797,7 +791,6 @@ func TestPollingDeviationChecker_UsesPreviousRoundStateOnStartup_IdleTimer(t *te
 				nil,
 				runManager,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
@@ -885,7 +878,6 @@ func TestPollingDeviationChecker_RoundTimeoutCausesPoll_timesOutNotZero(t *testi
 		nil,
 		runManager,
 		fetcher,
-		func() {},
 		big.NewInt(0),
 		big.NewInt(100000000000),
 	)
@@ -1073,7 +1065,6 @@ func TestPollingDeviationChecker_RespondToNewRound(t *testing.T) {
 				nil,
 				rm,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(0),
 			)
@@ -1290,7 +1281,6 @@ func TestPollingDeviationChecker_SufficientPayment(t *testing.T) {
 				minJobPayment,
 				rm,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
@@ -1567,7 +1557,6 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			nil,
 			rm,
 			fetcher,
-			func() {},
 			big.NewInt(0),
 			big.NewInt(100000000000),
 		)
@@ -1665,7 +1654,6 @@ func TestPollingDeviationChecker_DoesNotDoubleSubmit(t *testing.T) {
 			nil,
 			rm,
 			fetcher,
-			func() {},
 			big.NewInt(0),
 			big.NewInt(100000000000),
 		)
@@ -1759,7 +1747,6 @@ func TestFluxMonitor_PollingDeviationChecker_IsFlagLowered(t *testing.T) {
 				nil,
 				rm,
 				fetcher,
-				func() {},
 				big.NewInt(0),
 				big.NewInt(100000000000),
 			)
