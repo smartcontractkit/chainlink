@@ -3,13 +3,14 @@ pragma solidity ^0.8.0;
 
 import "./UniswapConfig.sol";
 import "./UniswapLib.sol";
+import "../../interfaces/AggregatorValidatorInterface.sol";
 
 struct Observation {
   uint timestamp;
   uint acc;
 }
 
-contract UniswapAnchoredView is UniswapConfig {
+contract UniswapAnchoredView is UniswapConfig, AggregatorValidatorInterface {
   using FixedPoint for *;
 
   /// @notice The number of wei in 1 ETH
@@ -38,20 +39,20 @@ contract UniswapAnchoredView is UniswapConfig {
 
   /// @notice The event emitted when new prices are posted but the stored price is not updated due to the anchor
   event PriceGuarded(
-    string symbol,
+    bytes32 symbolHash,
     uint reporter,
     uint anchor
   );
 
   /// @notice The event emitted when the stored price is updated
   event PriceUpdated(
-    string symbol,
+    bytes32 symbolHash,
     uint price
   );
 
   /// @notice The event emitted when anchor price is updated
   event AnchorPriceUpdated(
-    string symbol,
+    bytes32 symbolHash,
     uint anchorPrice,
     uint oldTimestamp,
     uint newTimestamp
@@ -87,12 +88,11 @@ contract UniswapAnchoredView is UniswapConfig {
     TokenConfig[] memory configs
   )
     UniswapConfig(configs)
-    public
   {
     anchorPeriod = anchorPeriod_;
 
     // Allow the tolerance to be whatever the deployer chooses, but prevent under/overflow (and prices from being 0)
-    upperBoundAnchorRatio = anchorToleranceMantissa_ > uint(-1) - 100e16 ? uint(-1) : 100e16 + anchorToleranceMantissa_;
+    upperBoundAnchorRatio = anchorToleranceMantissa_ > type(uint).max - 100e16 ? type(uint).max : 100e16 + anchorToleranceMantissa_;
     lowerBoundAnchorRatio = anchorToleranceMantissa_ < 100e16 ? 100e16 - anchorToleranceMantissa_ : 1;
 
     for (uint i = 0; i < configs.length; i++) {
@@ -171,61 +171,41 @@ contract UniswapAnchoredView is UniswapConfig {
     return (1e30 * priceInternal(config)) / config.baseUnit;
   }
 
-  /**
-    * @notice Post open oracle reporter prices, and recalculate stored price by comparing to anchor
-    * @dev We let anyone pay to post anything, but only prices from configured reporter will be stored in the view.
-    * @param messages The messages to post to the oracle
-    * @param signatures The signatures for the corresponding messages
-    * @param symbols The symbols to compare to anchor for authoritative reading
-    */
-  function postPrices(
-    bytes[] calldata messages,
-    bytes[] calldata signatures,
-    string[] calldata symbols
+  function validate(
+    uint256 previousRoundId,
+    int256 previousAnswer,
+    uint256 currentRoundId,
+    int256 currentAnswer
   )
     external
+    override
+    returns (
+      bool
+    )
   {
-    require(messages.length == signatures.length, "messages and signatures must be 1:1");
-
-    // Save the prices
-    for (uint i = 0; i < messages.length; i++) {
-      priceData.put(messages[i], signatures[i]);
-    }
+    require(currentAnswer >= 0, "current answer cannot be negative");
+    uint256 reporterPrice = uint256(currentAnswer);
+    TokenConfig memory config = getTokenConfigByReporter(msg.sender);
 
     uint ethPrice = fetchEthPrice();
-
-    // Try to update the view storage
-    for (uint i = 0; i < symbols.length; i++) {
-      postPriceInternal(symbols[i], ethPrice);
-    }
-  }
-
-  function postPriceInternal(
-    string memory symbol,
-    uint ethPrice
-  )
-    internal
-  {
-    TokenConfig memory config = getTokenConfigBySymbol(symbol);
     require(config.priceSource == PriceSource.REPORTER, "only reporter prices get posted");
-
-    bytes32 symbolHash = keccak256(abi.encodePacked(symbol));
-    uint reporterPrice = priceData.getPrice(reporter, symbol);
     uint anchorPrice;
-    if (symbolHash == ethHash) {
+    if (config.symbolHash == ethHash) {
       anchorPrice = ethPrice;
     } else {
-      anchorPrice = fetchAnchorPrice(symbol, config, ethPrice);
+      anchorPrice = fetchAnchorPrice(config.symbolHash, config, ethPrice);
     }
 
-    if (reporterInvalidated) {
-      prices[symbolHash] = anchorPrice;
-      emit PriceUpdated(symbol, anchorPrice);
-    } else if (isWithinAnchor(reporterPrice, anchorPrice)) {
-      prices[symbolHash] = reporterPrice;
-      emit PriceUpdated(symbol, reporterPrice);
+    // TODO - add this reporterInvalidated option back in
+    // if (config.reporterInvalidated) {
+    //   prices[symbolHash] = anchorPrice;
+    //   emit PriceUpdated(symbol, anchorPrice);
+    // } else
+    if (isWithinAnchor(reporterPrice, anchorPrice)) {
+      prices[config.symbolHash] = reporterPrice;
+      emit PriceUpdated(config.symbolHash, reporterPrice);
     } else {
-      emit PriceGuarded(symbol, reporterPrice, anchorPrice);
+      emit PriceGuarded(config.symbolHash, reporterPrice, anchorPrice);
     }
   }
 
@@ -284,7 +264,7 @@ contract UniswapAnchoredView is UniswapConfig {
     * @param conversionFactor 1e18 if seeking the ETH price, and a 6 decimal ETH-USDC price in the case of other assets
     */
   function fetchAnchorPrice(
-    string memory symbol,
+    bytes32 symbolHash,
     TokenConfig memory config,
     uint conversionFactor
   )
@@ -320,7 +300,7 @@ contract UniswapAnchoredView is UniswapConfig {
     //             = unscaledPriceMantissa / expScale * tokenBaseUnit / ethBaseUnit
     anchorPrice = (unscaledPriceMantissa * config.baseUnit) / ethBaseUnit / expScale;
 
-    emit AnchorPriceUpdated(symbol, anchorPrice, oldTimestamp, block.timestamp);
+    emit AnchorPriceUpdated(symbolHash, anchorPrice, oldTimestamp, block.timestamp);
 
     return anchorPrice;
   }
@@ -356,4 +336,7 @@ contract UniswapAnchoredView is UniswapConfig {
     }
     return (cumulativePrice, oldObservations[symbolHash].acc, oldObservations[symbolHash].timestamp);
   }
+
+  // TODO Multisig can invalidate a reporter
+    // Add reporterInvalidated back into the config for this
 }

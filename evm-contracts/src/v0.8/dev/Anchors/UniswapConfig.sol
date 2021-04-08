@@ -628,6 +628,49 @@ contract UniswapConfig {
     });
   }
 
+  function getReporterIndex(
+    address reporter
+  )
+    internal
+    view
+    returns(
+      uint
+    )
+  {
+    if (reporter == reporter00) return 0;
+    if (reporter == reporter01) return 1;
+    if (reporter == reporter02) return 2;
+    if (reporter == reporter03) return 3;
+    if (reporter == reporter04) return 4;
+    if (reporter == reporter05) return 5;
+    if (reporter == reporter06) return 6;
+    if (reporter == reporter07) return 7;
+    if (reporter == reporter08) return 8;
+    if (reporter == reporter09) return 9;
+    if (reporter == reporter10) return 10;
+    if (reporter == reporter11) return 11;
+    if (reporter == reporter12) return 12;
+    if (reporter == reporter13) return 13;
+    if (reporter == reporter14) return 14;
+    if (reporter == reporter15) return 15;
+    if (reporter == reporter16) return 16;
+    if (reporter == reporter17) return 17;
+    if (reporter == reporter18) return 18;
+    if (reporter == reporter19) return 19;
+    if (reporter == reporter20) return 20;
+    if (reporter == reporter21) return 21;
+    if (reporter == reporter22) return 22;
+    if (reporter == reporter23) return 23;
+    if (reporter == reporter24) return 24;
+    if (reporter == reporter25) return 25;
+    if (reporter == reporter26) return 26;
+    if (reporter == reporter27) return 27;
+    if (reporter == reporter28) return 28;
+    if (reporter == reporter29) return 29;
+
+    return type(uint).max;
+  }
+
   function getCTokenIndex(
     address cToken
   )
@@ -805,6 +848,23 @@ contract UniswapConfig {
     if (i == 27) return TokenConfig({cToken: cToken27, underlying: underlying27, symbolHash: symbolHash27, baseUnit: baseUnit27, priceSource: priceSource27, fixedPrice: fixedPrice27, uniswapMarket: uniswapMarket27, reporter: reporter27, isUniswapReversed: isUniswapReversed27});
     if (i == 28) return TokenConfig({cToken: cToken28, underlying: underlying28, symbolHash: symbolHash28, baseUnit: baseUnit28, priceSource: priceSource28, fixedPrice: fixedPrice28, uniswapMarket: uniswapMarket28, reporter: reporter28, isUniswapReversed: isUniswapReversed28});
     if (i == 29) return TokenConfig({cToken: cToken29, underlying: underlying29, symbolHash: symbolHash29, baseUnit: baseUnit29, priceSource: priceSource29, fixedPrice: fixedPrice29, uniswapMarket: uniswapMarket29, reporter: reporter29, isUniswapReversed: isUniswapReversed29});
+  }
+
+  function getTokenConfigByReporter(
+    address reporter
+  )
+    public
+    view
+    returns(
+      TokenConfig memory
+    )
+  {
+    uint index = getReporterIndex(reporter);
+    if (index != type(uint).max) {
+      return getTokenConfig(index);
+    }
+
+    revert("token config not found");
   }
 
   /**
