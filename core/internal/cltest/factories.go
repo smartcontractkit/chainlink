@@ -778,17 +778,22 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 
 func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
 	t.Helper()
+	pipelineSpec := pipeline.Spec{}
+	err := store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
 	}
-	err := store.DB.Create(&keeperSpec).Error
+	err = store.DB.Create(&keeperSpec).Error
 	require.NoError(t, err)
 	specDB := job.Job{
-		KeeperSpec:    &keeperSpec,
-		Type:          job.Keeper,
-		SchemaVersion: 1,
-		PipelineSpec:  &pipeline.Spec{},
+		KeeperSpec:     &keeperSpec,
+		KeeperSpecID:   &keeperSpec.ID,
+		Type:           job.Keeper,
+		SchemaVersion:  1,
+		PipelineSpec:   &pipelineSpec,
+		PipelineSpecID: pipelineSpec.ID,
 	}
 	err = store.DB.Create(&specDB).Error
 	require.NoError(t, err)
