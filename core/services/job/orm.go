@@ -207,6 +207,8 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
 			}
 			jobSpec.KeeperSpecID = &jobSpec.KeeperSpec.ID
+		default:
+			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
 
 		pipelineSpecID, err := o.pipelineORM.CreateSpec(ctx, tx, taskDAG, jobSpec.MaxTaskDuration)
