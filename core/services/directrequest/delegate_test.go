@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -89,7 +87,7 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	}
 	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, gethClient, db, drConfig)
 
-	spec := factoryJobSpec(t)
+	spec := cltest.MakeDirectRequestJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
 	serviceArray, err := delegate.ServicesForSpec(*spec)
@@ -333,26 +331,10 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 	})
 }
 
-func factoryJobSpec(t *testing.T) *job.Job {
-	t.Helper()
-	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID, err := uuid.NewV4()
-	require.NoError(t, err)
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
-	spec := &job.Job{
-		Type:              job.DirectRequest,
-		SchemaVersion:     1,
-		DirectRequestSpec: drs,
-		Pipeline:          *pipeline.NewTaskDAG(),
-		PipelineSpec:      &pipeline.Spec{},
-	}
-	return spec
-}
-
 type testConfig struct {
-	minRequiredOutgoingConfirmations uint64
+    minRequiredOutgoingConfirmations uint64
 }
 
 func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
-	return c.minRequiredOutgoingConfirmations
+    return c.minRequiredOutgoingConfirmations
 }
