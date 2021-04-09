@@ -195,10 +195,12 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: directrequest.NewDelegate(
 				logBroadcaster,
+				headBroadcaster,
 				pipelineRunner,
 				pipelineORM,
 				ethClient,
 				store.DB,
+				config.MinRequiredOutgoingConfirmations(),
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, logBroadcaster, config),
 		}

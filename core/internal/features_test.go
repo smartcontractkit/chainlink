@@ -1602,7 +1602,13 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(sub, nil)
+
+	var headCh chan<- *models.Head
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().
+		Run(func(args mock.Arguments) {
+			headCh = args.Get(1).(chan<- *models.Head)
+		}).
+		Return(sub, nil)
 
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
@@ -1637,6 +1643,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}, 30*time.Second)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+	headCh <- &models.Head{Number: 10}
 
 	httpAwaiter.AwaitOrFail(t)
 

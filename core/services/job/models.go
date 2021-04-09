@@ -147,6 +147,7 @@ type DirectRequestSpec struct {
 	IDEmbed
 	ContractAddress  models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
 	OnChainJobSpecID common.Hash         `toml:"jobID"`
+	NumConfirmations uint64              `toml:"numConfirmations"`
 	CreatedAt        time.Time           `json:"createdAt" toml:"-"`
 	UpdatedAt        time.Time           `json:"updatedAt" toml:"-"`
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -21,20 +22,27 @@ import (
 )
 
 type Delegate struct {
-	logBroadcaster log.Broadcaster
-	pipelineRunner pipeline.Runner
-	pipelineORM    pipeline.ORM
-	db             *gorm.DB
-	ethClient      eth.Client
+	logBroadcaster                   log.Broadcaster
+	headBroadcaster                  *services.HeadBroadcaster
+	pipelineRunner                   pipeline.Runner
+	pipelineORM                      pipeline.ORM
+	db                               *gorm.DB
+	ethClient                        eth.Client
+	chHeads                          chan models.Head
+	minRequiredOutgoingConfirmations uint64
 }
 
-func NewDelegate(logBroadcaster log.Broadcaster, pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM, ethClient eth.Client, db *gorm.DB) *Delegate {
+func NewDelegate(logBroadcaster log.Broadcaster, headBroadcaster *services.HeadBroadcaster, pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM,
+	ethClient eth.Client, db *gorm.DB, minRequiredOutgoingConfirmations uint64) *Delegate {
 	return &Delegate{
 		logBroadcaster,
+		headBroadcaster,
 		pipelineRunner,
 		pipelineORM,
 		db,
 		ethClient,
+		make(chan models.Head, 1),
+		minRequiredOutgoingConfirmations,
 	}
 }
 
@@ -54,14 +62,24 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		return
 	}
 
+	minConfirmations := d.minRequiredOutgoingConfirmations
+	if concreteSpec.NumConfirmations > minConfirmations {
+		minConfirmations = concreteSpec.NumConfirmations
+	}
+
 	logListener := &listener{
-		logBroadcaster: d.logBroadcaster,
-		oracle:         oracle,
-		pipelineRunner: d.pipelineRunner,
-		db:             d.db,
-		pipelineORM:    d.pipelineORM,
-		spec:           *job.PipelineSpec,
+		logBroadcaster:   d.logBroadcaster,
+		headBroadcaster:  d.headBroadcaster,
+		oracle:           oracle,
+		pipelineRunner:   d.pipelineRunner,
+		db:               d.db,
+		pipelineORM:      d.pipelineORM,
+		spec:             *job.PipelineSpec,
 		job:            job,
+		mbLogs:           utils.NewMailbox(50),
+		chHeads:          d.chHeads,
+		minConfirmations: minConfirmations,
+		chStop:           make(chan struct{}),
 	}
 	copy(logListener.onChainJobSpecID[:], job.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
@@ -76,6 +94,7 @@ var (
 
 type listener struct {
 	logBroadcaster    log.Broadcaster
+	headBroadcaster   *services.HeadBroadcaster
 	unsubscribeLogs   func()
 	oracle            oracle_wrapper.OracleInterface
 	pipelineRunner    pipeline.Runner
@@ -86,6 +105,10 @@ type listener struct {
 	onChainJobSpecID  common.Hash
 	runs              sync.Map
 	shutdownWaitGroup sync.WaitGroup
+	mbLogs            *utils.Mailbox
+	chHeads           chan models.Head
+	minConfirmations  uint64
+	chStop            chan struct{}
 }
 
 // Start complies with job.Service
@@ -101,6 +124,16 @@ func (l *listener) Start() error {
 		return errors.New("Failed to register listener with logBroadcaster")
 	}
 	l.unsubscribeLogs = unsubscribe
+	go l.run()
+
+	hbUnsubscribe := l.headBroadcaster.Subscribe(l)
+
+	go func() {
+		defer hbUnsubscribe()
+		//defer rs.wgDone.Done()
+		<-l.chStop
+	}()
+
 	return nil
 }
 
@@ -116,6 +149,13 @@ func (l *listener) Close() error {
 	})
 	l.runs = sync.Map{}
 	l.shutdownWaitGroup.Wait()
+
+	//if !rs.OkayToStop() {
+	//	return errors.New("RegistrySynchronizer is already stopped")
+	//}
+	close(l.chStop)
+	//rs.wgDone.Wait()
+
 	return nil
 }
 
@@ -125,44 +165,88 @@ func (*listener) OnConnect() {}
 // OnDisconnect complies with log.Listener
 func (*listener) OnDisconnect() {}
 
-// OnConnect complies with log.Listener
-func (l *listener) HandleLog(lb log.Broadcast) {
-	was, err := lb.WasAlreadyConsumed()
-	if err != nil {
-		logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
-		return
-	} else if was {
-		return
-	}
-
-	logJobSpecID := lb.RawLog().Topics[1]
-	if logJobSpecID == (common.Hash{}) || logJobSpecID != l.onChainJobSpecID {
-		logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.onChainJobSpecID)
-		return
-	}
-
-	log := lb.DecodedLog()
-	if log == nil || reflect.ValueOf(log).IsNil() {
-		logger.Error("HandleLog: ignoring nil value")
-		return
-	}
-
-	switch log := log.(type) {
-	case *oracle_wrapper.OracleOracleRequest:
-		l.handleOracleRequest(log)
-		err = lb.MarkConsumed()
-		if err != nil {
-			logger.Errorf("Error marking log as consumed: %v", err)
-		}
-	case *oracle_wrapper.OracleCancelOracleRequest:
-		l.handleCancelOracleRequest(log)
-		err = lb.MarkConsumed()
-		if err != nil {
-			logger.Errorf("Error marking log as consumed: %v", err)
-		}
-
+func (l *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
+	select {
+	case l.chHeads <- head:
 	default:
-		logger.Warnf("unexpected log type %T", log)
+	}
+}
+
+func (l *listener) HandleLog(lb log.Broadcast) {
+	l.mbLogs.Deliver(lb)
+}
+
+func (l *listener) run() {
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case head := <-l.chHeads:
+			l.handleReceivedLogs(head)
+		}
+	}
+}
+
+func (l *listener) handleReceivedLogs(head models.Head) {
+	oldEnough := isOldEnoughConstructor(head, l.minConfirmations)
+	for {
+		i := l.mbLogs.RetrieveIf(oldEnough)
+		if i == nil {
+			return
+		}
+		lb, ok := i.(log.Broadcast)
+		if !ok {
+			logger.Errorf("RegistrySynchronizer: invariant violation, expected log.Broadcast but got %T", lb)
+			continue
+		}
+		was, err := lb.WasAlreadyConsumed()
+		if err != nil {
+			logger.Errorw("DirectRequestListener: could not determine if log was already consumed", "error", err)
+			return
+		} else if was {
+			return
+		}
+
+		logJobSpecID := lb.RawLog().Topics[1]
+		if logJobSpecID == (common.Hash{}) || logJobSpecID != l.onChainJobSpecID {
+			logger.Debugw("Skipping Run for Log with wrong Job ID", "logJobSpecID", logJobSpecID, "actualJobID", l.onChainJobSpecID)
+			return
+		}
+
+		log := lb.DecodedLog()
+		if log == nil || reflect.ValueOf(log).IsNil() {
+			logger.Error("HandleLog: ignoring nil value")
+			return
+		}
+
+		switch log := log.(type) {
+		case *oracle_wrapper.OracleOracleRequest:
+			l.handleOracleRequest(log)
+			err = lb.MarkConsumed()
+			if err != nil {
+				logger.Errorf("Error marking log as consumed: %v", err)
+			}
+		case *oracle_wrapper.OracleCancelOracleRequest:
+			l.handleCancelOracleRequest(log)
+			err = lb.MarkConsumed()
+			if err != nil {
+				logger.Errorf("Error marking log as consumed: %v", err)
+			}
+
+		default:
+			logger.Warnf("unexpected log type %T", log)
+		}
+	}
+}
+
+func isOldEnoughConstructor(head models.Head, minConfirmations uint64) func(interface{}) bool {
+	return func(i interface{}) bool {
+		broadcast, ok := i.(log.Broadcast)
+		if !ok {
+			return true // we want to get bad data out of the queue
+		}
+		logHeight := broadcast.RawLog().BlockNumber
+		return (logHeight + uint64(minConfirmations) - 1) <= uint64(head.Number)
 	}
 }
 
