@@ -3,6 +3,7 @@ package web
 import (
 	"net/http"
 
+	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
@@ -100,6 +101,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	case job.Keeper:
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
+	case job.CronJob:
+		js, err = cron.ValidateCronSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}

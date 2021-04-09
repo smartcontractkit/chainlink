@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	CronJob           Type = "cronjob"
 	DirectRequest     Type = "directrequest"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
@@ -48,6 +49,8 @@ type Job struct {
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
 	DirectRequestSpecID           *int32                       `json:"-"`
 	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
+	CronSpecId                    *int32                       `json:"-"`
+	CronSpec                      *CronSpec                    `json:"cronSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
 	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
 	KeeperSpecID                  *int32                       `json:"-"`
@@ -153,6 +156,17 @@ type DirectRequestSpec struct {
 
 func (DirectRequestSpec) TableName() string {
 	return "direct_request_specs"
+}
+
+type CronSpec struct {
+	IDEmbed
+	CronSchedule string    `json:"schedule" tom:"schedule"`
+	CreatedAt    time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt    time.Time `json:"updatedAt" toml:"-"`
+}
+
+func (CronSpec) TableName() string {
+	return "cron_specs"
 }
 
 type FluxMonitorSpec struct {

@@ -226,6 +226,7 @@ const (
 	TaskTypeBridge    TaskType = "bridge"
 	TaskTypeMedian    TaskType = "median"
 	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeUInt256   TaskType = "ethuint256"
 	TaskTypeJSONParse TaskType = "jsonparse"
 	TaskTypeAny       TaskType = "any"
 
@@ -259,6 +260,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, dotID string, 
 	case TaskTypeJSONParse:
 		task = &JSONParseTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	case TaskTypeMultiply:
+		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
+	case TaskTypeUInt256:
 		task = &MultiplyTask{BaseTask: BaseTask{dotID: dotID, nPreds: nPreds}}
 	default:
 		return nil, errors.Errorf(`unknown task type: "%v"`, taskType)
