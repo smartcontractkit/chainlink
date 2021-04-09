@@ -19,6 +19,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRendererJSON_RenderVRFKeys(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	r := cmd.RendererJSON{Writer: ioutil.Discard}
+	keys := []cmd.VRFKeyPresenter{
+		{
+			Compressed:   "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01",
+			Uncompressed: "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f",
+			Hash:         "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a",
+			CreatedAt:    &now,
+			UpdatedAt:    &now,
+			DeletedAt:    nil,
+		},
+	}
+	assert.NoError(t, r.Render(&keys))
+}
+
+func TestRendererTable_RenderVRKKeys(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	keys := []cmd.VRFKeyPresenter{
+		{
+			Compressed:   "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01",
+			Uncompressed: "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f",
+			Hash:         "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a",
+			CreatedAt:    &now,
+			UpdatedAt:    &now,
+			DeletedAt:    nil,
+		},
+	}
+	assert.NoError(t, r.Render(&keys))
+	output := buffer.String()
+	assert.Contains(t, output, "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01")
+	assert.Contains(t, output, "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f")
+	assert.Contains(t, output, "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a")
+
+}
+
 func TestRendererJSON_RenderJobs(t *testing.T) {
 	t.Parallel()
 	r := cmd.RendererJSON{Writer: ioutil.Discard}

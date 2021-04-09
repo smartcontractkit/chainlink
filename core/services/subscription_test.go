@@ -39,6 +39,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	initr := job.Initiators[0]
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
 
 	var count int32
@@ -53,6 +57,51 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 	}).Should(gomega.Equal(int32(1)))
 }
 
+func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+	ethClient := new(mocks.Client)
+	defer ethClient.AssertExpectations(t)
+	store.EthClient = ethClient
+
+	job := cltest.NewJobWithLogInitiator()
+	initr := job.Initiators[0]
+	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(213),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(1), query.FromBlock)
+		assert.Equal(t, big.NewInt(100), query.ToBlock)
+	})
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(101), query.FromBlock)
+		assert.Equal(t, big.NewInt(200), query.ToBlock)
+	})
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Once().Return([]types.Log{log}, nil).Run(func(args mock.Arguments) {
+		query := args.Get(1).(ethereum.FilterQuery)
+		assert.Equal(t, big.NewInt(201), query.FromBlock)
+		assert.Equal(t, big.NewInt(213), query.ToBlock)
+	})
+
+	var count int32
+	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
+	fromBlock := cltest.Head(0)
+	jm := new(mocks.RunManager)
+	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, fromBlock.NextInt(), store.Config, callback)
+	assert.NoError(t, err)
+	defer sub.Unsubscribe()
+	gomega.NewGomegaWithT(t).Eventually(func() int32 {
+		return atomic.LoadInt32(&count)
+	}).Should(gomega.Equal(int32(3)))
+}
+
 func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T) {
 	t.Parallel()
 
@@ -64,6 +113,10 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_WithNoHead(t *testing.T)
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2),
+	})
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
 
@@ -91,6 +144,10 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	initr := job.Initiators[0]
 
 	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{log}, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
 	var count int32
@@ -193,6 +250,10 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			defer assertMocksCalled()
 			store.EthClient = eth.NewClientWith(rpcClient, gethClient)
 			subMock.On("Err").Return(nil)
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
 			job := cltest.NewJob()
@@ -261,6 +322,10 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			subMock.On("Err").Maybe().Return(nil)
 
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 			job := cltest.NewJob()
 			initr := models.Initiator{Type: "runlog"}
@@ -325,6 +390,9 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 			job := cltest.NewJobWithLogInitiator()
 			job.Initiators[0].InitiatorParams.FromBlock = test.initrParamFromBlock
 
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
 			expectedQuery := ethereum.FilterQuery{
 				FromBlock: test.wantFromBlock,
 				Addresses: []common.Address{job.Initiators[0].InitiatorParams.Address},
@@ -333,7 +401,9 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 
 			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
 
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			expectedQuery.ToBlock = b.Number()
 			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
@@ -395,7 +465,12 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
+			expectedQuery.ToBlock = b.Number()
 			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{*log}, nil)
 
 			executeJobChannel := make(chan struct{})

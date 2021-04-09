@@ -120,7 +120,7 @@ describe('pages/JobsIndex/JobsIndex', () => {
 
     wrapper
       .find('input[name="search"]')
-      .simulate('change', { target: { value: 'web' } })
+      .simulate('change', { target: { value: 'web   ' } }) // Tests trimming whitespace as well
 
     expect(wrapper.find('tbody').children().length).toEqual(1)
   })

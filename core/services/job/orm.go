@@ -124,6 +124,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 	err := o.db.
 		Joins(join, args...).
 		Preload("FluxMonitorSpec").
+		Preload("DirectRequestSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
@@ -179,13 +180,21 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 		}
 		jobSpec.PipelineSpecID = pipelineSpecID
 
-		err = tx.Create(jobSpec).Error
+		if jobSpec.DirectRequestSpec != nil {
+			err = tx.FirstOrCreate(&jobSpec.DirectRequestSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "error creating direct request spec")
+			}
+			jobSpec.DirectRequestSpecID = &jobSpec.DirectRequestSpec.ID
+		}
+
+		err = tx.Omit("DirectRequestSpec").Create(jobSpec).Error
 		pqErr, ok := err.(*pgconn.PgError)
 		if err != nil && ok && pqErr.Code == "23503" {
 			if pqErr.ConstraintName == "offchainreporting_oracle_specs_p2p_peer_id_fkey" {
 				return errors.Wrapf(ErrNoSuchPeerID, "%v", jobSpec.OffchainreportingOracleSpec.P2PPeerID)
 			}
-			if !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
+			if jobSpec.OffchainreportingOracleSpec != nil && !jobSpec.OffchainreportingOracleSpec.IsBootstrapPeer {
 				if pqErr.ConstraintName == "offchainreporting_oracle_specs_transmitter_address_fkey" {
 					return errors.Wrapf(ErrNoSuchTransmitterAddress, "%v", jobSpec.OffchainreportingOracleSpec.TransmitterAddress)
 				}
