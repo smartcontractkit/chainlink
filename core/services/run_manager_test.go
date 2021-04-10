@@ -232,6 +232,7 @@ func TestRunManager_ResumeAllPendingConnection_NotEnoughConfirmations(t *testing
 
 func TestRunManager_Create(t *testing.T) {
 	t.Parallel()
+
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
@@ -251,11 +252,20 @@ func TestRunManager_Create(t *testing.T) {
 	initiator := job.Initiators[0]
 	rr := models.NewRunRequest(models.JSON{})
 	rr.RequestID = &requestID
+	th := common.HexToHash("0x0123")
+	rr.BlockHash = &th
+	rr.TxHash = &th
 	rr.RequestParams = cltest.JSONFromString(t, `{"random": "input"}`)
 	jr, err := app.RunManager.Create(job.ID, &initiator, nil, rr)
 	require.NoError(t, err)
 	updatedJR := cltest.WaitForJobRunToComplete(t, store, *jr)
 	assert.Equal(t, rr.RequestID, updatedJR.RunRequest.RequestID)
+	t.Log(jr.RunRequest.BlockHash, jr.RunRequest.RequestID)
+
+	// Creating a duplicate
+	jr, err = app.RunManager.Create(job.ID, &initiator, nil, rr)
+	require.Nil(t, jr)
+	require.Error(t, err)
 }
 
 func TestRunManager_Create_DoesNotSaveToTaskSpec(t *testing.T) {

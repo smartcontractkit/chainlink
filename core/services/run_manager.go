@@ -186,10 +186,6 @@ func (rm *runManager) Create(
 	creationHeight *big.Int,
 	runRequest *models.RunRequest,
 ) (*models.JobRun, error) {
-	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
-		"job", jobSpecID.String(),
-		"creation_height", creationHeight.String(),
-	)
 
 	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
 	if err != nil {
@@ -219,6 +215,23 @@ func (rm *runManager) Create(
 		return nil, fmt.Errorf("invariant for job %s: no tasks to run in NewRun", job.ID)
 	}
 
+	// If its a runlog job, make sure we haven't already processed that log.
+	if runRequest.BlockHash != nil && runRequest.TxHash != nil && runRequest.RequestID != nil {
+		var rrs []models.RunRequest
+		err = rm.orm.DB.Find(&rrs, "request_id = ? AND tx_hash = ? and block_hash = ?", runRequest.RequestID, runRequest.TxHash, runRequest.BlockHash).Error
+		if err == nil && len(rrs) != 0 {
+			return nil, errors.Errorf("Request ID %v in tx hash %v block hash %v  for job spec %v already processed",
+				runRequest.RequestID,
+				runRequest.TxHash,
+				runRequest.BlockHash,
+				jobSpecID.String())
+		}
+	}
+
+	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
+		"job", jobSpecID.String(),
+		"creation_height", creationHeight.String(),
+	)
 	run, adapters := NewRun(&job, initiator, creationHeight, runRequest, rm.config, rm.orm, now)
 	runCost := runCost(&job, rm.config, adapters)
 	ValidateRun(run, runCost)
