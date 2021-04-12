@@ -206,6 +206,10 @@ func TestIntegration_EthLog(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
@@ -271,6 +275,12 @@ func TestIntegration_RunLog(t *testing.T) {
 					newHeads = args.Get(1).(chan<- *models.Head)
 				}).
 				Return(sub, nil)
+
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+
 			require.NoError(t, app.StartAndConnect())
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
 			requiredConfs := int64(100)
@@ -347,6 +357,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
@@ -519,6 +534,12 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(&types.Receipt{}, nil)
+
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
