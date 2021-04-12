@@ -579,13 +579,13 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		return err
 	}
 	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
+		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
-		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
+		err := scope.Table("job_specs").Distinct("job_specs.id").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
