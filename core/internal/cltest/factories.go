@@ -506,6 +506,7 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
 		GasLimit:       uint64(1000000000),
+		State:          models.EthTxUnstarted,
 	}
 }
 
@@ -617,6 +618,7 @@ func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:        NewHash(),
+		State:       models.EthTxAttemptInProgress,
 	}
 }
 
