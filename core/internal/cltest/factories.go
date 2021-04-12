@@ -739,13 +739,19 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
+	pipelineSpec := pipeline.Spec{}
+	err = store.DB.Create(&pipelineSpec).Error
+
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
 	jb := job.Job{
-		OffchainreportingOracleSpec: &oracleSpec,
-		Type:                        job.OffchainReporting,
-		SchemaVersion:               1,
-		PipelineSpec:                &pipeline.Spec{},
+		OffchainreportingOracleSpec:   &oracleSpec,
+		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		Type:                          job.OffchainReporting,
+		SchemaVersion:                 1,
+		PipelineSpec:                  &pipelineSpec,
+		PipelineSpecID:                pipelineSpec.ID,
 	}
+
 	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
 	return jb
