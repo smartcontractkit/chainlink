@@ -143,9 +143,15 @@ func (js *jobSubscriber) addSubscription(sub JobSubscription) {
 // Connect connects the jobs to the ethereum node by creating corresponding subscriptions.
 func (js *jobSubscriber) Connect(bn *models.Head) error {
 	logger.Debugw("JobSubscriber connect", "head", bn)
+
+	tmp := make(map[models.JobID]struct{})
 	var merr error
 	err := js.store.Jobs(
 		func(j *models.JobSpec) bool {
+			if _, exists := tmp[j.ID]; exists {
+				logger.Errorw("DOUBLE ADD", "jobSpecID", j.ID)
+			}
+			tmp[j.ID] = struct{}{}
 			logger.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
 			merr = multierr.Append(merr, js.AddJob(*j, bn))
 			return true
