@@ -146,6 +146,7 @@ func (js *jobSubscriber) Connect(bn *models.Head) error {
 	var merr error
 	err := js.store.Jobs(
 		func(j *models.JobSpec) bool {
+			logger.Debugw("JobSubscriber adding job", "jobSpecID", j.ID)
 			merr = multierr.Append(merr, js.AddJob(*j, bn))
 			return true
 		},
