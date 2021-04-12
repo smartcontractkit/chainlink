@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store/dbutil"
@@ -466,10 +467,47 @@ WHERE run_results.id = updates.id
 
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
-	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return err
+	return orm.convenientTransaction(func(tx *gorm.DB) error {
+		now := time.Now()
+
+		run.RunRequest.CreatedAt = now
+		replaceUnsetCreatedAt(&run.RunRequest.CreatedAt, now)
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
+		if err != nil {
+			return err
+		}
+
+		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
+		replaceUnsetCreatedAt(&run.CreatedAt, now)
+		err = tx.Create(run).Error
+		if err != nil {
+			return err
+		}
+
+		for i := range run.TaskRuns {
+			replaceUnsetCreatedAt(&run.TaskRuns[i].Result.CreatedAt, now)
+			err = tx.Create(&run.TaskRuns[i].Result).Error
+			if err != nil {
+				return err
+			}
+
+			replaceUnsetCreatedAt(&run.TaskRuns[i].CreatedAt, now)
+			run.TaskRuns[i].JobRunID = run.ID
+			run.TaskRuns[i].ResultID = clnull.Int64From(run.TaskRuns[i].Result.ID)
+			err = tx.Create(&run.TaskRuns[i]).Error
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func replaceUnsetCreatedAt(createdAt *time.Time, now time.Time) {
+	if *createdAt == (time.Time{}) {
+		*createdAt = now
 	}
-	return orm.DB.Create(run).Error
 }
 
 // LinkEarnedFor shows the total link earnings for a job
@@ -722,18 +760,42 @@ func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value strin
 
 // CreateJob saves a job to the database and adds IDs to associated tables.
 func (orm *ORM) CreateJob(job *models.JobSpec) error {
-	return orm.createJob(orm.DB, job)
+	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
+		return orm.createJob(orm.DB, job)
+	})
 }
 
 func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
 		return err
 	}
-	for i := range job.Initiators {
-		job.Initiators[i].JobSpecID = job.ID
+
+	now := time.Now()
+	job.CreatedAt = now
+	err := tx.Create(job).Error
+	if err != nil {
+		return nil
 	}
 
-	return tx.Create(job).Error
+	for i := range job.Tasks {
+		job.Tasks[i].CreatedAt = now
+		job.Tasks[i].JobSpecID = job.ID
+		err := tx.Create(&job.Tasks[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	for i := range job.Initiators {
+		job.Initiators[i].CreatedAt = now
+		job.Initiators[i].JobSpecID = job.ID
+		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ArchiveJob soft deletes the job, job_runs and its initiator.
@@ -854,7 +916,7 @@ func (orm *ORM) IdempotentInsertEthTaskRunTx(taskRunID uuid.UUID, fromAddress co
 		TaskRunID: taskRunID,
 	}
 	err := orm.DB.Transaction(func(dbtx *gorm.DB) error {
-		if err := dbtx.Save(&etx).Error; err != nil {
+		if err := dbtx.Create(&etx).Error; err != nil {
 			return err
 		}
 		ethTaskRunTransaction.EthTxID = etx.ID

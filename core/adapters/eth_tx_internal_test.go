@@ -169,13 +169,13 @@ func TestGetTxData(t *testing.T) {
 			name:        "type mismatch",
 			abiEncoding: []string{"uint256"},
 			args:        []interface{}{"0x0123"},
-			errLike:     "can't convert 0x0123 to uint256",
+			errLike:     "can't convert 0x0123 (String) to uint256",
 		},
 		{
 			name:        "invalid bytes32",
 			abiEncoding: []string{"bytes32"},
 			args:        []interface{}{"0x0123"},
-			errLike:     "can't convert 0x0123 to bytes32", // Could consider relaxing this to just <= 32?
+			errLike:     "can't convert 0x0123 (String) to bytes32", // Could consider relaxing this to just <= 32?
 		},
 		{
 			name:        "unsupported type",
