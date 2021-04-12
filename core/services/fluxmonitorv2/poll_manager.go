@@ -51,6 +51,7 @@ type PollManager struct {
 	idleTimer        utils.ResettableTimer
 	roundTimer       utils.ResettableTimer
 	retryTicker      utils.BackoffTicker
+	chPoll           chan PollRequest
 
 	logger *logger.Logger
 }
@@ -75,6 +76,7 @@ func NewPollManager(cfg PollManagerConfig, logger *logger.Logger) *PollManager {
 		idleTimer:        utils.NewResettableTimer(),
 		roundTimer:       utils.NewResettableTimer(),
 		retryTicker:      utils.NewBackoffTicker(minBackoffDuration, maxBackoffDuration),
+		chPoll:           make(chan PollRequest),
 	}
 }
 
@@ -98,13 +100,38 @@ func (pm *PollManager) RoundTimerTicks() <-chan time.Time {
 	return pm.roundTimer.Ticks()
 }
 
+// RetryTickerTicks ticks with a backoff when the retry ticker is activated
 func (pm *PollManager) RetryTickerTicks() <-chan time.Time {
 	return pm.retryTicker.Ticks()
+}
+
+// Poll returns a channel which the manager will use to send polling requests
+//
+// Note: In the future, we should change the tickers above to send their request
+// through this channel to simplify the listener.
+func (pm *PollManager) Poll() <-chan PollRequest {
+	return pm.chPoll
 }
 
 // Start initializes all the timers and determines whether to go into immediate
 // hibernation.
 func (pm *PollManager) Start(hibernate bool, roundState flux_aggregator_wrapper.OracleRoundState) {
+	pm.cfg.IsHibernating = hibernate
+
+	if pm.ShouldPerformInitialPoll() {
+		// We want this to be non blocking but if there is no received for the
+		// polling channel, this go routine would hang around forever. Since we
+		// should always have a receiver for the polling channel, set a timeout
+		// of 5 seconds to kill the goroutine.
+		go func() {
+			select {
+			case pm.chPoll <- PollRequest{PollRequestTypeInitial, time.Now()}:
+			case <-time.After(5 * time.Second):
+				pm.logger.Warn("Start up poll was not consumed")
+			}
+		}()
+	}
+
 	if hibernate {
 		pm.Hibernate()
 	} else {
