@@ -57,6 +57,8 @@ to a dotID in the pipeline_spec.dot_dag_source.
 
 - Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
 
+- Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
+
 - Archiving OCR jobs should be 5-10x faster.
 
 - Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
