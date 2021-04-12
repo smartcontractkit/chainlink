@@ -485,7 +485,7 @@ func ToDecimal(input interface{}) (decimal.Decimal, error) {
 	case *decimal.Decimal:
 		return *v, nil
 	default:
-		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal", input)
+		return decimal.Decimal{}, errors.Errorf("type %T cannot be converted to decimal.Decimal (%v)", input, input)
 	}
 }
 

@@ -26,7 +26,7 @@ func (m *Multiply) Perform(input models.RunInput, _ *store.Store) models.RunOutp
 	val := input.Result()
 	dec, err := decimal.NewFromString(val.String())
 	if err != nil {
-		return models.NewRunOutputError(errors.Wrapf(err, "cannot parse into big.Float: %v", val.String()))
+		return models.NewRunOutputError(errors.Wrapf(err, "cannot parse into big.Float: %s", val.String()))
 	}
 	if m.Times != nil {
 		dec = dec.Mul(*m.Times)
