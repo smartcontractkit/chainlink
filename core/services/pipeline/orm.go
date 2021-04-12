@@ -2,12 +2,11 @@ package pipeline
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
-	"github.com/jackc/pgconn"
+	"gorm.io/gorm/clause"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -16,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gopkg.in/guregu/null.v4"
 	"gorm.io/gorm"
 )
 
@@ -28,19 +26,19 @@ var (
 
 type ORM interface {
 	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
-	ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
-	ListenForNewRuns() (postgres.Subscription, error)
 	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult) (runID int64, err error)
-	AwaitRun(ctx context.Context, runID int64) error
-	RunFinished(runID int64) (bool, error)
-	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 	DeleteRunsOlderThan(threshold time.Duration) error
-
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
-
 	DB() *gorm.DB
+
+	// Note below methods are not currently used to process runs.
+	CreateRun(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
+	AwaitRun(ctx context.Context, runID int64) error
+	ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error)
+	ListenForNewRuns() (postgres.Subscription, error)
+	RunFinished(runID int64) (bool, error)
+	ResultsForRun(ctx context.Context, runID int64) ([]Result, error)
 }
 
 type orm struct {
@@ -78,71 +76,15 @@ func NewORM(db *gorm.DB, config Config, eventBroadcaster postgres.EventBroadcast
 
 // The tx argument must be an already started transaction.
 func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxTaskDuration models.Interval) (int32, error) {
-	var specID int32
 	spec := Spec{
 		DotDagSource:    taskDAG.DOTSource,
 		MaxTaskDuration: maxTaskDuration,
 	}
 	err := tx.Create(&spec).Error
 	if err != nil {
-		return specID, err
+		return 0, err
 	}
-	specID = spec.ID
-
-	// Create the pipeline task specs in dependency order so
-	// that we know what the successor ID for each task is
-	tasks, err := taskDAG.TasksInDependencyOrder()
-	if err != nil {
-		return specID, err
-	}
-
-	// Create the final result task that collects the answers from the pipeline's
-	// outputs.  This is a Postgres-related performance optimization.
-	resultTask := ResultTask{BaseTask{dotID: ResultTaskDotID}}
-	for _, task := range tasks {
-		if task.DotID() == ResultTaskDotID {
-			return specID, errors.Errorf("%v is a reserved keyword and cannot be used in job specs", ResultTaskDotID)
-		}
-		if task.OutputTask() == nil {
-			task.SetOutputTask(&resultTask)
-		}
-	}
-	tasks = append([]Task{&resultTask}, tasks...)
-
-	taskSpecIDs := make(map[Task]int32)
-	for _, task := range tasks {
-		var successorID null.Int
-		if task.OutputTask() != nil {
-			successor := task.OutputTask()
-			successorID = null.IntFrom(int64(taskSpecIDs[successor]))
-		}
-
-		taskSpec := TaskSpec{
-			DotID:          task.DotID(),
-			PipelineSpecID: spec.ID,
-			Type:           task.Type(),
-			JSON:           JSONSerializable{task, false},
-			Index:          task.OutputIndex(),
-			SuccessorID:    successorID,
-		}
-		if task.Type() == TaskTypeBridge {
-			btName := task.(*BridgeTask).Name
-			taskSpec.BridgeName = &btName
-		}
-		err = tx.Create(&taskSpec).Error
-		if err != nil {
-			pqErr, ok := err.(*pgconn.PgError)
-			if ok && pqErr.Code == "23503" {
-				if pqErr.ConstraintName == "fk_pipeline_task_specs_bridge_name" {
-					return specID, errors.Wrap(ErrNoSuchBridge, *taskSpec.BridgeName)
-				}
-			}
-			return specID, err
-		}
-
-		taskSpecIDs[task] = taskSpec.ID
-	}
-	return specID, errors.WithStack(err)
+	return spec.ID, errors.WithStack(err)
 }
 
 // CreateRun adds a Run record to the DB, and one TaskRun
@@ -168,87 +110,73 @@ func (o *orm) CreateRun(ctx context.Context, jobID int32, meta map[string]interf
 			return errors.Wrap(err, "could not create pipeline run")
 		}
 
-		runID = run.ID
+		if err = tx.Preload("PipelineSpec").First(&run).Error; err != nil {
+			return err
+		}
+		d := TaskDAG{}
+		if err = d.UnmarshalText([]byte(run.PipelineSpec.DotDagSource)); err != nil {
+			return err
+		}
 
-		// Create the task runs
-		err = tx.Exec(`
-            INSERT INTO pipeline_task_runs (
-            	pipeline_run_id, pipeline_task_spec_id, type, index, created_at
-            )
-            SELECT ? AS pipeline_run_id, id AS pipeline_task_spec_id, type, index, NOW() AS created_at
-            FROM pipeline_task_specs
-            WHERE pipeline_spec_id = ?`, run.ID, run.PipelineSpecID).Error
-		return errors.Wrap(err, "could not create pipeline task runs")
+		var trs []TaskRun
+		tasks, err := d.TasksInDependencyOrder()
+		if err != nil {
+			return err
+		}
+		for _, ts := range tasks {
+			trs = append(trs, TaskRun{
+				Type:          ts.Type(),
+				PipelineRunID: run.ID,
+				Index:         ts.OutputIndex(),
+				DotID:         ts.DotID(),
+			})
+		}
+		runID = run.ID
+		if len(trs) > 0 {
+			return tx.Create(&trs).Error
+		}
+		return nil
 	})
 	return runID, errors.WithStack(err)
 }
 
-// TODO: Remove generation of special "result" task
-// TODO: Remove the unique index on successor_id
-// https://www.pivotaltracker.com/story/show/176557536
-type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, pRun Run, l logger.Logger) (TaskRunResults, error)
+type ProcessRunFunc func(ctx context.Context, txdb *gorm.DB, spec Spec, l logger.Logger) (TaskRunResults, bool, error)
 
-// ProcessNextUnfinishedRun pulls the next available unfinished run from the
-// database and passes it into the provided ProcessRunFunc for execution.
-func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (anyRemaining bool, err error) {
-	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
-	utils.RetryWithBackoff(ctx, func() (retry bool) {
-		err = o.processNextUnfinishedRun(ctx, fn)
-		// "Record not found" errors mean that we're done with all unclaimed
-		// job runs.
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			anyRemaining = false
-			retry = false
-			err = nil
-		} else if err != nil {
-			retry = true
-			err = errors.Wrap(err, "Pipeline runner could not process job run")
-			logger.Error(err)
-
-		} else {
-			anyRemaining = true
-			retry = false
-		}
-		return
-	})
-	return anyRemaining, errors.WithStack(err)
-}
-
-func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) error {
+func (o *orm) ProcessNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) (bool, error) {
 	// Passed in context cancels on (chStop || JobPipelineMaxTaskDuration)
 	txContext, cancel := context.WithTimeout(context.Background(), o.config.DatabaseMaximumTxDuration())
 	defer cancel()
 	var pRun Run
 
 	err := postgres.GormTransaction(txContext, o.db, func(tx *gorm.DB) error {
-		err := tx.Raw(`
-		SELECT id FROM pipeline_runs
-		WHERE finished_at IS NULL
-		ORDER BY id ASC
-		FOR UPDATE SKIP LOCKED
-		LIMIT 1
-		`).Scan(&pRun).Error
-		if err != nil {
-			return errors.Wrap(err, "error finding next pipeline run")
-		}
-		// NOTE: We have to lock and load in two distinct queries to work
-		// around a bizarre bug in gormv1.
-		// Trying to lock and load in one hit _sometimes_ fails to preload
-		// associations for no discernable reason.
-		err = tx.
+		err := tx.
 			Preload("PipelineSpec").
-			Preload("PipelineTaskRuns.PipelineTaskSpec").
-			Where("pipeline_runs.id = ?", pRun.ID).
+			Preload("PipelineTaskRuns").
+			Where("pipeline_runs.finished_at IS NULL").
+			Order("id ASC").
+			Clauses(clause.Locking{
+				Strength: "UPDATE",
+				Options:  "SKIP LOCKED",
+			}).
 			First(&pRun).Error
 		if err != nil {
-			return errors.Wrap(err, "error loading run associations")
+			return errors.Wrap(err, "error finding unfinished run")
 		}
-
 		logger.Infow("Pipeline run started", "runID", pRun.ID)
 
-		trrs, err := fn(ctx, tx, pRun, *logger.Default)
+		trrs, _, err := fn(ctx, tx, pRun.PipelineSpec, *logger.Default)
 		if err != nil {
 			return errors.Wrap(err, "error calling ProcessRunFunc")
+		}
+
+		// Populate the task run result IDs by matching the dot
+		// IDs.
+		for i, trr := range trrs {
+			for _, tr := range pRun.PipelineTaskRuns {
+				if trr.TaskRun.DotID == tr.DotID {
+					trrs[i].ID = tr.ID
+				}
+			}
 		}
 
 		if err = o.updateTaskRuns(tx, trrs); err != nil {
@@ -274,10 +202,13 @@ func (o *orm) processNextUnfinishedRun(ctx context.Context, fn ProcessRunFunc) e
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "while processing run")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, nil
+		}
+		return false, errors.Wrap(err, "while processing run")
 	}
 	logger.Infow("Pipeline run completed", "runID", pRun.ID)
-	return nil
+	return true, nil
 }
 
 // updateTaskRuns updates multiple task runs in one query
@@ -324,8 +255,8 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	if run.FinishedAt.IsZero() {
 		return 0, errors.New("run.FinishedAt must be set")
 	}
-	if run.Outputs.Val == nil || run.Errors.Val == nil {
-		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors.Val)
+	if run.Outputs.Val == nil || len(run.Errors) == 0 {
+		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
@@ -334,19 +265,15 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 		}
 
 		runID = run.ID
-
 		sql := `
-		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, pipeline_task_spec_id, created_at, finished_at)
-		SELECT ?, pts.type, pts.index, ptruns.output, ptruns.error, pts.id, ptruns.created_at, ptruns.finished_at
-		FROM (VALUES %s) ptruns (pipeline_task_spec_id, output, error, created_at, finished_at)
-		JOIN pipeline_task_specs pts ON pts.id = ptruns.pipeline_task_spec_id
+		INSERT INTO pipeline_task_runs (pipeline_run_id, type, index, output, error, dot_id, created_at, finished_at)
+		VALUES %s
 		`
-
 		valueStrings := []string{}
-		valueArgs := []interface{}{runID}
+		valueArgs := []interface{}{}
 		for _, trr := range trrs {
-			valueStrings = append(valueStrings, "(?::int,?::jsonb,?::text,?::timestamptz,?::timestamptz)")
-			valueArgs = append(valueArgs, trr.TaskSpecID, trr.Result.OutputDB(), trr.Result.ErrorDB(), run.CreatedAt, trr.FinishedAt)
+			valueStrings = append(valueStrings, "(?,?,?,?,?,?,?,?)")
+			valueArgs = append(valueArgs, run.ID, trr.Task.Type(), trr.Task.OutputIndex(), trr.Result.OutputDB(), trr.Result.ErrorDB(), trr.TaskRun.DotID, trr.TaskRun.CreatedAt, trr.TaskRun.FinishedAt)
 		}
 
 		/* #nosec G201 */
@@ -426,43 +353,34 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 
 	var results []Result
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		var resultTaskRun TaskRun
-		err = tx.
-			Preload("PipelineTaskSpec").
-			Joins("INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id").
-			Where("pipeline_run_id = ?", runID).
-			Where("finished_at IS NOT NULL").
-			Where("pipeline_task_specs.successor_id IS NULL").
-			Where("pipeline_task_specs.dot_id = ?", ResultTaskDotID).
-			First(&resultTaskRun).
+		var run Run
+		err = tx.Raw(`
+			SELECT * FROM pipeline_runs 
+				WHERE id = ? 
+				AND finished_at IS NOT NULL
+`, runID).Scan(&run).
 			Error
 		if err != nil {
 			return errors.Wrapf(err, "Pipeline runner could not fetch pipeline results (runID: %v)", runID)
 		}
 
 		var values []interface{}
-		var errs FinalErrors
-		if resultTaskRun.Output != nil && resultTaskRun.Output.Val != nil {
-			vals, is := resultTaskRun.Output.Val.([]interface{})
+		if !run.Outputs.Null {
+			vals, is := run.Outputs.Val.([]interface{})
 			if !is {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", resultTaskRun.Output.Val)
+				return errors.Errorf("Pipeline runner invariant violation: result task run's output must be []interface{}, got %T", run.Outputs.Val)
 			}
 			values = vals
 		}
-		if !resultTaskRun.Error.IsZero() {
-			err = json.Unmarshal([]byte(resultTaskRun.Error.ValueOrZero()), &errs)
-			if err != nil {
-				return errors.Errorf("Pipeline runner invariant violation: result task run's errors must be []error, got %v", resultTaskRun.Error.ValueOrZero())
-			}
-		}
-		if len(values) != len(errs) {
-			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(errs))
+
+		if len(values) != len(run.Errors) {
+			return errors.Errorf("Pipeline runner invariant violation: result task run must have equal numbers of outputs and errors (got %v and %v)", len(values), len(run.Errors))
 		}
 		results = make([]Result, len(values))
 		for i := range values {
 			results[i].Value = values[i]
-			if !errs[i].IsZero() {
-				results[i].Error = errors.New(errs[i].ValueOrZero())
+			if !run.Errors[i].IsZero() {
+				results[i].Error = errors.New(run.Errors[i].String)
 			}
 		}
 		return nil
@@ -471,20 +389,12 @@ func (o *orm) ResultsForRun(ctx context.Context, runID int64) ([]Result, error) 
 }
 
 func (o *orm) RunFinished(runID int64) (bool, error) {
-	// TODO: Since we denormalised this can be made more efficient
-	// https://www.pivotaltracker.com/story/show/176557536
-	var tr TaskRun
-	err := o.db.Raw(`
-        SELECT * 
-        FROM pipeline_task_runs
-        INNER JOIN pipeline_task_specs ON pipeline_task_runs.pipeline_task_spec_id = pipeline_task_specs.id
-        WHERE pipeline_task_runs.pipeline_run_id = ? AND pipeline_task_specs.successor_id IS NULL
-		LIMIT 1
-    `, runID).Scan(&tr).Error
-	if err != nil {
+	var tr Run
+	err := o.db.Where("id = ?", runID).First(&tr).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, errors.Wrapf(err, "could not determine if run is finished (run ID: %v)", runID)
 	}
-	if tr.ID == 0 {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, errors.Errorf("run not found - could not determine if run is finished (run ID: %v)", runID)
 	}
 	return tr.FinishedAt != nil, nil

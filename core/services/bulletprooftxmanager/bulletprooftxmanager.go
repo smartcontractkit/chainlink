@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -21,16 +20,11 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
-
-const (
-	// maxEthNodeRequestTime is the worst case time we will wait for a response
-	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 15 * time.Second
-)
 
 var (
 	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
@@ -57,7 +51,7 @@ func SendEther(s *strpkg.Store, from, to gethCommon.Address, value assets.Eth) (
 		GasLimit:       s.Config.EthGasLimitDefault(),
 		State:          models.EthTxUnstarted,
 	}
-	err = s.DB.Create(&etx).Error
+	err = s.DB.Omit(clause.Associations).Create(&etx).Error
 	return etx, err
 }
 
@@ -104,8 +98,9 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 		return eth.NewFatalSendError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
 	defer cancel()
+
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
@@ -131,18 +126,22 @@ func sendEmptyTransaction(
 ) (_ *gethTypes.Transaction, err error) {
 	defer utils.WrapIfError(&err, "sendEmptyTransaction failed")
 
-	to := utils.ZeroAddress
-	value := big.NewInt(0)
-	payload := []byte{}
-	tx := gethTypes.NewTransaction(nonce, to, value, gasLimit, gasPriceWei, payload)
-	signedTx, err := keyStore.SignTx(account, tx, chainID)
+	signedTx, err := makeEmptyTransaction(keyStore, nonce, gasLimit, gasPriceWei, account, chainID)
 	if err != nil {
-		return signedTx, err
+		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx()
 	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err
+}
+
+// makes a transaction that sends 0 eth to self
+func makeEmptyTransaction(keyStore strpkg.KeyStoreInterface, nonce uint64, gasLimit uint64, gasPriceWei *big.Int, account gethAccounts.Account, chainID *big.Int) (*gethTypes.Transaction, error) {
+	value := big.NewInt(0)
+	payload := []byte{}
+	tx := gethTypes.NewTransaction(nonce, account.Address, value, gasLimit, gasPriceWei, payload)
+	return keyStore.SignTx(account, tx, chainID)
 }
 
 func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.EthTxAttempt, replacementAttempt *models.EthTxAttempt) error {
@@ -153,10 +152,10 @@ func saveReplacementInProgressAttempt(store *strpkg.Store, oldAttempt models.Eth
 		return errors.New("expected oldAttempt to have an ID")
 	}
 	return store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Exec(`DELETE FROM eth_tx_attempts WHERE id = ? `, oldAttempt.ID).Error; err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
 		}
-		return errors.Wrap(tx.Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
+		return errors.Wrap(tx.Omit(clause.Associations).Create(replacementAttempt).Error, "saveReplacementInProgressAttempt failed")
 	})
 }
 

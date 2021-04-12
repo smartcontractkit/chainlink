@@ -27,7 +27,7 @@ type Key struct {
 	// This is the nonce that should be used for the next transaction.
 	// Conceptually equivalent to geth's `PendingNonceAt` but more reliable
 	// because we have a better view of our own transactions
-	NextNonce *int64
+	NextNonce int64
 	// LastUsed is the time that the address was last assigned to a transaction
 	LastUsed *time.Time
 	// IsFunding marks the address as being used for rescuing the  node and the pending transactions

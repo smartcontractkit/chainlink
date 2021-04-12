@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -139,6 +140,40 @@ func (orm *ORM) Unscoped() *ORM {
 		DB:              orm.DB.Unscoped(),
 		lockingStrategy: orm.lockingStrategy,
 	}
+}
+
+// UpsertNodeVersion inserts a new NodeVersion
+func (orm *ORM) UpsertNodeVersion(version models.NodeVersion) error {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return err
+	}
+
+	return orm.Transaction(func(tx *gorm.DB) error {
+		err := tx.Clauses(clause.OnConflict{
+			DoNothing: true,
+		}).Create(&version).Error
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// FindLatestNodeVersion looks up the latest node version
+func (orm *ORM) FindLatestNodeVersion() (*models.NodeVersion, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return nil, err
+	}
+	var nodeVersion models.NodeVersion
+	err := orm.DB.Order("created_at DESC").First(&nodeVersion).Error
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil && strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
+		logger.Default.Debug("Failed to find any node version in the DB, the node_versions table does not exist yet.")
+		return nil, nil
+	}
+	return &nodeVersion, err
 }
 
 // FindBridge looks up a Bridge by its Name.
@@ -544,13 +579,13 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		return err
 	}
 	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
+		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
-		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
+		err := scope.Table("job_specs").Distinct("job_specs.id").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
@@ -632,6 +667,20 @@ func (orm *ORM) GetConfigValue(field string, value encoding.TextUnmarshaler) err
 	return value.UnmarshalText([]byte(config.Value))
 }
 
+// GetConfigBoolValue returns a boolean value for a named configuration entry
+func (orm *ORM) GetConfigBoolValue(field string) (*bool, error) {
+	name := EnvVarName(field)
+	config := models.Configuration{}
+	if err := orm.DB.First(&config, "name = ?", name).Error; err != nil {
+		return nil, err
+	}
+	value, err := strconv.ParseBool(config.Value)
+	if err != nil {
+		return nil, err
+	}
+	return &value, nil
+}
+
 // SetConfigValue returns the value for a named configuration entry
 func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error {
 	name := EnvVarName(field)
@@ -641,6 +690,14 @@ func (orm *ORM) SetConfigValue(field string, value encoding.TextMarshaler) error
 	}
 	return orm.DB.Where(models.Configuration{Name: name}).
 		Assign(models.Configuration{Name: name, Value: string(textValue)}).
+		FirstOrCreate(&models.Configuration{}).Error
+}
+
+// SetConfigValue returns the value for a named configuration entry
+func (orm *ORM) SetConfigStrValue(ctx context.Context, field string, value string) error {
+	name := EnvVarName(field)
+	return orm.DB.WithContext(ctx).Where(models.Configuration{Name: name}).
+		Assign(models.Configuration{Name: name, Value: value}).
 		FirstOrCreate(&models.Configuration{}).Error
 }
 
