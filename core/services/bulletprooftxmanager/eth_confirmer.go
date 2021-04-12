@@ -25,6 +25,13 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+const (
+	// processHeadTimeout represents a sanity limit on how long ProcessHead
+	// should take to complete
+	processHeadTimeout = 10 * time.Minute
 )
 
 var (
@@ -49,9 +56,17 @@ type ethConfirmer struct {
 	ctx       context.Context
 	ctxCancel context.CancelFunc
 	chDone    chan struct{}
+
+	ethResender *EthResender
 }
 
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
+	var ethResender *EthResender
+	if config.EthTxResendAfterThreshold() > 0 {
+		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config.EthTxResendAfterThreshold())
+	} else {
+		logger.Info("ethResender: Disabled")
+	}
 	context, cancel := context.WithCancel(context.Background())
 	return &ethConfirmer{
 		utils.StartStopOnce{},
@@ -62,6 +77,7 @@ func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer 
 		context,
 		cancel,
 		make(chan struct{}),
+		ethResender,
 	}
 }
 
@@ -96,12 +112,18 @@ func (ec *ethConfirmer) Start() error {
 		logger.Infow(fmt.Sprintf("EthConfirmer: Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.config.EthGasBumpThreshold()), "ethGasBumpThreshold", ec.config.EthGasBumpThreshold())
 	}
 	go ec.runLoop()
+	if ec.ethResender != nil {
+		ec.ethResender.Start()
+	}
 	return nil
 }
 
 func (ec *ethConfirmer) Close() error {
 	if !ec.OkayToStop() {
 		return errors.New("EthConfirmer has already been stopped")
+	}
+	if ec.ethResender != nil {
+		ec.ethResender.Stop()
 	}
 	ec.ctxCancel()
 	<-ec.chDone
@@ -139,18 +161,24 @@ func (ec *ethConfirmer) runLoop() {
 
 // ProcessHead takes all required transactions for the confirmer on a new head
 func (ec *ethConfirmer) ProcessHead(ctx context.Context, head models.Head) error {
-	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.TODO(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
+	ctx, cancel := context.WithTimeout(ctx, processHeadTimeout)
+	defer cancel()
+
+	return ec.store.AdvisoryLocker.WithAdvisoryLock(context.Background(), postgres.AdvisoryLockClassID_EthConfirmer, postgres.AdvisoryLockObjectID_EthConfirmer, func() error {
 		return ec.processHead(ctx, head)
 	})
 }
 
 // NOTE: This SHOULD NOT be run concurrently or it could behave badly
 func (ec *ethConfirmer) processHead(ctx context.Context, head models.Head) error {
+	mark := time.Now()
+
+	// TODO: Use a local logger?
+	logger.Debugw("EthConfirmer: processHead", "headNum", head.Number, "time", mark, "id", "eth_confirmer")
+
 	if err := ec.SetBroadcastBeforeBlockNum(head.Number); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
 	}
-
-	mark := time.Now()
 
 	if err := ec.CheckForReceipts(ctx, head.Number); err != nil {
 		return errors.Wrap(err, "CheckForReceipts failed")
@@ -188,7 +216,7 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 }
 
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	batchSize := int(ec.config.EthReceiptFetchBatchSize())
+	batchSize := int(ec.config.EthRPCDefaultBatchSize())
 
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
 	if err != nil {
@@ -214,16 +242,16 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		if err != nil {
 			return errors.Wrap(err, "batchFetchReceipts failed")
 		}
-		if err := ec.saveFetchedReceipts(ctx, receipts); err != nil {
+		if err := ec.saveFetchedReceipts(receipts); err != nil {
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 	}
 
-	if err := ec.markConfirmedMissingReceipt(ctx); err != nil {
+	if err := ec.markConfirmedMissingReceipt(); err != nil {
 		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
 	}
 
-	if err := ec.markOldTxesMissingReceiptAsErrored(ctx, blockNum); err != nil {
+	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
 
@@ -250,6 +278,9 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		}
 		reqs = append(reqs, req)
 	}
+
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
+	defer cancel()
 
 	err = ec.ethClient.BatchCallContext(ctx, reqs)
 	if err != nil {
@@ -311,7 +342,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 	return
 }
 
-func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Receipt) (err error) {
+func (ec *ethConfirmer) saveFetchedReceipts(receipts []Receipt) (err error) {
 	if len(receipts) == 0 {
 		return nil
 	}
@@ -377,6 +408,10 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 	`
 
 	stmt := fmt.Sprintf(sql, strings.Join(valueStrs, ","))
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	_, err = ec.store.MustSQLDB().ExecContext(ctx, stmt, valueArgs...)
 	return errors.Wrap(err, "saveFetchedReceipts failed to save receipts")
 }
@@ -393,13 +428,23 @@ func (ec *ethConfirmer) saveFetchedReceipts(ctx context.Context, receipts []Rece
 // In this case we mark these transactions as 'confirmed_missing_receipt' to
 // prevent gas bumping.
 //
+// NOTE: We continue to attempt to resend eth_txes in this state on
+// every head to guard against the extremely rare scenario of nonce gap due to
+// reorg that excludes the transaction (from another wallet) that had this
+// nonce (until finality depth is reached, after which we make the explicit
+// decision to give up). This is done in the EthResender.
+//
 // We will continue to try to fetch a receipt for these attempts until all
 // attempts are below the finality depth from current head.
-func (ec *ethConfirmer) markConfirmedMissingReceipt(ctx context.Context) (err error) {
+func (ec *ethConfirmer) markConfirmedMissingReceipt() (err error) {
 	d, err := ec.store.DB.DB()
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	_, err = d.ExecContext(ctx, `
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
@@ -414,12 +459,12 @@ AND nonce < (
 
 // markOldTxesMissingReceiptAsErrored
 //
-// Once eth_tx has all of its attempts broadcast before some cutoff threshold,
-// we mark it as fatally errored (never sent).
+// Once eth_tx has all of its attempts broadcast before some cutoff threshold
+// without receiving any receipts, we mark it as fatally errored (never sent).
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64) error {
+func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(blockNum int64) error {
 	// cutoff is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
 	// We will not try to query for receipts for this transaction any more
@@ -431,6 +476,10 @@ func (ec *ethConfirmer) markOldTxesMissingReceiptAsErrored(ctx context.Context, 
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	rows, err := d.QueryContext(ctx, `
 UPDATE eth_txes
 SET state='fatal_error', nonce=NULL, error=$1, broadcast_at=NULL
@@ -446,6 +495,7 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 	if err != nil {
 		return errors.Wrap(err, "markOldTxesMissingReceiptAsErrored failed to query")
 	}
+	defer logger.ErrorIfCalling(rows.Close)
 
 	for rows.Next() {
 		var ethTxID int64
@@ -462,7 +512,7 @@ RETURNING id, nonce, from_address`, ErrCouldNotGetReceipt, cutoff)
 			ethTxID, blockNum, fromAddress.Hex(), nonce.Int64)
 	}
 
-	return errors.Wrap(rows.Close(), "markOldTxesMissingReceiptAsErrored failed to close rows")
+	return nil
 }
 
 func (ec *ethConfirmer) RebroadcastWhereNecessary(ctx context.Context, keys []models.Key, blockHeight int64) error {
@@ -541,7 +591,10 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 		return errors.Wrap(err, "getInProgressEthTxAttempts failed")
 	}
 	for _, a := range attempts {
-		if err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight); err != nil {
+		err := ec.handleInProgressAttempt(ctx, a.EthTx, a, blockHeight)
+		if ctx.Err() != nil {
+			break
+		} else if err != nil {
 			return errors.Wrap(err, "handleInProgressAttempt failed")
 		}
 	}
@@ -549,8 +602,12 @@ func (ec *ethConfirmer) handleAnyInProgressAttempts(ctx context.Context, address
 }
 
 func getInProgressEthTxAttempts(s *store.Store, address gethCommon.Address) ([]models.EthTxAttempt, error) {
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+
 	var attempts []models.EthTxAttempt
 	err := s.DB.
+		WithContext(ctx).
 		Preload("EthTx").
 		Joins("INNER JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state in ('confirmed', 'confirmed_missing_receipt', 'unconfirmed')").
 		Where("eth_tx_attempts.state = 'in_progress'").
@@ -615,6 +672,8 @@ func FindEthTxsRequiringResubmissionDueToInsufficientEth(db *gorm.DB, address ge
 // FindEthTxsRequiringGasBump returns transactions that have all
 // attempts which are unconfirmed for at least gasBumpThreshold blocks,
 // limited by limit pending transactions
+//
+// It also returns eth_txes that are unconfirmed with no eth_tx_attempts
 func FindEthTxsRequiringGasBump(db *gorm.DB, address gethCommon.Address, blockNum, gasBumpThreshold, depth int64) (etxs []models.EthTx, err error) {
 	if gasBumpThreshold == 0 {
 		logger.Debug("EthConfirmer: Gas bumping disabled (gasBumpThreshold set to 0)")
@@ -675,7 +734,7 @@ func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) erro
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("saveInProgressAttempt failed: attempt state must be in_progress")
 	}
-	return errors.Wrap(ec.store.DB.Save(attempt).Error, "saveInProgressAttempt failed")
+	return errors.Wrap(ec.store.DB.Omit(clause.Associations).Save(attempt).Error, "saveInProgressAttempt failed")
 }
 
 func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.EthTx, attempt models.EthTxAttempt, blockHeight int64) error {
@@ -683,6 +742,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
+	now := time.Now()
 	sendError := sendTransaction(ctx, ec.ethClient, attempt)
 
 	if sendError.IsTerminallyUnderpriced() {
@@ -734,20 +794,6 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"blockHeight", blockHeight,
 			"id", "RPCTxFeeCapExceeded",
 		)
-		if len(etx.EthTxAttempts) > 0 {
-			previousAttempt := etx.EthTxAttempts[0]
-			sendError2 := sendTransaction(ctx, ec.ethClient, previousAttempt)
-			l := logger.Default
-			if sendError2 != nil {
-				l = logger.CreateLogger(l.With("err", sendError2))
-			}
-			l.Infow("EthConfirmer: optimistic re-send of prior attempt due to exceeding eth node's RPCTxFeeCap",
-				"ethTxID", etx.ID,
-				"id", "RPCTxFeeCapExceeded",
-			)
-		} else {
-			logger.Errorw("EthConfirmer: invariant violation, expected eth_tx to have 1 or more attempts", "ethTxID", etx.ID)
-		}
 		return deleteInProgressAttempt(ec.store.DB, attempt)
 	}
 
@@ -804,12 +850,12 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 			"ACTION REQUIRED: Chainlink wallet with address 0x%x is OUT OF FUNDS",
 			attempt.ID, attempt.Hash, attempt.GasPrice.String(), sendError.Error(), etx.FromAddress,
 		), "err", sendError)
-		return saveInsufficientEthAttempt(ec.store.DB, &attempt)
+		return saveInsufficientEthAttempt(ec.store.DB, &attempt, now)
 	}
 
 	if sendError == nil {
 		logger.Debugw("EthConfirmer: successfully broadcast transaction", "ethTxID", etx.ID, "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.Hex())
-		return saveSentAttempt(ec.store.DB, &attempt)
+		return saveSentAttempt(ec.store.DB, &attempt, now)
 	}
 
 	// Any other type of error is considered temporary or resolvable by the
@@ -829,20 +875,40 @@ func deleteInProgressAttempt(db *gorm.DB, attempt models.EthTxAttempt) error {
 	return errors.Wrap(db.Exec(`DELETE FROM eth_tx_attempts WHERE id = ?`, attempt.ID).Error, "deleteInProgressAttempt failed")
 }
 
-func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
+func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broadcastAt time.Time) error {
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("expected state to be in_progress")
 	}
 	attempt.State = models.EthTxAttemptBroadcast
-	return errors.Wrap(db.Save(attempt).Error, "saveSentAttempt failed")
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	return postgres.GormTransaction(ctx, db, func(tx *gorm.DB) error {
+		// In case of null broadcast_at (shouldn't happen) we don't want to
+		// update anyway because it indicates a state where broadcast_at makes
+		// no sense e.g. fatal_error
+		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ? AND broadcast_at < ?`, broadcastAt, attempt.EthTxID, broadcastAt).Error; err != nil {
+			return errors.Wrap(err, "saveSentAttempt failed")
+		}
+		return errors.Wrap(db.Omit(clause.Associations).Save(attempt).Error, "saveSentAttempt failed")
+	})
 }
 
-func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt) error {
+func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broadcastAt time.Time) error {
 	if !(attempt.State == models.EthTxAttemptInProgress || attempt.State == models.EthTxAttemptInsufficientEth) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
 	attempt.State = models.EthTxAttemptInsufficientEth
-	return errors.Wrap(db.Save(attempt).Error, "saveInsufficientEthAttempt failed")
+	ctx, cancel := postgres.DefaultQueryCtx()
+	defer cancel()
+	return postgres.GormTransaction(ctx, db, func(tx *gorm.DB) error {
+		// In case of null broadcast_at (shouldn't happen) we don't want to
+		// update anyway because it indicates a state where broadcast_at makes
+		// no sense e.g. fatal_error
+		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ? AND broadcast_at < ?`, broadcastAt, attempt.EthTxID, broadcastAt).Error; err != nil {
+			return errors.Wrap(err, "saveInsufficientEthAttempt failed")
+		}
+		return errors.Wrap(db.Omit(clause.Associations).Save(attempt).Error, "saveInsufficientEthAttempt failed")
+	})
 
 }
 

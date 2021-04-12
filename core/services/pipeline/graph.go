@@ -14,6 +14,7 @@ import (
 // TaskDAG fulfills the graph.DirectedGraph interface, which makes it possible
 // for us to `dot.Unmarshal(...)` a DOT string directly into it.  Once unmarshalled,
 // calling `TaskDAG#TasksInDependencyOrder()` will return the unmarshaled tasks.
+// NOTE: We only permit one child
 type TaskDAG struct {
 	*simple.DirectedGraph
 	DOTSource string
@@ -62,7 +63,8 @@ func (g TaskDAG) TasksInDependencyOrder() ([]Task, error) {
 			continue
 		}
 
-		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil)
+		nPreds := g.To(node.ID()).Len()
+		task, err := UnmarshalTaskFromMap(TaskType(node.attrs["type"]), node.attrs, node.dotID, nil, nil, nil, nPreds)
 		if err != nil {
 			return nil, err
 		}

@@ -26,27 +26,17 @@ const (
 `
 )
 
-func NewBaseTask(dotID string, t Task, index int32) BaseTask {
-	return BaseTask{dotID: dotID, outputTask: t, Index: index}
+func NewBaseTask(dotID string, t Task, index int32, nPreds int) BaseTask {
+	return BaseTask{dotID: dotID, outputTask: t, Index: index, nPreds: nPreds}
 }
 
 func (t *BridgeTask) HelperSetConfigAndTxDB(config Config, txdb *gorm.DB) {
 	t.config = config
-	t.txdb = txdb
+	t.safeTx = SafeTx{tx: txdb}
 }
 
 func (t *HTTPTask) HelperSetConfig(config Config) {
 	t.config = config
-}
-
-func (t ResultTask) ExportedEquals(otherTask Task) bool {
-	other, ok := otherTask.(*ResultTask)
-	if !ok {
-		return false
-	} else if t.Index != other.Index {
-		return false
-	}
-	return true
 }
 
 func (t MultiplyTask) ExportedEquals(otherTask Task) bool {

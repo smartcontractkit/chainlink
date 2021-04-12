@@ -42,10 +42,12 @@ type ConfigReader interface {
 	EthGasLimitDefault() uint64
 	EthGasPriceDefault() *big.Int
 	EthMaxGasPriceWei() *big.Int
+	EthNonceAutoSync() bool
 	EthFinalityDepth() uint
-	EthReceiptFetchBatchSize() uint32
+	EthRPCDefaultBatchSize() uint32
 	EthHeadTrackerHistoryDepth() uint
 	EthHeadTrackerMaxBufferSize() uint
+	EthTxResendAfterThreshold() time.Duration
 	SetEthGasPriceDefault(value *big.Int) error
 	EthereumURL() string
 	EthereumSecondaryURLs() []url.URL
@@ -85,4 +87,5 @@ type ConfigReader interface {
 	SessionSecret() ([]byte, error)
 	SessionOptions() sessions.Options
 	TriggerFallbackDBPollInterval() time.Duration
+	EthLogBackfillBatchSize() uint32
 }

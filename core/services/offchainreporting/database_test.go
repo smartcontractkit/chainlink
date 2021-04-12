@@ -1,6 +1,7 @@
 package offchainreporting_test
 
 import (
+	"bytes"
 	"context"
 	"math/big"
 	"testing"
@@ -106,8 +107,8 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	sqldb, _ := store.DB.DB()
 	config := ocrtypes.ContractConfig{
 		ConfigDigest:         cltest.MakeConfigDigest(t),
-		Signers:              []common.Address{cltest.NewAddress()},
-		Transmitters:         []common.Address{cltest.NewAddress()},
+		Signers:              []common.Address{cltest.NewAddress(), cltest.NewAddress()},
+		Transmitters:         []common.Address{cltest.NewAddress(), cltest.NewAddress()},
 		Threshold:            uint8(35),
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
@@ -164,6 +165,20 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 	})
 }
 
+func assertPendingTransmissionEqual(t *testing.T, pt1, pt2 ocrtypes.PendingTransmission) {
+	require.Equal(t, pt1.Rs, pt2.Rs)
+	require.Equal(t, pt1.Ss, pt2.Ss)
+	assert.True(t, bytes.Equal(pt1.Vs[:], pt2.Vs[:]))
+	assert.True(t, bytes.Equal(pt1.SerializedReport[:], pt2.SerializedReport[:]))
+	assert.Equal(t, pt1.Median, pt2.Median)
+	for i := range pt1.Ss {
+		assert.True(t, bytes.Equal(pt1.Ss[i][:], pt2.Ss[i][:]))
+	}
+	for i := range pt1.Rs {
+		assert.True(t, bytes.Equal(pt1.Rs[i][:], pt2.Rs[i][:]))
+	}
+}
+
 func Test_DB_PendingTransmissions(t *testing.T) {
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
@@ -193,13 +208,16 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 			Time:             time.Now(),
 			Median:           ocrtypes.Observation(big.NewInt(41)),
 			SerializedReport: []byte{0, 2, 3},
-			Rs:               [][32]byte{cltest.Random32Byte()},
-			Ss:               [][32]byte{cltest.Random32Byte()},
+			Rs:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
+			Ss:               [][32]byte{cltest.Random32Byte(), cltest.Random32Byte()},
 			Vs:               cltest.Random32Byte(),
 		}
 
 		err := db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
+		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		require.NoError(t, err)
+		assertPendingTransmissionEqual(t, m[k], p)
 
 		// Now overwrite value for k to prove that updating works
 		p = ocrtypes.PendingTransmission{
@@ -212,6 +230,9 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		}
 		err = db.StorePendingTransmission(ctx, k, p)
 		require.NoError(t, err)
+		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		require.NoError(t, err)
+		assertPendingTransmissionEqual(t, m[k], p)
 
 		p2 := ocrtypes.PendingTransmission{
 			Time:             time.Now(),
@@ -242,7 +263,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		err = db.StorePendingTransmission(ctx, kRedHerring, pRedHerring)
 		require.NoError(t, err)
 
-		m, err := db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
+		m, err = db.PendingTransmissionsWithConfigDigest(ctx, configDigest)
 		require.NoError(t, err)
 
 		require.Len(t, m, 2)

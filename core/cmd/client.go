@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -342,6 +343,9 @@ func (d DiskCookieStore) Save(cookie *http.Cookie) error {
 func (d DiskCookieStore) Retrieve() (*http.Cookie, error) {
 	b, err := ioutil.ReadFile(d.cookiePath())
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
 		return nil, multierr.Append(errors.New("unable to retrieve credentials, you must first login through the CLI"), err)
 	}
 	header := http.Header{}

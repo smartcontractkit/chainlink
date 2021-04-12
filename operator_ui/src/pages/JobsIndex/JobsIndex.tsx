@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Button from 'components/Button'
 import { Title } from 'components/Title'
 import Content from 'components/Content'
@@ -51,6 +51,10 @@ function isJobSpecV1(job: CombinedJobs): job is DirectRequest {
 
 function isJobSpecV2(job: CombinedJobs): job is JobSpecV2 {
   return job.type === JobSpecTypes.v2
+}
+
+function isDirectRequestJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'directrequest'
 }
 
 function isFluxMonitorJobSpecV2(job: JobSpecV2) {
@@ -107,11 +111,19 @@ const searchIncludes = (searchParam: string) => {
 }
 
 export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
+  if (search === '') {
+    return true
+  }
+
   if (isJobSpecV1(job)) {
     return matchV1Job(job, search)
   }
 
   if (isJobSpecV2(job)) {
+    if (isDirectRequestJobSpecV2(job)) {
+      return matchDirectRequest(job, search)
+    }
+
     if (isFluxMonitorJobSpecV2(job)) {
       return matchFluxMonitor(job, search)
     }
@@ -138,6 +150,25 @@ function matchV1Job(job: DirectRequest, term: string) {
     job.attributes.name,
     ...job.attributes.initiators.map((i) => i.type), // Match any of the initiators
     'direct request',
+  ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchDirectRequest determines whether the V2 Direct Request job matches the search
+ * terms.
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchDirectRequest(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'direct request', // Hardcoded to match the type column
   ]
 
   return dataset.some(match)
@@ -223,7 +254,7 @@ export const JobsIndex = ({
 
   const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
 
-  React.useEffect(() => {
+  useEffect(() => {
     getJobs().then(setJobs).catch(setError)
   }, [setError])
 

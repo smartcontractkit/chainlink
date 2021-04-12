@@ -30,9 +30,9 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	require.NoError(t, app.Start())
 	key := cltest.MustInsertRandomKey(t, app.Store.DB)
 
-	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "blah")
+	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge).Error)
-	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "blah")
+	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 
 	client := app.NewHTTPClient()
@@ -55,10 +55,13 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
-	parsedResponse := job.PipelineRun{}
+	var parsedResponse pipeline.Run
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &parsedResponse)
 	assert.NoError(t, err)
 	assert.NotNil(t, parsedResponse.ID)
+	assert.NotNil(t, parsedResponse.CreatedAt)
+	assert.Nil(t, parsedResponse.FinishedAt)
+	require.Len(t, parsedResponse.PipelineTaskRuns, 8)
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {

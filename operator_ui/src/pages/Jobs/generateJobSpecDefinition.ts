@@ -1,5 +1,6 @@
 import { ApiResponse } from 'utils/json-api-client'
 import {
+  DirectRequestJobV2Spec,
   FluxMonitorJobV2Spec,
   JobSpec,
   JobSpecV2,
@@ -97,6 +98,10 @@ export const generateJSONDefinition = (
 export const generateTOMLDefinition = (
   jobSpecAttributes: ApiResponse<JobSpecV2>['data']['attributes'],
 ): string => {
+  if (jobSpecAttributes.type === 'directrequest') {
+    return generateDirectRequestDefinition(jobSpecAttributes)
+  }
+
   if (jobSpecAttributes.type === 'fluxmonitor') {
     return generateFluxMonitorDefinition(jobSpecAttributes)
   }
@@ -149,6 +154,7 @@ function generateFluxMonitorDefinition(
     idleTimerDisabled,
     pollTimerPeriod,
     pollTimerDisabled,
+    minPayment,
   } = fluxMonitorSpec
 
   return stringifyJobSpec({
@@ -164,6 +170,33 @@ function generateFluxMonitorDefinition(
       idleTimerDisabled,
       pollTimerPeriod,
       pollTimerDisabled,
+      maxTaskDuration,
+      minPayment,
+      observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateDirectRequestDefinition(
+  attrs: ApiResponse<DirectRequestJobV2Spec>['data']['attributes'],
+) {
+  const {
+    directRequestSpec,
+    name,
+    pipelineSpec,
+    schemaVersion,
+    type,
+    maxTaskDuration,
+  } = attrs
+  const { contractAddress } = directRequestSpec
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
+      contractAddress,
       maxTaskDuration,
       observationSource: pipelineSpec.dotDagSource,
     },

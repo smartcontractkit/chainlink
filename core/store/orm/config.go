@@ -1,6 +1,7 @@
 package orm
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -109,9 +110,6 @@ func (c *Config) Validate() error {
 			c.EthGasBumpPercent(),
 			ethCore.DefaultTxPoolConfig.PriceBump,
 		)
-	}
-	if c.EthGasBumpWei().Cmp(big.NewInt(1000000000)) < 0 {
-		return errors.Errorf("ETH_GAS_BUMP_WEI of %s Wei may not be less than the minimum allowed value of 5 GWei", c.EthGasBumpWei().String())
 	}
 
 	if c.EthHeadTrackerHistoryDepth() < c.EthFinalityDepth() {
@@ -264,6 +262,31 @@ func (c Config) DatabaseMaximumTxDuration() time.Duration {
 	return c.getWithFallback("DatabaseMaximumTxDuration", parseDuration).(time.Duration)
 }
 
+// DatabaseBackupMode sets the database backup mode
+func (c Config) DatabaseBackupMode() DatabaseBackupMode {
+	return c.getWithFallback("DatabaseBackupMode", parseDatabaseBackupMode).(DatabaseBackupMode)
+}
+
+// DatabaseBackupFrequency turns on the periodic database backup if set to a positive value
+// DatabaseBackupMode must be then set to a value other than "none"
+func (c Config) DatabaseBackupFrequency() time.Duration {
+	return c.getWithFallback("DatabaseBackupFrequency", parseDuration).(time.Duration)
+}
+
+// DatabaseBackupURL configures the URL for the database to backup, if it's to be different from the main on
+func (c Config) DatabaseBackupURL() *url.URL {
+	s := c.viper.GetString(EnvVarName("DatabaseBackupURL"))
+	if s == "" {
+		return nil
+	}
+	uri, err := url.Parse(s)
+	if err != nil {
+		logger.Error("invalid database backup url %s", s)
+		return nil
+	}
+	return uri
+}
+
 // DatabaseTimeout represents how long to tolerate non response from the DB.
 func (c Config) DatabaseTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("DatabaseTimeout", parseDuration).(time.Duration))
@@ -367,8 +390,10 @@ func (c Config) EthBalanceMonitorBlockDelay() uint16 {
 	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
 }
 
-func (c Config) EthReceiptFetchBatchSize() uint32 {
-	return c.viper.GetUint32(EnvVarName("EthReceiptFetchBatchSize"))
+// EthRPCDefaultBatchSize controls the number of receipts fetched in each
+// request in the EthConfirmer
+func (c Config) EthRPCDefaultBatchSize() uint32 {
+	return c.viper.GetUint32(EnvVarName("EthRPCDefaultBatchSize"))
 }
 
 // EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
@@ -406,6 +431,11 @@ func (c Config) EthMaxGasPriceWei() *big.Int {
 // 0 value disables
 func (c Config) EthMaxUnconfirmedTransactions() uint64 {
 	return c.getWithFallback("EthMaxUnconfirmedTransactions", parseUint64).(uint64)
+}
+
+// EthNonceAutoSync enables/disables running the NonceSyncer on application start
+func (c Config) EthNonceAutoSync() bool {
+	return c.getWithFallback("EthNonceAutoSync", parseBool).(bool)
 }
 
 // EthGasLimitDefault sets the default gas limit for outgoing transactions.
@@ -457,6 +487,20 @@ func (c Config) EthHeadTrackerHistoryDepth() uint {
 // for the head tracker before we start dropping heads to keep up.
 func (c Config) EthHeadTrackerMaxBufferSize() uint {
 	return uint(c.getWithFallback("EthHeadTrackerMaxBufferSize", parseUint64).(uint64))
+}
+
+// EthTxResendAfterThreshold controls how long the ethResender will wait before
+// re-sending the latest eth_tx_attempt. This is designed a as a fallback to
+// protect against the eth nodes dropping txes (it has been anecdotally
+// observed to happen), networking issues or txes being ejected from the
+// mempool.
+// See eth_resender.go for more details
+func (c Config) EthTxResendAfterThreshold() time.Duration {
+	return c.getWithFallback("EthTxResendAfterThreshold", parseDuration).(time.Duration)
+}
+
+func (c Config) EthLogBackfillBatchSize() uint32 {
+	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
@@ -569,6 +613,14 @@ func (c Config) JobPipelineReaperThreshold() time.Duration {
 
 func (c Config) KeeperRegistrySyncInterval() time.Duration {
 	return c.getWithFallback("KeeperRegistrySyncInterval", parseDuration).(time.Duration)
+}
+
+func (c Config) KeeperMinimumRequiredConfirmations() uint64 {
+	return c.viper.GetUint64(EnvVarName("KeeperMinimumRequiredConfirmations"))
+}
+
+func (c Config) KeeperMaximumGracePeriod() int64 {
+	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
 
 // JSONConsole enables the JSON console.
@@ -734,7 +786,28 @@ func (c Config) OperatorContractAddress() common.Address {
 
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
+	if c.runtimeStore != nil {
+		var value LogLevel
+		if err := c.runtimeStore.GetConfigValue("LogLevel", &value); err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogLevel.", "error", err)
+		} else if err == nil {
+			return value
+		}
+	}
 	return c.getWithFallback("LogLevel", parseLogLevel).(LogLevel)
+}
+
+// SetLogLevel saves a runtime value for the default logger level
+func (c Config) SetLogLevel(ctx context.Context, value string) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+	var ll LogLevel
+	err := ll.Set(value)
+	if err != nil {
+		return err
+	}
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogLevel", ll.String())
 }
 
 // LogToDisk configures disk preservation of logs.
@@ -744,7 +817,24 @@ func (c Config) LogToDisk() bool {
 
 // LogSQLStatements tells chainlink to log all SQL statements made using the default logger
 func (c Config) LogSQLStatements() bool {
+	if c.runtimeStore != nil {
+		logSqlStatements, err := c.runtimeStore.GetConfigBoolValue("LogSQLStatements")
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warnw("Error while trying to fetch LogSQLStatements.", "error", err)
+		} else if err == nil {
+			return *logSqlStatements
+		}
+	}
 	return c.viper.GetBool(EnvVarName("LogSQLStatements"))
+}
+
+// SetLogSQLStatements saves a runtime value for enabling/disabling logging all SQL statements on the default logger
+func (c Config) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error {
+	if c.runtimeStore == nil {
+		return errors.New("No runtime store installed")
+	}
+
+	return c.runtimeStore.SetConfigStrValue(ctx, "LogSQLStatements", strconv.FormatBool(sqlEnabled))
 }
 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
@@ -881,6 +971,11 @@ func (c Config) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(c.getWithFallback("SessionTimeout", parseDuration).(time.Duration))
 }
 
+// StatsPusherLogging toggles very verbose logging of raw messages for the StatsPusher (also telemetry)
+func (c Config) StatsPusherLogging() bool {
+	return c.getWithFallback("StatsPusherLogging", parseBool).(bool)
+}
+
 // TLSCertPath represents the file system location of the TLS certificate
 // Chainlink should use for HTTPS.
 func (c Config) TLSCertPath() string {
@@ -942,6 +1037,11 @@ func (c Config) CertFile() string {
 		return filepath.Join(c.tlsDir(), "server.crt")
 	}
 	return c.TLSCertPath()
+}
+
+// HeadTimeBudget returns the time allowed for context timeout in head tracker
+func (c Config) HeadTimeBudget() time.Duration {
+	return c.getWithFallback("HeadTimeBudget", parseDuration).(time.Duration)
 }
 
 // CreateProductionLogger returns a custom logger for the config's root
@@ -1107,5 +1207,22 @@ func (ll LogLevel) ForGin() string {
 		return gin.DebugMode
 	default:
 		return gin.ReleaseMode
+	}
+}
+
+type DatabaseBackupMode string
+
+var (
+	DatabaseBackupModeNone DatabaseBackupMode = "none"
+	DatabaseBackupModeLite DatabaseBackupMode = "lite"
+	DatabaseBackupModeFull DatabaseBackupMode = "full"
+)
+
+func parseDatabaseBackupMode(s string) (interface{}, error) {
+	switch DatabaseBackupMode(s) {
+	case DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull:
+		return DatabaseBackupMode(s), nil
+	default:
+		return "", fmt.Errorf("unable to parse %v into DatabaseBackupMode. Must be one of values: \"%s\", \"%s\", \"%s\"", s, DatabaseBackupModeNone, DatabaseBackupModeLite, DatabaseBackupModeFull)
 	}
 }

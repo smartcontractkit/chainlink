@@ -9,6 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
+	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -23,6 +26,7 @@ import (
 // NB: For changes to the VRF solidity code to be reflected here, "go generate"
 // must be run in core/services/vrf.
 func TestRandom_Perform(t *testing.T) {
+	t.Parallel()
 	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
 	publicKey := cltest.StoredVRFKey(t, store)
@@ -62,4 +66,64 @@ func TestRandom_Perform(t *testing.T) {
 	input = models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
 	result = adapter.Perform(*input, store)
 	require.Error(t, result.Error(), "must reject if keyHash doesn't match")
+}
+
+func TestRandom_Perform_CheckFulfillment(t *testing.T) {
+	t.Parallel()
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	ethMock := new(mocks.Client)
+	store.EthClient = ethMock
+
+	publicKey := cltest.StoredVRFKey(t, store)
+	address := cltest.NewEIP55Address()
+	hash := utils.MustHash("a random string")
+	seed := big.NewInt(0x10)
+	blockNum := 10
+	jsonInput, err := models.JSON{}.MultiAdd(models.KV{
+		"seed":      utils.Uint64ToHex(seed.Uint64()),
+		"keyHash":   publicKey.MustHash().Hex(),
+		"blockHash": hash.Hex(),
+		"blockNum":  blockNum,
+		"requestID": utils.AddHexPrefix(common.Bytes2Hex([]byte{1, 2, 3})),
+	})
+	require.NoError(t, err)
+	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+
+	abi := eth.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorABI)
+	registryMock := cltest.NewContractMockReceiver(t, ethMock, abi, address.Address())
+
+	for _, test := range []struct {
+		name                   string
+		addressParamPresent    bool
+		seedAndBlockNumPresent bool
+		shouldFulfill          bool
+	}{
+		{"both missing", false, false, true},
+		{"address missing, seed/block present", false, true, true},
+		{"address present, seed/block missing", true, false, false},
+		{"both present", true, true, true},
+	} {
+		test := test
+		t.Run(test.name, func(tt *testing.T) {
+			adapter := adapters.Random{PublicKey: publicKey.String()}
+			response := solidity_vrf_coordinator_interface.Callbacks{
+				CallbackContract: cltest.NewAddress(),
+				RandomnessFee:    big.NewInt(100),
+			}
+
+			if test.seedAndBlockNumPresent {
+				response.SeedAndBlockNum = [32]byte{1, 2, 3}
+			}
+			if test.addressParamPresent {
+				adapter.CoordinatorAddress = address
+				registryMock.MockResponse("callbacks", response).Once()
+			}
+
+			result := adapter.Perform(*input, store)
+			require.Equal(tt, test.shouldFulfill, result.Error() == nil)
+			ethMock.AssertExpectations(t)
+		})
+	}
 }

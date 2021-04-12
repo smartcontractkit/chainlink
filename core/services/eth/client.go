@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -41,6 +43,7 @@ type Client interface {
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
+	RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
 	// These methods are reimplemented due to a difference in how block header hashes are
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
@@ -94,9 +97,22 @@ type client struct {
 	SecondaryRPCClients  []RPCClient
 	secondaryURLs        []url.URL
 	mocked               bool
+
+	roundRobinCount uint32
 }
 
 var _ Client = (*client)(nil)
+
+// DefaultQueryCtx returns a context with a sensible sanity limit timeout for
+// queries to the eth node
+func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel context.CancelFunc) {
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	} else {
+		ctx = context.Background()
+	}
+	return context.WithTimeout(ctx, 15*time.Second)
+}
 
 func NewClient(rpcUrl string, secondaryRPCURLs ...url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
@@ -368,4 +384,22 @@ func (client *client) BatchCallContext(ctx context.Context, b []rpc.BatchElem) e
 		"nBatchElems", len(b),
 	)
 	return client.RPCClient.BatchCallContext(ctx, b)
+}
+
+// RoundRobinBatchCallContext rotates through Primary and all Secondaries, changing node on each call
+func (client *client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+	nSecondaries := len(client.SecondaryRPCClients)
+	if nSecondaries == 0 {
+		return client.BatchCallContext(ctx, b)
+	}
+
+	// NOTE: AddUint32 returns the number after addition, so we must -1 to get the "current" count
+	count := atomic.AddUint32(&client.roundRobinCount, 1) - 1
+	// idx 0 indicates the primary, subsequent indices represent secondaries
+	rr := int(count % uint32(nSecondaries+1))
+
+	if rr == 0 {
+		return client.BatchCallContext(ctx, b)
+	}
+	return client.SecondaryRPCClients[rr-1].BatchCallContext(ctx, b)
 }

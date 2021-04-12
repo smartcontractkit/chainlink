@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/jpillora/backoff"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -53,6 +55,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	}
 
 	for _, initr := range initrs {
+		logger.Debugw("Initiator subscribing", "initr", initr)
 		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, store.Config, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
@@ -114,7 +117,7 @@ func NewInitiatorSubscription(
 		callback:   callback,
 	}
 
-	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog)
+	managedSub, err := NewManagedSubscription(client, filter, sub.dispatchLog, config.EthLogBackfillBatchSize())
 	if err != nil {
 		return sub, errors.Wrap(err, "NewInitiatorSubscription#NewManagedSubscription")
 	}
@@ -189,19 +192,16 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ManagedSubscription encapsulates the connecting, backfilling, and clean up of an
 // ethereum node subscription.
 type ManagedSubscription struct {
-	logSubscriber   eth.Client
-	logs            chan models.Log
-	ethSubscription ethereum.Subscription
-	callback        func(models.Log)
+	logSubscriber     eth.Client
+	logs              chan models.Log
+	ethSubscription   ethereum.Subscription
+	callback          func(models.Log)
+	backfillBatchSize uint32
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
-func NewManagedSubscription(
-	logSubscriber eth.Client,
-	filter ethereum.FilterQuery,
-	callback func(models.Log),
-) (*ManagedSubscription, error) {
+func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
 	logs := make(chan models.Log)
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
@@ -210,10 +210,11 @@ func NewManagedSubscription(
 	}
 
 	sub := &ManagedSubscription{
-		logSubscriber:   logSubscriber,
-		callback:        callback,
-		logs:            logs,
-		ethSubscription: es,
+		logSubscriber:     logSubscriber,
+		callback:          callback,
+		logs:              logs,
+		ethSubscription:   es,
+		backfillBatchSize: backfillBatchSize,
 	}
 	go sub.listenToLogs(filter)
 	return sub, nil
@@ -290,11 +291,25 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 	if q.FromBlock == nil {
 		return backfilledSet
 	}
-
-	logs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
+	b, err := sub.logSubscriber.BlockByNumber(context.Background(), nil)
 	if err != nil {
 		logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
 		return backfilledSet
+	}
+
+	var logs []types.Log
+	latest := b.Number()
+	batchSize := int64(sub.backfillBatchSize)
+	for i := q.FromBlock.Int64(); i < latest.Int64(); i += batchSize {
+		q.FromBlock = big.NewInt(i)
+		to := utils.BigIntSlice{big.NewInt(i + batchSize - 1), latest}
+		q.ToBlock = to.Min()
+		batchLogs, err := sub.logSubscriber.FilterLogs(context.TODO(), q)
+		if err != nil {
+			logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			return backfilledSet
+		}
+		logs = append(logs, batchLogs...)
 	}
 
 	for _, log := range logs {

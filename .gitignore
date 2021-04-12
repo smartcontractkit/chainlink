@@ -29,6 +29,7 @@ tools/clroot/db.sqlite3-wal
 .DS_Store
 .envrc
 .env*
+.idea 
 
 # codeship
 *.aes
@@ -36,3 +37,7 @@ dockercfg
 env
 credentials.env
 gcr_creds.env
+
+# DB backups
+
+cl_backup_*.tar.gz
