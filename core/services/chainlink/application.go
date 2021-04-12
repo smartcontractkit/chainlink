@@ -508,10 +508,7 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	jb, err := app.JobORM.FindJob(jobID)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return 0, errors.Wrapf(err, "job ID %v", jobID)
-		}
-		return 0, err
+		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
 	runID, _, err := app.pipelineRunner.ExecuteAndInsertNewRun(ctx, *jb.PipelineSpec, pipeline.JSONSerializable{
 		Val:  meta,
