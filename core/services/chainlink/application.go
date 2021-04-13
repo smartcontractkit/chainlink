@@ -86,7 +86,6 @@ type Application interface {
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
-	AwaitRun(ctx context.Context, runID int64) error
 	services.RunManager
 }
 
@@ -500,12 +499,17 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name
 	return app.jobSpawner.CreateJob(ctx, job, name)
 }
 
+// Only used for testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
-	return app.pipelineRunner.CreateRun(ctx, jobID, meta)
-}
-
-func (app *ChainlinkApplication) AwaitRun(ctx context.Context, runID int64) error {
-	return app.pipelineRunner.AwaitRun(ctx, runID)
+	jb, err := app.JobORM.FindJob(jobID)
+	if err != nil {
+		return 0, errors.Wrapf(err, "job ID %v", jobID)
+	}
+	runID, _, err := app.pipelineRunner.ExecuteAndInsertNewRun(ctx, *jb.PipelineSpec, pipeline.JSONSerializable{
+		Val:  meta,
+		Null: false,
+	}, *logger.Default, false)
+	return runID, err
 }
 
 // ArchiveJob silences the job from the system, preventing future job runs.

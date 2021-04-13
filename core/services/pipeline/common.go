@@ -47,7 +47,6 @@ type (
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration
 	}
