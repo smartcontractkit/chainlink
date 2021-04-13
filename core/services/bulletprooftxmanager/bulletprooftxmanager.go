@@ -43,6 +43,11 @@ var (
 		Name: "tx_manager_gas_bump_exceeds_limit",
 		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
 	})
+
+	promRevertedTxCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "tx_manager_num_tx_reverted",
+		Help: "Number of times a transaction reverted on-chain",
+	})
 )
 
 // SendEther creates a transaction that transfers the given value of ether
