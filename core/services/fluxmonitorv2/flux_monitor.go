@@ -27,6 +27,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// PollRequest defines which method was used to request a poll
+type PollRequest int
+
+const (
+	PollRequestInitial PollRequest = iota
+	PollRequestPoll
+	PollRequestIdle
+	PollRequestRound
+	PollRequestHibernation
+	PollRequestRetry
+	PollRequestAwaken
+)
+
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
 	contractAddress   common.Address
@@ -193,11 +206,13 @@ func NewFromJobSpec(
 
 	pollManager := NewPollManager(
 		PollManagerConfig{
-			PollTickerInterval:    fmSpec.PollTimerPeriod,
-			PollTickerDisabled:    fmSpec.PollTimerDisabled,
-			IdleTimerPeriod:       fmSpec.IdleTimerPeriod,
-			IdleTimerDisabled:     fmSpec.IdleTimerDisabled,
-			HibernationPollPeriod: 24 * time.Hour, // Not currently configurable
+			PollTickerInterval:      fmSpec.PollTimerPeriod,
+			PollTickerDisabled:      fmSpec.PollTimerDisabled,
+			IdleTimerPeriod:         fmSpec.IdleTimerPeriod,
+			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
+			HibernationPollPeriod:   24 * time.Hour, // Not currently configurable
+			MinRetryBackoffDuration: 1 * time.Minute,
+			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
 		fmLogger,
 	)
@@ -394,20 +409,24 @@ func (fm *FluxMonitor) consume() {
 			fm.processLogs()
 
 		case <-fm.pollManager.PollTickerTicks():
-			tickLogger.Debugw("Poll ticker fired")
-			fm.pollIfEligible(fm.deviationChecker)
+			tickLogger.Debug("Poll ticker fired")
+			fm.pollIfEligible(PollRequestPoll, fm.deviationChecker)
 
 		case <-fm.pollManager.IdleTimerTicks():
-			tickLogger.Debugw("Idle timer fired")
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			tickLogger.Debug("Idle timer fired")
+			fm.pollIfEligible(PollRequestIdle, NewZeroDeviationChecker())
 
 		case <-fm.pollManager.RoundTimerTicks():
-			tickLogger.Debugw("Round timer fired")
-			fm.pollIfEligible(fm.deviationChecker)
+			tickLogger.Debug("Round timer fired")
+			fm.pollIfEligible(PollRequestRound, fm.deviationChecker)
 
 		case <-fm.pollManager.HibernationTimerTicks():
-			tickLogger.Debugw("Hibernation timer fired")
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			tickLogger.Debug("Hibernation timer fired")
+			fm.pollIfEligible(PollRequestHibernation, NewZeroDeviationChecker())
+
+		case <-fm.pollManager.RetryTickerTicks():
+			tickLogger.Debug("Retry ticker fired")
+			fm.pollIfEligible(PollRequestRetry, NewZeroDeviationChecker())
 		}
 	}
 }
@@ -452,7 +471,7 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 // performInitialPoll performs the initial poll if required
 func (fm *FluxMonitor) performInitialPoll() {
 	if fm.pollManager.ShouldPerformInitialPoll() {
-		fm.pollIfEligible(fm.deviationChecker)
+		fm.pollIfEligible(PollRequestInitial, fm.deviationChecker)
 	}
 }
 
@@ -497,7 +516,7 @@ func (fm *FluxMonitor) processLogs() {
 
 		case *flags_wrapper.FlagsFlagLowered:
 			fm.pollManager.Awaken(fm.initialRoundState())
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			fm.pollIfEligible(PollRequestAwaken, NewZeroDeviationChecker())
 
 			err = broadcast.MarkConsumed()
 
@@ -705,7 +724,7 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 	return nil
 }
 
-func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
+func (fm *FluxMonitor) pollIfEligible(pollReq PollRequest, deviationChecker *DeviationChecker) {
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
@@ -742,6 +761,17 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 	}
 
 	fm.pollManager.Reset(roundState)
+	// Retry if a idle timer fails
+	defer func() {
+		if pollReq == PollRequestIdle {
+			if err != nil {
+				fm.pollManager.StartRetryTicker()
+				return
+			}
+			fm.pollManager.StopRetryTicker()
+		}
+	}()
+
 	l = l.With("reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)

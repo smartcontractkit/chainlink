@@ -95,7 +95,6 @@ func preloadPipelineRunDependencies(db *gorm.DB) *gorm.DB {
 		Preload("PipelineSpec").
 		Preload("PipelineTaskRuns", func(db *gorm.DB) *gorm.DB {
 			return db.
-				Where(`pipeline_task_runs.type != 'result'`).
 				Order("created_at ASC, id ASC")
 		})
 }
