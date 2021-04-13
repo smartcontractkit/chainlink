@@ -6,13 +6,11 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -22,14 +20,10 @@ import (
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
-
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
+
 	store := app.GetStore()
 	client := app.NewHTTPClient()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
@@ -52,11 +46,11 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	size := 2
 	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	var txs []presenters.EthTx
+	var txs []presenters.EthTxResource
 	body := cltest.ParseResponseBody(t, resp)
 	require.NoError(t, web.ParsePaginatedResponse(body, &txs, &links))
 	assert.NotEmpty(t, links["next"].Href)
@@ -70,27 +64,21 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Get("/v2/transactions?size=TrainingDay")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
 }
 
 func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t, eth.NewClientWith(rpcClient, gethClient))
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -103,12 +91,12 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	attempt.EthTx = tx
 
 	resp, cleanup := client.Get("/v2/transactions/" + attempt.Hash.Hex())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	ptx := presenters.EthTx{}
+	ptx := presenters.EthTxResource{}
 	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &ptx))
-	txp := presenters.NewEthTxFromAttempt(attempt)
+	txp := presenters.NewEthTxResourceFromAttempt(attempt)
 
 	assert.Equal(t, txp.State, ptx.State)
 	assert.Equal(t, txp.Data, ptx.Data)
@@ -123,12 +111,8 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 
 	require.NoError(t, app.Start())
 	store := app.GetStore()
@@ -139,6 +123,6 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	attempt := tx.EthTxAttempts[0]
 
 	resp, cleanup := client.Get("/v2/transactions/" + (attempt.Hash.String() + "1"))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }
