@@ -66,11 +66,9 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
-	case *models.BridgeType:
+	case *webpresenters.BridgeResource:
 		return rt.renderBridge(*typed)
-	case *models.BridgeTypeAuthentication:
-		return rt.renderBridgeAuthentication(*typed)
-	case *[]models.BridgeType:
+	case *[]webpresenters.BridgeResource:
 		return rt.renderBridges(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
@@ -253,15 +251,15 @@ func jobRowToStrings(job models.JobSpec) []string {
 	}
 }
 
-func bridgeRowToStrings(bridge models.BridgeType) []string {
+func bridgeRowToStrings(bridge webpresenters.BridgeResource) []string {
 	return []string{
-		bridge.Name.String(),
-		bridge.URL.String(),
+		bridge.Name,
+		bridge.URL,
 		strconv.FormatUint(uint64(bridge.Confirmations), 10),
 	}
 }
 
-func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
+func (rt RendererTable) renderBridges(bridges []webpresenters.BridgeResource) error {
 	table := rt.newTable([]string{"Name", "URL", "Confirmations"})
 	for _, v := range bridges {
 		table.Append(bridgeRowToStrings(v))
@@ -271,25 +269,12 @@ func (rt RendererTable) renderBridges(bridges []models.BridgeType) error {
 	return nil
 }
 
-func (rt RendererTable) renderBridge(bridge models.BridgeType) error {
+func (rt RendererTable) renderBridge(bridge webpresenters.BridgeResource) error {
 	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Outgoing Token"})
 	table.Append([]string{
-		bridge.Name.String(),
-		bridge.URL.String(),
+		bridge.Name,
+		bridge.URL,
 		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-		bridge.OutgoingToken,
-	})
-	render("Bridge", table)
-	return nil
-}
-
-func (rt RendererTable) renderBridgeAuthentication(bridge models.BridgeTypeAuthentication) error {
-	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Incoming Token", "Outgoing Token"})
-	table.Append([]string{
-		bridge.Name.String(),
-		bridge.URL.String(),
-		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-		bridge.IncomingToken,
 		bridge.OutgoingToken,
 	})
 	render("Bridge", table)
