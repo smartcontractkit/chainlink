@@ -74,9 +74,9 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderBridges(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *[]presenters.EthTx:
+	case *[]webpresenters.EthTxResource:
 		return rt.renderEthTxs(*typed)
-	case *presenters.EthTx:
+	case *webpresenters.EthTxResource:
 		return rt.renderEthTx(*typed)
 	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
@@ -409,7 +409,7 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	return table
 }
 
-func (rt RendererTable) renderEthTx(tx presenters.EthTx) error {
+func (rt RendererTable) renderEthTx(tx webpresenters.EthTxResource) error {
 	table := rt.newTable([]string{"From", "Nonce", "To", "State"})
 	table.Append([]string{
 		tx.From.Hex(),
@@ -422,7 +422,7 @@ func (rt RendererTable) renderEthTx(tx presenters.EthTx) error {
 	return nil
 }
 
-func (rt RendererTable) renderEthTxs(txs []presenters.EthTx) error {
+func (rt RendererTable) renderEthTxs(txs []webpresenters.EthTxResource) error {
 	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "State"})
 	for _, tx := range txs {
 		table.Append([]string{

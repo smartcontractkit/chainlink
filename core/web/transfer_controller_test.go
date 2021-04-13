@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -20,17 +18,11 @@ import (
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-	require.NoError(t, app.StartAndConnect())
-
 	store := app.Store
 	_, from := cltest.MustAddRandomKeyToKeystore(t, store, 0)
 
@@ -44,7 +36,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -58,18 +50,11 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 func TestTransfersController_TransferError(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
-
-	assert.NoError(t, app.StartAndConnect())
-
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
@@ -80,7 +65,7 @@ func TestTransfersController_TransferError(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
@@ -88,17 +73,14 @@ func TestTransfersController_TransferError(t *testing.T) {
 func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
-	config, _ := cltest.NewConfig(t)
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
+
 	client := app.NewHTTPClient()
-	assert.NoError(t, app.StartAndConnect())
+
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
