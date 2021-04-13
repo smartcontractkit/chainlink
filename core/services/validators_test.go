@@ -501,3 +501,61 @@ func TestValidateInitiator_FeedsErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateJob_VRF_Happy(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	input := cltest.MustReadFile(t, "testdata/randomness_job.json")
+
+	var j models.JobSpec
+	assert.NoError(t, json.Unmarshal(input, &j))
+	err := services.ValidateJob(j, store)
+	assert.NoError(t, err)
+}
+
+func TestValidateJob_VRF_Error(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	input := cltest.MustReadFile(t, "testdata/randomness_job.json")
+
+	makeVRFJob := func() models.JobSpec {
+		var job models.JobSpec
+		assert.NoError(t, json.Unmarshal(input, &job))
+		return job
+	}
+
+	missingPubKeyJson := models.JSON{
+		Result: gjson.ParseBytes([]byte(`{}`)),
+	}
+
+	job1 := makeVRFJob()
+	job2 := makeVRFJob()
+	job3 := makeVRFJob()
+	job4 := makeVRFJob()
+
+	job1.Tasks[0].Params = missingPubKeyJson
+	job2.Tasks[0].MinRequiredIncomingConfirmations.Uint32 = 0
+	job3.Initiators[0].Address = utils.ZeroAddress
+	job4.Initiators = append(job2.Initiators, models.Initiator{Type: models.InitiatorWeb})
+
+	for _, test := range []struct {
+		name string
+		job  models.JobSpec
+	}{
+		{"mising public key", job1},
+		{"mising min confirmations", job2},
+		{"mising contract address", job3},
+		{"single initiator", job4},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := services.ValidateJob(test.job, store)
+			assert.Error(t, err)
+		})
+	}
+}

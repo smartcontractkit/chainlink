@@ -461,7 +461,7 @@ func NewApp(client *Client) *cli.App {
 						},
 						{
 							Name: "list", Usage: "List the public keys in the db",
-							Action: client.ListKeys,
+							Action: client.ListVRFKeys,
 						},
 						{
 							Name: "",

@@ -36,6 +36,16 @@ Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` e
 
 - Logging can now be configured in the Operator UI.
 
+- Tuned defaults for certain Eth-compatible chains
+
+Chainlink node now uses different sets of default values depending on the given Chain ID. Tuned configs are built-in for the following chains:
+- Ethereum Mainnet and test chains
+- Polygon (Matic)
+- BSC
+- HECO
+
+If you have manually set ENV vars specific to these chains, you may want to remove those and allow the node to use its configured defaults instead.
+
 ### Fixed
 
 - Under certain circumstances a poorly configured Explorer could delay Chainlink node startup by up to 45 seconds.
@@ -51,6 +61,11 @@ to a dotID in the pipeline_spec.dot_dag_source.
 - Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
 
 - Corrected outdated log message in `http_allowed_ips`.
+- Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
+
+### Changed
+
+- Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
 
 ## [0.10.3] - 2021-03-22
 

@@ -48,22 +48,125 @@ const readWritePerms = os.FileMode(0600)
 var (
 	ErrUnset   = errors.New("env var unset")
 	ErrInvalid = errors.New("env var invalid")
+
+	configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
+
+	// keyed by ChainID
+	ChainSpecificDefaults map[int64]ChainSpecificDefaultSet
+	// If the chain is unknown, fallback to the general defaults
+	GeneralDefaults ChainSpecificDefaultSet
 )
 
-// Config holds parameters used by the application which can be overridden by
-// setting environment variables.
-//
-// If you add an entry here which does not contain sensitive information, you
-// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
-type Config struct {
-	viper           *viper.Viper
-	SecretGenerator SecretGenerator
-	runtimeStore    *ORM
-	Dialect         dialects.DialectName
-	AdvisoryLockID  int64
+type (
+	// Config holds parameters used by the application which can be overridden by
+	// setting environment variables.
+	//
+	// If you add an entry here which does not contain sensitive information, you
+	// should also update presenters.ConfigWhitelist and cmd_test.TestClient_RunNodeShowsEnv.
+	Config struct {
+		viper           *viper.Viper
+		SecretGenerator SecretGenerator
+		runtimeStore    *ORM
+		Dialect         dialects.DialectName
+		AdvisoryLockID  int64
+	}
+
+	// ChainSpecificDefaultSet us a list of defaults specific to a particular chain ID
+	ChainSpecificDefaultSet struct {
+		EthGasBumpThreshold              uint64
+		EthGasBumpWei                    *big.Int
+		EthGasPriceDefault               *big.Int
+		EthMaxGasPriceWei                *big.Int
+		EthFinalityDepth                 uint
+		EthHeadTrackerHistoryDepth       uint
+		EthBalanceMonitorBlockDelay      uint16
+		EthTxResendAfterThreshold        time.Duration
+		GasUpdaterBlockDelay             uint16
+		GasUpdaterBlockHistorySize       uint16
+		HeadTimeBudget                   time.Duration
+		MinIncomingConfirmations         uint32
+		MinRequiredOutgoingConfirmations uint64
+	}
+)
+
+func init() {
+	ChainSpecificDefaults = make(map[int64]ChainSpecificDefaultSet)
+
+	mainnet := ChainSpecificDefaultSet{
+		EthGasBumpThreshold:              3,
+		EthGasBumpWei:                    big.NewInt(5000000000),    // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(20000000000),   // 20 Gwei
+		EthMaxGasPriceWei:                big.NewInt(1500000000000), // 1.5 Twei
+		EthFinalityDepth:                 50,
+		EthHeadTrackerHistoryDepth:       100,
+		EthBalanceMonitorBlockDelay:      1,
+		EthTxResendAfterThreshold:        30 * time.Second,
+		GasUpdaterBlockDelay:             1,
+		GasUpdaterBlockHistorySize:       24,
+		HeadTimeBudget:                   13 * time.Second,
+		MinIncomingConfirmations:         3,
+		MinRequiredOutgoingConfirmations: 12,
+	}
+
+	// NOTE: There are probably other variables we can tweak for Kovan and other
+	// test chains, but requires more in-depth research on their consensus
+	// mechanisms. For now, mainnet defaults ought to be safe
+	kovan := mainnet
+	kovan.HeadTimeBudget = 4 * time.Second
+
+	// BSC uses Clique consensus with ~3s block times
+	// Clique offers finality within (N/2)+1 blocks where N is number of signers
+	// There are 21 BSC validators so theoretically finality should occur after 21/2+1 = 11 blocks
+	bscMainnet := ChainSpecificDefaultSet{
+		EthGasBumpThreshold:              12,                       // mainnet * 4 (3s vs 13s block time)
+		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(5000000000),   // 5 Gwei
+		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
+		EthFinalityDepth:                 50,                       // Keeping this > 11 because it's not expensive and gives us a safety margin
+		EthHeadTrackerHistoryDepth:       100,
+		EthBalanceMonitorBlockDelay:      2,
+		EthTxResendAfterThreshold:        15 * time.Second,
+		GasUpdaterBlockDelay:             2,
+		GasUpdaterBlockHistorySize:       24,
+		HeadTimeBudget:                   3 * time.Second,
+		MinIncomingConfirmations:         3,
+		MinRequiredOutgoingConfirmations: 12,
+	}
+
+	hecoMainnet := bscMainnet
+
+	// Matic has a 1s block time and looser finality guarantees than Ethereum.
+	polygonMatic := ChainSpecificDefaultSet{
+		EthGasBumpThreshold:              39,                       // mainnet * 13
+		EthGasBumpWei:                    big.NewInt(5000000000),   // 5 Gwei
+		EthGasPriceDefault:               big.NewInt(1000000000),   // 1 Gwei
+		EthMaxGasPriceWei:                big.NewInt(500000000000), // 500 Gwei
+		EthFinalityDepth:                 200,                      // A sprint is 64 blocks long and doesn't guarantee finality. To be safe, we take three sprints (192 blocks) plus a safety margin
+		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
+		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
+		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
+		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
+		GasUpdaterBlockHistorySize:       128,
+		HeadTimeBudget:                   1 * time.Second,
+		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
+		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
+	}
+
+	GeneralDefaults = mainnet
+	ChainSpecificDefaults[1] = mainnet
+	ChainSpecificDefaults[42] = kovan
+	ChainSpecificDefaults[56] = bscMainnet
+	ChainSpecificDefaults[128] = hecoMainnet
+	ChainSpecificDefaults[80001] = polygonMatic
 }
 
-var configFileNotFoundError = reflect.TypeOf(viper.ConfigFileNotFoundError{})
+func chainSpecificConfig(c Config) ChainSpecificDefaultSet {
+	chainID := c.ChainID().Int64()
+	if cset, exists := ChainSpecificDefaults[chainID]; exists {
+		return cset
+	}
+	return GeneralDefaults
+}
 
 // NewConfig returns the config with the environment variables set to their
 // respective fields, or their defaults if environment variables are not set.
@@ -77,7 +180,10 @@ func newConfigWithViper(v *viper.Viper) *Config {
 	for index := 0; index < schemaT.NumField(); index++ {
 		item := schemaT.FieldByIndex([]int{index})
 		name := item.Tag.Get("env")
-		v.SetDefault(name, item.Tag.Get("default"))
+		def, exists := item.Tag.Lookup("default")
+		if exists {
+			v.SetDefault(name, def)
+		}
 		_ = v.BindEnv(name, name)
 	}
 
@@ -387,7 +493,10 @@ func (c Config) MinimumServiceDuration() models.Duration {
 // announce a new head, then route a request to a different node which does not
 // have this head yet.
 func (c Config) EthBalanceMonitorBlockDelay() uint16 {
-	return c.getWithFallback("EthBalanceMonitorBlockDelay", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("EthBalanceMonitorBlockDelay")) {
+		return uint16(c.viper.GetUint32(EnvVarName("EthBalanceMonitorBlockDelay")))
+	}
+	return chainSpecificConfig(c).EthBalanceMonitorBlockDelay
 }
 
 // EthReceiptFetchBatchSize controls the number of receipts fetched in each
@@ -399,7 +508,10 @@ func (c Config) EthReceiptFetchBatchSize() uint32 {
 // EthGasBumpThreshold is the number of blocks to wait before bumping gas again on unconfirmed transactions
 // Set to 0 to disable gas bumping
 func (c Config) EthGasBumpThreshold() uint64 {
-	return c.getWithFallback("EthGasBumpThreshold", parseUint64).(uint64)
+	if c.viper.IsSet(EnvVarName("EthGasBumpThreshold")) {
+		return c.viper.GetUint64(EnvVarName("EthGasBumpThreshold"))
+	}
+	return chainSpecificConfig(c).EthGasBumpThreshold
 }
 
 // EthGasBumpTxDepth is the number of transactions to gas bump starting from oldest.
@@ -416,13 +528,38 @@ func (c Config) EthGasBumpPercent() uint16 {
 
 // EthGasBumpWei is the minimum fixed amount of wei by which gas is bumped on each transaction attempt
 func (c Config) EthGasBumpWei() *big.Int {
-	return c.getWithFallback("EthGasBumpWei", parseBigInt).(*big.Int)
+	str := c.viper.GetString(EnvVarName("EthGasBumpWei"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthGasBumpWei, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthGasBumpWei
 }
 
 // EthMaxGasPriceWei is the maximum amount in Wei that a transaction will be
 // bumped to before abandoning it and marking it as errored.
 func (c Config) EthMaxGasPriceWei() *big.Int {
-	return c.getWithFallback("EthMaxGasPriceWei", parseBigInt).(*big.Int)
+
+	str := c.viper.GetString(EnvVarName("EthMaxGasPriceWei"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthMaxGasPriceWei, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthMaxGasPriceWei
 }
 
 // EthMaxUnconfirmedTransactions is the maximum number of unconfirmed
@@ -448,7 +585,19 @@ func (c Config) EthGasPriceDefault() *big.Int {
 			return &value
 		}
 	}
-	return c.getWithFallback("EthGasPriceDefault", parseBigInt).(*big.Int)
+	str := c.viper.GetString(EnvVarName("EthGasPriceDefault"))
+	if str != "" {
+		n, err := parseBigInt(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthGasPriceDefault, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(*big.Int)
+		}
+	}
+	return chainSpecificConfig(c).EthGasPriceDefault
 }
 
 // SetEthGasPriceDefault saves a runtime value for the default gas price for transactions
@@ -466,14 +615,21 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
 func (c Config) EthFinalityDepth() uint {
-	return uint(c.getWithFallback("EthFinalityDepth", parseUint64).(uint64))
+	if c.viper.IsSet(EnvVarName("EthFinalityDepth")) {
+		return uint(c.viper.GetUint64(EnvVarName("EthFinalityDepth")))
+	}
+	return chainSpecificConfig(c).EthFinalityDepth
 }
 
-// EthHeadTrackerHistoryDepth is the number of heads to keep in the `heads` database table.
+// EthHeadTrackerHistoryDepth tracks the top N block numbers to keep in the `heads` database table.
+// Note that this can easily result in MORE than N records since in the case of re-orgs we keep multiple heads for a particular block height.
 // This number should be at least as large as `EthFinalityDepth`.
 // There may be a small performance penalty to setting this to something very large (10,000+)
 func (c Config) EthHeadTrackerHistoryDepth() uint {
-	return uint(c.getWithFallback("EthHeadTrackerHistoryDepth", parseUint64).(uint64))
+	if c.viper.IsSet(EnvVarName("EthHeadTrackerHistoryDepth")) {
+		return uint(c.viper.GetUint64(EnvVarName("EthHeadTrackerHistoryDepth")))
+	}
+	return chainSpecificConfig(c).EthHeadTrackerHistoryDepth
 }
 
 // EthHeadTrackerMaxBufferSize is the maximum number of heads that may be
@@ -491,7 +647,24 @@ func (c Config) EthHeadTrackerMaxBufferSize() uint {
 // mempool.
 // See eth_resender.go for more details
 func (c Config) EthTxResendAfterThreshold() time.Duration {
-	return c.getWithFallback("EthTxResendAfterThreshold", parseDuration).(time.Duration)
+	str := c.viper.GetString(EnvVarName("EthTxResendAfterThreshold"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for EthTxResendAfterThreshold, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).EthTxResendAfterThreshold
+}
+
+// EthLogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs
+func (c Config) EthLogBackfillBatchSize() uint32 {
+	return c.getWithFallback("EthLogBackfillBatchSize", parseUint32).(uint32)
 }
 
 // EthereumURL represents the URL of the Ethereum node to connect Chainlink to.
@@ -547,13 +720,19 @@ func (c Config) FlagsContractAddress() string {
 // available from the connected node via RPC. In this case you will get false
 // "zero" blocks that are missing transactions.
 func (c Config) GasUpdaterBlockDelay() uint16 {
-	return c.getWithFallback("GasUpdaterBlockDelay", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("GasUpdaterBlockDelay")) {
+		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockDelay")))
+	}
+	return chainSpecificConfig(c).GasUpdaterBlockDelay
 }
 
 // GasUpdaterBlockHistorySize is the number of past blocks to keep in memory to
 // use as a basis for calculating a percentile gas price
 func (c Config) GasUpdaterBlockHistorySize() uint16 {
-	return c.getWithFallback("GasUpdaterBlockHistorySize", parseUint16).(uint16)
+	if c.viper.IsSet(EnvVarName("GasUpdaterBlockHistorySize")) {
+		return uint16(c.viper.GetUint32(EnvVarName("GasUpdaterBlockHistorySize")))
+	}
+	return chainSpecificConfig(c).GasUpdaterBlockHistorySize
 }
 
 // GasUpdaterTransactionPercentile is the percentile gas price to choose. E.g.
@@ -837,14 +1016,20 @@ func (c Config) LogSQLMigrations() bool {
 // confirmations that need to be recorded since a job run started before a task
 // can proceed.
 func (c Config) MinIncomingConfirmations() uint32 {
-	return c.getWithFallback("MinIncomingConfirmations", parseUint32).(uint32)
+	if c.viper.IsSet(EnvVarName("MinIncomingConfirmations")) {
+		return c.viper.GetUint32(EnvVarName("MinIncomingConfirmations"))
+	}
+	return chainSpecificConfig(c).MinIncomingConfirmations
 }
 
 // MinRequiredOutgoingConfirmations represents the default minimum number of block
 // confirmations that need to be recorded on an outgoing ethtx task before the run can move onto the next task.
 // This can be overridden on a per-task basis by setting the `MinRequiredOutgoingConfirmations` parameter.
 func (c Config) MinRequiredOutgoingConfirmations() uint64 {
-	return c.getWithFallback("MinRequiredOutgoingConfirmations", parseUint64).(uint64)
+	if c.viper.IsSet(EnvVarName("MinRequiredOutgoingConfirmations")) {
+		return c.viper.GetUint64(EnvVarName("MinRequiredOutgoingConfirmations"))
+	}
+	return chainSpecificConfig(c).MinRequiredOutgoingConfirmations
 }
 
 // MinimumContractPayment represents the minimum amount of LINK that must be
@@ -921,11 +1106,14 @@ func (c Config) P2PBootstrapPeers(override []string) ([]string, error) {
 	if override != nil {
 		return override, nil
 	}
-	bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
-	if bps != nil {
-		return bps, nil
+	if c.viper.IsSet(EnvVarName("P2PBootstrapPeers")) {
+		bps := c.viper.GetStringSlice(EnvVarName("P2PBootstrapPeers"))
+		if bps != nil {
+			return bps, nil
+		}
+		return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
 	}
-	return nil, errors.Wrap(ErrUnset, "P2P_BOOTSTRAP_PEERS")
+	return []string{}, nil
 }
 
 // Port represents the port Chainlink should listen on for client requests.
@@ -1032,7 +1220,19 @@ func (c Config) CertFile() string {
 
 // HeadTimeBudget returns the time allowed for context timeout in head tracker
 func (c Config) HeadTimeBudget() time.Duration {
-	return c.getWithFallback("HeadTimeBudget", parseDuration).(time.Duration)
+	str := c.viper.GetString(EnvVarName("HeadTimeBudget"))
+	if str != "" {
+		n, err := parseDuration(str)
+		if err != nil {
+			logger.Errorw(
+				"Invalid value provided for HeadTimeBudget, falling back to default.",
+				"value", str,
+				"error", err)
+		} else {
+			return n.(time.Duration)
+		}
+	}
+	return chainSpecificConfig(c).HeadTimeBudget
 }
 
 // CreateProductionLogger returns a custom logger for the config's root

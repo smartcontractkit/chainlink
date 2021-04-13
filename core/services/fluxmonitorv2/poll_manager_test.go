@@ -31,6 +31,7 @@ type tickChecker struct {
 	idleTicked        bool
 	roundTicked       bool
 	hibernationTicked bool
+	retryTicked       bool
 }
 
 // watchTicks watches the PollManager for ticks for the waitDuration
@@ -40,6 +41,7 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 		idleTicked:        false,
 		roundTicked:       false,
 		hibernationTicked: false,
+		retryTicked:       false,
 	}
 
 	waitCh := time.After(waitDuration)
@@ -53,6 +55,8 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 			ticks.roundTicked = true
 		case <-pm.HibernationTimerTicks():
 			ticks.hibernationTicked = true
+		case <-pm.RetryTickerTicks():
+			ticks.retryTicked = true
 		case <-waitCh:
 			waitCh = nil
 		}
@@ -134,7 +138,42 @@ func TestPollManager_RoundTimer(t *testing.T) {
 	assert.True(t, ticks.roundTicked)
 }
 
-func TestFluxMonitor_HibernationTimer(t *testing.T) {
+func TestPollManager_RetryTimer(t *testing.T) {
+	pm := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
+		PollTickerInterval:      pollTickerDefaultDuration,
+		PollTickerDisabled:      true,
+		IdleTimerPeriod:         idleTickerDefaultDuration,
+		IdleTimerDisabled:       true,
+		HibernationPollPeriod:   24 * time.Hour,
+		MinRetryBackoffDuration: 200 * time.Microsecond,
+		MaxRetryBackoffDuration: 1 * time.Minute,
+	}, logger.Default)
+	t.Cleanup(pm.Stop)
+
+	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
+		StartedAt: uint64(time.Now().Unix()),
+		Timeout:   10000, // in seconds. Don't timeout the round
+	})
+
+	pm.StartRetryTicker()
+
+	// Retry ticker fires
+	ticks := watchTicks(t, pm, 2*time.Second)
+	assert.False(t, ticks.pollTicked)
+	assert.False(t, ticks.idleTicked)
+	assert.False(t, ticks.roundTicked)
+	assert.True(t, ticks.retryTicked)
+
+	pm.StopRetryTicker()
+
+	ticks = watchTicks(t, pm, 2*time.Second)
+	assert.False(t, ticks.pollTicked)
+	assert.False(t, ticks.idleTicked)
+	assert.False(t, ticks.roundTicked)
+	assert.False(t, ticks.retryTicked)
+}
+
+func TestPollManager_HibernationTimer(t *testing.T) {
 	t.Parallel()
 
 	pm := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{

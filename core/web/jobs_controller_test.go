@@ -3,7 +3,6 @@ package web_test
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -194,8 +194,7 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	// Sanity check to make sure it inserted correctly
 	require.Equal(t, models.EIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C"), jb.DirectRequestSpec.ContractAddress)
 
-	sha := sha256.Sum256(tomlBytes)
-	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
+	require.NotZero(t, jb.DirectRequestSpec.OnChainJobSpecID[:])
 }
 
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
@@ -374,15 +373,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	var ereJobSpecFromFileDB job.Job
-	tree, err = toml.LoadFile("testdata/direct-request-spec.toml")
+	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "testdata/direct-request-spec.toml")))
 	require.NoError(t, err)
-	err = tree.Unmarshal(&ereJobSpecFromFileDB)
-	require.NoError(t, err)
-	var drSpec job.DirectRequestSpec
-	err = tree.Unmarshal(&drSpec)
-	require.NoError(t, err)
-	ereJobSpecFromFileDB.DirectRequestSpec = &drSpec
 	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
 	return client, cleanup, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
