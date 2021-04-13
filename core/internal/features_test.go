@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -466,7 +467,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	bta := &models.BridgeTypeAuthentication{}
+	resource := &presenters.BridgeResource{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -483,12 +484,12 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, bta.OutgoingToken, token)
+			assert.Equal(t, resource.OutgoingToken, token)
 		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	bta = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	resource = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -497,7 +498,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	assert.Equal(t, gjson.Null, tr.Result.Data.Get("result").Type)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, resource, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)

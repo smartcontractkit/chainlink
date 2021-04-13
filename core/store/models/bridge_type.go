@@ -38,60 +38,26 @@ func (bt *BridgeTypeRequest) SetID(value string) error {
 
 // BridgeTypeAuthentication is the record returned in response to a request to create a BridgeType
 type BridgeTypeAuthentication struct {
-	Name                   TaskType     `json:"name"`
-	URL                    WebURL       `json:"url"`
-	Confirmations          uint32       `json:"confirmations"`
-	IncomingToken          string       `json:"incomingToken"`
-	OutgoingToken          string       `json:"outgoingToken"`
-	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeTypeAuthentication) GetID() string {
-	return bt.Name.String()
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeTypeAuthentication) GetName() string {
-	return "bridges"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (bt *BridgeTypeAuthentication) SetID(value string) error {
-	name, err := NewTaskType(value)
-	bt.Name = name
-	return err
+	Name                   TaskType
+	URL                    WebURL
+	Confirmations          uint32
+	IncomingToken          string
+	OutgoingToken          string
+	MinimumContractPayment *assets.Link
 }
 
 // BridgeType is used for external adapters and has fields for
 // the name of the adapter and its URL.
 type BridgeType struct {
-	Name                   TaskType     `json:"name" gorm:"primary_key"`
-	URL                    WebURL       `json:"url"`
-	Confirmations          uint32       `json:"confirmations"`
-	IncomingTokenHash      string       `json:"-"`
-	Salt                   string       `json:"-"`
-	OutgoingToken          string       `json:"outgoingToken"`
-	MinimumContractPayment *assets.Link `json:"minimumContractPayment" gorm:"type:varchar(255)"`
-	CreatedAt              time.Time    `json:"-"`
-	UpdatedAt              time.Time    `json:"-"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeType) GetID() string {
-	return bt.Name.String()
-}
-
-// GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeType) GetName() string {
-	return "bridges"
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (bt *BridgeType) SetID(value string) error {
-	name, err := NewTaskType(value)
-	bt.Name = name
-	return err
+	Name                   TaskType `gorm:"primary_key"`
+	URL                    WebURL
+	Confirmations          uint32
+	IncomingTokenHash      string
+	Salt                   string
+	OutgoingToken          string
+	MinimumContractPayment *assets.Link `gorm:"type:varchar(255)"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 // NewBridgeType returns a bridge bridge type authentication (with plaintext

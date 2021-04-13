@@ -898,13 +898,13 @@ func UpdateJobRunViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	jr models.JobRun,
-	bta *models.BridgeTypeAuthentication,
+	bridgeResource *webpresenters.BridgeResource,
 	body string,
 ) models.JobRun {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bridgeResource.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
@@ -921,7 +921,7 @@ func CreateBridgeTypeViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *models.BridgeTypeAuthentication {
+) *webpresenters.BridgeResource {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -931,7 +931,7 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
-	bt := &models.BridgeTypeAuthentication{}
+	bt := &webpresenters.BridgeResource{}
 	err := ParseJSONAPIResponse(t, resp, bt)
 	require.NoError(t, err)
 
