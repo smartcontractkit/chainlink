@@ -820,6 +820,12 @@ func (orm *ORM) CreateServiceAgreement(sa *models.ServiceAgreement) error {
 			return errors.Wrap(err, "Failed to create job for SA")
 		}
 
+		err = dbtx.Create(&sa.Encumbrance).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to create Encumberance for SA")
+		}
+
+		sa.EncumbranceID = sa.Encumbrance.ID
 		return dbtx.Create(sa).Error
 	})
 }
