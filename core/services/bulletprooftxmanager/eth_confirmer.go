@@ -324,7 +324,7 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		}
 
 		if receipt.Status == 0 {
-			l.Errorf("transaction %s reverted on-chain", receipt.TxHash)
+			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
 			// This is safe to increment here because we save the receipt immediately after
 			// and once its saved we do not fetch it again.
 			promRevertedTxCount.Add(1)
