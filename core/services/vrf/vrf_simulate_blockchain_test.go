@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/adapters"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/null"
 	"github.com/smartcontractkit/chainlink/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/vrfkey"
 	"github.com/stretchr/testify/assert"
@@ -58,14 +62,15 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 
 	j := cltest.NewJobWithRandomnessLog()
 	contractAddress := cu.rootContractAddress.String()
-	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"publicKey": "%s", "coordinatorAddress": "%s"}`, rawKey, contractAddress))
+	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"publicKey": "%s"}`, rawKey))
 	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, contractAddress)
 	task2Params := cltest.JSONFromString(t, task2JSON)
 
 	j.Initiators[0].Address = cu.rootContractAddress
 	j.Tasks = []models.TaskSpec{{
-		Type:   adapters.TaskTypeRandom,
-		Params: task1Params,
+		Type:                             adapters.TaskTypeRandom,
+		Params:                           task1Params,
+		MinRequiredIncomingConfirmations: null.NewUint32(1, true),
 	}, {
 		Type:   adapters.TaskTypeEthTx,
 		Params: task2Params,
@@ -115,4 +120,91 @@ func TestIntegration_RandomnessRequest(t *testing.T) {
 		BlockNum:  uint64(r.Raw.Raw.BlockNumber),
 	})
 	require.NoError(t, err, "problem verifying solidity proof")
+}
+
+// TestIntegration_SharedProvingKey tests the scenario where multiple nodes share
+// a single proving key
+func TestIntegration_SharedProvingKey(t *testing.T) {
+	config, _, cfgCleanup := cltest.BootstrapThrowawayORM(t, "vrf_shared_proving_key", true, true)
+	defer cfgCleanup()
+	config.Config.Dialect = dialects.PostgresWithoutLock
+
+	key := cltest.MustGenerateRandomKey(t)
+
+	cu := newVRFCoordinatorUniverse(t, key)
+	app, cleanup := cltest.NewApplicationWithConfigAndKeyOnSimulatedBlockchain(t, config, cu.backend, key)
+	defer cleanup()
+
+	app.Start()
+
+	// create job
+	rawKey := "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+	pk, err := vrfkey.NewPublicKeyFromHex(rawKey)
+	require.NoError(t, err)
+	var sk int64 = 1
+	provingKey := vrfkey.NewPrivateKeyXXXTestingOnly(big.NewInt(sk))
+	require.Equal(t, provingKey.PublicKey, pk,
+		"public key in fixture %s does not match secret key in test %d (which has "+
+			"public key %s)", pk, sk, provingKey.PublicKey.String())
+	app.Store.VRFKeyStore.StoreInMemoryXXXTestingOnly(provingKey)
+
+	j := cltest.NewJobWithRandomnessLog()
+	contractAddress := cu.rootContractAddress.String()
+	task1Params := cltest.JSONFromString(t, fmt.Sprintf(`{"publicKey": "%s", "coordinatorAddress": "%s"}`, rawKey, contractAddress))
+	task2JSON := fmt.Sprintf(`{"format": "preformatted", "address": "%s", "functionSelector": "0x5e1c1059"}`, contractAddress)
+	task2Params := cltest.JSONFromString(t, task2JSON)
+
+	j.Initiators[0].Address = cu.rootContractAddress
+	j.Tasks = []models.TaskSpec{{
+		Type:                             adapters.TaskTypeRandom,
+		Params:                           task1Params,
+		MinRequiredIncomingConfirmations: null.NewUint32(3, true), // allow space for another node to answer before us
+	}, {
+		Type:   adapters.TaskTypeEthTx,
+		Params: task2Params,
+	}}
+
+	j = cltest.CreateJobSpecViaWeb(t, app, j)
+	registerExistingProvingKey(t, cu, provingKey, j.ID, vrfFee)
+
+	// trigger job run by requesting randomness
+	log := requestRandomness(t, cu, provingKey.PublicKey.MustHash(), big.NewInt(100), seed)
+	seed := common.BigToHash(log.Seed).String()
+	cltest.WaitForRuns(t, j, app.Store, 1)
+	var jobRun models.JobRun
+	err = app.Store.DB.First(&jobRun).Error
+	require.NoError(t, err)
+	cltest.WaitForJobRunStatus(t, app.Store, jobRun, models.RunStatusPendingIncomingConfirmations)
+
+	// simulate fulfillment from other node - use the Perform adapter to "steal" the proof
+	// from neil, but then submit the proof from ned
+	jsonInput, err := models.JSON{}.MultiAdd(models.KV{
+		"seed":      seed,
+		"keyHash":   pk.MustHash().Hex(),
+		"blockHash": log.Raw.Raw.BlockHash.Hex(),
+		"blockNum":  log.Raw.Raw.BlockNumber,
+	})
+	require.NoError(t, err)
+	input := models.NewRunInput(uuid.Nil, uuid.Nil, jsonInput, models.RunStatusUnstarted)
+	adapter := adapters.Random{PublicKey: pk.String()}
+	result := adapter.Perform(*input, app.Store)
+	require.NoError(t, result.Error(), "while running random adapter")
+	encodedProofHex := result.Result().String()
+	encodedProof, err := hexutil.Decode(encodedProofHex)
+	require.NoError(t, err)
+	inputs, err := models.VRFFulfillMethod().Inputs.UnpackValues(encodedProof)
+	require.NoError(t, err)
+	proof, ok := inputs[0].([]byte)
+	require.True(t, ok)
+
+	_, err = cu.rootContract.FulfillRandomnessRequest(cu.ned, proof)
+	require.NoError(t, err)
+	cu.backend.Commit()
+
+	// start mining, assert neil never attempts to respond
+	stopMining := cltest.Mine(cu.backend, 250*time.Millisecond)
+	defer stopMining()
+
+	cltest.WaitForJobRunStatus(t, app.Store, jobRun, models.RunStatusErrored)
+	cltest.AssertCount(t, app.Store, models.EthTxAttempt{}, 0)
 }

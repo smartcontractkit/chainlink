@@ -579,13 +579,13 @@ func (orm *ORM) Jobs(cb func(*models.JobSpec) bool, initrTypes ...string) error 
 		return err
 	}
 	return Batch(BatchSize, func(offset, limit uint) (uint, error) {
-		scope := orm.DB.Limit(int(limit)).Offset(int(offset))
+		scope := orm.DB.Order("job_specs.id asc").Limit(int(limit)).Offset(int(offset))
 		if len(initrTypes) > 0 {
 			scope = scope.Where("initiators.type IN (?)", initrTypes)
 			scope = scope.Joins("JOIN initiators ON job_specs.id = initiators.job_spec_id::uuid")
 		}
 		var ids []string
-		err := scope.Table("job_specs").Pluck("job_specs.id", &ids).Error
+		err := scope.Table("job_specs").Distinct("job_specs.id").Pluck("job_specs.id", &ids).Error
 		if err != nil {
 			return 0, err
 		}
@@ -643,6 +643,19 @@ func (orm *ORM) JobRunsCountFor(jobSpecID models.JobID) (int, error) {
 	err := orm.DB.
 		Model(&models.JobRun{}).
 		Where("job_spec_id = ?", jobSpecID).
+		Count(&count).Error
+	return int(count), err
+}
+
+func (orm *ORM) JobRunsCountForGivenStatus(jobSpecID models.JobID, status string) (int, error) {
+	if err := orm.MustEnsureAdvisoryLock(); err != nil {
+		return 0, err
+	}
+	var count int64
+	err := orm.DB.
+		Model(&models.JobRun{}).
+		Where("job_spec_id = ?", jobSpecID).
+		Where("status = ?", status).
 		Count(&count).Error
 	return int(count), err
 }
@@ -1107,15 +1120,22 @@ func (orm *ORM) JobRunsSorted(sort SortType, offset int, limit int) ([]models.Jo
 
 // JobRunsSortedFor returns job runs for a specific job spec ordered and
 // filtered by the passed params.
-func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, error) {
+func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, limit int) ([]models.JobRun, int, int, int, error) {
 	if err := orm.MustEnsureAdvisoryLock(); err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
 	count, err := orm.JobRunsCountFor(id)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, 0, 0, err
 	}
-
+	completedCount, err := orm.JobRunsCountForGivenStatus(id, "completed")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
+	erroredCount, err := orm.JobRunsCountForGivenStatus(id, "errored")
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	var runs []models.JobRun
 	err = orm.preloadJobRuns().
 		Where("job_spec_id = ?", id).
@@ -1123,7 +1143,7 @@ func (orm *ORM) JobRunsSortedFor(id models.JobID, order SortType, offset int, li
 		Limit(limit).
 		Offset(offset).
 		Find(&runs).Error
-	return runs, count, err
+	return runs, count, completedCount, erroredCount, err
 }
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
@@ -1199,8 +1219,8 @@ func (orm *ORM) IdempotentInsertHead(ctx context.Context, h models.Head) error {
 }
 
 // TrimOldHeads deletes heads such that only the top N block numbers remain
-func (orm *ORM) TrimOldHeads(n uint) (err error) {
-	return orm.DB.Exec(`
+func (orm *ORM) TrimOldHeads(ctx context.Context, n uint) (err error) {
+	return orm.DB.WithContext(ctx).Exec(`
 	DELETE FROM heads
 	WHERE number < (
 		SELECT min(number) FROM (
