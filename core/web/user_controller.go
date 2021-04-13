@@ -7,8 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -19,9 +19,16 @@ type UserController struct {
 	App chainlink.Application
 }
 
+// UpdatePasswordRequest defines the request to set a new password for the
+// current session's User.
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"oldPassword"`
+	NewPassword string `json:"newPassword"`
+}
+
 // UpdatePassword changes the password for the current User.
 func (c *UserController) UpdatePassword(ctx *gin.Context) {
-	var request models.ChangePasswordRequest
+	var request UpdatePasswordRequest
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(ctx, http.StatusUnprocessableEntity, err)
 		return
@@ -41,7 +48,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(ctx, presenters.UserPresenter{User: &user}, "user")
+	jsonAPIResponse(ctx, presenters.NewUserResource(user), "user")
 }
 
 // NewAPIToken generates a new API token for a user overwriting any pre-existing one set.

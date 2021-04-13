@@ -491,7 +491,7 @@ func credentialsFromFile(file string) (models.SessionRequest, error) {
 // ChangePasswordPrompter is an interface primarily used for DI to obtain a
 // password change request from the User.
 type ChangePasswordPrompter interface {
-	Prompt() (models.ChangePasswordRequest, error)
+	Prompt() (web.UpdatePasswordRequest, error)
 }
 
 // NewChangePasswordPrompter returns the production password change request prompter
@@ -504,7 +504,7 @@ type changePasswordPrompter struct {
 	prompter Prompter
 }
 
-func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
+func (c changePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
 	fmt.Println("Changing your chainlink account password.")
 	fmt.Println("NOTE: This will terminate any other sessions.")
 	oldPassword := c.prompter.PasswordPrompt("Password:")
@@ -514,10 +514,10 @@ func (c changePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
 	confirmPassword := c.prompter.PasswordPrompt("Confirmation:")
 
 	if newPassword != confirmPassword {
-		return models.ChangePasswordRequest{}, errors.New("new password and confirmation did not match")
+		return web.UpdatePasswordRequest{}, errors.New("new password and confirmation did not match")
 	}
 
-	return models.ChangePasswordRequest{
+	return web.UpdatePasswordRequest{
 		OldPassword: oldPassword,
 		NewPassword: newPassword,
 	}, nil

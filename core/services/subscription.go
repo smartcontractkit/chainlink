@@ -53,6 +53,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 	}
 
 	for _, initr := range initrs {
+		logger.Debugw("Initiator subscribing", "initr", initr)
 		unsubscriber, err := NewInitiatorSubscription(initr, store.EthClient, runManager, nextHead, store.Config, ReceiveLogRequest)
 		if err == nil {
 			unsubscribers = append(unsubscribers, unsubscriber)
