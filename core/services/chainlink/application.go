@@ -200,7 +200,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				pipelineORM,
 				ethClient,
 				store.DB,
-				config.MinRequiredOutgoingConfirmations(),
+				config,
 			),
 			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, logBroadcaster, config),
 		}

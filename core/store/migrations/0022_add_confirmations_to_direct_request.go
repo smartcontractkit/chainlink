@@ -7,7 +7,7 @@ import (
 
 const (
 	up22 = `
-ALTER TABLE direct_request_specs ADD COLUMN num_confirmations bigint DEFAULT 1 NOT NULL;
+ALTER TABLE direct_request_specs ADD COLUMN num_confirmations bigint DEFAULT NULL;
 `
 	down22 = `
 ALTER TABLE direct_request_specs DROP COLUMN num_confirmations;
