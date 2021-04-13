@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - If you have manually set ENV vars specific to these chains, you may want to remove those and allow the node to use its configured defaults instead.
 
+- New prometheus metric "tx_manager_num_tx_reverted" which counts the number of reverted transactions on chain.
+
 ### Fixed
 
 - Under certain circumstances a poorly configured Explorer could delay Chainlink node startup by up to 45 seconds.
