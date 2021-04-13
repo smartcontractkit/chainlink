@@ -1157,7 +1157,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 
 		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, int(resultCount))
+		assert.Equal(t, 6, int(resultCount))
 
 		return nil
 	})
