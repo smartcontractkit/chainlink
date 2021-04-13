@@ -1385,10 +1385,19 @@ func (orm *ORM) BulkDeleteRuns(bulkQuery *models.BulkDeleteRunRequest) error {
 	return orm.convenientTransaction(func(dbtx *gorm.DB) error {
 		err := dbtx.Exec(`
 			WITH deleted_job_runs AS (
-				DELETE FROM job_runs WHERE status IN (?) AND updated_at < ? RETURNING result_id, run_request_id
+				DELETE FROM job_runs as jr
+				USING task_runs as tr
+				WHERE
+					jr.status IN (?) AND
+					jr.updated_at < ? AND
+					jr.id = tr.job_run_id
+				RETURNING jr.result_id as job_run_result_id, jr.run_request_id, tr.result_id as task_run_result_id
 			),
-			deleted_run_results AS (
-				DELETE FROM run_results WHERE id IN (SELECT result_id FROM deleted_job_runs)
+			deleted_job_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+			),
+			deleted_task_run_results AS (
+				DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
 			)
 			DELETE FROM run_requests WHERE id IN (SELECT run_request_id FROM deleted_job_runs)`,
 			bulkQuery.Status.ToStrings(), bulkQuery.UpdatedBefore).Error
