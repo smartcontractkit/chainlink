@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -476,12 +477,12 @@ func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 }
 
 type MockChangePasswordPrompter struct {
-	models.ChangePasswordRequest
+	web.UpdatePasswordRequest
 	err error
 }
 
-func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
-	return m.ChangePasswordRequest, m.err
+func (m MockChangePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
+	return m.UpdatePasswordRequest, m.err
 }
 
 type MockPasswordPrompter struct {

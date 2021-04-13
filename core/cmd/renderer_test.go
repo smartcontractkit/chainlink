@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -292,7 +293,7 @@ func TestRendererTable_Render_Tx(t *testing.T) {
 
 	from := cltest.NewAddress()
 	to := cltest.NewAddress()
-	tx := presenters.EthTx{
+	tx := webpresenters.EthTxResource{
 		Hash:     cltest.NewHash(),
 		Nonce:    "1",
 		From:     &from,
@@ -318,7 +319,7 @@ func TestRendererTable_Render_Txs(t *testing.T) {
 	t.Parallel()
 
 	a := cltest.NewAddress()
-	txs := []presenters.EthTx{
+	txs := []webpresenters.EthTxResource{
 		{
 			Hash:     cltest.NewHash(),
 			Nonce:    "1",
