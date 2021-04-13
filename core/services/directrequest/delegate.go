@@ -209,7 +209,6 @@ func (l *listener) handleReceivedLogs(head models.Head) {
 		lb, ok := i.(log.Broadcast)
 		if !ok {
 			panic(errors.Errorf("DirectRequestListener: invariant violation, expected log.Broadcast but got %T", lb))
-			continue
 		}
 		was, err := lb.WasAlreadyConsumed()
 		if err != nil {
