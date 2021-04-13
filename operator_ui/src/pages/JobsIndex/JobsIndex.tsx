@@ -281,7 +281,9 @@ export const JobsIndex = ({
     document.title = 'Jobs'
   }, [])
 
-  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
+  const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
+    search,
+  ])
 
   useEffect(() => {
     getJobs().then(setJobs).catch(setError)

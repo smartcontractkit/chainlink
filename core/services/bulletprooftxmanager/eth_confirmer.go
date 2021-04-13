@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -255,6 +256,8 @@ func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []mod
 	return
 }
 
+// Note this function will increment promRevertedTxCount upon receiving
+// a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
@@ -318,6 +321,13 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		if receipt.BlockNumber == nil {
 			l.Error("EthConfirmer#batchFetchReceipts: invariant violation, receipt was missing block number")
 			continue
+		}
+
+		if receipt.Status == 0 {
+			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			// This is safe to increment here because we save the receipt immediately after
+			// and once its saved we do not fetch it again.
+			promRevertedTxCount.Add(1)
 		}
 
 		receipts = append(receipts, *receipt)
@@ -705,7 +715,7 @@ func (ec *ethConfirmer) saveInProgressAttempt(attempt *models.EthTxAttempt) erro
 	if attempt.State != models.EthTxAttemptInProgress {
 		return errors.New("saveInProgressAttempt failed: attempt state must be in_progress")
 	}
-	return errors.Wrap(ec.store.DB.Save(attempt).Error, "saveInProgressAttempt failed")
+	return errors.Wrap(ec.store.DB.Omit(clause.Associations).Save(attempt).Error, "saveInProgressAttempt failed")
 }
 
 func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.EthTx, attempt models.EthTxAttempt, blockHeight int64) error {
@@ -860,7 +870,7 @@ func saveSentAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broadcastAt time
 		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ? AND broadcast_at < ?`, broadcastAt, attempt.EthTxID, broadcastAt).Error; err != nil {
 			return errors.Wrap(err, "saveSentAttempt failed")
 		}
-		return errors.Wrap(db.Save(attempt).Error, "saveSentAttempt failed")
+		return errors.Wrap(db.Omit(clause.Associations).Save(attempt).Error, "saveSentAttempt failed")
 	})
 }
 
@@ -878,7 +888,7 @@ func saveInsufficientEthAttempt(db *gorm.DB, attempt *models.EthTxAttempt, broad
 		if err := tx.Exec(`UPDATE eth_txes SET broadcast_at = ? WHERE id = ? AND broadcast_at < ?`, broadcastAt, attempt.EthTxID, broadcastAt).Error; err != nil {
 			return errors.Wrap(err, "saveInsufficientEthAttempt failed")
 		}
-		return errors.Wrap(db.Save(attempt).Error, "saveInsufficientEthAttempt failed")
+		return errors.Wrap(db.Omit(clause.Associations).Save(attempt).Error, "saveInsufficientEthAttempt failed")
 	})
 
 }

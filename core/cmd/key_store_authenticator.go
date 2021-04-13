@@ -187,6 +187,7 @@ func (auth TerminalKeyStoreAuthenticator) AuthenticateVRFKey(store *store.Store,
 			"`chainlink local vrf` subcommands")
 }
 
+// AuthenticateOCRKey authenticates OCR keypairs
 func (auth TerminalKeyStoreAuthenticator) AuthenticateOCRKey(store *store.Store, password string) error {
 	err := store.OCRKeyStore.Unlock(password)
 	if err != nil {

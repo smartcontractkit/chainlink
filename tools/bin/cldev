@@ -3,6 +3,7 @@
 set -e
 LDFLAGS="`tools/bin/ldflags`"
 export DATABASE_URL="${DATABASE_URL:=postgresql://localhost:5432/chainlink_dev?sslmode=disable}"
+export CHAINLINK_TLS_PORT=0
 
 createdb chainlink_dev >/dev/null || true
 

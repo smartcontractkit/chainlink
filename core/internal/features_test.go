@@ -23,7 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	"github.com/onsi/gomega"
 
@@ -274,7 +277,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			assert.Equal(t, models.InitiatorRunLog, initr.Type)
 
 			creationHeight := int64(1)
-			runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
+			runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), int(creationHeight), `{}`)
 			runlog.BlockHash = test.logBlockHash
 			logs := <-logsCh
 			logs <- runlog
@@ -366,7 +369,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/log_initiated_bridge_type_job.json")
 
 	logBlockNumber := 1
-	runlog := cltest.NewRunLog(t, j.ID, cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
+	runlog := cltest.NewRunLog(t, models.IDToTopic(j.ID), cltest.NewAddress(), cltest.NewAddress(), logBlockNumber, `{}`)
 	logs := <-logsCh
 	logs <- runlog
 	jr := cltest.WaitForRuns(t, j, app.Store, 1)[0]
@@ -1565,6 +1568,85 @@ observationSource = """
 		}
 	}
 	assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+}
+
+func TestIntegration_DirectRequest(t *testing.T) {
+	config, cfgCleanup := cltest.NewConfig(t)
+	defer cfgCleanup()
+
+	httpAwaiter := cltest.NewAwaiter()
+	httpServer, assertCalled := cltest.NewHTTPMockServer(
+		t,
+		http.StatusOK,
+		"GET",
+		`{"USD": "31982"}`,
+		func(header http.Header, _ string) {
+			httpAwaiter.ItHappened()
+		},
+	)
+	defer assertCalled()
+
+	rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
+	defer assertMockCalls()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+
+	sub.On("Err").Return(nil).Maybe()
+	sub.On("Unsubscribe").Return(nil).Maybe()
+
+	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
+		Run(func(args mock.Arguments) {
+			head := args.Get(1).(**models.Head)
+			*head = cltest.Head(10)
+		}).
+		Return(nil)
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(sub, nil)
+
+	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
+
+	require.NoError(t, app.StartAndConnect())
+
+	store := app.Store
+	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), 0, 0)
+	eventBroadcaster.Start()
+	defer eventBroadcaster.Stop()
+
+	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
+	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
+
+	directRequestSpec := string(cltest.MustReadFile(t, "../web/testdata/direct-request-spec.toml"))
+	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
+	request := models.CreateJobSpecRequest{TOML: directRequestSpec}
+	output, err := json.Marshal(request)
+	require.NoError(t, err)
+	job := cltest.CreateJobViaWeb(t, app, output)
+
+	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
+
+	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
+	var logs chan<- models.Log
+	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
+		logs = <-logsCh
+	}, 5*time.Second)
+	cltest.CallbackOrTimeout(t, "send run log", func() {
+		logs <- runLog
+	}, 30*time.Second)
+
+	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+
+	httpAwaiter.AwaitOrFail(t)
+
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jobORM, 5*time.Second, 300*time.Millisecond)
+	require.Len(t, runs, 1)
+	run := runs[0]
+	require.Len(t, run.PipelineTaskRuns, 3)
+	require.Empty(t, run.PipelineTaskRuns[0].Error)
+	require.Empty(t, run.PipelineTaskRuns[1].Error)
+	require.Empty(t, run.PipelineTaskRuns[2].Error)
 }
 
 func TestIntegration_GasUpdater(t *testing.T) {

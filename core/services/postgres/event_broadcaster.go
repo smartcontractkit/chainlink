@@ -249,7 +249,7 @@ func (sub *subscription) interestedIn(event Event) bool {
 
 func (sub *subscription) send(event Event) {
 	sub.queue.Add(event)
-	sub.processQueueWorker.WakeUp()
+	sub.processQueueWorker.WakeUpIfStarted()
 }
 
 const broadcastTimeout = 10 * time.Second

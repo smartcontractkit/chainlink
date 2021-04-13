@@ -34,22 +34,26 @@ contracts
 │   ├── v0.4
 │   ├── v0.5
 │   ├── v0.6
-│   └── v0.7
+│   ├── v0.7
+│   └── v0.8
 ├── ethers # ethers contract abstractions codegenned from abis
 │   ├── v0.4
 │   ├── v0.5
 │   ├── v0.6
-│   └── v0.7
+│   ├── v0.7
+│   └── v0.8
 ├── src # the contracts themselves, in .sol form
 │   ├── v0.4
 │   ├── v0.5
 │   ├── v0.6
-│   └── v0.7
+│   ├── v0.7
+│   └── v0.8
 └── truffle  # truffle contract abstractions codegenned from abis
     ├── v0.4
     ├── v0.5
     ├── v0.6
-    └── v0.7
+    ├── v0.7
+    └── v0.8
 ```
 
 ## Usage
