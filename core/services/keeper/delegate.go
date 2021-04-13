@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gorm.io/gorm"
 )
@@ -14,6 +15,7 @@ import (
 type Delegate struct {
 	config          *orm.Config
 	db              *gorm.DB
+	pr              pipeline.Runner
 	ethClient       eth.Client
 	headBroadcaster *services.HeadBroadcaster
 	logBroadcaster  log.Broadcaster
@@ -21,6 +23,7 @@ type Delegate struct {
 
 func NewDelegate(
 	db *gorm.DB,
+	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
@@ -29,6 +32,7 @@ func NewDelegate(
 	return &Delegate{
 		config:          config,
 		db:              db,
+		pr:              pr,
 		ethClient:       ethClient,
 		headBroadcaster: headBroadcaster,
 		logBroadcaster:  logBroadcaster,
@@ -53,6 +57,12 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
 
+	// Make sure we can read the contract
+	// Otherwise log a spec error.
+	if _, err := contract.GetConfig(nil); err != nil {
+		return services, err
+	}
+
 	registrySynchronizer := NewRegistrySynchronizer(
 		spec,
 		contract,
@@ -65,6 +75,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 	upkeepExecutor := NewUpkeepExecutor(
 		spec,
 		d.db,
+		d.pr,
 		d.ethClient,
 		d.headBroadcaster,
 		d.config.KeeperMaximumGracePeriod(),

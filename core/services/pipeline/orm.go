@@ -90,7 +90,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	if run.Outputs.Val == nil || len(run.Errors) == 0 {
 		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
-	if len(trrs) == 0 {
+	if len(trrs) == 0 && saveSuccessfulTaskRuns {
 		return 0, errors.New("must provide task run results")
 	}
 
