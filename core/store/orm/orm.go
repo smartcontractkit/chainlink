@@ -470,14 +470,20 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(tx *gorm.DB) error {
 		now := time.Now()
 
-		run.RunRequest.CreatedAt = now
 		replaceUnsetCreatedAt(&run.RunRequest.CreatedAt, now)
 		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
 		if err != nil {
 			return err
 		}
 
+		replaceUnsetCreatedAt(&run.Result.CreatedAt, now)
+		err = tx.Create(&run.Result).Error
+		if err != nil {
+			return err
+		}
+
 		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
+		run.ResultID = clnull.Int64From(run.Result.ID)
 		replaceUnsetCreatedAt(&run.CreatedAt, now)
 		err = tx.Create(run).Error
 		if err != nil {
