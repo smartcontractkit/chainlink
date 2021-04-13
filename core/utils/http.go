@@ -15,7 +15,9 @@ import (
 )
 
 var (
-	Client             *http.Client
+	// Client represents a HTTP Client
+	Client *http.Client
+	// UnrestrictedClient represents a HTTP Client with no Transport restrictions
 	UnrestrictedClient *http.Client
 )
 
@@ -47,12 +49,13 @@ func init() {
 	UnrestrictedClient = &http.Client{Transport: unrestrictedTr}
 }
 
+// HTTPRequest holds the request and config struct for a http request
 type HTTPRequest struct {
 	Request *http.Request
 	Config  HTTPRequestConfig
 }
 
-// HTTPRequestConfig holds the configurable settings for an http request
+// HTTPRequestConfig holds the configurable settings for a http request
 type HTTPRequestConfig struct {
 	Timeout                        time.Duration
 	MaxAttempts                    uint
@@ -60,6 +63,8 @@ type HTTPRequestConfig struct {
 	AllowUnrestrictedNetworkAccess bool
 }
 
+// SendRequest sends a HTTPRequest,
+// returns a body, status code, and error.
 func (h *HTTPRequest) SendRequest(ctx context.Context) (responseBody []byte, statusCode int, err error) {
 	var c *http.Client
 	if h.Config.AllowUnrestrictedNetworkAccess {
@@ -182,6 +187,7 @@ func cloneRequest(ctx context.Context, originalRequest *http.Request) (*http.Req
 	return clonedRequest, nil
 }
 
+// RemoteServerError stores the response body and status code
 type RemoteServerError struct {
 	responseBody []byte
 	statusCode   int
@@ -199,6 +205,8 @@ type MaxBytesReader struct {
 	sawEOF           bool
 }
 
+// NewMaxBytesReader returns a new MaxBytesReader,
+// accepts a ReadCloser and limit
 func NewMaxBytesReader(rc io.ReadCloser, limit int64) *MaxBytesReader {
 	return &MaxBytesReader{
 		rc:        rc,
@@ -243,10 +251,14 @@ func (mbr *MaxBytesReader) Read(p []byte) (n int, err error) {
 	return
 }
 
+// HTTPResponseTooLargeError stores a limit,
+// used to throw an error for HTTP Responses
+// if they exceed the byte limit
 type HTTPResponseTooLargeError struct {
 	limit int64
 }
 
+// Error returns an error message for exceeding the HTTP response byte limit
 func (e *HTTPResponseTooLargeError) Error() string {
 	return fmt.Sprintf("HTTP response too large, must be less than %d bytes", e.limit)
 }
@@ -255,6 +267,7 @@ func (mbr *MaxBytesReader) tooLarge() (int, error) {
 	return 0, &HTTPResponseTooLargeError{mbr.limit}
 }
 
+// Close closes the readCloser
 func (mbr *MaxBytesReader) Close() error {
 	return mbr.rc.Close()
 }

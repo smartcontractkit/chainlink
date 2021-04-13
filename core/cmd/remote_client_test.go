@@ -9,9 +9,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -25,12 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -69,6 +63,8 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
+	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
+	config.Set("MAX_HTTP_ATTEMPTS", "1")
 
 	for k, v := range sopts.Config {
 		config.Set(k, v)
@@ -140,39 +136,6 @@ func deleteKeyExportFile(t *testing.T) {
 	} else {
 		require.NoError(t, err)
 	}
-}
-
-func requireOCRKeyCount(t *testing.T, store *store.Store, length int) []ocrkey.EncryptedKeyBundle {
-	keys, err := store.OCRKeyStore.FindEncryptedOCRKeyBundles()
-	require.NoError(t, err)
-	require.Len(t, keys, length)
-	return keys
-}
-
-func requireP2PKeyCount(t *testing.T, store *store.Store, length int) []p2pkey.EncryptedP2PKey {
-	keys, err := store.OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-	require.Len(t, keys, length)
-	return keys
-}
-
-func TestClient_ListETHKeys(t *testing.T) {
-	t.Parallel()
-
-	rpcClient, gethClient := newEthMocks(t)
-	app := startNewApplication(t,
-		withKey(),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
-	)
-	client, r := app.NewClientAndRenderer()
-
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
-
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
-	balances := *r.Renders[0].(*[]webpresenters.ETHKeyResource)
-	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
 }
 
 func TestClient_IndexJobSpecs(t *testing.T) {
@@ -699,7 +662,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.NoError(t, err)
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
-		ChangePasswordRequest: models.ChangePasswordRequest{
+		UpdatePasswordRequest: web.UpdatePasswordRequest{
 			OldPassword: cltest.Password,
 			NewPassword: "_p4SsW0rD1!@#",
 		},
@@ -732,7 +695,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs := *r.Renders[0].(*[]presenters.EthTx)
+	renderedTxs := *r.Renders[0].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 1, len(renderedTxs))
 	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
 
@@ -743,7 +706,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs = *r.Renders[1].(*[]presenters.EthTx)
+	renderedTxs = *r.Renders[1].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
@@ -764,7 +727,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowTransaction(c))
 
-	renderedTx := *r.Renders[0].(*presenters.EthTx)
+	renderedTx := *r.Renders[0].(*webpresenters.EthTxResource)
 	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
@@ -786,7 +749,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts := *r.Renders[0].(*[]presenters.EthTx)
+	renderedAttempts := *r.Renders[0].(*[]webpresenters.EthTxResource)
 	require.Len(t, tx.EthTxAttempts, 1)
 	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
 
@@ -797,119 +760,8 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts = *r.Renders[1].(*[]presenters.EthTx)
+	renderedAttempts = *r.Renders[1].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 0, len(renderedAttempts))
-}
-
-func TestClient_CreateETHKey(t *testing.T) {
-	t.Parallel()
-
-	rpcClient, gethClient := newEthMocks(t)
-	app := startNewApplication(t,
-		withKey(),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
-	)
-	client, _ := app.NewClientAndRenderer()
-
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
-
-	assert.NoError(t, client.CreateETHKey(nilContext))
-}
-
-func TestClient_ImportExportETHKey(t *testing.T) {
-	t.Parallel()
-
-	defer deleteKeyExportFile(t)
-
-	rpcClient, gethClient := newEthMocks(t)
-	app := startNewApplication(t,
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
-	)
-	client, r := app.NewClientAndRenderer()
-
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
-
-	set := flag.NewFlagSet("test", 0)
-	set.String("file", "internal/fixtures/apicredentials", "")
-	c := cli.NewContext(nil, set, nil)
-	err := client.RemoteLogin(c)
-	assert.NoError(t, err)
-
-	err = app.Store.KeyStore.Unlock(cltest.Password)
-	assert.NoError(t, err)
-
-	err = client.ListETHKeys(c)
-	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]webpresenters.ETHKeyResource), 0)
-
-	r.Renders = nil
-
-	set = flag.NewFlagSet("test", 0)
-	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
-	set.Parse([]string{"../internal/fixtures/keys/testkey-0x69Ca211a68100E18B40683E96b55cD217AC95006.json"})
-	c = cli.NewContext(nil, set, nil)
-	err = client.ImportETHKey(c)
-	assert.NoError(t, err)
-
-	r.Renders = nil
-
-	set = flag.NewFlagSet("test", 0)
-	c = cli.NewContext(nil, set, nil)
-	err = client.ListETHKeys(c)
-	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]webpresenters.ETHKeyResource), 1)
-
-	ethkeys := *r.Renders[0].(*[]webpresenters.ETHKeyResource)
-	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
-	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
-
-	testdir := filepath.Join(os.TempDir(), t.Name())
-	err = os.MkdirAll(testdir, 0700|os.ModeDir)
-	assert.NoError(t, err)
-	defer os.RemoveAll(testdir)
-
-	keyfilepath := filepath.Join(testdir, "key")
-	set = flag.NewFlagSet("test", 0)
-	set.String("oldpassword", "../internal/fixtures/correct_password.txt", "")
-	set.String("newpassword", "../internal/fixtures/incorrect_password.txt", "")
-	set.String("output", keyfilepath, "")
-	set.Parse([]string{addr.Hex()})
-	c = cli.NewContext(nil, set, nil)
-	err = client.ExportETHKey(c)
-	assert.NoError(t, err)
-
-	// Now, make sure that the keyfile can be imported with the `newpassword` and yields the correct address
-	keyJSON, err := ioutil.ReadFile(keyfilepath)
-	assert.NoError(t, err)
-	oldpassword, err := ioutil.ReadFile("../internal/fixtures/correct_password.txt")
-	assert.NoError(t, err)
-	newpassword, err := ioutil.ReadFile("../internal/fixtures/incorrect_password.txt")
-	assert.NoError(t, err)
-
-	keystoreDir := filepath.Join(os.TempDir(), t.Name(), "keystore")
-	err = os.MkdirAll(keystoreDir, 0700|os.ModeDir)
-	assert.NoError(t, err)
-
-	scryptParams := utils.GetScryptParams(app.Store.Config)
-	keystore := store.NewKeyStore(keystoreDir, scryptParams)
-	err = keystore.Unlock(string(oldpassword))
-	assert.NoError(t, err)
-	acct, err := keystore.Import(keyJSON, strings.TrimSpace(string(newpassword)))
-	assert.NoError(t, err)
-	assert.Equal(t, addr.Hex(), acct.Address.Hex())
-
-	// Export test invalid id
-	keyName := keyNameForTest(t)
-	set = flag.NewFlagSet("test Eth export invalid id", 0)
-	set.Parse([]string{"999"})
-	set.String("newpassword", "../internal/fixtures/apicredentials", "")
-	set.String("output", keyName, "")
-	c = cli.NewContext(nil, set, nil)
-	err = client.ExportETHKey(c)
-	require.Error(t, err, "Error exporting")
-	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
 
 func TestClient_SetMinimumGasPrice(t *testing.T) {
@@ -993,196 +845,6 @@ func TestClient_CancelJobRun(t *testing.T) {
 	assert.NotNil(t, runs[0].FinishedAt)
 }
 
-func TestClient_P2P_CreateKey(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	require.NoError(t, client.CreateP2PKey(nilContext))
-
-	keys, err := app.GetStore().OCRKeyStore.FindEncryptedP2PKeys()
-	require.NoError(t, err)
-
-	// Created + fixture key
-	require.Len(t, keys, 2)
-
-	for _, e := range keys {
-		_, err = e.Decrypt(cltest.Password)
-		require.NoError(t, err)
-	}
-}
-
-func TestClient_P2P_DeleteKey(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	key, err := p2pkey.CreateKey()
-	require.NoError(t, err)
-	encKey, err := key.ToEncryptedP2PKey(cltest.Password, utils.FastScryptParams)
-	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.UpsertEncryptedP2PKey(&encKey)
-	require.NoError(t, err)
-
-	requireP2PKeyCount(t, app.Store, 2) // Created  + fixture key
-
-	set := flag.NewFlagSet("test", 0)
-	set.Bool("yes", true, "")
-	strID := strconv.FormatInt(int64(encKey.ID), 10)
-	set.Parse([]string{strID})
-	c := cli.NewContext(nil, set, nil)
-	err = client.DeleteP2PKey(c)
-	require.NoError(t, err)
-
-	requireP2PKeyCount(t, app.Store, 1) // fixture key only
-}
-
-func TestClient_ImportExportP2PKeyBundle(t *testing.T) {
-	t.Parallel()
-
-	defer deleteKeyExportFile(t)
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-	store := app.GetStore()
-
-	store.OCRKeyStore.Unlock(cltest.Password)
-
-	keys := requireP2PKeyCount(t, store, 1)
-	key := keys[0]
-	keyName := keyNameForTest(t)
-
-	// Export test invalid id
-	set := flag.NewFlagSet("test P2P export", 0)
-	set.Parse([]string{"0"})
-	set.String("newpassword", "../internal/fixtures/apicredentials", "")
-	set.String("output", keyName, "")
-	c := cli.NewContext(nil, set, nil)
-	err := client.ExportP2PKey(c)
-	require.Error(t, err, "Error exporting")
-	require.Error(t, utils.JustError(os.Stat(keyName)))
-
-	// Export test
-	set = flag.NewFlagSet("test P2P export", 0)
-	set.Parse([]string{fmt.Sprint(key.ID)})
-	set.String("newpassword", "../internal/fixtures/apicredentials", "")
-	set.String("output", keyName, "")
-	c = cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.ExportP2PKey(c))
-	require.NoError(t, utils.JustError(os.Stat(keyName)))
-
-	require.NoError(t, store.OCRKeyStore.DeleteEncryptedP2PKey(&key))
-	requireP2PKeyCount(t, store, 0)
-
-	set = flag.NewFlagSet("test P2P import", 0)
-	set.Parse([]string{keyName})
-	set.String("oldpassword", "../internal/fixtures/apicredentials", "")
-	c = cli.NewContext(nil, set, nil)
-	require.NoError(t, client.ImportP2PKey(c))
-
-	requireP2PKeyCount(t, store, 1)
-}
-
-func TestClient_CreateOCRKeyBundle(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	require.NoError(t, client.CreateOCRKeyBundle(nilContext))
-
-	keys, err := app.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
-	require.NoError(t, err)
-
-	// Created key + fixture key
-	require.Len(t, keys, 2)
-
-	for _, e := range keys {
-		_, err = e.Decrypt(cltest.Password)
-		require.NoError(t, err)
-	}
-}
-
-func TestClient_DeleteOCRKeyBundle(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	app.Store.OCRKeyStore.Unlock(cltest.Password)
-
-	key, err := ocrkey.NewKeyBundle()
-	require.NoError(t, err)
-	encKey, err := key.Encrypt(cltest.Password, utils.FastScryptParams)
-	require.NoError(t, err)
-	err = app.Store.OCRKeyStore.CreateEncryptedOCRKeyBundle(encKey)
-	require.NoError(t, err)
-
-	requireOCRKeyCount(t, app.Store, 2) // Created key + fixture key
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{key.ID.String()})
-	set.Bool("yes", true, "")
-	c := cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.DeleteOCRKeyBundle(c))
-	requireOCRKeyCount(t, app.Store, 1) // Only fixture key remains
-}
-
-func TestClient_ImportExportOCRKeyBundle(t *testing.T) {
-	defer deleteKeyExportFile(t)
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	store := app.GetStore()
-	store.OCRKeyStore.Unlock(cltest.Password)
-
-	keys := requireOCRKeyCount(t, store, 1)
-	key := keys[0]
-	keyName := keyNameForTest(t)
-
-	// Export test invalid id
-	set := flag.NewFlagSet("test OCR export", 0)
-	set.Parse([]string{"0"})
-	set.String("newpassword", "../internal/fixtures/apicredentials", "")
-	set.String("output", keyName, "")
-	c := cli.NewContext(nil, set, nil)
-	err := client.ExportOCRKey(c)
-	require.Error(t, err, "Error exporting")
-	require.Error(t, utils.JustError(os.Stat(keyName)))
-
-	// Export
-	set = flag.NewFlagSet("test OCR export", 0)
-	set.Parse([]string{key.ID.String()})
-	set.String("newpassword", "../internal/fixtures/apicredentials", "")
-	set.String("output", keyName, "")
-	c = cli.NewContext(nil, set, nil)
-
-	require.NoError(t, client.ExportOCRKey(c))
-	require.NoError(t, utils.JustError(os.Stat(keyName)))
-
-	require.NoError(t, store.OCRKeyStore.DeleteEncryptedOCRKeyBundle(&key))
-	requireOCRKeyCount(t, store, 0)
-
-	set = flag.NewFlagSet("test OCR import", 0)
-	set.Parse([]string{keyName})
-	set.String("oldpassword", "../internal/fixtures/apicredentials", "")
-	c = cli.NewContext(nil, set, nil)
-	require.NoError(t, client.ImportOCRKey(c))
-
-	requireOCRKeyCount(t, store, 1)
-}
-
 func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	t.Parallel()
 
@@ -1240,7 +902,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
 }
 
 func TestClient_ListJobsV2(t *testing.T) {

@@ -296,7 +296,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID models.JobID,
+	jobID common.Hash,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -310,7 +310,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			models.IDToTopic(jobID),
+			jobID,
 		},
 	}
 }
