@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
-	webPresenter "github.com/smartcontractkit/chainlink/core/web/presenters"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 var errUnauthorized = errors.New(http.StatusText(http.StatusUnauthorized))
@@ -488,7 +488,7 @@ func (cli *Client) SendEther(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var tx presenters.EthTx
+	var tx webpresenters.EthTxResource
 	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
@@ -530,7 +530,7 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 // IndexTransactions returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTransactions(c *clipkg.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &[]presenters.EthTx{})
+	return cli.getPage("/v2/transactions", c.Int("page"), &[]webpresenters.EthTxResource{})
 }
 
 // ShowTransaction returns the info for the given transaction hash
@@ -548,7 +548,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 			err = multierr.Append(err, cerr)
 		}
 	}()
-	var tx presenters.EthTx
+	var tx webpresenters.EthTxResource
 	err = cli.renderAPIResponse(resp, &tx)
 	return err
 }
@@ -556,7 +556,7 @@ func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
 // IndexTxAttempts returns the list of transactions in descending order,
 // taking an optional page parameter
 func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]presenters.EthTx{})
+	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]webpresenters.EthTxResource{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
@@ -717,7 +717,7 @@ func (cli *Client) SetLogLevel(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var lR webPresenter.LogResource
+	var lR webpresenters.LogResource
 	err = cli.renderAPIResponse(resp, &lR)
 	return err
 }
@@ -753,7 +753,7 @@ func (cli *Client) SetLogSQL(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var lR webPresenter.LogResource
+	var lR webpresenters.LogResource
 	err = cli.renderAPIResponse(resp, &lR)
 	return err
 }

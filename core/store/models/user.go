@@ -14,13 +14,13 @@ import (
 
 // User holds the credentials for API user.
 type User struct {
-	Email             string    `json:"email" gorm:"primary_key"`
-	HashedPassword    string    `json:"hashedPassword"`
-	CreatedAt         time.Time `json:"createdAt" gorm:"index"`
-	TokenKey          string    `json:"tokenKey"`
-	TokenSalt         string    `json:"-"`
-	TokenHashedSecret string    `json:"-"`
-	UpdatedAt         time.Time `json:"-"`
+	Email             string `gorm:"primary_key"`
+	HashedPassword    string
+	CreatedAt         time.Time `gorm:"index"`
+	TokenKey          string
+	TokenSalt         string
+	TokenHashedSecret string
+	UpdatedAt         time.Time
 }
 
 // https://davidcel.is/posts/stop-validating-email-addresses-with-regex/
@@ -77,12 +77,6 @@ func NewSession() Session {
 		ID:       utils.NewBytes32ID(),
 		LastUsed: time.Now(),
 	}
-}
-
-// ChangePasswordRequest sets a new password for the current Session's User.
-type ChangePasswordRequest struct {
-	OldPassword string `json:"oldPassword"`
-	NewPassword string `json:"newPassword"`
 }
 
 // Changeauth.TokenRequest is sent when updating a User's authentication token.

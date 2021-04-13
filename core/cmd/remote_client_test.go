@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -661,7 +662,7 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.NoError(t, err)
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
-		ChangePasswordRequest: models.ChangePasswordRequest{
+		UpdatePasswordRequest: web.UpdatePasswordRequest{
 			OldPassword: cltest.Password,
 			NewPassword: "_p4SsW0rD1!@#",
 		},
@@ -694,7 +695,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs := *r.Renders[0].(*[]presenters.EthTx)
+	renderedTxs := *r.Renders[0].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 1, len(renderedTxs))
 	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
 
@@ -705,7 +706,7 @@ func TestClient_IndexTransactions(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTransactions(c))
 
-	renderedTxs = *r.Renders[1].(*[]presenters.EthTx)
+	renderedTxs = *r.Renders[1].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 0, len(renderedTxs))
 }
 
@@ -726,7 +727,7 @@ func TestClient_ShowTransaction(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 	assert.NoError(t, client.ShowTransaction(c))
 
-	renderedTx := *r.Renders[0].(*presenters.EthTx)
+	renderedTx := *r.Renders[0].(*webpresenters.EthTxResource)
 	assert.Equal(t, &tx.FromAddress, renderedTx.From)
 }
 
@@ -748,7 +749,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 1, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts := *r.Renders[0].(*[]presenters.EthTx)
+	renderedAttempts := *r.Renders[0].(*[]webpresenters.EthTxResource)
 	require.Len(t, tx.EthTxAttempts, 1)
 	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
 
@@ -759,7 +760,7 @@ func TestClient_IndexTxAttempts(t *testing.T) {
 	require.Equal(t, 2, c.Int("page"))
 	assert.NoError(t, client.IndexTxAttempts(c))
 
-	renderedAttempts = *r.Renders[1].(*[]presenters.EthTx)
+	renderedAttempts = *r.Renders[1].(*[]webpresenters.EthTxResource)
 	assert.Equal(t, 0, len(renderedAttempts))
 }
 
