@@ -61,13 +61,16 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
   const stratify = parseDot(
     `digraph {${jobRun.attributes.pipelineSpec.dotDagSource}}`,
   )
-
+  let taskRuns: PipelineTaskRun[] = []
+  if (jobRun.attributes.taskRuns != null) {
+    taskRuns = jobRun.attributes.taskRuns.map(addTaskStatus(stratify))
+  }
   return {
     ...jobRun.attributes,
     id: jobRun.id,
     jobId: jobSpecId,
     status: getOcrJobStatus(jobRun.attributes),
-    taskRuns: jobRun.attributes.taskRuns.map(addTaskStatus(stratify)),
+    taskRuns,
     type: 'Off-chain reporting job run',
   }
 }
