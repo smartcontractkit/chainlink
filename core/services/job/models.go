@@ -162,9 +162,13 @@ func (DirectRequestSpec) TableName() string {
 type CronJobSpec struct {
 	IDEmbed
 	OnChainJobSpecID gethCommon.Hash
-	CronSchedule     string    `json:"schedule" tom:"schedule"`
-	CreatedAt        time.Time `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
+
+	// TODO: add FromAddress?
+	EthGasLimit  uint64              `json:"ethGasLimit" toml:"ethGasLimit""`
+	ToAddress    models.EIP55Address `json:"toAddress" toml:"toAddress"`
+	CronSchedule string              `json:"schedule" tom:"schedule"`
+	CreatedAt    time.Time           `json:"createdAt" toml:"-"`
+	UpdatedAt    time.Time           `json:"updatedAt" toml:"-"`
 }
 
 func (CronJobSpec) TableName() string {

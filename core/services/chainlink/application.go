@@ -238,7 +238,10 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	pendingConnectionResumer := newPendingConnectionResumer(runManager)
 
 	if config.Dev() && config.FeatureCronV2() {
-		delegates[job.CronJob] = cron.NewDelegate()
+		delegates[job.CronJob] = cron.NewDelegate(pipelineRunner, *store, store.DB, cron.Config{
+			EthGasLimit:                store.Config.EthGasLimitDefault(),
+			MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
+		})
 	}
 
 	app := &ChainlinkApplication{
