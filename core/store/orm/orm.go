@@ -771,14 +771,14 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	}
 
 	now := time.Now()
-	job.CreatedAt = now
+	replaceUnsetCreatedAt(&job.CreatedAt, now)
 	err := tx.Create(job).Error
 	if err != nil {
 		return nil
 	}
 
 	for i := range job.Tasks {
-		job.Tasks[i].CreatedAt = now
+		replaceUnsetCreatedAt(&job.Tasks[i].CreatedAt, now)
 		job.Tasks[i].JobSpecID = job.ID
 		err := tx.Create(&job.Tasks[i]).Error
 		if err != nil {
@@ -787,7 +787,7 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	}
 
 	for i := range job.Initiators {
-		job.Initiators[i].CreatedAt = now
+		replaceUnsetCreatedAt(&job.Initiators[i].CreatedAt, now)
 		job.Initiators[i].JobSpecID = job.ID
 		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
 		if err != nil {
