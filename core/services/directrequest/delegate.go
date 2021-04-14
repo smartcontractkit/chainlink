@@ -35,7 +35,7 @@ type (
 
 	Config interface {
 		MinRequiredOutgoingConfirmations() uint64
-		MailboxCapacity() uint64
+		DirectRequestLogBuffer() uint64
 	}
 )
 
@@ -87,9 +87,9 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
-		// too many relevant logs for the same job (> MailboxCapacity) in each block.
+		// too many relevant logs for the same job (> DirectRequestLogBuffer) in each block.
 		// This is going to get fixed after new LB changes are merged.
-		mbLogs:           utils.NewMailbox(d.config.MailboxCapacity()),
+		mbLogs:           utils.NewMailbox(d.config.DirectRequestLogBuffer()),
 		chHeads:          d.chHeads,
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),

@@ -37,7 +37,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	config := testConfig{
 		minRequiredOutgoingConfirmations: 1,
-		mailboxCapacity:                  50,
+		directRequestLogBuffer:           50,
 	}
 	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, gethClient, orm.DB, config)
 
@@ -87,7 +87,7 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 
 	drConfig := testConfig{
 		minRequiredOutgoingConfirmations: 1,
-		mailboxCapacity:                  50,
+		directRequestLogBuffer:           50,
 	}
 	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, gethClient, db, drConfig)
 
@@ -353,13 +353,13 @@ func factoryJobSpec(t *testing.T) *job.Job {
 
 type testConfig struct {
 	minRequiredOutgoingConfirmations uint64
-	mailboxCapacity                  uint64
+	directRequestLogBuffer           uint64
 }
 
 func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
 	return c.minRequiredOutgoingConfirmations
 }
 
-func (c testConfig) MailboxCapacity() uint64 {
-	return c.mailboxCapacity
+func (c testConfig) DirectRequestLogBuffer() uint64 {
+	return c.directRequestLogBuffer
 }

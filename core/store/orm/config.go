@@ -81,7 +81,7 @@ type (
 		EthHeadTrackerHistoryDepth       uint
 		EthBalanceMonitorBlockDelay      uint16
 		EthTxResendAfterThreshold        time.Duration
-		MailboxCapacity                  uint64
+		DirectRequestLogBuffer           uint64
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		HeadTimeBudget                   time.Duration
@@ -102,7 +102,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthBalanceMonitorBlockDelay:      1,
 		EthTxResendAfterThreshold:        30 * time.Second,
-		MailboxCapacity:                  50,
+		DirectRequestLogBuffer:           50,
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		HeadTimeBudget:                   13 * time.Second,
@@ -128,7 +128,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthBalanceMonitorBlockDelay:      2,
 		EthTxResendAfterThreshold:        15 * time.Second,
-		MailboxCapacity:                  50,
+		DirectRequestLogBuffer:           50,
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
 		HeadTimeBudget:                   3 * time.Second,
@@ -148,7 +148,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
 		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
 		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-		MailboxCapacity:                  500,
+		DirectRequestLogBuffer:           500,
 		GasUpdaterBlockDelay:             32, // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
 		HeadTimeBudget:                   1 * time.Second,
@@ -1015,12 +1015,12 @@ func (c Config) LogSQLMigrations() bool {
 	return c.viper.GetBool(EnvVarName("LogSQLMigrations"))
 }
 
-// MailboxCapacity represents the default mailbox capacity used in different services to queue events.
-func (c Config) MailboxCapacity() uint64 {
-	if c.viper.IsSet(EnvVarName("MailboxCapacity")) {
-		return c.viper.GetUint64(EnvVarName("MailboxCapacity"))
+// DirectRequestLogBuffer represents the default mailbox capacity used in different services to queue events.
+func (c Config) DirectRequestLogBuffer() uint64 {
+	if c.viper.IsSet(EnvVarName("DirectRequestLogBuffer")) {
+		return c.viper.GetUint64(EnvVarName("DirectRequestLogBuffer"))
 	}
-	return chainSpecificConfig(c).MailboxCapacity
+	return chainSpecificConfig(c).DirectRequestLogBuffer
 }
 
 // MinIncomingConfirmations represents the minimum number of block
