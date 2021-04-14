@@ -264,7 +264,7 @@ func (s NonceSyncer) fastForwardNonceIfNecessary(ctx context.Context, address co
 }
 
 func (s NonceSyncer) pendingNonceFromEthClient(ctx context.Context, account common.Address) (nextNonce uint64, err error) {
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
 	defer cancel()
 	nextNonce, err = s.ethClient.PendingNonceAt(ctx, account)
 	return nextNonce, errors.WithStack(err)
