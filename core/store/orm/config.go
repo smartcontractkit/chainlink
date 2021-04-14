@@ -767,12 +767,6 @@ func (c Config) JobPipelineResultWriteQueueDepth() uint64 {
 	return c.getWithFallback("JobPipelineResultWriteQueueDepth", parseUint64).(uint64)
 }
 
-// JobPipelineParallelism controls how many workers the pipeline.Runner
-// uses in parallel (how many pipeline runs may simultaneously be executing)
-func (c Config) JobPipelineParallelism() uint8 {
-	return c.getWithFallback("JobPipelineParallelism", parseUint8).(uint8)
-}
-
 func (c Config) JobPipelineReaperInterval() time.Duration {
 	return c.getWithFallback("JobPipelineReaperInterval", parseDuration).(time.Duration)
 }
@@ -1332,11 +1326,6 @@ func parseLogLevel(str string) (interface{}, error) {
 	var lvl LogLevel
 	err := lvl.Set(str)
 	return lvl, err
-}
-
-func parseUint8(s string) (interface{}, error) {
-	v, err := strconv.ParseUint(s, 10, 8)
-	return uint8(v), err
 }
 
 func parseUint16(s string) (interface{}, error) {

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,6 +24,7 @@ type (
 
 	PrometheusBackend interface {
 		SetUnconfirmedTransactions(int64)
+		SetMaxUnconfirmedAge(float64)
 		SetMaxUnconfirmedBlocks(int64)
 		SetPipelineRunsQueued(n int)
 		SetPipelineTaskRunsQueued(n int)
@@ -35,6 +37,10 @@ var (
 	promUnconfirmedTransactions = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "unconfirmed_transactions",
 		Help: "Number of currently unconfirmed transactions",
+	})
+	promMaxUnconfirmedAge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "max_unconfirmed_tx_age",
+		Help: "The length of time the oldest unconfirmed transaction has been in that state (in seconds). Will be 0 if there are no unconfirmed transactions.",
 	})
 	promMaxUnconfirmedBlocks = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "max_unconfirmed_blocks",
@@ -52,6 +58,10 @@ var (
 
 func (defaultBackend) SetUnconfirmedTransactions(n int64) {
 	promUnconfirmedTransactions.Set(float64(n))
+}
+
+func (defaultBackend) SetMaxUnconfirmedAge(s float64) {
+	promMaxUnconfirmedAge.Set(s)
 }
 
 func (defaultBackend) SetMaxUnconfirmedBlocks(n int64) {
@@ -89,6 +99,7 @@ func (pr *promReporter) Disconnect() {
 func (pr *promReporter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	err := multierr.Combine(
 		errors.Wrap(pr.reportPendingEthTxes(ctx), "reportPendingEthTxes failed"),
+		errors.Wrap(pr.reportMaxUnconfirmedAge(ctx), "reportMaxUnconfirmedAge failed"),
 		errors.Wrap(pr.reportMaxUnconfirmedBlocks(ctx, head), "reportMaxUnconfirmedBlocks failed"),
 		errors.Wrap(pr.reportPipelineRunStats(ctx), "reportPipelineRunStats failed"),
 	)
@@ -115,6 +126,32 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context) (err error) {
 		}
 	}
 	pr.backend.SetUnconfirmedTransactions(unconfirmed)
+	return nil
+}
+
+func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context) (err error) {
+	now := time.Now()
+	rows, err := pr.db.QueryContext(ctx, `SELECT min(broadcast_at) FROM eth_txes WHERE state = 'unconfirmed'`)
+	if err != nil {
+		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
+	}
+
+	defer func() {
+		err = multierr.Combine(err, rows.Close())
+	}()
+
+	var broadcastAt null.Time
+	for rows.Next() {
+		if err := rows.Scan(&broadcastAt); err != nil {
+			return errors.Wrap(err, "unexpected error scanning row")
+		}
+	}
+	var seconds float64
+	if broadcastAt.Valid {
+		nanos := now.Sub(broadcastAt.ValueOrZero())
+		seconds = float64(nanos) / 1000000000
+	}
+	pr.backend.SetMaxUnconfirmedAge(seconds)
 	return nil
 }
 

@@ -198,7 +198,12 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Initiator.JobSpecID.String(),
-		"log", le.Log.BlockNumber,
+		"blockNum", le.Log.BlockNumber,
+		"blockHash", le.Log.BlockHash.Hex(),
+		"txHash", le.Log.TxHash.Hex(),
+		"txIndex", le.Log.TxIndex,
+		"logIndex", le.Log.Index,
+		"removed", le.Log.Removed,
 		"initiator", le.Initiator,
 	}
 	for index, topic := range le.Log.Topics {
