@@ -105,8 +105,8 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if the job exists under the correct ID
-		drJob, err := jobORM.FindJob(listener.JobIDV2())
-		require.NoError(t, err)
+		drJob, jErr := jobORM.FindJob(listener.JobIDV2())
+		require.NoError(t, jErr)
 		require.Equal(t, drJob.ID, listener.JobIDV2())
 		require.NotNil(t, drJob.DirectRequestSpec)
 
