@@ -162,6 +162,9 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
+	if opts.NumConfirmations > uint64(b.config.EthFinalityDepth()) {
+		logger.Fatal("Cannot register a log listener with NumConfirmations greater than EthFinalityDepth")
+	}
 	if len(opts.Logs) < 1 {
 		logger.Fatal("Must supply at least 1 Log to Register")
 	}
