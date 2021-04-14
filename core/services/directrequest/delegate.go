@@ -61,6 +61,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		db:             d.db,
 		pipelineORM:    d.pipelineORM,
 		spec:           *spec.PipelineSpec,
+		job:            spec,
 	}
 	copy(logListener.onChainJobSpecID[:], spec.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
@@ -81,6 +82,7 @@ type listener struct {
 	db                *gorm.DB
 	pipelineORM       pipeline.ORM
 	spec              pipeline.Spec
+	job               job.Job
 	onChainJobSpecID  common.Hash
 	runs              sync.Map
 	shutdownWaitGroup sync.WaitGroup
@@ -223,7 +225,7 @@ func (*listener) JobID() models.JobID {
 
 // Job complies with log.Listener
 func (l *listener) JobIDV2() int32 {
-	return l.spec.ID
+	return l.job.ID
 }
 
 // IsV2Job complies with log.Listener
