@@ -71,19 +71,24 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	minConfirmations := d.config.MinRequiredOutgoingConfirmations()
-	if concreteSpec.NumConfirmations > minConfirmations {
-		minConfirmations = concreteSpec.NumConfirmations
+
+	if concreteSpec.NumConfirmations.Uint32 > uint32(minConfirmations) {
+		minConfirmations = uint64(concreteSpec.NumConfirmations.Uint32)
 	}
 
 	logListener := &listener{
-		logBroadcaster:   d.logBroadcaster,
-		headBroadcaster:  d.headBroadcaster,
-		oracle:           oracle,
-		pipelineRunner:   d.pipelineRunner,
-		db:               d.db,
-		pipelineORM:      d.pipelineORM,
-		spec:             *job.PipelineSpec,
+		logBroadcaster:  d.logBroadcaster,
+		headBroadcaster: d.headBroadcaster,
+		oracle:          oracle,
+		pipelineRunner:  d.pipelineRunner,
+		db:              d.db,
+		pipelineORM:     d.pipelineORM,
+		spec:            *job.PipelineSpec,
 		job:            job,
+
+		// At the moment the mailbox would start skipping if there were
+		// too many relevant logs for the same job (> MailboxCapacity) in each block.
+		// This is going to get fixed after new LB changes are merged.
 		mbLogs:           utils.NewMailbox(d.config.MailboxCapacity()),
 		chHeads:          d.chHeads,
 		minConfirmations: minConfirmations,
@@ -159,7 +164,6 @@ func (l *listener) Close() error {
 		l.runs = sync.Map{}
 
 		close(l.chStop)
-		//l.mbLogs.RetrieveLatestAndClear()
 		l.shutdownWaitGroup.Wait()
 
 		return nil
