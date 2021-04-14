@@ -26,7 +26,12 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 }
 
 func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.Job {
-	return CreateJobViaWeb(t, app, string(MustReadFile(t, path)))
+	request := models.CreateJobSpecRequest{
+		TOML: string(MustReadFile(t, path)),
+	}
+	output, err := json.Marshal(request)
+	require.NoError(t, err)
+	return CreateJobViaWeb(t, app, output)
 }
 
 // JSONFromFixture create models.JSON from file path

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -12,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -47,6 +48,7 @@ type coordinatorUniverse struct {
 	// Cast of participants
 	sergey *bind.TransactOpts // Owns all the LINK initially
 	neil   *bind.TransactOpts // Node operator running VRF service
+	ned    *bind.TransactOpts // Secondary node operator
 	carol  *bind.TransactOpts // Author of consuming contract which requests randomness
 }
 
@@ -70,16 +72,18 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 	var (
 		sergey  = newIdentity(t)
 		neil    = newIdentity(t)
+		ned     = newIdentity(t)
 		carol   = newIdentity(t)
 		nallory = oracleTransactor
 	)
 	genesisData := core.GenesisAlloc{
 		sergey.From:  {Balance: oneEth},
 		neil.From:    {Balance: oneEth},
+		ned.From:     {Balance: oneEth},
 		carol.From:   {Balance: oneEth},
 		nallory.From: {Balance: oneEth},
 	}
-	gasLimit := eth.DefaultConfig.Miner.GasCeil
+	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	consumerABI, err := abi.JSON(strings.NewReader(
 		solidity_vrf_consumer_interface.VRFConsumerABI))
 	require.NoError(t, err)
@@ -117,6 +121,7 @@ func newVRFCoordinatorUniverse(t *testing.T, key models.Key) coordinatorUniverse
 		consumerABI:             &consumerABI,
 		sergey:                  sergey,
 		neil:                    neil,
+		ned:                     ned,
 		carol:                   carol,
 	}
 }

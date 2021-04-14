@@ -318,7 +318,7 @@ func (s NonceSyncer) makeInserts(acct accounts.Account, blockNum int64, txes []t
 // and bump gas etc exactly like any other transaction we might have sent.
 func (s NonceSyncer) MakeInsert(tx types.Transaction, acct accounts.Account, blockNum, nonce int64) (ins NSinserttx, err error) {
 	v, _, _ := tx.RawSignatureValues()
-	if v == nil {
+	if v.BitLen() == 0 {
 		// Believe it or not, this is the only way to determine if the tx
 		// is a zero struct without panicking. Thank you, geth.
 		logger.Warnw("NonceSyncer: tx was empty/unsigned. Falling back to zero transaction", "err", err, "txHash", tx.Hash(), "nonce", nonce, "address", acct.Address.Hex())

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `MockOracle.sol` for testing contracts
+
+### Changed
+
+- Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
+- Removed support for the env var `JOB_PIPELINE_PARALLELISM`. 
+- OCR jobs no longer show `TaskRuns` in success cases. This reduces
+DB load and significantly improves the performance of archiving OCR jobs.
+- Archiving OCR jobs should be 5-10x faster.
+
 ## [0.10.4] - 2021-04-05
 
 ### Added
@@ -15,28 +27,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Experimental: Add `DATABASE_BACKUP_MODE`, `DATABASE_BACKUP_FREQUENCY` and `DATABASE_BACKUP_URL` configuration variables
 
-It's now possible to configure database backups: on node start and separately, to be run at given frequency.
-
-`DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
-potentially large tables related to job runs, among others). Additionally, if `DATABASE_BACKUP_FREQUENCY` variable is set to a duration of
-at least '1m', it enables periodic backups.
-
-`DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one.
-
-Example settings:
-
-`DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
-`DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
+    - It's now possible to configure database backups: on node start and separately, to be run at given frequency. `DATABASE_BACKUP_MODE` enables the initial backup on node start (with one of the values: `none`, `lite`, `full` where `lite` excludes
+    potentially large tables related to job runs, among others). Additionally, if `DATABASE_BACKUP_FREQUENCY` variable is set to a duration of
+    at least '1m', it enables periodic backups.
+    - `DATABASE_BACKUP_URL` can be optionally set to point to e.g. a database replica, in order to avoid excessive load on the main one. Example settings:
+        1. `DATABASE_BACKUP_MODE="full"` and `DATABASE_BACKUP_FREQUENCY` not set, will run a full back only at the start of the node.
+        2. `DATABASE_BACKUP_MODE="lite"` and `DATABASE_BACKUP_FREQUENCY="1h"` will lead to a partial backup on node start and then again a partial backup every one hour.
 
 - Added periodic resending of eth transactions. This means that we no longer rely exclusively on gas bumping to resend unconfirmed transactions that got "lost" for whatever reason. This has two advantages:
     1. Chainlink no longer relies on gas bumping settings to ensure our transactions always end up in the mempool
     2. Chainlink will continue to resend existing transactions even in the event that heads are delayed. This is especially useful on chains like Arbitrum which have very long wait times between heads.
-
-Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
+    - Periodic resending can be controlled using the `ETH_TX_RESEND_AFTER_THRESHOLD` env var (default 30s). Unconfirmed transactions will be resent periodically at this interval. It is recommended to leave this at the default setting, but it can be set to any [valid duration](https://golang.org/pkg/time/#ParseDuration) or to 0 to disable periodic resending.
 
 - Logging can now be configured in the Operator UI.
 
+- Tuned defaults for certain Eth-compatible chains
+
+- Chainlink node now uses different sets of default values depending on the given Chain ID. Tuned configs are built-in for the following chains:
+    - Ethereum Mainnet and test chains
+    - Polygon (Matic)
+    - BSC
+    - HECO
+
+- If you have manually set ENV vars specific to these chains, you may want to remove those and allow the node to use its configured defaults instead.
+
+- New prometheus metric "tx_manager_num_tx_reverted" which counts the number of reverted transactions on chain.
+
 ### Fixed
+
+- Under certain circumstances a poorly configured Explorer could delay Chainlink node startup by up to 45 seconds.
 
 - Chainlink node now automatically sets the correct nonce on startup if you are restoring from a previous backup (manual setnextnonce is no longer necessary).
 
@@ -49,6 +68,7 @@ to a dotID in the pipeline_spec.dot_dag_source.
 - Fixed bug where node will occasionally submit an invalid OCR transmission which reverts with "address not authorized to sign". 
 
 - Fixed bug where a node will sometimes double submit on runlog jobs causing reverted transactions on-chain
+
 
 ## [0.10.3] - 2021-03-22
 

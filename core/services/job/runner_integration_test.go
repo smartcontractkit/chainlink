@@ -2,11 +2,16 @@ package job_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
+	"github.com/smartcontractkit/chainlink/core/logger"
 
 	"github.com/pkg/errors"
 
@@ -66,9 +71,22 @@ func TestRunner(t *testing.T) {
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
 		{
-			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`)
+			mockElectionWinner, cleanupElectionWinner := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `Hal Finney`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				})
 			defer cleanupElectionWinner()
-			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`)
+			mockVoterTurnout, cleanupVoterTurnout := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"data": {"result": 62.57}}`,
+				func(header http.Header, s string) {
+					var md models.BridgeMetaDataJSON
+					require.NoError(t, json.Unmarshal([]byte(s), &md))
+					assert.Equal(t, big.NewInt(10), md.Meta.LatestAnswer)
+					assert.Equal(t, big.NewInt(100), md.Meta.UpdatedAt)
+				},
+			)
 			defer cleanupVoterTurnout()
 			mockHTTP, cleanupHTTP := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"turnout": 61.942}`)
 			defer cleanupHTTP()
@@ -89,24 +107,18 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		require.Len(t, results, 2)
-		assert.NoError(t, results[0].Error)
-		assert.NoError(t, results[1].Error)
-		assert.Equal(t, "6225.6", results[0].Value)
-		assert.Equal(t, "Hal Finney", results[1].Value)
+		require.Len(t, results.Values, 2)
+		assert.Nil(t, results.Errors[0])
+		assert.Nil(t, results.Errors[1])
+		assert.Equal(t, "6225.6", results.Values[0].(decimal.Decimal).String())
+		assert.Equal(t, "Hal Finney", results.Values[1].(string))
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
@@ -193,22 +205,15 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Errors, 1)
+		assert.Len(t, results.Values, 1)
+		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
@@ -250,22 +255,15 @@ func TestRunner(t *testing.T) {
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
+		require.NoError(t, err)
+		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.NoError(t, err)
-
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Len(t, results.Errors, 1)
+		assert.Equal(t, results.Errors[0].Error(), "could not resolve path [\"USD\"] in {\"Response\":\"Error\",\"Message\":\"You are over your rate limit please upgrade your account!\",\"HasWarning\":false,\"Type\":99,\"RateLimit\":{\"calls_made\":{\"second\":5,\"minute\":5,\"hour\":955,\"day\":10004,\"month\":15146,\"total_calls\":15152},\"max_calls\":{\"second\":20,\"minute\":300,\"hour\":3000,\"day\":10000,\"month\":75000}},\"Data\":{}}")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
@@ -304,23 +302,15 @@ func TestRunner(t *testing.T) {
 		dbSpec := makeSimpleFetchOCRJobSpecWithHTTPURL(t, db, transmitterAddress, httpURL, true)
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
-
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
+		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
-		// Verify the final pipeline results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.EqualError(t, results[0].Error, "type <nil> cannot be converted to decimal.Decimal")
-		assert.Nil(t, results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
 		var runs []pipeline.TaskRun
@@ -671,36 +661,21 @@ ds1 -> ds1_parse;
 		err := jobORM.CreateJob(context.Background(), dbSpec, dbSpec.Pipeline)
 		require.NoError(t, err)
 
-		runID, err := runner.CreateRun(context.Background(), dbSpec.ID, nil)
+		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
+		_, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-
-		// Verify the results
-		results, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-
-		assert.Len(t, results, 1)
-		assert.Nil(t, results[0].Error)
-		assert.Equal(t, "4242", results[0].Value)
+		assert.Len(t, results.Values, 1)
+		assert.Nil(t, results.Errors[0])
+		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
 
 		// Delete the job
 		err = jobORM.DeleteJob(context.Background(), dbSpec.ID)
 		require.NoError(t, err)
 
 		// Create another run
-		_, err = runner.CreateRun(context.Background(), dbSpec.ID, nil)
-		require.EqualError(t, err, fmt.Sprintf("no job found with id %v (most likely it was deleted)", dbSpec.ID))
-
-		ctx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		err = runner.AwaitRun(ctx, runID)
-		require.EqualError(t, err, fmt.Sprintf("run not found - could not determine if run is finished (run ID: %v)", runID))
+		_, _, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		require.Error(t, err)
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
@@ -716,42 +691,38 @@ ds1 -> ds1_parse;
 		}))
 		defer serv.Close()
 
-		jb := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
-		err := jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs := makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, `timeout="1ns"`)
+		err := jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err := runner.CreateRun(context.Background(), jb.ID, nil)
+
+		jb, err := jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
+		_, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		r, err := runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Error(t, r[0].Error)
+		assert.Nil(t, results.Values[0])
 
 		// No task timeout should succeed.
-		jb = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		err = jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
+		_, results, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		r, err = runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Equal(t, 10.1, r[0].Value)
-		assert.NoError(t, r[0].Error)
+		assert.Equal(t, 10.1, results.Values[0])
+		assert.Nil(t, results.Errors[0])
 
 		// Job specified task timeout should fail.
-		jb = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
-		jb.MaxTaskDuration = models.Interval(time.Duration(1))
-		jb.Name = null.NewString("a job 3", true)
-		err = jobORM.CreateJob(context.Background(), jb, jb.Pipeline)
+		jbs = makeMinimalHTTPOracleSpec(t, cltest.NewEIP55Address().String(), cltest.DefaultPeerID, transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
+		jbs.MaxTaskDuration = models.Interval(time.Duration(1))
+		jbs.Name = null.NewString("a job 3", true)
+		err = jobORM.CreateJob(context.Background(), jbs, jbs.Pipeline)
 		require.NoError(t, err)
-		runID, err = runner.CreateRun(context.Background(), jb.ID, nil)
+		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		err = runner.AwaitRun(context.Background(), runID)
+
+		_, results, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
-		r, err = runner.ResultsForRun(context.Background(), runID)
-		require.NoError(t, err)
-		assert.Error(t, r[0].Error)
+		assert.NotNil(t, results.Errors[0])
 	})
 }

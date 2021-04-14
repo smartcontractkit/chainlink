@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
 	"gorm.io/gorm"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	null "gopkg.in/guregu/null.v4"
 )
 
@@ -145,11 +145,10 @@ func (OffchainReportingOracleSpec) TableName() string {
 
 type DirectRequestSpec struct {
 	IDEmbed
-	ContractAddress models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
-	// OnChainJobSpecID is the sha256 of the TOML that created this job spec
-	OnChainJobSpecID gethCommon.Hash
-	CreatedAt        time.Time `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time `json:"updatedAt" toml:"-"`
+	ContractAddress  models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
+	OnChainJobSpecID common.Hash         `toml:"jobID"`
+	CreatedAt        time.Time           `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time           `json:"updatedAt" toml:"-"`
 }
 
 func (DirectRequestSpec) TableName() string {

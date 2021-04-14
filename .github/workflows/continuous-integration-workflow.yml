@@ -20,6 +20,7 @@ jobs:
         password: ${{ secrets.DOCKER_READONLY_PASSWORD }}
     env:
       DATABASE_URL: postgres://chainlink@postgres:5432/chainlink_test?sslmode=disable
+      LOG_LEVEL: debug
     services:
       postgres:
         image: postgres
