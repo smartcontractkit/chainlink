@@ -104,6 +104,12 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		err = service.Start()
 		require.NoError(t, err)
 
+		// check if the job exists under the correct ID
+		drJob, err := jobORM.FindJob(listener.JobIDV2())
+		require.NoError(t, err)
+		require.Equal(t, drJob.ID, listener.JobIDV2())
+		require.NotNil(t, drJob.DirectRequestSpec)
+
 		listener.HandleLog(log)
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
