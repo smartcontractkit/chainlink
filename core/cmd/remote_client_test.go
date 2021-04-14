@@ -63,6 +63,8 @@ func startNewApplication(t *testing.T, setup ...func(opts *startOptions)) *cltes
 	// Setup config
 	config, cfgCleanup := cltest.NewConfig(t)
 	t.Cleanup(cfgCleanup)
+	config.Set("DEFAULT_HTTP_TIMEOUT", "30ms")
+	config.Set("MAX_HTTP_ATTEMPTS", "1")
 
 	for k, v := range sopts.Config {
 		config.Set(k, v)
@@ -900,7 +902,7 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 	c := cli.NewContext(nil, set, nil)
 
 	require.NoError(t, client.RemoteLogin(c))
-	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; no job found with id 1 (most likely it was deleted)")
+	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
 }
 
 func TestClient_ListJobsV2(t *testing.T) {
