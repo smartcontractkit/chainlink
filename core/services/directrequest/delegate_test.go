@@ -59,6 +59,7 @@ type DirectRequestUniverse struct {
 	spec              *job.Job
 	runner            *pipeline_mocks.Runner
 	service           job.Service
+	jobORM            job.ORM
 	listener          log.Listener
 	headBroadcastable services.HeadBroadcastable
 	logBroadcaster    *log_mocks.Broadcaster
@@ -103,6 +104,7 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 		spec:              spec,
 		runner:            runner,
 		service:           service,
+		jobORM:            jobORM,
 		listener:          nil,
 		headBroadcastable: headBroadcastable,
 		logBroadcaster:    broadcaster,

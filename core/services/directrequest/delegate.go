@@ -84,7 +84,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		db:              d.db,
 		pipelineORM:     d.pipelineORM,
 		spec:            *job.PipelineSpec,
-		job:            job,
+		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> MailboxCapacity) in each block.
