@@ -35,8 +35,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Errorf("services.Delegate expects a *jobSpec.CronRequestSpec to be present, got %v", spec)
 	}
 
-	// TODO: Resolve contract initialization
-	cron, err := NewFromJobSpec(spec, d.store, d.config, nil, d.pipelineRunner, NewORM(d.db))
+	cron, err := NewFromJobSpec(spec, d.store, d.config, d.pipelineRunner, NewORM(d.db))
 	if err != nil {
 		return nil, err
 	}

@@ -163,12 +163,12 @@ type CronJobSpec struct {
 	IDEmbed
 	OnChainJobSpecID gethCommon.Hash
 
-	// TODO: add FromAddress?
-	EthGasLimit  uint64              `json:"ethGasLimit" toml:"ethGasLimit""`
-	ToAddress    models.EIP55Address `json:"toAddress" toml:"toAddress"`
-	CronSchedule string              `json:"schedule" tom:"schedule"`
-	CreatedAt    time.Time           `json:"createdAt" toml:"-"`
-	UpdatedAt    time.Time           `json:"updatedAt" toml:"-"`
+	OraclePayment *assets.Link        `json:"oraclePayment" toml:"oraclePayment,omitempty"`
+	EthGasLimit   uint64              `json:"ethGasLimit" toml:"ethGasLimit"`
+	ToAddress     models.EIP55Address `json:"toAddress" toml:"toAddress"`
+	CronSchedule  string              `json:"schedule" tom:"schedule"`
+	CreatedAt     time.Time           `json:"createdAt" toml:"-"`
+	UpdatedAt     time.Time           `json:"updatedAt" toml:"-"`
 }
 
 func (CronJobSpec) TableName() string {

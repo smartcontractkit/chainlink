@@ -225,6 +225,7 @@ const (
 	TaskTypeBridge    TaskType = "bridge"
 	TaskTypeMedian    TaskType = "median"
 	TaskTypeMultiply  TaskType = "multiply"
+	TaskTypeUInt256   TaskType = "uint256"
 	TaskTypeJSONParse TaskType = "jsonparse"
 	TaskTypeAny       TaskType = "any"
 
