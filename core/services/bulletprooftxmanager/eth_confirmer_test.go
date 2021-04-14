@@ -493,7 +493,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
-	config.Set("ETH_RECEIPT_FETCH_BATCH_SIZE", 2)
+	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 2)
 	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
 
 	ctx := context.Background()

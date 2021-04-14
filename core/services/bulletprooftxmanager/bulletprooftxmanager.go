@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"math/big"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -26,12 +25,6 @@ import (
 
 // For more information about the BulletproofTxManager architecture, see the design doc:
 // https://www.notion.so/chainlink/BulletproofTxManager-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
-
-const (
-	// maxEthNodeRequestTime is the worst case time we will wait for a response
-	// from the eth node before we consider it to be an error
-	maxEthNodeRequestTime = 15 * time.Second
-)
 
 var (
 	promNumGasBumps = promauto.NewCounter(prometheus.CounterOpts{
@@ -110,8 +103,9 @@ func sendTransaction(ctx context.Context, ethClient eth.Client, a models.EthTxAt
 		return eth.NewFatalSendError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx(ctx)
 	defer cancel()
+
 	err = ethClient.SendTransaction(ctx, signedTx)
 	err = errors.WithStack(err)
 
@@ -141,7 +135,7 @@ func sendEmptyTransaction(
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), maxEthNodeRequestTime)
+	ctx, cancel := eth.DefaultQueryCtx()
 	defer cancel()
 	err = ethClient.SendTransaction(ctx, signedTx)
 	return signedTx, err

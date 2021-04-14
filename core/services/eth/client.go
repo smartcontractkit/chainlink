@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -101,6 +102,17 @@ type client struct {
 }
 
 var _ Client = (*client)(nil)
+
+// DefaultQueryCtx returns a context with a sensible sanity limit timeout for
+// queries to the eth node
+func DefaultQueryCtx(ctxs ...context.Context) (ctx context.Context, cancel context.CancelFunc) {
+	if len(ctxs) > 0 {
+		ctx = ctxs[0]
+	} else {
+		ctx = context.Background()
+	}
+	return context.WithTimeout(ctx, 15*time.Second)
+}
 
 func NewClient(rpcUrl string, secondaryRPCURLs ...url.URL) (*client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)

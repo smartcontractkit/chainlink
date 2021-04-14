@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	clnull "github.com/smartcontractkit/chainlink/core/null"
 
 	"gorm.io/gorm"
 
@@ -147,6 +148,7 @@ type DirectRequestSpec struct {
 	IDEmbed
 	ContractAddress  models.EIP55Address `json:"contractAddress" toml:"contractAddress"`
 	OnChainJobSpecID common.Hash         `toml:"jobID"`
+	NumConfirmations clnull.Uint32       `toml:"numConfirmations"`
 	CreatedAt        time.Time           `json:"createdAt" toml:"-"`
 	UpdatedAt        time.Time           `json:"updatedAt" toml:"-"`
 }
