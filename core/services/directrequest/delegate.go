@@ -35,7 +35,6 @@ type (
 
 	Config interface {
 		MinRequiredOutgoingConfirmations() uint64
-		DirectRequestLogBuffer() uint64
 	}
 )
 
@@ -87,9 +86,9 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
-		// too many relevant logs for the same job (> DirectRequestLogBuffer) in each block.
+		// too many relevant logs for the same job (> 50) in each block.
 		// This is going to get fixed after new LB changes are merged.
-		mbLogs:           utils.NewMailbox(d.config.DirectRequestLogBuffer()),
+		mbLogs:           utils.NewMailbox(50),
 		chHeads:          d.chHeads,
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),
@@ -137,11 +136,11 @@ func (l *listener) Start() error {
 		if !connected {
 			return errors.New("Failed to register listener with logBroadcaster")
 		}
-		go l.run()
 
+		l.shutdownWaitGroup.Add(2)
+		go l.run()
 		unsubscribeHeads := l.headBroadcaster.Subscribe(l)
 
-		l.shutdownWaitGroup.Add(1)
 		go func() {
 			<-l.chStop
 			unsubscribeHeads()
@@ -191,7 +190,6 @@ func (l *listener) HandleLog(lb log.Broadcast) {
 }
 
 func (l *listener) run() {
-	l.shutdownWaitGroup.Add(1)
 	for {
 		select {
 		case <-l.chStop:

@@ -81,7 +81,6 @@ type (
 		EthHeadTrackerHistoryDepth       uint
 		EthBalanceMonitorBlockDelay      uint16
 		EthTxResendAfterThreshold        time.Duration
-		DirectRequestLogBuffer           uint64
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		HeadTimeBudget                   time.Duration
@@ -102,7 +101,6 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthBalanceMonitorBlockDelay:      1,
 		EthTxResendAfterThreshold:        30 * time.Second,
-		DirectRequestLogBuffer:           50,
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
 		HeadTimeBudget:                   13 * time.Second,
@@ -128,7 +126,6 @@ func init() {
 		EthHeadTrackerHistoryDepth:       100,
 		EthBalanceMonitorBlockDelay:      2,
 		EthTxResendAfterThreshold:        15 * time.Second,
-		DirectRequestLogBuffer:           50,
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
 		HeadTimeBudget:                   3 * time.Second,
@@ -148,8 +145,7 @@ func init() {
 		EthHeadTrackerHistoryDepth:       250,                      // EthFinalityDepth + safety margin
 		EthBalanceMonitorBlockDelay:      13,                       // equivalent of 1 eth block seems reasonable
 		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
-		DirectRequestLogBuffer:           500,
-		GasUpdaterBlockDelay:             32, // Delay needs to be large on matic since re-orgs are so frequent at the top level
+		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
 		HeadTimeBudget:                   1 * time.Second,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
@@ -1013,14 +1009,6 @@ func (c Config) SetLogSQLStatements(ctx context.Context, sqlEnabled bool) error 
 // LogSQLMigrations tells chainlink to log all SQL migrations made using the default logger
 func (c Config) LogSQLMigrations() bool {
 	return c.viper.GetBool(EnvVarName("LogSQLMigrations"))
-}
-
-// DirectRequestLogBuffer represents the default mailbox capacity used in different services to queue events.
-func (c Config) DirectRequestLogBuffer() uint64 {
-	if c.viper.IsSet(EnvVarName("DirectRequestLogBuffer")) {
-		return c.viper.GetUint64(EnvVarName("DirectRequestLogBuffer"))
-	}
-	return chainSpecificConfig(c).DirectRequestLogBuffer
 }
 
 // MinIncomingConfirmations represents the minimum number of block
