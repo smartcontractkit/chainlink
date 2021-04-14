@@ -43,11 +43,11 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
-	if spec.DirectRequestSpec == nil {
-		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", spec)
+func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err error) {
+	if job.DirectRequestSpec == nil {
+		return nil, errors.Errorf("services.Delegate expects a *job.DirectRequestSpec to be present, got %v", job)
 	}
-	concreteSpec := spec.DirectRequestSpec
+	concreteSpec := job.DirectRequestSpec
 
 	oracle, err := oracle_wrapper.NewOracle(concreteSpec.ContractAddress.Address(), d.ethClient)
 	if err != nil {
@@ -60,10 +60,10 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		pipelineRunner: d.pipelineRunner,
 		db:             d.db,
 		pipelineORM:    d.pipelineORM,
-		spec:           *spec.PipelineSpec,
-		job:            spec,
+		spec:           *job.PipelineSpec,
+		job:            job,
 	}
-	copy(logListener.onChainJobSpecID[:], spec.DirectRequestSpec.OnChainJobSpecID.Bytes())
+	copy(logListener.onChainJobSpecID[:], job.DirectRequestSpec.OnChainJobSpecID.Bytes())
 	services = append(services, logListener)
 
 	return
