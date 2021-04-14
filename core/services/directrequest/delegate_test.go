@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/core/services/pipeline/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -108,7 +109,7 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 		cleanup:           cleanup,
 	}
 
-	broadcaster.On("Register", mock.Anything, mock.Anything).Return(true, func() {}).Run(func(args mock.Arguments) {
+	broadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {}).Run(func(args mock.Arguments) {
 		uni.listener = args.Get(0).(log.Listener)
 	})
 
@@ -176,7 +177,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		logOracleRequest := oracle_wrapper.OracleOracleRequest{
 			CancelExpiration: big.NewInt(0),
 		}
-		log.On("RawLog").Return(models.Log{
+		log.On("RawLog").Return(types.Log{
 			Topics: []common.Hash{
 				common.Hash{},
 				uni.spec.DirectRequestSpec.OnChainJobSpecID,
