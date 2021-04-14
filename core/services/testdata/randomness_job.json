@@ -1,0 +1,28 @@
+{
+  "initiators": [
+    {
+      "type": "randomnesslog",
+      "params": {
+        "address": "0xaba5edc1a551e55b1a570c0e1f1055e5be11eca7"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "random",
+      "confirmations": 6,
+      "params": {
+        "publicKey":
+        "0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8179800"
+      }
+    },
+    {
+      "type": "ethtx",
+      "params": {
+        "format": "preformatted",
+        "address": "0x5e1f1e555ca1ab1eb01dfaceca11ab1eba5eba11",
+        "functionSelector": "0x5e1c1059"
+      }
+    }
+  ]
+}

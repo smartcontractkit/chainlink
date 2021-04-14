@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -20,11 +20,11 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	_, err := app.Store.KeyStore.NewAccount()
 	require.NoError(t, err)
 	require.NoError(t, app.Store.SyncDiskKeyStoreToDB())
@@ -46,7 +46,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	expectedAccounts := app.Store.KeyStore.Accounts()
-	var actualBalances []presenters.ETHKey
+	var actualBalances []webpresenters.ETHKeyResource
 	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
 	assert.NoError(t, err)
 
@@ -66,10 +66,8 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t, eth.NewClientWith(rpcClient, gethClient))
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	err := app.Store.ORM.DB.Delete(&models.Key{}, "id = ?", app.Key.ID).Error
@@ -80,7 +78,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 
-	balances := []presenters.ETHKey{}
+	balances := []webpresenters.ETHKeyResource{}
 	err = cltest.ParseJSONAPIResponse(t, resp, &balances)
 	assert.NoError(t, err)
 
@@ -94,7 +92,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	config, _ := cltest.NewConfig(t)
 	ethClient := new(mocks.Client)
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	verify := cltest.MockApplicationEthCalls(t, app, ethClient)
 	defer verify()

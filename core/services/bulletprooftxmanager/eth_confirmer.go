@@ -268,6 +268,8 @@ func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []mod
 	return
 }
 
+// Note this function will increment promRevertedTxCount upon receiving
+// a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
@@ -334,6 +336,13 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		if receipt.BlockNumber == nil {
 			l.Error("EthConfirmer#batchFetchReceipts: invariant violation, receipt was missing block number")
 			continue
+		}
+
+		if receipt.Status == 0 {
+			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			// This is safe to increment here because we save the receipt immediately after
+			// and once its saved we do not fetch it again.
+			promRevertedTxCount.Add(1)
 		}
 
 		receipts = append(receipts, *receipt)

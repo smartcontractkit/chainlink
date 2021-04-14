@@ -9,6 +9,11 @@ type PrometheusBackend struct {
 	mock.Mock
 }
 
+// SetMaxUnconfirmedAge provides a mock function with given fields: _a0
+func (_m *PrometheusBackend) SetMaxUnconfirmedAge(_a0 float64) {
+	_m.Called(_a0)
+}
+
 // SetMaxUnconfirmedBlocks provides a mock function with given fields: _a0
 func (_m *PrometheusBackend) SetMaxUnconfirmedBlocks(_a0 int64) {
 	_m.Called(_a0)

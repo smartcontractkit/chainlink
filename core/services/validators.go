@@ -309,20 +309,38 @@ func validateTask(task models.TaskSpec, store *store.Store) error {
 			return errors.New("Sleep Adapter is not implemented yet")
 		}
 	}
-	if adapter.TaskType() == adapters.TaskTypeEthTx {
-		if task.Params.Get("fromAddress").Exists() {
-			fromAddress := task.Params.Get("fromAddress").String()
-			if !common.IsHexAddress(fromAddress) {
-				return errors.Errorf("cannot set EthTx Task's fromAddress parameter invalid address %v err: %v", fromAddress, err)
-			}
-			key, err := store.KeyByAddress(common.HexToAddress(fromAddress))
-			if err != nil {
-				return errors.Errorf("error %v finding key for address %s", err, fromAddress)
-			}
-			if key.IsFunding {
-				return errors.Errorf("address %s is a funding address, cannot use it to send transactions", fromAddress)
-			}
+	switch adapter.TaskType() {
+	case adapters.TaskTypeEthTx:
+		return validateTaskTypeEthTx(task, store)
+	case adapters.TaskTypeRandom:
+		return validateTaskTypeRandom(task)
+	}
+	return nil
+}
+
+func validateTaskTypeEthTx(task models.TaskSpec, store *store.Store) error {
+	if task.Params.Get("fromAddress").Exists() {
+		fromAddress := task.Params.Get("fromAddress").String()
+		if !common.IsHexAddress(fromAddress) {
+			return errors.Errorf("cannot set EthTx Task's fromAddress parameter invalid address %v", fromAddress)
 		}
+		key, err := store.KeyByAddress(common.HexToAddress(fromAddress))
+		if err != nil {
+			return errors.Errorf("error %v finding key for address %s", err, fromAddress)
+		}
+		if key.IsFunding {
+			return errors.Errorf("address %s is a funding address, cannot use it to send transactions", fromAddress)
+		}
+	}
+	return nil
+}
+
+func validateTaskTypeRandom(task models.TaskSpec) error {
+	if task.MinRequiredIncomingConfirmations.Uint32 == 0 {
+		return errors.Errorf("confirmations is a required field for random tasks")
+	}
+	if !task.Params.Get("publicKey").Exists() {
+		return errors.Errorf("publicKey is a required field for random tasks")
 	}
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
@@ -299,6 +300,17 @@ func NewHTTPMockServerWithAlterableResponse(
 	return server
 }
 
+func NewHTTPMockServerWithAlterableResponseAndRequest(
+	t *testing.T, response func() string, callback func(r *http.Request)) (server *httptest.Server) {
+	server = httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			callback(r)
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, response())
+		}))
+	return server
+}
+
 // MockCron represents a mock cron
 type MockCron struct {
 	Entries []MockCronEntry
@@ -465,12 +477,12 @@ func (m mockSecretGenerator) Generate(orm.Config) ([]byte, error) {
 }
 
 type MockChangePasswordPrompter struct {
-	models.ChangePasswordRequest
+	web.UpdatePasswordRequest
 	err error
 }
 
-func (m MockChangePasswordPrompter) Prompt() (models.ChangePasswordRequest, error) {
-	return m.ChangePasswordRequest, m.err
+func (m MockChangePasswordPrompter) Prompt() (web.UpdatePasswordRequest, error) {
+	return m.UpdatePasswordRequest, m.err
 }
 
 type MockPasswordPrompter struct {

@@ -61,6 +61,10 @@ function isFluxMonitorJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'fluxmonitor'
 }
 
+function isKeeperSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'keeper'
+}
+
 function isOCRJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'offchainreporting'
 }
@@ -78,6 +82,9 @@ function getCreatedAt(job: CombinedJobs) {
 
       case 'directrequest':
         return job.attributes.directRequestSpec.createdAt
+
+      case 'keeper':
+        return job.attributes.keeperSpec.createdAt
     }
   } else {
     return new Date().toString()
@@ -130,6 +137,10 @@ export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
 
     if (isOCRJobSpecV2(job)) {
       return matchOCR(job, search)
+    }
+
+    if (isKeeperSpecV2(job)) {
+      return matchKeeper(job, search)
     }
   }
 
@@ -195,7 +206,7 @@ function matchFluxMonitor(job: JobSpecV2, term: string) {
 }
 
 /**
- * matchOCR dettermines whether the OCR job matches the search terms
+ * matchOCR determines whether the OCR job matches the search terms
  *
  * @param job {JobSpecV2} The V2 Job Spec
  * @param term {string} The search term
@@ -227,6 +238,24 @@ function matchOCR(job: JobSpecV2, term: string) {
   return dataset.some(match)
 }
 
+/**
+ * matchKeeper determines whether the Keeper job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchKeeper(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'keeper', // Hardcoded to match the type column
+  ]
+
+  return dataset.some(match)
+}
+
 const styles = (theme: Theme) =>
   createStyles({
     card: {
@@ -252,7 +281,9 @@ export const JobsIndex = ({
     document.title = 'Jobs'
   }, [])
 
-  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
+  const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
+    search,
+  ])
 
   useEffect(() => {
     getJobs().then(setJobs).catch(setError)

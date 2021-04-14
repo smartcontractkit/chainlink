@@ -33,6 +33,29 @@ func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	}
 }
 
+func paginatedResponseWithMeta(
+	c *gin.Context,
+	name string,
+	size int,
+	page int,
+	resource interface{},
+	count int,
+	err error,
+	meta map[string]interface{},
+) {
+	if errors.Cause(err) == orm.ErrorNotFound {
+		err = nil
+	}
+
+	if err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error getting paged %s: %+v", name, err))
+	} else if buffer, err := NewPaginatedResponseWithMeta(*c.Request.URL, size, page, count, resource, meta); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to marshal document: %+v", err))
+	} else {
+		c.Data(http.StatusOK, MediaType, buffer)
+	}
+}
+
 func paginatedResponse(
 	c *gin.Context,
 	name string,

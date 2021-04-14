@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
@@ -19,7 +19,7 @@
     "prepublishOnly": "yarn clean && yarn setup"
   },
   "devDependencies": {
-    "@chainlink/belt": "0.0.3",
+    "@chainlink/belt": "0.0.5-alpha.1",
     "@chainlink/test-helpers": "0.0.5",
     "@types/jest": "^26.0.8",
     "@types/node": "^13.9.1",
