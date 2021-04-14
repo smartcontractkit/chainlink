@@ -71,15 +71,16 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	assert.Contains(t, result.path, "cl_backup_unset")
 }
 
-func TestPeriodicBackup_RunBackupViaAltUrl(t *testing.T) {
+func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
 	rawConfig := orm.NewConfig()
-	altUrl, _ := url.Parse("postgresql//invalid")
+	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
 	backupConfig := newTestConfig(time.Minute, altUrl, rawConfig.DatabaseURL(), os.TempDir(), orm.DatabaseBackupModeFull)
 	periodicBackup := NewDatabaseBackup(backupConfig, logger.Default).(*databaseBackup)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 
-	_, err := periodicBackup.runBackup("")
+	partialResult, err := periodicBackup.runBackup("")
 	require.Error(t, err, "connection to database \"postgresql//invalid\" failed")
+	assert.Contains(t, partialResult.maskedArguments, "postgresql://invalid:xxxxx@invalid")
 }
 
 func TestPeriodicBackup_FrequencyTooSmall(t *testing.T) {
