@@ -1671,6 +1671,7 @@ func TestIntegration_GasUpdater(t *testing.T) {
 
 	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
+
 	chchNewHeads := make(chan chan<- *models.Head, 1)
 
 	app, cleanup := cltest.NewApplicationWithConfigAndKey(t, c,
