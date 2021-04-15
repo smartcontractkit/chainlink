@@ -191,6 +191,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("GAS_UPDATER_ENABLED", false)
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
+	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
+	config.Set("ETH_FINALITY_DEPTH", 1)
 	return config, cleanup
 }
 

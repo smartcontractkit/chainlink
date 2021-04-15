@@ -324,10 +324,11 @@ func TestHeadTracker_SwitchesToLongestChain(t *testing.T) {
 	// Need separate db because ht.Stop() will cancel the ctx, causing a db connection
 	// close and go-txdb rollback.
 	config, _, cleanupDB := cltest.BootstrapThrowawayORM(t, "switches_longest_chain", true)
-	defer cleanupDB()
+	t.Cleanup(cleanupDB)
 	config.Config.Dialect = dialects.Postgres
+	config.Set("ETH_FINALITY_DEPTH", "50")
 	store, cleanup := cltest.NewStoreWithConfig(t, config)
-	defer cleanup()
+	t.Cleanup(cleanup)
 
 	// Need to set the buffer to something large since we inject a lot of heads at once and otherwise they will be dropped
 	store.Config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 42)
