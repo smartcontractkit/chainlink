@@ -29,7 +29,7 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 	}
 
 	jb.CronSpec = &spec
-	if jb.Type != job.CronJob {
+	if jb.Type != job.Cron {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 	if jb.SchemaVersion != uint32(1) {

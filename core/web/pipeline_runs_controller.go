@@ -16,8 +16,6 @@ type PipelineRunsController struct {
 	App chainlink.Application
 }
 
-// poss ad v2 web request here
-
 // Index returns all pipeline runs for a job.
 // Example:
 // "GET <application>/jobs/:ID/runs"

@@ -356,7 +356,7 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
-// FeatureCronV2 enables the Flux Monitor v2 feature.
+// FeatureCronV2 enables the Cron v2 feature.
 func (c Config) FeatureCronV2() bool {
 	return c.getWithFallback("FeatureCronV2", parseBool).(bool)
 }

@@ -1,8 +1,6 @@
 package cron
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -10,7 +8,6 @@ import (
 
 type Delegate struct {
 	pipelineRunner pipeline.Runner
-	store          store.Store
 }
 
 func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {
@@ -20,7 +17,7 @@ func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {
 }
 
 func (d *Delegate) JobType() job.Type {
-	return job.CronJob
+	return job.Cron
 }
 
 // ServicesForSpec returns the scheduler to be used for running cron jobs
@@ -29,7 +26,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Errorf("services.Delegate expects a *jobSpec.CronSpec to be present, got %v", spec)
 	}
 
-	cron, err := NewFromJobSpec(spec, d.pipelineRunner)
+	cron, err := NewCronFromJobSpec(spec, d.pipelineRunner)
 	if err != nil {
 		return nil, err
 	}
