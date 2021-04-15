@@ -129,6 +129,7 @@ type ChainlinkApplication struct {
 // be used by the node.
 func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker, keyStoreGenerator strpkg.KeyStoreGenerator, externalInitiatorManager ExternalInitiatorManager, onConnectCallbacks ...func(Application)) (Application, error) {
 	var subservices []StartCloser
+
 	var headTrackables []strpkg.HeadTrackable
 
 	shutdownSignal := gracefulpanic.NewSignal()
