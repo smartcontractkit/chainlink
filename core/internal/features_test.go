@@ -1660,6 +1660,7 @@ func TestIntegration_GasUpdater(t *testing.T) {
 	t.Parallel()
 
 	c, cfgCleanup := cltest.NewConfig(t)
+
 	defer cfgCleanup()
 	c.Set("ETH_GAS_PRICE_DEFAULT", 5000000000)
 	c.Set("GAS_UPDATER_ENABLED", true)
