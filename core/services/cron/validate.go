@@ -1,9 +1,6 @@
 package cron
 
 import (
-	"crypto/sha256"
-	"math/big"
-
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	"github.com/robfig/cron"
@@ -31,7 +28,6 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 		return jb, err
 	}
 
-	spec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
 	jb.CronSpec = &spec
 
 	if jb.Type != job.CronJob {
@@ -44,10 +40,6 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 	_, err = cron.Parse(spec.CronSchedule)
 	if err != nil {
 		return jb, errors.Errorf("error parsing cron schedule: %v", err)
-	}
-
-	if spec.OraclePayment.IsZero() || spec.OraclePayment.ToInt().Cmp(big.NewInt(0)) == -1 {
-		return jb, errors.Errorf("invalid oracle payment input")
 	}
 
 	return jb, nil

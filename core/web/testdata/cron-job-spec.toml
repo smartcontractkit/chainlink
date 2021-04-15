@@ -2,8 +2,6 @@ type            = "cronjob"
 schemaVersion   = 1
 name            = "example cron spec"
 cronSchedule 	= "0 0 0 1 1 *"
-toAddress       = "0xc1912fEE45d61C87Cc5EA59DaE31190FFFFf232d"
-oraclePayment 	= 1
 observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
     ds_parse    [type=jsonparse path="data,price"];

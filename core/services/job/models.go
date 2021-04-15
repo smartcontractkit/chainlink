@@ -161,13 +161,9 @@ func (DirectRequestSpec) TableName() string {
 
 type CronSpec struct {
 	IDEmbed
-	OnChainJobSpecID gethCommon.Hash
-	CronSchedule     string              `json:"schedule" tom:"schedule"`
-	OraclePayment    *assets.Link        `json:"oraclePayment" toml:"oraclePayment,omitempty"`
-	EthGasLimit      uint64              `json:"ethGasLimit" toml:"ethGasLimit"`
-	ToAddress        models.EIP55Address `json:"toAddress" toml:"toAddress"`
-	CreatedAt        time.Time           `json:"createdAt" toml:"-"`
-	UpdatedAt        time.Time           `json:"updatedAt" toml:"-"`
+	CronSchedule string    `json:"schedule" tom:"schedule"`
+	CreatedAt    time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt    time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (CronSpec) TableName() string {

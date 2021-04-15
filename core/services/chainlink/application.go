@@ -232,10 +232,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	if config.Dev() || config.FeatureCronV2() {
-		delegates[job.CronJob] = cron.NewDelegate(pipelineRunner, *store, store.DB, cron.Config{
-			EthGasLimit:                store.Config.EthGasLimitDefault(),
-			MaxUnconfirmedTransactions: store.Config.EthMaxUnconfirmedTransactions(),
-		})
+		delegates[job.CronJob] = cron.NewDelegate(pipelineRunner)
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)

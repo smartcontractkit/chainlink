@@ -9,14 +9,8 @@ const up21 = `
 		CREATE TABLE cron_specs (
 			id BIGSERIAL PRIMARY KEY,
 			cron_schedule text NOT NULL,
-			to_address bytea NOT NULL,
-			oracle_payment numeric(78, 0),
-			eth_gas_limit integer,
 			created_at timestamp with time zone NOT NULL,
-			updated_at timestamp with time zone NOT NULL,
-			on_chain_job_spec_id bytea NOT NULL,
-			CONSTRAINT direct_request_specs_on_chain_job_spec_id_check CHECK ((octet_length(on_chain_job_spec_id) = 32)),
-			CONSTRAINT cron_specs_from_address_check CHECK ((octet_length(to_address) = 20))
+			updated_at timestamp with time zone NOT NULL
 		);
 
 		ALTER TABLE jobs ADD COLUMN cron_spec_id INT REFERENCES cron_specs(id),
