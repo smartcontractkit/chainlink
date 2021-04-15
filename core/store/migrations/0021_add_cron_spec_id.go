@@ -19,10 +19,10 @@ const up21 = `
 			CONSTRAINT cron_specs_from_address_check CHECK ((octet_length(to_address) = 20))
 		);
 
-		ALTER TABLE jobs ADD COLUMN cron_request_spec_id INT REFERENCES cron_specs(id),
+		ALTER TABLE jobs ADD COLUMN cron_spec_id INT REFERENCES cron_specs(id),
 		DROP CONSTRAINT chk_only_one_spec,
 		ADD CONSTRAINT chk_only_one_spec CHECK (
-			num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id, cron_request_spec_id) = 1
+			num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id, cron_spec_id) = 1
 		);
 	`
 
@@ -34,7 +34,7 @@ const down21 = `
 			num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id) = 1
 		);
 	
-		ALTER TABLE jobs DROP COLUMN cron_request_spec_id integer;
+		ALTER TABLE jobs DROP COLUMN cron_spec_id integer;
 	`
 
 func init() {

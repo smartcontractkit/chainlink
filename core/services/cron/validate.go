@@ -32,7 +32,7 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 	}
 
 	spec.OnChainJobSpecID = sha256.Sum256([]byte(tomlString))
-	jb.CronRequestSpec = &spec
+	jb.CronSpec = &spec
 
 	if jb.Type != job.CronJob {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)

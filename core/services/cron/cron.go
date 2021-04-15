@@ -56,7 +56,7 @@ func NewFromJobSpec(
 	runner pipeline.Runner,
 	orm *orm,
 ) (*CronJob, error) {
-	cronSpec := jobSpec.CronRequestSpec
+	cronSpec := jobSpec.CronSpec
 	spec := jobSpec.PipelineSpec
 
 	var gasLimit uint64

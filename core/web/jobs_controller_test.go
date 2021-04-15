@@ -187,10 +187,10 @@ func TestJobsController_Create_CronRequestSpec(t *testing.T) {
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
 	assert.NoError(t, err)
 	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
-	require.Equal(t, models.EIP55Address("0xc1912fEE45d61C87Cc5EA59DaE31190FFFFf232d"), jb.CronRequestSpec.ToAddress)
+	require.Equal(t, models.EIP55Address("0xc1912fEE45d61C87Cc5EA59DaE31190FFFFf232d"), jb.CronSpec.ToAddress)
 
 	sha := sha256.Sum256(tomlBytes)
-	require.Equal(t, sha[:], jb.DirectRequestSpec.OnChainJobSpecID[:])
+	require.Equal(t, sha[:], jb.CronSpec.OnChainJobSpecID[:])
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {

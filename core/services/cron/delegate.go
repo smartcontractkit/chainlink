@@ -31,8 +31,8 @@ func (d *Delegate) JobType() job.Type {
 
 // ServicesForSpec returns the scheduler to be used for running cron jobs
 func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err error) {
-	if spec.CronRequestSpec == nil {
-		return nil, errors.Errorf("services.Delegate expects a *jobSpec.CronRequestSpec to be present, got %v", spec)
+	if spec.CronSpec == nil {
+		return nil, errors.Errorf("services.Delegate expects a *jobSpec.CronSpec to be present, got %v", spec)
 	}
 
 	cron, err := NewFromJobSpec(spec, d.store, d.config, d.pipelineRunner, NewORM(d.db))

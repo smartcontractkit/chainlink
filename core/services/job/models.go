@@ -49,8 +49,8 @@ type Job struct {
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec `json:"offChainReportingOracleSpec"`
 	DirectRequestSpecID           *int32                       `json:"-"`
 	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
-	CronRequestSpecId             *int32                       `json:"-"`
-	CronRequestSpec               *CronSpec                    `json:"CronSpec"`
+	CronSpecId                    *int32                       `json:"-"`
+	CronSpec                      *CronSpec                    `json:"cronSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
 	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
 	KeeperSpecID                  *int32                       `json:"-"`

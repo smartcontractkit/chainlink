@@ -36,8 +36,8 @@ observationSource   = """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
-				require.NotNil(t, s.CronRequestSpec)
-				b, err := jsonapi.Marshal(s.CronRequestSpec)
+				require.NotNil(t, s.CronSpec)
+				b, err := jsonapi.Marshal(s.CronSpec)
 				require.NoError(t, err)
 				var r job.CronSpec
 				err = jsonapi.Unmarshal(b, &r)
@@ -84,7 +84,7 @@ observationSource   = """
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
-				require.Nil(t, s.CronRequestSpec)
+				require.Nil(t, s.CronSpec)
 				require.Error(t, err)
 				assert.Regexp(t, regexp.MustCompile("^.*is not a valid EIP55 formatted address$"), err.Error())
 			},
