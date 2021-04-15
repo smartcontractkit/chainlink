@@ -160,7 +160,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	require.Len(t, attempt1_1.EthReceipts, 0)
 
 	t.Run("fetches receipt for one unconfirmed eth_tx", func(t *testing.T) {
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		// Transaction not confirmed yet, receipt is nil
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -190,7 +190,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		// First transaction confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -217,7 +217,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		// First transaction confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -250,7 +250,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash) &&
@@ -309,7 +309,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
 				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
@@ -344,7 +344,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	nonce++
 
 	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		receipt := bulletprooftxmanager.Receipt{
 			TxHash: attempt3_1.Hash,
 		}
@@ -403,7 +403,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
 			TransactionIndex: ethReceipt.TransactionIndex,
 		}
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
@@ -449,7 +449,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		// Second attempt is confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -519,7 +519,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 		attempts = append(attempts, attempt)
 	}
 
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
@@ -623,7 +623,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 6 &&
 				cltest.BatchElemMatchesHash(b[0], attempt0_2.Hash) &&
@@ -690,7 +690,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
@@ -739,7 +739,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
@@ -781,7 +781,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
