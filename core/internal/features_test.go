@@ -1643,6 +1643,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
 	headCh <- &models.Head{Number: 10}
+	headCh <- &models.Head{Number: 11}
 
 	httpAwaiter.AwaitOrFail(t)
 
