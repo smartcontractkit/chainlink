@@ -1,0 +1,18 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - master
+  pull_request: ~
+
+jobs:
+  run-basic-checks:
+    name: Run linters and unit tests
+    runs-on: [self-hosted, sdlc-ghr-prod]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "14.x"
+      - run: npm install -g yarn
