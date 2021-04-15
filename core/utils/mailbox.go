@@ -34,19 +34,21 @@ func (m *Mailbox) Notify() chan struct{} {
 }
 
 // Deliver appends an interface to the queue
-func (m *Mailbox) Deliver(x interface{}) {
+func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	m.queue = append([]interface{}{x}, m.queue...)
 	if uint64(len(m.queue)) > m.capacity && m.capacity > 0 {
 		m.queue = m.queue[:len(m.queue)-1]
+		wasOverCapacity = true
 	}
 
 	select {
 	case m.chNotify <- struct{}{}:
 	default:
 	}
+	return
 }
 
 // Retrieve fetches an interface from the queue

@@ -601,6 +601,13 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	return etx
 }
 
+func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
+	etx.State = models.EthTxUnstarted
+	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 	gasPrice := utils.NewBig(big.NewInt(1))
 	return models.EthTxAttempt{

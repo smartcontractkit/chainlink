@@ -34,6 +34,7 @@ var (
 type backupResult struct {
 	size            int64
 	path            string
+	maskedArguments []string
 	pgDumpArguments []string
 }
 
@@ -145,7 +146,15 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 		}
 	}
 
-	backup.logger.Debugf("DatabaseBackup: Running pg_dump with: %v", args)
+	maskArgs := func(args []string) []string {
+		masked := make([]string, len(args))
+		copy(masked, args)
+		masked[0] = backup.databaseURL.Redacted()
+		return masked
+	}
+
+	maskedArgs := maskArgs(args)
+	backup.logger.Debugf("DatabaseBackup: Running pg_dump with: %v", maskedArgs)
 
 	cmd := exec.Command(
 		"pg_dump", args...,
@@ -154,10 +163,16 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	_, err = cmd.Output()
 
 	if err != nil {
-		if ee, ok := err.(*exec.ExitError); ok {
-			return nil, errors.Wrap(err, fmt.Sprintf("pg_dump failed with output: %s", string(ee.Stderr)))
+		partialResult := &backupResult{
+			size:            0,
+			path:            "",
+			maskedArguments: maskedArgs,
+			pgDumpArguments: args,
 		}
-		return nil, errors.Wrap(err, "pg_dump failed")
+		if ee, ok := err.(*exec.ExitError); ok {
+			return partialResult, errors.Wrap(err, fmt.Sprintf("pg_dump failed with output: %s", string(ee.Stderr)))
+		}
+		return partialResult, errors.Wrap(err, "pg_dump failed")
 	}
 
 	if version == "" {
@@ -179,6 +194,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	return &backupResult{
 		size:            file.Size(),
 		path:            finalFilePath,
+		maskedArguments: maskedArgs,
 		pgDumpArguments: args,
 	}, nil
 }

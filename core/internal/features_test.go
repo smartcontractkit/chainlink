@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -95,6 +96,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	defer cfgCleanup()
 	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
+	config.Set("ETH_FINALITY_DEPTH", 3)
 
 	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
@@ -249,7 +251,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
+			t.Cleanup(cfgCleanup)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
 
 			rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
@@ -257,10 +259,9 @@ func TestIntegration_RunLog(t *testing.T) {
 			app, cleanup := cltest.NewApplication(t,
 				eth.NewClientWith(rpcClient, gethClient),
 			)
-			defer cleanup()
+			t.Cleanup(cleanup)
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
-			rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
@@ -350,7 +351,6 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) {
 			newHeadsCh <- args.Get(1).(chan<- *models.Head)
@@ -466,7 +466,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	bta := &models.BridgeTypeAuthentication{}
+	resource := &presenters.BridgeResource{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -483,12 +483,12 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, bta.OutgoingToken, token)
+			assert.Equal(t, resource.OutgoingToken, token)
 		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	bta = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	resource = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -497,7 +497,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	assert.Equal(t, gjson.Null, tr.Result.Data.Get("result").Type)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, resource, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
@@ -785,6 +785,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
+	config.Set("ETH_FINALITY_DEPTH", 3)
 	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -872,7 +873,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			})
 		}).
 		Return(nil).Once()
-
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**models.Head)
@@ -1602,7 +1602,13 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			*head = cltest.Head(10)
 		}).
 		Return(nil)
-	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(sub, nil)
+
+	var headCh chan<- *models.Head
+	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().
+		Run(func(args mock.Arguments) {
+			headCh = args.Get(1).(chan<- *models.Head)
+		}).
+		Return(sub, nil)
 
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
@@ -1637,6 +1643,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	}, 30*time.Second)
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
+	headCh <- &models.Head{Number: 10}
 
 	httpAwaiter.AwaitOrFail(t)
 
