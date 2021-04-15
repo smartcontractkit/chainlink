@@ -124,7 +124,6 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 	err := o.db.
 		Joins(join, args...).
 		Preload("FluxMonitorSpec").
-		Preload("CronJobSpec"). // TODO: What does this preload? Verify
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
@@ -298,7 +297,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		Preload("PipelineSpec").
 		Preload("OffchainreportingOracleSpec").
 		Preload("DirectRequestSpec").
-		Preload("CronJobSpec"). // TODO: is this for v2 only? Verify
+		Preload("CronSpec").
 		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
@@ -342,7 +341,6 @@ func (o *orm) FindJob(id int32) (Job, error) {
 		Preload("OffchainreportingOracleSpec").
 		Preload("FluxMonitorSpec").
 		Preload("DirectRequestSpec").
-		Preload("CronJobSpec"). //TODO: what is this v2 job load for? Verify
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
 		First(&job, "jobs.id = ?", id).

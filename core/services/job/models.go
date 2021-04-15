@@ -50,7 +50,7 @@ type Job struct {
 	DirectRequestSpecID           *int32                       `json:"-"`
 	DirectRequestSpec             *DirectRequestSpec           `json:"DirectRequestSpec"`
 	CronRequestSpecId             *int32                       `json:"-"`
-	CronRequestSpec               *CronJobSpec                 `json:"CronJobSpec"`
+	CronRequestSpec               *CronSpec                    `json:"CronSpec"`
 	FluxMonitorSpecID             *int32                       `json:"-"`
 	FluxMonitorSpec               *FluxMonitorSpec             `json:"fluxMonitorSpec"`
 	KeeperSpecID                  *int32                       `json:"-"`
@@ -159,19 +159,18 @@ func (DirectRequestSpec) TableName() string {
 	return "direct_request_specs"
 }
 
-type CronJobSpec struct {
+type CronSpec struct {
 	IDEmbed
 	OnChainJobSpecID gethCommon.Hash
-
-	OraclePayment *assets.Link        `json:"oraclePayment" toml:"oraclePayment,omitempty"`
-	EthGasLimit   uint64              `json:"ethGasLimit" toml:"ethGasLimit"`
-	ToAddress     models.EIP55Address `json:"toAddress" toml:"toAddress"`
-	CronSchedule  string              `json:"schedule" tom:"schedule"`
-	CreatedAt     time.Time           `json:"createdAt" toml:"-"`
-	UpdatedAt     time.Time           `json:"updatedAt" toml:"-"`
+	CronSchedule     string              `json:"schedule" tom:"schedule"`
+	OraclePayment    *assets.Link        `json:"oraclePayment" toml:"oraclePayment,omitempty"`
+	EthGasLimit      uint64              `json:"ethGasLimit" toml:"ethGasLimit"`
+	ToAddress        models.EIP55Address `json:"toAddress" toml:"toAddress"`
+	CreatedAt        time.Time           `json:"createdAt" toml:"-"`
+	UpdatedAt        time.Time           `json:"updatedAt" toml:"-"`
 }
 
-func (CronJobSpec) TableName() string {
+func (CronSpec) TableName() string {
 	return "cron_specs"
 }
 

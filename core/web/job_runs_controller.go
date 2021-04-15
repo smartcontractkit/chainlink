@@ -54,7 +54,6 @@ func (jrc *JobRunsController) Index(c *gin.Context, size, page, offset int) {
 // Create starts a new Run for the requested JobSpec.
 // Example:
 //  "<application>/specs/:SpecID/runs"
-// TODO: move this to v2
 func (jrc *JobRunsController) Create(c *gin.Context) {
 	id, err := models.NewIDFromString(c.Param("SpecID"))
 	if err != nil {

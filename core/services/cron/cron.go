@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store"
 )
 
-// CronJob runs a cron jobSpec from a CronJobSpec
+// CronJob runs a cron jobSpec from a CronSpec
 type CronJob struct {
 	jobID int32
 
@@ -31,7 +31,7 @@ type CronJob struct {
 	Schedule string
 	store    *store.Store
 
-	jobSpec      job.CronJobSpec
+	jobSpec      job.CronSpec
 	pipelineSpec pipeline.Spec
 }
 
@@ -82,7 +82,7 @@ func NewFromJobSpec(
 }
 
 // validateCronJobSpec() - validates the cron job spec and included fields
-func validateCronJobSpec(cronSpec job.CronJobSpec) error {
+func validateCronJobSpec(cronSpec job.CronSpec) error {
 	if cronSpec.CronSchedule == "" {
 		return fmt.Errorf("schedule must not be empty")
 	}
