@@ -1620,28 +1620,76 @@ func toISO8601(t time.Time) string {
 		t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), tz)
 }
 
-// These two queries trigger cascading deletes in the following tables:
-// (run_requests) --> (job_runs) --> (task_runs)
-// (eth_txes) --> (eth_tx_attempts) --> (eth_receipts)
 const removeUnstartedJobRunsQuery = `
-DELETE FROM run_requests
-WHERE id IN (
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs as jr
+	USING
+		task_runs as tr
+	WHERE
+		jr.status = 'unstarted' AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
 	SELECT run_request_id
 	FROM job_runs
-	WHERE status = 'unstarted'
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
 )
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
+
 const removeUnstartedTransactionsQuery = `
-DELETE FROM eth_txes
-WHERE state = 'unstarted'
+WITH deleted_job_runs AS (
+	DELETE FROM job_runs AS jr
+	USING
+		task_runs AS tr,
+		eth_txes AS tx,
+		eth_task_run_txes AS tx_tr
+	WHERE
+		tx.state = 'unstarted' AND
+		tx_tr.eth_tx_id = tx.id AND
+		tx_tr.task_run_id = tr.id AND
+		jr.id = tr.job_run_id
+	RETURNING
+		jr.result_id as job_run_result_id,
+		tr.result_id as task_run_result_id,
+		jr.run_request_id
+),
+deleted_job_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT job_run_result_id FROM deleted_job_runs)
+),
+deleted_task_run_results AS (
+	DELETE FROM run_results WHERE id IN (SELECT task_run_result_id FROM deleted_job_runs)
+),
+preserved_job_runs AS (
+	SELECT run_request_id
+	FROM job_runs
+	WHERE run_request_id NOT IN (SELECT run_request_id FROM deleted_job_runs)
+)
+DELETE FROM run_requests
+WHERE
+	id IN (SELECT run_request_id FROM deleted_job_runs) AND
+	id NOT IN (SELECT run_request_id FROM preserved_job_runs)
 `
 
 func (orm *ORM) RemoveUnstartedTransactions() error {
 	return orm.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Exec(removeUnstartedJobRunsQuery).Error; err != nil {
+		if err := tx.Exec(removeUnstartedTransactionsQuery).Error; err != nil {
 			return err
 		}
-		return tx.Exec(removeUnstartedTransactionsQuery).Error
+		return tx.Exec(removeUnstartedJobRunsQuery).Error
 	})
 }
 
