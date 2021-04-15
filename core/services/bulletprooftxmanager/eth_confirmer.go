@@ -226,14 +226,17 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
-	mapp := make(map[gethCommon.Address][]models.EthTxAttempt)
+	attemptsByAddress := make(map[gethCommon.Address][]models.EthTxAttempt)
 	for _, att := range attempts {
-		mapp[att.EthTx.FromAddress] = append(mapp[att.EthTx.FromAddress], att)
+		attemptsByAddress[att.EthTx.FromAddress] = append(attemptsByAddress[att.EthTx.FromAddress], att)
 	}
 
-	for from, attempts := range mapp {
+	for from, attempts := range attemptsByAddress {
 
 		pendingNonce, err := ec.getPendingNonce(ctx, from)
+		if err != nil {
+			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
+		}
 
 		likelyConfirmed := make([]models.EthTxAttempt, 0)
 		for i := 0; i < len(attempts); i++ {
@@ -246,12 +249,12 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 
 		err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 		}
 
 		err = ec.fetchAndSaveReceipts(ctx, attempts, blockNum)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to fetch and save receipts, for address: %v", from)
 		}
 	}
 
