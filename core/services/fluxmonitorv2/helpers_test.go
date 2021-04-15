@@ -6,7 +6,7 @@ import (
 )
 
 func (fm *FluxMonitor) ExportedPollIfEligible(threshold, absoluteThreshold float64) {
-	fm.pollIfEligible(PollRequestPoll, NewDeviationChecker(threshold, absoluteThreshold))
+	fm.pollIfEligible(PollRequestTypePoll, NewDeviationChecker(threshold, absoluteThreshold))
 }
 
 func (fm *FluxMonitor) ExportedProcessLogs() {

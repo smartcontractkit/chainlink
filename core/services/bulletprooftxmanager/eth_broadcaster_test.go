@@ -228,6 +228,8 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 	config, cleanup := cltest.NewConfig(t)
 	defer cleanup()
 
+	config.Set("ETH_NONCE_AUTO_SYNC", "true")
+
 	ethNodeNonce := uint64(22)
 
 	// Insert new key to test we only update the intended one
@@ -279,7 +281,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil)
 
 		require.NoError(t, eb.Start())
 		defer eb.Close()
@@ -297,7 +298,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		require.Equal(t, dummykey.Address, key2.Address)
 		require.Equal(t, 0, int(key2.NextNonce))
 
-		// TODO: Test for zero transaction insertion
 		ethClient.AssertExpectations(t)
 	})
 }
