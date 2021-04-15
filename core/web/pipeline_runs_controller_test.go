@@ -40,7 +40,7 @@ func TestPipelineRunsController_Create_HappyPath(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFile job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
