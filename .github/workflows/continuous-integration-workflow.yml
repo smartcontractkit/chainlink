@@ -109,12 +109,12 @@ jobs:
         if: always()
         run: ./compose ${{ matrix.test }}:down
         working-directory: ./tools/docker
-      - name: Store logs artifacts on failure
-        if: failure()
-        uses: actions/upload-artifact@v1
-        with:
-          name: logs
-          path: ./tools/docker/logs
+#      - name: Store logs artifacts on failure
+#        if: failure()
+#        uses: actions/upload-artifact@v1
+#        with:
+#          name: logs
+#          path: ./tools/docker/logs
 
   solidity-lint:
     name: Solidity Linting
