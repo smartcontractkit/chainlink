@@ -53,9 +53,9 @@ type ConfigSchema struct {
 	EthGasPriceDefault                        big.Int         `env:"ETH_GAS_PRICE_DEFAULT"`
 	EthMaxGasPriceWei                         big.Int         `env:"ETH_MAX_GAS_PRICE_WEI"`
 	EthMaxUnconfirmedTransactions             uint64          `env:"ETH_MAX_UNCONFIRMED_TRANSACTIONS" default:"500"`
+	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"true"`
 	EthFinalityDepth                          uint            `env:"ETH_FINALITY_DEPTH"`
 	EthHeadTrackerHistoryDepth                uint            `env:"ETH_HEAD_TRACKER_HISTORY_DEPTH"`
-	EthNonceAutoSync                          bool            `env:"ETH_NONCE_AUTO_SYNC" default:"false"`
 	EthHeadTrackerMaxBufferSize               uint            `env:"ETH_HEAD_TRACKER_MAX_BUFFER_SIZE" default:"3"`
 	EthBalanceMonitorBlockDelay               uint16          `env:"ETH_BALANCE_MONITOR_BLOCK_DELAY"`
 	EthReceiptFetchBatchSize                  uint32          `env:"ETH_RECEIPT_FETCH_BATCH_SIZE" default:"100"`
