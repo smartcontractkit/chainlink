@@ -82,7 +82,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		pipelineRunner:  d.pipelineRunner,
 		db:              d.db,
 		pipelineORM:     d.pipelineORM,
-		spec:            *job.PipelineSpec,
 		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
