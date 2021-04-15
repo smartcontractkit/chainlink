@@ -95,6 +95,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	defer cfgCleanup()
 	config.Set("ADMIN_CREDENTIALS_FILE", "")
 	config.Set("ETH_HEAD_TRACKER_MAX_BUFFER_SIZE", 99)
+	config.Set("ETH_FINALITY_DEPTH", 3)
 
 	rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
@@ -249,7 +250,7 @@ func TestIntegration_RunLog(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			config, cfgCleanup := cltest.NewConfig(t)
-			defer cfgCleanup()
+			t.Cleanup(cfgCleanup)
 			config.Set("MIN_INCOMING_CONFIRMATIONS", 6)
 
 			rpcClient, gethClient, sub, assertMockCalls := cltest.NewEthMocks(t)
@@ -257,10 +258,9 @@ func TestIntegration_RunLog(t *testing.T) {
 			app, cleanup := cltest.NewApplication(t,
 				eth.NewClientWith(rpcClient, gethClient),
 			)
-			defer cleanup()
+			t.Cleanup(cleanup)
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
-			rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
@@ -350,7 +350,6 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-	rpcClient.On("CallContext", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) {
 			newHeadsCh <- args.Get(1).(chan<- *models.Head)
@@ -785,6 +784,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 
 	config, cfgCleanup := cltest.NewConfig(t)
 	defer cfgCleanup()
+	config.Set("ETH_FINALITY_DEPTH", 3)
 	app, appCleanup := cltest.NewApplicationWithConfig(t, config,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
@@ -872,7 +872,6 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 			})
 		}).
 		Return(nil).Once()
-
 	rpcClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**models.Head)
