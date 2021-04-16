@@ -741,6 +741,7 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 
 	pipelineSpec := pipeline.Spec{}
 	err = store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
 
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
 	jb := job.Job{

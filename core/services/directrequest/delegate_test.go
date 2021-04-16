@@ -332,9 +332,9 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 }
 
 type testConfig struct {
-    minRequiredOutgoingConfirmations uint64
+	minRequiredOutgoingConfirmations uint64
 }
 
 func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
-    return c.minRequiredOutgoingConfirmations
+	return c.minRequiredOutgoingConfirmations
 }
