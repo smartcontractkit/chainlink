@@ -1,4 +1,4 @@
-type            = "cronjob"
+type            = "cron"
 schemaVersion   = 1
 name            = "example cron spec"
 cronSchedule 	= "0 0 0 1 1 *"

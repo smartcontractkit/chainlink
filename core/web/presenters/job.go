@@ -218,7 +218,7 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.DirectRequestSpec = NewDirectRequestSpec(j.DirectRequestSpec)
 	case job.FluxMonitor:
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
-	case job.CronJob:
+	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)

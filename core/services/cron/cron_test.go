@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCronJobV2Pipeline(t *testing.T) {
+func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipeline_mocks.Runner)
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_orm", true, true)
 	db := oldORM.DB
@@ -29,7 +29,7 @@ func TestCronJobV2Pipeline(t *testing.T) {
 	defer cleanup()
 
 	spec := &job.Job{
-		Type:          job.CronJob,
+		Type:          job.Cron,
 		SchemaVersion: 1,
 		CronSpec:      &job.CronSpec{CronSchedule: "0 0 0 1 1 *"},
 		Pipeline:      *pipeline.NewTaskDAG(),

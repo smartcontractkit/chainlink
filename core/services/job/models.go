@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	CronJob           Type = "cronjob"
+	Cron              Type = "cron"
 	DirectRequest     Type = "directrequest"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"

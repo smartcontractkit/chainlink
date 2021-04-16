@@ -245,7 +245,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 
 	if config.Dev() || config.FeatureCronV2() {
-		delegates[job.CronJob] = cron.NewDelegate(pipelineRunner)
+		delegates[job.Cron] = cron.NewDelegate(pipelineRunner)
 	}
 
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)

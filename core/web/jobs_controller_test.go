@@ -168,7 +168,7 @@ func TestJobsController_Create_CronRequestSpec(t *testing.T) {
 		eth.NewClientWith(rpcClient, gethClient),
 	)
 	defer cleanup()
-	require.NoError(t, app.Start())
+	require.NoError(t, app.StartAndConnect())
 
 	client := app.NewHTTPClient()
 

@@ -101,7 +101,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = fluxmonitorv2.ValidatedFluxMonitorSpec(jc.App.GetStore().Config, request.TOML)
 	case job.Keeper:
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
-	case job.CronJob:
+	case job.Cron:
 		js, err = cron.ValidateCronSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))

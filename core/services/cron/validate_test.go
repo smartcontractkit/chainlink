@@ -21,7 +21,7 @@ func TestValidateCronJobSpec(t *testing.T) {
 		{
 			name: "valid spec",
 			toml: `
-type            = "cronjob"
+type            = "cron"
 schemaVersion   = 1
 name            = "example cron spec"
 cronSchedule 	= "0 0 0 1 1 *"
@@ -45,7 +45,7 @@ observationSource   = """
 		{
 			name: "invalid cron schedule",
 			toml: `
-type            = "cronjob"
+type            = "cron"
 schemaVersion   = 1
 name            = "invalid cron spec"
 cronSchedule	= "x x"

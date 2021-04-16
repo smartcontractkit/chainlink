@@ -17,7 +17,7 @@ func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {
 }
 
 func (d *Delegate) JobType() job.Type {
-	return job.CronJob
+	return job.Cron
 }
 
 // ServicesForSpec returns the scheduler to be used for running cron jobs
