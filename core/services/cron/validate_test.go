@@ -29,8 +29,7 @@ observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
     ds_parse    [type=jsonparse path="data,price"];
     ds_multiply [type=multiply times=100];
-    ds_uint256  [type=ethuint256]
-    ds -> ds_parse -> ds_multiply -> ds_uint256;
+    ds -> ds_parse -> ds_multiply;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -54,8 +53,7 @@ observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
     ds_parse    [type=jsonparse path="data,price"];
     ds_multiply [type=multiply times=100];
-    ds_uint256  [type=ethuint256]
-    ds -> ds_parse -> ds_multiply -> ds_uint256;
+    ds -> ds_parse -> ds_multiply;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
