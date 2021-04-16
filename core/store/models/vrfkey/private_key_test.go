@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+
 	tvrf "github.com/smartcontractkit/chainlink/core/internal/cltest/vrf"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/solidity_vrf_verifier_wrapper"
 	"github.com/smartcontractkit/chainlink/core/services/vrf"
@@ -16,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/eth"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestMarshaledProof(t *testing.T) {
 	auth, err := bind.NewKeyedTransactorWithChainID(ethereumKey, big.NewInt(1337))
 	require.NoError(t, err)
 	genesisData := core.GenesisAlloc{auth.From: {Balance: big.NewInt(1000000000)}}
-	gasLimit := eth.DefaultConfig.Miner.GasCeil
+	gasLimit := ethconfig.Defaults.Miner.GasCeil
 	backend := backends.NewSimulatedBackend(genesisData, gasLimit)
 	_, _, verifier, err := solidity_vrf_verifier_wrapper.DeployVRFTestHelper(auth, backend)
 	if err != nil {

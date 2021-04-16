@@ -15,9 +15,52 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRendererJSON_RenderVRFKeys(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	r := cmd.RendererJSON{Writer: ioutil.Discard}
+	keys := []cmd.VRFKeyPresenter{
+		{
+			Compressed:   "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01",
+			Uncompressed: "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f",
+			Hash:         "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a",
+			CreatedAt:    &now,
+			UpdatedAt:    &now,
+			DeletedAt:    nil,
+		},
+	}
+	assert.NoError(t, r.Render(&keys))
+}
+
+func TestRendererTable_RenderVRKKeys(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now()
+	buffer := bytes.NewBufferString("")
+	r := cmd.RendererTable{Writer: buffer}
+	keys := []cmd.VRFKeyPresenter{
+		{
+			Compressed:   "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01",
+			Uncompressed: "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f",
+			Hash:         "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a",
+			CreatedAt:    &now,
+			UpdatedAt:    &now,
+			DeletedAt:    nil,
+		},
+	}
+	assert.NoError(t, r.Render(&keys))
+	output := buffer.String()
+	assert.Contains(t, output, "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01")
+	assert.Contains(t, output, "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f")
+	assert.Contains(t, output, "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a")
+
+}
 
 func TestRendererJSON_RenderJobs(t *testing.T) {
 	t.Parallel()
@@ -143,14 +186,18 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := &webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+	}
 
 	tests := []struct {
 		name, content string
 	}{
-		{"name", bridge.Name.String()},
-		{"outgoing token", bridge.OutgoingToken},
+		{"name", resource.Name},
+		{"outgoing token", resource.OutgoingToken},
 	}
 
 	for _, test := range tests {
@@ -158,7 +205,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(bridge))
+			assert.NoError(t, r.Render(resource))
 			assert.True(t, tw.found)
 		})
 	}
@@ -166,15 +213,19 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 
 func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 	t.Parallel()
-	bridge, _ := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := &webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+	}
 
 	tests := []struct {
 		name, content string
 	}{
-		{"name", bridge.Name.String()},
-		{"outgoing token", bridge.OutgoingToken},
-		{"incoming token", bridge.IncomingToken},
+		{"name", resource.Name},
+		{"outgoing token", resource.OutgoingToken},
+		{"incoming token", resource.IncomingToken},
 	}
 
 	for _, test := range tests {
@@ -182,7 +233,7 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(bridge))
+			assert.NoError(t, r.Render(resource))
 			assert.True(t, tw.found)
 		})
 	}
@@ -190,15 +241,20 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+		OutgoingToken: "token",
+	}
 
 	tests := []struct {
 		name, content string
 		wantFound     bool
 	}{
-		{"name", bridge.Name.String(), true},
-		{"outgoing token", bridge.OutgoingToken, false},
+		{"name", resource.Name, true},
+		{"outgoing token", resource.OutgoingToken, false},
 	}
 
 	for _, test := range tests {
@@ -206,7 +262,7 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(&[]models.BridgeType{*bridge}))
+			assert.NoError(t, r.Render(&[]webpresenters.BridgeResource{resource}))
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}
@@ -250,7 +306,7 @@ func TestRendererTable_Render_Tx(t *testing.T) {
 
 	from := cltest.NewAddress()
 	to := cltest.NewAddress()
-	tx := presenters.EthTx{
+	tx := webpresenters.EthTxResource{
 		Hash:     cltest.NewHash(),
 		Nonce:    "1",
 		From:     &from,
@@ -276,7 +332,7 @@ func TestRendererTable_Render_Txs(t *testing.T) {
 	t.Parallel()
 
 	a := cltest.NewAddress()
-	txs := []presenters.EthTx{
+	txs := []webpresenters.EthTxResource{
 		{
 			Hash:     cltest.NewHash(),
 			Nonce:    "1",

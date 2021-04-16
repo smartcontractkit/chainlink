@@ -186,6 +186,7 @@ describe('generateTOMLDefinition', () => {
       type: 'offchainreporting',
       fluxMonitorSpec: null,
       directRequestSpec: null,
+      keeperSpec: null,
       schemaVersion: 1,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
@@ -261,6 +262,7 @@ maxTaskDuration = "10s"
         updatedAt: '2021-02-19T16:00:01.115227+08:00',
         minPayment: null,
       },
+      keeperSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -289,6 +291,77 @@ observationSource = """
     multiply [type=multiply times=100];
     fetch -> parse -> multiply;
 """
+`
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid Direct Request definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'DR Job Spec',
+      schemaVersion: 1,
+      type: 'directrequest',
+      fluxMonitorSpec: null,
+      keeperSpec: null,
+      directRequestSpec: {
+        initiator: 'runlog',
+        contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
+        createdAt: '2021-02-19T16:00:01.115227+08:00',
+      },
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\"hi\\": \\"hello\\"}"];\n    parse    [type=jsonparse path="data,result"];\n    multiply [type=multiply times=100];\n    fetch -> parse -> multiply;\n',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "directrequest"
+schemaVersion = 1
+name = "DR Job Spec"
+contractAddress = "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"
+maxTaskDuration = "10s"
+observationSource = """
+    fetch    [type=http method=POST url="http://localhost:8001" requestData="{\\\\"hi\\\\": \\\\"hello\\\\"}"];
+    parse    [type=jsonparse path="data,result"];
+    multiply [type=multiply times=100];
+    fetch -> parse -> multiply;
+"""
+`
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid Keeper definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'Keeper Job Spec',
+      schemaVersion: 1,
+      type: 'keeper',
+      fluxMonitorSpec: null,
+      keeperSpec: {
+        contractAddress: '0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba',
+        createdAt: '2021-04-05T15:21:30.392021+08:00',
+        fromAddress: '0xa8037A20989AFcBC51798de9762b351D63ff462e',
+        updatedAt: '2021-04-05T15:21:30.392021+08:00',
+      },
+      directRequestSpec: null,
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        id: '1',
+        dotDagSource: '',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "keeper"
+schemaVersion = 1
+name = "Keeper Job Spec"
+contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
+fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 `
 
     const output = generateTOMLDefinition(jobSpecAttributesInput)

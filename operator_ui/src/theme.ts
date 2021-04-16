@@ -44,6 +44,9 @@ const mainTheme: ThemeOptions = {
         Required<Required<ThemeOptions>['props']>['MuiGrid']
       >['spacing'],
     },
+    MuiCardHeader: {
+      titleTypographyProps: { color: 'secondary' },
+    },
   },
   palette: {
     action: {
@@ -112,6 +115,21 @@ const mainTheme: ThemeOptions = {
     MuiTableCell: {
       body: {
         fontSize: '1rem',
+      },
+    },
+    MuiCardHeader: {
+      root: {
+        borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+      },
+      action: {
+        marginTop: -2,
+        marginRight: 0,
+        '& >*': {
+          marginLeft: spacing.unit * 2,
+        },
+      },
+      subheader: {
+        marginTop: spacing.unit * 0.5,
       },
     },
   },

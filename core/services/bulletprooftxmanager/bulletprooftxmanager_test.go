@@ -176,6 +176,15 @@ func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
+		cltest.MustInsertFatalErrorEthTx(t, store, otherAddress)
+	}
+
+	t.Run("ignores fatally_errored transactions", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, maxUnconfirmedTransactions)
+		require.NoError(t, err)
+	})
+
 	// deliberately one extra to exceed limit
 	var n int64 = 0
 	for i := 0; i <= int(maxUnconfirmedTransactions); i++ {
@@ -213,6 +222,18 @@ func TestBulletproofTxManager_CheckOKToTransmit(t *testing.T) {
 		require.Error(t, err)
 
 		require.EqualError(t, err, fmt.Sprintf("cannot transmit eth transaction; there are currently %v unconfirmed transactions in the queue which exceeds the configured maximum of %v", maxUnconfirmedTransactions+1, maxUnconfirmedTransactions))
+	})
+
+	require.NoError(t, store.DB.Exec(`DELETE FROM eth_txes`).Error)
+	cltest.MustInsertInProgressEthTxWithAttempt(t, store, n, fromAddress)
+	n++
+	cltest.MustInsertUnstartedEthTx(t, store, fromAddress)
+
+	t.Run("unstarted and in_progress transactions count as unconfirmed", func(t *testing.T) {
+		err := utils.CheckOKToTransmit(ctx, db, fromAddress, 1)
+		require.Error(t, err)
+
+		require.EqualError(t, err, "cannot transmit eth transaction; there are currently 2 unconfirmed transactions in the queue which exceeds the configured maximum of 1")
 	})
 
 	t.Run("disables check with 0 limit", func(t *testing.T) {

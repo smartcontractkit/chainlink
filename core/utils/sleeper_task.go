@@ -4,6 +4,7 @@ package utils
 type SleeperTask interface {
 	Stop() error
 	WakeUp()
+	WakeUpIfStarted()
 }
 
 // Worker is a simple interface that represents some work to do repeatedly
@@ -50,6 +51,15 @@ func (s *sleeperTask) Stop() error {
 	close(s.chStop)
 	<-s.chDone
 	return nil
+}
+
+func (s *sleeperTask) WakeUpIfStarted() {
+	s.IfStarted(func() {
+		select {
+		case s.chQueue <- struct{}{}:
+		default:
+		}
+	})
 }
 
 // WakeUp wakes up the sleeper task, asking it to execute its Worker.

@@ -479,10 +479,13 @@ declare module 'core/store/models' {
   export type DirectRequestJobV2Spec = BaseJobSpecV2 & {
     type: 'directrequest'
     directRequestSpec: {
+      initiator: 'runlog'
+      contractAddress: common.Address
       createdAt: time.Time
     }
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null 
+    keeperSpec: null
   }  
 
   export type FluxMonitorJobV2Spec = BaseJobSpecV2 & {
@@ -501,6 +504,7 @@ declare module 'core/store/models' {
     }
     directRequestSpec: null
     offChainReportingOracleSpec: null
+    keeperSpec: null
   }
 
   export type OffChainReportingOracleJobV2Spec = BaseJobSpecV2 & {
@@ -523,9 +527,23 @@ declare module 'core/store/models' {
     } 
     directRequestSpec: null
     fluxMonitorSpec: null
+    keeperSpec: null
   }
 
-  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec
+  export type KeeperV2Spec = BaseJobSpecV2 & {
+    type: 'keeper',
+    keeperSpec: {
+      contractAddress: common.Address
+      fromAddress: common.Address
+      createdAt: time.Time
+      updatedAt: time.Time
+    }
+    directRequestSpec: null
+    fluxMonitorSpec: null
+    offChainReportingOracleSpec: null
+  }
+
+  export type JobSpecV2 = DirectRequestJobV2Spec | FluxMonitorJobV2Spec | OffChainReportingOracleJobV2Spec | KeeperV2Spec
 
   export interface OcrJobRun {
     outputs: PipelineTaskOutput[]
@@ -539,6 +557,18 @@ declare module 'core/store/models' {
       dotDagSource: string
     }
   }
+
+  export type LogConfigLevel = 'debug' | 'info' | 'warn' | 'error'
+
+  export interface LogConfig {
+     level: LogConfigLevel
+     sqlEnabled: boolean
+  }  
+
+  export interface LogConfigRequest {
+    level: LogConfigLevel
+    sqlEnabled: boolean
+  }  
 }
 
 export interface PipelineTaskRun {
@@ -549,3 +579,4 @@ export interface PipelineTaskRun {
   dotId: string
   type: string
 }
+

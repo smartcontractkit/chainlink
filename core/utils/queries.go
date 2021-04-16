@@ -20,7 +20,7 @@ func CheckOKToTransmit(ctx context.Context, db *sql.DB, fromAddress gethCommon.A
 		return nil
 	}
 	var rows *sql.Rows
-	rows, err = db.QueryContext(ctx, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'unconfirmed'`, fromAddress)
+	rows, err = db.QueryContext(ctx, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state IN ('unstarted', 'in_progress', 'unconfirmed')`, fromAddress)
 	if err != nil {
 		err = errors.Wrap(err, "bulletprooftxmanager.CheckOKToTransmit query failed")
 		return

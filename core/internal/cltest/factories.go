@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	pbormanuuid "github.com/pborman/uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -41,7 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	uuid "github.com/satori/go.uuid"
+	googleuuid "github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -296,7 +296,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID models.JobID,
+	jobID common.Hash,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -310,7 +310,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			models.IDToTopic(jobID),
+			jobID,
 		},
 	}
 }
@@ -514,11 +514,17 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address) models.EthTx {
-	timeNow := time.Now()
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	broadcastAt := time.Now()
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case time.Time:
+			broadcastAt = v
+		}
+	}
 	etx := NewEthTx(t, store, fromAddress)
 
-	etx.BroadcastAt = &timeNow
+	etx.BroadcastAt = &broadcastAt
 	n := nonce
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
@@ -592,6 +598,13 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	require.NoError(t, store.DB.Save(&attempt).Error)
 	etx, err := store.FindEthTxWithAttempts(etx.ID)
 	require.NoError(t, err)
+	return etx
+}
+
+func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
+	etx.State = models.EthTxUnstarted
+	require.NoError(t, store.DB.Save(&etx).Error)
 	return etx
 }
 
@@ -672,7 +685,9 @@ func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.
 func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
-	id := pbormanuuid.NewRandom()
+	//  < Geth 1.10 id type []byte
+	//  >= Geth 1.10 id type [16]byte
+	id := googleuuid.New()
 	k := &keystore.Key{
 		Id:         id,
 		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),

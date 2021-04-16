@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Radio from '@material-ui/core/Radio'
 import {
   JobSpecFormats,
@@ -8,7 +8,7 @@ import {
   isToml,
   getTaskList,
 } from './utils'
-import { ApiResponse } from 'utils/json-api-client'
+import { ApiResponse, BadRequestError } from 'utils/json-api-client'
 import Button from 'components/Button'
 import * as api from 'api'
 import { useDispatch } from 'react-redux'
@@ -28,7 +28,6 @@ import {
   FormControl,
   FormLabel,
   RadioGroup,
-  Divider,
   CardHeader,
   CircularProgress,
   Typography,
@@ -52,9 +51,6 @@ export const PERSIST_SPEC = 'persistSpec.'
 
 const styles = (theme: Theme) =>
   createStyles({
-    card: {
-      marginBottom: theme.spacing.unit * 3,
-    },
     loader: {
       position: 'absolute',
     },
@@ -149,30 +145,32 @@ export const New = ({
 }: {
   classes: WithStyles<typeof styles>['classes']
 }) => {
+  const dispatch = useDispatch()
+  const history = useHistory()
   const location = useLocation()
-  const [initialValues] = React.useState(() =>
+  const [initialValues] = useState(() =>
     getInitialValues({
       query: location.search,
     }),
   )
-  const [format, setFormat] = React.useState<JobSpecFormats>(
-    initialValues.format,
-  )
-  const [value, setValue] = React.useState<string>(initialValues.jobSpec)
-  const [valid, setValid] = React.useState<boolean>(true)
-  const [loading, setLoading] = React.useState<boolean>(false)
-  const [tasks, setTasks] = React.useState(() =>
+  const [format, setFormat] = useState<JobSpecFormats>(initialValues.format)
+  const [value, setValue] = useState<string>(initialValues.jobSpec)
+  const [valid, setValid] = useState<boolean>(true)
+  const [valueErrorMsg, setValueErrorMsg] = useState<string>('')
+  const [loading, setLoading] = useState<boolean>(false)
+  const [tasks, setTasks] = useState(() =>
     getTaskList({ value: initialValues.jobSpec }),
   )
-  const dispatch = useDispatch()
-  const history = useHistory()
 
-  React.useEffect(() => {
+  // Extract the tasks from the job spec to display in the preview
+  useEffect(() => {
     const timeout = setTimeout(() => setTasks(getTaskList({ value })), 500)
+
     return () => clearTimeout(timeout)
   }, [value, setTasks])
 
-  function handleFormat(_event: React.ChangeEvent<{}>, format: string) {
+  // Change the form to use either JSON or TOML format
+  function handleFormatChange(_event: React.ChangeEvent<{}>, format: string) {
     setValue(storage.get(`${PERSIST_SPEC}${format}`) || '')
     setFormat(format as JobSpecFormats)
     storage.set(SELECTED_FORMAT, format)
@@ -182,7 +180,8 @@ export const New = ({
     })
   }
 
-  function handleValue(event: React.ChangeEvent<HTMLTextAreaElement>) {
+  // Update the job spec value
+  function handleValueChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
     setValue(event.target.value)
     storage.set(`${PERSIST_SPEC}${format}`, event.target.value)
     setValid(true)
@@ -205,6 +204,12 @@ export const New = ({
         })
         .catch((error) => {
           dispatch(notifyError(ErrorMessage, error))
+          if (error instanceof BadRequestError) {
+            setValueErrorMsg('Invalid JSON')
+          } else {
+            setValueErrorMsg(error.toString())
+          }
+
           setValid(false)
         })
         .finally(() => {
@@ -217,9 +222,8 @@ export const New = ({
     <Content>
       <Grid container spacing={40}>
         <Grid item xs={12} lg={8}>
-          <Card className={classes.card}>
+          <Card>
             <CardHeader title="New Job" />
-            <Divider />
             <CardContent>
               <form noValidate onSubmit={handleSubmit}>
                 <Grid container>
@@ -229,7 +233,7 @@ export const New = ({
                       <RadioGroup
                         name="select-format"
                         value={format}
-                        onChange={handleFormat}
+                        onChange={handleFormatChange}
                         row
                       >
                         {jobSpecFormatList.map((format) => (
@@ -248,8 +252,8 @@ export const New = ({
                     <TextField
                       error={!valid}
                       value={value}
-                      onChange={handleValue}
-                      helperText={!valid && `Invalid ${format}`}
+                      onChange={handleValueChange}
+                      helperText={!valid && valueErrorMsg}
                       autoComplete="off"
                       label={`${format} blob`}
                       rows={10}
@@ -286,10 +290,10 @@ export const New = ({
             </CardContent>
           </Card>
         </Grid>
+
         <Grid item xs={12} lg={4}>
-          <Card style={{ overflow: 'visible' }} className={classes.card}>
+          <Card style={{ overflow: 'visible' }}>
             <CardHeader title="Task list preview" />
-            <Divider />
             {tasks.format === JobSpecFormats.JSON && tasks.list && (
               <TaskList tasks={tasks.list as TaskSpec[]} />
             )}

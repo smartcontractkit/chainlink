@@ -17,6 +17,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // EthBroadcaster monitors eth_txes for transactions that need to
@@ -86,9 +87,11 @@ func (eb *ethBroadcaster) Start() error {
 		return errors.Wrap(err, "EthBroadcaster could not start")
 	}
 
-	syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
-	if err := syncer.SyncAll(eb.ctx); err != nil {
-		return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+	if eb.config.EthNonceAutoSync() {
+		syncer := NewNonceSyncer(eb.store, eb.config, eb.ethClient)
+		if err := syncer.SyncAll(eb.ctx); err != nil {
+			return errors.Wrap(err, "EthBroadcaster failed to sync with on-chain nonce")
+		}
 	}
 
 	eb.wg.Add(1)
@@ -265,9 +268,7 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
 	}
 
-	ctx, cancel := context.WithTimeout(eb.ctx, maxEthNodeRequestTime)
-	defer cancel()
-	sendError := sendTransaction(ctx, eb.ethClient, attempt)
+	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
 
 	if sendError.IsTooExpensive() {
 		logger.Errorw("EthBroadcaster: transaction gas price was rejected by the eth node for being too high. Consider increasing your eth node's RPCTxFeeCap (it is suggested to run geth with no cap i.e. --rpc.gascap=0 --rpc.txfeecap=0)",
@@ -390,10 +391,10 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 	}
 	etx.State = models.EthTxInProgress
 	return eb.store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(attempt).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Create(attempt).Error; err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
-		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
 	})
 }
 
@@ -422,10 +423,10 @@ func saveAttempt(store *store.Store, etx *models.EthTx, attempt models.EthTxAtte
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
-		if err := tx.Save(etx).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Save(etx).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx")
 		}
-		if err := tx.Save(&attempt).Error; err != nil {
+		if err := tx.Omit(clause.Associations).Save(&attempt).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx_attempt")
 		}
 		for _, f := range callbacks {
@@ -473,7 +474,7 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import Button from 'components/Button'
 import { Title } from 'components/Title'
 import Content from 'components/Content'
@@ -53,8 +53,16 @@ function isJobSpecV2(job: CombinedJobs): job is JobSpecV2 {
   return job.type === JobSpecTypes.v2
 }
 
+function isDirectRequestJobSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'directrequest'
+}
+
 function isFluxMonitorJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'fluxmonitor'
+}
+
+function isKeeperSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'keeper'
 }
 
 function isOCRJobSpecV2(job: JobSpecV2) {
@@ -74,6 +82,9 @@ function getCreatedAt(job: CombinedJobs) {
 
       case 'directrequest':
         return job.attributes.directRequestSpec.createdAt
+
+      case 'keeper':
+        return job.attributes.keeperSpec.createdAt
     }
   } else {
     return new Date().toString()
@@ -107,17 +118,29 @@ const searchIncludes = (searchParam: string) => {
 }
 
 export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
+  if (search === '') {
+    return true
+  }
+
   if (isJobSpecV1(job)) {
     return matchV1Job(job, search)
   }
 
   if (isJobSpecV2(job)) {
+    if (isDirectRequestJobSpecV2(job)) {
+      return matchDirectRequest(job, search)
+    }
+
     if (isFluxMonitorJobSpecV2(job)) {
       return matchFluxMonitor(job, search)
     }
 
     if (isOCRJobSpecV2(job)) {
       return matchOCR(job, search)
+    }
+
+    if (isKeeperSpecV2(job)) {
+      return matchKeeper(job, search)
     }
   }
 
@@ -144,6 +167,25 @@ function matchV1Job(job: DirectRequest, term: string) {
 }
 
 /**
+ * matchDirectRequest determines whether the V2 Direct Request job matches the search
+ * terms.
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchDirectRequest(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'direct request', // Hardcoded to match the type column
+  ]
+
+  return dataset.some(match)
+}
+
+/**
  * matchFluxMonitor determines whether the Flux Monitor job matches the search
  * terms.
  *
@@ -164,7 +206,7 @@ function matchFluxMonitor(job: JobSpecV2, term: string) {
 }
 
 /**
- * matchOCR dettermines whether the OCR job matches the search terms
+ * matchOCR determines whether the OCR job matches the search terms
  *
  * @param job {JobSpecV2} The V2 Job Spec
  * @param term {string} The search term
@@ -196,6 +238,24 @@ function matchOCR(job: JobSpecV2, term: string) {
   return dataset.some(match)
 }
 
+/**
+ * matchKeeper determines whether the Keeper job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchKeeper(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [
+    job.id,
+    job.attributes.name || '',
+    'keeper', // Hardcoded to match the type column
+  ]
+
+  return dataset.some(match)
+}
+
 const styles = (theme: Theme) =>
   createStyles({
     card: {
@@ -221,9 +281,11 @@ export const JobsIndex = ({
     document.title = 'Jobs'
   }, [])
 
-  const jobFilter = React.useMemo(() => simpleJobFilter(search), [search])
+  const jobFilter = React.useMemo(() => simpleJobFilter(search.trim()), [
+    search,
+  ])
 
-  React.useEffect(() => {
+  useEffect(() => {
     getJobs().then(setJobs).catch(setError)
   }, [setError])
 

@@ -52,10 +52,12 @@ type EthTx struct {
 	Value          assets.Eth
 	GasLimit       uint64
 	Error          *string
-	BroadcastAt    *time.Time
-	CreatedAt      time.Time
-	State          EthTxState
-	EthTxAttempts  []EthTxAttempt `gorm:"->"`
+	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// In almost all cases it will be within a second or so of the actual send time.
+	BroadcastAt   *time.Time
+	CreatedAt     time.Time
+	State         EthTxState
+	EthTxAttempts []EthTxAttempt `gorm:"->"`
 }
 
 func (e EthTx) GetError() error {
@@ -150,6 +152,22 @@ func (h Head) IsInChain(blockHash common.Hash) bool {
 		}
 	}
 	return false
+}
+
+// HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
+// If not in chain, returns the zero hash
+func (h Head) HashAtHeight(blockNum int64) common.Hash {
+	for {
+		if h.Number == blockNum {
+			return h.Hash
+		}
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return common.Hash{}
 }
 
 // ChainLength returns the length of the chain followed by recursively looking up parents

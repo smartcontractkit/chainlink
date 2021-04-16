@@ -120,9 +120,15 @@ func FilterQueryFactory(i Initiator, from *big.Int, addresses ...common.Address)
 		q.Topics = make([][]common.Hash, len(i.Topics))
 		copy(q.Topics, i.Topics)
 	case initiationRequiresJobSpecID(i.Type):
+		jobIDFilters := JobSpecIDTopics(i.JobSpecID)
+
+		if !utils.IsEmpty(i.InitiatorParams.JobIDTopicFilter.UUID().Bytes()) {
+			jobIDFilters = append(jobIDFilters, JobSpecIDTopics(i.InitiatorParams.JobIDTopicFilter)...)
+		}
+
 		q.Topics = [][]common.Hash{
 			TopicsForInitiatorsWhichRequireJobSpecIDTopic[i.Type],
-			JobSpecIDTopics(i.JobSpecID),
+			jobIDFilters,
 		}
 	default:
 		return ethereum.FilterQuery{},
@@ -192,7 +198,12 @@ func (le InitiatorLogEvent) GetInitiator() Initiator {
 func (le InitiatorLogEvent) ForLogger(kvs ...interface{}) []interface{} {
 	output := []interface{}{
 		"job", le.Initiator.JobSpecID.String(),
-		"log", le.Log.BlockNumber,
+		"blockNum", le.Log.BlockNumber,
+		"blockHash", le.Log.BlockHash.Hex(),
+		"txHash", le.Log.TxHash.Hex(),
+		"txIndex", le.Log.TxIndex,
+		"logIndex", le.Log.Index,
+		"removed", le.Log.Removed,
 		"initiator", le.Initiator,
 	}
 	for index, topic := range le.Log.Topics {

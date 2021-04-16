@@ -6,12 +6,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/services"
+	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -87,6 +88,10 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	_, gethClient, _, assertMocksCalled := cltest.NewEthMocks(t)
 	defer assertMocksCalled()
 	store.EthClient = eth.NewClientWith(nil, gethClient)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(2),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 
@@ -149,6 +154,10 @@ func TestJobSubscriber_Connect_Disconnect(t *testing.T) {
 	gethClient := new(mocks.GethClient)
 	defer gethClient.AssertExpectations(t)
 	store.EthClient = eth.NewClientWith(nil, gethClient)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(500),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
 

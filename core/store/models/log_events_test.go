@@ -96,7 +96,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, models.JobID, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) models.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -125,7 +125,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 			defer cleanup()
 
 			js := test.job
-			log := test.logFactory(t, js.ID, cltest.NewAddress(), test.requester, 1, `{}`)
+			log := test.logFactory(t, models.IDToTopic(js.ID), cltest.NewAddress(), test.requester, 1, `{}`)
 
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
@@ -293,6 +293,67 @@ func TestFilterQueryFactory_InitiatorRunLog(t *testing.T) {
 		},
 	}
 	assert.Equal(t, want, filter)
+}
+
+func TestFilterQueryFactory_InitiatorVRFLog(t *testing.T) {
+	t.Parallel()
+
+	id, err := models.NewIDFromString("4a1eb0e8df314cb894024a38991cff0f")
+	require.NoError(t, err)
+	filterID, err := models.NewIDFromString("679fd3c51581478f89f95f5e24de5e09")
+	require.NoError(t, err)
+
+	t.Run("it only uses the jobID if no additional filter present", func(tt *testing.T) {
+		i := models.Initiator{
+			Type:      models.InitiatorRandomnessLog,
+			JobSpecID: id,
+		}
+		fromBlock := big.NewInt(42)
+		filter, err := models.FilterQueryFactory(i, fromBlock)
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
+			Topics: [][]common.Hash{
+				{
+					models.RandomnessRequestLogTopic,
+				}, {
+					common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+					common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+				},
+			},
+		}
+		assert.Equal(t, want, filter)
+	})
+
+	t.Run("it uses the optional additional jobID filer", func(tt *testing.T) {
+		i := models.Initiator{
+			Type:      models.InitiatorRandomnessLog,
+			JobSpecID: id,
+			InitiatorParams: models.InitiatorParams{
+				JobIDTopicFilter: filterID,
+			},
+		}
+		fromBlock := big.NewInt(42)
+		filter, err := models.FilterQueryFactory(i, fromBlock)
+		assert.NoError(t, err)
+
+		want := ethereum.FilterQuery{
+			FromBlock: fromBlock.Add(fromBlock, big.NewInt(1)),
+			Topics: [][]common.Hash{
+				{
+					models.RandomnessRequestLogTopic,
+				}, {
+					common.HexToHash("0x4a1eb0e8df314cb894024a38991cff0f00000000000000000000000000000000"),
+					common.HexToHash("0x3461316562306538646633313463623839343032346133383939316366663066"),
+					common.HexToHash("0x679fd3c51581478f89f95f5e24de5e0900000000000000000000000000000000"),
+					common.HexToHash("0x3637396664336335313538313437386638396639356635653234646535653039"),
+				},
+			},
+		}
+		assert.Equal(t, want, filter)
+	})
+
 }
 
 func TestRunLogEvent_ContractPayment(t *testing.T) {

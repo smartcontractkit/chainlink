@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink
 go 1.15
 
 require (
-	github.com/DATA-DOG/go-txdb v0.1.3
+	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/bitly/go-simplejson v0.5.0
@@ -11,7 +11,7 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.9.25
+	github.com/ethereum/go-ethereum v1.10.0
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
@@ -21,6 +21,8 @@ require (
 	github.com/gin-gonic/gin v1.6.0
 	github.com/go-gormigrate/gormigrate/v2 v2.0.0
 	github.com/gobuffalo/packr v1.30.1
+	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/google/uuid v1.1.5
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
@@ -37,7 +39,6 @@ require (
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.10.5
-	github.com/pborman/uuid v1.2.1
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
@@ -45,7 +46,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/shopspring/decimal v1.2.0
-	github.com/smartcontractkit/libocr v0.0.0-20210319202758-14aa50f869b7
+	github.com/smartcontractkit/libocr v0.0.0-20210329163356-c910dd9a5eae
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tevino/abool v0.0.0-20170917061928-9b9efcf221b5
@@ -72,5 +73,3 @@ require (
 	gorm.io/driver/sqlserver v1.0.5 // indirect
 	gorm.io/gorm v1.20.12
 )
-
-replace github.com/DATA-DOG/go-txdb => github.com/smartcontractkit/go-txdb v0.1.4-0.20210313013032-3a5ba5dff784
