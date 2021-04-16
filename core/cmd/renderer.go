@@ -93,10 +93,10 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderOCRKeys([]ocrkey.EncryptedKeyBundle{*typed})
 	case *[]ocrkey.EncryptedKeyBundle:
 		return rt.renderOCRKeys(*typed)
-	case *[]Job:
+	case *[]JobPresenter:
 		return rt.renderJobsV2(*typed)
-	case *Job:
-		return rt.renderJobsV2([]Job{*typed})
+	case *JobPresenter:
+		return rt.renderJobsV2([]JobPresenter{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
@@ -148,7 +148,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobsV2(jobs []Job) error {
+func (rt RendererTable) renderJobsV2(jobs []JobPresenter) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
 	table.SetAutoMergeCells(true)
 	for _, j := range jobs {

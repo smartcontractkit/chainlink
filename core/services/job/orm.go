@@ -322,9 +322,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 func loadDynamicConfigVars(cfg *storm.Config, os OffchainReportingOracleSpec) *OffchainReportingOracleSpec {
 	// Load dynamic variables
 	return &OffchainReportingOracleSpec{
-		IDEmbed: IDEmbed{
-			os.ID,
-		},
+		ID:                                     os.ID,
 		ContractAddress:                        os.ContractAddress,
 		P2PPeerID:                              os.P2PPeerID,
 		P2PBootstrapPeers:                      os.P2PBootstrapPeers,
