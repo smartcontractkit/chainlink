@@ -141,6 +141,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
 	if err != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		rs.jrm.RecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, err
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)

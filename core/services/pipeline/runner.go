@@ -33,7 +33,7 @@ type Runner interface {
 	InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
 
 	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
-	// It is a combination of ExecuteRun and InsertFinishedRunWithResults.
+	// It is a combination of ExecuteRun and InsertFinishedRun.
 	// Note that the spec MUST have a DOT graph for this to work.
 	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 }
@@ -366,8 +366,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, meta 
 	return result
 }
 
-// ExecuteAndInsertNewRun bypasses the job pipeline entirely.
-// It executes a run in memory then inserts the finished run/task run records, returning the final result
+// ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
 func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	var run Run
 	run.PipelineSpecID = spec.ID
@@ -384,7 +383,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, met
 	run.Outputs = finalResult.OutputsDB()
 	run.Errors = finalResult.ErrorsDB()
 
-	if runID, err = r.orm.InsertFinishedRunWithResults(ctx, run, trrs, saveSuccessfulTaskRuns); err != nil {
+	if runID, err = r.orm.InsertFinishedRun(ctx, run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 
@@ -394,7 +393,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, met
 func (r *runner) InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, r.config.DatabaseMaximumTxDuration())
 	defer cancel()
-	return r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs, saveSuccessfulTaskRuns)
+	return r.orm.InsertFinishedRun(dbCtx, run, trrs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) runReaper() {

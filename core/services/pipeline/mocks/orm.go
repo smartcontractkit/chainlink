@@ -114,8 +114,8 @@ func (_m *ORM) FindRun(id int64) (pipeline.Run, error) {
 	return r0, r1
 }
 
-// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
-func (_m *ORM) InsertFinishedRunWithResults(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
+// InsertFinishedRun provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
+func (_m *ORM) InsertFinishedRun(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(ctx, run, trrs, saveSuccessfulTaskRuns)
 
 	var r0 int64

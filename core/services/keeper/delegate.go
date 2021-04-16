@@ -15,6 +15,7 @@ import (
 type Delegate struct {
 	config          *orm.Config
 	db              *gorm.DB
+	jrm             job.ORM
 	pr              pipeline.Runner
 	ethClient       eth.Client
 	headBroadcaster *services.HeadBroadcaster
@@ -23,6 +24,7 @@ type Delegate struct {
 
 func NewDelegate(
 	db *gorm.DB,
+	jrm job.ORM,
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
@@ -32,6 +34,7 @@ func NewDelegate(
 	return &Delegate{
 		config:          config,
 		db:              db,
+		jrm:             jrm,
 		pr:              pr,
 		ethClient:       ethClient,
 		headBroadcaster: headBroadcaster,
@@ -57,16 +60,11 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Wrap(err, "unable to create keeper registry contract wrapper")
 	}
 
-	// Make sure we can read the contract
-	// Otherwise log a spec error.
-	if _, err := contract.GetConfig(nil); err != nil {
-		return services, err
-	}
-
 	registrySynchronizer := NewRegistrySynchronizer(
 		spec,
 		contract,
 		d.db,
+		d.jrm,
 		d.headBroadcaster,
 		d.logBroadcaster,
 		d.config.KeeperRegistrySyncInterval(),

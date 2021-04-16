@@ -191,10 +191,13 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 	f := time.Now()
 	_, err = executor.pr.InsertFinishedRun(ctxCombined, pipeline.Run{
 		PipelineSpecID: executor.job.PipelineSpecID,
-		Errors:         pipeline.RunErrors{null.String{}},
-		Outputs:        pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
-		CreatedAt:      start,
-		FinishedAt:     &f,
+		Meta: pipeline.JSONSerializable{
+			Val: map[string]interface{}{"eth_tx_id": etx.ID},
+		},
+		Errors:     pipeline.RunErrors{null.String{}},
+		Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+		CreatedAt:  start,
+		FinishedAt: &f,
 	}, nil, false)
 	if err != nil {
 		logger.Error(err)

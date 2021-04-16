@@ -203,7 +203,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 		}
 	)
 
@@ -510,7 +510,7 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name
 // Only used for testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
 	if !app.Store.Config.Dev() {
-		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to used.")
+		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
 	}
 	jb, err := app.JobORM.FindJob(jobID)
 	if err != nil {

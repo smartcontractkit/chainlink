@@ -30,7 +30,7 @@ func (_m *Runner) Close() error {
 	return r0
 }
 
-// ExecuteAndInsertNewRun provides a mock function with given fields: ctx, spec, meta, l, saveSuccessfulTaskRuns
+// ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, meta, l, saveSuccessfulTaskRuns
 func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, meta pipeline.JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.FinalResult, error) {
 	ret := _m.Called(ctx, spec, meta, l, saveSuccessfulTaskRuns)
 
@@ -81,7 +81,7 @@ func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, meta pipel
 	return r0, r1
 }
 
-// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
+// InsertFinishedRun provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
 func (_m *Runner) InsertFinishedRun(ctx context.Context, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	ret := _m.Called(ctx, run, trrs, saveSuccessfulTaskRuns)
 

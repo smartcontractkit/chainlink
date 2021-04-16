@@ -166,6 +166,9 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 	if err != nil {
 		return etx, errors.Wrap(err, "keeper failed to insert eth_tx")
 	}
+	if etx.ID == 0 {
+		return etx, errors.New("a keeper eth_tx with insufficient eth is present, not creating a new eth_tx")
+	}
 	err = korm.DB.First(&etx).Error
 	if err != nil {
 		return etx, errors.Wrap(err, "keeper find eth_tx after inserting")

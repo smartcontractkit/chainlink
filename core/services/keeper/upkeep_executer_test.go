@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -78,7 +80,8 @@ func Test_UpkeepExecutor_PerformsUpkeep_Happy(t *testing.T) {
 		assertLastRunHeight(t, store, upkeep, 20)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
 		require.Len(t, runs, 1)
-		t.Log(runs[0].Outputs.Val)
+		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
+		assert.True(t, ok)
 	})
 
 	t.Run("skips upkeep on non-triggering block number", func(t *testing.T) {
