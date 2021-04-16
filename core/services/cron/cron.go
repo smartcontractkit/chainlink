@@ -21,7 +21,6 @@ type CronJob struct {
 	runner   pipeline.Runner
 	Schedule string
 
-	jobSpec      job.CronSpec
 	pipelineSpec pipeline.Spec
 }
 
@@ -90,7 +89,6 @@ func (cron *CronJob) Close() error {
 
 // run() runs the cron jobSpec in the pipeline runner
 func (cron *CronJob) run() {
-	defer cron.runner.Close()
 
 	c := cronParser.New()
 	_, err := c.AddFunc(cron.Schedule, func() {
@@ -104,7 +102,7 @@ func (cron *CronJob) run() {
 
 func (cron *CronJob) runPipeline() {
 	ctx := context.Background()
-	_, _, err := cron.runner.ExecuteAndInsertNewRun(ctx, cron.pipelineSpec, *cron.logger)
+	_, _, err := cron.runner.ExecuteAndInsertNewRun(ctx, cron.pipelineSpec, pipeline.JSONSerializable{}, *cron.logger, true)
 	if err != nil {
 		cron.logger.Errorf("Error executing new run for jobSpec ID %v", cron.jobID)
 	}

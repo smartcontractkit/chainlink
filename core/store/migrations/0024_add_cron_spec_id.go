@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const up21 = `
+const up24 = `
 		CREATE TABLE cron_specs (
 			id BIGSERIAL PRIMARY KEY,
 			cron_schedule text NOT NULL,
@@ -20,7 +20,7 @@ const up21 = `
 		);
 	`
 
-const down21 = `
+const down24 = `
 		DROP TABLE IF EXISTS cron_specs;
 	
 		ALTER TABLE jobs DROP CONSTRAINT chk_only_one_spec,
@@ -33,12 +33,12 @@ const down21 = `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0021_add_cron_spec_tables",
+		ID: "0024_add_cron_spec_tables",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up21).Error
+			return db.Exec(up24).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down21).Error
+			return db.Exec(down24).Error
 		},
 	})
 }
