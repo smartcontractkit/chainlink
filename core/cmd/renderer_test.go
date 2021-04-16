@@ -89,16 +89,18 @@ func TestRendererTable_RenderJobsV2(t *testing.T) {
 
 	buffer := bytes.NewBufferString("")
 	r := cmd.RendererTable{Writer: buffer}
-	jobs := []cmd.Job{
+	jobs := []cmd.JobPresenter{
 		{
-			JAID: cmd.JAID{ID: "1"},
-			Name: "Test Job",
-			Type: cmd.DirectRequestJob,
-			DirectRequestSpec: &cmd.DirectRequestSpec{
-				CreatedAt: now,
-			},
-			PipelineSpec: cmd.PipelineSpec{
-				DotDAGSource: "    ds1          [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
+			JobResource: webpresenters.JobResource{
+				JAID: webpresenters.JAID{ID: "1"},
+				Name: "Test Job",
+				Type: webpresenters.DirectRequestJobSpec,
+				DirectRequestSpec: &webpresenters.DirectRequestSpec{
+					CreatedAt: now,
+				},
+				PipelineSpec: webpresenters.PipelineSpec{
+					DotDAGSource: "    ds1          [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
+				},
 			},
 		},
 	}
