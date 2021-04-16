@@ -132,7 +132,8 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	return rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	return err
 }
 
 // newRegistryFromChain returns a Registry stuct with fields synched from those on chain

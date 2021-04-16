@@ -185,6 +185,21 @@ func (h Head) ChainLength() uint32 {
 	return l
 }
 
+// ChainHashes returns an array of block hashes by recursively looking up parents
+func (h Head) ChainHashes() []common.Hash {
+	var hashes []common.Hash
+
+	for {
+		hashes = append(hashes, h.Hash)
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return hashes
+}
+
 // String returns a string representation of this number.
 func (h *Head) String() string {
 	return h.ToInt().String()
