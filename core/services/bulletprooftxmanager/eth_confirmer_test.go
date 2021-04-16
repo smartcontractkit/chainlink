@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -119,7 +120,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 }
 
-func TestEthConfirmer_CheckForReceipts(t *testing.T) {
+func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -138,6 +139,8 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	blockNum := int64(0)
 
 	t.Run("only finds eth_txes in unconfirmed state with at least one broadcast attempt", func(t *testing.T) {
+
+		logger.Warnf("=================--v")
 		cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		mustInsertInProgressEthTx(t, store, nonce, fromAddress)
 		nonce++

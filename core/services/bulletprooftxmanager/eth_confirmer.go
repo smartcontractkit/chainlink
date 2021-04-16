@@ -217,6 +217,15 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
+
+	logger.Warnf("================= CheckForReceipts")
+	if len(attempts) > 0 {
+		logger.Warnf("================= attempts[0].EthTxID %v", attempts[0].EthTxID)
+		logger.Warnf("================= attempts[0].EthTx.ID %v", attempts[0].EthTx.ID)
+		logger.Warnf("================= attempts[0].EthTx.FromAddress %v", attempts[0].EthTx.FromAddress)
+		logger.Warnf("================= len(attempts[0].EthReceipts) %v", len(attempts[0].EthReceipts))
+	}
+
 	if err != nil {
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
 	}
@@ -297,6 +306,7 @@ func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []mod
 
 func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []models.EthTxAttempt, err error) {
 	err = ec.store.DB.
+		Joins("EthTx").
 		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").
 		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
 		Where("eth_tx_attempts.state != 'insufficient_eth'").
