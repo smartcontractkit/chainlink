@@ -232,7 +232,6 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	}
 
 	for from, attempts := range attemptsByAddress {
-
 		latestBlockNonce, err := ec.getNonceForLatestBlock(ctx, from)
 		logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, and latest nonce is %v",
 			len(attempts), from, latestBlockNonce), "blockNum", blockNum)
