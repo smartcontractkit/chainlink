@@ -33,7 +33,7 @@ const down24 = `
 
 func init() {
 	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0021_add_cron_spec_tables",
+		ID: "0024_add_cron_spec_tables",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up24).Error
 		},
