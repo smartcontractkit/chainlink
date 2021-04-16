@@ -104,7 +104,7 @@ func (cron *CronJob) run() {
 
 func (cron *CronJob) runPipeline() {
 	ctx := context.Background()
-	_, _, err := cron.runner.ExecuteAndInsertNewRun(ctx, cron.pipelineSpec, *cron.logger)
+	_, _, err := cron.runner.ExecuteAndInsertNewRun(ctx, cron.pipelineSpec, pipeline.JSONSerializable{}, *cron.logger, true)
 	if err != nil {
 		cron.logger.Errorf("Error executing new run for jobSpec ID %v", cron.jobID)
 	}
