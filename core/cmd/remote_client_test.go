@@ -1,12 +1,9 @@
 package cmd_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
@@ -797,49 +794,6 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 
 	require.NoError(t, client.RemoteLogin(c))
 	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
-}
-
-func TestClient_ListJobsV2(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	// Create the job
-	toml, err := ioutil.ReadFile("./testdata/direct-request-spec.toml")
-	assert.NoError(t, err)
-
-	request, err := json.Marshal(models.CreateJobSpecRequest{
-		TOML: string(toml),
-	})
-	assert.NoError(t, err)
-
-	resp, err := client.HTTP.Post("/v2/jobs", bytes.NewReader(request))
-	assert.NoError(t, err)
-
-	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
-
-	job := cmd.Job{}
-	err = web.ParseJSONAPIResponse(responseBodyBytes, &job)
-	assert.NoError(t, err)
-
-	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
-	jobs := *r.Renders[0].(*[]cmd.Job)
-	require.Equal(t, 1, len(jobs))
-	assert.Equal(t, job.ID, jobs[0].ID)
-}
-
-func TestClient_CreateJobV2(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
-	require.NoError(t, err)
 }
 
 func TestClient_AutoLogin(t *testing.T) {

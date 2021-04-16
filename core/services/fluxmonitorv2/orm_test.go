@@ -138,12 +138,12 @@ func makeJob(t *testing.T) *job.Job {
 	t.Helper()
 
 	return &job.Job{
-		IDEmbed:       job.IDEmbed{ID: 1},
+		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
 		Pipeline:      *pipeline.NewTaskDAG(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
-			IDEmbed:           job.IDEmbed{ID: 2},
+			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
 			Precision:         2,
 			Threshold:         0.5,
