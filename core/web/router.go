@@ -302,7 +302,6 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		AuthenticateByToken,
 		AuthenticateBySession,
 	))
-	// TODO: move to v2 for web
 	userOrEI.POST("/specs/:SpecID/runs", jr.Create)
 	userOrEI.GET("/ping", ping.Show)
 }

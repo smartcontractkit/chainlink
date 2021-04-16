@@ -25,7 +25,6 @@ type            = "cronjob"
 schemaVersion   = 1
 name            = "example cron spec"
 cronSchedule 	= "0 0 0 1 1 *"
-oraclePayment 	= 1
 observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
     ds_parse    [type=jsonparse path="data,price"];
@@ -51,7 +50,6 @@ type            = "cronjob"
 schemaVersion   = 1
 name            = "invalid cron spec"
 cronSchedule	= "x x"
-oraclePayment 	= 1
 observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
     ds_parse    [type=jsonparse path="data,price"];
