@@ -1,1 +1,1 @@
-declare module 'react-time-ago/no-tooltip'
+declare module 'react-time-ago'
