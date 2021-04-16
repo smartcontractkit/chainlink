@@ -20,15 +20,15 @@ const up24 = `
 		);
 	`
 
-const down24 = `
-		DROP TABLE IF EXISTS cron_specs;
-	
+const down24 = `	
 		ALTER TABLE jobs DROP CONSTRAINT chk_only_one_spec,
 		ADD CONSTRAINT chk_only_one_spec CHECK (
 			num_nonnulls(offchainreporting_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id, keeper_spec_id) = 1
 		);
 	
-		ALTER TABLE jobs DROP COLUMN cron_spec_id integer;
+		ALTER TABLE jobs DROP COLUMN cron_spec_id;
+
+		DROP TABLE IF EXISTS cron_specs;
 	`
 
 func init() {
