@@ -43,7 +43,7 @@ describe('pages/Jobs/Show', () => {
     await syncFetch(wrapper)
     expect(wrapper.text()).toContain('c60b9927eeae43168ddbe92584937b1b')
     expect(wrapper.text()).toContain('Initiatorweb')
-    expect(wrapper.text()).toContain('Created a minute ago')
+    expect(wrapper.text()).toContain('Created 1 minute ago')
     expect(wrapper.text()).toContain('1.000000')
     expect(wrapper.text()).toContain('Httpget')
     expect(wrapper.text()).toContain('Minimum Payment100 Link')
