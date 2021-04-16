@@ -28,7 +28,7 @@ Acceptance can be accomplished by using the `acceptance` command.
 - The explorer can be reached at `http://localhost:8080`
 - The chainlink node can be reached at `http://localhost:6688`
 
-Credentials for logging into the operator-ui can be found [here](../../core/internals/fixtures/apicredentials)
+Credentials for logging into the operator-ui can be found [here](../../tools/secrets/apicredentials)
 
 ###
 
