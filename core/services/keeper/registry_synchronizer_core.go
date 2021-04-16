@@ -90,7 +90,7 @@ func (rs *RegistrySynchronizer) Start() error {
 				keeper_registry_wrapper.KeeperRegistryUpkeepRegistered{},
 				keeper_registry_wrapper.KeeperRegistryUpkeepPerformed{},
 			},
-			NumConfirmations: 1,
+			NumConfirmations: rs.minConfirmations,
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
 		hbUnsubscribe := rs.headBroadcaster.Subscribe(rs)
