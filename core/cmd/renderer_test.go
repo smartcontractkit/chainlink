@@ -186,14 +186,18 @@ func (w *testWriter) Write(actual []byte) (int, error) {
 
 func TestRendererTable_RenderBridgeShow(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := &webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+	}
 
 	tests := []struct {
 		name, content string
 	}{
-		{"name", bridge.Name.String()},
-		{"outgoing token", bridge.OutgoingToken},
+		{"name", resource.Name},
+		{"outgoing token", resource.OutgoingToken},
 	}
 
 	for _, test := range tests {
@@ -201,7 +205,7 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(bridge))
+			assert.NoError(t, r.Render(resource))
 			assert.True(t, tw.found)
 		})
 	}
@@ -209,15 +213,19 @@ func TestRendererTable_RenderBridgeShow(t *testing.T) {
 
 func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 	t.Parallel()
-	bridge, _ := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := &webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+	}
 
 	tests := []struct {
 		name, content string
 	}{
-		{"name", bridge.Name.String()},
-		{"outgoing token", bridge.OutgoingToken},
-		{"incoming token", bridge.IncomingToken},
+		{"name", resource.Name},
+		{"outgoing token", resource.OutgoingToken},
+		{"incoming token", resource.IncomingToken},
 	}
 
 	for _, test := range tests {
@@ -225,7 +233,7 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(bridge))
+			assert.NoError(t, r.Render(resource))
 			assert.True(t, tw.found)
 		})
 	}
@@ -233,15 +241,20 @@ func TestRendererTable_RenderBridgeAdd(t *testing.T) {
 
 func TestRendererTable_RenderBridgeList(t *testing.T) {
 	t.Parallel()
-	_, bridge := cltest.NewBridgeType(t, "hapax", "http://hap.ax")
-	bridge.Confirmations = 0
+
+	resource := webpresenters.BridgeResource{
+		Name:          "hapax",
+		URL:           "http://hap.ax",
+		Confirmations: 0,
+		OutgoingToken: "token",
+	}
 
 	tests := []struct {
 		name, content string
 		wantFound     bool
 	}{
-		{"name", bridge.Name.String(), true},
-		{"outgoing token", bridge.OutgoingToken, false},
+		{"name", resource.Name, true},
+		{"outgoing token", resource.OutgoingToken, false},
 	}
 
 	for _, test := range tests {
@@ -249,7 +262,7 @@ func TestRendererTable_RenderBridgeList(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(&[]models.BridgeType{*bridge}))
+			assert.NoError(t, r.Render(&[]webpresenters.BridgeResource{resource}))
 			assert.Equal(t, test.wantFound, tw.found)
 		})
 	}
