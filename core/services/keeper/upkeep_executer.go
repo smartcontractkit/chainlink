@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 
@@ -156,7 +157,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 
 	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugw("UpkeepExecutor: checkUpkeep failed", logArgs...)
+		logger.Debugw(fmt.Sprintf("UpkeepExecutor: checkUpkeep failed: %v", err), logArgs...)
 		return
 	}
 

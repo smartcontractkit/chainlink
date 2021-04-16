@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -477,9 +478,16 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	}(time.Now(), int64(head.Number))
 	prevHead := ht.HighestSeenHead()
 
+	var prevHeadHash *common.Hash
+	if prevHead != nil {
+		prevHeadHash = &prevHead.Hash
+	}
 	ht.logger.Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
 		"blockHash", head.Hash,
+		"prevHeadHash", prevHeadHash,
+		"parentHeadHash", head.ParentHash,
+		"chainLength", head.ChainLength(),
 	)
 
 	err := ht.Save(ctx, head)

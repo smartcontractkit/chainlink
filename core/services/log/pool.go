@@ -1,6 +1,8 @@
 package log
 
 import (
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -36,7 +38,12 @@ func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations ui
 				logsToKeep = append(logsToKeep, log)
 			}
 		}
-		logger.Tracew("LogBroadcaster: latestBlockNum > highestNumConfirmations so deleting older logs", "latestBlockNum", latestBlockNum, "highestNumConfirmations", highestNumConfirmations, "remainingLogsCount", len(logsToKeep))
+		logger.Tracew(fmt.Sprintf("LogBroadcaster: Will delete %v older logs", len(pool.allLogs)-len(logsToKeep)),
+			"latestBlockNum", latestBlockNum,
+			"highestNumConfirmations", highestNumConfirmations,
+			"remainingLogsCount", len(logsToKeep),
+			"finalityDepth", finalityDepth,
+		)
 		pool.allLogs = logsToKeep
 	}
 	return logsToReturn

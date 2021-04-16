@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -252,9 +253,16 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 				update.toUpdate.lowestAllowedBlockNumber = update.newLowestAllowedBlockNumber
 			}
 		} else {
+
 			logger.Debugw("LogBroadcaster: Chain reorg - resetting lowestAllowedBlockNumber",
-				"blockNumber", latestHead.Number, "blockHash", latestHead.Hash,
-				"lastSeenChainNumber", update.toUpdate.lastSeenChain.Number, "lastSeenChainHash", update.toUpdate.lastSeenChain.Hash)
+				"blockNumber", latestHead.Number,
+				"blockHash", latestHead.Hash,
+				"lastSeenChainNumber", update.toUpdate.lastSeenChain.Number,
+				"lastSeenChainHash", update.toUpdate.lastSeenChain.Hash,
+				"chainLength", fmt.Sprintf("%v", latestHead.ChainLength()),
+				"chainHashes", fmt.Sprintf("%v", latestHead.ChainHashes()),
+			)
+
 			// re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
 			update.toUpdate.lowestAllowedBlockNumber = 0
 		}
