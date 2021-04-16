@@ -1,8 +1,6 @@
 package cron
 
 import (
-	"github.com/smartcontractkit/chainlink/core/store"
-
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -10,7 +8,6 @@ import (
 
 type Delegate struct {
 	pipelineRunner pipeline.Runner
-	store          store.Store
 }
 
 func NewDelegate(pipelineRunner pipeline.Runner) *Delegate {

@@ -21,7 +21,6 @@ type CronJob struct {
 	runner   pipeline.Runner
 	Schedule string
 
-	jobSpec      job.CronSpec
 	pipelineSpec pipeline.Spec
 }
 
@@ -90,7 +89,6 @@ func (cron *CronJob) Close() error {
 
 // run() runs the cron jobSpec in the pipeline runner
 func (cron *CronJob) run() {
-	defer cron.runner.Close()
 
 	c := cronParser.New()
 	_, err := c.AddFunc(cron.Schedule, func() {
