@@ -1,4 +1,4 @@
-package cron
+package cron_test
 
 import (
 	"regexp"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 )
 
@@ -24,7 +25,6 @@ type            = "cronjob"
 schemaVersion   = 1
 name            = "example cron spec"
 cronSchedule 	= "0 0 0 1 1 *"
-toAddress       = "0xc1912fEE45d61C87Cc5EA59DaE31190FFFFf232d"
 oraclePayment 	= 1
 observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
@@ -51,7 +51,6 @@ type            = "cronjob"
 schemaVersion   = 1
 name            = "invalid cron spec"
 cronSchedule	= "x x"
-toAddress       = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 oraclePayment 	= 1
 observationSource   = """
     ds          [type=http method=GET url="https://chain.link/ETH-USD"];
@@ -69,7 +68,7 @@ observationSource   = """
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			s, err := ValidateCronSpec(tc.toml)
+			s, err := cron.ValidateCronSpec(tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}
