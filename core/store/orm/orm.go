@@ -468,15 +468,11 @@ WHERE run_results.id = updates.id
 // CreateJobRun inserts a new JobRun
 func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 	return orm.convenientTransaction(func(tx *gorm.DB) error {
-		now := time.Now()
-
-		replaceUnsetCreatedAt(&run.RunRequest.CreatedAt, now)
 		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&run.RunRequest).Error
 		if err != nil {
 			return err
 		}
 
-		replaceUnsetCreatedAt(&run.Result.CreatedAt, now)
 		err = tx.Create(&run.Result).Error
 		if err != nil {
 			return err
@@ -484,20 +480,17 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 
 		run.RunRequestID = clnull.Int64From(run.RunRequest.ID)
 		run.ResultID = clnull.Int64From(run.Result.ID)
-		replaceUnsetCreatedAt(&run.CreatedAt, now)
 		err = tx.Create(run).Error
 		if err != nil {
 			return err
 		}
 
 		for i := range run.TaskRuns {
-			replaceUnsetCreatedAt(&run.TaskRuns[i].Result.CreatedAt, now)
 			err = tx.Create(&run.TaskRuns[i].Result).Error
 			if err != nil {
 				return err
 			}
 
-			replaceUnsetCreatedAt(&run.TaskRuns[i].CreatedAt, now)
 			run.TaskRuns[i].JobRunID = run.ID
 			run.TaskRuns[i].ResultID = clnull.Int64From(run.TaskRuns[i].Result.ID)
 			err = tx.Create(&run.TaskRuns[i]).Error
@@ -508,12 +501,6 @@ func (orm *ORM) CreateJobRun(run *models.JobRun) error {
 
 		return nil
 	})
-}
-
-func replaceUnsetCreatedAt(createdAt *time.Time, now time.Time) {
-	if *createdAt == (time.Time{}) {
-		*createdAt = now
-	}
 }
 
 // LinkEarnedFor shows the total link earnings for a job
@@ -776,15 +763,12 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 		return err
 	}
 
-	now := time.Now()
-	replaceUnsetCreatedAt(&job.CreatedAt, now)
 	err := tx.Create(job).Error
 	if err != nil {
 		return nil
 	}
 
 	for i := range job.Tasks {
-		replaceUnsetCreatedAt(&job.Tasks[i].CreatedAt, now)
 		job.Tasks[i].JobSpecID = job.ID
 		err := tx.Create(&job.Tasks[i]).Error
 		if err != nil {
@@ -793,7 +777,6 @@ func (orm *ORM) createJob(tx *gorm.DB, job *models.JobSpec) error {
 	}
 
 	for i := range job.Initiators {
-		replaceUnsetCreatedAt(&job.Initiators[i].CreatedAt, now)
 		job.Initiators[i].JobSpecID = job.ID
 		err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&job.Initiators[i]).Error
 		if err != nil {
