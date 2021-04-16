@@ -820,6 +820,9 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 		Registry:   registry,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
+	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
+	require.NoError(t, err)
+	upkeep.PositioningConstant = positioningConstant
 	err = store.DB.Create(&upkeep).Error
 	require.NoError(t, err)
 	return upkeep

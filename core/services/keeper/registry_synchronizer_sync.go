@@ -105,7 +105,7 @@ func (rs *RegistrySynchronizer) syncUpkeep(registry Registry, upkeepID int64) er
 	if err != nil {
 		return err
 	}
-	positioningConstant, err := calcPositioningConstant(upkeepID, registry.ContractAddress)
+	positioningConstant, err := CalcPositioningConstant(upkeepID, registry.ContractAddress)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 }
 
 // the positioning constant is fixed because upkeepID and registryAddress are immutable
-func calcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address) (int32, error) {
+func CalcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address) (int32, error) {
 	upkeepBytes := make([]byte, binary.MaxVarintLen64)
 	binary.PutVarint(upkeepBytes, upkeepID)
 	bytesToHash := utils.ConcatBytes(upkeepBytes, registryAddress.Bytes())
@@ -180,6 +180,6 @@ func calcPositioningConstant(upkeepID int64, registryAddress models.EIP55Address
 	if err != nil {
 		return 0, err
 	}
-	constant := binary.BigEndian.Uint32(checksum[:4])
+	constant := binary.BigEndian.Uint16(checksum[:2])
 	return int32(constant), nil
 }
