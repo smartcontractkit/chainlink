@@ -9,11 +9,16 @@ import (
 	"strconv"
 
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 )
+
+type P2PKeyPresenter struct {
+	JAID
+	presenters.P2PKeyResource
+}
 
 // ListP2PKeys retrieves a list of all P2P keys
 func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
@@ -27,8 +32,8 @@ func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
 		}
 	}()
 
-	var keys []p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &keys)
+	var presenters []P2PKeyPresenter
+	return cli.renderAPIResponse(resp, &presenters)
 }
 
 // CreateP2PKey creates a new P2P key
@@ -43,8 +48,8 @@ func (cli *Client) CreateP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key, "Created P2P keypair")
+	var presenter P2PKeyPresenter
+	return cli.renderAPIResponse(resp, &presenter, "Created P2P keypair")
 }
 
 // DeleteP2PKey deletes a P2P key,
@@ -77,8 +82,8 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key, "P2P key deleted")
+	var presenter P2PKeyPresenter
+	return cli.renderAPIResponse(resp, &presenter, "P2P key deleted")
 }
 
 // ImportP2PKey imports and stores a P2P key,
@@ -114,8 +119,8 @@ func (cli *Client) ImportP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var key p2pkey.EncryptedP2PKey
-	return cli.renderAPIResponse(resp, &key, "🔑 Imported P2P key")
+	var presenter P2PKeyPresenter
+	return cli.renderAPIResponse(resp, &presenter, "🔑 Imported P2P key")
 }
 
 // ExportP2PKey exports a P2P key,
