@@ -26,7 +26,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		return nil, errors.Errorf("services.Delegate expects a *jobSpec.CronSpec to be present, got %v", spec)
 	}
 
-	cron, err := NewFromJobSpec(spec, d.pipelineRunner)
+	cron, err := NewCronFromJobSpec(spec, d.pipelineRunner)
 	if err != nil {
 		return nil, err
 	}
