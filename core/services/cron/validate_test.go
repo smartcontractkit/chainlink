@@ -23,13 +23,12 @@ func TestValidateCronJobSpec(t *testing.T) {
 			toml: `
 type            = "cron"
 schemaVersion   = 1
-name            = "example cron spec"
-cronSchedule 	= "0 0 0 1 1 *"
+schedule	 	= "0 0 0 1 1 *"
 observationSource   = """
-    ds          [type=http method=GET url="https://chain.link/ETH-USD"];
-    ds_parse    [type=jsonparse path="data,price"];
-    ds_multiply [type=multiply times=100];
-    ds -> ds_parse -> ds_multiply;
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
@@ -47,13 +46,12 @@ observationSource   = """
 			toml: `
 type            = "cron"
 schemaVersion   = 1
-name            = "invalid cron spec"
-cronSchedule	= "x x"
+schedule		= "x x"
 observationSource   = """
-    ds          [type=http method=GET url="https://chain.link/ETH-USD"];
-    ds_parse    [type=jsonparse path="data,price"];
-    ds_multiply [type=multiply times=100];
-    ds -> ds_parse -> ds_multiply;
+ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+ds_parse    [type=jsonparse path="data,price"];
+ds_multiply [type=multiply times=100];
+ds -> ds_parse -> ds_multiply;
 """
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {

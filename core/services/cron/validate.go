@@ -14,18 +14,18 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 
 	tree, err := toml.Load(tomlString)
 	if err != nil {
-		return jb, err
+		return jb, errors.Wrap(err, "toml error on load")
 	}
 
 	err = tree.Unmarshal(&jb)
 	if err != nil {
-		return jb, err
+		return jb, errors.Wrap(err, "toml unmarshal error on spec")
 	}
 
 	var spec job.CronSpec
 	err = tree.Unmarshal(&spec)
 	if err != nil {
-		return jb, err
+		return jb, errors.Wrap(err, "toml unmarshal error on job")
 	}
 
 	jb.CronSpec = &spec

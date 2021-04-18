@@ -309,7 +309,7 @@ func TestMigrate_CreateCronTables(t *testing.T) {
 	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
 
 	cs := job.CronSpec{
-		IDEmbed:      job.IDEmbed{ID: int32(1)},
+		ID:           int32(1),
 		CronSchedule: "0 0 0 1 1 *",
 	}
 	require.NoError(t, orm.DB.Create(&cs).Error)

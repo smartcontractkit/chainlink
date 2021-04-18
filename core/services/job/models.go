@@ -27,8 +27,8 @@ type Job struct {
 	ID                            int32 `toml:"-" gorm:"primary_key"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
-  CronSpecId                    *int32                       `json:"-"`
-	CronSpec                      *CronSpec                    `json:"cronSpec"`
+	CronSpecId                    *int32
+	CronSpec                      *CronSpec
 	DirectRequestSpecID           *int32
 	DirectRequestSpec             *DirectRequestSpec
 	FluxMonitorSpecID             *int32
@@ -152,9 +152,33 @@ func (DirectRequestSpec) TableName() string {
 
 type CronSpec struct {
 	ID           int32     `toml:"-" gorm:"primary_key"`
-	CronSchedule string    `json:"schedule" toml:"schedule"`
-	CreatedAt    time.Time `json:"createdAt" toml:"-"`
-	UpdatedAt    time.Time `json:"updatedAt" toml:"-"`
+	CronSchedule string    `toml:"schedule"`
+	CreatedAt    time.Time `toml:"-"`
+	UpdatedAt    time.Time `toml:"-"`
+}
+
+func (s CronSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *CronSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
+}
+
+func (s *CronSpec) BeforeCreate(db *gorm.DB) error {
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (s *CronSpec) BeforeSave(db *gorm.DB) error {
+	s.UpdatedAt = time.Now()
+	return nil
 }
 
 func (CronSpec) TableName() string {

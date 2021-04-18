@@ -32,7 +32,6 @@ func NewCronFromJobSpec(
 	jobSpec job.Job,
 	runner pipeline.Runner,
 ) (*Cron, error) {
-	ctx, cancel := context.WithCancel(context.Background())
 
 	cronSpec := jobSpec.CronSpec
 	spec := jobSpec.PipelineSpec
@@ -40,13 +39,14 @@ func NewCronFromJobSpec(
 	if err := validateCronSpec(*cronSpec); err != nil {
 		return nil, err
 	}
-
 	cronLogger := logger.CreateLogger(
 		logger.Default.With(
 			"jobID", jobSpec.ID,
 			"schedule", cronSpec.CronSchedule,
 		),
 	)
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Cron{
 		jobID:        jobSpec.ID,
@@ -78,7 +78,7 @@ func (cron *Cron) Start() error {
 	cron.logger.Debug("Cron: Starting")
 	go gracefulpanic.WrapRecover(func() {
 		defer close(cron.done)
-		cron.cronRunner.Run()
+		cron.run()
 	})
 	return nil
 }
