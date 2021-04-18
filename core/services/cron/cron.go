@@ -32,7 +32,6 @@ func NewCronFromJobSpec(
 	jobSpec job.Job,
 	runner pipeline.Runner,
 ) (*Cron, error) {
-	ctx, cancel := context.WithCancel(context.Background())
 
 	cronSpec := jobSpec.CronSpec
 	spec := jobSpec.PipelineSpec
@@ -47,6 +46,8 @@ func NewCronFromJobSpec(
 			"schedule", cronSpec.CronSchedule,
 		),
 	)
+
+	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Cron{
 		jobID:        jobSpec.ID,
