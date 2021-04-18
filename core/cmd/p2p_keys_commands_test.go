@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
@@ -35,8 +36,8 @@ func TestClient_ListP2PKeys(t *testing.T) {
 
 	assert.Nil(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	keys := *r.Renders[0].(*[]p2pkey.EncryptedP2PKey)
-	assert.Equal(t, encKey.PubKey, keys[1].PubKey)
+	keys := *r.Renders[0].(*[]cmd.P2PKeyPresenter)
+	assert.Equal(t, encKey.PubKey.String(), keys[1].PubKey)
 }
 
 func TestClient_CreateP2PKey(t *testing.T) {

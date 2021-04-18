@@ -3,15 +3,14 @@
 const path = require('path')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const { CleanWebpackPlugin } = require('clean-webpack-plugin')
-const { EnvironmentPlugin } = require('webpack')
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
+const webpack = require('webpack')
 
 const isDev = process.env.NODE_ENV === 'development'
 const extensions = ['.js', '.ts', '.tsx']
 
 module.exports = {
   mode: isDev ? 'development' : 'production',
-  entry: path.resolve(__dirname, 'src/index.js'),
   module: {
     rules: [
       {
@@ -30,20 +29,19 @@ module.exports = {
       },
       {
         test: /\.svg$/i,
-        use: 'file-loader',
+        type: 'asset/resource',
       },
     ],
   },
   resolve: {
     extensions,
-    plugins: [
-      new TsconfigPathsPlugin({
-        extensions,
-      }),
-    ],
+    plugins: [new TsconfigPathsPlugin({ extensions })],
+    fallback: {
+      stream: require.resolve('stream-browserify'), // Required for @iarna/toml
+    },
   },
   output: {
-    filename: '[name].[hash].js',
+    filename: '[name].[contenthash].js',
     path: path.resolve(__dirname, 'dist'),
     publicPath: '/assets/', // JS files are served from `/assets` by web
   },
@@ -52,16 +50,13 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, 'src/index.html'),
     }),
-    new EnvironmentPlugin({
-      CHAINLINK_VERSION: process.env.CHAINLINK_VERSION,
-      CHAINLINK_BASEURL: process.env.CHAINLINK_BASEURL,
+    new webpack.DefinePlugin({
+      'process.env.CHAINLINK_VERSION': JSON.stringify(
+        process.env.CHAINLINK_VERSION,
+      ),
+      'process.env.CHAINLINK_BASEURL': JSON.stringify(
+        process.env.CHAINLINK_BASEURL,
+      ),
     }),
   ],
-  devtool: isDev ? 'eval-source-map' : false,
-  devServer: {
-    port: 3000,
-    contentBase: './dist',
-    historyApiFallback: true,
-    hot: true,
-  },
 }
