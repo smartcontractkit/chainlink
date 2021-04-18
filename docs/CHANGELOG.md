@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.4] - 2021-04-05
+
+### Added
 
 - Add `MockOracle.sol` for testing contracts
+
+### Changed
+
+- Default for `JOB_PIPELINE_REAPER_THRESHOLD` has been reduced from 1 week to 1 day to save database space. This variable controls how long past job run history for OCR is kept. To keep the old behaviour, you can set `JOB_PIPELINE_REAPER_THRESHOLD=168h`
+- Removed support for the env var `JOB_PIPELINE_PARALLELISM`. 
+- OCR jobs no longer show `TaskRuns` in success cases. This reduces
+DB load and significantly improves the performance of archiving OCR jobs.
+- Archiving OCR jobs should be 5-10x faster.
+
+## [0.10.4] - 2021-04-05
 
 ### Added
 
