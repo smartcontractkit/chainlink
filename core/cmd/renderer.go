@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
-	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -86,18 +85,18 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderETHKeys([]webpresenters.ETHKeyResource{*typed})
 	case *[]webpresenters.ETHKeyResource:
 		return rt.renderETHKeys(*typed)
-	case *p2pkey.EncryptedP2PKey:
-		return rt.renderP2PKeys([]p2pkey.EncryptedP2PKey{*typed})
-	case *[]p2pkey.EncryptedP2PKey:
+	case *P2PKeyPresenter:
+		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
+	case *[]P2PKeyPresenter:
 		return rt.renderP2PKeys(*typed)
 	case *ocrkey.EncryptedKeyBundle:
 		return rt.renderOCRKeys([]ocrkey.EncryptedKeyBundle{*typed})
 	case *[]ocrkey.EncryptedKeyBundle:
 		return rt.renderOCRKeys(*typed)
-	case *[]Job:
+	case *[]JobPresenter:
 		return rt.renderJobsV2(*typed)
-	case *Job:
-		return rt.renderJobsV2([]Job{*typed})
+	case *JobPresenter:
+		return rt.renderJobsV2([]JobPresenter{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
@@ -149,7 +148,7 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	return nil
 }
 
-func (rt RendererTable) renderJobsV2(jobs []Job) error {
+func (rt RendererTable) renderJobsV2(jobs []JobPresenter) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
 	table.SetAutoMergeCells(true)
 	for _, j := range jobs {
@@ -464,20 +463,20 @@ func (rt RendererTable) renderETHKeys(keys []webpresenters.ETHKeyResource) error
 	return nil
 }
 
-func (rt RendererTable) renderP2PKeys(p2pKeys []p2pkey.EncryptedP2PKey) error {
+func (rt RendererTable) renderP2PKeys(presenters []P2PKeyPresenter) error {
 	var rows [][]string
-	for _, key := range p2pKeys {
+	for _, p := range presenters {
 		var deletedAt string
-		if key.DeletedAt.Valid {
-			deletedAt = key.DeletedAt.Time.String()
+		if p.DeletedAt != nil {
+			deletedAt = p.DeletedAt.String()
 		}
 		rows = append(rows, []string{
-			fmt.Sprintf("%v", key.ID),
-			fmt.Sprintf("%v", key.PeerID),
-			fmt.Sprintf("%v", key.PubKey),
-			fmt.Sprintf("%v", key.CreatedAt),
-			fmt.Sprintf("%v", key.UpdatedAt),
-			fmt.Sprintf("%v", deletedAt),
+			p.ID,
+			p.PeerID,
+			p.PubKey,
+			fmt.Sprintf("%v", p.CreatedAt),
+			fmt.Sprintf("%v", p.UpdatedAt),
+			deletedAt,
 		})
 	}
 	fmt.Println("\n🔑 P2P Keys")

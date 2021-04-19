@@ -3,8 +3,9 @@ package fluxmonitorv2
 import (
 	"regexp"
 	"testing"
+	"time"
 
-	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	coreorm "github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/assert"
@@ -52,14 +53,23 @@ ds2 -> ds2_parse -> answer1;
 answer1 [type=median index=0];
 """
 `,
-			assertion: func(t *testing.T, s job.Job, err error) {
+			assertion: func(t *testing.T, j job.Job, err error) {
 				require.NoError(t, err)
-				require.NotNil(t, s.FluxMonitorSpec)
-				b, err := jsonapi.Marshal(s.FluxMonitorSpec)
-				require.NoError(t, err)
-				var r job.FluxMonitorSpec
-				err = jsonapi.Unmarshal(b, &r)
-				require.NoError(t, err)
+				require.NotNil(t, j.FluxMonitorSpec)
+				spec := j.FluxMonitorSpec
+				assert.Equal(t, "example flux monitor spec", j.Name.String)
+				assert.Equal(t, "fluxmonitor", j.Type.String())
+				assert.Equal(t, uint32(1), j.SchemaVersion)
+				assert.Equal(t, "0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", j.FluxMonitorSpec.ContractAddress.String())
+				assert.Equal(t, int32(2), spec.Precision)
+				assert.Equal(t, float32(0.5), spec.Threshold)
+				assert.Equal(t, float32(0), spec.AbsoluteThreshold)
+				assert.Equal(t, 1*time.Second, spec.IdleTimerPeriod)
+				assert.Equal(t, false, spec.IdleTimerDisabled)
+				assert.Equal(t, 1*time.Minute, spec.PollTimerPeriod)
+				assert.Equal(t, false, spec.PollTimerDisabled)
+				assert.Equal(t, assets.NewLink(1000000000000000000), spec.MinPayment)
+				assert.NotZero(t, j.Pipeline)
 			},
 		},
 		{
