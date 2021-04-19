@@ -15,7 +15,7 @@ func MigrateUp(db *gorm.DB, to string) error {
 	// We don't want to wrap all the migrations in a tx.
 	// Gorm v2 uses a transaction by default.
 	g := gormigrate.New(db, &gormigrate.Options{
-		UseTransaction:            false,
+		UseTransaction:            true,
 		ValidateUnknownMigrations: false,
 	}, Migrations)
 
@@ -30,7 +30,7 @@ func MigrateUp(db *gorm.DB, to string) error {
 
 func MigrateDown(db *gorm.DB) error {
 	g := gormigrate.New(db, &gormigrate.Options{
-		UseTransaction:            false,
+		UseTransaction:            true,
 		ValidateUnknownMigrations: false,
 	}, Migrations)
 
@@ -51,7 +51,7 @@ func MigrateDownFrom(db *gorm.DB, name string) error {
 		}
 	}
 	g := gormigrate.New(db, &gormigrate.Options{
-		UseTransaction:            false,
+		UseTransaction:            true,
 		ValidateUnknownMigrations: false,
 	}, Migrations)
 
@@ -60,7 +60,7 @@ func MigrateDownFrom(db *gorm.DB, name string) error {
 
 func Rollback(db *gorm.DB, m *gormigrate.Migration) error {
 	g := gormigrate.New(db, &gormigrate.Options{
-		UseTransaction:            false,
+		UseTransaction:            true,
 		ValidateUnknownMigrations: false,
 	}, Migrations)
 
