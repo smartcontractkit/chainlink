@@ -63,7 +63,7 @@ type ethConfirmer struct {
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
 	var ethResender *EthResender
 	if config.EthTxResendAfterThreshold() > 0 {
-		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config.EthTxResendAfterThreshold())
+		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config)
 	} else {
 		logger.Info("ethResender: Disabled")
 	}
