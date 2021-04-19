@@ -48,7 +48,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.NoError(t, err)
 		logBroadcast := new(mocks.Broadcast)
 
-		rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast.On("RawLog").Return(rawLog)
 		logBroadcast.On("MarkConsumed").Return(nil)
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
@@ -130,7 +130,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 
 		// Any round supercedes the 0 round
 
-		rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast := new(mocks.Broadcast)
 		logBroadcast.On("RawLog").Return(rawLog)
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
@@ -151,7 +151,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 1, int(round))
 
 		// Same round with higher epoch supercedes
-		rawLog2 := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_9.json")
+		rawLog2 := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_9.json")
 		logBroadcast2 := new(mocks.Broadcast)
 		logBroadcast2.On("RawLog").Return(rawLog2)
 		logBroadcast2.On("WasAlreadyConsumed").Return(false, nil)
@@ -187,7 +187,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		logBroadcast.AssertExpectations(t)
 
 		// Higher epoch with lower round supercedes
-		rawLog3 := cltest.LogFromFixture(t, "./testdata/round_requested_log_2_1.json")
+		rawLog3 := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_2_1.json")
 		logBroadcast3 := new(mocks.Broadcast)
 		logBroadcast3.On("RawLog").Return(rawLog3)
 		logBroadcast3.On("WasAlreadyConsumed").Return(false, nil)
@@ -227,7 +227,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		)
 		require.NoError(t, err)
 
-		rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		logBroadcast := new(mocks.Broadcast)
 		logBroadcast.On("RawLog").Return(rawLog)
 		logBroadcast.On("WasAlreadyConsumed").Return(false, nil)
@@ -261,7 +261,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		)
 		require.NoError(t, err)
 
-		rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 		rr := offchainaggregator.OffchainAggregatorRoundRequested{
 			Requester:    cltest.NewAddress(),
 			ConfigDigest: cltest.MakeConfigDigest(t),

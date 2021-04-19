@@ -247,9 +247,9 @@ func TestTxReceipt_ReceiptIndicatesRunLogFulfillment(t *testing.T) {
 		path string
 		want bool
 	}{
-		{"basic", "../../services/eth/testdata/getTransactionReceipt.json", false},
-		{"runlog request", "../../services/eth/testdata/runlogReceipt.json", false},
-		{"runlog response", "../../services/eth/testdata/responseReceipt.json", true},
+		{"basic", "../../testdata/jsonrpc/getTransactionReceipt.json", false},
+		{"runlog request", "../../testdata/jsonrpc/runlogReceipt.json", false},
+		{"runlog response", "../../testdata/jsonrpc/responseReceipt.json", true},
 	}
 
 	for _, test := range tests {
