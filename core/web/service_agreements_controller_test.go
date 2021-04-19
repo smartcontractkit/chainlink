@@ -25,7 +25,7 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	input := cltest.MustReadFile(t, "testdata/hello_world_agreement.json")
+	input := cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
 	require.NoError(t, app.Store.CreateServiceAgreement(&sa))
