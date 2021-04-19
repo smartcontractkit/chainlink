@@ -1,11 +1,11 @@
 GETH_VERSION: 1.10.0
-flags_wrapper: ../../../evm-contracts/abi/v0.6/Flags.json 1e005d86b01fc1c6e013453a73428d210aa0873872dd1b0cfd0adcf51d3b2a38
-flux_aggregator_wrapper: ../../../evm-contracts/abi/v0.6/FluxAggregator.json 66e886b3d571e5caaaedbf46f41e052929149c12febd94781b8035753aad2448
-multiwordconsumer_wrapper: ../../../evm-contracts/abi/v0.7/MultiWordConsumer.json c56412fac629f4c063e93daf6e92e23237a7c0974ade9f58b544cc92a3d10cf6
-offchain_aggregator_wrapper: ./OffchainAggregator.json 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
-operator_wrapper: ../../../evm-contracts/abi/v0.7/Operator.json 0fc6586a14bd99cd83d6b6ab195f04182aeda76577f30ada067ee34bb6c28919
-oracle_wrapper: ../../../evm-contracts/abi/v0.6/Oracle.json dd316d626835e761d742423828454d5e600fe6b76f2a98646c9e304b318fb907
-solidity_vrf_consumer_interface: ../../../evm-contracts/abi/v0.6/VRFConsumer.json 1776df7b50d470d2b8ea7a48e29af132d688646c05a65b2d268f5eeb967eb512
-solidity_vrf_coordinator_interface: ../../../evm-contracts/abi/v0.6/VRFCoordinator.json e988ec6477717518f17f3f938cc27fcdd4695be47bf24a08139c3acd9d79971f
-solidity_vrf_request_id: ../../../evm-contracts/abi/v0.6/VRFRequestIDBaseTestHelper.json 8c2e2fdaccfc626eb2922fe9a157eca19111a8d4c1103976926d522abed3ce55
-solidity_vrf_verifier_wrapper: ../../../evm-contracts/abi/v0.6/VRFTestHelper.json fdecdf6b174e0f1432f96a65e6b417bf2a211999145986775ddc555f70900e12
+flags_wrapper: ../../../evm-contracts/solc/v0.6/Flags.abi ../../../evm-contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
+flux_aggregator_wrapper: ../../../evm-contracts/solc/v0.6/FluxAggregator.abi ../../../evm-contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
+multiwordconsumer_wrapper: ../../../evm-contracts/solc/v0.7/MultiWordConsumer.abi ../../../evm-contracts/solc/v0.7/MultiWordConsumer.bin 79a82a597494f30a42453045dbf4c8de2687d810fb66958443239f29847a6ee6
+offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
+operator_wrapper: ../../../evm-contracts/solc/v0.7/Operator.abi ../../../evm-contracts/solc/v0.7/Operator.bin c4673baa607ca40c0f6d9f18fbe92659b5dc36cea30bfcceed2128a40b9fc912
+oracle_wrapper: ../../../evm-contracts/solc/v0.6/Oracle.abi ../../../evm-contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
+solidity_vrf_consumer_interface: ../../../evm-contracts/solc/v0.6/VRFConsumer.abi ../../../evm-contracts/solc/v0.6/VRFConsumer.bin b45cf1ea42296bdb49683944e247feb6ce8355ccf3003f1ac37872419a372b7f
+solidity_vrf_coordinator_interface: ../../../evm-contracts/solc/v0.6/VRFCoordinator.abi ../../../evm-contracts/solc/v0.6/VRFCoordinator.bin 11c89893a8d4be45270fbd36eb5e34096473bc9a229c152b16dc2de111ca71e6
+solidity_vrf_request_id: ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin 383b59e861732c1911ddb7b002c6158608496ce889979296527215fd0366b318
+solidity_vrf_verifier_wrapper: ../../../evm-contracts/solc/v0.6/VRFTestHelper.abi ../../../evm-contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
