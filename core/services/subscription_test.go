@@ -37,7 +37,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs(t *testing.T) {
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
-	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/subscription_logs.json")
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(2),
@@ -68,7 +68,7 @@ func TestServices_NewInitiatorSubscription_BackfillLogs_BatchWindows(t *testing.
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
-	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/subscription_logs.json")
 	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(213),
@@ -143,7 +143,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
 
-	log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/subscription_logs.json")
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(2),
 	})
@@ -162,7 +162,7 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	// Add the same original log
 	logs <- log
 	// Add a log after the repeated log to make sure it gets processed
-	log2 := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	log2 := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	logs <- log2
 
 	g := gomega.NewGomegaWithT(t)
@@ -399,7 +399,7 @@ func TestServices_NewInitiatorSubscription_EthLog_ReplayFromBlock(t *testing.T) 
 				Topics:    [][]common.Hash{},
 			}
 
-			log := cltest.LogFromFixture(t, "testdata/subscription_logs.json")
+			log := cltest.LogFromFixture(t, "../testdata/jsonrpc/subscription_logs.json")
 
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
@@ -461,7 +461,7 @@ func TestServices_NewInitiatorSubscription_RunLog_ReplayFromBlock(t *testing.T) 
 				},
 			}
 
-			receipt := cltest.TxReceiptFromFixture(t, "./eth/testdata/runlogReceipt.json")
+			receipt := cltest.TxReceiptFromFixture(t, "../testdata/jsonrpc/runlogReceipt.json")
 			log := receipt.Logs[3]
 			log.Topics[1] = models.IDToTopic(job.ID)
 

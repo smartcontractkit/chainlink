@@ -883,7 +883,29 @@ func CreateJobRunViaExternalInitiator(
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
 
-	buffer := MustReadFile(t, "testdata/hello_world_job.json")
+	buffer := []byte(`
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
+		"get": "https://bitstamp.net/api/ticker/",
+        "headers": {
+          "Key1": ["value"],
+          "Key2": ["value", "value"]
+        }
+      }
+    },
+    { "type": "JsonParse", "params": { "path": ["last"] }},
+    { "type": "EthBytes32" },
+    {
+      "type": "EthTx", "params": {
+        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+        "functionSelector": "0x609ff1bd"
+      }
+    }
+  ]
+}
+`)
 
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)

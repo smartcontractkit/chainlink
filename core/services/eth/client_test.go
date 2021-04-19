@@ -30,7 +30,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	txHash := "0xb903239f8543d04b5dc1ba6579132b143087c68db1b2168786408fcbce568238"
 
 	t.Run("happy path", func(t *testing.T) {
-		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt.json")
+		response := cltest.MustReadFile(t, "../../testdata/jsonrpc/getTransactionReceipt.json")
 		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
 			resp := cltest.ParseJSON(t, bytes.NewReader(data))
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
@@ -52,7 +52,7 @@ func TestEthClient_TransactionReceipt(t *testing.T) {
 	})
 
 	t.Run("no tx hash, returns ethereum.NotFound", func(t *testing.T) {
-		response := cltest.MustReadFile(t, "testdata/getTransactionReceipt_notFound.json")
+		response := cltest.MustReadFile(t, "../../testdata/jsonrpc/getTransactionReceipt_notFound.json")
 		_, wsUrl, wsCleanup := cltest.NewWSServer(string(response), func(data []byte) {
 			resp := cltest.ParseJSON(t, bytes.NewReader(data))
 			require.Equal(t, "eth_getTransactionReceipt", resp.Get("method").String())
