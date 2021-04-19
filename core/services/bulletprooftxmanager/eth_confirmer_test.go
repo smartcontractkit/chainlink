@@ -627,26 +627,32 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 		}
 		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 6 &&
+			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt0_2.Hash) &&
-				cltest.BatchElemMatchesHash(b[1], attempt0_1.Hash) &&
-				cltest.BatchElemMatchesHash(b[2], attempt1_2.Hash) &&
-				cltest.BatchElemMatchesHash(b[3], attempt1_1.Hash) &&
-				cltest.BatchElemMatchesHash(b[4], attempt2_1.Hash) &&
-				cltest.BatchElemMatchesHash(b[5], attempt3_1.Hash)
-
+				cltest.BatchElemMatchesHash(b[1], attempt0_1.Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
 			elems[0].Result = &bptxmReceipt0
 			elems[1].Result = &bulletprooftxmanager.Receipt{}
-			// Second transaction stil unconfirmed
+		}).Once()
+
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 4 &&
+				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[1], attempt1_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[3], attempt3_1.Hash)
+
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			//// Second transaction stil unconfirmed
+			elems[0].Result = &bulletprooftxmanager.Receipt{}
+			elems[1].Result = &bulletprooftxmanager.Receipt{}
+			//// Third transaction still unconfirmed
 			elems[2].Result = &bulletprooftxmanager.Receipt{}
-			elems[3].Result = &bulletprooftxmanager.Receipt{}
-			// Third transaction still unconfirmed
-			elems[4].Result = &bulletprooftxmanager.Receipt{}
-			// Fourth transaction is confirmed
-			elems[5].Result = &bptxmReceipt3
+			//// Fourth transaction is confirmed
+			elems[3].Result = &bptxmReceipt3
 		}).Once()
 
 		// PERFORM

@@ -218,14 +218,6 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
 
-	logger.Warnf("================= CheckForReceipts")
-	if len(attempts) > 0 {
-		logger.Warnf("================= attempts[0].EthTxID %v", attempts[0].EthTxID)
-		logger.Warnf("================= attempts[0].EthTx.ID %v", attempts[0].EthTx.ID)
-		logger.Warnf("================= attempts[0].EthTx.FromAddress %v", attempts[0].EthTx.FromAddress)
-		logger.Warnf("================= len(attempts[0].EthReceipts) %v", len(attempts[0].EthReceipts))
-	}
-
 	if err != nil {
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
 	}
@@ -241,19 +233,27 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	}
 
 	for from, attempts := range attemptsByAddress {
-		latestBlockNonce, err := ec.getNonceForLatestBlock(ctx, from)
-		logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, and latest nonce is %v",
-			len(attempts), from, latestBlockNonce), "blockNum", blockNum)
+		ctxInner, cancel := eth.DefaultQueryCtx(ctx)
+		latestBlockNonce, err := ec.getNonceForLatestBlock(ctxInner, from)
+		defer cancel()
 
+		if ctxInner.Err() != nil { // timeout
+			break
+		}
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
 
+		logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, and latest nonce is %v",
+			len(attempts), from, latestBlockNonce), "blockNum", blockNum)
+
 		likelyConfirmed := make([]models.EthTxAttempt, 0)
+		likelyUnconfirmed := attempts
 		for i := 0; i < len(attempts); i++ {
 			if attempts[i].EthTx.Nonce != nil && *attempts[i].EthTx.Nonce >= int64(latestBlockNonce) {
+				logger.Debugf("EthConfirmer: Splitting attempts just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
 				likelyConfirmed = attempts[0:i]
-				attempts = attempts[i:]
+				likelyUnconfirmed = attempts[i:]
 				break
 			}
 		}
@@ -263,7 +263,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 			return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 		}
 
-		err = ec.fetchAndSaveReceipts(ctx, attempts, blockNum)
+		err = ec.fetchAndSaveReceipts(ctx, likelyUnconfirmed, blockNum)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch and save receipts, for address: %v", from)
 		}
@@ -306,7 +306,7 @@ func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []mod
 
 func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []models.EthTxAttempt, err error) {
 	err = ec.store.DB.
-		Joins("EthTx").
+		Joins("EthTx"). // Joins("EthTx") is needed for the query to actually return data from eth_txes table as well.
 		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").
 		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
 		Where("eth_tx_attempts.state != 'insufficient_eth'").
@@ -316,15 +316,7 @@ func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []mod
 }
 
 func (ec *ethConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
-	ctx, cancel := eth.DefaultQueryCtx(ctx)
-	defer cancel()
-	at, err := ec.ethClient.NonceAt(ctx, from, nil)
-
-	if ctx.Err() != nil {
-		return 0, ctx.Err()
-	}
-
-	return at, err
+	return ec.ethClient.NonceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving
