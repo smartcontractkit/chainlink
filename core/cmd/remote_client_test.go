@@ -748,7 +748,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 
 	var ocrJobSpecFromFile job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
