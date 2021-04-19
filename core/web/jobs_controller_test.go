@@ -11,19 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/mock"
-
+	"github.com/pelletier/go-toml"
+	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/web/presenters"
-
-	"github.com/pelletier/go-toml"
-
-	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 )
@@ -64,8 +61,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ta, client, cleanup := setupJobsControllerTests(t)
-			defer cleanup()
+			ta, client := setupJobsControllerTests(t)
 
 			var address models.EIP55Address
 			if tc.taExists {
@@ -80,7 +76,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				TOML: sp,
 			})
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-			defer cleanup()
+			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			b, err := ioutil.ReadAll(resp.Body)
 			require.NoError(t, err)
@@ -90,16 +86,15 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 }
 
 func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
-	app, client, cleanup := setupJobsControllerTests(t)
-	defer cleanup()
+	app, client := setupJobsControllerTests(t)
 
-	toml := string(cltest.MustReadFile(t, "testdata/oracle-spec.toml"))
+	toml := string(cltest.MustReadFile(t, "../testdata/tomlspecs/oracle-spec.toml"))
 	toml = strings.Replace(toml, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", app.Key.Address.Hex(), 1)
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: toml,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.Job{}
@@ -127,22 +122,18 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/keeper-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/keeper-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.Job{}
@@ -163,22 +154,22 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/direct-request-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.Job{}
@@ -199,23 +190,23 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
 		eth.NewClientWith(rpcClient, gethClient),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/flux-monitor-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
 
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 
 	jb := job.Job{}
@@ -236,11 +227,10 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 }
 func TestJobsController_Index_HappyPath(t *testing.T) {
-	client, cleanup, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
-	defer cleanup()
+	client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	resources := []presenters.JobResource{}
@@ -254,11 +244,10 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
-	client, cleanup, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
-	defer cleanup()
+	client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	ocrJob := presenters.JobResource{}
@@ -268,7 +257,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
 	response, cleanup = client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID2))
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
 	ereJob := presenters.JobResource{}
@@ -279,20 +268,19 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
-	client, cleanup, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
-	defer cleanup()
+	client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
 
 func TestJobsController_Show_NonExistentID(t *testing.T) {
-	client, cleanup, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
-	defer cleanup()
+	client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
-	defer cleanup()
+	t.Cleanup(cleanup)
+
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }
 
@@ -328,13 +316,11 @@ func runDirectRequestJobSpecAssertions(t *testing.T, ereJobSpecFromFile job.Job,
 	assert.Contains(t, ereJobSpecFromServer.DirectRequestSpec.UpdatedAt.String(), "20")
 }
 
-func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, func()) {
+func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -342,16 +328,14 @@ func setupJobsControllerTests(t *testing.T) (*cltest.TestApplication, cltest.HTT
 	_, bridge2 := cltest.NewBridgeType(t, "election_winner", "http://blah.com")
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 	client := app.NewHTTPClient()
-	return app, client, cleanup
+	return app, client
 }
 
-func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, func(), job.Job, int32, job.Job, int32) {
+func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
+
+	app, cleanup := cltest.NewApplicationWithKey(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	_, bridge := cltest.NewBridgeType(t, "voter_turnout", "http://blah.com")
@@ -362,7 +346,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFileDB job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
 	require.NoError(t, err)
@@ -373,9 +357,9 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "testdata/direct-request-spec.toml")))
+	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
 	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 
-	return client, cleanup, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
+	return client, ocrJobSpecFromFileDB, jobID, ereJobSpecFromFileDB, jobID2
 }

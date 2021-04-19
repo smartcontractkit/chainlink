@@ -24,6 +24,8 @@ const (
 	FluxMonitorJobSpec JobSpecType = "fluxmonitor"
 	// OffChainReportingJobSpec defines an OCR Job
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
+	// Keeper defines a Keeper Job
+	KeeperJobSpec JobSpecType = "keeper"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job

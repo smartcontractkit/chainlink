@@ -1,0 +1,18 @@
+{
+  "initiators": [
+    {
+      "type": "external",
+      "params": {
+        "name": "somecoin",
+        "body": {
+          "foo": "bar"
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "type": "NoOp"
+    }
+  ]
+}

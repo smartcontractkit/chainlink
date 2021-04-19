@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactTimeAgoNoTooltip from 'react-time-ago/no-tooltip'
+import ReactTimeAgo from 'react-time-ago'
 import moment from 'moment'
 import { Tooltip } from './Tooltip'
 
@@ -13,7 +13,7 @@ export const localizedTimestamp = (creationDate: string): string =>
 
 export const TimeAgo: React.FC<Props> = ({ children, tooltip = false }) => {
   const date = Date.parse(children)
-  const ago = <ReactTimeAgoNoTooltip tooltip={false} date={date} />
+  const ago = <ReactTimeAgo tooltip={false} date={date} />
 
   if (tooltip) {
     return (

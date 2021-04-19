@@ -438,7 +438,7 @@ func insertFixtures(config *orm.Config) (err error) {
 	if !ok {
 		return errors.New("could not get runtime.Caller(1)")
 	}
-	filepath := path.Join(path.Dir(filename), "../store/testdata/fixtures.sql")
+	filepath := path.Join(path.Dir(filename), "../store/fixtures/fixtures.sql")
 	fixturesSQL, err := ioutil.ReadFile(filepath)
 	if err != nil {
 		return err

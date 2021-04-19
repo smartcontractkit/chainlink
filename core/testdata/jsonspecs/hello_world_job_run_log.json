@@ -1,0 +1,41 @@
+{
+  "initiators": [
+    {
+      "type": "runlog"
+    }
+  ],
+  "tasks": [
+    {
+      "type": "httpgetwithunrestrictednetworkaccess",
+      "confirmations": 0,
+      "params": {
+      }
+    },
+    {
+      "type": "jsonparse",
+      "confirmations": 0,
+      "params": {
+      }
+    },
+    {
+      "type": "multiply",
+      "confirmations": 0,
+      "params": {
+      }
+    },
+    {
+      "type": "ethint256",
+      "confirmations": 0,
+      "params": {
+      }
+    },
+    {
+      "type": "ethtx",
+      "confirmations": 0,
+      "params": {
+      }
+    }
+  ],
+  "startAt": null,
+  "endAt": null
+}

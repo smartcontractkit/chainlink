@@ -2,3 +2,4 @@ dist
 abi
 ethers
 truffle
+solc

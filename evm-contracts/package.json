@@ -8,9 +8,10 @@
   "private": false,
   "scripts": {
     "compile": "belt compile all",
+    "compile:native": "./scripts/native_solc_compile_all",
     "compile:clean": "yarn clean && yarn compile",
     "setup": "yarn compile:clean && tsc -b tsconfig.test.json tsconfig.ethers.json",
-    "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle",
+    "clean": "tsc -b --clean tsconfig.test.json tsconfig.ethers.json && rm -rf abi ethers truffle solc",
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "lint:sol": "solhint -f table ./src/**/**/*.sol",
     "test:reset": "yarn setup && yarn test",

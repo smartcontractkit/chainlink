@@ -351,7 +351,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -501,7 +501,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -592,7 +592,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	defer mockServer.Close()
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
