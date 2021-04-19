@@ -258,10 +258,13 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 			}
 		}
 
+		start := time.Now()
 		err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 		}
+		logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts took %v ms",
+			len(likelyConfirmed), float64(time.Since(start).Milliseconds()))
 
 		err = ec.fetchAndSaveReceipts(ctx, likelyUnconfirmed, blockNum)
 		if err != nil {
