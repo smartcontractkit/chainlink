@@ -325,8 +325,16 @@ func guiAssetRoutes(box packr.Box, engine *gin.Engine, config *orm.Config) {
 		))
 	}
 
-	assetsRouter := engine.Group("/assets", assetsRouterHandlers...)
-	assetsRouter.StaticFS("/", http.FileSystem(box))
+	assetsRouterHandlers = append(
+		assetsRouterHandlers,
+		ServeGzippedAssets("/assets", &BoxFileSystem{Box: box}),
+	)
+
+	// Get Operator UI Assets
+	//
+	// We have to use a route here because a RouterGroup only runs middlewares
+	// when a route matches exactly. See https://github.com/gin-gonic/gin/issues/531
+	engine.GET("/assets/:file", assetsRouterHandlers...)
 
 	// Serve the index HTML file unless it is an api path
 	noRouteHandlers := []gin.HandlerFunc{}
