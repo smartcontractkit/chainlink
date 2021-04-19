@@ -225,6 +225,9 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	if len(attempts) == 0 {
 		return nil
 	}
+	if batchSize == 0 {
+		batchSize = len(attempts)
+	}
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
