@@ -551,7 +551,6 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
-
 	ethClient.AssertExpectations(t)
 }
 
