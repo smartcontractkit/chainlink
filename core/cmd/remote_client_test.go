@@ -1,12 +1,9 @@
 package cmd_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"os"
 	"strconv"
@@ -463,112 +460,6 @@ func TestClient_CreateJobRun(t *testing.T) {
 	}
 }
 
-func TestClient_CreateBridge(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	tests := []struct {
-		name    string
-		param   string
-		errored bool
-	}{
-		{"EmptyString", "", true},
-		{"ValidString", `{ "name": "TestBridge", "url": "http://localhost:3000/randomNumber" }`, false},
-		{"InvalidString", `{ "noname": "", "nourl": "" }`, true},
-		{"InvalidChar", `{ "badname": "path/bridge", "nourl": "" }`, true},
-		{"ValidPath", "testdata/create_random_number_bridge_type.json", false},
-		{"InvalidPath", "bad/filepath/", true},
-	}
-
-	for _, tt := range tests {
-		test := tt
-		t.Run(test.name, func(t *testing.T) {
-
-			set := flag.NewFlagSet("bridge", 0)
-			set.Parse([]string{test.param})
-			c := cli.NewContext(nil, set, nil)
-			if test.errored {
-				assert.Error(t, client.CreateBridge(c))
-			} else {
-				assert.Nil(t, client.CreateBridge(c))
-			}
-		})
-	}
-}
-
-func TestClient_IndexBridges(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	bt1 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err := app.GetStore().CreateBridgeType(bt1)
-	require.NoError(t, err)
-
-	bt2 := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges2"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err = app.GetStore().CreateBridgeType(bt2)
-	require.NoError(t, err)
-
-	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
-	bridges := *r.Renders[0].(*[]models.BridgeType)
-	require.Equal(t, 2, len(bridges))
-	assert.Equal(t, bt1.Name, bridges[0].Name)
-}
-
-func TestClient_ShowBridge(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	require.NoError(t, app.GetStore().CreateBridgeType(bt))
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.ShowBridge(c))
-	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
-}
-
-func TestClient_RemoveBridge(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	bt := &models.BridgeType{
-		Name:          models.MustNewTaskType("testingbridges1"),
-		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
-		Confirmations: 0,
-	}
-	err := app.GetStore().CreateBridgeType(bt)
-	require.NoError(t, err)
-
-	set := flag.NewFlagSet("test", 0)
-	set.Parse([]string{bt.Name.String()})
-	c := cli.NewContext(nil, set, nil)
-	require.NoError(t, client.RemoveBridge(c))
-	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name, r.Renders[0].(*models.BridgeType).Name)
-}
-
 func TestClient_RemoteLogin(t *testing.T) {
 	t.Parallel()
 
@@ -857,7 +748,7 @@ func TestClient_RunOCRJob_HappyPath(t *testing.T) {
 	require.NoError(t, app.Store.DB.Create(bridge2).Error)
 
 	var ocrJobSpecFromFile job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFile)
 	require.NoError(t, err)
@@ -903,49 +794,6 @@ func TestClient_RunOCRJob_JobNotFound(t *testing.T) {
 
 	require.NoError(t, client.RemoteLogin(c))
 	assert.EqualError(t, client.TriggerPipelineRun(c), "parseResponse error: Error; job ID 1: record not found")
-}
-
-func TestClient_ListJobsV2(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	// Create the job
-	toml, err := ioutil.ReadFile("./testdata/direct-request-spec.toml")
-	assert.NoError(t, err)
-
-	request, err := json.Marshal(models.CreateJobSpecRequest{
-		TOML: string(toml),
-	})
-	assert.NoError(t, err)
-
-	resp, err := client.HTTP.Post("/v2/jobs", bytes.NewReader(request))
-	assert.NoError(t, err)
-
-	responseBodyBytes, err := ioutil.ReadAll(resp.Body)
-	assert.NoError(t, err)
-
-	job := cmd.Job{}
-	err = web.ParseJSONAPIResponse(responseBodyBytes, &job)
-	assert.NoError(t, err)
-
-	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
-	jobs := *r.Renders[0].(*[]cmd.Job)
-	require.Equal(t, 1, len(jobs))
-	assert.Equal(t, job.ID, jobs[0].ID)
-}
-
-func TestClient_CreateJobV2(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
-
-	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
-	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
-	require.NoError(t, err)
 }
 
 func TestClient_AutoLogin(t *testing.T) {

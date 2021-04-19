@@ -3,31 +3,25 @@ package web_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
+	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/adapters"
-
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
-
-	"github.com/manyminds/api2go/jsonapi"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkBridgeTypesController_Index(b *testing.B) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocks(b)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(b,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(b)
+	b.Cleanup(cleanup)
 	setupJobSpecsControllerIndex(app)
 	client := app.NewHTTPClient()
 
@@ -42,12 +36,8 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -55,43 +45,43 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/specs?size=x")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/bridge_types?size=1")
-	defer cleanup()
+	t.Cleanup(cleanup)
+	fmt.Println(resp)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
-	bridges := []models.BridgeType{}
+	resources := []presenters.BridgeResource{}
 
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &bridges, &links)
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &resources, &links)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
-	assert.Len(t, bridges, 1)
-	assert.Equal(t, bt[0].Name, bridges[0].Name, "should have the same Name")
-	assert.Equal(t, bt[0].URL.String(), bridges[0].URL.String(), "should have the same URL")
-	assert.Equal(t, bt[0].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
+	assert.Len(t, resources, 1)
+	assert.Equal(t, bt[0].Name.String(), resources[0].Name, "should have the same Name")
+	assert.Equal(t, bt[0].URL.String(), resources[0].URL, "should have the same URL")
+	assert.Equal(t, bt[0].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get(links["next"].Href)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
-	bridges = []models.BridgeType{}
-	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &bridges, &links)
+	resources = []presenters.BridgeResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &resources, &links)
 	assert.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
-	assert.Len(t, bridges, 1)
-	assert.Equal(t, bt[1].Name, bridges[0].Name, "should have the same Name")
-	assert.Equal(t, bt[1].URL.String(), bridges[0].URL.String(), "should have the same URL")
-	assert.Equal(t, bt[1].Confirmations, bridges[0].Confirmations, "should have the same Confirmations")
+	assert.Len(t, resources, 1)
+	assert.Equal(t, bt[1].Name.String(), resources[0].Name, "should have the same Name")
+	assert.Equal(t, bt[1].URL.String(), resources[0].URL, "should have the same URL")
+	assert.Equal(t, bt[1].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 }
 
 func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.BridgeType, error) {
-
 	bt1 := &models.BridgeType{
 		Name:          models.MustNewTaskType("testingbridges1"),
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
@@ -114,20 +104,16 @@ func setupBridgeControllerIndex(t testing.TB, store *store.Store) ([]*models.Bri
 func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	respJSON := cltest.ParseJSON(t, resp.Body)
 	btName := respJSON.Get("data.attributes.name").String()
@@ -147,12 +133,8 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -164,7 +146,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 
 	ud := bytes.NewBuffer([]byte(`{"name": "BRidgea","url":"http://yourbridge"}`))
 	resp, cleanup := client.Patch("/v2/bridge_types/bridgea", ud)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	ubt, err := app.Store.FindBridge(bt.Name)
@@ -175,12 +157,8 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 	client := app.NewHTTPClient()
 
@@ -192,55 +170,51 @@ func TestBridgeController_Show(t *testing.T) {
 	require.NoError(t, app.GetStore().CreateBridgeType(bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
-	var respBridge models.BridgeTypeAuthentication
-	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &respBridge))
-	assert.Equal(t, respBridge.Name, bt.Name, "should have the same schedule")
-	assert.Equal(t, respBridge.URL.String(), bt.URL.String(), "should have the same URL")
-	assert.Equal(t, respBridge.Confirmations, bt.Confirmations, "should have the same Confirmations")
+	var resource presenters.BridgeResource
+	require.NoError(t, cltest.ParseJSONAPIResponse(t, resp, &resource))
+	assert.Equal(t, bt.Name.String(), resource.Name, "should have the same name")
+	assert.Equal(t, bt.URL.String(), resource.URL, "should have the same URL")
+	assert.Equal(t, bt.Confirmations, resource.Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 }
 
 func TestBridgeController_Destroy(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 	resp, cleanup := client.Delete("/v2/bridge_types/testingbridges1")
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 
-	bridgeJSON := cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")
+	bridgeJSON := cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")
 	var bt models.BridgeType
 	err := json.Unmarshal(bridgeJSON, &bt)
 	assert.NoError(t, err)
 	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
 	resp, cleanup = client.Get("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 
 	require.NoError(t, app.GetStore().CreateBridgeType(&bt))
 
 	// Create an FM and DR job using the bridge.
 	js := cltest.NewJobWithWebInitiator()
-	js.Tasks = []models.TaskSpec{models.TaskSpec{Type: bt.Name}}
+	js.Tasks = []models.TaskSpec{{Type: bt.Name}}
 	assert.NoError(t, app.Store.CreateJob(&js))
 
 	jsFM := cltest.NewJobWithFluxMonitorInitiatorWithBridge(bt.Name.String())
@@ -248,54 +222,46 @@ func TestBridgeController_Destroy(t *testing.T) {
 	assert.NoError(t, app.Store.CreateJob(&jsFM))
 
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
 
 	require.NoError(t, app.Store.ArchiveJob(js.ID))
 
 	// Still fails because FM job using bridge.
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusConflict, resp.StatusCode, "Response should be 409")
 
 	require.NoError(t, app.Store.ArchiveJob(jsFM.ID))
 
 	// Succeeds because FM job is archived.
 	resp, cleanup = client.Delete("/v2/bridge_types/" + bt.Name.String())
-	defer cleanup()
+	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be 200")
 }
 
 func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/existing_core_adapter.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/existing_core_adapter.json")),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
 
 func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -304,19 +270,15 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBufferString("}"),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
 
 func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := app.NewHTTPClient()
@@ -325,6 +287,6 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
