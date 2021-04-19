@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	vrfPasswordFilePath = "./testdata/vrf_password.txt"
-	vrfKeyFilePath      = "./testdata/vrf_key.json"
+	vrfPasswordFilePath = "../testdata/secrets/vrf_password.txt"
+	vrfKeyFilePath      = "../testdata/secrets/vrf_key.json"
 	// This is the public key found in the vrf key file
 	vrfPublicKey = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
 )

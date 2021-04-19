@@ -3,7 +3,7 @@
 echo "compiling contracts"
 
 CDIR="$(dirname "$0")"
-COMPILE_COMMAND="$(<"$CDIR/compile_command.txt")"
+COMPILE_COMMAND="$CDIR/../../../../evm-contracts/scripts/native_solc_compile_all"
 
 # Only print compilation output on failure.
 OUT="$(bash -c "${COMPILE_COMMAND}" 2>&1)"
