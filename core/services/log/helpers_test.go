@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	logmocks "github.com/smartcontractkit/chainlink/core/services/log/mocks"
+	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -42,9 +43,9 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	mockEth := newMockEthClient(chchRawLogs, blockHeight, timesSubscribe)
 	store.EthClient = mockEth.ethClient
 
-	orm := log.NewORM(store.DB)
-	lb := log.NewBroadcaster(orm, store.EthClient, store.Config)
-
+	dborm := log.NewORM(store.DB)
+	lb := log.NewBroadcaster(dborm, store.EthClient, store.Config)
+	store.Config.Set(orm.EnvVarName("EthFinalityDepth"), uint64(10))
 	return &broadcasterHelper{
 		t:             t,
 		lb:            lb,
