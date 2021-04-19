@@ -394,7 +394,7 @@ func Test_DB_LatestRoundRequested(t *testing.T) {
 	db := offchainreporting.NewDB(sqldb, 1)
 	db2 := offchainreporting.NewDB(sqldb, 2)
 
-	rawLog := cltest.LogFromFixture(t, "./testdata/round_requested_log_1_1.json")
+	rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
 
 	rr := offchainaggregator.OffchainAggregatorRoundRequested{
 		Requester:    cltest.NewAddress(),
