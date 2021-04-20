@@ -62,6 +62,7 @@ type (
 		GasUpdaterBlockHistorySize() uint16
 		GasUpdaterBlockDelay() uint16
 		GasUpdaterTransactionPercentile() uint16
+		GasUpdaterBatchSize() uint32
 		EthMaxGasPriceWei() *big.Int
 		EthFinalityDepth() uint
 		SetEthGasPriceDefault(value *big.Int) error
@@ -251,10 +252,9 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 		reqs = append(reqs, req)
 	}
 
-	gu.logger.Debugf("GasUpdater: fetching %v blocks (%v in local history)", len(reqs), len(blocks))
-	err := gu.ethClient.BatchCallContext(ctx, reqs)
-	if err != nil {
-		return errors.Wrap(err, "GasUpdater#fetchBlocks error fetching blocks with BatchCallContext")
+	gu.logger.Debugw(fmt.Sprintf("GasUpdater: fetching %v blocks (%v in local history)", len(reqs), len(blocks)), "n", len(reqs), "inHistory", len(blocks), "blockNum", head.Number)
+	if err := gu.batchFetch(ctx, reqs); err != nil {
+		return err
 	}
 
 	for _, req := range reqs {
@@ -295,6 +295,28 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 
 	gu.rollingBlockHistory = newBlockHistory[start:]
 
+	return nil
+}
+
+func (gu *gasUpdater) batchFetch(ctx context.Context, reqs []rpc.BatchElem) error {
+	batchSize := int(gu.config.GasUpdaterBatchSize())
+
+	if batchSize == 0 {
+		batchSize = len(reqs)
+	}
+
+	for i := 0; i < len(reqs); i += batchSize {
+		j := i + batchSize
+		if j > len(reqs) {
+			j = len(reqs)
+		}
+
+		logger.Debugw(fmt.Sprintf("GasUpdater: batch fetching blocks %v thru %v", models.HexToInt64(reqs[i].Args[0]), models.HexToInt64(reqs[j-1].Args[0])))
+
+		if err := gu.ethClient.BatchCallContext(ctx, reqs[i:j]); err != nil {
+			return errors.Wrap(err, "GasUpdater#fetchBlocks error fetching blocks with BatchCallContext")
+		}
+	}
 	return nil
 }
 
