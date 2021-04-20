@@ -62,7 +62,7 @@ describe('transformPipelineJobRun', () => {
           type: 'http',
         },
       ],
-      type: 'Off-chain reporting job run',
+      type: 'Pipeline job run',
     })
   })
 })

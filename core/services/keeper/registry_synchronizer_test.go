@@ -54,6 +54,7 @@ func setupRegistrySync(t *testing.T) (
 	lbMock := new(logmocks.Broadcaster)
 	headRelayer := services.NewHeadBroadcaster()
 	j := cltest.MustInsertKeeperJob(t, store, cltest.NewEIP55Address(), cltest.NewEIP55Address())
+	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 	contract, err := keeper_registry_wrapper.NewKeeperRegistry(
 		contractAddress,
@@ -65,7 +66,7 @@ func setupRegistrySync(t *testing.T) (
 		return opts.Contract.Address() == contractAddress
 	})).Return(true, func() {})
 
-	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, headRelayer, lbMock, syncInterval, 1)
+	synchronizer := keeper.NewRegistrySynchronizer(j, contract, store.DB, jpv2.Jrm, headRelayer, lbMock, syncInterval, 1)
 	return store, synchronizer, ethMock, j, cleanup
 }
 

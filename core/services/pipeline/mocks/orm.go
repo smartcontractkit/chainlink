@@ -114,20 +114,20 @@ func (_m *ORM) FindRun(id int64) (pipeline.Run, error) {
 	return r0, r1
 }
 
-// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs
-func (_m *ORM) InsertFinishedRunWithResults(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult, saveTaskRuns bool) (int64, error) {
-	ret := _m.Called(ctx, run, trrs)
+// InsertFinishedRun provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
+func (_m *ORM) InsertFinishedRun(ctx context.Context, run pipeline.Run, trrs []pipeline.TaskRunResult, saveSuccessfulTaskRuns bool) (int64, error) {
+	ret := _m.Called(ctx, run, trrs, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) int64); ok {
-		r0 = rf(ctx, run, trrs)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult, bool) int64); ok {
+		r0 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult) error); ok {
-		r1 = rf(ctx, run, trrs)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, []pipeline.TaskRunResult, bool) error); ok {
+		r1 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)
 	}
