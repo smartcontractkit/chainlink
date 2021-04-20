@@ -23,6 +23,8 @@ DB load and significantly improves the performance of archiving OCR jobs.
 
 - Added `GAS_UPDATER_BATCH_SIZE` option to workaround `websocket: read limit exceeded` issues on BSC
 
+- Basic support for Optimism chain: node no longer gets stuck with 'nonce too low' error if connection is lost
+
 ## [0.10.4] - 2021-04-05
 
 ### Added
