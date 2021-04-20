@@ -20,6 +20,7 @@ const (
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
 	Keeper            Type = "keeper"
+	Web               Type = "web"
 )
 
 type Job struct {
@@ -32,6 +33,8 @@ type Job struct {
 	FluxMonitorSpec               *FluxMonitorSpec
 	KeeperSpecID                  *int32
 	KeeperSpec                    *KeeperSpec
+	WebSpecId                     *int32
+	WebSpec                       *WebSpec
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
 	JobSpecErrors                 []SpecError `gorm:"foreignKey:JobID"`
@@ -132,6 +135,40 @@ func (s *OffchainReportingOracleSpec) BeforeSave(db *gorm.DB) error {
 
 func (OffchainReportingOracleSpec) TableName() string {
 	return "offchainreporting_oracle_specs"
+}
+
+type WebSpec struct {
+	ID        int32     `toml:"-" gorm:"primary_key"`
+	CreatedAt time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt time.Time `json:"updatedAt" toml:"-"`
+}
+
+func (w WebSpec) GetID() string {
+	return fmt.Sprintf("%v", w.ID)
+}
+
+func (w *WebSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	w.ID = int32(ID)
+	return nil
+}
+
+func (w *WebSpec) BeforeCreate(db *gorm.DB) error {
+	w.CreatedAt = time.Now()
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (w *WebSpec) BeforeSave(db *gorm.DB) error {
+	w.UpdatedAt = time.Now()
+	return nil
+}
+
+func (WebSpec) TableName() string {
+	return "web_specs"
 }
 
 type DirectRequestSpec struct {

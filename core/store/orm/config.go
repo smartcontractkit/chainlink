@@ -476,6 +476,11 @@ func (c Config) FeatureOffchainReporting() bool {
 	return c.viper.GetBool(EnvVarName("FeatureOffchainReporting"))
 }
 
+//FeatureWebV2 enables the Web v2 pipeline job feature.
+func (c Config) FeatureWebV2() bool {
+	return c.getWithFallback("FeatureWebV2", parseBool).(bool)
+}
+
 // MaximumServiceDuration is the maximum time that a service agreement can run
 // from after the time it is created. Default 1 year = 365 * 24h = 8760h
 func (c Config) MaximumServiceDuration() models.Duration {

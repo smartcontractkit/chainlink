@@ -301,3 +301,17 @@ func TestMigrate_RemoveResultTask(t *testing.T) {
 
 	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0020_remove_result_task"))
 }
+
+func TestMigrate_CreateWebTables(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_web_tables", false)
+	defer cleanup()
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_web_spec_tables"))
+
+	cs := job.WebSpec{
+		ID: int32(1),
+	}
+	require.NoError(t, orm.DB.Create(&cs).Error)
+	require.NoError(t, orm.DB.Find(&cs).Error)
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0024_add_web_spec_tables"))
+}

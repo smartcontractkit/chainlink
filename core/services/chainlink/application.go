@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/core/services/telemetry"
+	"github.com/smartcontractkit/chainlink/core/services/web"
 	"gorm.io/gorm"
 
 	"github.com/gobuffalo/packr"
@@ -244,6 +245,11 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	} else {
 		logger.Debug("Off-chain reporting disabled")
 	}
+
+	if config.Dev() || config.FeatureWebV2() {
+		delegates[job.Web] = web.NewDelegate(pipelineRunner)
+	}
+
 	jobSpawner := job.NewSpawner(jobORM, store.Config, delegates)
 	subservices = append(subservices, jobSpawner, pipelineRunner, ethBroadcaster, ethConfirmer, headBroadcaster)
 

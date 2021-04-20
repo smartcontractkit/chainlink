@@ -26,6 +26,8 @@ const (
 	OffChainReportingJobSpec JobSpecType = "offchainreporting"
 	// Keeper defines a Keeper Job
 	KeeperJobSpec JobSpecType = "keeper"
+	// Web defines a Web Job
+	WebJobSpec JobSpecType = "web"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -153,6 +155,20 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 	}
 }
 
+// WebSpec defines the spec details of a Web Job
+type WebSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// NewWebSpec generates a new WebSpec from a job.WebSpec
+func NewWebSpec(spec *job.WebSpec) *WebSpec {
+	return &WebSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -183,6 +199,7 @@ type JobResource struct {
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
+	WebSpec               *WebSpec               `json:"webSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -207,6 +224,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
+	case job.Web:
+		resource.WebSpec = NewWebSpec(j.WebSpec)
 	}
 
 	jes := []JobError{}

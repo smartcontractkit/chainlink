@@ -128,6 +128,7 @@ func (o *orm) ClaimUnclaimedJobs(ctx context.Context) ([]Job, error) {
 		Preload("OffchainreportingOracleSpec").
 		Preload("KeeperSpec").
 		Preload("PipelineSpec").
+		Preload("WebSpec").
 		Find(&newlyClaimedJobs).Error
 	if err != nil {
 		return nil, errors.Wrap(err, "ClaimUnclaimedJobs failed to load jobs")
@@ -309,6 +310,7 @@ func (o *orm) JobsV2() ([]Job, error) {
 		Preload("FluxMonitorSpec").
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
+		Preload("WebSpec").
 		Find(&jobs).
 		Error
 	for i := range jobs {
@@ -349,6 +351,7 @@ func (o *orm) FindJob(id int32) (Job, error) {
 		Preload("DirectRequestSpec").
 		Preload("JobSpecErrors").
 		Preload("KeeperSpec").
+		Preload("WebSpec").
 		First(&job, "jobs.id = ?", id).
 		Error
 	if job.OffchainreportingOracleSpec != nil {

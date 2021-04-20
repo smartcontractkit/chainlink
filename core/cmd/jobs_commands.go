@@ -104,6 +104,10 @@ func (j JobPresenter) FriendlyCreatedAt() string {
 		if j.KeeperSpec != nil {
 			return j.KeeperSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.WebJobSpec:
+		if j.WebSpec != nil {
+			return j.WebSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

@@ -226,6 +226,35 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
 	assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 }
+
+func TestJobsController_Create_WebRequestSpec(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "testdata/web-job-spec.toml")
+	body, _ := json.Marshal(models.CreateJobSpecRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.Job{}
+	require.NoError(t, app.Store.DB.Preload("WebSpec").First(&jb).Error)
+
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
+	assert.NoError(t, err)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+}
+
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
