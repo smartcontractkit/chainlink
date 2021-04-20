@@ -1778,6 +1778,13 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 		len(req.Args) == 1 && req.Args[0] == hash
 }
 
+func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+	t.Helper()
+	if !BatchElemMatchesHash(req, hash) {
+		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
+	}
+}
+
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
 	BackfillDepth        int64

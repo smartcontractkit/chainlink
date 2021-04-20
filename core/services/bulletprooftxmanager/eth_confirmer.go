@@ -244,31 +244,21 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
 		}
 
-		logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, and latest nonce is %v",
-			len(attempts), from, latestBlockNonce), "blockNum", blockNum)
+		likelyConfirmed := separateLikelyConfirmedAttempts(from, attempts, latestBlockNonce)
+		likelyConfirmedCount := len(likelyConfirmed)
+		if likelyConfirmedCount != 0 {
+			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
 
-		likelyConfirmed := make([]models.EthTxAttempt, 0)
-		likelyUnconfirmed := attempts
-		for i := 0; i < len(attempts); i++ {
-			if attempts[i].EthTx.Nonce != nil && *attempts[i].EthTx.Nonce >= int64(latestBlockNonce) {
-				logger.Debugf("EthConfirmer: Splitting attempts just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
-				likelyConfirmed = attempts[0:i]
-				likelyUnconfirmed = attempts[i:]
-				break
+			logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts. Skipping checking the others (%v)",
+				likelyConfirmedCount, likelyUnconfirmedCount)
+
+			start := time.Now()
+			err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
+			if err != nil {
+				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 			}
-		}
-
-		start := time.Now()
-		err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
-		if err != nil {
-			return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
-		}
-		logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts took %v ms",
-			len(likelyConfirmed), float64(time.Since(start).Milliseconds()))
-
-		err = ec.fetchAndSaveReceipts(ctx, likelyUnconfirmed, blockNum)
-		if err != nil {
-			return errors.Wrapf(err, "unable to fetch and save receipts, for address: %v", from)
+			logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts took %v ms.",
+				likelyConfirmedCount, float64(time.Since(start).Milliseconds()))
 		}
 	}
 
@@ -279,8 +269,38 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
 		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
 	}
-
 	return nil
+}
+
+func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.EthTxAttempt, latestBlockNonce uint64) []models.EthTxAttempt {
+	firstAttemptNonce := "unknown"
+	lastAttemptNonce := "unknown"
+	if len(attempts) > 0 {
+		if attempts[len(attempts)-1].EthTx.Nonce != nil {
+			lastAttemptNonce = fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
+		}
+		if attempts[0].EthTx.Nonce != nil {
+			firstAttemptNonce = fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
+		}
+	}
+
+	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
+		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce))
+
+	likelyConfirmed := attempts
+	for i := 0; i < len(attempts); i++ {
+		if attempts[i].EthTx.Nonce != nil && *attempts[i].EthTx.Nonce > int64(latestBlockNonce) {
+			logger.Debugf("EthConfirmer: Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
+			likelyConfirmed = attempts[0:i]
+			break
+		}
+	}
+
+	if len(likelyConfirmed) == 0 {
+		logger.Debug("EthConfirmer: There are no likely confirmed attempts - so will skip checking any")
+	}
+
+	return likelyConfirmed
 }
 
 func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []models.EthTxAttempt, blockNum int64) error {
@@ -292,7 +312,7 @@ func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []mod
 			j = len(attempts)
 		}
 
-		logger.Debugw(fmt.Sprintf("EthConfirmer: batch fetching receipts %v thru %v", i, j), "blockNum", blockNum)
+		logger.Debugw(fmt.Sprintf("EthConfirmer: batch fetching receipts at indexes %v until (excluded) %v", i, j), "blockNum", blockNum)
 
 		batch := attempts[i:j]
 

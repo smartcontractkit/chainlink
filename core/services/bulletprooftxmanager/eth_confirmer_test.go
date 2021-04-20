@@ -120,7 +120,7 @@ func TestEthConfirmer_SetBroadcastBeforeBlockNum(t *testing.T) {
 	})
 }
 
-func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
+func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
@@ -163,7 +163,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 	require.Len(t, attempt1_1.EthReceipts, 0)
 
 	t.Run("fetches receipt for one unconfirmed eth_tx", func(t *testing.T) {
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		// Transaction not confirmed yet, receipt is nil
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -193,7 +193,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		// First transaction confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -220,7 +220,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		// First transaction confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash)
@@ -253,7 +253,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_1.Hash) &&
@@ -312,7 +312,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			TransactionIndex: uint(1),
 		}
 
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
 				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
@@ -342,12 +342,60 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 		require.Len(t, etx.EthTxAttempts, 3)
 	})
 
+	//t.Run("fetches and processes receipts for only some attempts that have nonce below or equal latest", func(t *testing.T) {
+	//	attempt2_2 := newBroadcastEthTxAttempt(t, etx2.ID, store)
+	//	attempt2_2.GasPrice = *utils.NewBig(big.NewInt(10))
+	//
+	//	attempt2_3 := newBroadcastEthTxAttempt(t, etx2.ID, store)
+	//	attempt2_3.GasPrice = *utils.NewBig(big.NewInt(20))
+	//
+	//	// Insert order deliberately reversed to test sorting by gas price
+	//	require.NoError(t, store.DB.Create(&attempt2_3).Error)
+	//	require.NoError(t, store.DB.Create(&attempt2_2).Error)
+	//
+	//	bptxmReceipt := bulletprooftxmanager.Receipt{
+	//		TxHash:           attempt2_2.Hash,
+	//		BlockHash:        cltest.NewHash(),
+	//		BlockNumber:      big.NewInt(42),
+	//		TransactionIndex: uint(1),
+	//	}
+	//
+	//	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
+	//	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+	//		return len(b) == 3 &&
+	//			cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
+	//			cltest.BatchElemMatchesHash(b[1], attempt2_2.Hash) &&
+	//			cltest.BatchElemMatchesHash(b[0], attempt2_3.Hash)
+	//
+	//	})).Return(nil).Run(func(args mock.Arguments) {
+	//		elems := args.Get(1).([]rpc.BatchElem)
+	//		// Most expensive attempt still unconfirmed
+	//		elems[2].Result = &bulletprooftxmanager.Receipt{}
+	//		// Second most expensive attempt is confirmed
+	//		elems[1].Result = &bptxmReceipt
+	//		// Cheapest attempt still unconfirmed
+	//		elems[0].Result = &bulletprooftxmanager.Receipt{}
+	//	}).Once()
+	//
+	//	// Do the thing
+	//	require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
+	//
+	//	ethClient.AssertExpectations(t)
+	//
+	//	// Check that the state was updated
+	//	etx, err := store.FindEthTxWithAttempts(etx2.ID)
+	//	require.NoError(t, err)
+	//
+	//	require.Equal(t, models.EthTxConfirmed, etx.State)
+	//	require.Len(t, etx.EthTxAttempts, 3)
+	//})
+
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress)
 	attempt3_1 := etx3.EthTxAttempts[0]
 	nonce++
 
 	t.Run("ignores receipt missing BlockHash that comes from querying parity too early", func(t *testing.T) {
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		receipt := bulletprooftxmanager.Receipt{
 			TxHash: attempt3_1.Hash,
 		}
@@ -406,7 +454,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			BlockNumber:      big.NewInt(ethReceipt.BlockNumber),
 			TransactionIndex: ethReceipt.TransactionIndex,
 		}
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 && cltest.BatchElemMatchesHash(b[0], attempt3_1.Hash)
 		})).Return(nil).Run(func(args mock.Arguments) {
@@ -452,7 +500,7 @@ func TestEthConfirmer_CheckForReceipts_A(t *testing.T) {
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		// Second attempt is confirmed
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
@@ -522,7 +570,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 		attempts = append(attempts, attempt)
 	}
 
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 		return len(b) == 2 &&
@@ -551,6 +599,96 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	}).Once()
 
 	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+	ethClient.AssertExpectations(t)
+}
+
+func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	config.Set("ETH_RPC_DEFAULT_BATCH_SIZE", 6)
+	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	ctx := context.Background()
+
+	var attempts []models.EthTxAttempt
+	// inserting in DESC nonce order to test DB ASC ordering
+	etx2 := cltest.MustInsertEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
+	for i := 0; i < 4; i++ {
+		attempt := newBroadcastEthTxAttempt(t, etx2.ID, store, int64(100-i))
+		require.NoError(t, store.DB.Create(&attempt).Error)
+	}
+	etx := cltest.MustInsertEthTxWithBroadcastAttempt(t, store, 0, fromAddress)
+	for i := 0; i < 4; i++ {
+		attempt := newBroadcastEthTxAttempt(t, etx.ID, store, int64(100-i))
+		require.NoError(t, store.DB.Create(&attempt).Error)
+
+		// only adding these because a batch for only those attempts should be sent
+		attempts = append(attempts, attempt)
+	}
+
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
+
+	var captured []rpc.BatchElem
+	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+		return len(b) == 4
+	})).Return(nil).Run(func(args mock.Arguments) {
+		elems := args.Get(1).([]rpc.BatchElem)
+		captured = append(captured, elems...)
+		elems[0].Result = &bulletprooftxmanager.Receipt{}
+		elems[1].Result = &bulletprooftxmanager.Receipt{}
+		elems[2].Result = &bulletprooftxmanager.Receipt{}
+		elems[3].Result = &bulletprooftxmanager.Receipt{}
+	}).Once()
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+
+	cltest.BatchElemMustMatchHash(t, captured[0], attempts[0].Hash)
+	cltest.BatchElemMustMatchHash(t, captured[1], attempts[1].Hash)
+	cltest.BatchElemMustMatchHash(t, captured[2], attempts[2].Hash)
+	cltest.BatchElemMustMatchHash(t, captured[3], attempts[3].Hash)
+
+	ethClient.AssertExpectations(t)
+}
+
+func TestEthConfirmer_CheckForReceipts_should_not_check_for_likely_unconfirmed(t *testing.T) {
+	t.Parallel()
+
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, store, 0)
+
+	ethClient := new(mocks.Client)
+	store.EthClient = ethClient
+
+	config, cleanup := cltest.NewConfig(t)
+	defer cleanup()
+	ec := bulletprooftxmanager.NewEthConfirmer(store, config)
+
+	ctx := context.Background()
+
+	etx := cltest.MustInsertEthTxWithBroadcastAttempt(t, store, 1, fromAddress)
+	for i := 0; i < 4; i++ {
+		attempt := newBroadcastEthTxAttempt(t, etx.ID, store, int64(100-i))
+		require.NoError(t, store.DB.Create(&attempt).Error)
+	}
+
+	// latest nonce is lower that all attempts' nonces
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
+
+	require.NoError(t, ec.CheckForReceipts(ctx, 42))
+
+	// no BatchCallContext calls
 	ethClient.AssertExpectations(t)
 }
 
@@ -625,34 +763,28 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockNumber:      big.NewInt(42),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(4), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 2 &&
+			return len(b) == 6 &&
 				cltest.BatchElemMatchesHash(b[0], attempt0_2.Hash) &&
-				cltest.BatchElemMatchesHash(b[1], attempt0_1.Hash)
+				cltest.BatchElemMatchesHash(b[1], attempt0_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[2], attempt1_2.Hash) &&
+				cltest.BatchElemMatchesHash(b[3], attempt1_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[4], attempt2_1.Hash) &&
+				cltest.BatchElemMatchesHash(b[5], attempt3_1.Hash)
+
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			// First transaction confirmed
 			elems[0].Result = &bptxmReceipt0
 			elems[1].Result = &bulletprooftxmanager.Receipt{}
-		}).Once()
-
-		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 4 &&
-				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
-				cltest.BatchElemMatchesHash(b[1], attempt1_1.Hash) &&
-				cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
-				cltest.BatchElemMatchesHash(b[3], attempt3_1.Hash)
-
-		})).Return(nil).Run(func(args mock.Arguments) {
-			elems := args.Get(1).([]rpc.BatchElem)
-			//// Second transaction stil unconfirmed
-			elems[0].Result = &bulletprooftxmanager.Receipt{}
-			elems[1].Result = &bulletprooftxmanager.Receipt{}
-			//// Third transaction still unconfirmed
+			// Second transaction stil unconfirmed
 			elems[2].Result = &bulletprooftxmanager.Receipt{}
-			//// Fourth transaction is confirmed
-			elems[3].Result = &bptxmReceipt3
+			elems[3].Result = &bulletprooftxmanager.Receipt{}
+			// Third transaction still unconfirmed
+			elems[4].Result = &bulletprooftxmanager.Receipt{}
+			// Fourth transaction is confirmed
+			elems[5].Result = &bptxmReceipt3
 		}).Once()
 
 		// PERFORM
@@ -698,7 +830,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 			BlockNumber:      big.NewInt(43),
 			TransactionIndex: uint(1),
 		}
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
@@ -747,7 +879,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("continues to leave eth_txes with state 'confirmed_missing_receipt' unchanged if at least one attempt is above ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
@@ -789,7 +921,7 @@ func TestEthConfirmer_CheckForReceipts_confirmed_missing_receipt(t *testing.T) {
 	// eth_txes with nonce 3 is confirmed
 
 	t.Run("marks eth_Txes with state 'confirmed_missing_receipt' as 'errored' if a receipt fails to show up and all attempts are buried deeper than ETH_FINALITY_DEPTH", func(t *testing.T) {
-		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(1), nil)
+		ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
 				cltest.BatchElemMatchesHash(b[0], attempt1_2.Hash) &&
