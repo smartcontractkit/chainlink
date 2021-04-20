@@ -599,7 +599,7 @@ func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	t.Run("VRF", func(t *testing.T) {
-		jsonStr := cltest.MustReadFile(t, "../internal/testdata/randomness_job.json")
+		jsonStr := cltest.MustReadFile(t, "./../testdata/jsonspecs/randomness_job.json")
 		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 		t.Cleanup(cleanup)
 
