@@ -71,7 +71,7 @@ export const transformPipelineJobRun = (jobSpecId: string) => (
     jobId: jobSpecId,
     status: getOcrJobStatus(jobRun.attributes),
     taskRuns,
-    type: 'Off-chain reporting job run',
+    type: 'Pipeline job run',
   }
 }
 
