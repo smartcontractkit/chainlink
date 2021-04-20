@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +35,7 @@ CREATE INDEX idx_pipeline_task_runs_optimise_find_results ON public.pipeline_tas
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0016_pipeline_task_run_dot_id",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up16).Error
