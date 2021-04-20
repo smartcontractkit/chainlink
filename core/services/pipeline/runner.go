@@ -25,12 +25,17 @@ type Runner interface {
 	// Start spawns a background routine to delete old pipeline runs.
 	Start() error
 	Close() error
+
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	ExecuteRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger) (trrs TaskRunResults, err error)
-	// ExecuteRun executes a new run in-memory according to a spec, persists and saves the results.
-	ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
-	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
+	// InsertFinishedRun saves the run results in the database.
+	InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error)
+
+	// ExecuteAndInsertNewRun executes a new run in-memory according to a spec, persists and saves the results.
+	// It is a combination of ExecuteRun and InsertFinishedRun.
+	// Note that the spec MUST have a DOT graph for this to work.
+	ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error)
 }
 
 type runner struct {
@@ -361,9 +366,8 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, task Task, meta 
 	return result
 }
 
-// ExecuteAndInsertNewRun bypasses the job pipeline entirely.
-// It executes a run in memory then inserts the finished run/task run records, returning the final result
-func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
+// ExecuteAndInsertNewRun executes a run in memory then inserts the finished run/task run records, returning the final result
+func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, meta JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (runID int64, finalResult FinalResult, err error) {
 	var run Run
 	run.PipelineSpecID = spec.ID
 	run.CreatedAt = time.Now()
@@ -379,17 +383,17 @@ func (r *runner) ExecuteAndInsertNewRun(ctx context.Context, spec Spec, meta JSO
 	run.Outputs = finalResult.OutputsDB()
 	run.Errors = finalResult.ErrorsDB()
 
-	if runID, err = r.orm.InsertFinishedRunWithResults(ctx, run, trrs, saveSuccessfulTaskRuns); err != nil {
+	if runID, err = r.orm.InsertFinishedRun(ctx, run, trrs, saveSuccessfulTaskRuns); err != nil {
 		return runID, finalResult, errors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 
 	return runID, finalResult, nil
 }
 
-func (r *runner) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+func (r *runner) InsertFinishedRun(ctx context.Context, run Run, trrs TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, r.config.DatabaseMaximumTxDuration())
 	defer cancel()
-	return r.orm.InsertFinishedRunWithResults(dbCtx, run, trrs, saveSuccessfulTaskRuns)
+	return r.orm.InsertFinishedRun(dbCtx, run, trrs, saveSuccessfulTaskRuns)
 }
 
 func (r *runner) runReaper() {

@@ -130,20 +130,6 @@ func (_m *Config) JobPipelineMaxRunDuration() time.Duration {
 	return r0
 }
 
-// JobPipelineParallelism provides a mock function with given fields:
-func (_m *Config) JobPipelineParallelism() uint8 {
-	ret := _m.Called()
-
-	var r0 uint8
-	if rf, ok := ret.Get(0).(func() uint8); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint8)
-	}
-
-	return r0
-}
-
 // JobPipelineReaperInterval provides a mock function with given fields:
 func (_m *Config) JobPipelineReaperInterval() time.Duration {
 	ret := _m.Called()
