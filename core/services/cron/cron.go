@@ -2,9 +2,7 @@ package cron
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/robfig/cron"
 	cronParser "github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
@@ -17,14 +15,14 @@ import (
 type Cron struct {
 	jobID int32
 
-	ctx          context.Context
-	cancel       context.CancelFunc
-	cronRunner   *cronParser.Cron
-	done         chan struct{}
-	logger       *logger.Logger
-	pipelineSpec pipeline.Spec
-	runner       pipeline.Runner
-	Schedule     string
+	ctx            context.Context
+	cancel         context.CancelFunc
+	cronRunner     *cronParser.Cron
+	done           chan struct{}
+	logger         *logger.Logger
+	pipelineSpec   pipeline.Spec
+	pipelineRunner pipeline.Runner
+	Schedule       string
 }
 
 // NewCronFromJobSpec() - instantiates a Cron singleton to execute the given job pipelineSpec
@@ -36,9 +34,6 @@ func NewCronFromJobSpec(
 	cronSpec := jobSpec.CronSpec
 	spec := jobSpec.PipelineSpec
 
-	if err := validateCronSpec(*cronSpec); err != nil {
-		return nil, err
-	}
 	cronLogger := logger.CreateLogger(
 		logger.Default.With(
 			"jobID", jobSpec.ID,
@@ -49,28 +44,15 @@ func NewCronFromJobSpec(
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Cron{
-		jobID:        jobSpec.ID,
-		logger:       cronLogger,
-		Schedule:     cronSpec.CronSchedule,
-		runner:       runner,
-		pipelineSpec: *spec,
-		cronRunner:   cronParser.New(),
-		ctx:          ctx,
-		cancel:       cancel,
+		jobID:          jobSpec.ID,
+		logger:         cronLogger,
+		Schedule:       cronSpec.CronSchedule,
+		pipelineRunner: runner,
+		pipelineSpec:   *spec,
+		cronRunner:     cronParser.New(),
+		ctx:            ctx,
+		cancel:         cancel,
 	}, nil
-}
-
-// validateCronSpec() - validates the cron job spec and included fields
-func validateCronSpec(cronSpec job.CronSpec) error {
-	if cronSpec.CronSchedule == "" {
-		return fmt.Errorf("schedule must not be empty")
-	}
-	_, err := cron.Parse(cronSpec.CronSchedule)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // Start implements the job.Service interface.
@@ -78,7 +60,7 @@ func (cron *Cron) Start() error {
 	cron.logger.Debug("Cron: Starting")
 	go gracefulpanic.WrapRecover(func() {
 		defer close(cron.done)
-		cron.run()
+		cron.cronRunner.Run()
 	})
 	return nil
 }
@@ -94,7 +76,7 @@ func (cron *Cron) Close() error {
 	return nil
 }
 
-// run() runs the cron jobSpec in the pipeline runner
+// run() runs the cron jobSpec in the pipeline pipelineRunner
 func (cron *Cron) run() {
 	_, err := cron.cronRunner.AddFunc(cron.Schedule, func() {
 		cron.runPipeline()
@@ -106,7 +88,7 @@ func (cron *Cron) run() {
 }
 
 func (cron *Cron) runPipeline() {
-	_, _, err := cron.runner.ExecuteAndInsertNewRun(cron.ctx, cron.pipelineSpec, pipeline.JSONSerializable{}, *cron.logger, true)
+	_, _, err := cron.pipelineRunner.ExecuteAndInsertNewRun(cron.ctx, cron.pipelineSpec, pipeline.JSONSerializable{}, *cron.logger, true)
 	if err != nil {
 		cron.logger.Errorf("Error executing new run for jobSpec ID %v", cron.jobID)
 	}
