@@ -5,6 +5,7 @@ import * as models from 'core/store/models'
 export const ENDPOINT = '/v2/jobs'
 const SHOW_ENDPOINT = `${ENDPOINT}/:specId`
 const DESTROY_ENDPOINT = `${ENDPOINT}/:specId`
+const RUN_JOB_ENDPOINT = `${ENDPOINT}/:specId/runs`
 
 // Jobs represents the v2 jobs
 export class Jobs {
@@ -34,6 +35,11 @@ export class Jobs {
     return this.destroy(undefined, { specId: id })
   }
 
+  @boundMethod
+  public createJobRunV2(id: string): Promise<jsonapi.ApiResponse<null>> {
+    return this.post(undefined, { specId: id })
+  }
+
   private index = this.api.fetchResource<{}, models.JobSpecV2[]>(ENDPOINT)
 
   private create = this.api.createResource<
@@ -56,4 +62,12 @@ export class Jobs {
       specId: string
     }
   >(DESTROY_ENDPOINT)
+
+  private post = this.api.createResource<
+    undefined,
+    null,
+    {
+      specId: string
+    }
+  >(RUN_JOB_ENDPOINT)
 }
