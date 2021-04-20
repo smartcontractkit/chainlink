@@ -8,8 +8,9 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -130,7 +131,7 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	request, err := json.Marshal(models.CreateJobSpecRequest{
+	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: tomlString,
 	})
 	if err != nil {

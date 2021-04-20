@@ -363,7 +363,7 @@ type Feeds = JSON
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	ID                               int64         `gorm:"primary_key"`
-	JobSpecID                        JobID         `json:"-"`
+	JobSpecID                        JobID         `json:"jobSpecId"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`

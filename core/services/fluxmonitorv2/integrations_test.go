@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -467,7 +469,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod)
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -584,7 +586,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -679,7 +681,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -787,7 +789,7 @@ ds1 -> ds1_parse
 	fa.flagsContract.RaiseFlag(fa.sergey, fa.aggregatorContractAddress)
 	fa.backend.Commit()
 
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)
@@ -887,7 +889,7 @@ ds1 -> ds1_parse -> ds1_multiply
 	`
 
 	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "200ms", mockServer.URL)
-	requestBody, err := json.Marshal(models.CreateJobSpecRequest{
+	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})
 	assert.NoError(t, err)

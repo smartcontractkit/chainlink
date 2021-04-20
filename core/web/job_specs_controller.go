@@ -83,6 +83,8 @@ func (jsc *JobSpecsController) Index(c *gin.Context, size, page, offset int) {
 // Example:
 //  "<application>/specs"
 func (jsc *JobSpecsController) Create(c *gin.Context) {
+	// NOTE: getAndCheckJobSpec will generate and assign
+	// a new UUID to the spec.
 	js, httpStatus, err := jsc.getAndCheckJobSpec(c)
 	if err != nil {
 		jsonAPIError(c, httpStatus, err)

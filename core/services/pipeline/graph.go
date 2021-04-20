@@ -25,7 +25,7 @@ func NewTaskDAG() *TaskDAG {
 }
 
 func (g *TaskDAG) NewNode() graph.Node {
-	return &taskDAGNode{Node: g.DirectedGraph.NewNode(), g: g}
+	return &TaskDAGNode{Node: g.DirectedGraph.NewNode(), g: g}
 }
 
 func (g *TaskDAG) UnmarshalText(bs []byte) (err error) {
@@ -108,11 +108,11 @@ func (g TaskDAG) MinTimeout() (time.Duration, bool, error) {
 	return minTimeout, aTimeoutSet, nil
 }
 
-func (g TaskDAG) outputs() []*taskDAGNode {
-	var outputs []*taskDAGNode
+func (g TaskDAG) outputs() []*TaskDAGNode {
+	var outputs []*TaskDAGNode
 	iter := g.Nodes()
 	for iter.Next() {
-		node, is := iter.Node().(*taskDAGNode)
+		node, is := iter.Node().(*TaskDAGNode)
 		if !is {
 			panic("this is impossible but we must appease go staticcheck")
 		}
@@ -123,26 +123,38 @@ func (g TaskDAG) outputs() []*taskDAGNode {
 	return outputs
 }
 
-type taskDAGNode struct {
+type TaskDAGNode struct {
 	graph.Node
 	g     *TaskDAG
 	dotID string
 	attrs map[string]string
 }
 
-func (n *taskDAGNode) DOTID() string {
+func NewTaskDAGNode(n graph.Node, dotID string, attrs map[string]string) *TaskDAGNode {
+	return &TaskDAGNode{
+		Node:  n,
+		attrs: attrs,
+		dotID: dotID,
+	}
+}
+
+func (n *TaskDAGNode) SetDAG(g *TaskDAG) {
+	n.g = g
+}
+
+func (n *TaskDAGNode) DOTID() string {
 	return n.dotID
 }
 
-func (n *taskDAGNode) SetDOTID(id string) {
+func (n *TaskDAGNode) SetDOTID(id string) {
 	n.dotID = id
 }
 
-func (n *taskDAGNode) String() string {
+func (n *TaskDAGNode) String() string {
 	return n.dotID
 }
 
-func (n *taskDAGNode) SetAttribute(attr encoding.Attribute) error {
+func (n *TaskDAGNode) SetAttribute(attr encoding.Attribute) error {
 	if n.attrs == nil {
 		n.attrs = make(map[string]string)
 	}
@@ -150,28 +162,36 @@ func (n *taskDAGNode) SetAttribute(attr encoding.Attribute) error {
 	return nil
 }
 
-func (n *taskDAGNode) inputs() []*taskDAGNode {
-	var nodes []*taskDAGNode
+func (n *TaskDAGNode) Attributes() []encoding.Attribute {
+	var r []encoding.Attribute
+	for k, v := range n.attrs {
+		r = append(r, encoding.Attribute{Key: k, Value: v})
+	}
+	return r
+}
+
+func (n *TaskDAGNode) inputs() []*TaskDAGNode {
+	var nodes []*TaskDAGNode
 	ns := n.g.To(n.ID())
 	for ns.Next() {
-		nodes = append(nodes, ns.Node().(*taskDAGNode))
+		nodes = append(nodes, ns.Node().(*TaskDAGNode))
 	}
 	return nodes
 }
 
-func (n *taskDAGNode) outputs() []*taskDAGNode {
-	var nodes []*taskDAGNode
+func (n *TaskDAGNode) outputs() []*TaskDAGNode {
+	var nodes []*TaskDAGNode
 	ns := n.g.From(n.ID())
 	for ns.Next() {
-		nodes = append(nodes, ns.Node().(*taskDAGNode))
+		nodes = append(nodes, ns.Node().(*TaskDAGNode))
 	}
 	return nodes
 }
 
-func unwrapGraphNodes(nodes graph.Nodes) []*taskDAGNode {
-	var out []*taskDAGNode
+func unwrapGraphNodes(nodes graph.Nodes) []*TaskDAGNode {
+	var out []*TaskDAGNode
 	for nodes.Next() {
-		out = append(out, nodes.Node().(*taskDAGNode))
+		out = append(out, nodes.Node().(*TaskDAGNode))
 	}
 	return out
 }

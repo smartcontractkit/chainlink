@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/core/web"
+
 	"github.com/smartcontractkit/chainlink/core/services/job"
 
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -26,7 +28,7 @@ func FixtureCreateJobViaWeb(t *testing.T, app *TestApplication, path string) mod
 }
 
 func FixtureCreateJobSpecV2ViaWeb(t *testing.T, app *TestApplication, path string) job.Job {
-	request := models.CreateJobSpecRequest{
+	request := web.CreateJobRequest{
 		TOML: string(MustReadFile(t, path)),
 	}
 	output, err := json.Marshal(request)
