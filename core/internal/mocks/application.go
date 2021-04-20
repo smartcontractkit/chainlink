@@ -6,7 +6,11 @@ import (
 	context "context"
 	big "math/big"
 
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink/core/logger"
 	chainlink "github.com/smartcontractkit/chainlink/core/services/chainlink"
+	store "github.com/smartcontractkit/chainlink/core/store"
 
 	job "github.com/smartcontractkit/chainlink/core/services/job"
 
@@ -17,8 +21,6 @@ import (
 	null "gopkg.in/guregu/null.v4"
 
 	packr "github.com/gobuffalo/packr"
-
-	store "github.com/smartcontractkit/chainlink/core/store"
 
 	synchronization "github.com/smartcontractkit/chainlink/core/services/synchronization"
 
@@ -224,6 +226,21 @@ func (_m *Application) GetStatsPusher() synchronization.StatsPusher {
 	return r0
 }
 
+func (_m *Application) GetLogger() *logger.Logger {
+	ret := _m.Called()
+
+	var r0 *logger.Logger
+	if rf, ok := ret.Get(0).(func() *logger.Logger); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*logger.Logger)
+		}
+	}
+
+	return r0
+}
+
 // GetStore provides a mock function with given fields:
 func (_m *Application) GetStore() *store.Store {
 	ret := _m.Called()
@@ -347,6 +364,20 @@ func (_m *Application) Start() error {
 
 // Stop provides a mock function with given fields:
 func (_m *Application) Stop() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Stop provides a mock function with given fields:
+func (_m *Application) SetServiceLogger(ctx context.Context, service string, level zapcore.Level) error {
 	ret := _m.Called()
 
 	var r0 error

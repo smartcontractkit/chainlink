@@ -57,12 +57,14 @@ type Service interface {
 	RemoveJob(models.JobID)
 	Start() error
 	Stop()
+	SetLogger(logger *logger.Logger)
 }
 
 type concreteFluxMonitor struct {
 	store          *store.Store
 	runManager     RunManager
 	logBroadcaster log.Broadcaster
+	logger         *logger.Logger
 	checkerFactory DeviationCheckerFactory
 	chAdd          chan addEntry
 	chRemove       chan models.JobID
@@ -100,6 +102,11 @@ func New(
 		chStop:       make(chan struct{}),
 		chDone:       make(chan struct{}),
 	}
+}
+
+// SetLogger sets and reconfigures the logger for the flux monitor service
+func (fm *concreteFluxMonitor) SetLogger(logger *logger.Logger) {
+	fm.logger = logger
 }
 
 func (fm *concreteFluxMonitor) Start() error {

@@ -8,16 +8,15 @@ import (
 	"sync"
 	"time"
 
+	ethereum "github.com/ethereum/go-ethereum"
+	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
-
-	ethereum "github.com/ethereum/go-ethereum"
-	"github.com/pkg/errors"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
@@ -119,6 +118,7 @@ func (r *headRingBuffer) run() {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
+	logger                *logger.Logger
 	callbacks             []strpkg.HeadTrackable
 	inHeaders             chan *models.Head
 	outHeaders            chan models.Head
@@ -133,22 +133,18 @@ type HeadTracker struct {
 	listenForNewHeadsWg   sync.WaitGroup
 	backfillMB            utils.Mailbox
 	subscriptionSucceeded chan struct{}
-	logger                *logger.Logger
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
 	} else {
 		sleeper = utils.NewBackoffSleeper()
 	}
-	l := logger.CreateLogger(logger.Default.With(
-		"id", "head_tracker",
-	))
 	return &HeadTracker{
 		store:      store,
 		callbacks:  callbacks,
@@ -156,6 +152,11 @@ func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleep
 		logger:     l,
 		backfillMB: *utils.NewMailbox(1),
 	}
+}
+
+// SetLogger sets and reconfigures the logger for the head tracker service
+func (ht *HeadTracker) SetLogger(logger *logger.Logger) {
+	ht.logger = logger
 }
 
 // Start retrieves the last persisted block number from the HeadTracker,
@@ -250,7 +251,9 @@ func (ht *HeadTracker) Connected() bool {
 
 func (ht *HeadTracker) connect(bn *models.Head) {
 	for _, trackable := range ht.callbacks {
-		ht.logger.WarnIf(trackable.Connect(bn))
+		if err := trackable.Connect(bn); err != nil {
+			ht.logger.Warn(trackable.Connect(bn))
+		}
 	}
 }
 
@@ -263,8 +266,9 @@ func (ht *HeadTracker) disconnect() {
 func (ht *HeadTracker) listenForNewHeads() {
 	defer ht.listenForNewHeadsWg.Done()
 	defer func() {
-		err := ht.unsubscribeFromHead()
-		logger.WarnIf(errors.Wrap(err, "HeadTracker failed when unsubscribe from head"))
+		if err := ht.unsubscribeFromHead(); err != nil {
+			ht.logger.Warn(errors.Wrap(err, "HeadTracker failed when unsubscribe from head"))
+		}
 	}()
 
 	ctx, cancel := utils.ContextFromChan(ht.done)
@@ -300,7 +304,7 @@ func (ht *HeadTracker) backfiller() {
 				}
 				h, is := head.(models.Head)
 				if !is {
-					logger.Errorf("HeadTracker: invariant violation, expected %T but got %T", models.Head{}, head)
+					ht.logger.Errorf("HeadTracker: invariant violation, expected %T but got %T", models.Head{}, head)
 					continue
 				}
 				{
@@ -308,7 +312,7 @@ func (ht *HeadTracker) backfiller() {
 					err := ht.Backfill(ctx, h, ht.store.Config.EthFinalityDepth())
 					defer cancel()
 					if err != nil {
-						logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
+						ht.logger.Warnw("HeadTracker: unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
 						break
 					}
@@ -338,7 +342,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 	}
 	mark := time.Now()
 	fetched := 0
-	logger.Debugw("HeadTracker: starting backfill",
+	ht.logger.Debugw("HeadTracker: starting backfill",
 		"blockNumber", head.Number,
 		"id", "head_tracker",
 		"n", head.Number-baseHeight,
@@ -348,7 +352,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 		if ctx.Err() != nil {
 			return
 		}
-		logger.Debugw("HeadTracker: finished backfill",
+		ht.logger.Debugw("HeadTracker: finished backfill",
 			"fetched", fetched,
 			"blockNumber", head.Number,
 			"time", time.Since(mark),
@@ -384,7 +388,7 @@ func (ht *HeadTracker) backfill(ctx context.Context, head models.Head, baseHeigh
 }
 
 func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.Head, error) {
-	logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
+	ht.logger.Debugw("HeadTracker: fetching head", "blockHeight", n)
 	head, err := ht.store.EthClient.HeaderByNumber(ctx, big.NewInt(n))
 	if ctx.Err() != nil {
 		return models.Head{}, nil
@@ -407,9 +411,8 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 func (ht *HeadTracker) subscribe() bool {
 	ht.sleeper.Reset()
 	for {
-		err := ht.unsubscribeFromHead()
-		if err != nil {
-			ht.logger.ErrorIf(err, "failed when unsubscribe from head")
+		if err := ht.unsubscribeFromHead(); err != nil {
+			ht.logger.Error("failed when unsubscribe from head", err)
 			return false
 		}
 
@@ -449,7 +452,7 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 				if ctx.Err() != nil {
 					return nil
 				} else if deadlineCtx.Err() != nil {
-					logger.Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
+					ht.logger.Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
 					return err
 				} else if err != nil {
 					return err
