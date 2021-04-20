@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -12,7 +11,7 @@ const (
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0021_add_job_id_topic_filter",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up21).Error
