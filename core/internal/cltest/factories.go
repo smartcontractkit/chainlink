@@ -469,11 +469,6 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
-}
-
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
 	runManager := new(mocks.RunManager)

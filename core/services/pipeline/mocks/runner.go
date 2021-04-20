@@ -30,27 +30,27 @@ func (_m *Runner) Close() error {
 	return r0
 }
 
-// ExecuteAndInsertNewRun provides a mock function with given fields: ctx, spec, meta, l
-func (_m *Runner) ExecuteAndInsertNewRun(ctx context.Context, spec pipeline.Spec, meta pipeline.JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.FinalResult, error) {
-	ret := _m.Called(ctx, spec, meta, l)
+// ExecuteAndInsertFinishedRun provides a mock function with given fields: ctx, spec, meta, l, saveSuccessfulTaskRuns
+func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline.Spec, meta pipeline.JSONSerializable, l logger.Logger, saveSuccessfulTaskRuns bool) (int64, pipeline.FinalResult, error) {
+	ret := _m.Called(ctx, spec, meta, l, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) int64); ok {
-		r0 = rf(ctx, spec, meta, l)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger, bool) int64); ok {
+		r0 = rf(ctx, spec, meta, l, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 pipeline.FinalResult
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) pipeline.FinalResult); ok {
-		r1 = rf(ctx, spec, meta, l)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger, bool) pipeline.FinalResult); ok {
+		r1 = rf(ctx, spec, meta, l, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Get(1).(pipeline.FinalResult)
 	}
 
 	var r2 error
-	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger) error); ok {
-		r2 = rf(ctx, spec, meta, l)
+	if rf, ok := ret.Get(2).(func(context.Context, pipeline.Spec, pipeline.JSONSerializable, logger.Logger, bool) error); ok {
+		r2 = rf(ctx, spec, meta, l, saveSuccessfulTaskRuns)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -81,20 +81,20 @@ func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, meta pipel
 	return r0, r1
 }
 
-// InsertFinishedRunWithResults provides a mock function with given fields: ctx, run, trrs
-func (_m *Runner) InsertFinishedRunWithResults(ctx context.Context, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
-	ret := _m.Called(ctx, run, trrs)
+// InsertFinishedRun provides a mock function with given fields: ctx, run, trrs, saveSuccessfulTaskRuns
+func (_m *Runner) InsertFinishedRun(ctx context.Context, run pipeline.Run, trrs pipeline.TaskRunResults, saveSuccessfulTaskRuns bool) (int64, error) {
+	ret := _m.Called(ctx, run, trrs, saveSuccessfulTaskRuns)
 
 	var r0 int64
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, pipeline.TaskRunResults) int64); ok {
-		r0 = rf(ctx, run, trrs)
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Run, pipeline.TaskRunResults, bool) int64); ok {
+		r0 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, pipeline.TaskRunResults) error); ok {
-		r1 = rf(ctx, run, trrs)
+	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Run, pipeline.TaskRunResults, bool) error); ok {
+		r1 = rf(ctx, run, trrs, saveSuccessfulTaskRuns)
 	} else {
 		r1 = ret.Error(1)
 	}

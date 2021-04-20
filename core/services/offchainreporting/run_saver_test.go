@@ -20,7 +20,7 @@ func TestRunSaver(t *testing.T) {
 	)
 	require.NoError(t, rs.Start())
 	for i := 0; i < 100; i++ {
-		pipelineRunner.On("InsertFinishedRunWithResults", mock.Anything, mock.Anything, mock.Anything).
+		pipelineRunner.On("InsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(int64(i), nil).Once()
 		rr <- pipeline.RunWithResults{Run: pipeline.Run{ID: int64(i)}}
 	}
