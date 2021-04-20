@@ -88,7 +88,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
 
-	toml := string(cltest.MustReadFile(t, "testdata/oracle-spec.toml"))
+	toml := string(cltest.MustReadFile(t, "../testdata/tomlspecs/oracle-spec.toml"))
 	toml = strings.Replace(toml, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", app.Key.Address.Hex(), 1)
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: toml,
@@ -128,7 +128,7 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/keeper-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/keeper-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
@@ -193,7 +193,7 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/direct-request-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
@@ -229,7 +229,7 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "testdata/flux-monitor-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
@@ -375,7 +375,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	client := app.NewHTTPClient()
 
 	var ocrJobSpecFromFileDB job.Job
-	tree, err := toml.LoadFile("testdata/oracle-spec.toml")
+	tree, err := toml.LoadFile("../testdata/tomlspecs/oracle-spec.toml")
 	require.NoError(t, err)
 	err = tree.Unmarshal(&ocrJobSpecFromFileDB)
 	require.NoError(t, err)
@@ -386,7 +386,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (cltest.HTTPClientCleane
 	ocrJobSpecFromFileDB.OffchainreportingOracleSpec.TransmitterAddress = &app.Key.Address
 	jobID, _ := app.AddJobV2(context.Background(), ocrJobSpecFromFileDB, null.String{})
 
-	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "testdata/direct-request-spec.toml")))
+	ereJobSpecFromFileDB, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
 	require.NoError(t, err)
 	jobID2, _ := app.AddJobV2(context.Background(), ereJobSpecFromFileDB, null.String{})
 

@@ -29,6 +29,7 @@ func NewRegistrySynchronizer(
 	job job.Job,
 	contract *keeper_registry_wrapper.KeeperRegistry,
 	db *gorm.DB,
+	jrm job.ORM,
 	headBroadcaster *services.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
@@ -47,6 +48,7 @@ func NewRegistrySynchronizer(
 		headBroadcaster:  headBroadcaster,
 		interval:         syncInterval,
 		job:              job,
+		jrm:              jrm,
 		logBroadcaster:   logBroadcaster,
 		mailRoom:         mailRoom,
 		minConfirmations: minConfirmations,
@@ -68,6 +70,7 @@ type RegistrySynchronizer struct {
 	headBroadcaster  *services.HeadBroadcaster
 	interval         time.Duration
 	job              job.Job
+	jrm              job.ORM
 	logBroadcaster   log.Broadcaster
 	mailRoom         MailRoom
 	minConfirmations uint64

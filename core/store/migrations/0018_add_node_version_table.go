@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ DROP TABLE IF EXISTS "node_versions";
 `
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0018_add_node_version_table",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up18).Error

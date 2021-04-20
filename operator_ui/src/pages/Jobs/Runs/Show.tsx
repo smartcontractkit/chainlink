@@ -30,7 +30,7 @@ function getErrorsList(
       .filter((error): error is string => error !== null)
   }
 
-  if (jobRun?.type === 'Off-chain reporting job run' && jobRun.errors) {
+  if (jobRun?.type === 'Pipeline job run' && jobRun.errors) {
     return jobRun.errors.filter((error): error is string => error !== null)
   }
 
@@ -90,7 +90,7 @@ export const Show = ({ match }: Props) => {
                 <Grid item xs={12}>
                   <StatusCard {...jobRun} title={jobRun.status} />
                 </Grid>
-                {jobRun.type === 'Off-chain reporting job run' && (
+                {jobRun.type === 'Pipeline job run' && (
                   <Switch>
                     {jobRun.status == 'errored' && (
                       <Grid item xs={12}>
@@ -131,7 +131,7 @@ export const Show = ({ match }: Props) => {
                     {jobRun.type === 'Direct request job run' && (
                       <Route render={() => <Overview jobRun={jobRun} />} />
                     )}
-                    {jobRun.type === 'Off-chain reporting job run' && (
+                    {jobRun.type === 'Pipeline job run' && (
                       <Switch>
                         {jobRun.status == 'errored' && (
                           <Route

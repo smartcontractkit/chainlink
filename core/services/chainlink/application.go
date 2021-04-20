@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -202,7 +203,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 				store.DB,
 				config,
 			),
-			job.Keeper: keeper.NewDelegate(store.DB, store.EthClient, headBroadcaster, logBroadcaster, config),
+			job.Keeper: keeper.NewDelegate(store.DB, jobORM, pipelineRunner, store.EthClient, headBroadcaster, logBroadcaster, config),
 		}
 	)
 
@@ -513,14 +514,31 @@ func (app *ChainlinkApplication) AddJobV2(ctx context.Context, job job.Job, name
 
 // Only used for testing, not supported by the UI.
 func (app *ChainlinkApplication) RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error) {
+	if !app.Store.Config.Dev() {
+		return 0, errors.New("manual job runs only supported in dev mode - export CHAINLINK_DEV=true to use.")
+	}
 	jb, err := app.JobORM.FindJob(jobID)
 	if err != nil {
 		return 0, errors.Wrapf(err, "job ID %v", jobID)
 	}
-	runID, _, err := app.pipelineRunner.ExecuteAndInsertNewRun(ctx, *jb.PipelineSpec, pipeline.JSONSerializable{
-		Val:  meta,
-		Null: false,
-	}, *logger.Default, false)
+	var runID int64
+
+	// Keeper jobs are special in that they do not have a task graph.
+	if jb.Type == job.Keeper {
+		t := time.Now()
+		runID, err = app.pipelineRunner.InsertFinishedRun(ctx, pipeline.Run{
+			PipelineSpecID: jb.PipelineSpecID,
+			Errors:         pipeline.RunErrors{null.String{}},
+			Outputs:        pipeline.JSONSerializable{Val: "queued eth transaction"},
+			CreatedAt:      t,
+			FinishedAt:     &t,
+		}, nil, false)
+	} else {
+		runID, _, err = app.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *jb.PipelineSpec, pipeline.JSONSerializable{
+			Val:  meta,
+			Null: false,
+		}, *logger.Default, false)
+	}
 	return runID, err
 }
 
