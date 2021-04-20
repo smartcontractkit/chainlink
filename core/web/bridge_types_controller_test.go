@@ -111,7 +111,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")),
 	)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
@@ -196,7 +196,7 @@ func TestBridgeController_Destroy(t *testing.T) {
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 
-	bridgeJSON := cltest.MustReadFile(t, "testdata/create_random_number_bridge_type.json")
+	bridgeJSON := cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")
 	var bt models.BridgeType
 	err := json.Unmarshal(bridgeJSON, &bt)
 	assert.NoError(t, err)
@@ -251,7 +251,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 
 	resp, cleanup := client.Post(
 		"/v2/bridge_types",
-		bytes.NewBuffer(cltest.MustReadFile(t, "testdata/existing_core_adapter.json")),
+		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/existing_core_adapter.json")),
 	)
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
