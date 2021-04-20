@@ -255,6 +255,34 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 }
 
+func TestJobsController_Create_WebhookSpec(t *testing.T) {
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Cleanup(assertMocksCalled)
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		ethClient,
+	)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-no-body.toml")
+	body, _ := json.Marshal(web.CreateJobRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.Job{}
+	require.NoError(t, app.Store.DB.Preload("WebhookSpec").First(&jb).Error)
+
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
+	assert.NoError(t, err)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+}
+
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 

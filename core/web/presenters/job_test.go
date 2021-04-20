@@ -9,13 +9,14 @@ import (
 	"github.com/lib/pq"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestJob(t *testing.T) {
@@ -90,7 +91,8 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"fluxMonitorSpec": null,
 						"keeperSpec": null,
-                        "cronSpec": null,
+						"cronSpec": null,
+						"webhookSpec": null,
 						"errors": []
 					}
 				}
@@ -151,7 +153,8 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
-                        "cronSpec": null,
+						"cronSpec": null,
+						"webhookSpec": null,
 						"errors": []
 					}
 				}
@@ -217,7 +220,8 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
-                        "cronSpec": null,
+						"cronSpec": null,
+						"webhookSpec": null,
 						"errors": []
 					}
 				}
@@ -264,8 +268,9 @@ func TestJob(t *testing.T) {
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
+						"cronSpec": null,
+						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
-                        "cronSpec": null,
 						"errors": []
 					}
 				}
@@ -290,32 +295,78 @@ func TestJob(t *testing.T) {
 				MaxTaskDuration: models.Interval(1 * time.Minute),
 			},
 			want: fmt.Sprintf(`
-            {
-                "data":{
-                    "type":"jobs",
-                    "id":"1",
-                    "attributes":{
-                        "name": "test",
-                        "schemaVersion": 1,
-                        "type": "cron",
-                        "maxTaskDuration": "1m0s",
-                        "pipelineSpec": {
-                            "id": 1,
-                            "dotDagSource": ""
-                        },
-                        "cronSpec": {
-                            "schedule": "%s",
-                            "createdAt":"2000-01-01T00:00:00Z",
-                            "updatedAt":"2000-01-01T00:00:00Z"
-                        },
-                        "fluxMonitorSpec": null,
-                        "directRequestSpec": null,
-                        "keeperSpec": null,
-                        "offChainReportingOracleSpec": null,
-                        "errors": []
-                    }
-                }
-            }`, cronSchedule),
+			{
+				"data":{
+					"type":"jobs",
+					"id":"1",
+					"attributes":{
+						"name": "test",
+						"schemaVersion": 1,
+						"type": "cron",
+						"maxTaskDuration": "1m0s",
+						"pipelineSpec": {
+							"id": 1,
+							"dotDagSource": ""
+						},
+						"cronSpec": {
+							"schedule": "%s",
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z"
+						},
+						"fluxMonitorSpec": null,
+						"directRequestSpec": null,
+						"keeperSpec": null,
+						"webhookSpec": null,
+						"offChainReportingOracleSpec": null,
+						"errors": []
+					}
+				}
+			}`, cronSchedule),
+		},
+		{
+			name: "webhook spec",
+			job: job.Job{
+				ID: 1,
+				WebhookSpec: &job.WebhookSpec{
+					CreatedAt: timestamp,
+					UpdatedAt: timestamp,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				Type:            job.Type("webhook"),
+				SchemaVersion:   1,
+				Name:            null.StringFrom("test"),
+				MaxTaskDuration: models.Interval(1 * time.Minute),
+			},
+			want: `
+			{
+				"data":{
+					"type":"jobs",
+					"id":"1",
+					"attributes":{
+						"name": "test",
+						"schemaVersion": 1,
+						"type": "webhook",
+						"maxTaskDuration": "1m0s",
+						"pipelineSpec": {
+							"id": 1,
+							"dotDagSource": ""
+						},
+						"webhookSpec": {
+							"createdAt":"2000-01-01T00:00:00Z",
+							"updatedAt":"2000-01-01T00:00:00Z"
+						},
+						"fluxMonitorSpec": null,
+						"directRequestSpec": null,
+						"keeperSpec": null,
+						"cronSpec": null,
+						"offChainReportingOracleSpec": null,
+						"errors": []
+					}
+				}
+			}`,
 		},
 		{
 			name: "with errors",
@@ -368,7 +419,8 @@ func TestJob(t *testing.T) {
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
-                        "cronSpec": null,
+						"cronSpec": null,
+						"webhookSpec": null,
 						"offChainReportingOracleSpec": null,
 						"errors": [{
 							"id": 200,
@@ -392,7 +444,6 @@ func TestJob(t *testing.T) {
 			b, err := jsonapi.Marshal(r)
 			require.NoError(t, err)
 
-			fmt.Println(string(b))
 			assert.JSONEq(t, tc.want, string(b))
 		})
 	}

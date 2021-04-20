@@ -85,7 +85,7 @@ func (cr *Cron) run() {
 func (cr *Cron) runPipeline() {
 	ctx, cancel := utils.ContextFromChan(cr.chStop)
 	defer cancel()
-	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, true)
+	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, nil, pipeline.JSONSerializable{}, *cr.logger, true)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
 	}

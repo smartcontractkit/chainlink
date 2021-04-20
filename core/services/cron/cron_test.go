@@ -116,7 +116,7 @@ func TestCronV2Schedule(t *testing.T) {
 			require.NoError(t, err)
 			defer service.Close()
 			if testCase.expectedNumCalls > 0 {
-				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 					Times(testCase.expectedNumCalls).
 					Return(int64(0), pipeline.FinalResult{}, nil)
 			}

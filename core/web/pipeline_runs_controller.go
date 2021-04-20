@@ -1,12 +1,15 @@
 package web
 
 import (
+	"io/ioutil"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/core/services/job"
-
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"gorm.io/gorm"
 )
@@ -63,15 +66,25 @@ func (prc *PipelineRunsController) Show(c *gin.Context) {
 // Example:
 // "POST <application>/jobs/:ID/runs"
 func (prc *PipelineRunsController) Create(c *gin.Context) {
-	jobSpec := job.Job{}
-	err := jobSpec.SetID(c.Param("ID"))
+	var uuid uuid.UUID
+	uuidStr := c.Param("ID")
+	err := uuid.UnmarshalText([]byte(uuidStr))
 	if err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
 
-	jobRunID, err := prc.App.RunJobV2(c, jobSpec.ID, nil)
+	var uuidHash common.Hash
+	copy(uuidHash[:], uuid[:])
 
+	bodyBytes, err := ioutil.ReadAll(c.Request.Body)
+	if err != nil {
+		jsonAPIError(c, http.StatusUnprocessableEntity, err)
+		return
+	}
+	pipelineInputs := []pipeline.Result{{Value: string(bodyBytes)}}
+
+	jobRunID, err := prc.App.RunWebhookJobV2(uuidHash, pipelineInputs, pipeline.JSONSerializable{Null: true})
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return

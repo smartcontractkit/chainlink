@@ -6,6 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
+	"github.com/smartcontractkit/chainlink/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -107,6 +108,8 @@ func (jc *JobsController) Create(c *gin.Context) {
 		js, err = keeper.ValidatedKeeperSpec(request.TOML)
 	case job.Cron:
 		js, err = cron.ValidateCronSpec(request.TOML)
+	case job.Webhook:
+		js, err = webhook.ValidateWebhookSpec(request.TOML)
 	default:
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", genericJS.Type))
 	}
