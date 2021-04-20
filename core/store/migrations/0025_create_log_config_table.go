@@ -1,11 +1,10 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
-const up24 = `
+const up25 = `
 	CREATE TYPE log_level AS ENUM (
 		'debug',
 		'info',
@@ -23,20 +22,20 @@ const up24 = `
 	);
 `
 
-const down24 = `
-	DROP TABLE IF EXISTS log_conf;
+const down25 = `
+	DROP TABLE IF EXISTS log_configs;
 
-	DROP TABLE IF EXISTS log_services;
+	DROP TYPE IF EXISTS log_level;
 `
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
-		ID: "0024_create_log_config_table",
+	Migrations = append(Migrations, &Migration{
+		ID: "0025_create_log_config_table",
 		Migrate: func(db *gorm.DB) error {
-			return db.Exec(up24).Error
+			return db.Exec(up25).Error
 		},
 		Rollback: func(db *gorm.DB) error {
-			return db.Exec(down24).Error
+			return db.Exec(down25).Error
 		},
 	})
 }

@@ -129,7 +129,6 @@ func initLogConfig(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool)
 		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
 	}
 	config.Level.SetLevel(lvl)
-
 	return config
 }
 
