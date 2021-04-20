@@ -83,23 +83,23 @@ func (korm ORM) EligibleUpkeeps(
 	blockNumber int64,
 	gracePeriod int64,
 ) (upkeeps []UpkeepRegistration, _ error) {
-	lastValidBlockHeight := blockNumber - gracePeriod
-	if lastValidBlockHeight < 1 {
-		lastValidBlockHeight = 1 // ensure that upkeeps with last_run_block_height = 0 are always eligible
-	}
 	err := korm.DB.
 		WithContext(ctx).
 		Preload("Registry").
+		Order("upkeep_registrations.id ASC, upkeep_registrations.upkeep_id ASC").
 		Joins("INNER JOIN keeper_registries ON keeper_registries.id = upkeep_registrations.registry_id").
 		Where(`
-			? % keeper_registries.block_count_per_turn = 0 AND
 			keeper_registries.num_keepers > 0 AND
-			upkeep_registrations.last_run_block_height < ? AND
-			keeper_registries.keeper_index =
 			(
-				upkeep_registrations.positioning_constant + (? / keeper_registries.block_count_per_turn)
+				upkeep_registrations.last_run_block_height = 0 OR (
+					upkeep_registrations.last_run_block_height + ? < ? AND
+					upkeep_registrations.last_run_block_height < (? - (? % keeper_registries.block_count_per_turn))
+				)
+			) AND
+			keeper_registries.keeper_index = (
+				upkeep_registrations.positioning_constant + ((? - (? % keeper_registries.block_count_per_turn)) / keeper_registries.block_count_per_turn)
 			) % keeper_registries.num_keepers
-		`, blockNumber, lastValidBlockHeight, blockNumber).
+		`, gracePeriod, blockNumber, blockNumber, blockNumber, blockNumber, blockNumber).
 		Find(&upkeeps).
 		Error
 

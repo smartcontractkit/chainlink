@@ -131,7 +131,7 @@ func TestPollingDeviationChecker_PollIfEligible(t *testing.T) {
 		expectedToSubmit  bool
 	}{
 		{
-			name:     "elligible",
+			name:     "eligible",
 			eligible: true, connected: true, funded: true, answersDeviate: true,
 			expectedToPoll: true, expectedToSubmit: true,
 		}, {

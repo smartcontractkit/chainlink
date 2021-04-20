@@ -31,11 +31,11 @@ const (
 	queuedEthTransaction = "successfully queued performUpkeep eth transaction"
 )
 
-// UpkeepExecutor fulfills Service and HeadBroadcastable interfaces
-var _ job.Service = (*UpkeepExecutor)(nil)
-var _ services.HeadBroadcastable = (*UpkeepExecutor)(nil)
+// UpkeepExecuter fulfills Service and HeadBroadcastable interfaces
+var _ job.Service = (*UpkeepExecuter)(nil)
+var _ services.HeadBroadcastable = (*UpkeepExecuter)(nil)
 
-type UpkeepExecutor struct {
+type UpkeepExecuter struct {
 	chStop          chan struct{}
 	ethClient       eth.Client
 	executionQueue  chan struct{}
@@ -49,15 +49,15 @@ type UpkeepExecutor struct {
 	utils.StartStopOnce
 }
 
-func NewUpkeepExecutor(
+func NewUpkeepExecuter(
 	job job.Job,
 	db *gorm.DB,
 	pr pipeline.Runner,
 	ethClient eth.Client,
 	headBroadcaster *services.HeadBroadcaster,
 	maxGracePeriod int64,
-) *UpkeepExecutor {
-	return &UpkeepExecutor{
+) *UpkeepExecuter {
+	return &UpkeepExecuter{
 		chStop:          make(chan struct{}),
 		ethClient:       ethClient,
 		executionQueue:  make(chan struct{}, executionQueueSize),
@@ -72,8 +72,8 @@ func NewUpkeepExecutor(
 	}
 }
 
-func (executor *UpkeepExecutor) Start() error {
-	return executor.StartOnce("UpkeepExecutor", func() error {
+func (executor *UpkeepExecuter) Start() error {
+	return executor.StartOnce("UpkeepExecuter", func() error {
 		executor.wgDone.Add(2)
 		go executor.run()
 		unsubscribe := executor.headBroadcaster.Subscribe(executor)
@@ -86,20 +86,20 @@ func (executor *UpkeepExecutor) Start() error {
 	})
 }
 
-func (executor *UpkeepExecutor) Close() error {
+func (executor *UpkeepExecuter) Close() error {
 	if !executor.OkayToStop() {
-		return errors.New("UpkeepExecutor is already stopped")
+		return errors.New("UpkeepExecuter is already stopped")
 	}
 	close(executor.chStop)
 	executor.wgDone.Wait()
 	return nil
 }
 
-func (executor *UpkeepExecutor) OnNewLongestChain(ctx context.Context, head models.Head) {
+func (executor *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
 	executor.mailbox.Deliver(head)
 }
 
-func (executor *UpkeepExecutor) run() {
+func (executor *UpkeepExecuter) run() {
 	defer executor.wgDone.Done()
 	for {
 		select {
@@ -111,7 +111,7 @@ func (executor *UpkeepExecutor) run() {
 	}
 }
 
-func (executor *UpkeepExecutor) processActiveUpkeeps() {
+func (executor *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
 	head, ok := executor.mailbox.Retrieve().(models.Head)
@@ -120,7 +120,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
+	logger.Debugw("UpkeepExecuter: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
@@ -143,7 +143,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 
 // execute will call checkForUpkeep and, if it succeeds, trigger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
+func (executor *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 	start := time.Now()
 	logArgs := []interface{}{
@@ -159,14 +159,14 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: checking upkeep", logArgs...)
+	logger.Debugw("UpkeepExecuter: checking upkeep", logArgs...)
 
 	ctxService, cancel := utils.ContextFromChan(executor.chStop)
 	defer cancel()
 
 	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugw(fmt.Sprintf("UpkeepExecutor: checkUpkeep failed: %v", err), logArgs...)
+		logger.Debugw(fmt.Sprintf("UpkeepExecuter: checkUpkeep failed: %v", err), logArgs...)
 		return
 	}
 
@@ -176,7 +176,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 		return
 	}
 
-	logger.Debugw("UpkeepExecutor: performing upkeep", logArgs...)
+	logger.Debugw("UpkeepExecuter: performing upkeep", logArgs...)
 
 	ctxQuery, _ := postgres.DefaultQueryCtx()
 	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
@@ -212,7 +212,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
 	err = executor.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executor.job.ID, upkeep.UpkeepID, headNumber)
 	if err != nil {
-		logger.Errorw("UpkeepExecutor: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
+		logger.Errorw("UpkeepExecuter: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
 	}
 }
 
