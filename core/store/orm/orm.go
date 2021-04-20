@@ -38,6 +38,7 @@ import (
 	"go.uber.org/multierr"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
 	// We've specified a later version in go.mod than is currently used by gorm
 	// to get this fix in https://github.com/jackc/pgx/pull/975.
 	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
