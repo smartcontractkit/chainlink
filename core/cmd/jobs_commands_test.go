@@ -185,7 +185,7 @@ func TestClient_ListJobsV2(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/direct-request-spec.toml"})
+	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 	createOutput := *r.Renders[0].(*cmd.JobPresenter)
@@ -205,7 +205,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 	requireJobsCount(t, app.JobORM, 0)
 
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/ocr-bootstrap-spec.toml"})
+	fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 
@@ -225,7 +225,7 @@ func TestClient_DeleteJobV2(t *testing.T) {
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
-	fs.Parse([]string{"./testdata/direct-request-spec.toml"})
+	fs.Parse([]string{"../testdata/tomlspecs/direct-request-spec.toml"})
 	err := client.CreateJobV2(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 

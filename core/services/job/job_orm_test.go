@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/directrequest"
+
 	gormpostgres "gorm.io/driver/postgres"
 
 	"github.com/pelletier/go-toml"
@@ -177,18 +179,11 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
-		spec := job.Job{}
-		tree, err := toml.LoadFile("../../cmd/testdata/direct-request-spec.toml")
+		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
 		require.NoError(t, err)
-		err = tree.Unmarshal(&spec)
+		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
 		require.NoError(t, err)
-
-		var drSpec job.DirectRequestSpec
-		err = tree.Unmarshal(&drSpec)
-		require.NoError(t, err)
-		spec.DirectRequestSpec = &drSpec
-
-		err = orm.CreateJob(context.Background(), &spec, spec.Pipeline)
+		err = orm.CreateJob(context.Background(), &jb, jb.Pipeline)
 		require.NoError(t, err)
 	})
 }
