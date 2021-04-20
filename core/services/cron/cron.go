@@ -1,24 +1,21 @@
 package cron
 
 import (
-	"context"
-
 	cronParser "github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/gracefulpanic"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/core/utils"
 )
 
 // Cron runs a cron jobSpec from a CronSpec
 type Cron struct {
-	jobID int32
-
-	ctx            context.Context
-	cancel         context.CancelFunc
 	cronRunner     *cronParser.Cron
-	done           chan struct{}
+	chDone         chan struct{}
+	chStop         chan struct{}
+	jobID          int32
 	logger         *logger.Logger
 	pipelineSpec   pipeline.Spec
 	pipelineRunner pipeline.Runner
@@ -41,17 +38,15 @@ func NewCronFromJobSpec(
 		),
 	)
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	return &Cron{
+		chDone:         make(chan struct{}),
+		chStop:         make(chan struct{}),
+		cronRunner:     cronParser.New(),
 		jobID:          jobSpec.ID,
 		logger:         cronLogger,
-		Schedule:       cronSpec.CronSchedule,
 		pipelineRunner: pipelineRunner,
 		pipelineSpec:   *spec,
-		cronRunner:     cronParser.New(),
-		ctx:            ctx,
-		cancel:         cancel,
+		Schedule:       cronSpec.CronSchedule,
 	}, nil
 }
 
@@ -59,8 +54,8 @@ func NewCronFromJobSpec(
 func (cr *Cron) Start() error {
 	cr.logger.Debug("Cron: Starting")
 	go gracefulpanic.WrapRecover(func() {
+		defer close(cr.chDone)
 		cr.run()
-		defer close(cr.done)
 	})
 	return nil
 }
@@ -69,9 +64,9 @@ func (cr *Cron) Start() error {
 // polling, cleaning up resources.
 func (cr *Cron) Close() error {
 	cr.logger.Debug("Cron: Closing")
-	cr.cancel() // Cancel any inflight cr runs.
 	cr.cronRunner.Stop()
-	<-cr.done
+	close(cr.chStop)
+	<-cr.chDone
 
 	return nil
 }
@@ -88,7 +83,9 @@ func (cr *Cron) run() {
 }
 
 func (cr *Cron) runPipeline() {
-	_, _, err := cr.pipelineRunner.ExecuteAndInsertNewRun(cr.ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, true)
+	ctx, cancel := utils.ContextFromChan(cr.chStop)
+	defer cancel()
+	_, _, err := cr.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, true)
 	if err != nil {
 		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
 	}

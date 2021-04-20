@@ -3,7 +3,7 @@ package cron
 import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -36,8 +36,7 @@ func ValidateCronSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("the only supported schema version is currently 1, got %v", jb.SchemaVersion)
 	}
 
-	_, err = cron.Parse(spec.CronSchedule)
-	if err != nil {
+	if _, err := cron.New().AddFunc(spec.CronSchedule, func() {}); err != nil {
 		return jb, errors.Errorf("error parsing cron schedule: %v", err)
 	}
 

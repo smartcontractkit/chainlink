@@ -1,7 +1,6 @@
 package cron_test
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/manyminds/api2go/jsonapi"
@@ -23,7 +22,7 @@ func TestValidateCronJobSpec(t *testing.T) {
 			toml: `
 type            = "cron"
 schemaVersion   = 1
-schedule	 	= "0 0 0 1 1 *"
+schedule	 	= "0 0 1 1 *"
 observationSource   = """
 ds          [type=http method=GET url="https://chain.link/ETH-USD"];
 ds_parse    [type=jsonparse path="data,price"];
@@ -56,7 +55,7 @@ ds -> ds_parse -> ds_multiply;
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.Error(t, err)
-				assert.Regexp(t, regexp.MustCompile("^.*error parsing cron schedule: Expected 5 to 6 fields, found 2: x x$"), err.Error())
+				assert.Equal(t, "error parsing cron schedule: expected exactly 5 fields, found 2: [x x]", err.Error())
 			},
 		},
 	}

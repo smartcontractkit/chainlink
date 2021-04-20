@@ -17,7 +17,7 @@ import (
 
 func TestCronV2Pipeline(t *testing.T) {
 	runner := new(pipeline_mocks.Runner)
-	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "services_job_orm", true, true)
+	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "service_cron_orm", true, true)
 	db := oldORM.DB
 	orm, eventBroadcaster, cleanupPipeline := cltest.NewPipelineORM(t, config, db)
 	jobORM := job.NewORM(db, config.Config, orm, eventBroadcaster, &postgres.NullAdvisoryLocker{})
@@ -45,6 +45,8 @@ func TestCronV2Pipeline(t *testing.T) {
 	service := serviceArray[0]
 
 	err = service.Start()
+	defer service.Close()
+
 	require.NoError(t, err)
 
 }

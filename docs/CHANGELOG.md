@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Cron job types can now be created from the operator UI as a new job. 
+
+- See example cron job spec below: 
+
+```
+type            = "cron"
+schemaVersion   = 1
+schedule     	= "*/10 * * * *"
+observationSource   = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
+
 - Add `MockOracle.sol` for testing contracts
 
 ### Changed
