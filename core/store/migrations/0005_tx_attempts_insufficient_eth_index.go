@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -25,7 +24,7 @@ CREATE INDEX idx_eth_txes_state ON eth_txes(state enum_ops) WHERE state <> 'conf
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0005_eth_tx_attempts_insufficient_eth_index",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up5).Error
