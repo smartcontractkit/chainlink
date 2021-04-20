@@ -95,6 +95,10 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 	if !job.IsLogInitiated() {
 		return nil
 	}
+	if js.store.Config.EthereumDisabled() {
+		logger.Errorw(fmt.Sprintf("ACTION REQUIRED: Attempted to add job with name '%s' but Ethereum was disabled. This job is NOT running.", job.Name), "job", job)
+		return nil
+	}
 
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {

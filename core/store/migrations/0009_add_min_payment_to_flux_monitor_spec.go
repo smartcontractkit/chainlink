@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ DROP COLUMN min_payment;
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0009_add_min_payment_to_flux_monitor_spec",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up9).Error
