@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Basic support for Optimism chain: node no longer gets stuck with 'nonce too low' error if connection is lost
+
 ## [0.10.4] - 2021-04-05
 
 ### Added
