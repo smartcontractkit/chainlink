@@ -972,6 +972,12 @@ func (c Config) OperatorContractAddress() common.Address {
 	return *address
 }
 
+// OptimismGasFees enables asking the network for gas price before submitting
+// transactions, enabling compatibility with Optimism's L2 chain
+func (c Config) OptimismGasFees() bool {
+	return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+}
+
 // LogLevel represents the maximum level of log messages to output.
 func (c Config) LogLevel() LogLevel {
 	if c.runtimeStore != nil {
