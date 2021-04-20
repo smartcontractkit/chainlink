@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -12,7 +11,7 @@ const (
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0022_unfinished_pipeline_task_run_idx",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up22).Error

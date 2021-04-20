@@ -25,6 +25,9 @@ func Test_Eth_Errors(t *testing.T) {
 		// Arbitrum
 		err = eth.NewSendErrorS("transaction rejected: nonce too low")
 		assert.True(t, err.IsNonceTooLowError())
+		// Optimism
+		err = eth.NewSendErrorS("invalid transaction: nonce too low")
+		assert.True(t, err.IsNonceTooLowError())
 	})
 
 	t.Run("IsReplacementUnderpriced", func(t *testing.T) {
@@ -65,6 +68,9 @@ func Test_Eth_Errors(t *testing.T) {
 		// Geth
 		err = eth.NewSendErrorS("transaction underpriced")
 		assert.True(t, err.IsTerminallyUnderpriced())
+
+		err = eth.NewSendErrorS("replacement transaction underpriced")
+		assert.False(t, err.IsTerminallyUnderpriced())
 		// Parity
 		err = eth.NewSendErrorS("There are too many transactions in the queue. Your transaction was dropped due to limit. Try increasing the fee.")
 		assert.False(t, err.IsTerminallyUnderpriced())
@@ -95,6 +101,9 @@ func Test_Eth_Errors(t *testing.T) {
 		assert.True(t, err.IsInsufficientEth())
 		// Arbitrum
 		err = eth.NewSendErrorS("transaction rejected: insufficient funds for gas * price + value")
+		assert.True(t, err.IsInsufficientEth())
+		// Optimism
+		err = eth.NewSendErrorS("invalid transaction: insufficient funds for gas * price + value")
 		assert.True(t, err.IsInsufficientEth())
 		// Nil
 		err = eth.NewSendError(nil)
