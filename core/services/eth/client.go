@@ -39,7 +39,6 @@ type Client interface {
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
 	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
-	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -214,16 +213,6 @@ func (client *client) GetEthBalance(ctx context.Context, account common.Address,
 		return assets.NewEth(0), err
 	}
 	return (*assets.Eth)(balance), nil
-}
-
-// SendRawTx sends a signed transaction to the transaction pool.
-func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
-	logger.Debugw("eth.Client#SendRawTx(...)",
-		"bytes", bytes,
-	)
-	result := common.Hash{}
-	err := client.RPCClient.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
-	return result, err
 }
 
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
