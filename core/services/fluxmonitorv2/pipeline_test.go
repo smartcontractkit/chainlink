@@ -86,7 +86,7 @@ func TestPipelineRun_Execute(t *testing.T) {
 			)
 
 			runner.
-				On("ExecuteAndInsertNewRun", context.Background(), spec, pipeline.JSONSerializable{Val: map[string]interface{}{}}, l).
+				On("ExecuteAndInsertFinishedRun", context.Background(), spec, pipeline.JSONSerializable{Val: map[string]interface{}{}}, l, false).
 				Return(tc.runID, tc.results, tc.err)
 
 			aRunID, aDecimal, aErr := pipelineRun.Execute(map[string]interface{}{})
