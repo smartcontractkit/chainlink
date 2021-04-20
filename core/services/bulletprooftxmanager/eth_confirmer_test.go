@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -140,7 +139,6 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 
 	t.Run("only finds eth_txes in unconfirmed state with at least one broadcast attempt", func(t *testing.T) {
 
-		logger.Warnf("=================--v")
 		cltest.MustInsertFatalErrorEthTx(t, store, fromAddress)
 		mustInsertInProgressEthTx(t, store, nonce, fromAddress)
 		nonce++
@@ -341,54 +339,6 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		require.Equal(t, models.EthTxConfirmed, etx.State)
 		require.Len(t, etx.EthTxAttempts, 3)
 	})
-
-	//t.Run("fetches and processes receipts for only some attempts that have nonce below or equal latest", func(t *testing.T) {
-	//	attempt2_2 := newBroadcastEthTxAttempt(t, etx2.ID, store)
-	//	attempt2_2.GasPrice = *utils.NewBig(big.NewInt(10))
-	//
-	//	attempt2_3 := newBroadcastEthTxAttempt(t, etx2.ID, store)
-	//	attempt2_3.GasPrice = *utils.NewBig(big.NewInt(20))
-	//
-	//	// Insert order deliberately reversed to test sorting by gas price
-	//	require.NoError(t, store.DB.Create(&attempt2_3).Error)
-	//	require.NoError(t, store.DB.Create(&attempt2_2).Error)
-	//
-	//	bptxmReceipt := bulletprooftxmanager.Receipt{
-	//		TxHash:           attempt2_2.Hash,
-	//		BlockHash:        cltest.NewHash(),
-	//		BlockNumber:      big.NewInt(42),
-	//		TransactionIndex: uint(1),
-	//	}
-	//
-	//	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(10), nil)
-	//	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-	//		return len(b) == 3 &&
-	//			cltest.BatchElemMatchesHash(b[2], attempt2_1.Hash) &&
-	//			cltest.BatchElemMatchesHash(b[1], attempt2_2.Hash) &&
-	//			cltest.BatchElemMatchesHash(b[0], attempt2_3.Hash)
-	//
-	//	})).Return(nil).Run(func(args mock.Arguments) {
-	//		elems := args.Get(1).([]rpc.BatchElem)
-	//		// Most expensive attempt still unconfirmed
-	//		elems[2].Result = &bulletprooftxmanager.Receipt{}
-	//		// Second most expensive attempt is confirmed
-	//		elems[1].Result = &bptxmReceipt
-	//		// Cheapest attempt still unconfirmed
-	//		elems[0].Result = &bulletprooftxmanager.Receipt{}
-	//	}).Once()
-	//
-	//	// Do the thing
-	//	require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
-	//
-	//	ethClient.AssertExpectations(t)
-	//
-	//	// Check that the state was updated
-	//	etx, err := store.FindEthTxWithAttempts(etx2.ID)
-	//	require.NoError(t, err)
-	//
-	//	require.Equal(t, models.EthTxConfirmed, etx.State)
-	//	require.Len(t, etx.EthTxAttempts, 3)
-	//})
 
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, nonce, fromAddress)
 	attempt3_1 := etx3.EthTxAttempts[0]

@@ -412,6 +412,20 @@ func NewApplicationWithConfigAndKey(t testing.TB, tc *TestConfig, flagsAndDeps .
 	return app, cleanup
 }
 
+func tryCreateApplication(ta *TestApplication, tc *TestConfig, ethClient eth.Client, advisoryLocker postgres.AdvisoryLocker,
+	externalInitiatorManager chainlink.ExternalInitiatorManager, tries int) (chainlink.Application, error) {
+	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
+		ta.connectedChannel <- struct{}{}
+	})
+
+	if err != nil && strings.Contains(err.Error(), "driver: bad connection") && tries < 5 {
+		logger.Warn("Got 'driver: bad connection' error when creating Application. Trying again...")
+		return tryCreateApplication(ta, tc, ethClient, advisoryLocker, externalInitiatorManager, tries+1)
+	}
+
+	return appInstance, err
+}
+
 // NewApplicationWithConfig creates a New TestApplication with specified test config
 func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...interface{}) (*TestApplication, func()) {
 	t.Helper()
@@ -431,10 +445,7 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	}
 
 	ta := &TestApplication{t: t, connectedChannel: make(chan struct{}, 1)}
-
-	appInstance, err := chainlink.NewApplication(tc.Config, ethClient, advisoryLocker, strpkg.InsecureKeyStoreGen, externalInitiatorManager, func(app chainlink.Application) {
-		ta.connectedChannel <- struct{}{}
-	})
+	appInstance, err := tryCreateApplication(ta, tc, ethClient, advisoryLocker, externalInitiatorManager, 0)
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
 	ta.ChainlinkApplication = app
