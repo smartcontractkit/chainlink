@@ -5,7 +5,6 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -98,21 +97,17 @@ func (k Key) MustGetPeerID() models.PeerID {
 }
 
 type EncryptedP2PKey struct {
-	ID               int32          `json:"id" gorm:"primary_key"`
-	PeerID           models.PeerID  `json:"peerId"`
-	PubKey           PublicKeyBytes `json:"publicKey" gorm:"type:bytea"`
-	EncryptedPrivKey []byte         `json:"-"`
-	CreatedAt        time.Time      `json:"createdAt"`
-	UpdatedAt        time.Time      `json:"updatedAt,omitempty"`
-	DeletedAt        gorm.DeletedAt `json:"deletedAt,omitempty"`
+	ID               int32 `gorm:"primary_key"`
+	PeerID           models.PeerID
+	PubKey           PublicKeyBytes `gorm:"type:bytea"`
+	EncryptedPrivKey []byte
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	DeletedAt        gorm.DeletedAt
 }
 
 func (EncryptedP2PKey) TableName() string {
 	return "encrypted_p2p_keys"
-}
-
-func (ep2pk EncryptedP2PKey) GetID() string {
-	return fmt.Sprintf("%v", ep2pk.ID)
 }
 
 func (ep2pk *EncryptedP2PKey) SetID(value string) error {
