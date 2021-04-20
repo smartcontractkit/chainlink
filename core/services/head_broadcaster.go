@@ -83,7 +83,10 @@ func (hr *HeadBroadcaster) Connect(head *models.Head) error {
 func (hr *HeadBroadcaster) Disconnect() {}
 
 func (hr *HeadBroadcaster) OnNewLongestChain(ctx context.Context, head models.Head) {
-	hr.mailbox.Deliver(head)
+	wasOverCapacity := hr.mailbox.Deliver(head)
+	if wasOverCapacity {
+		logger.Error("HeadBroadcaster: head mailbox is over capacity - dropped the oldest unprocessed head")
+	}
 }
 
 func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe func()) {
@@ -91,7 +94,7 @@ func (hr *HeadBroadcaster) Subscribe(callback HeadBroadcastable) (unsubscribe fu
 	defer hr.mutex.Unlock()
 	id, err := newID()
 	if err != nil {
-		logger.Errorf("Unable to create ID for head relayble callback: %v", err)
+		logger.Errorf("HeadBroadcaster: Unable to create ID for head relayble callback: %v", err)
 		return
 	}
 	hr.callbacks[id] = callback
