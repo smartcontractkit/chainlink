@@ -104,7 +104,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()
-		runID, err := pipelineORM.InsertFinishedRunWithResults(context.Background(),
+		runID, err := pipelineORM.InsertFinishedRun(context.Background(),
 			pipeline.Run{
 				PipelineSpecID: jb.PipelineSpec.ID,
 				PipelineSpec:   *jb.PipelineSpec,
