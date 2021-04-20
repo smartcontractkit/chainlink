@@ -28,7 +28,7 @@ type Cron struct {
 // NewCronFromJobSpec() - instantiates a Cron singleton to execute the given job pipelineSpec
 func NewCronFromJobSpec(
 	jobSpec job.Job,
-	runner pipeline.Runner,
+	pipelineRunner pipeline.Runner,
 ) (*Cron, error) {
 
 	cronSpec := jobSpec.CronSpec
@@ -47,7 +47,7 @@ func NewCronFromJobSpec(
 		jobID:          jobSpec.ID,
 		logger:         cronLogger,
 		Schedule:       cronSpec.CronSchedule,
-		pipelineRunner: runner,
+		pipelineRunner: pipelineRunner,
 		pipelineSpec:   *spec,
 		cronRunner:     cronParser.New(),
 		ctx:            ctx,
@@ -56,40 +56,40 @@ func NewCronFromJobSpec(
 }
 
 // Start implements the job.Service interface.
-func (cron *Cron) Start() error {
-	cron.logger.Debug("Cron: Starting")
+func (cr *Cron) Start() error {
+	cr.logger.Debug("Cron: Starting")
 	go gracefulpanic.WrapRecover(func() {
-		defer close(cron.done)
-		cron.cronRunner.Run()
+		defer close(cr.done)
+		cr.cronRunner.Run()
 	})
 	return nil
 }
 
 // Close implements the job.Service interface. It stops this instance from
 // polling, cleaning up resources.
-func (cron *Cron) Close() error {
-	cron.logger.Debug("Cron: Closing")
-	cron.cancel() // Cancel any inflight cron runs.
-	cron.cronRunner.Stop()
-	<-cron.done
+func (cr *Cron) Close() error {
+	cr.logger.Debug("Cron: Closing")
+	cr.cancel() // Cancel any inflight cr runs.
+	cr.cronRunner.Stop()
+	<-cr.done
 
 	return nil
 }
 
 // run() runs the cron jobSpec in the pipeline pipelineRunner
-func (cron *Cron) run() {
-	_, err := cron.cronRunner.AddFunc(cron.Schedule, func() {
-		cron.runPipeline()
+func (cr *Cron) run() {
+	_, err := cr.cronRunner.AddFunc(cr.Schedule, func() {
+		cr.runPipeline()
 	})
 	if err != nil {
-		cron.logger.Errorf("Error running cron job(id: %d): %v", cron.jobID, err)
+		cr.logger.Errorf("Error running cr job(id: %d): %v", cr.jobID, err)
 	}
-	cron.cronRunner.Start()
+	cr.cronRunner.Start()
 }
 
-func (cron *Cron) runPipeline() {
-	_, _, err := cron.pipelineRunner.ExecuteAndInsertNewRun(cron.ctx, cron.pipelineSpec, pipeline.JSONSerializable{}, *cron.logger, true)
+func (cr *Cron) runPipeline() {
+	_, _, err := cr.pipelineRunner.ExecuteAndInsertNewRun(cr.ctx, cr.pipelineSpec, pipeline.JSONSerializable{}, *cr.logger, true)
 	if err != nil {
-		cron.logger.Errorf("Error executing new run for jobSpec ID %v", cron.jobID)
+		cr.logger.Errorf("Error executing new run for jobSpec ID %v", cr.jobID)
 	}
 }
