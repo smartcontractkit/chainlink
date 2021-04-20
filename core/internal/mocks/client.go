@@ -403,29 +403,6 @@ func (_m *Client) RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchE
 	return r0
 }
 
-// SendRawTx provides a mock function with given fields: bytes
-func (_m *Client) SendRawTx(bytes []byte) (common.Hash, error) {
-	ret := _m.Called(bytes)
-
-	var r0 common.Hash
-	if rf, ok := ret.Get(0).(func([]byte) common.Hash); ok {
-		r0 = rf(bytes)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(common.Hash)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func([]byte) error); ok {
-		r1 = rf(bytes)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *Client) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)
