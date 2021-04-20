@@ -224,9 +224,6 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	if len(attempts) == 0 {
 		return nil
 	}
-	if batchSize == 0 {
-		batchSize = len(attempts)
-	}
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
@@ -278,13 +275,11 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.EthTxAttempt, latestBlockNonce uint64) []models.EthTxAttempt {
 	firstAttemptNonce := "unknown"
 	lastAttemptNonce := "unknown"
-	if len(attempts) > 0 {
-		if attempts[len(attempts)-1].EthTx.Nonce != nil {
-			lastAttemptNonce = fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
-		}
-		if attempts[0].EthTx.Nonce != nil {
-			firstAttemptNonce = fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
-		}
+	if attempts[len(attempts)-1].EthTx.Nonce != nil {
+		lastAttemptNonce = fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
+	}
+	if attempts[0].EthTx.Nonce != nil {
+		firstAttemptNonce = fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
 	}
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
@@ -308,7 +303,9 @@ func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.
 
 func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []models.EthTxAttempt, blockNum int64) error {
 	batchSize := int(ec.config.EthRPCDefaultBatchSize())
-
+	if batchSize == 0 {
+		batchSize = len(attempts)
+	}
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
