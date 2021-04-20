@@ -77,8 +77,8 @@ func validateCronSpec(cronSpec job.CronSpec) error {
 func (cron *Cron) Start() error {
 	cron.logger.Debug("Cron: Starting")
 	go gracefulpanic.WrapRecover(func() {
+		cron.run()
 		defer close(cron.done)
-		cron.cronRunner.Run()
 	})
 	return nil
 }
