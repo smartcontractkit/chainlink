@@ -20,14 +20,15 @@ import { ApiResponse } from 'utils/json-api-client'
 import { JobSpec } from 'core/store/models'
 import classNames from 'classnames'
 
-import { createJobRun, deleteJobSpec } from 'actionCreators'
+import { createJobRun, createJobRunV2, deleteJobSpec } from 'actionCreators'
 import BaseLink from 'components/BaseLink'
 import Button from 'components/Button'
 import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import { JobData } from './sharedTypes'
+import {JobData} from './sharedTypes'
+import {isJobV2} from "pages/Jobs/utils";
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -129,6 +130,7 @@ const DeleteSuccessNotification = ({ id }: any) => (
 
 interface Props extends WithStyles<typeof styles> {
   createJobRun: Function
+  createJobRunV2: Function
   deleteJobSpec: Function
   jobSpecId: string
   job: JobData['job']
@@ -139,6 +141,7 @@ interface Props extends WithStyles<typeof styles> {
 const RegionalNavComponent = ({
   classes,
   createJobRun,
+  createJobRunV2,
   jobSpecId,
   job,
   deleteJobSpec,
@@ -154,18 +157,20 @@ const RegionalNavComponent = ({
   const [modalOpen, setModalOpen] = React.useState(false)
   const [archived, setArchived] = React.useState(false)
 
-  const handleRun = () => {
+  const handleRun = async () => {
     const params = new URLSearchParams(location.search)
     const page = params.get('page')
     const size = params.get('size')
 
-    createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage).then(
-      () =>
-        getJobSpecRuns({
-          page: page ? parseInt(page, 10) : undefined,
-          size: size ? parseInt(size, 10) : undefined,
-        }),
-    )
+    if (job?.id && isJobV2(job.id)) {
+      await createJobRunV2(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
+    } else {
+      await createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
+    }
+    await getJobSpecRuns({
+      page: page ? parseInt(page, 10) : undefined,
+      size: size ? parseInt(size, 10) : undefined,
+    })
   }
   const handleDelete = (id: string) => {
     deleteJobSpec(
@@ -194,6 +199,9 @@ const RegionalNavComponent = ({
           break
         case 'cron':
           type = 'Cron'
+          break
+        case 'web':
+          type = 'Web'
           break
         default:
           type = 'Direct request'
@@ -302,9 +310,9 @@ const RegionalNavComponent = ({
                     >
                       Archive
                     </Button>
-                    {job.type === 'Direct request' &&
+                    {((job.type === 'Direct request' &&
                       job.initiators &&
-                      isWebInitiator(job.initiators) && (
+                      isWebInitiator(job.initiators)) || (job.type == "v2" && job.specType == 'web')) && (
                         <Button
                           onClick={handleRun}
                           className={classes.regionalNavButton}
@@ -420,6 +428,7 @@ const RegionalNavComponent = ({
 
 export const ConnectedRegionalNav = connect(null, {
   createJobRun,
+  createJobRunV2,
   deleteJobSpec,
 })(RegionalNavComponent)
 
