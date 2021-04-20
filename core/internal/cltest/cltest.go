@@ -480,6 +480,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.Ge
 	r, g, s, assertMocksCalled := NewEthMocks(t)
 	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
 	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	g.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
