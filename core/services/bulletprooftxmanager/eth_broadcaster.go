@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -227,6 +228,13 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
+}
+
+func (eb *ethBroadcaster) initialTxGasPrice() (*big.Int, error) {
+	if eb.config.OptimismGasFees() {
+		panic("todo!")
+	}
+	return eb.config.EthGasPriceDefault(), nil
 }
 
 // handleInProgressEthTx checks if there is any transaction
