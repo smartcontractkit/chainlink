@@ -276,7 +276,6 @@ func (b *broadcaster) eventLoop(chRawLogs <-chan types.Log, chErr <-chan error) 
 }
 
 func (b *broadcaster) onNewLog(log types.Log) {
-	logger.Tracef("LogBroadcaster: ========== onNewLog %v, %v, %v", log.BlockNumber, log.BlockHash, log.Topics)
 	if log.Removed {
 		return
 	} else if !b.registrations.isAddressRegistered(log.Address) {
@@ -298,7 +297,7 @@ func (b *broadcaster) onNewHeads() {
 			logger.Errorf("expected `models.Head`, got %T", x)
 			continue
 		}
-		logger.Tracew("LogBroadcaster: ///////////////////////// onNewHeads", "blockNumber", head.Number, "blockHash", head.Hash)
+		logger.Tracew("LogBroadcaster: Received head", "blockNumber", head.Number, "blockHash", head.Hash)
 		b.latestHead = &head
 	}
 
