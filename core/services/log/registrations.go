@@ -33,7 +33,7 @@ type (
 		registrations map[common.Address]map[common.Hash]map[Listener]*listenerMetadata // contractAddress => logTopic => Listener
 		decoders      map[common.Address]AbigenContract
 
-		// highest 'NumConfirmations' per all listeners, used to decide when it's safe to delete older logs
+		// highest 'NumConfirmations' per all listeners, used to decide about deleting older logs if it's higher than EthFinalityDepth
 		// it's: max(listeners.map(l => l.num_confirmations)
 		highestNumConfirmations uint64
 	}
