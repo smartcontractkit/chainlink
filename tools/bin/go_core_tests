@@ -5,6 +5,8 @@ set +e
 go test -v -p 4 -parallel 4 ./... >./output.txt
 EXITCODE=$?
 grep "\-\-\- FAIL" output.txt
+grep "FAIL	" output.txt
+grep "driver: bad connection" output.txt
 echo "Exit code: $EXITCODE"
 if [[ $EXITCODE == 1 ]]; then
   echo "Encountered test failures."

@@ -584,6 +584,48 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	assert.Equal(t, expected, strings.TrimSpace(body))
 }
 
+func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
+	t.Parallel()
+
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	t.Cleanup(cleanup)
+	app.Config.Set("ETH_DISABLED", true)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	t.Run("VRF", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "./../testdata/jsonspecs/randomness_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 1)
+	})
+
+	t.Run("runlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 2)
+	})
+
+	t.Run("ethlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 3)
+	})
+}
+
 func BenchmarkJobSpecsController_Show(b *testing.B) {
 	app, cleanup := cltest.NewApplication(b)
 	defer cleanup()

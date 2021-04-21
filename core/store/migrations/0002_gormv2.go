@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +18,7 @@ ALTER TABLE external_initiators DROP CONSTRAINT "access_key_unique";
 `
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0002_gormv2",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up2).Error

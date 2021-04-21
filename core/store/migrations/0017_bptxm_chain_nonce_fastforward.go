@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -16,7 +15,7 @@ ALTER TABLE keys ALTER COLUMN next_nonce SET DEFAULT NULL;
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0017_bptxm_chain_nonce_fastforward",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up17).Error
