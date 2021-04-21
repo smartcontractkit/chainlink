@@ -126,17 +126,14 @@ type listener struct {
 // Start complies with job.Service
 func (l *listener) Start() error {
 	return l.StartOnce("DirectRequestListener", func() error {
-		connected, unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
+		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 			Contract: l.oracle,
 			Logs: []generated.AbigenLog{
 				oracle_wrapper.OracleOracleRequest{},
 				oracle_wrapper.OracleCancelOracleRequest{},
 			},
+			NumConfirmations: 1,
 		})
-		if !connected {
-			return errors.New("Failed to register listener with logBroadcaster")
-		}
-
 		l.shutdownWaitGroup.Add(2)
 		go l.run()
 		unsubscribeHeads := l.headBroadcaster.Subscribe(l)

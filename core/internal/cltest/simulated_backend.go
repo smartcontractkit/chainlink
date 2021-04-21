@@ -327,6 +327,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
+
+		var lastHead *models.Head
+
 		for {
 			select {
 			case h := <-ch:
@@ -334,7 +337,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				case nil:
 					channel <- nil
 				default:
-					channel <- &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash}
+					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
+					lastHead = head
+					channel <- head
 				}
 			case <-subscription.close:
 				return

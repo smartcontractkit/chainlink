@@ -9,14 +9,69 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	clipkg "github.com/urfave/cli"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
+	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 )
 
+type OCRKeyBundlePresenter struct {
+	JAID // Include this to overwrite the presenter JAID so it can correctly render the ID in JSON
+	presenters.OCRKeysBundleResource
+}
+
+// RenderTable implements TableRenderer
+func (p *OCRKeyBundlePresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}
+	rows := [][]string{p.ToRow()}
+
+	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
+		return err
+	}
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+func (p *OCRKeyBundlePresenter) ToRow() []string {
+	var deletedAt string
+	if p.DeletedAt != nil {
+		deletedAt = p.DeletedAt.String()
+	}
+	row := []string{
+		p.ID,
+		p.OnChainSigningAddress.String(),
+		p.OffChainPublicKey.String(),
+		p.ConfigPublicKey.String(),
+		p.CreatedAt.String(),
+		p.UpdatedAt.String(),
+		deletedAt,
+	}
+
+	return row
+}
+
+type OCRKeyBundlePresenters []OCRKeyBundlePresenter
+
+// RenderTable implements TableRenderer
+func (ps OCRKeyBundlePresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	if _, err := rt.Write([]byte("🔑 OCR Keys\n")); err != nil {
+		return err
+	}
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
 // ListOCRKeyBundles lists the available OCR Key Bundles
-func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
+func (cli *Client) ListOCRKeyBundles(c *cli.Context) error {
 	resp, err := cli.HTTP.Get("/v2/keys/ocr", nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -27,13 +82,13 @@ func (cli *Client) ListOCRKeyBundles(c *clipkg.Context) error {
 		}
 	}()
 
-	var keys []ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &keys)
+	var presenters OCRKeyBundlePresenters
+	return cli.renderAPIResponse(resp, &presenters)
 }
 
 // CreateOCRKeyBundle creates a key and inserts it into encrypted_ocr_key_bundles,
 // protected by the password in the password file
-func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
+func (cli *Client) CreateOCRKeyBundle(c *cli.Context) error {
 	resp, err := cli.HTTP.Post("/v2/keys/ocr", nil)
 	if err != nil {
 		return cli.errorOut(err)
@@ -44,13 +99,13 @@ func (cli *Client) CreateOCRKeyBundle(c *clipkg.Context) error {
 		}
 	}()
 
-	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key, "Created OCR key bundle")
+	var presenter OCRKeyBundlePresenter
+	return cli.renderAPIResponse(resp, &presenter, "Created OCR key bundle")
 }
 
 // DeleteOCRKeyBundle creates a key and inserts it into encrypted_ocr_keys,
 // protected by the password in the password file
-func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
+func (cli *Client) DeleteOCRKeyBundle(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the key ID to be deleted"))
 	}
@@ -78,13 +133,13 @@ func (cli *Client) DeleteOCRKeyBundle(c *clipkg.Context) error {
 		}
 	}()
 
-	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key, "OCR key bundle deleted")
+	var presenter OCRKeyBundlePresenter
+	return cli.renderAPIResponse(resp, &presenter, "OCR key bundle deleted")
 }
 
 // ImportOCRKey imports OCR key bundle,
 // file path must be passed
-func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
+func (cli *Client) ImportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the filepath of the key to be imported"))
 	}
@@ -115,13 +170,13 @@ func (cli *Client) ImportOCRKey(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	var key ocrkey.EncryptedKeyBundle
-	return cli.renderAPIResponse(resp, &key, "Imported OCR key bundle")
+	var presenter OCRKeyBundlePresenter
+	return cli.renderAPIResponse(resp, &presenter, "Imported OCR key bundle")
 }
 
 // ExportOCRKey exports OCR key bundles by ID
 // ID of the key must be passed
-func (cli *Client) ExportOCRKey(c *clipkg.Context) (err error) {
+func (cli *Client) ExportOCRKey(c *cli.Context) (err error) {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("Must pass the ID of the key to export"))
 	}
