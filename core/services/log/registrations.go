@@ -170,7 +170,6 @@ func (r *registrations) isAddressRegistered(address common.Address) bool {
 func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead *models.Head) {
 	updates := make([]listenerMetadataUpdate, 0)
 	for _, log := range logs {
-		logger.Tracew("LogBroadcaster: Sending a log", "logBlockNumber", log.BlockNumber)
 		r.sendLog(log, orm, latestHead, &updates)
 	}
 	applyListenerInfoUpdates(updates, latestHead)
@@ -184,11 +183,11 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 		numConfirmations := metadata.opts.NumConfirmations
 
 		if latestBlockNumber < numConfirmations {
-			logger.Tracew("LogBroadcaster: Skipping send because not enough height to send", "latestBlockNumber", latestBlockNumber, "numConfirmations", numConfirmations)
+			// Skipping send because not enough height to send
 			continue
 		}
 
-		// we attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
+		// We attempt the send multiple times per log (depending on distinct num of confirmations of listeners),
 		// even if the logs are too young
 		// so here we need to see if this particular listener actually should receive it at this depth
 		isOldEnough := (log.BlockNumber + numConfirmations - 1) <= latestBlockNumber
@@ -196,17 +195,13 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 			continue
 		}
 
-		// all logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
+		// All logs for blocks below lowestAllowedBlockNumber were already sent to this listener, so we skip them
 		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
-			logger.Tracew("LogBroadcaster: Skipping send because the log height is below lowest unprocessed in the currently remembered chain",
-				"logBlockNumber", log.BlockNumber, "lowestAllowedBlockNumber", metadata.lowestAllowedBlockNumber, "lastSeenChainHash", metadata.lastSeenChain.Hash)
+			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
 			continue
-		} else {
-			logger.Tracew("LogBroadcaster: Sending out the log",
-				"logBlockNumber", log.BlockNumber, "lowestAllowedBlockNumber", metadata.lowestAllowedBlockNumber)
 		}
 
-		// make sure that this log is not sent again on the next head by increasing the newLowestAllowedBlockNumber
+		// Make sure that this log is not sent again on the next head by increasing the newLowestAllowedBlockNumber
 		*updates = append(*updates, listenerMetadataUpdate{
 			toUpdate:                    metadata,
 			newLowestAllowedBlockNumber: log.BlockNumber + 1,
@@ -244,8 +239,7 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 	for _, update := range updates {
 		if update.toUpdate.lastSeenChain == nil || latestHead.IsInChain(update.toUpdate.lastSeenChain.Hash) {
 			if update.toUpdate.lastSeenChain == nil {
-				logger.Tracew("LogBroadcaster: No chain saved for this listener yet",
-					"contractAddress", update.toUpdate.opts.Contract.Address(), "numConfirmations", update.toUpdate.opts.NumConfirmations)
+				// No chain saved for this listener yet
 			}
 			if update.toUpdate.lowestAllowedBlockNumber < update.newLowestAllowedBlockNumber {
 				update.toUpdate.lowestAllowedBlockNumber = update.newLowestAllowedBlockNumber
@@ -261,11 +255,10 @@ func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *mode
 				"chainHashes", fmt.Sprintf("%v", latestHead.ChainHashes()),
 			)
 
-			// re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
+			// Re-org situation: the chain was changed, so we can't use the number that tracked last unprocessed height of the previous chain
 			update.toUpdate.lowestAllowedBlockNumber = 0
 		}
-		logger.Tracew("LogBroadcaster: Setting as latest head for this listener", "blockNumber", latestHead.Number, "blockHash", latestHead.Hash)
-
+		// Setting as latest head for this listener
 		update.toUpdate.lastSeenChain = latestHead
 	}
 }
