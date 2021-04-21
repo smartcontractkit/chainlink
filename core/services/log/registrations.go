@@ -238,9 +238,6 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *models.Head) {
 	for _, update := range updates {
 		if update.toUpdate.lastSeenChain == nil || latestHead.IsInChain(update.toUpdate.lastSeenChain.Hash) {
-			if update.toUpdate.lastSeenChain == nil {
-				// No chain saved for this listener yet
-			}
 			if update.toUpdate.lowestAllowedBlockNumber < update.newLowestAllowedBlockNumber {
 				update.toUpdate.lowestAllowedBlockNumber = update.newLowestAllowedBlockNumber
 			}
