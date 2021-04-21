@@ -46,9 +46,9 @@ func JSONResultFromFixture(t *testing.T, path string) models.JSON {
 }
 
 // LogFromFixture create ethtypes.log from file path
-func LogFromFixture(t *testing.T, path string) models.Log {
+func LogFromFixture(t *testing.T, path string) types.Log {
 	value := gjson.Get(string(MustReadFile(t, path)), "params.result")
-	var el models.Log
+	var el types.Log
 	require.NoError(t, json.Unmarshal([]byte(value.String()), &el))
 
 	return el
