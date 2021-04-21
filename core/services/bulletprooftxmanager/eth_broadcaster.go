@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -214,7 +215,11 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
+		gas, err := eb.initialTxGasPrice(etx)
+		if err != nil {
+			return errors.Wrap(err, "processUnstartedEthTxs#initialTxGasPrice failed")
+		}
+		a, err := newAttempt(eb.store, *etx, gas)
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -229,9 +234,11 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 	}
 }
 
-func (eb *ethBroadcaster) initialTxGasPrice() (*big.Int, error) {
+func (eb *ethBroadcaster) initialTxGasPrice(etx *models.EthTx) (*big.Int, error) {
 	if eb.config.OptimismGasFees() {
-		panic("todo!")
+		callMsg := ethereum.CallMsg{From: etx.FromAddress, To: &etx.ToAddress, Data: etx.EncodedPayload}
+		estimate, err := eb.ethClient.EstimateGas(context.TODO(), callMsg)
+		return big.NewInt(0).SetUint64(estimate), err
 	}
 	return eb.config.EthGasPriceDefault(), nil
 }
