@@ -297,6 +297,8 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 	}
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
 
+	// Log Broadcaster uses the last stored head as a limit of log backfill
+	// which needs to be set before it's started
 	head, err := app.HeadTracker.HighestSeenHeadFromDB()
 	if err != nil {
 		return nil, err
@@ -380,7 +382,7 @@ func (app *ChainlinkApplication) Start() error {
 		}
 	}
 
-	// LogBroadcaster fully starts after all initial Register calls are done from other starting services
+	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
 	// to make sure the initial backfill covers those subscribers.
 	app.LogBroadcaster.DependentReady()
 
