@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -17,7 +16,7 @@ ALTER TABLE pipeline_task_specs DROP CONSTRAINT fk_pipeline_task_specs_bridge_na
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0010_bridge_fk",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up10).Error

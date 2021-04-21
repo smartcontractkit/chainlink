@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -303,12 +302,9 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
 	require.NoError(t, err)
 
-	var ethTX models.EthTx
-	err = store.DB.First(&ethTX).Error
-	require.NoError(t, err)
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)

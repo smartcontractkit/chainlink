@@ -143,7 +143,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("MarkConsumed").Return(nil)
 
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteAndInsertNewRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
 
@@ -198,7 +198,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		log.On("WasAlreadyConsumed").Return(false, nil)
 		runBeganAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteAndInsertNewRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
 
@@ -305,7 +305,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		timeout := 5 * time.Second
 		runBeganAwaiter := cltest.NewAwaiter()
 		runCancelledAwaiter := cltest.NewAwaiter()
-		uni.runner.On("ExecuteAndInsertNewRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		uni.runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			runBeganAwaiter.ItHappened()
 			ctx := args[0].(context.Context)
 			select {
