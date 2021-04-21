@@ -32,9 +32,9 @@ func (pool *logPool) getLogsToSend(head *models.Head, highestNumConfirmations ui
 		keptLogsDepth = highestNumConfirmations
 	}
 	// deleting old logs that will never be sent for any listener anymore
-	if latestBlockNum > keptLogsDepth && len(pool.allLogs) > 0 {
+	if len(pool.allLogs) > 0 {
 		for _, log := range pool.allLogs {
-			if log.BlockNumber >= latestBlockNum-keptLogsDepth {
+			if int64(log.BlockNumber) >= int64(latestBlockNum)-int64(keptLogsDepth) {
 				logsToKeep = append(logsToKeep, log)
 			}
 		}

@@ -155,6 +155,7 @@ func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleep
 		sleeper:    sleeper,
 		logger:     l,
 		backfillMB: *utils.NewMailbox(1),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -180,7 +181,6 @@ func (ht *HeadTracker) Start() error {
 		)
 	}
 
-	ht.done = make(chan struct{})
 	ht.subscriptionSucceeded = make(chan struct{})
 
 	ht.listenForNewHeadsWg.Add(2)
@@ -610,7 +610,9 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
 }
 
 func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
-	return ht.store.LastHead(context.Background())
+	ctx, cancel := utils.ContextFromChan(ht.done)
+	defer cancel()
+	return ht.store.LastHead(ctx)
 }
 
 // chainIDVerify checks whether or not the ChainID from the Chainlink config

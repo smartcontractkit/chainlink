@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -62,7 +63,7 @@ type (
 		utils.DependentAwaiter
 
 		chStop                chan struct{}
-		chDone                chan struct{}
+		wgDone                sync.WaitGroup
 		trackedAddressesCount uint32
 	}
 
@@ -105,7 +106,6 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 		newHeads:         utils.NewMailbox(1),
 		DependentAwaiter: utils.NewDependentAwaiter(),
 		chStop:           chStop,
-		chDone:           make(chan struct{}),
 	}
 }
 
@@ -115,6 +115,7 @@ func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("Log broadcaster", func() error {
+		b.wgDone.Add(2)
 		if b.latestHead != nil {
 			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHead.Number, "blockHash", b.latestHead.Hash)
 		} else {
@@ -136,13 +137,13 @@ func (b *broadcaster) TrackedAddressesCount() uint32 {
 func (b *broadcaster) Stop() error {
 	return b.StopOnce("Log broadcaster", func() error {
 		close(b.chStop)
-		<-b.chDone
+		b.wgDone.Wait()
 		return nil
 	})
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {
-	defer close(b.chDone)
+	defer b.wgDone.Done()
 	for {
 		select {
 		case <-b.addSubscriber.Notify():
@@ -162,10 +163,6 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
-	if opts.NumConfirmations > uint64(b.config.EthFinalityDepth()) {
-		logger.Errorf("Registering a listener with NumConfirmations (%v) greater than EthFinalityDepth (%v) will not have any effect",
-			opts.NumConfirmations, b.config.EthFinalityDepth())
-	}
 	if len(opts.Logs) < 1 {
 		logger.Fatal("Must supply at least 1 Log to Register")
 	}
@@ -194,6 +191,7 @@ func (b *broadcaster) IsConnected() bool {
 // error, it attempts to reconnect.  Any time there'b a change in connection state, it
 // notifies its subscribers.
 func (b *broadcaster) startResubscribeLoop() {
+	defer b.wgDone.Done()
 
 	var subscription managedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()

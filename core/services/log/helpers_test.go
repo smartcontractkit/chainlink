@@ -269,11 +269,11 @@ func (mock *mockEth) assertExpectations(t *testing.T) {
 }
 
 func (mock *mockEth) subscribeCallCount() int32 {
-	return atomic.LoadInt32(&(mock.subscribeCalls))
+	return atomic.LoadInt32(&mock.subscribeCalls)
 }
 
 func (mock *mockEth) unsubscribeCallCount() int32 {
-	return atomic.LoadInt32(&(mock.unsubscribeCalls))
+	return atomic.LoadInt32(&mock.unsubscribeCalls)
 }
 
 func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, timesSubscribe int) *mockEth {

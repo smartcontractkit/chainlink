@@ -237,11 +237,9 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 	wg.Wait()
 }
 
-/**
-	After processing the logs in this batch, the listenerMetadata structures that we touched, are updated
-  with new information about the canonical chain and the lowestAllowedBlockNumber value (higher every time) that is used to guard against double-sends
-  Note that the updates are applied only after all the logs for the (latest height - num_confirmations) head height were sent.
-*/
+//	After processing the logs in this batch, the listenerMetadata structures that we touched, are updated
+//  with new information about the canonical chain and the lowestAllowedBlockNumber value (higher every time) that is used to guard against double-sends
+//  Note that the updates are applied only after all the logs for the (latest height - num_confirmations) head height were sent.
 func applyListenerInfoUpdates(updates []listenerMetadataUpdate, latestHead *models.Head) {
 	for _, update := range updates {
 		if update.toUpdate.lastSeenChain == nil || latestHead.IsInChain(update.toUpdate.lastSeenChain.Hash) {
