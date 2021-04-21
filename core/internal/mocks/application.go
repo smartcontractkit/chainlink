@@ -93,20 +93,6 @@ func (_m *Application) ArchiveJob(_a0 models.JobID) error {
 	return r0
 }
 
-// AwaitRun provides a mock function with given fields: ctx, runID
-func (_m *Application) AwaitRun(ctx context.Context, runID int64) error {
-	ret := _m.Called(ctx, runID)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
-		r0 = rf(ctx, runID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Cancel provides a mock function with given fields: runID
 func (_m *Application) Cancel(runID uuid.UUID) (*models.JobRun, error) {
 	ret := _m.Called(runID)

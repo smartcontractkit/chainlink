@@ -24,7 +24,7 @@ var (
 
 type ORM interface {
 	CreateSpec(ctx context.Context, db *gorm.DB, taskDAG TaskDAG, maxTaskTimeout models.Interval) (int32, error)
-	InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
+	InsertFinishedRun(ctx context.Context, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error)
 	DeleteRunsOlderThan(threshold time.Duration) error
 	FindBridge(name models.TaskType) (models.BridgeType, error)
 	FindRun(id int64) (Run, error)
@@ -80,7 +80,7 @@ func (o *orm) CreateSpec(ctx context.Context, tx *gorm.DB, taskDAG TaskDAG, maxT
 // If saveSuccessfulTaskRuns = false, we only save errored runs.
 // That way if the job is run frequently (such as OCR) we avoid saving a large number of successful task runs
 // which do not provide much value.
-func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error) {
+func (o *orm) InsertFinishedRun(ctx context.Context, run Run, trrs []TaskRunResult, saveSuccessfulTaskRuns bool) (runID int64, err error) {
 	if run.CreatedAt.IsZero() {
 		return 0, errors.New("run.CreatedAt must be set")
 	}
@@ -90,7 +90,7 @@ func (o *orm) InsertFinishedRunWithResults(ctx context.Context, run Run, trrs []
 	if run.Outputs.Val == nil || len(run.Errors) == 0 {
 		return 0, errors.Errorf("run must have both Outputs and Errors, got Outputs: %#v, Errors: %#v", run.Outputs.Val, run.Errors)
 	}
-	if len(trrs) == 0 {
+	if len(trrs) == 0 && saveSuccessfulTaskRuns {
 		return 0, errors.New("must provide task run results")
 	}
 

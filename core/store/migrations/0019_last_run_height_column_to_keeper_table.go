@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +13,7 @@ const down19 = `
 	`
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0019_last_run_height_column_to_keeper_table",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up19).Error

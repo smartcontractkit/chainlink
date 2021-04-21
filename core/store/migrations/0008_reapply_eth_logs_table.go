@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -63,7 +62,7 @@ const down8 = `
 `
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0008_reapply_eth_logs_table",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up8).Error
