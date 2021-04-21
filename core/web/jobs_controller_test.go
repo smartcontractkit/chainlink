@@ -255,6 +255,7 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	assert.Equal(t, float32(0.5), jb.FluxMonitorSpec.Threshold)
 	assert.Equal(t, float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 }
+
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 

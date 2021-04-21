@@ -25,11 +25,13 @@ func TestGasUpdater_Start(t *testing.T) {
 
 	config := new(gumocks.Config)
 
+	var batchSize uint32 = 0
 	var blockDelay uint16 = 0
 	var historySize uint16 = 2
 	var ethFinalityDepth uint = 42
 	var percentile uint16 = 35
 
+	config.On("GasUpdaterBatchSize").Return(batchSize)
 	config.On("GasUpdaterBlockDelay").Return(blockDelay)
 	config.On("GasUpdaterBlockHistorySize").Return(historySize)
 	config.On("EthFinalityDepth").Return(ethFinalityDepth)
@@ -133,9 +135,11 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		gu := gasupdater.GasUpdaterToStruct(gasupdater.NewGasUpdater(ethClient, config))
 
 		var blockDelay uint16 = 3
-		var historySize uint16
+		var historySize uint16 = 3
+		var batchSize uint32 = 0
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
+		config.On("GasUpdaterBatchSize").Return(batchSize)
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 
@@ -147,15 +151,18 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		config.AssertExpectations(t)
 	})
 
-	t.Run("fetches heads and transactions and sets them on the gas updater instance", func(t *testing.T) {
+	t.Run("batch fetches heads and transactions and sets them on the gas updater instance", func(t *testing.T) {
 		ethClient := new(mocks.Client)
 		config := new(gumocks.Config)
 		gu := gasupdater.GasUpdaterToStruct(gasupdater.NewGasUpdater(ethClient, config))
 
 		var blockDelay uint16 = 1
 		var historySize uint16 = 3
+		var batchSize uint32 = 2
 		config.On("GasUpdaterBlockDelay").Return(blockDelay)
 		config.On("GasUpdaterBlockHistorySize").Return(historySize)
+		// Test batching
+		config.On("GasUpdaterBatchSize").Return(batchSize)
 
 		b41 := models.Block{
 			Number:       41,
@@ -174,15 +181,20 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 3 &&
+			return len(b) == 2 &&
 				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x28" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&models.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&models.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == "0x2a" && b[2].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&models.Block{})
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&models.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b41 // This errored block will be ignored
 			elems[1].Error = errors.New("something went wrong")
-			elems[2].Result = &b43
+		})
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&models.Block{})
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b43
 		})
 
 		err := gu.FetchBlocks(context.Background(), *cltest.Head(43))
@@ -205,15 +217,20 @@ func TestGasUpdater_FetchBlocks(t *testing.T) {
 		}
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
-			return len(b) == 3 &&
+			return len(b) == 2 &&
 				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x29" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&models.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&models.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == "0x2b" && b[2].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&models.Block{})
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x2a" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&models.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b42
 			elems[1].Result = &b43
-			elems[2].Result = &b44
+		})
+		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+			return len(b) == 1 &&
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2b" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&models.Block{})
+		})).Return(nil).Run(func(args mock.Arguments) {
+			elems := args.Get(1).([]rpc.BatchElem)
+			elems[0].Result = &b44
 		})
 
 		err = gu.FetchBlocks(context.Background(), *cltest.Head(44))
@@ -242,6 +259,7 @@ func TestGasUpdater_FetchBlocksAndRecalculate(t *testing.T) {
 	config.On("GasUpdaterTransactionPercentile").Return(uint16(35))
 	config.On("GasUpdaterBlockHistorySize").Return(uint16(3))
 	config.On("EthMaxGasPriceWei").Return(big.NewInt(1000))
+	config.On("GasUpdaterBatchSize").Return(uint32(0))
 
 	guIface := gasupdater.NewGasUpdater(ethClient, config)
 	gu := gasupdater.GasUpdaterToStruct(guIface)

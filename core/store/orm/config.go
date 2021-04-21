@@ -81,6 +81,7 @@ type (
 		EthHeadTrackerHistoryDepth       uint
 		EthBalanceMonitorBlockDelay      uint16
 		EthTxResendAfterThreshold        time.Duration
+		GasUpdaterBatchSize              *uint32
 		GasUpdaterBlockDelay             uint16
 		GasUpdaterBlockHistorySize       uint16
 		HeadTimeBudget                   time.Duration
@@ -91,6 +92,8 @@ type (
 
 func init() {
 	ChainSpecificDefaults = make(map[int64]ChainSpecificDefaultSet)
+	// FIXME: Workaround `websocket: read limit exceeded` until https://app.clubhouse.io/chainlinklabs/story/6717/geth-websockets-can-sometimes-go-bad-under-heavy-load-proposal-for-eth-node-balancer
+	var defaultGasUpdaterBatchSize uint32 = 4
 
 	mainnet := ChainSpecificDefaultSet{
 		EthGasBumpThreshold:              3,
@@ -103,6 +106,7 @@ func init() {
 		EthTxResendAfterThreshold:        30 * time.Second,
 		GasUpdaterBlockDelay:             1,
 		GasUpdaterBlockHistorySize:       24,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		HeadTimeBudget:                   13 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
@@ -128,6 +132,7 @@ func init() {
 		EthTxResendAfterThreshold:        15 * time.Second,
 		GasUpdaterBlockDelay:             2,
 		GasUpdaterBlockHistorySize:       24,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		HeadTimeBudget:                   3 * time.Second,
 		MinIncomingConfirmations:         3,
 		MinRequiredOutgoingConfirmations: 12,
@@ -147,6 +152,7 @@ func init() {
 		EthTxResendAfterThreshold:        5 * time.Minute,          // 5 minutes is roughly 300 blocks on Matic. Since re-orgs occur often and can be deep, we want to avoid overloading the node with a ton of re-sent unconfirmed transactions.
 		GasUpdaterBlockDelay:             32,                       // Delay needs to be large on matic since re-orgs are so frequent at the top level
 		GasUpdaterBlockHistorySize:       128,
+		GasUpdaterBatchSize:              &defaultGasUpdaterBatchSize,
 		HeadTimeBudget:                   1 * time.Second,
 		MinIncomingConfirmations:         39, // mainnet * 13 (1s vs 13s block time)
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
@@ -720,6 +726,19 @@ func (c Config) EthereumDisabled() bool {
 // FlagsContractAddress represents the Flags contract address
 func (c Config) FlagsContractAddress() string {
 	return c.viper.GetString(EnvVarName("FlagsContractAddress"))
+}
+
+// GasUpdaterBatchSize sets the maximum number of blocks to fetch in one batch in the gas updater
+// If the env var GAS_UPDATER_BATCH_SIZE is unset, it defaults to ETH_RPC_DEFAULT_BATCH_SIZE
+func (c Config) GasUpdaterBatchSize() uint32 {
+	if c.viper.IsSet(EnvVarName("GasUpdaterBatchSize")) {
+		return c.viper.GetUint32(EnvVarName("GasUpdaterBatchSize"))
+	}
+	defaultGasUpdaterBatchSize := chainSpecificConfig(c).GasUpdaterBatchSize
+	if defaultGasUpdaterBatchSize != nil {
+		return *defaultGasUpdaterBatchSize
+	}
+	return c.EthRPCDefaultBatchSize()
 }
 
 // GasUpdaterBlockDelay is the number of blocks that the gas updater trails behind head.

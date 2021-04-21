@@ -406,6 +406,27 @@ func Int64ToHex(n int64) string {
 	return hexutil.EncodeBig(big.NewInt(n))
 }
 
+// HexToInt64 performs the inverse of Int64ToHex
+// Returns 0 on invalid input
+func HexToInt64(input interface{}) int64 {
+	switch v := input.(type) {
+	case string:
+		big, err := hexutil.DecodeBig(v)
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	case []byte:
+		big, err := hexutil.DecodeBig(string(v))
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	default:
+		return 0
+	}
+}
+
 // Block represents an ethereum block
 type Block struct {
 	Number       int64
