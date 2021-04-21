@@ -38,6 +38,12 @@ import (
 	"go.uber.org/multierr"
 	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
+
+	// We've specified a later version in go.mod than is currently used by gorm
+	// to get this fix in https://github.com/jackc/pgx/pull/975.
+	// As soon as pgx releases a 4.12 and gorm [https://github.com/go-gorm/postgres/blob/master/go.mod#L6]
+	// bumps their version to 4.12, we can remove this.
+	_ "github.com/jackc/pgx/v4"
 )
 
 var (
@@ -1664,12 +1670,15 @@ func (ct Connection) initializeDatabase() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	if d == nil {
+		return nil, errors.Errorf("unable to open %s received a nil connection", ct.uri)
+	}
 	db, err := gorm.Open(gormpostgres.New(gormpostgres.Config{
 		Conn: d,
 		DSN:  originalURI,
 	}), &gorm.Config{Logger: newLogger})
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to open %s for gorm DB", ct.uri)
+		return nil, errors.Wrapf(err, "unable to open %s for gorm DB conn %v", ct.uri, d)
 	}
 
 	if err = dbutil.SetTimezone(db); err != nil {
