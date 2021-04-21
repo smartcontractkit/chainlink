@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
-	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -47,6 +46,10 @@ func (rj RendererJSON) Render(v interface{}, _ ...string) error {
 // RendererTable is used for data to be rendered as a table.
 type RendererTable struct {
 	io.Writer
+}
+
+type TableRenderer interface {
+	RenderTable(rt RendererTable) error
 }
 
 // Render returns a formatted table of text for a given Job or presenter
@@ -89,10 +92,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
 	case *[]P2PKeyPresenter:
 		return rt.renderP2PKeys(*typed)
-	case *ocrkey.EncryptedKeyBundle:
-		return rt.renderOCRKeys([]ocrkey.EncryptedKeyBundle{*typed})
-	case *[]ocrkey.EncryptedKeyBundle:
-		return rt.renderOCRKeys(*typed)
 	case *[]JobPresenter:
 		return rt.renderJobsV2(*typed)
 	case *JobPresenter:
@@ -103,6 +102,8 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderLogResource(*typed)
 	case *[]VRFKeyPresenter:
 		return rt.renderVRFKeys(*typed)
+	case TableRenderer:
+		return typed.RenderTable(rt)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
@@ -481,28 +482,6 @@ func (rt RendererTable) renderP2PKeys(presenters []P2PKeyPresenter) error {
 	}
 	fmt.Println("\n🔑 P2P Keys")
 	renderList([]string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}, rows, rt.Writer)
-	return nil
-}
-
-func (rt RendererTable) renderOCRKeys(ocrKeys []ocrkey.EncryptedKeyBundle) error {
-	var rows [][]string
-	for _, key := range ocrKeys {
-		var deletedAt string
-		if key.DeletedAt.Valid {
-			deletedAt = key.DeletedAt.Time.String()
-		}
-		rows = append(rows, []string{
-			key.ID.String(),
-			key.OnChainSigningAddress.String(),
-			key.OffChainPublicKey.String(),
-			key.ConfigPublicKey.String(),
-			key.CreatedAt.String(),
-			key.UpdatedAt.String(),
-			deletedAt,
-		})
-	}
-	fmt.Println("\n🔑 OCR Keys")
-	renderList([]string{"ID", "On-chain signing addr", "Off-chain pubkey", "Config pubkey", "Created", "Updated", "Deleted"}, rows, rt.Writer)
 	return nil
 }
 
