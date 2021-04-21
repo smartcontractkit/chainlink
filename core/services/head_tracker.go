@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -610,7 +611,8 @@ func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
 }
 
 func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
-	ctx, cancel := utils.ContextFromChan(ht.done)
+	ctxQuery, _ := postgres.DefaultQueryCtx()
+	ctx, cancel := utils.CombinedContext(ht.done, ctxQuery)
 	defer cancel()
 	return ht.store.LastHead(ctx)
 }
