@@ -14,6 +14,7 @@ require (
 	github.com/denisenkom/go-mssqldb v0.0.0-20200428022330-06a60b6afbbc // indirect
 	github.com/ethereum/go-ethereum v1.10.0
 	github.com/fatih/color v1.10.0
+	github.com/form3tech-oss/jwt-go v3.2.2+incompatible // indirect
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
 	github.com/gin-contrib/expvar v0.0.0-20181230111036-f23b556cc79f
