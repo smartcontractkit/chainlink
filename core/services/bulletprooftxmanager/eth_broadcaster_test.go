@@ -237,18 +237,16 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 
 	value := assets.NewEthValue(142)
-	gasLimit := uint64(242)
+	estimatedGas := uint64(9007199254740993)
 
 	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
-		estimatedGas := uint64(9007199254740993)
-
 		// Higher value
 		expensiveEthTx := models.EthTx{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 0},
 			Value:          assets.NewEthValue(242),
-			GasLimit:       gasLimit,
+			GasLimit:       estimatedGas,
 			CreatedAt:      time.Unix(0, 0),
 			State:          models.EthTxUnstarted,
 		}
@@ -263,7 +261,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 0},
 			Value:          value,
-			GasLimit:       gasLimit,
+			GasLimit:       estimatedGas,
 			CreatedAt:      time.Unix(0, 1),
 			State:          models.EthTxUnstarted,
 		}
@@ -273,8 +271,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 				return false
 			}
 			require.Equal(t, config.ChainID(), tx.ChainId())
-			require.Equal(t, gasLimit, tx.Gas())
-			require.Equal(t, big.NewInt(int64(estimatedGas)), tx.GasPrice())
+			require.Equal(t, estimatedGas, tx.Gas())
+			require.Equal(t, big.NewInt(1), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.ToInt().String(), tx.Value().String())
 			require.Equal(t, earlierEthTx.EncodedPayload, tx.Data())
@@ -287,7 +285,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 			ToAddress:      toAddress,
 			EncodedPayload: []byte{42, 42, 1},
 			Value:          value,
-			GasLimit:       gasLimit,
+			GasLimit:       estimatedGas,
 			CreatedAt:      time.Unix(1, 0),
 			State:          models.EthTxUnstarted,
 		}
@@ -297,8 +295,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 				return false
 			}
 			require.Equal(t, config.ChainID(), tx.ChainId())
-			require.Equal(t, gasLimit, tx.Gas())
-			require.Equal(t, big.NewInt(int64(estimatedGas)), tx.GasPrice())
+			require.Equal(t, estimatedGas, tx.Gas())
+			require.Equal(t, big.NewInt(1), tx.GasPrice())
 			require.Equal(t, toAddress, *tx.To())
 			require.Equal(t, value.ToInt().String(), tx.Value().String())
 			require.Equal(t, laterEthTx.EncodedPayload, tx.Data())
@@ -328,7 +326,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 		attempt := earlierTransaction.EthTxAttempts[0]
 
 		assert.Equal(t, earlierTransaction.ID, attempt.EthTxID)
-		assert.Equal(t, fmt.Sprintf("%d", estimatedGas), attempt.GasPrice.String())
+		assert.Equal(t, "1", attempt.GasPrice.String())
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
@@ -350,7 +348,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 		attempt = laterTransaction.EthTxAttempts[0]
 
 		assert.Equal(t, laterTransaction.ID, attempt.EthTxID)
-		assert.Equal(t, fmt.Sprintf("%d", estimatedGas), attempt.GasPrice.String())
+		assert.Equal(t, "1", attempt.GasPrice.String())
 
 		_, err = attempt.GetSignedTx()
 		require.NoError(t, err)
