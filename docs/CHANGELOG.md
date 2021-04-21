@@ -25,6 +25,7 @@ chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
 update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
 ```
 
+- Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_PRICE_DEFAULT` is ignored.
 
 ### Changed
 
