@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -125,7 +126,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
+func (sub InitiatorSubscription) dispatchLog(log types.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
 
@@ -191,17 +192,17 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ethereum node subscription.
 type ManagedSubscription struct {
 	logSubscriber     eth.Client
-	logs              chan models.Log
+	logs              chan types.Log
 	ethSubscription   ethereum.Subscription
-	callback          func(models.Log)
+	callback          func(types.Log)
 	backfillBatchSize uint32
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
-func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
+func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(types.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
-	logs := make(chan models.Log)
+	logs := make(chan types.Log)
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
@@ -270,7 +271,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					Jitter: false,
 				}
 				for {
-					newLogs := make(chan models.Log)
+					newLogs := make(chan types.Log)
 					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), q, newLogs)
 					if err != nil {
 						logger.Warnw(fmt.Sprintf("Failed to reconnect to eth node. Trying again in %v", b.Duration()), "err", err.Error())

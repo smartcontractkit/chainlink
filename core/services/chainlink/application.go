@@ -280,6 +280,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headTrackables = append(
 		headTrackables,
+		logBroadcaster,
 		ethConfirmer,
 		jobSubscriber,
 		pendingConnectionResumer,
@@ -295,6 +296,18 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTrackables = append(headTrackables, headTrackable)
 	}
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
+
+	// Log Broadcaster uses the last stored head as a limit of log backfill
+	// which needs to be set before it's started
+	head, err := app.HeadTracker.HighestSeenHeadFromDB()
+	if err != nil {
+		return nil, err
+	}
+	logBroadcaster.SetLatestHeadFromStorage(head)
+
+	// Log Broadcaster waits for other services' registrations
+	// until app.LogBroadcaster.DependentReady() call (see below)
+	logBroadcaster.AddDependents(1)
 
 	return app, nil
 }
@@ -368,6 +381,10 @@ func (app *ChainlinkApplication) Start() error {
 			return err
 		}
 	}
+
+	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
+	// to make sure the initial backfill covers those subscribers.
+	app.LogBroadcaster.DependentReady()
 
 	// HeadTracker deliberately started afterwards since several tasks are
 	// registered as callbacks and it's sensible to have started them before
