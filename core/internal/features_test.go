@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
@@ -205,7 +204,11 @@ func TestIntegration_EthLog(t *testing.T) {
 	sub.On("Err").Return(nil).Maybe()
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(sub, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
@@ -263,7 +266,7 @@ func TestIntegration_RunLog(t *testing.T) {
 			sub.On("Err").Return(nil).Maybe()
 			sub.On("Unsubscribe").Return(nil).Maybe()
 			gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			newHeads := make(chan<- *models.Head, 10)
 			rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -271,6 +274,12 @@ func TestIntegration_RunLog(t *testing.T) {
 					newHeads = args.Get(1).(chan<- *models.Head)
 				}).
 				Return(sub, nil)
+
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+
 			require.NoError(t, app.StartAndConnect())
 			j := cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/runlog_noop_job.json")
 			requiredConfs := int64(100)
@@ -347,6 +356,11 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 	defer cleanup()
 
 	gethClient.On("ChainID", mock.Anything).Return(app.Config.ChainID(), nil)
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
@@ -519,6 +533,12 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(&types.Receipt{}, nil)
+
+	b := types.NewBlockWithHeader(&types.Header{
+		Number: big.NewInt(100),
+	})
+	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
@@ -858,7 +878,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	inLongestChain := safe - int64(config.GasUpdaterBlockDelay())
 
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(logsSub, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	// Initial tx attempt sent
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -1004,7 +1024,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 			*head = cltest.Head(1)
 		}).
 		Return(nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]types.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
 	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
@@ -1612,7 +1632,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 		Return(sub, nil)
 
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 
 	require.NoError(t, app.StartAndConnect())
@@ -1635,7 +1655,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	eventBroadcaster.Notify(postgres.ChannelJobCreated, "")
 
 	runLog := cltest.NewRunLog(t, job.DirectRequestSpec.OnChainJobSpecID, job.DirectRequestSpec.ContractAddress.Address(), cltest.NewAddress(), 1, `{}`)
-	var logs chan<- models.Log
+	var logs chan<- types.Log
 	cltest.CallbackOrTimeout(t, "obtain log channel", func() {
 		logs = <-logsCh
 	}, 5*time.Second)
@@ -1645,6 +1665,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	eventBroadcaster.Notify(postgres.ChannelRunStarted, "")
 	headCh <- &models.Head{Number: 10}
+	headCh <- &models.Head{Number: 11}
 
 	httpAwaiter.AwaitOrFail(t)
 

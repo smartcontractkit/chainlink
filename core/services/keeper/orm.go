@@ -66,15 +66,16 @@ func (korm ORM) UpsertUpkeep(ctx context.Context, registration *UpkeepRegistrati
 		Error
 }
 
-func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) error {
-	return korm.DB.
+func (korm ORM) BatchDeleteUpkeepsForJob(ctx context.Context, jobID int32, upkeedIDs []int64) (int64, error) {
+	exec := korm.DB.
 		WithContext(ctx).Exec(
 		`DELETE FROM upkeep_registrations WHERE registry_id = (
 			SELECT id from keeper_registries where job_id = ?
 		) AND upkeep_id IN (?)`,
 		jobID,
 		upkeedIDs,
-	).Error
+	)
+	return exec.RowsAffected, exec.Error
 }
 
 func (korm ORM) EligibleUpkeeps(

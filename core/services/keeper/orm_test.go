@@ -98,7 +98,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
 
-	err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
+	_, err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
 	require.NoError(t, err)
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
 
