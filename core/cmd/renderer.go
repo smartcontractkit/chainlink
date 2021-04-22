@@ -84,10 +84,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
 	case *[]P2PKeyPresenter:
 		return rt.renderP2PKeys(*typed)
-	case *[]JobPresenter:
-		return rt.renderJobsV2(*typed)
-	case *JobPresenter:
-		return rt.renderJobsV2([]JobPresenter{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
@@ -138,19 +134,6 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	}
 
 	render("Jobs", table)
-	return nil
-}
-
-func (rt RendererTable) renderJobsV2(jobs []JobPresenter) error {
-	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
-	table.SetAutoMergeCells(true)
-	for _, j := range jobs {
-		for _, r := range j.ToRows() {
-			table.Append(r)
-		}
-	}
-
-	render("Jobs (V2)", table)
 	return nil
 }
 

@@ -115,9 +115,37 @@ func (j JobPresenter) FriendlyCreatedAt() string {
 	return "N/A"
 }
 
+// RenderTable implements TableRenderer
+func (p *JobPresenter) RenderTable(rt RendererTable) error {
+	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
+	table.SetAutoMergeCells(true)
+	for _, r := range p.ToRows() {
+		table.Append(r)
+	}
+
+	render("Jobs (V2)", table)
+	return nil
+}
+
+type JobPresenters []JobPresenter
+
+// RenderTable implements TableRenderer
+func (ps JobPresenters) RenderTable(rt RendererTable) error {
+	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
+	table.SetAutoMergeCells(true)
+	for _, p := range ps {
+		for _, r := range p.ToRows() {
+			table.Append(r)
+		}
+	}
+
+	render("Jobs (V2)", table)
+	return nil
+}
+
 // ListJobsV2 lists all v2 jobs
 func (cli *Client) ListJobsV2(c *cli.Context) (err error) {
-	return cli.getPage("/v2/jobs", c.Int("page"), &[]JobPresenter{})
+	return cli.getPage("/v2/jobs", c.Int("page"), &JobPresenters{})
 }
 
 // CreateJobV2 creates a V2 job
@@ -159,8 +187,7 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	var presenter JobPresenter
-	err = cli.renderAPIResponse(resp, &presenter, "Job created")
+	err = cli.renderAPIResponse(resp, &JobPresenter{}, "Job created")
 	return err
 }
 
