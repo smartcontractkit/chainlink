@@ -80,10 +80,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
-	case *P2PKeyPresenter:
-		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
-	case *[]P2PKeyPresenter:
-		return rt.renderP2PKeys(*typed)
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
@@ -377,27 +373,6 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 		config.EthGasPriceDefault.To,
 	})
 	render("Configuration Changes", table)
-	return nil
-}
-
-func (rt RendererTable) renderP2PKeys(presenters []P2PKeyPresenter) error {
-	var rows [][]string
-	for _, p := range presenters {
-		var deletedAt string
-		if p.DeletedAt != nil {
-			deletedAt = p.DeletedAt.String()
-		}
-		rows = append(rows, []string{
-			p.ID,
-			p.PeerID,
-			p.PubKey,
-			fmt.Sprintf("%v", p.CreatedAt),
-			fmt.Sprintf("%v", p.UpdatedAt),
-			deletedAt,
-		})
-	}
-	fmt.Println("\n🔑 P2P Keys")
-	renderList([]string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}, rows, rt.Writer)
 	return nil
 }
 
