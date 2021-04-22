@@ -12,6 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `MockOracle.sol` for testing contracts
+- Cron jobs can now be created for the v2 job pipeline:
+```
+type            = "cron"
+schemaVersion   = 1
+schedule        = "*/10 * * * *"
+observationSource   = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
 
 ### Changed
 

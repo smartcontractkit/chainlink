@@ -192,6 +192,9 @@ const RegionalNavComponent = ({
         case 'keeper':
           type = 'Keeper'
           break
+        case 'cron':
+          type = 'Cron'
+          break
         default:
           type = 'Direct request'
       }

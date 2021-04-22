@@ -32,6 +32,7 @@ export type JobSpecType =
   | 'fluxmonitor'
   | 'offchainreporting'
   | 'keeper'
+  | 'cron'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string
