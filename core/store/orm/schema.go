@@ -37,6 +37,7 @@ type ConfigSchema struct {
 	DefaultHTTPAllowUnrestrictedNetworkAccess bool            `env:"DEFAULT_HTTP_ALLOW_UNRESTRICTED_NETWORK_ACCESS" default:"false"`
 	Dev                                       bool            `env:"CHAINLINK_DEV" default:"false"`
 	EnableExperimentalAdapters                bool            `env:"ENABLE_EXPERIMENTAL_ADAPTERS" default:"false"`
+	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"false"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"false"`

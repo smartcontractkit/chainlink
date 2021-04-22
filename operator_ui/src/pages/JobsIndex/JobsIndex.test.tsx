@@ -8,6 +8,7 @@ import {
   fluxMonitorJobResource,
   ocrJobResource,
   keeperJobResource,
+  cronJobResource,
 } from 'support/factories/jsonApiJobs'
 import { syncFetch } from 'test-helpers/syncFetch'
 import globPath from 'test-helpers/globPath'
@@ -46,6 +47,10 @@ describe('pages/JobsIndex/JobsIndex', () => {
           createdAt: new Date().toISOString(),
         }),
         keeperJobResource({
+          id: '4000000',
+          createdAt: new Date().toISOString(),
+        }),
+        cronJobResource({
           id: '4000000',
           createdAt: new Date().toISOString(),
         }),
