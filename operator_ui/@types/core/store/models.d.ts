@@ -544,6 +544,7 @@ declare module 'core/store/models' {
     directRequestSpec: null
     fluxMonitorSpec: null
     offChainReportingOracleSpec: null
+    cronSpec: null
   }
 
   export type CronV2Spec = BaseJobSpecV2 & {

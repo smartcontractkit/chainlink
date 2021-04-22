@@ -265,6 +265,7 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"offChainReportingOracleSpec": null,
+                        "cronSpec": null,
 						"errors": []
 					}
 				}
