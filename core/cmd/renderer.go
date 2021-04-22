@@ -84,32 +84,11 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
 		return rt.renderLogResource(*typed)
-	case *[]VRFKeyPresenter:
-		return rt.renderVRFKeys(*typed)
 	case TableRenderer:
 		return typed.RenderTable(rt)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
-}
-
-func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
-	var rows [][]string
-
-	for _, key := range keys {
-		rows = append(rows, []string{
-			key.Compressed,
-			key.Uncompressed,
-			key.Hash,
-			key.FriendlyCreatedAt(),
-			key.FriendlyUpdatedAt(),
-			key.FriendlyDeletedAt(),
-		})
-	}
-
-	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows, rt.Writer)
-
-	return nil
 }
 
 func (rt RendererTable) renderLogResource(logResource webpresenters.LogResource) error {

@@ -1,10 +1,13 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
@@ -22,6 +25,54 @@ const (
 	// This is the public key found in the vrf key file
 	vrfPublicKey = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
 )
+
+func TestVRFKeyPresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		compressed   = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01"
+		uncompressed = "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4db44652a69526181101d4aa9a58ecf43b1be972330de99ea5e540f56f4e0a672f"
+		hash         = "0x9926c5f19ec3b3ce005e1c183612f05cfc042966fcdd82ec6e78bf128d91695a"
+		createdAt    = time.Now()
+		updatedAt    = time.Now().Add(time.Second)
+		deletedAt    = time.Now().Add(2 * time.Second)
+		buffer       = bytes.NewBufferString("")
+		r            = cmd.RendererTable{Writer: buffer}
+	)
+
+	p := cmd.VRFKeyPresenter{
+		Compressed:   compressed,
+		Uncompressed: uncompressed,
+		Hash:         hash,
+		CreatedAt:    &createdAt,
+		UpdatedAt:    &updatedAt,
+		DeletedAt:    &deletedAt,
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, compressed)
+	assert.Contains(t, output, uncompressed)
+	assert.Contains(t, output, hash)
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.VRFKeyPresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, compressed)
+	assert.Contains(t, output, uncompressed)
+	assert.Contains(t, output, hash)
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+}
 
 func TestLocalClientVRF_ListVRFKeys(t *testing.T) {
 	t.Parallel()
@@ -49,7 +100,8 @@ func TestLocalClientVRF_ListVRFKeys(t *testing.T) {
 	assert.Nil(t, client.ListVRFKeys(cltest.EmptyCLIContext()))
 
 	require.Equal(t, 1, len(r.Renders))
-	p := *r.Renders[0].(*[]cmd.VRFKeyPresenter)
+	p := *r.Renders[0].(*cmd.VRFKeyPresenters)
+	fmt.Printf("%+v", p)
 	assert.Equal(t, "0xe2c659dd73ded1663c0caf02304aac5ccd247047b3993d273a8920bba0402f4d01", p[0].Compressed)
 }
 
