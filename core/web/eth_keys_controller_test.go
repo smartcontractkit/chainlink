@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
@@ -19,24 +18,20 @@ import (
 func TestETHKeysController_Index_Success(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	_, err := app.Store.KeyStore.NewAccount()
 	require.NoError(t, err)
 	require.NoError(t, app.Store.SyncDiskKeyStoreToDB())
 
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Run(func(args mock.Arguments) {
-		*args.Get(0).(*string) = "256"
-	}).Return(nil).Once()
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Run(func(args mock.Arguments) {
-		*args.Get(0).(*string) = "1"
-	}).Return(nil).Once()
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(256), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(256), nil).Once()
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(1), nil).Once()
 
 	require.NoError(t, app.Start())
 

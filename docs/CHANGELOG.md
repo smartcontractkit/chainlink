@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `MockOracle.sol` for testing contracts
+
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
 v2 flux monitor jobs (TOML). Running it will archive the v1 
 job and create a new v2 job. Example:
@@ -42,6 +44,11 @@ ds_parse    [type=jsonparse path="data"];
 ds -> ds_parse;
 """
 ```
+=======
+- Chainlink now supports routing certain calls to the eth node over HTTP instead of websocket, when available. This has a number of advantages - HTTP is more robust and simpler than websockets, reducing complexity and allowing us to make large queries without running the risk of hitting websocket send limits. It is recommended for all node operators to specify an HTTP endpoint for their eth node, it can be specified with an env var like so: `ETH_HTTP_URL=https://my.ethereumnode.example/endpoint`.
+
+Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
+>>>>>>> Support optional HTTP endpoint for primary eth node
 
 ### Changed
 
