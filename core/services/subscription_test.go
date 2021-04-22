@@ -463,7 +463,7 @@ func TestServices_NewInitiatorSubscription_EthLog_NilHead(t *testing.T) {
 			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
 			ethClient.On("SubscribeFilterLogs", mock.Anything, expectedQuery, mock.Anything).Return(cltest.EmptyMockSubscription(), nil)
 			expectedQuery.ToBlock = b.Number()
-			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]models.Log{log}, nil)
+			ethClient.On("FilterLogs", mock.Anything, expectedQuery).Return([]types.Log{log}, nil)
 
 			executeJobChannel := make(chan struct{})
 

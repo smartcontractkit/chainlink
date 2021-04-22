@@ -133,7 +133,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 				Number: big.NewInt(100),
 			})
 			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 			assert.NoError(t, app.StartAndConnect())
 
