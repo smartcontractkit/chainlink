@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -167,6 +168,9 @@ func (n *TaskDAGNode) Attributes() []encoding.Attribute {
 	for k, v := range n.attrs {
 		r = append(r, encoding.Attribute{Key: k, Value: v})
 	}
+	sort.Slice(r, func(i, j int) bool {
+		return r[i].Key < r[j].Key
+	})
 	return r
 }
 

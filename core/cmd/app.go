@@ -238,6 +238,11 @@ func NewApp(client *Client) *cli.App {
 					Usage:  "Trigger a V2 job run",
 					Action: client.TriggerPipelineRun,
 				},
+				{
+					Name:   "migrate",
+					Usage:  "Migrate a v1 job (json) to a v2 format (toml)",
+					Action: client.Migrate,
+				},
 			},
 		},
 		{

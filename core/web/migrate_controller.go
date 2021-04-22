@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/logger"
+
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
@@ -44,7 +45,6 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusNotFound, err)
 		return
 	}
-	logger.Infow("migrating job", "js", js)
 	jbV2, err := MigrateJobSpec(mc.App.GetStore().Config, js)
 	if err != nil {
 		if errors.Cause(err) == ErrInvalidInitiatorType {
@@ -64,6 +64,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	logger.Infow("Successfully migrated FM job", "v1 job", js, "v2 job", jb)
 	// If the migration went well, archive the v1 FM job
 	if err := mc.App.ArchiveJob(js.ID); err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -123,7 +124,6 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 		DotDagSource: ps,
 	}
 	jb.Pipeline = pd
-	// TODO: port job spec errors
 	return jb, nil
 }
 
@@ -137,7 +137,7 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	})
 	dg.AddNode(medianTask)
 	for i, feed := range js.Initiators[0].Feeds.Array() {
-		// Apparently there are *no* urls direclty used in production, its all bridges.
+		// Apparently there are *no* urls directly used in production, its all bridges.
 		// Support anyways just in case someone was using it without our knowledge.
 		// ALL fm jobs are POSTs see
 		// https://github.com/smartcontractkit/chainlink/blob/e5957895e3aa4947c2ddb5a4a8525041639962e9/core/services/fluxmonitor/fetchers.go#L67
@@ -166,9 +166,6 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	for i, ts := range js.Tasks {
 		switch ts.Type {
 		case adapters.TaskTypeMultiply:
-			// NOTE: The multiply is assumed to be the same as the precision
-			// specified in the js. We could actually error here if not as a safety
-			// measure?
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeMultiply.String(),
 			}
@@ -197,11 +194,11 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	if err != nil {
 		return "", *dg, err
 	}
+
 	// Double check we can unmarshal it
 	generatedDotDagSource := string(s)
 	generatedDotDagSource = strings.Replace(generatedDotDagSource, "strict digraph {", "", 1)
 	generatedDotDagSource = generatedDotDagSource[:len(generatedDotDagSource)-1] // Remove final }
-	logger.Infow("built dag", "dag", generatedDotDagSource)
 	p := pipeline.NewTaskDAG()
 	err = p.UnmarshalText([]byte(generatedDotDagSource))
 	if err != nil {
