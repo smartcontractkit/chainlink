@@ -179,7 +179,6 @@ export function cronJobV2(
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec,
-    webSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {

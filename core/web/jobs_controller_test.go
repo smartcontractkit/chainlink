@@ -163,7 +163,7 @@ func TestJobsController_Create_CronRequestSpec(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/cron-job-spec.toml")
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/cron-spec.toml")
 	body, _ := json.Marshal(models.CreateJobSpecRequest{
 		TOML: string(tomlBytes),
 	})
