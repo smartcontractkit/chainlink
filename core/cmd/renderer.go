@@ -80,10 +80,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
-	case *webpresenters.ETHKeyResource:
-		return rt.renderETHKeys([]webpresenters.ETHKeyResource{*typed})
-	case *[]webpresenters.ETHKeyResource:
-		return rt.renderETHKeys(*typed)
 	case *P2PKeyPresenter:
 		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
 	case *[]P2PKeyPresenter:
@@ -398,35 +394,6 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 		config.EthGasPriceDefault.To,
 	})
 	render("Configuration Changes", table)
-	return nil
-}
-
-func (rt RendererTable) renderETHKeys(keys []webpresenters.ETHKeyResource) error {
-	var rows [][]string
-	for _, key := range keys {
-		nextNonce := fmt.Sprintf("%d", key.NextNonce)
-		var lastUsed string
-		if key.LastUsed != nil {
-			lastUsed = key.LastUsed.String()
-		}
-		var deletedAt string
-		if key.DeletedAt.Valid {
-			deletedAt = key.DeletedAt.Time.String()
-		}
-		rows = append(rows, []string{
-			key.Address,
-			key.EthBalance.String(),
-			key.LinkBalance.String(),
-			nextNonce,
-			lastUsed,
-			fmt.Sprintf("%v", key.IsFunding),
-			key.CreatedAt.String(),
-			key.UpdatedAt.String(),
-			deletedAt,
-		})
-	}
-
-	renderList([]string{"Address", "ETH", "LINK", "Next nonce", "Last used", "Is funding", "Created", "Updated", "Deleted"}, rows, rt.Writer)
 	return nil
 }
 
