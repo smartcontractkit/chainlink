@@ -75,23 +75,72 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 			Topics:    [][]common.Hash{topics},
 		}
 
-		logs, err := sub.ethClient.FilterLogs(ctx, q)
-		if err != nil {
-			logger.Errorw("Log subscriber backfill: could not fetch logs", "error", err)
-			return true
-		}
-
 		chBackfilledLogs = make(chan types.Log)
-		go func() {
-			defer close(chBackfilledLogs)
-			for _, log := range logs {
+
+		start := time.Now()
+		// If we are significantly behind the latest head, there could be a very large (1000s)
+		// of blocks to check for logs. We read the blocks in batches to avoid hitting the websocket
+		// request data limit.
+		// On matic its 5MB [https://github.com/maticnetwork/bor/blob/3de2110886522ab17e0b45f3c4a6722da72b7519/rpc/http.go#L35]
+		// On ethereum its 15MB [https://github.com/ethereum/go-ethereum/blob/master/rpc/websocket.go#L40]
+		//latest := b.Number()
+		batchSize := int64(sub.config.EthLogBackfillBatchSize())
+		for i := q.FromBlock.Int64(); ; i += batchSize {
+
+			q.FromBlock = big.NewInt(i)
+			q.ToBlock = big.NewInt(i + batchSize - 1)
+
+			batchLogs, err := sub.ethClient.FilterLogs(ctx, q)
+
+			if err != nil {
+				if ctx.Err() != nil {
+					logger.Errorw("Deadline exceeded, unable to backfill logs", "err", err, "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				} else {
+					logger.Errorw("Unable to backfill logs", "err", err, "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+				}
+				return true
+			}
+
+			for _, log := range batchLogs {
 				select {
 				case chBackfilledLogs <- log:
 				case <-sub.chStop:
 					return
 				}
 			}
-		}()
+
+			//go func() {
+			//	defer close(chBackfilledLogs)
+			//
+			//}()
+
+			//for _, log := range batchLogs {
+			//
+			//	select {
+			//
+			//	case <-ctx.Done():
+			//
+			//		logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
+			//
+			//		return backfilledSet
+			//
+			//	default:
+			//
+			//		backfilledSet[log.BlockHash.String()] = true
+			//
+			//		sub.callback(log)
+			//
+			//	}
+			//
+			//}
+
+		}
+
+		//logs, err := sub.ethClient.FilterLogs(ctx, q)
+		//if err != nil {
+		//	logger.Errorw("Log subscriber backfill: could not fetch logs", "error", err)
+		//	return true
+		//}
 
 		return false
 	})
