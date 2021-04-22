@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"regexp"
 	"testing"
@@ -13,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 	"github.com/smartcontractkit/chainlink/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -158,61 +156,6 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 			assert.True(t, tw.found)
 		})
 	}
-}
-
-func TestRendererTable_Render_Tx(t *testing.T) {
-	t.Parallel()
-
-	from := cltest.NewAddress()
-	to := cltest.NewAddress()
-	tx := webpresenters.EthTxResource{
-		Hash:     cltest.NewHash(),
-		Nonce:    "1",
-		From:     &from,
-		To:       &to,
-		GasPrice: "2",
-		State:    "confirmed",
-		SentAt:   "3",
-	}
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-	assert.NoError(t, r.Render(&tx))
-	output := buffer.String()
-
-	assert.NotContains(t, output, tx.Hash.Hex())
-	assert.Contains(t, output, tx.Nonce)
-	assert.Contains(t, output, from.Hex())
-	assert.Contains(t, output, to.Hex())
-	assert.Contains(t, output, fmt.Sprint(tx.State))
-}
-
-func TestRendererTable_Render_Txs(t *testing.T) {
-	t.Parallel()
-
-	a := cltest.NewAddress()
-	txs := []webpresenters.EthTxResource{
-		{
-			Hash:     cltest.NewHash(),
-			Nonce:    "1",
-			From:     &a,
-			GasPrice: "2",
-			State:    "confirmed",
-			SentAt:   "3",
-		},
-	}
-
-	buffer := bytes.NewBufferString("")
-	r := cmd.RendererTable{Writer: buffer}
-	assert.NoError(t, r.Render(&txs))
-	output := buffer.String()
-
-	assert.Contains(t, output, txs[0].Nonce)
-	assert.Contains(t, output, txs[0].Hash.Hex())
-	assert.Contains(t, output, txs[0].GasPrice)
-	assert.Contains(t, output, txs[0].SentAt)
-	assert.Contains(t, output, a.Hex())
-	assert.Contains(t, output, fmt.Sprint(txs[0].State))
 }
 
 func checkPresence(t *testing.T, s, output string) { assert.Regexp(t, regexp.MustCompile(s), output) }

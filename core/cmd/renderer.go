@@ -70,10 +70,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRun(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *[]webpresenters.EthTxResource:
-		return rt.renderEthTxs(*typed)
-	case *webpresenters.EthTxResource:
-		return rt.renderEthTx(*typed)
 	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
@@ -312,36 +308,6 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	table := tablewriter.NewWriter(rt)
 	table.SetHeader(headers)
 	return table
-}
-
-func (rt RendererTable) renderEthTx(tx webpresenters.EthTxResource) error {
-	table := rt.newTable([]string{"From", "Nonce", "To", "State"})
-	table.Append([]string{
-		tx.From.Hex(),
-		tx.Nonce,
-		tx.To.Hex(),
-		fmt.Sprint(tx.State),
-	})
-
-	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
-	return nil
-}
-
-func (rt RendererTable) renderEthTxs(txs []webpresenters.EthTxResource) error {
-	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "State"})
-	for _, tx := range txs {
-		table.Append([]string{
-			tx.Hash.Hex(),
-			tx.Nonce,
-			tx.From.Hex(),
-			tx.GasPrice,
-			tx.SentAt,
-			fmt.Sprint(tx.State),
-		})
-	}
-
-	render("Ethereum Transactions", table)
-	return nil
 }
 
 func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
