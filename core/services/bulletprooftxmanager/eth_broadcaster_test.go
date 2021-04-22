@@ -236,127 +236,28 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 
-	value := assets.NewEthValue(142)
 	estimatedGas := uint64(9007199254740993)
 
-	t.Run("sends 3 EthTxs in order with higher value last, and lower values starting from the earliest", func(t *testing.T) {
-		// Higher value
-		expensiveEthTx := models.EthTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: []byte{42, 42, 0},
-			Value:          assets.NewEthValue(242),
-			GasLimit:       estimatedGas,
-			CreatedAt:      time.Unix(0, 0),
-			State:          models.EthTxUnstarted,
-		}
-		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			return tx.Nonce() == uint64(2) && tx.Value().Cmp(big.NewInt(242)) == 0
-		})).Return(nil).Once()
+	tx := models.EthTx{
+		FromAddress:    fromAddress,
+		ToAddress:      toAddress,
+		EncodedPayload: []byte{42, 42, 0},
+		Value:          assets.NewEthValue(242),
+		GasLimit:       estimatedGas,
+		CreatedAt:      time.Unix(0, 0),
+		State:          models.EthTxUnstarted,
+	}
+	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
+	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
+		return tx.GasPrice().Cmp(big.NewInt(1)) == 0 && tx.Gas() == estimatedGas
+	})).Return(nil).Once()
 
-		// Earlier
-		earlierEthTx := models.EthTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: []byte{42, 42, 0},
-			Value:          value,
-			GasLimit:       estimatedGas,
-			CreatedAt:      time.Unix(0, 1),
-			State:          models.EthTxUnstarted,
-		}
-		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			if tx.Nonce() != uint64(0) {
-				return false
-			}
-			require.Equal(t, config.ChainID(), tx.ChainId())
-			require.Equal(t, estimatedGas, tx.Gas())
-			require.Equal(t, big.NewInt(1), tx.GasPrice())
-			require.Equal(t, toAddress, *tx.To())
-			require.Equal(t, value.ToInt().String(), tx.Value().String())
-			require.Equal(t, earlierEthTx.EncodedPayload, tx.Data())
-			return true
-		})).Return(nil).Once()
+	// Insertion order deliberately reversed to test ordering
+	require.NoError(t, store.DB.Save(&tx).Error)
 
-		// Later
-		laterEthTx := models.EthTx{
-			FromAddress:    fromAddress,
-			ToAddress:      toAddress,
-			EncodedPayload: []byte{42, 42, 1},
-			Value:          value,
-			GasLimit:       estimatedGas,
-			CreatedAt:      time.Unix(1, 0),
-			State:          models.EthTxUnstarted,
-		}
-		ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
-		ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-			if tx.Nonce() != uint64(1) {
-				return false
-			}
-			require.Equal(t, config.ChainID(), tx.ChainId())
-			require.Equal(t, estimatedGas, tx.Gas())
-			require.Equal(t, big.NewInt(1), tx.GasPrice())
-			require.Equal(t, toAddress, *tx.To())
-			require.Equal(t, value.ToInt().String(), tx.Value().String())
-			require.Equal(t, laterEthTx.EncodedPayload, tx.Data())
-			return true
-		})).Return(nil).Once()
-
-		// Insertion order deliberately reversed to test ordering
-		require.NoError(t, store.DB.Save(&expensiveEthTx).Error)
-		require.NoError(t, store.DB.Save(&laterEthTx).Error)
-		require.NoError(t, store.DB.Save(&earlierEthTx).Error)
-
-		// Do the thing
-		require.NoError(t, eb.ProcessUnstartedEthTxs(key))
-
-		// Check earlierEthTx and it's attempt
-		// This was the earlier one sent so it has the lower nonce
-		earlierTransaction, err := store.FindEthTxWithAttempts(earlierEthTx.ID)
-		require.NoError(t, err)
-		assert.Nil(t, earlierTransaction.Error)
-		require.NotNil(t, earlierTransaction.FromAddress)
-		assert.Equal(t, fromAddress, earlierTransaction.FromAddress)
-		require.NotNil(t, earlierTransaction.Nonce)
-		assert.Equal(t, int64(0), *earlierTransaction.Nonce)
-		assert.NotNil(t, earlierTransaction.BroadcastAt)
-		assert.Len(t, earlierTransaction.EthTxAttempts, 1)
-
-		attempt := earlierTransaction.EthTxAttempts[0]
-
-		assert.Equal(t, earlierTransaction.ID, attempt.EthTxID)
-		assert.Equal(t, "1", attempt.GasPrice.String())
-
-		_, err = attempt.GetSignedTx()
-		require.NoError(t, err)
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
-		require.Len(t, attempt.EthReceipts, 0)
-
-		// Check laterEthTx and it's attempt
-		// This was the later one sent so it has the higher nonce
-		laterTransaction, err := store.FindEthTxWithAttempts(laterEthTx.ID)
-		require.NoError(t, err)
-		assert.Nil(t, laterTransaction.Error)
-		require.NotNil(t, laterTransaction.FromAddress)
-		assert.Equal(t, fromAddress, laterTransaction.FromAddress)
-		require.NotNil(t, laterTransaction.Nonce)
-		assert.Equal(t, int64(1), *laterTransaction.Nonce)
-		assert.NotNil(t, laterTransaction.BroadcastAt)
-		assert.Len(t, laterTransaction.EthTxAttempts, 1)
-
-		attempt = laterTransaction.EthTxAttempts[0]
-
-		assert.Equal(t, laterTransaction.ID, attempt.EthTxID)
-		assert.Equal(t, "1", attempt.GasPrice.String())
-
-		_, err = attempt.GetSignedTx()
-		require.NoError(t, err)
-		assert.Equal(t, models.EthTxAttemptBroadcast, attempt.State)
-		require.Len(t, attempt.EthReceipts, 0)
-
-		ethClient.AssertExpectations(t)
-	})
+	// Do the thing
+	require.NoError(t, eb.ProcessUnstartedEthTxs(key))
+	ethClient.AssertExpectations(t)
 }
 
 func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
