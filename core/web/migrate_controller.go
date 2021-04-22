@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/store/orm"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -43,7 +45,7 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		return
 	}
 	logger.Infow("migrating job", "js", js)
-	jbV2, err := MigrateJobSpec(js)
+	jbV2, err := MigrateJobSpec(mc.App.GetStore().Config, js)
 	if err != nil {
 		if errors.Cause(err) == ErrInvalidInitiatorType {
 			jsonAPIError(c, http.StatusBadRequest, err)
@@ -62,11 +64,16 @@ func (mc *MigrateController) Migrate(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	// If the migration went well, archive the v1 FM job
+	if err := mc.App.ArchiveJob(js.ID); err != nil {
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 	jsonAPIResponse(c, webpresenters.NewJobResource(jb), jb.Type.String())
 }
 
 // Does not support mixed initiator types.
-func MigrateJobSpec(js models.JobSpec) (job.Job, error) {
+func MigrateJobSpec(c *orm.Config, js models.JobSpec) (job.Job, error) {
 	var jb job.Job
 	if len(js.Initiators) == 0 {
 		return jb, errors.New("initiator required to migrate job")
@@ -74,6 +81,9 @@ func MigrateJobSpec(js models.JobSpec) (job.Job, error) {
 	v1JobType := js.Initiators[0].Type
 	switch v1JobType {
 	case models.InitiatorFluxMonitor:
+		if !c.FeatureFluxMonitorV2() {
+			return jb, errors.New("need to enable FEATURE_FLUX_MONITOR_V2=true to migrate FM jobs")
+		}
 		return migrateFluxMonitorJob(js)
 	default:
 		return jb, errors.Wrapf(ErrInvalidInitiatorType, "%v", v1JobType)
@@ -124,17 +134,29 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	// which all coalesce into a single medianize task
 	var medianTask = pipeline.NewTaskDAGNode(dg.NewNode(), "median", map[string]string{
 		"type": pipeline.TaskTypeMedian.String(),
-		// TODO: Other?
 	})
 	dg.AddNode(medianTask)
 	for i, feed := range js.Initiators[0].Feeds.Array() {
-		// TODO: handle bridges, get with unrestricted access
-		n := pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
-			"type":        pipeline.TaskTypeHTTP.String(),
-			"method":      "GET",
-			"url":         feed.String(),
-			"requestData": js.Initiators[0].InitiatorParams.RequestData.String(), // TODO: need escaping?
-		})
+		// Apparently there are *no* urls direclty used in production, its all bridges.
+		// Support anyways just in case someone was using it without our knowledge.
+		// ALL fm jobs are POSTs see
+		// https://github.com/smartcontractkit/chainlink/blob/e5957895e3aa4947c2ddb5a4a8525041639962e9/core/services/fluxmonitor/fetchers.go#L67
+		var n *pipeline.TaskDAGNode
+		if feed.IsObject() && feed.Get("bridge").Exists() {
+			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+				"type":        pipeline.TaskTypeBridge.String(),
+				"method":      "POST",
+				"name":        feed.Get("bridge").String(),
+				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
+			})
+		} else {
+			n = pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("feed%d", i), map[string]string{
+				"type":        pipeline.TaskTypeHTTP.String(),
+				"method":      "POST",
+				"url":         feed.String(),
+				"requestData": js.Initiators[0].InitiatorParams.RequestData.String(),
+			})
+		}
 		dg.AddNode(n)
 		dg.SetEdge(dg.NewEdge(n, medianTask))
 	}
@@ -143,18 +165,10 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	var last = medianTask
 	for i, ts := range js.Tasks {
 		switch ts.Type {
-		case adapters.TaskTypeJSONParse:
-			attrs := map[string]string{
-				"type": pipeline.TaskTypeJSONParse.String(),
-			}
-			if ts.Params.Get("path").Exists() {
-				attrs["path"] = ts.Params.Get("path").String()
-			}
-			n := pipeline.NewTaskDAGNode(dg.NewNode(), fmt.Sprintf("jsonparse%d", i), attrs)
-			dg.AddNode(n)
-			dg.SetEdge(dg.NewEdge(last, n))
-			last = n
 		case adapters.TaskTypeMultiply:
+			// NOTE: The multiply is assumed to be the same as the precision
+			// specified in the js. We could actually error here if not as a safety
+			// measure?
 			attrs := map[string]string{
 				"type": pipeline.TaskTypeMultiply.String(),
 			}
@@ -167,6 +181,8 @@ func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 			dg.AddNode(n)
 			dg.SetEdge(dg.NewEdge(last, n))
 			last = n
+		case adapters.TaskTypeEthUint256:
+			// Do nothing. This is implicit in FMv2.
 		case adapters.TaskTypeEthTx:
 			// Do nothing. This is implicit in FMV2.
 			foundEthTx = true

@@ -211,20 +211,30 @@ type Initiator struct {
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron              `json:"schedule,omitempty"`
-	Time       AnyTime           `json:"time,omitempty"`
-	Ran        bool              `json:"ran,omitempty"`
+	// Common parameters
 	Address    common.Address    `json:"address,omitempty" gorm:"index"`
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
 	Name       string            `json:"name,omitempty"`
-	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
-	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
-	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
-	Topics     Topics            `json:"topics,omitempty"`
+
+	// Cron parameters
+	Schedule Cron `json:"schedule,omitempty"`
+
+	// RunAt parameters.
+	Time AnyTime `json:"time,omitempty"`
+	Ran  bool    `json:"ran,omitempty"`
+
+	// External initiator job parameters.
+	Body *JSON `json:"body,omitempty" gorm:"column:params"`
+
+	// Log specific job parameters.
+	FromBlock *utils.Big `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock   *utils.Big `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	Topics    Topics     `json:"topics,omitempty"`
 	// JobIDTopicFilter, if present, is used in addition to the job's actual ID when filtering
 	// initiator logs
 	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`
 
+	// Flux monitior specific parameters.
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
 	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`

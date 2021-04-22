@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/stretchr/testify/assert"
+
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -27,10 +30,7 @@ func TestMigrateController_Migrate(t *testing.T) {
 
 	client := app.NewHTTPClient()
 	// Create a v1 FM job.
-	// TODO:
-	// - an archived one
-	// - one with spec errors.
-	// - one with bridge
+	// TODO one with spec errors
 	jsr := models.JobSpecRequest{
 		Name: "a v1 fm job",
 		Initiators: []models.InitiatorRequest{
@@ -54,12 +54,11 @@ func TestMigrateController_Migrate(t *testing.T) {
 		},
 		Tasks: []models.TaskSpecRequest{
 			{
-				Type:   adapters.TaskTypeJSONParse,
-				Params: models.MustParseJSON([]byte(`{"path":"data"}`)),
-			},
-			{
 				Type:   adapters.TaskTypeMultiply,
 				Params: models.MustParseJSON([]byte(`{"times":"10"}`)),
+			},
+			{
+				Type: adapters.TaskTypeEthUint256,
 			},
 			{
 				Type: adapters.TaskTypeEthTx,
@@ -70,22 +69,47 @@ func TestMigrateController_Migrate(t *testing.T) {
 		EndAt:      null.TimeFrom(time.Now().Add(time.Second)),
 	}
 
+	// Create a v1 job
 	b, err := json.Marshal(&jsr)
 	require.NoError(t, err)
 	resp, cleanup := client.Post("/v2/specs", bytes.NewReader(b))
 	t.Cleanup(cleanup)
-	var js presenters.JobSpec
-	cltest.ParseJSONAPIResponse(t, resp, &js)
+	var jobV1 presenters.JobSpec
+	cltest.ParseJSONAPIResponse(t, resp, &jobV1)
 
 	// Migrate it
-	t.Log(js.ID.String())
-	resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", js.ID.String()), nil)
+	resp, cleanup = client.Post(fmt.Sprintf("/v2/migrate/%s", jobV1.ID.String()), nil)
 	t.Cleanup(cleanup)
-	var out webpresenters.JobResource
-	cltest.ParseJSONAPIResponse(t, resp, &out)
-	t.Log(out)
+	var createdJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &createdJobV2)
 
-	// Should be no v1 FM job left
+	// v2 job migrated should be identical to v1.
+	assert.Equal(t, uint32(1), createdJobV2.SchemaVersion)
+	assert.Equal(t, job.FluxMonitor.String(), createdJobV2.Type.String())
+	assert.Equal(t, createdJobV2.Name, jobV1.Name)
+	require.NotNil(t, createdJobV2.FluxMonitorSpec)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.CreatedAt, jobV1.CreatedAt)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.MinPayment, jobV1.MinPayment)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.AbsoluteThreshold, jobV1.Initiators[0].AbsoluteThreshold)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.Precision, jobV1.Initiators[0].Precision)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.Threshold, jobV1.Initiators[0].Threshold)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.IdleTimerDisabled, jobV1.Initiators[0].IdleTimer.Disabled)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.IdleTimerPeriod, jobV1.Initiators[0].IdleTimer.Duration.String())
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.PollTimerDisabled, jobV1.Initiators[0].PollTimer.Disabled)
+	assert.Equal(t, createdJobV2.FluxMonitorSpec.PollTimerPeriod, jobV1.Initiators[0].PollTimer.Period.String())
 
-	// v2 FM job should be identical
+	// v1 FM job should be archived
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/specs/%s", jobV1.ID.String()), nil)
+	t.Cleanup(cleanup)
+	errs := cltest.ParseJSONAPIErrors(t, resp.Body)
+	require.NotNil(t, errs)
+	require.Len(t, errs.Errors, 1)
+	require.Equal(t, "JobSpec not found", errs.Errors[0].Detail)
+
+	// v2 job read should be identical to created.
+	resp, cleanup = client.Get(fmt.Sprintf("/v2/jobs/%s", createdJobV2.ID), nil)
+	t.Cleanup(cleanup)
+	var migratedJobV2 webpresenters.JobResource
+	cltest.ParseJSONAPIResponse(t, resp, &migratedJobV2)
+
 }
