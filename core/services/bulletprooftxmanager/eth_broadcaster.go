@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -214,7 +216,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
+		a, err := newAttempt(eb.store, *etx, eb.initialTxGasPrice())
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -227,6 +229,13 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
+}
+
+func (eb *ethBroadcaster) initialTxGasPrice() *big.Int {
+	if eb.config.OptimismGasFees() {
+		return big.NewInt(1)
+	}
+	return eb.config.EthGasPriceDefault()
 }
 
 // handleInProgressEthTx checks if there is any transaction
@@ -266,6 +275,16 @@ func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*mo
 func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
+	}
+
+	if eb.config.OptimismGasFees() {
+		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
+		gasLimit, err := eb.ethClient.EstimateGas(context.TODO(), callMsg)
+		if err != nil {
+			return err
+		}
+		etx.GasLimit = gasLimit
+		attempt.GasPrice = *utils.NewBig(big.NewInt(1))
 	}
 
 	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
