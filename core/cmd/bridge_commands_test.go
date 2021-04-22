@@ -1,9 +1,12 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
@@ -11,6 +14,50 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
+
+func TestBridgePresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		name          = "Bridge 1"
+		url           = "http://example.com"
+		createdAt     = time.Now()
+		outgoingToken = "anoutgoingtoken"
+		buffer        = bytes.NewBufferString("")
+		r             = cmd.RendererTable{Writer: buffer}
+	)
+
+	p := cmd.BridgePresenter{
+		BridgeResource: presenters.BridgeResource{
+			JAID:          presenters.NewJAID(name),
+			Name:          name,
+			URL:           url,
+			Confirmations: 10,
+			OutgoingToken: outgoingToken,
+			CreatedAt:     createdAt,
+		},
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, name)
+	assert.Contains(t, output, url)
+	assert.Contains(t, output, "10")
+	assert.Contains(t, output, outgoingToken)
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.BridgePresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, name)
+	assert.Contains(t, output, url)
+	assert.Contains(t, output, "10")
+	assert.NotContains(t, output, outgoingToken)
+}
 
 func TestClient_IndexBridges(t *testing.T) {
 	t.Parallel()
@@ -35,9 +82,17 @@ func TestClient_IndexBridges(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
-	bridges := *r.Renders[0].(*[]presenters.BridgeResource)
+	bridges := *r.Renders[0].(*cmd.BridgePresenters)
 	require.Equal(t, 2, len(bridges))
-	assert.Equal(t, bt1.Name.String(), bridges[0].Name)
+	p := bridges[0]
+	assert.Equal(t, bt1.Name.String(), p.Name)
+	assert.Equal(t, bt1.URL.String(), p.URL)
+	assert.Equal(t, bt1.Confirmations, p.Confirmations)
+
+	p = bridges[1]
+	assert.Equal(t, bt2.Name.String(), p.Name)
+	assert.Equal(t, bt2.URL.String(), p.URL)
+	assert.Equal(t, bt2.Confirmations, p.Confirmations)
 }
 
 func TestClient_ShowBridge(t *testing.T) {
@@ -56,9 +111,13 @@ func TestClient_ShowBridge(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
+
 	require.NoError(t, client.ShowBridge(c))
 	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name.String(), r.Renders[0].(*presenters.BridgeResource).Name)
+	p := r.Renders[0].(*cmd.BridgePresenter)
+	assert.Equal(t, bt.Name.String(), p.Name)
+	assert.Equal(t, bt.URL.String(), p.URL)
+	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
 
 func TestClient_CreateBridge(t *testing.T) {
@@ -113,6 +172,10 @@ func TestClient_RemoveBridge(t *testing.T) {
 	set.Parse([]string{bt.Name.String()})
 	c := cli.NewContext(nil, set, nil)
 	require.NoError(t, client.RemoveBridge(c))
+
 	require.Len(t, r.Renders, 1)
-	assert.Equal(t, bt.Name.String(), r.Renders[0].(*presenters.BridgeResource).Name)
+	p := r.Renders[0].(*cmd.BridgePresenter)
+	assert.Equal(t, bt.Name.String(), p.Name)
+	assert.Equal(t, bt.URL.String(), p.URL)
+	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }

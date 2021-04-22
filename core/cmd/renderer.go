@@ -68,10 +68,6 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
-	case *webpresenters.BridgeResource:
-		return rt.renderBridge(*typed)
-	case *[]webpresenters.BridgeResource:
-		return rt.renderBridges(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
 	case *[]webpresenters.EthTxResource:
@@ -249,36 +245,6 @@ func jobRowToStrings(job models.JobSpec) []string {
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
 	}
-}
-
-func bridgeRowToStrings(bridge webpresenters.BridgeResource) []string {
-	return []string{
-		bridge.Name,
-		bridge.URL,
-		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-	}
-}
-
-func (rt RendererTable) renderBridges(bridges []webpresenters.BridgeResource) error {
-	table := rt.newTable([]string{"Name", "URL", "Confirmations"})
-	for _, v := range bridges {
-		table.Append(bridgeRowToStrings(v))
-	}
-
-	render("Bridges", table)
-	return nil
-}
-
-func (rt RendererTable) renderBridge(bridge webpresenters.BridgeResource) error {
-	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Outgoing Token"})
-	table.Append([]string{
-		bridge.Name,
-		bridge.URL,
-		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-		bridge.OutgoingToken,
-	})
-	render("Bridge", table)
-	return nil
 }
 
 func (rt RendererTable) renderJob(job presenters.JobSpec) error {
