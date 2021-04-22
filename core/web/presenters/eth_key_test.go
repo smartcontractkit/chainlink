@@ -74,6 +74,7 @@ func TestETHKeyResource(t *testing.T) {
 		SetETHKeyEthBalance(assets.NewEth(1)),
 		SetETHKeyLinkBalance(assets.NewLink(1)),
 	)
+	require.NoError(t, err)
 	b, err = jsonapi.Marshal(r)
 	require.NoError(t, err)
 
