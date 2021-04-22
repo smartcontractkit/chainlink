@@ -50,6 +50,8 @@ type (
 	// metadata structure maintained per listener, used to avoid double-sends of logs
 	listenerMetadata struct {
 		opts                     ListenerOpts
+		filters                  [][]Topic
+		noFilter                 bool
 		lowestAllowedBlockNumber uint64
 		lastSeenChain            *models.Head
 	}
@@ -80,17 +82,30 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 		r.registrations[addr] = make(map[common.Hash]map[Listener]*listenerMetadata)
 	}
 
-	topics := make([]common.Hash, len(reg.opts.Logs))
-	for i, log := range reg.opts.Logs {
+	for _, log := range reg.opts.Logs {
 		topic := log.Topic()
-		topics[i] = topic
 
 		if _, exists := r.registrations[addr][topic]; !exists {
 			r.registrations[addr][topic] = make(map[Listener]*listenerMetadata)
 			needsResubscribe = true
 		}
+
 		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
 			opts:                     reg.opts,
+			noFilter:                 true,
+			lowestAllowedBlockNumber: uint64(0),
+		}
+	}
+
+	for topic, topicValueFilters := range reg.opts.LogsWithTopics {
+		if _, exists := r.registrations[addr][topic]; !exists {
+			r.registrations[addr][topic] = make(map[Listener]*listenerMetadata)
+			needsResubscribe = true
+		}
+
+		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
+			opts:                     reg.opts,
+			filters:                  topicValueFilters,
 			lowestAllowedBlockNumber: uint64(0),
 		}
 	}
@@ -175,6 +190,24 @@ func (r *registrations) sendLogs(logs []types.Log, orm ORM, latestHead *models.H
 	applyListenerInfoUpdates(updates, latestHead)
 }
 
+// Returns true if there is at least one filter value (or no filters) that matches an actual received value for every index i, or false otherwise
+func filtersContainValues(topicValues []common.Hash, filters [][]Topic) bool {
+	for i := 0; i < len(topicValues) && i < len(filters); i++ {
+		filterValues := filters[i]
+		valueFound := len(filterValues) == 0 // empty filter for given index means: all values allowed
+		for _, filterValue := range filterValues {
+			if common.Hash(filterValue) == topicValues[i] {
+				valueFound = true
+				break
+			}
+		}
+		if !valueFound {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head, updates *[]listenerMetadataUpdate) {
 	latestBlockNumber := uint64(latestHead.Number)
 	var wg sync.WaitGroup
@@ -199,6 +232,15 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 		if log.BlockNumber < metadata.lowestAllowedBlockNumber && metadata.lastSeenChain != nil && metadata.lastSeenChain.IsInChain(log.BlockHash) {
 			// Skipping send because the log height is below lowest unprocessed in the currently remembered chain
 			continue
+		}
+
+		if !metadata.noFilter && len(metadata.filters) > 0 && len(log.Topics) > 1 {
+			logger.Tracew("LogBroadcaster: Checking filters")
+			topicValues := log.Topics[1:]
+			if !filtersContainValues(topicValues, metadata.filters) {
+				logger.Tracew("LogBroadcaster: Skipping send because it does not match the log filter by value for this listener")
+				continue
+			}
 		}
 
 		// Make sure that this log is not sent again on the next head by increasing the newLowestAllowedBlockNumber
