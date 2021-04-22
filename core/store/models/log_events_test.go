@@ -129,6 +129,12 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+
 			assert.NoError(t, app.StartAndConnect())
 
 			js.Initiators[0].Requesters = []common.Address{requester}

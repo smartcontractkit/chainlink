@@ -40,10 +40,27 @@ type JobSubscription struct {
 func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
 	var merr error
 	var unsubscribers []Unsubscriber
+	var nextHead *big.Int
 
 	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
 
-	nextHead := head.NextInt() // Exclude current block from subscription
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if head == nil {
+		latestBlock, err := store.EthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return JobSubscription{}, err
+		}
+		backfillDepth := new(big.Int).SetUint64(store.Config.BlockBackfillDepth())
+		nextHead = new(big.Int).Sub(latestBlock.Number(), backfillDepth)
+		if nextHead.Cmp(big.NewInt(0)) < 1 {
+			nextHead = big.NewInt(1)
+		}
+	} else {
+		nextHead = head.NextInt() // Exclude current block from subscription
+	}
+
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
 		if replayFromBlock >= nextHead.Int64() {
 			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
