@@ -212,9 +212,8 @@ type Initiator struct {
 // Initiators may require.
 type InitiatorParams struct {
 	// Common parameters
-	Address    common.Address    `json:"address,omitempty" gorm:"index"`
-	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
-	Name       string            `json:"name,omitempty"`
+	Address common.Address `json:"address,omitempty" gorm:"index"`
+	Name    string         `json:"name,omitempty"`
 
 	// Cron parameters
 	Schedule Cron `json:"schedule,omitempty"`
@@ -227,9 +226,10 @@ type InitiatorParams struct {
 	Body *JSON `json:"body,omitempty" gorm:"column:params"`
 
 	// Log specific job parameters.
-	FromBlock *utils.Big `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
-	ToBlock   *utils.Big `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
-	Topics    Topics     `json:"topics,omitempty"`
+	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
+	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
+	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
+	Topics     Topics            `json:"topics,omitempty"`
 	// JobIDTopicFilter, if present, is used in addition to the job's actual ID when filtering
 	// initiator logs
 	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`

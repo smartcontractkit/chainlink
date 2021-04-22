@@ -129,9 +129,8 @@ func migrateFluxMonitorJob(js models.JobSpec) (job.Job, error) {
 
 func BuildFMTaskDAG(js models.JobSpec) (string, pipeline.TaskDAG, error) {
 	dg := pipeline.NewTaskDAG()
-	// First add the feeds
-	// as parallel HTTP tasks.
-	// which all coalesce into a single medianize task
+	// First add the feeds as parallel HTTP tasks,
+	// which all coalesce into a single median task.
 	var medianTask = pipeline.NewTaskDAGNode(dg.NewNode(), "median", map[string]string{
 		"type": pipeline.TaskTypeMedian.String(),
 	})

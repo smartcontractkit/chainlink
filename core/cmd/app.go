@@ -240,7 +240,7 @@ func NewApp(client *Client) *cli.App {
 				},
 				{
 					Name:   "migrate",
-					Usage:  "Migrate a v1 job (json) to a v2 format (toml)",
+					Usage:  "Migrate a V1 job (JSON) to a V2 job (TOML)",
 					Action: client.Migrate,
 				},
 			},
