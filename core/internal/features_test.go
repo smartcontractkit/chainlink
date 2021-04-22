@@ -360,7 +360,7 @@ func TestIntegration_ExternalAdapter_RunLogInitiated(t *testing.T) {
 		Number: big.NewInt(100),
 	})
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 	sub.On("Err").Return(nil)
 	sub.On("Unsubscribe").Return(nil)
 	newHeadsCh := make(chan chan<- *models.Head, 1)
@@ -538,7 +538,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 		Number: big.NewInt(100),
 	})
 	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]models.Log{}, nil)
+	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
