@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.5] - 2021-04-26
+
 ### Added
 
 - Add `MockOracle.sol` for testing contracts
