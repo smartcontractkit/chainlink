@@ -197,7 +197,7 @@ func Test_RegistrySynchronizer_ConfigSetLog(t *testing.T) {
 
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
-	synchronizer.ExportedProcessLogs(head)
+	synchronizer.ExportedProcessLogs()
 
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.BlockCountPerTurn == 40
@@ -241,7 +241,7 @@ func Test_RegistrySynchronizer_KeepersUpdatedLog(t *testing.T) {
 
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
-	synchronizer.ExportedProcessLogs(head)
+	synchronizer.ExportedProcessLogs()
 
 	cltest.AssertRecordEventually(t, store, &registry, func() bool {
 		return registry.NumKeepers == 2
@@ -281,7 +281,7 @@ func Test_RegistrySynchronizer_UpkeepCanceledLog(t *testing.T) {
 
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
-	synchronizer.ExportedProcessLogs(head)
+	synchronizer.ExportedProcessLogs()
 
 	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 2)
 	ethMock.AssertExpectations(t)
@@ -318,7 +318,7 @@ func Test_RegistrySynchronizer_UpkeepRegisteredLog(t *testing.T) {
 
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
-	synchronizer.ExportedProcessLogs(head)
+	synchronizer.ExportedProcessLogs()
 
 	cltest.WaitForCount(t, store, keeper.UpkeepRegistration{}, 1)
 	ethMock.AssertExpectations(t)
@@ -362,7 +362,7 @@ func Test_RegistrySynchronizer_UpkeepPerformedLog(t *testing.T) {
 
 	// Do the thing
 	synchronizer.HandleLog(logBroadcast)
-	synchronizer.ExportedProcessLogs(head)
+	synchronizer.ExportedProcessLogs()
 
 	g.Eventually(func() int64 {
 		err := store.DB.Find(&upkeep).Error
