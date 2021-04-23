@@ -66,6 +66,7 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *gorm.DB, config *storm.Config, pipelineORM pipeline.ORM, eventBroadcaster postgres.EventBroadcaster, advisoryLocker postgres.AdvisoryLocker) *orm {
+
 	return &orm{
 		db:                  db,
 		config:              config,
