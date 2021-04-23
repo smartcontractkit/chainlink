@@ -12,14 +12,14 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     bool hasNewProposal;
   }
 
-  /// @notice Configuration for the current aggregator
+  // Configuration for the current aggregator
   ProxyConfiguration private s_currentAggregator;
-  /// @notice Proposed aggregator address
+  // Proposed aggregator address
   address private s_proposedAggregator;
 
-  /// @notice Configuration for the current validator
+  // Configuration for the current validator
   ProxyConfiguration private s_currentValidator;
-  /// @notice Proposed validator address
+  // Proposed validator address
   address private s_proposedValidator;
 
   event AggregatorProposed(
@@ -164,6 +164,23 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     emit AggregatorUpgraded(previous, proposed);
   }
 
+  /**
+   * @notice Get aggregator details
+   * @return current address
+   * @return proposed address
+   */
+  function getAggregators()
+    external
+    view
+    returns(
+      address current,
+      address proposed
+    )
+  {
+    current = s_currentAggregator.target;
+    proposed = s_proposedAggregator;
+  }
+
   /** VALIDATOR CONFIGURATION FUNCTIONS **/
 
   /**
@@ -205,6 +222,23 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     s_proposedValidator = address(0);
 
     emit ValidatorUpgraded(previous, proposed);
+  }
+
+  /**
+   * @notice Get validator details
+   * @return current address
+   * @return proposed address
+   */
+  function getValidators()
+    external
+    view
+    returns(
+      address current,
+      address proposed
+    )
+  {
+    current = s_currentValidator.target;
+    proposed = s_proposedValidator;
   }
 
 }
