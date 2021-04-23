@@ -17553,20 +17553,6 @@ sockjs@^0.3.21:
     uuid "^3.4.0"
     websocket-driver "^0.7.4"
 
-solc@^0.5.5, solc@^0.6.4:
-  version "0.6.12"
-  resolved "https://registry.npmjs.org/solc/-/solc-0.6.12.tgz#48ac854e0c729361b22a7483645077f58cba080e"
-  integrity sha512-Lm0Ql2G9Qc7yPP2Ba+WNmzw2jwsrd3u4PobHYlSOxaut3TtUbj9+5ZrT6f4DUpNPEoBaFUOEg9Op9C0mk7ge9g==
-  dependencies:
-    command-exists "^1.2.8"
-    commander "3.0.2"
-    fs-extra "^0.30.0"
-    js-sha3 "0.8.0"
-    memorystream "^0.3.1"
-    require-from-string "^2.0.0"
-    semver "^5.5.0"
-    tmp "0.0.33"
-
 solhint@^3.2.1:
   version "3.2.1"
   resolved "https://registry.npmjs.org/solhint/-/solhint-3.2.1.tgz#62f250930fe2fdaf8787e50ad35c038eedb52bbf"
