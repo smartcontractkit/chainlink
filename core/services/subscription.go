@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/jpillora/backoff"
 
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -39,10 +40,27 @@ type JobSubscription struct {
 func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.Store, runManager RunManager) (JobSubscription, error) {
 	var merr error
 	var unsubscribers []Unsubscriber
+	var nextHead *big.Int
 
 	initrs := job.InitiatorsFor(models.LogBasedChainlinkJobInitiators...)
 
-	nextHead := head.NextInt() // Exclude current block from subscription
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if head == nil {
+		latestBlock, err := store.EthClient.BlockByNumber(ctx, nil)
+		if err != nil {
+			return JobSubscription{}, err
+		}
+		backfillDepth := new(big.Int).SetUint64(store.Config.BlockBackfillDepth())
+		nextHead = new(big.Int).Sub(latestBlock.Number(), backfillDepth)
+		if nextHead.Cmp(big.NewInt(0)) < 1 {
+			nextHead = big.NewInt(1)
+		}
+	} else {
+		nextHead = head.NextInt() // Exclude current block from subscription
+	}
+
 	if replayFromBlock := store.Config.ReplayFromBlock(); replayFromBlock >= 0 {
 		if replayFromBlock >= nextHead.Int64() {
 			logger.Infof("StartJobSubscription: Next head was supposed to be %v but ReplayFromBlock flag manually overrides to %v, will subscribe from blocknum %v", nextHead, replayFromBlock, replayFromBlock)
@@ -125,7 +143,7 @@ func NewInitiatorSubscription(
 	return sub, nil
 }
 
-func (sub InitiatorSubscription) dispatchLog(log models.Log) {
+func (sub InitiatorSubscription) dispatchLog(log types.Log) {
 	logger.Debugw(fmt.Sprintf("Log for %v initiator for job %s", sub.Initiator.Type, sub.Initiator.JobSpecID.String()),
 		"txHash", log.TxHash.Hex(), "logIndex", log.Index, "blockNumber", log.BlockNumber, "job", sub.Initiator.JobSpecID.String())
 
@@ -191,17 +209,17 @@ func runJob(runManager RunManager, le models.LogRequest) {
 // ethereum node subscription.
 type ManagedSubscription struct {
 	logSubscriber     eth.Client
-	logs              chan models.Log
+	logs              chan types.Log
 	ethSubscription   ethereum.Subscription
-	callback          func(models.Log)
+	callback          func(types.Log)
 	backfillBatchSize uint32
 }
 
 // NewManagedSubscription subscribes to the ethereum node with the passed filter
 // and delegates incoming logs to callback.
-func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(models.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
+func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuery, callback func(types.Log), backfillBatchSize uint32) (*ManagedSubscription, error) {
 	ctx := context.Background()
-	logs := make(chan models.Log)
+	logs := make(chan types.Log)
 	es, err := logSubscriber.SubscribeFilterLogs(ctx, filter, logs)
 	if err != nil {
 		return nil, err
@@ -270,7 +288,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 					Jitter: false,
 				}
 				for {
-					newLogs := make(chan models.Log)
+					newLogs := make(chan types.Log)
 					newSub, err := sub.logSubscriber.SubscribeFilterLogs(context.Background(), q, newLogs)
 					if err != nil {
 						logger.Warnw(fmt.Sprintf("Failed to reconnect to eth node. Trying again in %v", b.Duration()), "err", err.Error())

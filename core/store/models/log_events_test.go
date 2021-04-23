@@ -26,7 +26,7 @@ func TestParseRunLog(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -71,7 +71,7 @@ func TestEthLogEvent_JSON(t *testing.T) {
 	exampleLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/subscription_logs.json")
 	tests := []struct {
 		name        string
-		el          models.Log
+		el          types.Log
 		wantErrored bool
 		wantData    models.JSON
 	}{
@@ -96,7 +96,7 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 		name       string
 		job        models.JobSpec
 		requester  common.Address
-		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) models.Log)
+		logFactory (func(*testing.T, common.Hash, common.Address, common.Address, int, string) types.Log)
 		wantStatus models.RunStatus
 	}{
 		{
@@ -129,6 +129,12 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
 			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			b := types.NewBlockWithHeader(&types.Header{
+				Number: big.NewInt(100),
+			})
+			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+
 			assert.NoError(t, app.StartAndConnect())
 
 			js.Initiators[0].Requesters = []common.Address{requester}
@@ -361,7 +367,7 @@ func TestRunLogEvent_ContractPayment(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        *assets.Link
 	}{
@@ -390,7 +396,7 @@ func TestRunLogEvent_Requester(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		log         models.Log
+		log         types.Log
 		wantErrored bool
 		want        common.Address
 	}{
@@ -419,7 +425,7 @@ func TestRunLogEvent_RunRequest(t *testing.T) {
 
 	tests := []struct {
 		name          string
-		log           models.Log
+		log           types.Log
 		wantRequestID common.Hash
 		wantTxHash    string
 		wantBlockHash string

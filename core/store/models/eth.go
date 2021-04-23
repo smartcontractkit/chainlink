@@ -185,6 +185,21 @@ func (h Head) ChainLength() uint32 {
 	return l
 }
 
+// ChainHashes returns an array of block hashes by recursively looking up parents
+func (h Head) ChainHashes() []common.Hash {
+	var hashes []common.Hash
+
+	for {
+		hashes = append(hashes, h.Hash)
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return hashes
+}
+
 // String returns a string representation of this number.
 func (h *Head) String() string {
 	return h.ToInt().String()
@@ -269,8 +284,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-
-type Log = types.Log
 
 var emptyHash = common.Hash{}
 
