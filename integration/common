@@ -44,7 +44,7 @@ launch_chainlink() {
   pushd tools/docker
   # Grab logs from our node service and find the unlocked account
   waitFor "docker logs chainlink-node 2>&1 | grep 'Unlocked account'" 10
-  export CHAINLINK_NODE_ADDRESS=`docker logs chainlink-node 2>&1 | grep 'Unlocked account' | awk '{print$5}'`
+  export CHAINLINK_NODE_ADDRESS=`docker logs chainlink-node 2>&1 | grep 'Unlocked account' | head -n 1 | awk '{print$5}'`
   echo "================ CHAINLINK_NODE_ADDRESS IS"
   echo $CHAINLINK_NODE_ADDRESS
   echo "================"
@@ -52,7 +52,7 @@ launch_chainlink() {
   # then we need to fund our hardcoded devnet address with the developer account given by geth
   if [ $GETH_MODE ]
   then
-    export DEVELOPER_ACCOUNT=`docker logs geth 2>&1 | grep "Using developer account" | awk -F "=" '{print$2}'`
+    export DEVELOPER_ACCOUNT=`docker logs geth 2>&1 | grep "Using developer account" | head -n 1 | awk -F "=" '{print$2}'`
      echo "================ DEVELOPER_ACCOUNT IS"
      echo $DEVELOPER_ACCOUNT
      echo "================"
