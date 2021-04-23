@@ -9,9 +9,6 @@ services:
       dockerfile: tools/docker/ts-integration.Dockerfile
       args:
         - SRCROOT
-    volumes:
-      # Forwards the local Docker socket to the container.
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - node
       - node-2
@@ -30,8 +27,6 @@ services:
       - NODE_1_CONTAINER
       - NODE_2_CONTAINER
       - SRCROOT
-    secrets:
-      - apicredentials
 
   external-adapter:
     container_name: external-adapter
