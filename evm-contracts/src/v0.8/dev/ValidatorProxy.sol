@@ -84,12 +84,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
         currentRoundId,
         currentAnswer
       );
-      return false;
+      return true;
     }
 
     // Send the validate call to the current validator
     ProxyConfiguration memory currentValidator = s_currentValidator;
-    bool success = AggregatorValidatorInterface(currentValidator.target).validate(
+    AggregatorValidatorInterface(currentValidator.target).validate(
       previousRoundId,
       previousAnswer,
       currentRoundId,
@@ -97,15 +97,14 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     );
     // If there is a new proposed validator, send the validate call to that validator also
     if (currentValidator.hasNewProposal) {
-      bool proposedSuccess = AggregatorValidatorInterface(s_proposedValidator).validate(
+      AggregatorValidatorInterface(s_proposedValidator).validate(
         previousRoundId,
         previousAnswer,
         currentRoundId,
         currentAnswer
       );
-      success = success && proposedSuccess;
     }
-    return success;
+    return true;
   }
 
   /** AGGREGATOR CONFIGURATION FUNCTIONS **/
@@ -117,18 +116,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     onlyOwner()
   {
     s_proposedAggregator = proposed;
-    s_currentAggregator.hasNewProposal = true;
+    // If proposed is zero address, hasNewProposal = false
+    s_currentAggregator.hasNewProposal = (proposed != address(0));
     emit NewAggregatorProposed(proposed);
-  }
-
-  function retractProposedAggregator()
-    external
-    onlyOwner()
-  {
-    address proposed = s_proposedAggregator;
-    s_proposedAggregator = address(0);
-    s_currentAggregator.hasNewProposal = false;
-    emit ProposedAggregatorRetracted(proposed);
   }
 
   function upgradeAggregator()
@@ -145,6 +135,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     current.target = proposed;
     current.hasNewProposal = false;
 
+    s_currentAggregator = current;
     s_proposedAggregator = address(0);
 
     emit AggregatorUpgraded(previous, proposed);
@@ -159,18 +150,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     onlyOwner()
   {
     s_proposedValidator = proposed;
-    s_currentValidator.hasNewProposal = true;
+    // If proposed is zero address, hasNewProposal = false
+    s_currentValidator.hasNewProposal = (proposed != address(0));
     emit NewValidatorProposed(proposed);
-  }
-
-  function retractProposedValidator()
-    external
-    onlyOwner()
-  {
-    address proposed = s_proposedValidator;
-    s_proposedValidator = address(0);
-    s_currentValidator.hasNewProposal = false;
-    emit ProposedValidatorRetracted(proposed);
   }
 
   function upgradeValidator()
@@ -187,6 +169,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     current.target = proposed;
     current.hasNewProposal = false;
 
+    s_currentValidator = current;
     s_proposedValidator = address(0);
 
     emit ValidatorUpgraded(previous, proposed);
