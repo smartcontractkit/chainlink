@@ -12,28 +12,24 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     bool hasNewProposal;
   }
 
-  /// @notice Configuration of the current and proposed aggregator
+  /// @notice Configuration for the current aggregator
   ProxyConfiguration private s_currentAggregator;
+  /// @notice Proposed aggregator address
   address private s_proposedAggregator;
 
-  /// @notice Configuration of the current and proposed validator
+  /// @notice Configuration for the current validator
   ProxyConfiguration private s_currentValidator;
+  /// @notice Proposed validator address
   address private s_proposedValidator;
 
-  event NewAggregatorProposed(
-    address indexed aggregator
-  );
-  event ProposedAggregatorRetracted(
+  event AggregatorProposed(
     address indexed aggregator
   );
   event AggregatorUpgraded(
     address indexed previous,
     address indexed current
   );
-  event NewValidatorProposed(
-    address indexed validator
-  );
-  event ProposedValidatorRetracted(
+  event ValidatorProposed(
     address indexed validator
   );
   event ValidatorUpgraded(
@@ -49,6 +45,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     int256 currentAnswer
   );
 
+  /**
+   * @notice Construct the ValidatorProxy with an aggregator and a validator
+   * @param aggregator address
+   * @param validator address
+   */
   constructor(
     address aggregator,
     address validator
@@ -59,6 +60,19 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     s_currentValidator.target = validator;
   }
 
+  /**
+   * @notice Validate a transmission
+   * @dev Must be called by either the `s_currentAggregator.target`, or the `s_proposedAggregator`.
+   * If called by the `s_currentAggregator.target` this function passes the call on to the `s_currentValidator.target`
+   * and the `s_proposedValidator`, if it is set.
+   * If called by the `s_proposedAggregator` this function emits a `ProposedAggregatorValidateCall` to signal that
+   * the call was received.
+   * @param previousRoundId uint256
+   * @param previousAnswer int256
+   * @param currentRoundId uint256
+   * @param currentAnswer int256
+   * @return bool
+   */
   function validate(
     uint256 previousRoundId,
     int256 previousAnswer,
@@ -109,6 +123,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
   /** AGGREGATOR CONFIGURATION FUNCTIONS **/
 
+  /**
+   * @notice Propose an aggregator
+   * @dev A zero address can be used to unset the proposed aggregator. Only owner can call.
+   * @param proposed address
+   */
   function proposeNewAggregator(
     address proposed
   )
@@ -118,9 +137,13 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     s_proposedAggregator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentAggregator.hasNewProposal = (proposed != address(0));
-    emit NewAggregatorProposed(proposed);
+    emit AggregatorProposed(proposed);
   }
 
+  /**
+   * @notice Upgrade the aggregator by setting the current aggregator as the proposed aggregator.
+   * @dev Must have a proposed aggregator. Only owner can call.
+   */
   function upgradeAggregator()
     external
     onlyOwner()
@@ -143,6 +166,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
   /** VALIDATOR CONFIGURATION FUNCTIONS **/
 
+  /**
+   * @notice Propose an validator
+   * @dev A zero address can be used to unset the proposed validator. Only owner can call.
+   * @param proposed address
+   */
   function proposeNewValidator(
     address proposed
   )
@@ -152,9 +180,13 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentValidator.hasNewProposal = (proposed != address(0));
-    emit NewValidatorProposed(proposed);
+    emit ValidatorProposed(proposed);
   }
 
+  /**
+   * @notice Upgrade the validator by setting the current validator as the proposed validator.
+   * @dev Must have a proposed validator. Only owner can call.
+   */
   function upgradeValidator()
     external
     onlyOwner()
