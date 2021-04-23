@@ -293,7 +293,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
 
-_, _, err := l.pipelineRunner.ExecuteAndInsertNewRun(ctx, *l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
+		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *l.job.PipelineSpec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {
