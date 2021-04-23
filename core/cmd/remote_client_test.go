@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -112,13 +110,13 @@ func startAndConnect() func(opts *startOptions) {
 	}
 }
 
-func newEthMocks(t *testing.T) (*mocks.RPCClient, *mocks.GethClient) {
+func newEthMock(t *testing.T) *mocks.Client {
 	t.Helper()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 
-	return rpcClient, gethClient
+	return ethClient
 }
 
 func keyNameForTest(t *testing.T) string {
@@ -501,14 +499,13 @@ func TestClient_RemoteLogin(t *testing.T) {
 func TestClient_SendEther_From_BPTXM(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient := newEthMocks(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
 		withConfig(map[string]interface{}{
 			"OPERATOR_CONTRACT_ADDRESS": &oca,
 		}),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(newEthMock(t)),
 		startAndConnect(),
 	)
 	client, _ := app.NewClientAndRenderer()
@@ -659,14 +656,13 @@ func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
 	// Setup Withdrawals application
-	rpcClient, gethClient := newEthMocks(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
 		withConfig(map[string]interface{}{
 			"OPERATOR_CONTRACT_ADDRESS": &oca,
 		}),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(newEthMock(t)),
 		startAndConnect(),
 	)
 	client, _ := app.NewClientAndRenderer()

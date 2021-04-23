@@ -7,11 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.10.5] - 2021-04-26
-
-### Added
-
-- Add `MockOracle.sol` for testing contracts
 - Cron jobs can now be created for the v2 job pipeline:
 ```
 type            = "cron"
@@ -23,6 +18,15 @@ ds_parse    [type=jsonparse path="data"];
 ds -> ds_parse;
 """
 ```
+
+## [0.10.5] - 2021-04-26
+
+### Added
+
+- Add `MockOracle.sol` for testing contracts
+- Chainlink now supports routing certain calls to the eth node over HTTP instead of websocket, when available. This has a number of advantages - HTTP is more robust and simpler than websockets, reducing complexity and allowing us to make large queries without running the risk of hitting websocket send limits. It is recommended for all node operators to specify an HTTP endpoint for their eth node, it can be specified with an env var like so: `ETH_HTTP_URL=https://my.ethereumnode.example/endpoint`.
+
+Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
 
 ### Changed
 
