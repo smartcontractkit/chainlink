@@ -61,7 +61,7 @@ func (sub *ethSubscriber) backfillLogs(latestHeadInDb *models.Head, addresses []
 			fromBlock = 0 // Overflow protection
 		}
 
-		if latestHeadInDb != nil && uint64(latestHeadInDb.Number) > fromBlock {
+		if latestHeadInDb != nil {
 			logger.Infow("LogBroadcaster: Using the latest stored head a limit of backfill", "blockNumber", latestHeadInDb.Number, "blockHash", latestHeadInDb.Hash)
 			// if the latest head stored in DB is newer, we use it instead as the limit of backfill
 			fromBlock = uint64(latestHeadInDb.Number)
