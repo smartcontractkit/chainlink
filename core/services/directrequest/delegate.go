@@ -132,7 +132,7 @@ func (l *listener) Start() error {
 				oracle_wrapper.OracleOracleRequest{},
 				oracle_wrapper.OracleCancelOracleRequest{},
 			},
-			NumConfirmations: 1,
+			NumConfirmations: l.minConfirmations,
 		})
 		l.shutdownWaitGroup.Add(2)
 		go l.run()
@@ -192,16 +192,15 @@ func (l *listener) run() {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
-		case head := <-l.chHeads:
-			l.handleReceivedLogs(head)
+		case <-l.chHeads:
+			l.handleReceivedLogs()
 		}
 	}
 }
 
-func (l *listener) handleReceivedLogs(head models.Head) {
-	oldEnough := isOldEnoughConstructor(head, l.minConfirmations)
+func (l *listener) handleReceivedLogs() {
 	for {
-		i := l.mbLogs.RetrieveIf(oldEnough)
+		i := l.mbLogs.Retrieve()
 		if i == nil {
 			return
 		}
@@ -246,17 +245,6 @@ func (l *listener) handleReceivedLogs(head models.Head) {
 		default:
 			logger.Warnf("unexpected log type %T", log)
 		}
-	}
-}
-
-func isOldEnoughConstructor(head models.Head, minConfirmations uint64) func(interface{}) bool {
-	return func(i interface{}) bool {
-		broadcast, ok := i.(log.Broadcast)
-		if !ok {
-			panic(errors.Errorf("DirectRequestListener: Invalid type received - expected Broadcast, got %T", i))
-		}
-		logHeight := broadcast.RawLog().BlockNumber
-		return (logHeight + uint64(minConfirmations) - 1) <= uint64(head.Number)
 	}
 }
 

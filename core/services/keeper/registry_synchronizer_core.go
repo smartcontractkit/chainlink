@@ -137,8 +137,8 @@ func (rs *RegistrySynchronizer) run() {
 			return
 		case <-ticker.C:
 			rs.fullSync()
-		case head := <-rs.chHeads:
-			rs.processLogs(head)
+		case <-rs.chHeads:
+			rs.processLogs()
 		}
 	}
 }
