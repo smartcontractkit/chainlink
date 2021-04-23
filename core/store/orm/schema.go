@@ -62,6 +62,7 @@ type ConfigSchema struct {
 	EthTxResendAfterThreshold                 time.Duration   `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
 	EthLogBackfillBatchSize                   uint32          `env:"ETH_LOG_BACKFILL_BATCH_SIZE" default:"100"`
 	EthereumURL                               string          `env:"ETH_URL" default:"ws://localhost:8546"`
+	EthereumHTTPURL                           string          `env:"ETH_HTTP_URL"`
 	EthereumSecondaryURL                      string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`

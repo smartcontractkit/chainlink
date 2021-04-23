@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -25,15 +25,16 @@ import (
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient := newEthMocks(t)
+	ethClient := newEthMock(t)
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(ethClient),
 	)
 	client, r := app.NewClientAndRenderer()
 
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+	ethClient.On("Dial", mock.Anything).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
@@ -44,16 +45,17 @@ func TestClient_ListETHKeys(t *testing.T) {
 func TestClient_CreateETHKey(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient := newEthMocks(t)
+	ethClient := newEthMock(t)
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(ethClient),
 	)
 	store := app.GetStore()
 	client, _ := app.NewClientAndRenderer()
 
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+	ethClient.On("Dial", mock.Anything).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	requireEthKeysCount(t, store, 1) // The initial funding key
 
@@ -65,16 +67,17 @@ func TestClient_CreateETHKey(t *testing.T) {
 func TestClient_DeleteEthKey(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient := newEthMocks(t)
+	ethClient := newEthMock(t)
 	app := startNewApplication(t,
 		withKey(),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(ethClient),
 	)
 	store := app.GetStore()
 	client, _ := app.NewClientAndRenderer()
 
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+	ethClient.On("Dial", mock.Anything).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	// Create the key
 	account, err := store.KeyStore.NewAccount()
@@ -98,14 +101,15 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
-	rpcClient, gethClient := newEthMocks(t)
+	ethClient := newEthMock(t)
 	app := startNewApplication(t,
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(ethClient),
 	)
 	client, r := app.NewClientAndRenderer()
 
-	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
-	rpcClient.On("Call", mock.Anything, "eth_call", mock.Anything, "latest").Return(nil)
+	ethClient.On("Dial", mock.Anything).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
+	ethClient.On("GetLINKBalance", mock.Anything, mock.Anything).Return(assets.NewLink(42), nil)
 
 	set := flag.NewFlagSet("test", 0)
 	set.String("file", "internal/fixtures/apicredentials", "")

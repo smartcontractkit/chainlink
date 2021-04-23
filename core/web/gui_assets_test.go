@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
 	"github.com/stretchr/testify/assert"
@@ -101,10 +99,10 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 func TestGuiAssets_AssetsExact(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
