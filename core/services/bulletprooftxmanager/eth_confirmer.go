@@ -238,7 +238,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 		defer cancel()
 
 		if ctxInner.Err() != nil { // timeout
-			break
+			return errors.Wrapf(ctxInner.Err(), "unable to fetch pending nonce for address: %v - timeout or interrupt", from)
 		}
 		if err != nil {
 			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
@@ -246,7 +246,7 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 
 		likelyConfirmed := separateLikelyConfirmedAttempts(from, attempts, latestBlockNonce)
 		likelyConfirmedCount := len(likelyConfirmed)
-		if likelyConfirmedCount != 0 {
+		if likelyConfirmedCount > 0 {
 			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
 
 			logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts. Skipping checking the others (%v)",
@@ -257,8 +257,8 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 			if err != nil {
 				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
 			}
-			logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts took %v ms.",
-				likelyConfirmedCount, float64(time.Since(start).Milliseconds()))
+			logger.Debugw(fmt.Sprintf("EthConfirmer: Fetching and saving %v likely confirmed receipts done", likelyConfirmedCount),
+				"tookMs", float64(time.Since(start).Milliseconds()))
 		}
 	}
 
@@ -273,15 +273,12 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 }
 
 func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.EthTxAttempt, latestBlockNonce uint64) []models.EthTxAttempt {
-	firstAttemptNonce := "unknown"
-	lastAttemptNonce := "unknown"
-	if attempts[len(attempts)-1].EthTx.Nonce != nil {
-		lastAttemptNonce = fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
-	}
-	if attempts[0].EthTx.Nonce != nil {
-		firstAttemptNonce = fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
+	if len(attempts) == 0 {
+		return attempts
 	}
 
+	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
+	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
 	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
 		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce))
 

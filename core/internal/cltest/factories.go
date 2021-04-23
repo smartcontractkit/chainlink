@@ -509,7 +509,7 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 	}
 }
 
-func MustInsertEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
 	broadcastAt := time.Now()
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -528,20 +528,7 @@ func MustInsertEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonc
 }
 
 func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
-	broadcastAt := time.Now()
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case time.Time:
-			broadcastAt = v
-		}
-	}
-	etx := NewEthTx(t, store, fromAddress)
-
-	etx.BroadcastAt = &broadcastAt
-	n := nonce
-	etx.Nonce = &n
-	etx.State = models.EthTxUnconfirmed
-	require.NoError(t, store.DB.Save(&etx).Error)
+	etx := MustInsertUnconfirmedEthTx(t, store, nonce, fromAddress, opts...)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
