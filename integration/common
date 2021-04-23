@@ -45,12 +45,17 @@ launch_chainlink() {
   # Grab logs from our node service and find the unlocked account
   waitFor "docker logs chainlink-node 2>&1 | grep 'Unlocked account'" 10
   export CHAINLINK_NODE_ADDRESS=`docker logs chainlink-node 2>&1 | grep 'Unlocked account' | awk '{print$5}'`
-
+  echo "================ CHAINLINK_NODE_ADDRESS IS"
+  echo $CHAINLINK_NODE_ADDRESS
+  echo "================"
   # If we're using geth for this test
   # then we need to fund our hardcoded devnet address with the developer account given by geth
   if [ $GETH_MODE ]
   then
     export DEVELOPER_ACCOUNT=`docker logs geth 2>&1 | grep "Using developer account" | awk -F "=" '{print$2}'`
+     echo "================ DEVELOPER_ACCOUNT IS"
+     echo $DEVELOPER_ACCOUNT
+     echo "================"
     yarn workspace @chainlink/integration-scripts fund-address
   fi
   popd
