@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Smart contracts and their language abstractions for chainlink",
   "repository": "https://github.com/smartcontractkit/chainlink",
   "author": "Chainlink devs",
@@ -21,7 +21,7 @@
     "prepublishOnly": "yarn clean && yarn setup"
   },
   "devDependencies": {
-    "@chainlink/belt": "0.0.5-alpha.1",
+    "@chainlink/belt": "0.0.6",
     "@chainlink/test-helpers": "0.0.5",
     "@nomiclabs/hardhat-truffle5": "^2.0.0",
     "@nomiclabs/hardhat-web3": "^2.0.0",
