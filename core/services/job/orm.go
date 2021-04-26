@@ -208,6 +208,12 @@ func (o *orm) CreateJob(ctx context.Context, jobSpec *Job, taskDAG pipeline.Task
 				return errors.Wrap(err, "failed to create KeeperSpec for jobSpec")
 			}
 			jobSpec.KeeperSpecID = &jobSpec.KeeperSpec.ID
+		case Cron:
+			err := tx.Create(&jobSpec.CronSpec).Error
+			if err != nil {
+				return errors.Wrap(err, "failed to create CronSpec for jobSpec")
+			}
+			jobSpec.CronSpecID = &jobSpec.CronSpec.ID
 		default:
 			logger.Fatalf("Unsupported jobSpec.Type: %v", jobSpec.Type)
 		}
