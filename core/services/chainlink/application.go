@@ -77,18 +77,23 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *strpkg.Store
-	GetJobORM() job.ORM
-	GetExternalInitiatorManager() ExternalInitiatorManager
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
-	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
-	ArchiveJob(models.JobID) error
-	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
-	services.RunManager
+
+	// V1 Jobs (JSON specified)
+	services.RunManager // For managing job runs.
+	AddJob(job models.JobSpec) error
+	ArchiveJob(models.JobID) error
+	GetExternalInitiatorManager() ExternalInitiatorManager
+
+	// V2 Jobs (TOML specified)
+	GetJobORM() job.ORM
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	DeleteJobV2(ctx context.Context, jobID int32) error
+	// Testing only
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -250,4 +252,30 @@ func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
 	jobs, err := orm.JobsV2()
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
+}
+
+func TestClient_Migrate(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	client, _ := app.NewClientAndRenderer()
+	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
+
+	// Create a v1 job.
+	set := flag.NewFlagSet("create", 0)
+	set.Parse([]string{"../testdata/jsonspecs/flux_monitor_bridge_job.json"})
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.CreateJobSpec(c))
+
+	// Migrate v1 job to v2 using the cli.
+	var js models.JobSpec
+	err := app.Store.Jobs(func(spec *models.JobSpec) bool {
+		js = *spec
+		return true
+	})
+	require.NoError(t, err)
+	set = flag.NewFlagSet("test", 0)
+	set.Parse([]string{js.ID.String()})
+	require.NoError(t, client.Migrate(cli.NewContext(nil, set, nil)))
 }

@@ -461,7 +461,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	}
 	require.NoError(t, app.Store.CreateBridgeType(bridge))
 
-	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -485,7 +485,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
