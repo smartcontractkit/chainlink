@@ -1,6 +1,9 @@
-const { assert, web3 } = require('hardhat')
-const { constants, expectRevert } = require('@openzeppelin/test-helpers')
-const expectEvent = require('@openzeppelin/test-helpers/src/expectEvent')
+const { assert, web3, artifacts } = require('hardhat')
+const {
+  constants,
+  expectRevert,
+  expectEvent,
+} = require('@openzeppelin/test-helpers')
 
 describe('ValidatorProxy', () => {
   let accounts
@@ -250,6 +253,142 @@ describe('ValidatorProxy', () => {
   })
 
   describe('#validate', () => {
-    // TODO
+    describe('failure', () => {
+      it('reverts when not called by aggregator or proposed aggregator', async () => {
+        let stranger = accounts[9]
+        await expectRevert(
+          validatorProxy.validate(99, 88, 77, 66, { from: stranger }),
+          'Not a configured aggregator',
+        )
+      })
+
+      it('reverts when there is no validator set', async () => {
+        validatorProxy = await ValidatorProxyArtifact.new(
+          aggregator,
+          constants.ZERO_ADDRESS,
+          { from: owner },
+        )
+        await expectRevert(
+          validatorProxy.validate(99, 88, 77, 66, { from: aggregator }),
+          'No validator set',
+        )
+      })
+    })
+
+    describe('success', () => {
+      describe('from the aggregator', () => {
+        let MockValidatorArtifact
+        let mockValidator1
+        let receipt
+
+        beforeEach(async () => {
+          MockValidatorArtifact = artifacts.require('MockAggregatorValidator')
+          mockValidator1 = await MockValidatorArtifact.new(1)
+          validatorProxy = await ValidatorProxyArtifact.new(
+            aggregator,
+            mockValidator1.address,
+            { from: owner },
+          )
+        })
+
+        describe('for a single validator', () => {
+          beforeEach(async () => {
+            receipt = await validatorProxy.validate(200, 300, 400, 500, {
+              from: aggregator,
+            })
+          })
+
+          it('calls validate on the validator', async () => {
+            await expectEvent.inTransaction(
+              receipt.tx,
+              MockValidatorArtifact,
+              'ValidateCalled',
+              {
+                id: '1',
+                previousRoundId: '200',
+                previousAnswer: '300',
+                currentRoundId: '400',
+                currentAnswer: '500',
+              },
+            )
+          })
+
+          it('uses a specific amount of gas', async () => {
+            assert.equal(receipt.receipt.gasUsed, 34256)
+          })
+        })
+
+        describe('for a validator and a proposed validator', () => {
+          let mockValidator2
+
+          beforeEach(async () => {
+            mockValidator2 = await MockValidatorArtifact.new(2)
+            await validatorProxy.proposeNewValidator(mockValidator2.address, {
+              from: owner,
+            })
+            receipt = await validatorProxy.validate(2000, 3000, 4000, 5000, {
+              from: aggregator,
+            })
+          })
+
+          it('calls validate on the validator', async () => {
+            await expectEvent.inTransaction(
+              receipt.tx,
+              MockValidatorArtifact,
+              'ValidateCalled',
+              {
+                id: '1',
+                previousRoundId: '2000',
+                previousAnswer: '3000',
+                currentRoundId: '4000',
+                currentAnswer: '5000',
+              },
+            )
+          })
+
+          it('also calls validate on the proposed validator', async () => {
+            await expectEvent.inTransaction(
+              receipt.tx,
+              MockValidatorArtifact,
+              'ValidateCalled',
+              {
+                id: '2',
+                previousRoundId: '2000',
+                previousAnswer: '3000',
+                currentRoundId: '4000',
+                currentAnswer: '5000',
+              },
+            )
+          })
+
+          it('uses a specific amount of gas', async () => {
+            assert.equal(receipt.receipt.gasUsed, 41958)
+          })
+        })
+      })
+
+      describe('from the proposed aggregator', () => {
+        let newAggregator
+        beforeEach(async () => {
+          newAggregator = accounts[3]
+          await validatorProxy.proposeNewAggregator(newAggregator, {
+            from: owner,
+          })
+        })
+
+        it('emits an event', async () => {
+          const receipt = await validatorProxy.validate(555, 666, 777, 888, {
+            from: newAggregator,
+          })
+          await expectEvent(receipt, 'ProposedAggregatorValidateCall', {
+            proposed: newAggregator,
+            previousRoundId: '555',
+            previousAnswer: '666',
+            currentRoundId: '777',
+            currentAnswer: '888',
+          })
+        })
+      })
+    })
   })
 })
