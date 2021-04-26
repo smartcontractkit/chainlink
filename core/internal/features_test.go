@@ -167,6 +167,9 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 	// Do the thing
 	newHeads <- cltest.Head(safe)
 
+	// sending another head to make sure EthTx executes after EthConfirmer is done
+	newHeads <- cltest.Head(safe + 1)
+
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
 
