@@ -168,6 +168,7 @@ func (n *TaskDAGNode) Attributes() []encoding.Attribute {
 	for k, v := range n.attrs {
 		r = append(r, encoding.Attribute{Key: k, Value: v})
 	}
+	// Ensure the slice returned is deterministic.
 	sort.Slice(r, func(i, j int) bool {
 		return r[i].Key < r[j].Key
 	})

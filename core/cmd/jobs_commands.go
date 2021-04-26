@@ -182,7 +182,7 @@ func (cli *Client) DeleteJobV2(c *cli.Context) error {
 	return nil
 }
 
-// Migrate jobs between the v1 (json) and v2 (toml) format.
+// Migrate jobs from the v1 (json) to v2 (toml) format.
 func (cli *Client) Migrate(c *cli.Context) error {
 	if !c.Args().Present() {
 		return cli.errorOut(errors.New("must pass the job id to be migrated"))
