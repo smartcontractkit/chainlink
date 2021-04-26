@@ -217,7 +217,6 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
-
 	if err != nil {
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
 	}
