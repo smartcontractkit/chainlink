@@ -51,7 +51,6 @@ type (
 	listenerMetadata struct {
 		opts                     ListenerOpts
 		filters                  [][]Topic
-		noFilter                 bool
 		lowestAllowedBlockNumber uint64
 		lastSeenChain            *models.Head
 	}
@@ -92,7 +91,6 @@ func (r *registrations) addSubscriber(reg registration) (needsResubscribe bool) 
 
 		r.registrations[addr][topic][reg.listener] = &listenerMetadata{
 			opts:                     reg.opts,
-			noFilter:                 true,
 			lowestAllowedBlockNumber: uint64(0),
 		}
 	}
@@ -234,7 +232,7 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 			continue
 		}
 
-		if !metadata.noFilter && len(metadata.filters) > 0 && len(log.Topics) > 1 {
+		if len(metadata.filters) > 0 && len(log.Topics) > 1 {
 			logger.Tracew("LogBroadcaster: Checking filters")
 			topicValues := log.Topics[1:]
 			if !filtersContainValues(topicValues, metadata.filters) {
