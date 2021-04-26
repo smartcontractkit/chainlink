@@ -1,7 +1,0 @@
-{
-  "initiators": [{"type": "runLog"}],
-  "tasks": [
-    {"type": "ethtx" },
-    {"type": "ethtx" }
-  ]
-}

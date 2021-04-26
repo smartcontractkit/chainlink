@@ -74,7 +74,7 @@ func BootstrapThrowawayORM(t *testing.T, name string, migrate bool, loadFixtures
 		if !ok {
 			t.Fatal("could not get runtime.Caller(0)")
 		}
-		filepath := path.Join(path.Dir(filename), "../../store/testdata/fixtures.sql")
+		filepath := path.Join(path.Dir(filename), "../../store/fixtures/fixtures.sql")
 		fixturesSQL, err := ioutil.ReadFile(filepath)
 		require.NoError(t, err)
 		err = orm.RawDBWithAdvisoryLock(func(db *gorm.DB) error {

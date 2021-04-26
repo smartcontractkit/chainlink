@@ -1,9 +1,0 @@
-{
-  "initiators": [{"type": "runLog"}],
-  "tasks": [{"type": "ethtx",
-    "params": {
-      "addreSS": "0x0123456789012345678901234567890123456789",
-      "_comment": "Golang JSON unmarshalling is case insensitive"
-    }
-  }]
-}

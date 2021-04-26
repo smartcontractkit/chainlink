@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 
 	"github.com/smartcontractkit/chainlink/core/store/dialects"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/smartcontractkit/chainlink/core/services/bulletprooftxmanager"
 	"github.com/smartcontractkit/chainlink/core/services/job"
@@ -218,7 +219,7 @@ func TestIntegration_EthLog(t *testing.T) {
 	assert.Equal(t, address, initr.Address)
 
 	logs := <-logsCh
-	logs <- cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	logs <- cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	jrs := cltest.WaitForRuns(t, j, app.Store, 1)
 	cltest.WaitForJobRunToComplete(t, app.Store, jrs[0])
 }
@@ -465,7 +466,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	bta := &models.BridgeTypeAuthentication{}
+	resource := &presenters.BridgeResource{}
 	var j models.JobSpec
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(h http.Header, b string) {
@@ -482,12 +483,12 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 			assert.Equal(t, data.Type, gjson.JSON)
 
 			token := utils.StripBearer(h.Get("Authorization"))
-			assert.Equal(t, bta.OutgoingToken, token)
+			assert.Equal(t, resource.OutgoingToken, token)
 		})
 	defer cleanup()
 
 	bridgeJSON := fmt.Sprintf(`{"name":"randomNumber","url":"%v"}`, mockServer.URL)
-	bta = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
+	resource = cltest.CreateBridgeTypeViaWeb(t, app, bridgeJSON)
 	j = cltest.FixtureCreateJobViaWeb(t, app, "fixtures/web/random_number_bridge_type_job.json")
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
 	jr = cltest.WaitForJobRunToPendBridge(t, app.Store, jr)
@@ -496,7 +497,7 @@ func TestIntegration_ExternalAdapter_Pending(t *testing.T) {
 	assert.Equal(t, models.RunStatusPendingBridge, tr.Status)
 	assert.Equal(t, gjson.Null, tr.Result.Data.Get("result").Type)
 
-	jr = cltest.UpdateJobRunViaWeb(t, app, jr, bta, `{"data":{"result":"100"}}`)
+	jr = cltest.UpdateJobRunViaWeb(t, app, jr, resource, `{"data":{"result":"100"}}`)
 	jr = cltest.WaitForJobRunToComplete(t, app.Store, jr)
 	tr = jr.TaskRuns[0]
 	assert.Equal(t, models.RunStatusCompleted, tr.Status)
@@ -519,7 +520,7 @@ func TestIntegration_WeiWatchers(t *testing.T) {
 	gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).
 		Return(&types.Receipt{}, nil)
 
-	log := cltest.LogFromFixture(t, "testdata/requestLog0original.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/requestLog0original.json")
 	mockServer, cleanup := cltest.NewHTTPMockServer(t, http.StatusOK, "POST", `{"pending":true}`,
 		func(_ http.Header, body string) {
 			marshaledLog, err := json.Marshal(&log)
@@ -634,7 +635,7 @@ func TestIntegration_SleepAdapter(t *testing.T) {
 	defer cleanup()
 	require.NoError(t, app.Start())
 
-	j := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/sleep_job.json")
+	j := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/sleep_job.json")
 
 	runInput := fmt.Sprintf("{\"until\": \"%s\"}", time.Now().Local().Add(time.Second*time.Duration(sleepSeconds)))
 	jr := cltest.CreateJobRunViaWeb(t, app, j, runInput)
@@ -689,7 +690,7 @@ func TestIntegration_ExternalInitiator(t *testing.T) {
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/external_initiator_job.json")
 	assert.Equal(t,
 		eip.OutgoingToken,
 		exInitr.Header.Get(static.ExternalInitiatorAccessKeyHeader),
@@ -740,7 +741,7 @@ func TestIntegration_ExternalInitiator_WithoutURL(t *testing.T) {
 	require.Equal(t, eip.AccessKey, ei.AccessKey)
 	require.Equal(t, eip.OutgoingSecret, ei.OutgoingSecret)
 
-	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "./testdata/external_initiator_job.json")
+	jobSpec := cltest.FixtureCreateJobViaWeb(t, app, "../testdata/jsonspecs/external_initiator_job.json")
 
 	jobRun := cltest.CreateJobRunViaExternalInitiator(t, app, jobSpec, *eia, "")
 	_, err = app.Store.JobRunsFor(jobRun.JobSpecID)
@@ -880,7 +881,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 		Return(nil)
 
 	// Create FM Job, and wait for job run to start because the above criteria initiates a run.
-	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
@@ -1006,7 +1007,8 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Return([]models.Log{}, nil)
 
 	// Create FM Job, and ensure no runs because above criteria has no deviation.
-	buffer := cltest.MustReadFile(t, "testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_job.json")
+
 	var job models.JobSpec
 	err = json.Unmarshal(buffer, &job)
 	require.NoError(t, err)
@@ -1023,7 +1025,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	sub.AssertExpectations(t)
 
 	// Send a NewRound log event to trigger a run.
-	log := cltest.LogFromFixture(t, "testdata/new_round_log.json")
+	log := cltest.LogFromFixture(t, "../testdata/jsonrpc/new_round_log.json")
 	log.Address = job.Initiators[0].InitiatorParams.Address
 
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -1126,7 +1128,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	priceResponse := `{"bid": 100.10, "ask": 100.15}`
 	mockServer, assertCalled := cltest.NewHTTPMockServer(t, http.StatusOK, "GET", priceResponse)
 	defer assertCalled()
-	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_web.json"))
+	spec := string(cltest.MustReadFile(t, "../testdata/jsonspecs/multiword_v1_web.json"))
 	spec = strings.Replace(spec, "https://bitstamp.net/api/ticker/", mockServer.URL, 2)
 	j := cltest.CreateSpecViaWeb(t, app, spec)
 	jr := cltest.CreateJobRunViaWeb(t, app, j)
@@ -1239,7 +1241,7 @@ func TestIntegration_MultiwordV1_Sim(t *testing.T) {
 		return ""
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, response)
-	spec := string(cltest.MustReadFile(t, "testdata/multiword_v1_runlog.json"))
+	spec := string(cltest.MustReadFile(t, "../testdata/jsonspecs/multiword_v1_runlog.json"))
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
 	spec = strings.Replace(spec, "{url}", mockServer.URL, 1)
@@ -1623,7 +1625,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	pipelineORM := pipeline.NewORM(store.ORM.DB, config, eventBroadcaster)
 	jobORM := job.NewORM(store.ORM.DB, store.Config, pipelineORM, eventBroadcaster, &postgres.NullAdvisoryLocker{})
 
-	directRequestSpec := string(cltest.MustReadFile(t, "../web/testdata/direct-request-spec.toml"))
+	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
 	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
 	request := models.CreateJobSpecRequest{TOML: directRequestSpec}
 	output, err := json.Marshal(request)

@@ -119,6 +119,7 @@ func NewClient(rpcUrl string, secondaryRPCURLs ...url.URL) (*client, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
 		return nil, errors.Errorf("ethereum url scheme must be websocket: %s", parsed.String())
 	}

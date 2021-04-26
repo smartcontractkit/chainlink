@@ -1,0 +1,30 @@
+{
+  "data": {
+    "success": true,
+    "source": "BraveNewCoin",
+    "time_stamp": 1561642181,
+    "utc_date": "2019-06-27 13:29:41",
+    "coin_symbol": "ETH",
+    "coin_name": "Ethereum",
+    "market_symbol": "USD",
+    "market_name": "United States Dollar",
+    "column_names": [
+      "timestamp",
+      "index",
+      "volume",
+      "index_usd",
+      "volume_usd"
+    ],
+    "data": [
+      [
+        "1561641900",
+        "306.52036004",
+        "1982770.5151919918",
+        "306.52036003822224",
+        "607759532.18982"
+            ]
+    ],
+    "result": 306.52036004
+  },
+  "statusCode": 200
+}
