@@ -119,6 +119,11 @@ func (nc *NullClient) BlockByNumber(ctx context.Context, number *big.Int) (*type
 	return nil, nil
 }
 
+func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	logger.Debug("NullClient#BlockByHash")
+	return nil, nil
+}
+
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	logger.Debug("NullClient#BalanceAt")
 	return big.NewInt(0), nil

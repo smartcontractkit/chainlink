@@ -517,6 +517,29 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	}
 	ht.backfillMB.Deliver(headWithChain)
 
+	start := time.Now()
+	block, err := ht.store.EthClient.BlockByHash(ctx, head.Hash)
+	if err != nil {
+		return errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
+	}
+	elapsed := time.Since(start)
+
+	ht.logger.Debugw("HeadTracker: getting whole block took", "elapsedMs", elapsed.Milliseconds())
+	ht.logger.Debugw("HeadTracker: NUM TRANSACTIONS", "Transactions", block.Transactions().Len())
+
+	for _, transaction := range block.Transactions() {
+		receipt, err := ht.store.EthClient.TransactionReceipt(ctx, transaction.Hash())
+		if err != nil {
+			ht.logger.Errorw("HeadTracker#handleNewHighestHead failed fetching TransactionReceipt", "err", err.Error())
+			continue
+		}
+		ht.logger.Debugw("HeadTracker: TransactionReceipt", "numLogs", len(receipt.Logs), "GasUsed", receipt.GasUsed)
+		for _, log := range receipt.Logs {
+			ht.logger.Debugw("HeadTracker: LOG", "Topics", log.Topics)
+
+		}
+	}
+
 	ht.onNewLongestChain(ctx, headWithChain)
 	return nil
 }
