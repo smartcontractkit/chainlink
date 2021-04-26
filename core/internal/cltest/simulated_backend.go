@@ -300,6 +300,10 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 	return c.b.PendingNonceAt(ctx, account)
 }
 
+func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return c.b.NonceAt(ctx, account, blockNumber)
+}
+
 func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
