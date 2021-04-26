@@ -24,7 +24,7 @@
     "start-echo-server": "node ./dist/src/echoServer"
   },
   "dependencies": {
-    "@0x/sol-compiler": "^4.0.8",
+    "@0x/sol-compiler": "4.0.8",
     "@0x/sol-trace": "^3.0.29",
     "@chainlink/contracts": "0.1.6",
     "@chainlink/test-helpers": "0.0.5",
