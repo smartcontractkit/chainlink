@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"gorm.io/gorm/clause"
-
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -95,7 +93,7 @@ func (o *orm) InsertFinishedRun(ctx context.Context, run Run, trrs []TaskRunResu
 	}
 
 	err = postgres.GormTransaction(ctx, o.db, func(tx *gorm.DB) error {
-		if err = tx.Omit(clause.Associations).Create(&run).Error; err != nil {
+		if err = tx.Create(&run).Error; err != nil {
 			return errors.Wrap(err, "error inserting finished pipeline_run")
 		}
 

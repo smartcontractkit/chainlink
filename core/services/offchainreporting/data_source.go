@@ -79,7 +79,7 @@ func (ds *dataSource) Observe(ctx context.Context) (ocrtypes.Observation, error)
 
 	asDecimal, err := utils.ToDecimal(result.Value)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "cannot convert observation to decimal")
 	}
 	ds.currentBridgeMetadata = models.BridgeMetaData{
 		LatestAnswer: asDecimal.BigInt(),
