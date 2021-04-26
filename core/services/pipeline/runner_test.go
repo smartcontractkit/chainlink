@@ -30,7 +30,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
 	// 1. Setup bridge
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
@@ -42,7 +42,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
-	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600)))
+	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
 	defer s2.Close()
 
 	s4 := httptest.NewServer(fakeStringResponder(t, "foo-index-1"))

@@ -2,6 +2,7 @@ import { ApiResponse } from 'utils/json-api-client'
 import { ResourceObject } from 'json-api-normalizer'
 import { JobSpecV2 } from 'core/store/models'
 import {
+  cronJobV2,
   directRequestJobV2,
   fluxMonitorJobV2,
   keeperJobV2,
@@ -77,5 +78,17 @@ export const keeperJobResource = (
     type: 'jobs',
     id,
     attributes: keeperJobV2(job, { name: job.name }),
+  } as ResourceObject<JobSpecV2>
+}
+
+export const cronJobResource = (
+  job: Partial<JobSpecV2['cronSpec'] & { id?: string; name?: string }>,
+) => {
+  const id = job.id || getRandomInt(1_000_000).toString()
+
+  return {
+    type: 'jobs',
+    id,
+    attributes: cronJobV2(job, { name: job.name }),
   } as ResourceObject<JobSpecV2>
 }
