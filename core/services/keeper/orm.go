@@ -3,8 +3,9 @@ package keeper
 import (
 	"context"
 
+	"github.com/smartcontractkit/chainlink/core/store/models"
+
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -132,20 +133,21 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 	).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) error {
+func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) (models.EthTx, error) {
+	var etx models.EthTx
 	sqlDB, err := korm.DB.DB()
 	if err != nil {
-		return err
+		return etx, err
 	}
 
 	from := upkeep.Registry.FromAddress.Address()
 	err = utils.CheckOKToTransmit(ctx, sqlDB, from, maxUnconfirmedTXs)
 	if err != nil {
-		return errors.Wrap(err, "transmitter#CreateEthTransaction")
+		return etx, errors.Wrap(err, "transmitter#CreateEthTransaction")
 	}
 
 	value := 0
-	res, err := sqlDB.ExecContext(ctx, `
+	err = sqlDB.QueryRowContext(ctx, `
 		INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at)
 		SELECT $1,$2,$3,$4,$5,'unstarted',NOW()
 		WHERE NOT EXISTS (
@@ -154,27 +156,23 @@ func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep Upkeep
 			WHERE eth_txes.from_address = $1
 				AND eth_txes.state = 'unconfirmed'
 				AND eth_tx_attempts.state = 'insufficient_eth'
-		);`,
+		) RETURNING id;`,
 		from,
 		upkeep.Registry.ContractAddress.Address(),
 		payload,
 		value,
 		upkeep.ExecuteGas+gasBuffer,
-	)
-
+	).Scan(&etx.ID)
 	if err != nil {
-		return errors.Wrap(err, "keeper failed to insert eth_tx")
+		return etx, errors.Wrap(err, "keeper failed to insert eth_tx")
 	}
-
-	rowsAffected, err := res.RowsAffected()
+	if etx.ID == 0 {
+		return etx, errors.New("a keeper eth_tx with insufficient eth is present, not creating a new eth_tx")
+	}
+	err = korm.DB.First(&etx).Error
 	if err != nil {
-		return errors.Wrap(err, "transmitter failed to get RowsAffected on eth_tx insert")
-	}
-	if rowsAffected == 0 {
-		err := errors.Errorf("Skipped upkeep because wallet is out of eth: %s", from.Hex())
-		logger.Warnw(err.Error())
-		return err
+		return etx, errors.Wrap(err, "keeper find eth_tx after inserting")
 	}
 
-	return nil
+	return etx, nil
 }

@@ -30,7 +30,7 @@ function getErrorsList(
       .filter((error): error is string => error !== null)
   }
 
-  if (jobRun?.type === 'Off-chain reporting job run' && jobRun.errors) {
+  if (jobRun?.type === 'Pipeline job run' && jobRun.errors) {
     return jobRun.errors.filter((error): error is string => error !== null)
   }
 
@@ -85,6 +85,27 @@ export const Show = ({ match }: Props) => {
         <LoadingPlaceholder />
         {jobRun && (
           <Grid container spacing={40}>
+            <Grid item xs={4}>
+              <Grid container spacing={40}>
+                <Grid item xs={12}>
+                  <StatusCard {...jobRun} title={jobRun.status} />
+                </Grid>
+                {jobRun.type === 'Pipeline job run' && (
+                  <Switch>
+                    {jobRun.status == 'errored' && (
+                      <Grid item xs={12}>
+                        <Card style={{ overflow: 'visible' }}>
+                          <CardTitle divider>Task list</CardTitle>
+                          <TaskList
+                            stratify={augmentOcrTasksList({ jobRun })}
+                          />
+                        </Card>
+                      </Grid>
+                    )}
+                  </Switch>
+                )}
+              </Grid>
+            </Grid>
             <Grid item xs={8}>
               <Grid container spacing={40}>
                 {getErrorsList(jobRun).length > 0 && (
@@ -110,30 +131,19 @@ export const Show = ({ match }: Props) => {
                     {jobRun.type === 'Direct request job run' && (
                       <Route render={() => <Overview jobRun={jobRun} />} />
                     )}
-                    {jobRun.type === 'Off-chain reporting job run' && (
-                      <Route
-                        render={() => (
-                          <PipelineJobRunOverview jobRun={jobRun} />
+                    {jobRun.type === 'Pipeline job run' && (
+                      <Switch>
+                        {jobRun.status == 'errored' && (
+                          <Route
+                            render={() => (
+                              <PipelineJobRunOverview jobRun={jobRun} />
+                            )}
+                          />
                         )}
-                      />
+                      </Switch>
                     )}
                   </Switch>
                 </Grid>
-              </Grid>
-            </Grid>
-            <Grid item xs={4}>
-              <Grid container spacing={40}>
-                <Grid item xs={12}>
-                  <StatusCard {...jobRun} title={jobRun.status} />
-                </Grid>
-                {jobRun.type === 'Off-chain reporting job run' && (
-                  <Grid item xs={12}>
-                    <Card style={{ overflow: 'visible' }}>
-                      <CardTitle divider>Task list</CardTitle>
-                      <TaskList stratify={augmentOcrTasksList({ jobRun })} />
-                    </Card>
-                  </Grid>
-                )}
               </Grid>
             </Grid>
           </Grid>

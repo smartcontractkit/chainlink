@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gorm.io/gorm"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -68,7 +70,21 @@ func (e *EncryptedVRFKey) JSON() ([]byte, error) {
 
 // Decrypt returns the PrivateKey in e, decrypted via auth, or an error
 func (e *EncryptedVRFKey) Decrypt(auth string) (*PrivateKey, error) {
-	keyJSON, err := json.Marshal(e.VRFKey)
+	// NOTE: We do this shuffle to an anonymous struct
+	// solely to add a a throwaway UUID, so we can leverage
+	// the keystore.DecryptKey from the geth which requires it
+	// as of 1.10.0.
+	keyJSON, err := json.Marshal(struct {
+		Address string              `json:"address"`
+		Crypto  keystore.CryptoJSON `json:"crypto"`
+		Version int                 `json:"version"`
+		Id      string              `json:"id"`
+	}{
+		Address: e.VRFKey.Address,
+		Crypto:  e.VRFKey.Crypto,
+		Version: e.VRFKey.Version,
+		Id:      uuid.New().String(),
+	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "while marshaling key for decryption")
 	}

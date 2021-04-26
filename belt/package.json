@@ -2,13 +2,14 @@
   "name": "@chainlink/belt",
   "private": false,
   "description": "A toolbelt for performing various commands on chainlink smart contracts.",
-  "version": "0.0.3",
+  "version": "0.0.5-alpha.1",
   "author": "Chainlink Devs",
   "bin": {
     "belt": "./bin/run"
   },
   "scripts": {
     "postpack": "rm -f oclif.manifest.json",
+    "postinstall": "patch-package || true",
     "prepack": "yarn setup --force && oclif-dev manifest && oclif-dev readme",
     "setup": "tsc -b",
     "clean": "tsc -b --clean",
@@ -29,6 +30,7 @@
     "debug": "^4.3.1",
     "ethers": "^4.0.45",
     "inquirer": "^7.3.3",
+    "patch-package": "^6.4.7",
     "shelljs": "^0.8.3",
     "ts-generator": "^0.1.1",
     "tslib": "^2.1.0",
@@ -56,7 +58,8 @@
     "/bin",
     "/lib",
     "/npm-shrinkwrap.json",
-    "/oclif.manifest.json"
+    "/oclif.manifest.json",
+    "/patches"
   ],
   "homepage": "https://github.com/smartcontractkit/chainlink",
   "keywords": [

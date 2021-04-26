@@ -64,15 +64,19 @@ func TestJobRunsController_Index(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	var links jsonapi.Links
+	var meta jsonapi.Meta
 	var runs []models.JobRun
 
-	err := web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &runs, &links)
+	err := web.ParsePaginatedResponseWithMeta(cltest.ParseResponseBody(t, resp), &runs, &links, &meta)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
 	require.Len(t, runs, 1)
 	assert.Equal(t, runA.ID, runs[0].ID, "expected runs order by createdAt ascending")
+	assert.EqualValues(t, meta["errored"], 1, "expect there to be 1 errored run")
+	assert.EqualValues(t, meta["completed"], 1, "expect there to be 1 completed run")
+	assert.EqualValues(t, meta["count"], 2, "expect there to be 2 runs in total")
 
 	resp, cleanup = client.Get(links["next"].Href)
 	defer cleanup()
@@ -119,16 +123,19 @@ func setupJobRunsControllerIndex(t assert.TestingT, app *cltest.TestApplication)
 	runA := cltest.NewJobRun(j1)
 	runA.ID = uuid.NewV4()
 	runA.CreatedAt = now.Add(-2 * time.Second)
+	runA.Status = models.RunStatusErrored
 	assert.Nil(t, app.Store.CreateJobRun(&runA))
 
 	runB := cltest.NewJobRun(j1)
 	runB.ID = uuid.NewV4()
 	runB.CreatedAt = now.Add(-time.Second)
+	runB.Status = models.RunStatusCompleted
 	assert.Nil(t, app.Store.CreateJobRun(&runB))
 
 	runC := cltest.NewJobRun(j2)
 	runC.ID = uuid.NewV4()
 	runC.CreatedAt = now
+	runC.Status = models.RunStatusCompleted
 	assert.Nil(t, app.Store.CreateJobRun(&runC))
 
 	return &runA, &runB, &runC

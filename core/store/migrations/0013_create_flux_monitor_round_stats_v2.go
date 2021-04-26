@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -23,7 +22,7 @@ DROP TABLE flux_monitor_round_stats_v2;
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0013_create_flux_monitor_round_stats_v2",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up13).Error

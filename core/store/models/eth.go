@@ -154,6 +154,22 @@ func (h Head) IsInChain(blockHash common.Hash) bool {
 	return false
 }
 
+// HashAtHeight returns the hash of the block at the given heigh, if it is in the chain.
+// If not in chain, returns the zero hash
+func (h Head) HashAtHeight(blockNum int64) common.Hash {
+	for {
+		if h.Number == blockNum {
+			return h.Hash
+		}
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return common.Hash{}
+}
+
 // ChainLength returns the length of the chain followed by recursively looking up parents
 func (h Head) ChainLength() uint32 {
 	l := uint32(1)
@@ -388,6 +404,27 @@ type blockInternal struct {
 // Int64ToHex converts an int64 into go-ethereum's hex representation
 func Int64ToHex(n int64) string {
 	return hexutil.EncodeBig(big.NewInt(n))
+}
+
+// HexToInt64 performs the inverse of Int64ToHex
+// Returns 0 on invalid input
+func HexToInt64(input interface{}) int64 {
+	switch v := input.(type) {
+	case string:
+		big, err := hexutil.DecodeBig(v)
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	case []byte:
+		big, err := hexutil.DecodeBig(string(v))
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	default:
+		return 0
+	}
 }
 
 // Block represents an ethereum block

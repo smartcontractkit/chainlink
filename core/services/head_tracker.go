@@ -225,7 +225,7 @@ func (ht *HeadTracker) Save(ctx context.Context, h models.Head) error {
 	} else if err != nil {
 		return err
 	}
-	return ht.store.TrimOldHeads(ht.store.Config.EthHeadTrackerHistoryDepth())
+	return ht.store.TrimOldHeads(ctx, ht.store.Config.EthHeadTrackerHistoryDepth())
 }
 
 // HighestSeenHead returns the block header with the highest number that has been seen, or nil
@@ -393,7 +393,10 @@ func (ht *HeadTracker) fetchAndSaveHead(ctx context.Context, n int64) (models.He
 	} else if head == nil {
 		return models.Head{}, errors.New("got nil head")
 	}
-	if err := ht.store.IdempotentInsertHead(ctx, *head); err != nil {
+	err = ht.store.IdempotentInsertHead(ctx, *head)
+	if ctx.Err() != nil {
+		return models.Head{}, nil
+	} else if err != nil {
 		return models.Head{}, err
 	}
 	return *head, nil

@@ -1,6 +1,10 @@
 package telemetry
 
-import "github.com/smartcontractkit/chainlink/core/services/synchronization"
+import (
+	"context"
+
+	"github.com/smartcontractkit/chainlink/core/services/synchronization"
+)
 
 type Agent struct {
 	explorerClient synchronization.ExplorerClient
@@ -14,5 +18,5 @@ func NewAgent(explorerClient synchronization.ExplorerClient) *Agent {
 
 // SendLog sends a telemetry log to the explorer
 func (t *Agent) SendLog(log []byte) {
-	t.explorerClient.Send(log, synchronization.ExplorerBinaryMessage)
+	t.explorerClient.Send(context.Background(), log, synchronization.ExplorerBinaryMessage)
 }

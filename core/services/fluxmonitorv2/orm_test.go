@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"gopkg.in/guregu/null.v4"
+
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
@@ -97,8 +99,28 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	err := jobORM.CreateJob(context.Background(), j, *pipeline.NewTaskDAG())
 	require.NoError(t, err)
 
+	jb, err := jobORM.FindJob(j.ID)
+	require.NoError(t, err)
+
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
-		runID, err := pipelineORM.CreateRun(context.Background(), j.ID, map[string]interface{}{})
+		f := time.Now()
+		runID, err := pipelineORM.InsertFinishedRun(context.Background(),
+			pipeline.Run{
+				PipelineSpecID: jb.PipelineSpec.ID,
+				PipelineSpec:   *jb.PipelineSpec,
+				CreatedAt:      time.Now(),
+				FinishedAt:     &f,
+				Errors:         pipeline.RunErrors{null.String{}},
+				Outputs:        pipeline.JSONSerializable{Val: []interface{}{10}},
+			}, pipeline.TaskRunResults{
+				{
+					Task:       &pipeline.HTTPTask{},
+					Result:     pipeline.Result{Value: 10},
+					CreatedAt:  f,
+					FinishedAt: f,
+					IsTerminal: true,
+				},
+			}, true)
 		require.NoError(t, err)
 
 		err = orm.UpdateFluxMonitorRoundStats(address, roundID, runID)
@@ -116,12 +138,12 @@ func makeJob(t *testing.T) *job.Job {
 	t.Helper()
 
 	return &job.Job{
-		IDEmbed:       job.IDEmbed{ID: 1},
+		ID:            1,
 		Type:          "fluxmonitor",
 		SchemaVersion: 1,
 		Pipeline:      *pipeline.NewTaskDAG(),
 		FluxMonitorSpec: &job.FluxMonitorSpec{
-			IDEmbed:           job.IDEmbed{ID: 2},
+			ID:                2,
 			ContractAddress:   cltest.NewEIP55Address(),
 			Precision:         2,
 			Threshold:         0.5,

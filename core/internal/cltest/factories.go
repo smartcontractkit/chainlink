@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
-	pbormanuuid "github.com/pborman/uuid"
+	uuid "github.com/satori/go.uuid"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -41,7 +41,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	uuid "github.com/satori/go.uuid"
+	googleuuid "github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -296,7 +296,7 @@ func MustJSONDel(t *testing.T, json, path string) string {
 // NewRunLog create models.Log for given jobid, address, block, and json
 func NewRunLog(
 	t *testing.T,
-	jobID models.JobID,
+	jobID common.Hash,
 	emitter common.Address,
 	requester common.Address,
 	blk int,
@@ -310,7 +310,7 @@ func NewRunLog(
 		BlockHash:   NewHash(),
 		Topics: []common.Hash{
 			models.RunLogTopic20190207withoutIndexes,
-			models.IDToTopic(jobID),
+			jobID,
 		},
 	}
 }
@@ -469,11 +469,6 @@ func NewRunInputWithResult(value interface{}) models.RunInput {
 	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
 }
 
-func NewRunInputWithResultAndJobRunID(value interface{}, jobRunID uuid.UUID) models.RunInput {
-	taskRunID := uuid.NewV4()
-	return *models.NewRunInputWithResult(jobRunID, taskRunID, value, models.RunStatusUnstarted)
-}
-
 func NewPollingDeviationChecker(t *testing.T, s *strpkg.Store) *fluxmonitor.PollingDeviationChecker {
 	fluxAggregator := new(mocks.FluxAggregator)
 	runManager := new(mocks.RunManager)
@@ -601,6 +596,13 @@ func MustInsertInProgressEthTxWithAttempt(t *testing.T, store *strpkg.Store, non
 	return etx
 }
 
+func MustInsertUnstartedEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) models.EthTx {
+	etx := NewEthTx(t, store, fromAddress)
+	etx.State = models.EthTxUnstarted
+	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
 func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 	gasPrice := utils.NewBig(big.NewInt(1))
 	return models.EthTxAttempt{
@@ -678,7 +680,9 @@ func MustInsertRandomKey(t testing.TB, db *gorm.DB, opts ...interface{}) models.
 func MustGenerateRandomKey(t testing.TB, opts ...interface{}) models.Key {
 	privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
 	require.NoError(t, err)
-	id := pbormanuuid.NewRandom()
+	//  < Geth 1.10 id type []byte
+	//  >= Geth 1.10 id type [16]byte
+	id := googleuuid.New()
 	k := &keystore.Key{
 		Id:         id,
 		Address:    crypto.PubkeyToAddress(privateKeyECDSA.PublicKey),
@@ -816,6 +820,9 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 		Registry:   registry,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
+	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)
+	require.NoError(t, err)
+	upkeep.PositioningConstant = positioningConstant
 	err = store.DB.Create(&upkeep).Error
 	require.NoError(t, err)
 	return upkeep

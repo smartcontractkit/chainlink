@@ -191,6 +191,8 @@ func NewConfig(t testing.TB) (*TestConfig, func()) {
 	config.Set("GAS_UPDATER_ENABLED", false)
 	// Disable tx re-sending for application tests
 	config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", 0)
+	// Limit ETH_FINALITY_DEPTH to avoid useless extra work backfilling heads
+	config.Set("ETH_FINALITY_DEPTH", 1)
 	return config, cleanup
 }
 
@@ -262,6 +264,28 @@ func NewConfigWithWSServer(t testing.TB, url string, wsserver *httptest.Server) 
 	config.Set("ETH_URL", url)
 	config.wsServer = wsserver
 	return config
+}
+
+type JobPipelineV2TestHelper struct {
+	Prm pipeline.ORM
+	Eb  postgres.EventBroadcaster
+	Jrm job.ORM
+	Pr  pipeline.Runner
+}
+
+func NewJobPipelineV2(t testing.TB, db *gorm.DB) JobPipelineV2TestHelper {
+	config, cleanupCfg := NewConfig(t)
+	t.Cleanup(cleanupCfg)
+	prm, eb, cleanup := NewPipelineORM(t, config, db)
+	jrm := job.NewORM(db, config.Config, prm, eb, &postgres.NullAdvisoryLocker{})
+	t.Cleanup(cleanup)
+	pr := pipeline.NewRunner(prm, config.Config)
+	return JobPipelineV2TestHelper{
+		prm,
+		eb,
+		jrm,
+		pr,
+	}
 }
 
 func NewPipelineORM(t testing.TB, config *TestConfig, db *gorm.DB) (pipeline.ORM, postgres.EventBroadcaster, func()) {
@@ -803,11 +827,11 @@ func CreateSpecViaWeb(t testing.TB, app *TestApplication, spec string) models.Jo
 	return createdJob
 }
 
-func CreateJobViaWeb(t testing.TB, app *TestApplication, spec string) job.Job {
+func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -881,7 +905,29 @@ func CreateJobRunViaExternalInitiator(
 func CreateHelloWorldJobViaWeb(t testing.TB, app *TestApplication, url string) models.JobSpec {
 	t.Helper()
 
-	buffer := MustReadFile(t, "testdata/hello_world_job.json")
+	buffer := []byte(`
+{
+  "initiators": [{ "type": "web" }],
+  "tasks": [
+    { "type": "HTTPGetWithUnrestrictedNetworkAccess", "params": {
+		"get": "https://bitstamp.net/api/ticker/",
+        "headers": {
+          "Key1": ["value"],
+          "Key2": ["value", "value"]
+        }
+      }
+    },
+    { "type": "JsonParse", "params": { "path": ["last"] }},
+    { "type": "EthBytes32" },
+    {
+      "type": "EthTx", "params": {
+        "address": "0x356a04bce728ba4c62a30294a55e6a8600a320b3",
+        "functionSelector": "0x609ff1bd"
+      }
+    }
+  ]
+}
+`)
 
 	var job models.JobSpec
 	err := json.Unmarshal(buffer, &job)
@@ -898,13 +944,13 @@ func UpdateJobRunViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	jr models.JobRun,
-	bta *models.BridgeTypeAuthentication,
+	bridgeResource *webpresenters.BridgeResource,
 	body string,
 ) models.JobRun {
 	t.Helper()
 
 	client := app.NewHTTPClient()
-	headers := map[string]string{"Authorization": "Bearer " + bta.IncomingToken}
+	headers := map[string]string{"Authorization": "Bearer " + bridgeResource.IncomingToken}
 	resp, cleanup := client.Patch("/v2/runs/"+jr.ID.String(), bytes.NewBufferString(body), headers)
 	defer cleanup()
 
@@ -921,7 +967,7 @@ func CreateBridgeTypeViaWeb(
 	t testing.TB,
 	app *TestApplication,
 	payload string,
-) *models.BridgeTypeAuthentication {
+) *webpresenters.BridgeResource {
 	t.Helper()
 
 	client := app.NewHTTPClient()
@@ -931,7 +977,7 @@ func CreateBridgeTypeViaWeb(
 	)
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
-	bt := &models.BridgeTypeAuthentication{}
+	bt := &webpresenters.BridgeResource{}
 	err := ParseJSONAPIResponse(t, resp, bt)
 	require.NoError(t, err)
 
@@ -1148,24 +1194,42 @@ func WaitForRuns(t testing.TB, j models.JobSpec, store *strpkg.Store, want int) 
 	return jrs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, jo job.ORM, timeout, poll time.Duration) pipeline.Run {
+func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want int, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
-	g := gomega.NewGomegaWithT(t)
-	var pr pipeline.Run
-	g.Eventually(func() *pipeline.Run {
+
+	var err error
+	prs := []pipeline.Run{}
+	gomega.NewGomegaWithT(t).Eventually(func() []pipeline.Run {
+		prs, _, err = jo.PipelineRunsByJobID(jobID, 0, 1000)
+		assert.NoError(t, err)
+		return prs
+	}, timeout, poll).Should(gomega.HaveLen(want))
+
+	return prs
+}
+
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+	t.Helper()
+
+	var pr []pipeline.Run
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		prs, _, err := jo.PipelineRunsByJobID(jobID, 0, 1000)
 		assert.NoError(t, err)
+		var completed []pipeline.Run
+
 		for i := range prs {
 			if !prs[i].Outputs.Null {
-				if prs[i].Errors.HasError() {
-					return nil
+				if !prs[i].Errors.HasError() {
+					completed = append(completed, prs[i])
 				}
-				pr = prs[i]
-				return &prs[i]
 			}
 		}
-		return nil
-	}, timeout, poll).ShouldNot(gomega.BeNil(), fmt.Sprintf("job %d on node %d not complete", jobID, nodeID))
+		if len(completed) >= count {
+			pr = completed
+			return true
+		}
+		return false
+	}, timeout, poll).Should(gomega.BeTrue(), fmt.Sprintf("job %d on node %d not complete with %d runs", jobID, nodeID, count))
 	return pr
 }
 
@@ -1522,6 +1586,8 @@ func NewAwaiter() Awaiter { return make(Awaiter) }
 func (a Awaiter) ItHappened() { close(a) }
 
 func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
+	t.Helper()
+
 	duration := 10 * time.Second
 	if len(durationParams) > 0 {
 		duration = durationParams[0]
@@ -1530,7 +1596,7 @@ func (a Awaiter) AwaitOrFail(t testing.TB, durationParams ...time.Duration) {
 	select {
 	case <-a:
 	case <-time.After(duration):
-		t.Fatal("timed out waiting for Awaiter to get ItHappened")
+		t.Fatal("Timed out waiting for Awaiter to get ItHappened")
 	}
 }
 

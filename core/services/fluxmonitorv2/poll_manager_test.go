@@ -31,6 +31,8 @@ type tickChecker struct {
 	idleTicked        bool
 	roundTicked       bool
 	hibernationTicked bool
+	retryTicked       bool
+	initialPoll       bool
 }
 
 // watchTicks watches the PollManager for ticks for the waitDuration
@@ -40,6 +42,8 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 		idleTicked:        false,
 		roundTicked:       false,
 		hibernationTicked: false,
+		retryTicked:       false,
+		initialPoll:       false,
 	}
 
 	waitCh := time.After(waitDuration)
@@ -53,6 +57,16 @@ func watchTicks(t *testing.T, pm *fluxmonitorv2.PollManager, waitDuration time.D
 			ticks.roundTicked = true
 		case <-pm.HibernationTimerTicks():
 			ticks.hibernationTicked = true
+		case <-pm.RetryTickerTicks():
+			ticks.retryTicked = true
+		case request := <-pm.Poll():
+			switch request.Type {
+			case fluxmonitorv2.PollRequestTypeInitial:
+				ticks.initialPoll = true
+			// Don't do anything with the other types for now
+			default:
+			}
+
 		case <-waitCh:
 			waitCh = nil
 		}
@@ -75,9 +89,9 @@ func TestPollManager_PollTicker(t *testing.T) {
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 24 * time.Hour,
 	}, logger.Default)
-	t.Cleanup(pm.Stop)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{})
+	t.Cleanup(pm.Stop)
 
 	ticks := watchTicks(t, pm, 2*time.Second)
 
@@ -96,11 +110,11 @@ func TestPollManager_IdleTimer(t *testing.T) {
 		IdleTimerDisabled:     false,
 		HibernationPollPeriod: 24 * time.Hour,
 	}, logger.Default)
-	t.Cleanup(pm.Stop)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 	})
+	t.Cleanup(pm.Stop)
 
 	ticks := watchTicks(t, pm, 2*time.Second)
 
@@ -119,7 +133,6 @@ func TestPollManager_RoundTimer(t *testing.T) {
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 24 * time.Hour,
 	}, logger.Default)
-	t.Cleanup(pm.Stop)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
@@ -134,7 +147,50 @@ func TestPollManager_RoundTimer(t *testing.T) {
 	assert.True(t, ticks.roundTicked)
 }
 
-func TestFluxMonitor_HibernationTimer(t *testing.T) {
+func TestPollManager_RetryTimer(t *testing.T) {
+	pm := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
+		PollTickerInterval:      pollTickerDefaultDuration,
+		PollTickerDisabled:      true,
+		IdleTimerPeriod:         idleTickerDefaultDuration,
+		IdleTimerDisabled:       true,
+		HibernationPollPeriod:   24 * time.Hour,
+		MinRetryBackoffDuration: 200 * time.Microsecond,
+		MaxRetryBackoffDuration: 1 * time.Minute,
+	}, logger.Default)
+
+	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
+		StartedAt: uint64(time.Now().Unix()),
+		Timeout:   10000, // in seconds. Don't timeout the round
+	})
+	t.Cleanup(pm.Stop)
+
+	pm.StartRetryTicker()
+
+	// Retry ticker fires
+	ticks := watchTicks(t, pm, 2*time.Second)
+	assert.False(t, ticks.pollTicked)
+	assert.False(t, ticks.idleTicked)
+	assert.False(t, ticks.roundTicked)
+	assert.True(t, ticks.retryTicked)
+
+	pm.StopRetryTicker()
+
+	ticks = watchTicks(t, pm, 2*time.Second)
+	assert.False(t, ticks.pollTicked)
+	assert.False(t, ticks.idleTicked)
+	assert.False(t, ticks.roundTicked)
+	assert.False(t, ticks.retryTicked)
+}
+
+func TestPollManager_InitialPoll(t *testing.T) {
+	pm := newPollManager()
+	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{})
+
+	ticks := watchTicks(t, pm, 1*time.Second)
+	assert.True(t, ticks.initialPoll)
+}
+
+func TestPollManager_HibernationTimer(t *testing.T) {
 	t.Parallel()
 
 	pm := fluxmonitorv2.NewPollManager(fluxmonitorv2.PollManagerConfig{
@@ -144,12 +200,12 @@ func TestFluxMonitor_HibernationTimer(t *testing.T) {
 		IdleTimerDisabled:     true,
 		HibernationPollPeriod: 1 * time.Second,
 	}, logger.Default)
-	t.Cleanup(pm.Stop)
 
 	pm.Start(true, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1, // in seconds
 	})
+	t.Cleanup(pm.Stop)
 
 	ticks := watchTicks(t, pm, 2*time.Second)
 
@@ -195,12 +251,12 @@ func TestPollManager_AwakeOnStartThenHibernate(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1,
 	})
+	t.Cleanup(pm.Stop)
 
 	ticks := watchTicks(t, pm, 2*time.Second)
 
@@ -276,7 +332,6 @@ func TestPollManager_ShouldPerformInitialPoll(t *testing.T) {
 				IdleTimerPeriod:       idleTickerDefaultDuration,
 				IdleTimerDisabled:     tc.idleTimerDisabled,
 			}, logger.Default)
-			t.Cleanup(pm.Stop)
 
 			assert.Equal(t, tc.want, pm.ShouldPerformInitialPoll())
 		})
@@ -288,13 +343,11 @@ func TestPollManager_Stop(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1,
 	})
-	t.Cleanup(pm.Stop)
 
 	ticks := watchTicks(t, pm, 2*time.Second)
 
@@ -315,13 +368,13 @@ func TestPollManager_ResetIdleTimer(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	// Start again in awake mode
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1,
 	})
+	t.Cleanup(pm.Stop)
 
 	// Idle timer fires when not hibernating
 	ticks := watchTicks(t, pm, 2*time.Second)
@@ -337,13 +390,13 @@ func TestPollManager_ResetIdleTimerWhenHibernating(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	// Start in hibernation
 	pm.Start(true, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1, // in seconds
 	})
+	t.Cleanup(pm.Stop)
 
 	// Idle timer does not fire when hibernating
 	ticks := watchTicks(t, pm, 2*time.Second)
@@ -359,13 +412,13 @@ func TestPollManager_Reset(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	// Start again in awake mode
 	pm.Start(false, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1,
 	})
+	t.Cleanup(pm.Stop)
 
 	// Ticker/timers fires when not hibernating
 	ticks := watchTicks(t, pm, 2*time.Second)
@@ -388,13 +441,13 @@ func TestPollManager_ResetWhenHibernating(t *testing.T) {
 	t.Parallel()
 
 	pm := newPollManager()
-	t.Cleanup(pm.Stop)
 
 	// Start in hibernation
 	pm.Start(true, flux_aggregator_wrapper.OracleRoundState{
 		StartedAt: uint64(time.Now().Unix()),
 		Timeout:   1, // in seconds
 	})
+	t.Cleanup(pm.Stop)
 
 	// Ticker/timers do not fire when hibernating
 	ticks := watchTicks(t, pm, 2*time.Second)

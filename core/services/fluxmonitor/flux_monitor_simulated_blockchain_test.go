@@ -23,7 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	goEthereumEth "github.com/ethereum/go-ethereum/eth"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -74,7 +74,7 @@ func setupFluxAggregatorUniverse(t *testing.T, key models.Key, min, max *big.Int
 		f.ned.From:     {Balance: oneEth},
 		f.nallory.From: {Balance: oneEth},
 	}
-	gasLimit := goEthereumEth.DefaultConfig.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
 	f.backend = backends.NewSimulatedBackend(genesisData, gasLimit)
 
 	f.aggregatorABI, err = abi.JSON(strings.NewReader(faw.FluxAggregatorABI))
@@ -351,7 +351,7 @@ func TestFluxMonitorAntiSpamLogic(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -501,7 +501,7 @@ func TestFluxMonitor_HibernationMode(t *testing.T) {
 
 	// Create FM Job, and wait for job run to start (the above UpdateAnswer call
 	// to FluxAggregator contract initiates a run.)
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -592,7 +592,7 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	}
 	mockServer := cltest.NewHTTPMockServerWithAlterableResponse(t, priceResponse)
 	defer mockServer.Close()
-	buffer := cltest.MustReadFile(t, "../../internal/testdata/flux_monitor_job.json")
+	buffer := cltest.MustReadFile(t, "../../testdata/jsonspecs/flux_monitor_job.json")
 	var job models.JobSpec
 	require.NoError(t, json.Unmarshal(buffer, &job))
 	initr := &job.Initiators[0]
@@ -602,12 +602,9 @@ func TestFluxMonitor_InvalidSubmission(t *testing.T) {
 	initr.InitiatorParams.Precision = 8
 
 	j := cltest.CreateJobSpecViaWeb(t, app, job)
-	go func() {
-		for {
-			fa.backend.Commit()
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
+	closer := cltest.Mine(fa.backend, 500*time.Millisecond)
+	defer closer()
+
 	// We should see a spec error because the value is too large to submit on-chain.
 	jse := cltest.WaitForSpecError(t, app.Store, j.ID, 1)
 	assert.Contains(t, jse[0].Description, "Polled value is outside acceptable range")

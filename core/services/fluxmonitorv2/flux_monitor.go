@@ -27,9 +27,28 @@ import (
 	"gorm.io/gorm"
 )
 
+// PollRequest defines a request to initiate a poll
+type PollRequest struct {
+	Type      PollRequestType
+	Timestamp time.Time
+}
+
+// PollRequestType defines which method was used to request a poll
+type PollRequestType int
+
+const (
+	PollRequestTypeUnknown PollRequestType = iota
+	PollRequestTypeInitial
+	PollRequestTypePoll
+	PollRequestTypeIdle
+	PollRequestTypeRound
+	PollRequestTypeHibernation
+	PollRequestTypeRetry
+	PollRequestTypeAwaken
+)
+
 // FluxMonitor polls external price adapters via HTTP to check for price swings.
 type FluxMonitor struct {
-	jobID             int32
 	contractAddress   common.Address
 	oracleAddress     common.Address
 	pipelineRun       PipelineRun
@@ -60,7 +79,6 @@ type FluxMonitor struct {
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
 func NewFluxMonitor(
-	jobID int32,
 	pipelineRun PipelineRun,
 	orm ORM,
 	jobORM job.ORM,
@@ -80,7 +98,6 @@ func NewFluxMonitor(
 	fmLogger *logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
-		jobID:             jobID,
 		pipelineRun:       pipelineRun,
 		orm:               orm,
 		jobORM:            jobORM,
@@ -169,10 +186,11 @@ func NewFromJobSpec(
 		MinJobPayment:      fmSpec.MinPayment,
 	}
 
+	jobSpec.PipelineSpec.JobID = jobSpec.ID
+	jobSpec.PipelineSpec.JobName = jobSpec.Name.ValueOrZero()
 	pipelineRun := PipelineRun{
 		runner: pipelineRunner,
 		spec:   *jobSpec.PipelineSpec,
-		jobID:  jobSpec.ID,
 		logger: *logger.Default,
 	}
 
@@ -195,17 +213,18 @@ func NewFromJobSpec(
 
 	pollManager := NewPollManager(
 		PollManagerConfig{
-			PollTickerInterval:    fmSpec.PollTimerPeriod,
-			PollTickerDisabled:    fmSpec.PollTimerDisabled,
-			IdleTimerPeriod:       fmSpec.IdleTimerPeriod,
-			IdleTimerDisabled:     fmSpec.IdleTimerDisabled,
-			HibernationPollPeriod: 24 * time.Hour, // Not currently configurable
+			PollTickerInterval:      fmSpec.PollTimerPeriod,
+			PollTickerDisabled:      fmSpec.PollTimerDisabled,
+			IdleTimerPeriod:         fmSpec.IdleTimerPeriod,
+			IdleTimerDisabled:       fmSpec.IdleTimerDisabled,
+			HibernationPollPeriod:   24 * time.Hour, // Not currently configurable
+			MinRetryBackoffDuration: 1 * time.Minute,
+			MaxRetryBackoffDuration: 1 * time.Hour,
 		},
 		fmLogger,
 	)
 
 	return NewFluxMonitor(
-		jobSpec.ID,
 		pipelineRun,
 		orm,
 		jobORM,
@@ -298,7 +317,7 @@ func (fm *FluxMonitor) JobID() models.JobID {
 // JobIDV2 implements the listener.Listener interface.
 //
 // Returns the v2 job id
-func (fm *FluxMonitor) JobIDV2() int32 { return fm.jobID }
+func (fm *FluxMonitor) JobIDV2() int32 { return fm.pipelineRun.spec.JobID }
 
 // IsV2Job implements the listener.Listener interface.
 //
@@ -347,8 +366,7 @@ func (fm *FluxMonitor) consume() {
 	if err := fm.SetOracleAddress(); err != nil {
 		fm.logger.Warnw(
 			"unable to set oracle address, this flux monitor job may not work correctly",
-			"err",
-			err,
+			"err", err,
 		)
 	}
 
@@ -382,7 +400,6 @@ func (fm *FluxMonitor) consume() {
 
 	fm.readyForLogs()
 	fm.pollManager.Start(fm.IsHibernating(), fm.initialRoundState())
-	fm.performInitialPoll()
 
 	tickLogger := fm.logger.With(
 		"pollInterval", fm.pollManager.cfg.PollTickerInterval,
@@ -398,20 +415,31 @@ func (fm *FluxMonitor) consume() {
 			fm.processLogs()
 
 		case <-fm.pollManager.PollTickerTicks():
-			tickLogger.Debugw("Poll ticker fired")
-			fm.pollIfEligible(fm.deviationChecker)
+			tickLogger.Debug("Poll ticker fired")
+			fm.pollIfEligible(PollRequestTypePoll, fm.deviationChecker)
 
 		case <-fm.pollManager.IdleTimerTicks():
-			tickLogger.Debugw("Idle timer fired")
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			tickLogger.Debug("Idle timer fired")
+			fm.pollIfEligible(PollRequestTypeIdle, NewZeroDeviationChecker())
 
 		case <-fm.pollManager.RoundTimerTicks():
-			tickLogger.Debugw("Round timer fired")
-			fm.pollIfEligible(fm.deviationChecker)
+			tickLogger.Debug("Round timer fired")
+			fm.pollIfEligible(PollRequestTypeRound, fm.deviationChecker)
 
 		case <-fm.pollManager.HibernationTimerTicks():
-			tickLogger.Debugw("Hibernation timer fired")
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			tickLogger.Debug("Hibernation timer fired")
+			fm.pollIfEligible(PollRequestTypeHibernation, NewZeroDeviationChecker())
+
+		case <-fm.pollManager.RetryTickerTicks():
+			tickLogger.Debug("Retry ticker fired")
+			fm.pollIfEligible(PollRequestTypeRetry, NewZeroDeviationChecker())
+		case request := <-fm.pollManager.Poll():
+			switch request.Type {
+			case PollRequestTypeUnknown:
+				break
+			default:
+				fm.pollIfEligible(request.Type, fm.deviationChecker)
+			}
 		}
 	}
 }
@@ -421,6 +449,7 @@ func (fm *FluxMonitor) consume() {
 func (fm *FluxMonitor) SetOracleAddress() error {
 	oracleAddrs, err := fm.fluxAggregator.GetOracles(nil)
 	if err != nil {
+		fm.logger.Error("failed to get list of oracles from FluxAggregator contract")
 		return errors.Wrap(err, "failed to get list of oracles from FluxAggregator contract")
 	}
 	accounts := fm.keyStore.Accounts()
@@ -433,29 +462,23 @@ func (fm *FluxMonitor) SetOracleAddress() error {
 		}
 	}
 
-	l := fm.logger.With(
+	log := fm.logger.With(
 		"accounts", accounts,
 		"oracleAddresses", oracleAddrs,
 	)
 
 	if len(accounts) > 0 {
 		addr := accounts[0].Address
-		l.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
+		log.Warnw("None of the node's keys matched any oracle addresses, using first available key. This flux monitor job may not work correctly",
 			"address", addr.Hex(),
 		)
 		fm.oracleAddress = addr
-	} else {
-		l.Error("No keys found. This flux monitor job may not work correctly")
+
+		return nil
 	}
 
-	return errors.New("none of the node's keys matched any oracle addresses")
-}
-
-// performInitialPoll performs the initial poll if required
-func (fm *FluxMonitor) performInitialPoll() {
-	if fm.pollManager.ShouldPerformInitialPoll() {
-		fm.pollIfEligible(fm.deviationChecker)
-	}
+	log.Error("No keys found. This flux monitor job may not work correctly")
+	return errors.New("No keys found")
 }
 
 func (fm *FluxMonitor) processLogs() {
@@ -499,7 +522,7 @@ func (fm *FluxMonitor) processLogs() {
 
 		case *flags_wrapper.FlagsFlagLowered:
 			fm.pollManager.Awaken(fm.initialRoundState())
-			fm.pollIfEligible(NewZeroDeviationChecker())
+			fm.pollIfEligible(PollRequestTypeAwaken, NewZeroDeviationChecker())
 
 			err = broadcast.MarkConsumed()
 
@@ -543,7 +566,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	)
 
 	newRoundLogger.Debug("NewRound log")
-	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.jobID)), log.RoundId)
+	promfm.SetBigInt(promfm.SeenRound.WithLabelValues(fmt.Sprintf("%d", fm.pipelineRun.spec.JobID)), log.RoundId)
 
 	//
 	// NewRound answer submission logic:
@@ -647,8 +670,20 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 
 	newRoundLogger.Info("Responding to new round request")
 
+	// Best effort to attach metadata.
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		newRoundLogger.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			newRoundLogger.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
+	}
+
 	// Call the v2 pipeline to execute a new job run
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		newRoundLogger.Errorf("unable to fetch median price: %v", err)
 
@@ -695,7 +730,7 @@ func (fm *FluxMonitor) checkEligibilityAndAggregatorFunding(roundState flux_aggr
 	return nil
 }
 
-func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
+func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker *DeviationChecker) {
 	l := fm.logger.With(
 		"threshold", deviationChecker.Thresholds.Rel,
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
@@ -724,7 +759,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		l.Errorw("unable to determine eligibility to submit from FluxAggregator contract", "err", err)
 		fm.jobORM.RecordError(
 			context.Background(),
-			fm.jobID,
+			fm.pipelineRun.spec.JobID,
 			"Unable to call roundState method on provided contract. Check contract address.",
 		)
 
@@ -732,6 +767,17 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 	}
 
 	fm.pollManager.Reset(roundState)
+	// Retry if a idle timer fails
+	defer func() {
+		if pollReq == PollRequestTypeIdle {
+			if err != nil {
+				fm.pollManager.StartRetryTicker()
+				return
+			}
+			fm.pollManager.StopRetryTicker()
+		}
+	}()
+
 	l = l.With("reportableRound", roundState.RoundId)
 
 	roundStats, jobRunStatus, err := fm.statsAndStatusForRound(roundState.RoundId)
@@ -757,13 +803,24 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
+	var metaDataForBridge map[string]interface{}
+	lrd, err := fm.fluxAggregator.LatestRoundData(nil)
+	if err != nil {
+		l.Warnw("Couldn't read latest round data for request meta", "err", err)
+	} else {
+		metaDataForBridge, err = models.MarshalBridgeMetaData(lrd.Answer, lrd.UpdatedAt)
+		if err != nil {
+			l.Warnw("Error marshalling roundState for request meta", "err", err)
+		}
+	}
+
 	// Call the v2 pipeline to execute a new pipeline run
 	// Note: we expect the FM pipeline to scale the fetched answer by the same
 	// amount as precision
-	runID, answer, err := fm.pipelineRun.Execute()
+	runID, answer, err := fm.pipelineRun.Execute(metaDataForBridge)
 	if err != nil {
 		l.Errorw("can't fetch answer", "err", err)
-		fm.jobORM.RecordError(context.Background(), fm.jobID, "Error polling")
+		fm.jobORM.RecordError(context.Background(), fm.pipelineRun.spec.JobID, "Error polling")
 
 		return
 	}
@@ -772,7 +829,7 @@ func (fm *FluxMonitor) pollIfEligible(deviationChecker *DeviationChecker) {
 		return
 	}
 
-	jobID := fmt.Sprintf("%d", fm.jobID)
+	jobID := fmt.Sprintf("%d", fm.pipelineRun.spec.JobID)
 	latestAnswer := decimal.NewFromBigInt(roundState.LatestSubmission, -fm.precision)
 	promfm.SetDecimal(promfm.SeenValue.WithLabelValues(jobID), *answer)
 
@@ -822,7 +879,7 @@ func (fm *FluxMonitor) isValidSubmission(l *zap.SugaredLogger, answer decimal.De
 		"max", fm.submissionChecker.Max,
 		"answer", answer,
 	)
-	fm.jobORM.RecordError(context.Background(), fm.jobID, "Answer is outside acceptable range")
+	fm.jobORM.RecordError(context.Background(), fm.pipelineRun.spec.JobID, "Answer is outside acceptable range")
 
 	return false
 }

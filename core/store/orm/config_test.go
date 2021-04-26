@@ -93,6 +93,79 @@ func TestConfig_EthereumSecondaryURLs(t *testing.T) {
 	}
 }
 
+func TestConfig_ChainSpecificDefaults(t *testing.T) {
+	t.Parallel()
+
+	t.Run("with unknown chain ID returns mainnet defaults", func(t *testing.T) {
+		config := NewConfig()
+		config.Set("ETH_CHAIN_ID", "0")
+
+		assert.Equal(t, ChainSpecificDefaults[1].EthGasBumpThreshold, config.EthGasBumpThreshold())
+		assert.Equal(t, ChainSpecificDefaults[1].EthGasBumpWei, config.EthGasBumpWei())
+		assert.Equal(t, ChainSpecificDefaults[1].EthGasPriceDefault, config.EthGasPriceDefault())
+		assert.Equal(t, ChainSpecificDefaults[1].EthMaxGasPriceWei, config.EthMaxGasPriceWei())
+		assert.Equal(t, ChainSpecificDefaults[1].EthFinalityDepth, config.EthFinalityDepth())
+		assert.Equal(t, ChainSpecificDefaults[1].EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
+		assert.Equal(t, ChainSpecificDefaults[1].EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
+		assert.Equal(t, ChainSpecificDefaults[1].EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
+		assert.Equal(t, ChainSpecificDefaults[1].GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
+		assert.Equal(t, ChainSpecificDefaults[1].GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
+		assert.Equal(t, ChainSpecificDefaults[1].HeadTimeBudget, config.HeadTimeBudget())
+		assert.Equal(t, ChainSpecificDefaults[1].MinIncomingConfirmations, config.MinIncomingConfirmations())
+		assert.Equal(t, ChainSpecificDefaults[1].MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
+	})
+
+	t.Run("with known chain ID returns defaults for that chain", func(t *testing.T) {
+		config := NewConfig()
+		config.Set("ETH_CHAIN_ID", "80001")
+
+		assert.Equal(t, ChainSpecificDefaults[80001].EthGasBumpThreshold, config.EthGasBumpThreshold())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthGasBumpWei, config.EthGasBumpWei())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthGasPriceDefault, config.EthGasPriceDefault())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthMaxGasPriceWei, config.EthMaxGasPriceWei())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthFinalityDepth, config.EthFinalityDepth())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthHeadTrackerHistoryDepth, config.EthHeadTrackerHistoryDepth())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthBalanceMonitorBlockDelay, config.EthBalanceMonitorBlockDelay())
+		assert.Equal(t, ChainSpecificDefaults[80001].EthTxResendAfterThreshold, config.EthTxResendAfterThreshold())
+		assert.Equal(t, ChainSpecificDefaults[80001].GasUpdaterBlockDelay, config.GasUpdaterBlockDelay())
+		assert.Equal(t, ChainSpecificDefaults[80001].GasUpdaterBlockHistorySize, config.GasUpdaterBlockHistorySize())
+		assert.Equal(t, ChainSpecificDefaults[80001].HeadTimeBudget, config.HeadTimeBudget())
+		assert.Equal(t, ChainSpecificDefaults[80001].MinIncomingConfirmations, config.MinIncomingConfirmations())
+		assert.Equal(t, ChainSpecificDefaults[80001].MinRequiredOutgoingConfirmations, config.MinRequiredOutgoingConfirmations())
+	})
+
+	t.Run("setting env var overrides", func(t *testing.T) {
+		config := NewConfig()
+		config.Set("ETH_GAS_BUMP_THRESHOLD", "42")
+		config.Set("ETH_GAS_BUMP_WEI", "42")
+		config.Set("ETH_GAS_PRICE_DEFAULT", "42")
+		config.Set("ETH_MAX_GAS_PRICE_WEI", "42")
+		config.Set("ETH_FINALITY_DEPTH", "42")
+		config.Set("ETH_HEAD_TRACKER_HISTORY_DEPTH", "42")
+		config.Set("ETH_BALANCE_MONITOR_BLOCK_DELAY", "42")
+		config.Set("ETH_TX_RESEND_AFTER_THRESHOLD", "42s")
+		config.Set("GAS_UPDATER_BLOCK_DELAY", "42")
+		config.Set("GAS_UPDATER_BLOCK_HISTORY_SIZE", "42")
+		config.Set("HEAD_TIME_BUDGET", "42s")
+		config.Set("MIN_INCOMING_CONFIRMATIONS", "42")
+		config.Set("MIN_OUTGOING_CONFIRMATIONS", "42")
+
+		assert.Equal(t, 42, int(config.EthGasBumpThreshold()))
+		assert.Equal(t, "42", config.EthGasBumpWei().String())
+		assert.Equal(t, "42", config.EthGasPriceDefault().String())
+		assert.Equal(t, "42", config.EthMaxGasPriceWei().String())
+		assert.Equal(t, 42, int(config.EthFinalityDepth()))
+		assert.Equal(t, 42, int(config.EthHeadTrackerHistoryDepth()))
+		assert.Equal(t, 42, int(config.EthBalanceMonitorBlockDelay()))
+		assert.Equal(t, 42*time.Second, config.EthTxResendAfterThreshold())
+		assert.Equal(t, 42, int(config.GasUpdaterBlockDelay()))
+		assert.Equal(t, 42, int(config.GasUpdaterBlockHistorySize()))
+		assert.Equal(t, 42*time.Second, config.HeadTimeBudget())
+		assert.Equal(t, 42, int(config.MinIncomingConfirmations()))
+		assert.Equal(t, 42, int(config.MinRequiredOutgoingConfirmations()))
+	})
+}
+
 func TestConfig_readFromFile(t *testing.T) {
 	v := viper.New()
 	v.Set("ROOT", "../../../tools/clroot/")
