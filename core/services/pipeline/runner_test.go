@@ -30,7 +30,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
 
 	// 1. Setup bridge
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 
 	bridgeFeedURL, err := url.ParseRequestURI(s1.URL)
@@ -42,7 +42,7 @@ func Test_PipelineRunner_ExecuteTaskRuns(t *testing.T) {
 	require.NoError(t, store.ORM.DB.Create(&bridge).Error)
 
 	// 2. Setup success HTTP
-	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600)))
+	s2 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9600), "", nil))
 	defer s2.Close()
 
 	s4 := httptest.NewServer(fakeStringResponder(t, "foo-index-1"))
@@ -85,7 +85,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(context.Background(), spec, *logger.Default)
+	trrs, err := r.ExecuteRun(context.Background(), spec, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Len(t, trrs, len(ts))
 
@@ -149,7 +149,7 @@ answer1 [type=median                      index=0];
 	spec := pipeline.Spec{
 		DotDagSource: s,
 	}
-	trrs, err := r.ExecuteRun(ctx, spec, *logger.Default)
+	trrs, err := r.ExecuteRun(ctx, spec, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	for _, trr := range trrs {
 		if trr.IsTerminal {
@@ -175,7 +175,7 @@ ds_parse [type=jsonparse path="result"]
 ds_multiply [type=multiply times=10]
 ds_panic [type=panic msg="oh no"]
 ds1->ds_parse->ds_multiply->ds_panic;`, s.URL),
-	}, *logger.Default)
+	}, pipeline.JSONSerializable{}, *logger.Default)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(trrs))
 	assert.Equal(t, []interface{}{nil}, trrs.FinalResult().Values)

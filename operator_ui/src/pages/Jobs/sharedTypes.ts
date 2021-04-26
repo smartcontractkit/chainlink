@@ -27,7 +27,12 @@ export type BaseJob = {
   name: string | null
 }
 
-export type JobSpecType = 'directrequest' | 'fluxmonitor' | 'offchainreporting'
+export type JobSpecType =
+  | 'directrequest'
+  | 'fluxmonitor'
+  | 'offchainreporting'
+  | 'keeper'
+  | 'cron'
 
 export type JobV2 = BaseJob & {
   dotDagSource: string
@@ -81,7 +86,7 @@ export type PipelineJobRun = BaseJobRun & {
   }
   status: PipelineJobRunStatus
   taskRuns: PipelineTaskRun[]
-  type: 'Off-chain reporting job run'
+  type: 'Pipeline job run'
 }
 
 export type JobData = {

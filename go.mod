@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink
 go 1.15
 
 require (
-	github.com/DATA-DOG/go-txdb v0.1.3
+	github.com/DATA-DOG/go-txdb v0.1.4
 	github.com/Depado/ginprom v1.2.1-0.20200115153638-53bbba851bd8
 	github.com/araddon/dateparse v0.0.0-20190622164848-0fb0a474d195
 	github.com/bitly/go-simplejson v0.5.0
@@ -11,7 +11,8 @@ require (
 	github.com/btcsuite/btcd v0.21.0-beta
 	github.com/coreos/go-semver v0.3.0
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/ethereum/go-ethereum v1.9.25
+	github.com/denisenkom/go-mssqldb v0.0.0-20200428022330-06a60b6afbbc // indirect
+	github.com/ethereum/go-ethereum v1.10.0
 	github.com/fatih/color v1.10.0
 	github.com/fxamacker/cbor/v2 v2.2.0
 	github.com/gin-contrib/cors v1.3.1
@@ -19,8 +20,9 @@ require (
 	github.com/gin-contrib/size v0.0.0-20190528085907-355431950c57
 	github.com/gin-gonic/contrib v0.0.0-20190526021735-7fb7810ed2a0
 	github.com/gin-gonic/gin v1.6.0
-	github.com/go-gormigrate/gormigrate/v2 v2.0.0
 	github.com/gobuffalo/packr v1.30.1
+	github.com/gofrs/uuid v3.3.0+incompatible
+	github.com/google/uuid v1.1.5
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.4.2
@@ -32,12 +34,12 @@ require (
 	github.com/libp2p/go-libp2p-core v0.8.5
 	github.com/libp2p/go-libp2p-peerstore v0.2.6
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+	github.com/mattn/go-sqlite3 v1.14.3 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/multiformats/go-multiaddr v0.3.1
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/gomega v1.10.5
-	github.com/pborman/uuid v1.2.1
 	github.com/pelletier/go-toml v1.8.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.9.0
@@ -65,11 +67,12 @@ require (
 	golang.org/x/tools v0.0.0-20201211185031-d93e913c1a58
 	gonum.org/v1/gonum v0.8.2
 	gopkg.in/guregu/null.v4 v4.0.0
-	gorm.io/driver/mysql v1.0.3 // indirect
 	gorm.io/driver/postgres v1.0.8
-	gorm.io/driver/sqlite v1.1.3 // indirect
-	gorm.io/driver/sqlserver v1.0.5 // indirect
 	gorm.io/gorm v1.20.12
 )
 
-replace github.com/DATA-DOG/go-txdb => github.com/smartcontractkit/go-txdb v0.1.4-0.20210313013032-3a5ba5dff784
+// To fix CVE: c16fb56d-9de6-4065-9fca-d2b4cfb13020
+// See https://github.com/dgrijalva/jwt-go/issues/463
+// If that happens to get released in a 3.X.X version, we can add a constraint to our go.mod
+// for it. If its in 4.X.X, then we need all our transitive deps to upgrade to it.
+replace github.com/dgrijalva/jwt-go => github.com/form3tech-oss/jwt-go v3.2.1+incompatible

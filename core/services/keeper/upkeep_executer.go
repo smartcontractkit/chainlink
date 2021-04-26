@@ -2,8 +2,15 @@ package keeper
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sync"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/core/services/pipeline"
+	"gopkg.in/guregu/null.v4"
+	"gorm.io/gorm"
 
 	"github.com/pkg/errors"
 
@@ -15,35 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"gorm.io/gorm"
 )
 
 const (
-	checkUpkeep        = "checkUpkeep"
-	performUpkeep      = "performUpkeep"
-	executionQueueSize = 10
+	checkUpkeep          = "checkUpkeep"
+	performUpkeep        = "performUpkeep"
+	executionQueueSize   = 10
+	queuedEthTransaction = "successfully queued performUpkeep eth transaction"
 )
-
-func NewUpkeepExecutor(
-	job job.Job,
-	db *gorm.DB,
-	ethClient eth.Client,
-	headBroadcaster *services.HeadBroadcaster,
-	maxGracePeriod int64,
-) *UpkeepExecutor {
-	return &UpkeepExecutor{
-		chStop:          make(chan struct{}),
-		ethClient:       ethClient,
-		executionQueue:  make(chan struct{}, executionQueueSize),
-		headBroadcaster: headBroadcaster,
-		job:             job,
-		mailbox:         utils.NewMailbox(1),
-		maxGracePeriod:  maxGracePeriod,
-		orm:             NewORM(db),
-		wgDone:          sync.WaitGroup{},
-		StartStopOnce:   utils.StartStopOnce{},
-	}
-}
 
 // UpkeepExecutor fulfills Service and HeadBroadcastable interfaces
 var _ job.Service = (*UpkeepExecutor)(nil)
@@ -58,8 +44,32 @@ type UpkeepExecutor struct {
 	mailbox         *utils.Mailbox
 	maxGracePeriod  int64
 	orm             ORM
+	pr              pipeline.Runner
 	wgDone          sync.WaitGroup
 	utils.StartStopOnce
+}
+
+func NewUpkeepExecutor(
+	job job.Job,
+	db *gorm.DB,
+	pr pipeline.Runner,
+	ethClient eth.Client,
+	headBroadcaster *services.HeadBroadcaster,
+	maxGracePeriod int64,
+) *UpkeepExecutor {
+	return &UpkeepExecutor{
+		chStop:          make(chan struct{}),
+		ethClient:       ethClient,
+		executionQueue:  make(chan struct{}, executionQueueSize),
+		headBroadcaster: headBroadcaster,
+		job:             job,
+		mailbox:         utils.NewMailbox(1),
+		maxGracePeriod:  maxGracePeriod,
+		orm:             NewORM(db),
+		pr:              pr,
+		wgDone:          sync.WaitGroup{},
+		StartStopOnce:   utils.StartStopOnce{},
+	}
 }
 
 func (executor *UpkeepExecutor) Start() error {
@@ -135,7 +145,7 @@ func (executor *UpkeepExecutor) processActiveUpkeeps() {
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
 func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
-
+	start := time.Now()
 	logArgs := []interface{}{
 		"jobID", executor.job.ID,
 		"blockNum", headNumber,
@@ -156,7 +166,7 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 
 	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
-		logger.Debugw("UpkeepExecutor: checkUpkeep failed", logArgs...)
+		logger.Debugw(fmt.Sprintf("UpkeepExecutor: checkUpkeep failed: %v", err), logArgs...)
 		return
 	}
 
@@ -172,7 +182,23 @@ func (executor *UpkeepExecutor) execute(upkeep UpkeepRegistration, headNumber in
 	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
 	defer cancel()
 
-	err = executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
+	etx, err := executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
+	if err != nil {
+		logger.Error(err)
+	}
+
+	// Save a run indicating we performed an upkeep.
+	f := time.Now()
+	_, err = executor.pr.InsertFinishedRun(ctxCombined, pipeline.Run{
+		PipelineSpecID: executor.job.PipelineSpecID,
+		Meta: pipeline.JSONSerializable{
+			Val: map[string]interface{}{"eth_tx_id": etx.ID},
+		},
+		Errors:     pipeline.RunErrors{null.String{}},
+		Outputs:    pipeline.JSONSerializable{Val: fmt.Sprintf("queued tx from %v to %v txdata %v", etx.FromAddress, etx.ToAddress, hex.EncodeToString(etx.EncodedPayload))},
+		CreatedAt:  start,
+		FinishedAt: &f,
+	}, nil, false)
 	if err != nil {
 		logger.Error(err)
 	}

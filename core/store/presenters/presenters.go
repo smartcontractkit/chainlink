@@ -10,15 +10,10 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
-	"gorm.io/gorm"
-
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
@@ -29,30 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/tidwall/gjson"
 )
-
-// ETHKey holds the hex representation of the address plus it's ETH & LINK balances
-type ETHKey struct {
-	Address     string         `json:"address"`
-	EthBalance  *assets.Eth    `json:"ethBalance"`
-	LinkBalance *assets.Link   `json:"linkBalance"`
-	NextNonce   int64          `json:"nextNonce"`
-	LastUsed    *time.Time     `json:"lastUsed"`
-	IsFunding   bool           `json:"isFunding"`
-	CreatedAt   time.Time      `json:"createdAt"`
-	UpdatedAt   time.Time      `json:"updatedAt"`
-	DeletedAt   gorm.DeletedAt `json:"deletedAt"`
-}
-
-// GetID returns the ID of this structure for jsonapi serialization.
-func (k ETHKey) GetID() string {
-	return k.Address
-}
-
-// SetID is used to set the ID of this structure when deserializing from jsonapi documents.
-func (k *ETHKey) SetID(value string) error {
-	k.Address = value
-	return nil
-}
 
 // ConfigPrinter are the non-secret values of the node
 //
@@ -100,7 +71,6 @@ type EnvPrinter struct {
 	GasUpdaterTransactionPercentile       uint16          `json:"gasUpdaterTransactionPercentile"`
 	InsecureFastScrypt                    bool            `json:"insecureFastScrypt"`
 	TriggerFallbackDBPollInterval         time.Duration   `json:"jobPipelineDBPollInterval"`
-	JobPipelineParallelism                uint8           `json:"jobPipelineParallelism"`
 	JobPipelineReaperInterval             time.Duration   `json:"jobPipelineReaperInterval"`
 	JobPipelineReaperThreshold            time.Duration   `json:"jobPipelineReaperThreshold"`
 	JSONConsole                           bool            `json:"jsonConsole"`
@@ -125,7 +95,7 @@ type EnvPrinter struct {
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
 	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
-	OperatorContractAddress               common.Address  `json:"oracleContractAddress"`
+	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
 	Port                                  uint16          `json:"chainlinkPort"`
 	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                       int64           `json:"replayFromBlock"`
@@ -183,7 +153,6 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			GasUpdaterTransactionPercentile:       config.GasUpdaterTransactionPercentile(),
 			InsecureFastScrypt:                    config.InsecureFastScrypt(),
 			TriggerFallbackDBPollInterval:         config.TriggerFallbackDBPollInterval(),
-			JobPipelineParallelism:                config.JobPipelineParallelism(),
 			JobPipelineReaperInterval:             config.JobPipelineReaperInterval(),
 			JobPipelineReaperThreshold:            config.JobPipelineReaperThreshold(),
 			JSONConsole:                           config.JSONConsole(),
@@ -406,7 +375,13 @@ func initiatorParams(i Initiator) (interface{}, error) {
 		}{i.Address, i.RequestData, i.Feeds, i.Threshold, i.AbsoluteThreshold,
 			i.Precision, i.PollTimer, i.IdleTimer}, nil
 	case models.InitiatorRandomnessLog:
-		return struct{ Address common.Address }{i.Address}, nil
+		return struct {
+			Address          common.Address `json:"address"`
+			JobIDTopicFilter models.JobID   `json:"jobIDTopicFilter"`
+		}{
+			i.Address,
+			i.JobIDTopicFilter,
+		}, nil
 	default:
 		return nil, fmt.Errorf("cannot marshal unsupported initiator type '%v'", i.Type)
 	}
@@ -536,119 +511,6 @@ func (sa ServiceAgreement) FriendlyAggregatorInitMethod() string {
 // readable format.
 func (sa ServiceAgreement) FriendlyAggregatorFulfillMethod() string {
 	return sa.Encumbrance.AggFulfillSelector.String()
-}
-
-// UserPresenter wraps the user record for shipping as a jsonapi response in
-// the API.
-type UserPresenter struct {
-	*models.User
-}
-
-// GetID returns the jsonapi ID.
-func (u UserPresenter) GetID() string {
-	return u.User.Email
-}
-
-// GetName returns the collection name for jsonapi.
-func (u UserPresenter) GetName() string {
-	return "users"
-}
-
-// MarshalJSON returns the User as json.
-func (u UserPresenter) MarshalJSON() ([]byte, error) {
-	return json.Marshal(&struct {
-		Email     string `json:"email"`
-		CreatedAt string `json:"createdAt"`
-	}{
-		Email:     u.User.Email,
-		CreatedAt: utils.ISO8601UTC(u.User.CreatedAt),
-	})
-}
-
-// NewAccount is a jsonapi wrapper for an Ethereum account.
-type NewAccount struct {
-	*accounts.Account
-}
-
-// GetID returns the jsonapi ID.
-func (a NewAccount) GetID() string {
-	return a.Address.String()
-}
-
-// GetName returns the collection name for jsonapi.
-func (a NewAccount) GetName() string {
-	return "keys"
-}
-
-// EthTx is a jsonapi wrapper for an Ethereum Transaction.
-type EthTx struct {
-	ID       int64           `json:"-"`
-	State    string          `json:"state,omitempty"`
-	Data     hexutil.Bytes   `json:"data,omitempty"`
-	From     *common.Address `json:"from,omitempty"`
-	GasLimit string          `json:"gasLimit,omitempty"`
-	GasPrice string          `json:"gasPrice,omitempty"`
-	Hash     common.Hash     `json:"hash,omitempty"`
-	Hex      string          `json:"rawHex,omitempty"`
-	Nonce    string          `json:"nonce,omitempty"`
-	SentAt   string          `json:"sentAt,omitempty"`
-	To       *common.Address `json:"to,omitempty"`
-	Value    string          `json:"value,omitempty"`
-}
-
-func NewEthTx(tx models.EthTx) EthTx {
-	return EthTx{
-		ID:       tx.ID,
-		Data:     hexutil.Bytes(tx.EncodedPayload),
-		From:     &tx.FromAddress,
-		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
-		State:    string(tx.State),
-		To:       &tx.ToAddress,
-		Value:    tx.Value.String(),
-	}
-}
-
-func NewEthTxFromAttempt(txa models.EthTxAttempt) EthTx {
-	return newEthTxWithAttempt(txa.EthTx, txa)
-}
-
-func newEthTxWithAttempt(tx models.EthTx, txa models.EthTxAttempt) EthTx {
-	ethTX := EthTx{
-		Data:     hexutil.Bytes(tx.EncodedPayload),
-		From:     &tx.FromAddress,
-		GasLimit: strconv.FormatUint(tx.GasLimit, 10),
-		GasPrice: txa.GasPrice.String(),
-		Hash:     txa.Hash,
-		Hex:      hexutil.Encode(txa.SignedRawTx),
-		ID:       tx.ID,
-		State:    string(tx.State),
-		To:       &tx.ToAddress,
-		Value:    tx.Value.String(),
-	}
-	if tx.Nonce != nil {
-		ethTX.Nonce = strconv.FormatUint(uint64(*tx.Nonce), 10)
-	}
-	if txa.BroadcastBeforeBlockNum != nil {
-		ethTX.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)
-	}
-	return ethTX
-}
-
-// GetID returns the jsonapi ID.
-func (t EthTx) GetID() string {
-	return t.Hash.Hex()
-}
-
-// GetName returns the collection name for jsonapi.
-func (EthTx) GetName() string {
-	return "transactions"
-}
-
-// SetID is used to conform to the UnmarshallIdentifier interface for
-// deserializing from jsonapi documents.
-func (t *EthTx) SetID(hex string) error {
-	t.Hash = common.HexToHash(hex)
-	return nil
 }
 
 // ExternalInitiatorAuthentication includes initiator and authentication details.

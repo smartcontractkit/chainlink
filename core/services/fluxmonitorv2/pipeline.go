@@ -14,7 +14,6 @@ import (
 type PipelineRun struct {
 	runner pipeline.Runner
 	spec   pipeline.Spec
-	jobID  int32
 	logger logger.Logger
 }
 
@@ -22,29 +21,27 @@ type PipelineRun struct {
 func NewPipelineRun(
 	runner pipeline.Runner,
 	spec pipeline.Spec,
-	jobID int32,
 	logger logger.Logger,
 ) PipelineRun {
 	return PipelineRun{
 		runner: runner,
 		spec:   spec,
-		jobID:  jobID,
 		logger: logger,
 	}
 }
 
 // Execute executes a pipeline run, extracts the singular result and converts it
 // to a decimal.
-func (run *PipelineRun) Execute() (int64, *decimal.Decimal, error) {
+func (run *PipelineRun) Execute(meta map[string]interface{}) (int64, *decimal.Decimal, error) {
 	ctx := context.Background()
-	runID, results, err := run.runner.ExecuteAndInsertNewRun(ctx, run.spec, run.logger)
+	runID, results, err := run.runner.ExecuteAndInsertFinishedRun(ctx, run.spec, pipeline.JSONSerializable{Val: meta}, run.logger, false)
 	if err != nil {
-		return runID, nil, errors.Wrapf(err, "error executing new run for job ID %v", run.jobID)
+		return runID, nil, errors.Wrapf(err, "error executing new run for job ID %v name %v", run.spec.JobID, run.spec.JobName)
 	}
 
 	result, err := results.SingularResult()
 	if err != nil {
-		return runID, nil, errors.Wrapf(err, "error getting singular result for job ID %v", run.jobID)
+		return runID, nil, errors.Wrapf(err, "error getting singular result for job ID %v name %v", run.spec.JobID, run.spec.JobName)
 	}
 	if result.Error != nil {
 		return runID, nil, result.Error

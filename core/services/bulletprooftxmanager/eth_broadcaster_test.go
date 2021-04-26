@@ -281,7 +281,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(account gethCommon.Address) bool {
 			return account.Hex() == fromAddress.Hex()
 		})).Return(ethNodeNonce, nil).Once()
-		ethClient.On("BatchCallContext", mock.Anything, mock.Anything).Return(nil)
 
 		require.NoError(t, eb.Start())
 		defer eb.Close()
@@ -299,7 +298,6 @@ func TestEthBroadcaster_AssignsNonceOnStart(t *testing.T) {
 		require.Equal(t, dummykey.Address, key2.Address)
 		require.Equal(t, 0, int(key2.NextNonce))
 
-		// TODO: Test for zero transaction insertion
 		ethClient.AssertExpectations(t)
 	})
 }
@@ -1081,7 +1079,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 		signingAccount := gethAccounts.Account{Address: fromAddress}
 		kst.On("GetAccountByAddress", fromAddress).Return(signingAccount, nil).Once()
 
-		tx := gethTypes.Transaction{}
+		tx := *gethTypes.NewTx(&gethTypes.LegacyTx{})
 		kst.On("SignTx",
 			mock.AnythingOfType("accounts.Account"),
 			mock.AnythingOfType("*types.Transaction"),

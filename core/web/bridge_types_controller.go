@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -56,14 +57,23 @@ func (btc *BridgeTypesController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusConflict, apiErr)
 		return
 	default:
-		jsonAPIResponse(c, bta, "bridge")
+		resource := presenters.NewBridgeResource(*bt)
+		resource.IncomingToken = bta.IncomingToken
+
+		jsonAPIResponse(c, resource, "bridge")
 	}
 }
 
 // Index lists Bridges, one page at a time.
 func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) {
 	bridges, count, err := btc.App.GetStore().BridgeTypes(offset, size)
-	paginatedResponse(c, "Bridges", size, page, bridges, count, err)
+
+	var resources []presenters.BridgeResource
+	for _, bridge := range bridges {
+		resources = append(resources, *presenters.NewBridgeResource(bridge))
+	}
+
+	paginatedResponse(c, "Bridges", size, page, resources, count, err)
 }
 
 // Show returns the details of a specific Bridge.
@@ -86,7 +96,7 @@ func (btc *BridgeTypesController) Show(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, bt, "bridge")
+	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }
 
 // Update can change the restricted attributes for a bridge
@@ -123,7 +133,7 @@ func (btc *BridgeTypesController) Update(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, bt, "bridge")
+	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }
 
 // Destroy removes a specific Bridge.
@@ -168,5 +178,5 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 
-	jsonAPIResponse(c, bt, "bridge")
+	jsonAPIResponse(c, presenters.NewBridgeResource(bt), "bridge")
 }

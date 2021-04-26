@@ -63,7 +63,7 @@ type ethConfirmer struct {
 func NewEthConfirmer(store *store.Store, config orm.ConfigReader) *ethConfirmer {
 	var ethResender *EthResender
 	if config.EthTxResendAfterThreshold() > 0 {
-		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config.EthTxResendAfterThreshold())
+		ethResender = NewEthResender(store.DB, store.EthClient, defaultResenderPollInterval, config)
 	} else {
 		logger.Info("ethResender: Disabled")
 	}
@@ -225,6 +225,9 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	if len(attempts) == 0 {
 		return nil
 	}
+	if batchSize == 0 {
+		batchSize = len(attempts)
+	}
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
@@ -268,6 +271,8 @@ func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []mod
 	return
 }
 
+// Note this function will increment promRevertedTxCount upon receiving
+// a reverted transaction receipt. Should only be called with unconfirmed attempts.
 func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []models.EthTxAttempt) (receipts []Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
@@ -334,6 +339,13 @@ func (ec *ethConfirmer) batchFetchReceipts(ctx context.Context, attempts []model
 		if receipt.BlockNumber == nil {
 			l.Error("EthConfirmer#batchFetchReceipts: invariant violation, receipt was missing block number")
 			continue
+		}
+
+		if receipt.Status == 0 {
+			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+			// This is safe to increment here because we save the receipt immediately after
+			// and once its saved we do not fetch it again.
+			promRevertedTxCount.Add(1)
 		}
 
 		receipts = append(receipts, *receipt)
@@ -445,7 +457,7 @@ func (ec *ethConfirmer) markConfirmedMissingReceipt() (err error) {
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
 
-	_, err = d.ExecContext(ctx, `
+	res, err := d.ExecContext(ctx, `
 UPDATE eth_txes
 SET state = 'confirmed_missing_receipt'
 WHERE state = 'unconfirmed'
@@ -454,6 +466,16 @@ AND nonce < (
 	WHERE state = 'confirmed'
 )
 	`)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		logger.Infow(fmt.Sprintf("EthConfirmer: %d transactions missing receipt", n), "n", n)
+	}
 	return
 }
 
@@ -757,7 +779,7 @@ func (ec *ethConfirmer) handleInProgressAttempt(ctx context.Context, etx models.
 		logger.Errorf("gas price %v wei was rejected by the eth node for being too low. "+
 			"Eth node returned: '%s'. "+
 			"Bumping to %v wei and retrying. "+
-			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice, sendError.Error(), bumpedGasPrice)
+			"ACTION REQUIRED: You should consider increasing ETH_GAS_PRICE_DEFAULT", attempt.GasPrice.String(), sendError.Error(), bumpedGasPrice)
 		replacementAttempt, err := newAttempt(ec.store, etx, bumpedGasPrice)
 		if err != nil {
 			return errors.Wrap(err, "newAttempt failed")
@@ -926,7 +948,7 @@ func (ec *ethConfirmer) EnsureConfirmedTransactionsInLongestChain(ctx context.Co
 
 	for _, etx := range etxs {
 		if !hasReceiptInLongestChain(etx, head) {
-			if err := ec.markForRebroadcast(etx); err != nil {
+			if err := ec.markForRebroadcast(etx, head); err != nil {
 				return errors.Wrapf(err, "markForRebroadcast failed for etx %v", etx.ID)
 			}
 		}
@@ -987,13 +1009,31 @@ func hasReceiptInLongestChain(etx models.EthTx, head models.Head) bool {
 	}
 }
 
-func (ec *ethConfirmer) markForRebroadcast(etx models.EthTx) error {
+func (ec *ethConfirmer) markForRebroadcast(etx models.EthTx, head models.Head) error {
 	if len(etx.EthTxAttempts) == 0 {
 		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
 	}
 
 	// Rebroadcast the one with the highest gas price
 	attempt := etx.EthTxAttempts[0]
+	var receipt models.EthReceipt
+	if len(attempt.EthReceipts) > 0 {
+		receipt = attempt.EthReceipts[0]
+	}
+
+	logger.Infow(fmt.Sprintf("EthConfirmer: re-org detected. Rebroadcasting transaction %s which may have been re-org'd out of the main chain", attempt.Hash.Hex()),
+		"txhash", attempt.Hash.Hex(),
+		"currentBlockNum", head.Number,
+		"currentBlockHash", head.Hash.Hex(),
+		"replacementBlockHashAtConfirmedHeight", head.HashAtHeight(receipt.BlockNumber),
+		"confirmedInBlockNum", receipt.BlockNumber,
+		"confirmedInBlockHash", receipt.BlockHash,
+		"confirmedInTxIndex", receipt.TransactionIndex,
+		"ethTxID", etx.ID,
+		"attemptID", attempt.ID,
+		"receiptID", receipt.ID,
+		"nReceipts", len(attempt.EthReceipts),
+		"id", "eth_confirmer")
 
 	// Put it back in progress and delete all receipts (they do not apply to the new chain)
 	err := ec.store.Transaction(func(tx *gorm.DB) error {

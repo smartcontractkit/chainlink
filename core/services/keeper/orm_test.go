@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -217,6 +216,39 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 	require.Equal(t, 1, totalEligible)
 }
 
+func TestKeeperDB_EligibleUpkeeps_KeepersCycleAllUpkeeps(t *testing.T) {
+	t.Parallel()
+	store, orm, cleanup := setupKeeperDB(t)
+	defer cleanup()
+
+	registry, _ := cltest.MustInsertKeeperRegistry(t, store)
+	registry.NumKeepers = 5
+	registry.KeeperIndex = 3
+	require.NoError(t, store.DB.Save(&registry).Error)
+
+	for i := 0; i < 1000; i++ {
+		cltest.MustInsertUpkeepForRegistry(t, store, registry)
+	}
+
+	cltest.AssertCount(t, store, keeper.Registry{}, 1)
+	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1000)
+
+	// in a full cycle, each node should be responsible for each upkeep exactly once
+	list1, err := orm.EligibleUpkeeps(context.Background(), 20, 0) // someone eligible
+	require.NoError(t, err)
+	list2, err := orm.EligibleUpkeeps(context.Background(), 40, 0) // someone eligible
+	require.NoError(t, err)
+	list3, err := orm.EligibleUpkeeps(context.Background(), 60, 0) // someone eligible
+	require.NoError(t, err)
+	list4, err := orm.EligibleUpkeeps(context.Background(), 80, 0) // someone eligible
+	require.NoError(t, err)
+	list5, err := orm.EligibleUpkeeps(context.Background(), 100, 0) // someone eligible
+	require.NoError(t, err)
+
+	totalEligible := len(list1) + len(list2) + len(list3) + len(list4) + len(list5)
+	require.Equal(t, 1000, totalEligible)
+}
+
 func TestKeeperDB_NextUpkeepID(t *testing.T) {
 	t.Parallel()
 	store, orm, cleanup := setupKeeperDB(t)
@@ -270,12 +302,9 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
 	require.NoError(t, err)
 
-	var ethTX models.EthTx
-	err = store.DB.First(&ethTX).Error
-	require.NoError(t, err)
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)

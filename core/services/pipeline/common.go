@@ -28,7 +28,7 @@ type (
 	Task interface {
 		Type() TaskType
 		DotID() string
-		Run(ctx context.Context, taskRun TaskRun, inputs []Result) Result
+		Run(ctx context.Context, meta JSONSerializable, inputs []Result) Result
 		OutputTask() Task
 		SetOutputTask(task Task)
 		OutputIndex() int32
@@ -47,7 +47,6 @@ type (
 		DefaultHTTPAllowUnrestrictedNetworkAccess() bool
 		TriggerFallbackDBPollInterval() time.Duration
 		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineParallelism() uint8
 		JobPipelineReaperInterval() time.Duration
 		JobPipelineReaperThreshold() time.Duration
 	}
@@ -140,6 +139,7 @@ type TaskRunResult struct {
 	Task       Task
 	TaskRun    TaskRun
 	Result     Result
+	CreatedAt  time.Time
 	FinishedAt time.Time
 	IsTerminal bool
 }
