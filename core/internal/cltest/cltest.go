@@ -480,6 +480,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.Ge
 	r, g, s, assertMocksCalled := NewEthMocks(t)
 	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
 	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	g.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
@@ -1798,6 +1799,13 @@ func MustNewJSONSerializable(t *testing.T, s string) pipeline.JSONSerializable {
 func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 	return req.Method == "eth_getTransactionReceipt" &&
 		len(req.Args) == 1 && req.Args[0] == hash
+}
+
+func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+	t.Helper()
+	if !BatchElemMatchesHash(req, hash) {
+		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
+	}
 }
 
 type SimulateIncomingHeadsArgs struct {

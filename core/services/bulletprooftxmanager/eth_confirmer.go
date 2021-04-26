@@ -216,8 +216,6 @@ func (ec *ethConfirmer) SetBroadcastBeforeBlockNum(blockNum int64) error {
 }
 
 func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) error {
-	batchSize := int(ec.config.EthRPCDefaultBatchSize())
-
 	attempts, err := ec.findEthTxAttemptsRequiringReceiptFetch()
 	if err != nil {
 		return errors.Wrap(err, "findEthTxAttemptsRequiringReceiptFetch failed")
@@ -225,19 +223,92 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 	if len(attempts) == 0 {
 		return nil
 	}
-	if batchSize == 0 {
-		batchSize = len(attempts)
-	}
 
 	logger.Debugw(fmt.Sprintf("EthConfirmer: fetching receipts for %v transaction attempts", len(attempts)), "blockNum", blockNum)
 
+	attemptsByAddress := make(map[gethCommon.Address][]models.EthTxAttempt)
+	for _, att := range attempts {
+		attemptsByAddress[att.EthTx.FromAddress] = append(attemptsByAddress[att.EthTx.FromAddress], att)
+	}
+
+	for from, attempts := range attemptsByAddress {
+		ctxInner, cancel := eth.DefaultQueryCtx(ctx)
+		latestBlockNonce, err := ec.getNonceForLatestBlock(ctxInner, from)
+		defer cancel()
+
+		if ctxInner.Err() != nil { // timeout
+			return errors.Wrapf(ctxInner.Err(), "unable to fetch pending nonce for address: %v - timeout or interrupt", from)
+		}
+		if err != nil {
+			return errors.Wrapf(err, "unable to fetch pending nonce for address: %v", from)
+		}
+
+		likelyConfirmed := separateLikelyConfirmedAttempts(from, attempts, latestBlockNonce)
+		likelyConfirmedCount := len(likelyConfirmed)
+		if likelyConfirmedCount > 0 {
+			likelyUnconfirmedCount := len(attempts) - likelyConfirmedCount
+
+			logger.Debugf("EthConfirmer: Fetching and saving %v likely confirmed receipts. Skipping checking the others (%v)",
+				likelyConfirmedCount, likelyUnconfirmedCount)
+
+			start := time.Now()
+			err = ec.fetchAndSaveReceipts(ctx, likelyConfirmed, blockNum)
+			if err != nil {
+				return errors.Wrapf(err, "unable to fetch and save receipts for likely confirmed txs, for address: %v", from)
+			}
+			logger.Debugw(fmt.Sprintf("EthConfirmer: Fetching and saving %v likely confirmed receipts done", likelyConfirmedCount),
+				"tookMs", float64(time.Since(start).Milliseconds()))
+		}
+	}
+
+	if err := ec.markConfirmedMissingReceipt(); err != nil {
+		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
+	}
+
+	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
+		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
+	}
+	return nil
+}
+
+func separateLikelyConfirmedAttempts(from gethCommon.Address, attempts []models.EthTxAttempt, latestBlockNonce uint64) []models.EthTxAttempt {
+	if len(attempts) == 0 {
+		return attempts
+	}
+
+	firstAttemptNonce := fmt.Sprintf("%v", *attempts[len(attempts)-1].EthTx.Nonce)
+	lastAttemptNonce := fmt.Sprintf("%v", *attempts[0].EthTx.Nonce)
+	logger.Debugw(fmt.Sprintf("EthConfirmer: There are %v attempts from address %v, latest nonce for it is %v and for the attempts' nonces: first = %v, last = %v",
+		len(attempts), from, latestBlockNonce, firstAttemptNonce, lastAttemptNonce))
+
+	likelyConfirmed := attempts
+	for i := 0; i < len(attempts); i++ {
+		if attempts[i].EthTx.Nonce != nil && *attempts[i].EthTx.Nonce > int64(latestBlockNonce) {
+			logger.Debugf("EthConfirmer: Marking attempts as likely confirmed just before index %v, at nonce: %v", i, *attempts[i].EthTx.Nonce)
+			likelyConfirmed = attempts[0:i]
+			break
+		}
+	}
+
+	if len(likelyConfirmed) == 0 {
+		logger.Debug("EthConfirmer: There are no likely confirmed attempts - so will skip checking any")
+	}
+
+	return likelyConfirmed
+}
+
+func (ec *ethConfirmer) fetchAndSaveReceipts(ctx context.Context, attempts []models.EthTxAttempt, blockNum int64) error {
+	batchSize := int(ec.config.EthRPCDefaultBatchSize())
+	if batchSize == 0 {
+		batchSize = len(attempts)
+	}
 	for i := 0; i < len(attempts); i += batchSize {
 		j := i + batchSize
 		if j > len(attempts) {
 			j = len(attempts)
 		}
 
-		logger.Debugw(fmt.Sprintf("EthConfirmer: batch fetching receipts %v thru %v", i, j), "blockNum", blockNum)
+		logger.Debugw(fmt.Sprintf("EthConfirmer: batch fetching receipts at indexes %v until (excluded) %v", i, j), "blockNum", blockNum)
 
 		batch := attempts[i:j]
 
@@ -249,26 +320,22 @@ func (ec *ethConfirmer) CheckForReceipts(ctx context.Context, blockNum int64) er
 			return errors.Wrap(err, "saveFetchedReceipts failed")
 		}
 	}
-
-	if err := ec.markConfirmedMissingReceipt(); err != nil {
-		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
-	}
-
-	if err := ec.markOldTxesMissingReceiptAsErrored(blockNum); err != nil {
-		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
-	}
-
 	return nil
 }
 
 func (ec *ethConfirmer) findEthTxAttemptsRequiringReceiptFetch() (attempts []models.EthTxAttempt, err error) {
 	err = ec.store.DB.
+		Joins("EthTx"). // Joins("EthTx") is needed for the query to actually return data from eth_txes table as well.
 		Joins("JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id AND eth_txes.state IN ('unconfirmed', 'confirmed_missing_receipt')").
 		Order("eth_txes.nonce ASC, eth_tx_attempts.gas_price DESC").
 		Where("eth_tx_attempts.state != 'insufficient_eth'").
 		Find(&attempts).Error
 
 	return
+}
+
+func (ec *ethConfirmer) getNonceForLatestBlock(ctx context.Context, from gethCommon.Address) (nonce uint64, err error) {
+	return ec.ethClient.NonceAt(ctx, from, nil)
 }
 
 // Note this function will increment promRevertedTxCount upon receiving
