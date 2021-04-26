@@ -1654,7 +1654,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
 	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
-	request := models.CreateJobSpecRequest{TOML: directRequestSpec}
+	request := web.CreateJobRequest{TOML: directRequestSpec}
 	output, err := json.Marshal(request)
 	require.NoError(t, err)
 	job := cltest.CreateJobViaWeb(t, app, output)
