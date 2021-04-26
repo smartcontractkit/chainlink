@@ -9,11 +9,6 @@ services:
       dockerfile: tools/docker/ts-integration.Dockerfile
       args:
         - SRCROOT
-    depends_on:
-      - node
-      - node-2
-      - external-adapter
-      - external-adapter-2
     environment:
       - CHAINLINK_DEV=TRUE # need this for service agreements subcommand
       - CHAINLINK_URL
