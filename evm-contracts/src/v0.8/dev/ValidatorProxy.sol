@@ -154,7 +154,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     address proposed = s_proposedAggregator;
 
     // Perform the upgrade
-    require(current.hasNewProposal == true && proposed != address(0), "No proposal");
+    require(current.hasNewProposal == true, "No proposal");
     current.target = proposed;
     current.hasNewProposal = false;
 
@@ -167,6 +167,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
   /**
    * @notice Get aggregator details
    * @return current address
+   * @return hasProposal bool
    * @return proposed address
    */
   function getAggregators()
@@ -174,10 +175,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     view
     returns(
       address current,
+      bool hasProposal,
       address proposed
     )
   {
     current = s_currentAggregator.target;
+    hasProposal = s_currentAggregator.hasNewProposal;
     proposed = s_proposedAggregator;
   }
 
@@ -214,7 +217,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     address proposed = s_proposedValidator;
 
     // Perform the upgrade
-    require(current.hasNewProposal == true && proposed != address(0), "No proposal");
+    require(current.hasNewProposal == true, "No proposal");
     current.target = proposed;
     current.hasNewProposal = false;
 
@@ -227,6 +230,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
   /**
    * @notice Get validator details
    * @return current address
+   * @return hasProposal bool
    * @return proposed address
    */
   function getValidators()
@@ -234,10 +238,12 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     view
     returns(
       address current,
+      bool hasProposal,
       address proposed
     )
   {
     current = s_currentValidator.target;
+    hasProposal = s_currentValidator.hasNewProposal;
     proposed = s_proposedValidator;
   }
 

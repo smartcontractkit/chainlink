@@ -15,7 +15,8 @@
     "pretest": "tsc -b --clean tsconfig.ethers.json",
     "lint:sol": "solhint -f table ./src/**/**/*.sol",
     "test": "jest --testTimeout 80000 --forceExit --detectOpenHandles",
-    "test:hardhat": "hardhat test",
+    "test:new": "hardhat test",
+    "sizes": "hardhat size-contracts",
     "test:reset": "yarn setup && yarn test",
     "test:ci:old": "./scripts/test_ci_old",
     "prepublishOnly": "yarn clean && yarn setup"
@@ -31,6 +32,8 @@
     "chai": "^4.3.4",
     "ethers": "^4.0.45",
     "hardhat": "^2.2.1",
+    "hardhat-contract-sizer": "^2.0.3",
+    "hardhat-gas-reporter": "^1.0.4",
     "jest": "^26.6.3",
     "solhint": "^3.2.1",
     "ts-jest": "^26.5.0",

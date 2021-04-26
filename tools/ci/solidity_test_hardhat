@@ -2,4 +2,4 @@
 
 set -e
 
-yarn workspace @chainlink/contracts test:hardhat
+yarn workspace @chainlink/contracts test:new
