@@ -177,7 +177,6 @@ feed0 -> median;
 			assert.Equal(t, job.FluxMonitor.String(), createdJobV2.Type.String())
 			assert.Equal(t, createdJobV2.Name, jobV1.Name)
 			require.NotNil(t, createdJobV2.FluxMonitorSpec)
-			assert.Equal(t, createdJobV2.FluxMonitorSpec.CreatedAt.String(), jobV1.CreatedAt.String())
 			assert.Equal(t, createdJobV2.FluxMonitorSpec.MinPayment, jobV1.MinPayment)
 			assert.Equal(t, createdJobV2.FluxMonitorSpec.AbsoluteThreshold, jobV1.Initiators[0].AbsoluteThreshold)
 			assert.Equal(t, createdJobV2.FluxMonitorSpec.Precision, jobV1.Initiators[0].Precision)
