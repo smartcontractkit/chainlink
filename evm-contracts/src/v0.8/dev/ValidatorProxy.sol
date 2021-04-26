@@ -103,6 +103,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
     // Send the validate call to the current validator
     ProxyConfiguration memory currentValidator = s_currentValidator;
+    require(s_currentValidator.target != address(0), "No validator set");
     AggregatorValidatorInterface(currentValidator.target).validate(
       previousRoundId,
       previousAnswer,
