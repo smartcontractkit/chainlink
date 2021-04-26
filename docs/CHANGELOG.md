@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 v2 flux monitor jobs (TOML). Running it will archive the v1 
 job and create a new v2 job. Example:
 ```
-chainlink jobs migrate 123e4567-e89b-12d3-a456-426614174000
+// Get v1 job ID:
+chainlink job_specs list
+// Migrate it to v2:
+chainlink jobs migrate 123e4567e89b12d3a456426614174000 
 ```
 
 
