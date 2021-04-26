@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/services/cron"
 	"github.com/smartcontractkit/chainlink/core/services/job"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"gopkg.in/guregu/null.v4"
 )
@@ -70,11 +69,16 @@ type GenericJobSpec struct {
 	Name          null.String `toml:"name"`
 }
 
+// CreateJobRequest represents a request to create and start a job (V2).
+type CreateJobRequest struct {
+	TOML string `json:"toml"`
+}
+
 // Create validates, saves and starts a new job.
 // Example:
 // "POST <application>/jobs"
 func (jc *JobsController) Create(c *gin.Context) {
-	request := models.CreateJobSpecRequest{}
+	request := CreateJobRequest{}
 	if err := c.ShouldBindJSON(&request); err != nil {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
@@ -130,7 +134,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	jsonAPIResponse(c, presenters.NewJobResource(job), job.Type.String())
 }
 
-// Delete soft deletes an OCR job spec.
+// Delete soft deletes a job spec.
 // Example:
 // "DELETE <application>/specs/:ID"
 func (jc *JobsController) Delete(c *gin.Context) {

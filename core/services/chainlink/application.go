@@ -78,18 +78,23 @@ type Application interface {
 	Start() error
 	Stop() error
 	GetStore() *strpkg.Store
-	GetJobORM() job.ORM
-	GetExternalInitiatorManager() ExternalInitiatorManager
 	GetStatsPusher() synchronization.StatsPusher
 	WakeSessionReaper()
-	AddJob(job models.JobSpec) error
-	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
-	ArchiveJob(models.JobID) error
-	DeleteJobV2(ctx context.Context, jobID int32) error
-	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 	AddServiceAgreement(*models.ServiceAgreement) error
 	NewBox() packr.Box
-	services.RunManager
+
+	// V1 Jobs (JSON specified)
+	services.RunManager // For managing job runs.
+	AddJob(job models.JobSpec) error
+	ArchiveJob(models.JobID) error
+	GetExternalInitiatorManager() ExternalInitiatorManager
+
+	// V2 Jobs (TOML specified)
+	GetJobORM() job.ORM
+	AddJobV2(ctx context.Context, job job.Job, name null.String) (int32, error)
+	DeleteJobV2(ctx context.Context, jobID int32) error
+	// Testing only
+	RunJobV2(ctx context.Context, jobID int32, meta map[string]interface{}) (int64, error)
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -286,6 +291,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 
 	headTrackables = append(
 		headTrackables,
+		logBroadcaster,
 		ethConfirmer,
 		jobSubscriber,
 		pendingConnectionResumer,
@@ -301,6 +307,18 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		headTrackables = append(headTrackables, headTrackable)
 	}
 	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
+
+	// Log Broadcaster uses the last stored head as a limit of log backfill
+	// which needs to be set before it's started
+	head, err := app.HeadTracker.HighestSeenHeadFromDB()
+	if err != nil {
+		return nil, err
+	}
+	logBroadcaster.SetLatestHeadFromStorage(head)
+
+	// Log Broadcaster waits for other services' registrations
+	// until app.LogBroadcaster.DependentReady() call (see below)
+	logBroadcaster.AddDependents(1)
 
 	return app, nil
 }
@@ -374,6 +392,10 @@ func (app *ChainlinkApplication) Start() error {
 			return err
 		}
 	}
+
+	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
+	// to make sure the initial backfill covers those subscribers.
+	app.LogBroadcaster.DependentReady()
 
 	// HeadTracker deliberately started afterwards since several tasks are
 	// registered as callbacks and it's sensible to have started them before

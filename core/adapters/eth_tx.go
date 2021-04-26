@@ -287,7 +287,7 @@ func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result)
 			return nil, errors.Wrapf(ErrInvalidABIEncoding, "%v is unsupported, supported types are %v", argType, supportedSolidityTypes)
 		}
 		if _, ok := jsonTypes[jsonValues[i].Type][argType]; !ok {
-			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 		}
 		t, err := abi.NewType(argType, "", nil)
 		if err != nil {
@@ -302,7 +302,7 @@ func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result)
 			if argType == "uint256" || argType == "int256" {
 				v, err := strconv.ParseInt(jsonValues[i].String(), 10, 64)
 				if err != nil {
-					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 				}
 				values[i] = big.NewInt(v)
 				continue
@@ -310,23 +310,23 @@ func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result)
 			// Only supports hex strings.
 			b, err := hexutil.Decode(jsonValues[i].String())
 			if err != nil {
-				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v, bytes should be 0x-prefixed hex strings", jsonValues[i].Value(), argType)
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v, bytes should be 0x-prefixed hex strings", jsonValues[i].Type, jsonValues[i].Value(), argType)
 			}
 			if argType == "bytes32" {
 				if len(b) != 32 {
-					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 				}
 				var arg [32]byte
 				copy(arg[:], b)
 				values[i] = arg
 			} else if argType == "address" {
 				if !common.IsHexAddress(jsonValues[i].String()) || len(b) != 20 {
-					return nil, errors.Wrapf(ErrInvalidABIEncoding, "invalid address %v", jsonValues[i].String())
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "invalid address %s", jsonValues[i].String())
 				}
 				values[i] = common.HexToAddress(jsonValues[i].String())
 			} else if argType == "bytes4" {
 				if len(b) != 4 {
-					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+					return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 				}
 				var arg [4]byte
 				copy(arg[:], b)
@@ -341,11 +341,11 @@ func getTxDataUsingABIEncoding(encodingSpec []string, jsonValues []gjson.Result)
 			if reflect.TypeOf(jsonValues[i].Value()).ConvertibleTo(solidityTypeToGoType[argType]) {
 				values[i] = reflect.ValueOf(jsonValues[i].Value()).Convert(solidityTypeToGoType[argType]).Interface()
 			} else {
-				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+				return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 			}
 		default:
 			// Complex types, array or object. Support as needed
-			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %v to %v", jsonValues[i].Value(), argType)
+			return nil, errors.Wrapf(ErrInvalidABIEncoding, "can't convert %+v (%s) to %v", jsonValues[i].Value(), jsonValues[i].Type, argType)
 		}
 	}
 	packedArgs, err := arguments.PackValues(values)

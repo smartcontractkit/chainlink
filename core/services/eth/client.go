@@ -39,7 +39,6 @@ type Client interface {
 	GetLINKBalance(linkAddress common.Address, address common.Address) (*assets.Link, error)
 	GetEthBalance(ctx context.Context, account common.Address, blockNumber *big.Int) (*assets.Eth, error)
 
-	SendRawTx(bytes []byte) (common.Hash, error)
 	Call(result interface{}, method string, args ...interface{}) error
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -59,6 +58,7 @@ type GethClient interface {
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
@@ -216,16 +216,6 @@ func (client *client) GetEthBalance(ctx context.Context, account common.Address,
 	return (*assets.Eth)(balance), nil
 }
 
-// SendRawTx sends a signed transaction to the transaction pool.
-func (client *client) SendRawTx(bytes []byte) (common.Hash, error) {
-	logger.Debugw("eth.Client#SendRawTx(...)",
-		"bytes", bytes,
-	)
-	result := common.Hash{}
-	err := client.RPCClient.Call(&result, "eth_sendRawTransaction", hexutil.Encode(bytes))
-	return result, err
-}
-
 // We wrap the GethClient's `TransactionReceipt` method so that we can ignore the error that arises
 // when we're talking to a Parity node that has no receipt yet.
 func (client *client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
@@ -284,6 +274,14 @@ func (client *client) PendingCodeAt(ctx context.Context, account common.Address)
 		"account", account,
 	)
 	return client.GethClient.PendingCodeAt(ctx, account)
+}
+
+func (client *client) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	logger.Debugw("eth.Client#NonceAt(...)",
+		"account", account,
+		"blockNumber", blockNumber,
+	)
+	return client.GethClient.NonceAt(ctx, account, blockNumber)
 }
 
 func (client *client) EstimateGas(ctx context.Context, call ethereum.CallMsg) (gas uint64, err error) {

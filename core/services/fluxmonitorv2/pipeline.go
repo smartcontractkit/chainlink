@@ -49,7 +49,7 @@ func (run *PipelineRun) Execute(meta map[string]interface{}) (int64, *decimal.De
 
 	dec, err := utils.ToDecimal(result.Value)
 	if err != nil {
-		return runID, nil, err
+		return runID, nil, errors.Wrap(err, "cannot convert result to decimal")
 	}
 
 	return runID, &dec, nil

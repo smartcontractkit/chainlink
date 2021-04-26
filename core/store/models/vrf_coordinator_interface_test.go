@@ -47,7 +47,7 @@ func TestVRFParseRandomnessRequestLog(t *testing.T) {
 	rawLog, err := r.RawData()
 	require.NoError(t, err)
 	assert.Equal(t, rawLog, raw.Raw.Data)
-	nR, err := models.ParseRandomnessRequestLog(models.Log{
+	nR, err := models.ParseRandomnessRequestLog(types.Log{
 		Data:   rawLog,
 		Topics: []common.Hash{{}, jobID},
 	})

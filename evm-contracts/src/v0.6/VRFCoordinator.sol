@@ -6,6 +6,8 @@ import "./vendor/SafeMathChainlink.sol";
 import "./interfaces/LinkTokenInterface.sol";
 import "./interfaces/BlockHashStoreInterface.sol";
 
+import "./vendor/Ownable.sol";
+
 import "./VRF.sol";
 import "./VRFRequestIDBase.sol";
 import "./VRFConsumerBase.sol";
@@ -14,7 +16,7 @@ import "./VRFConsumerBase.sol";
  * @title VRFCoordinator coordinates on-chain verifiable-randomness requests
  * @title with off-chain responses
  */
-contract VRFCoordinator is VRF, VRFRequestIDBase {
+contract VRFCoordinator is VRF, VRFRequestIDBase, Ownable {
 
   using SafeMathChainlink for uint256;
 
@@ -79,6 +81,7 @@ contract VRFCoordinator is VRF, VRFRequestIDBase {
     uint256 _fee, address _oracle, uint256[2] calldata _publicProvingKey, bytes32 _jobID
   )
     external
+    onlyOwner()
   {
     bytes32 keyHash = hashOfKey(_publicProvingKey);
     address oldVRFOracle = serviceAgreements[keyHash].vRFOracle;
