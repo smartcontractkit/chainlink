@@ -1,0 +1,28 @@
+{
+  "initiators": [
+    {
+      "type": "runlog"
+    }
+  ],
+  "tasks": [
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "{url}"}},
+    {"type": "jsonparse", "params": {"path": ["USD"]}},
+    {"type": "ethbytes32"},
+    {"type": "resultcollect"},
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "{url}"}},
+    {"type": "jsonparse", "params": {"path": ["EUR"]}},
+    {"type": "ethbytes32"},
+    {"type": "resultcollect"},
+    {"type": "httpgetwithunrestrictednetworkaccess", "params": {"get": "{url}"}},
+    {"type": "jsonparse", "params": {"path": ["JPY"]}},
+    {"type": "ethbytes32"},
+    {"type": "resultcollect"},
+    {
+      "type": "ethtx",
+      "confirmations": 1,
+      "params": {
+        "abiEncoding": ["bytes32", "bytes32", "bytes32", "bytes32"]
+      }
+    }
+  ]
+}

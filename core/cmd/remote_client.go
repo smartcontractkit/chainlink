@@ -211,73 +211,6 @@ func (cli *Client) ArchiveJobSpec(c *clipkg.Context) error {
 	return nil
 }
 
-// ListJobsV2 lists all v2 jobs
-func (cli *Client) ListJobsV2(c *clipkg.Context) (err error) {
-	return cli.getPage("/v2/jobs", c.Int("page"), &[]Job{})
-}
-
-// CreateJobV2 creates a V2 job
-// Valid input is a TOML string or a path to TOML file
-func (cli *Client) CreateJobV2(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in TOML or filepath"))
-	}
-
-	tomlString, err := getTOMLString(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	request, err := json.Marshal(models.CreateJobSpecRequest{
-		TOML: tomlString,
-	})
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/jobs", bytes.NewReader(request))
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	if resp.StatusCode >= 400 {
-		body, rerr := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			err = multierr.Append(err, rerr)
-			return cli.errorOut(err)
-		}
-		fmt.Printf("Error : %v\n", string(body))
-		return cli.errorOut(err)
-	}
-
-	var js Job
-	err = cli.renderAPIResponse(resp, &js, "Job created")
-	return err
-}
-
-// DeleteJobV2 deletes a V2 job
-func (cli *Client) DeleteJobV2(c *clipkg.Context) error {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the job id to be archived"))
-	}
-	resp, err := cli.HTTP.Delete("/v2/jobs/" + c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	_, err = cli.parseResponse(resp)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	fmt.Printf("Job %v Deleted\n", c.Args().First())
-	return nil
-}
-
 // TriggerPipelineRun triggers a V2 job run based on a job ID
 func (cli *Client) TriggerPipelineRun(c *clipkg.Context) error {
 	if !c.Args().Present() {
@@ -328,37 +261,6 @@ func (cli *Client) CreateJobRun(c *clipkg.Context) (err error) {
 	return err
 }
 
-// CreateBridge adds a new bridge to the chainlink node
-func (cli *Client) CreateBridge(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass in the bridge's parameters [JSON blob | JSON filepath]"))
-	}
-
-	buf, err := getBufferFromJSON(c.Args().First())
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	resp, err := cli.HTTP.Post("/v2/bridge_types", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var bridge models.BridgeTypeAuthentication
-	err = cli.renderAPIResponse(resp, &bridge)
-	return err
-}
-
-// IndexBridges returns all bridges.
-func (cli *Client) IndexBridges(c *clipkg.Context) (err error) {
-	return cli.getPage("/v2/bridge_types", c.Int("page"), &[]models.BridgeType{})
-}
-
 func (cli *Client) getPage(requestURI string, page int, model interface{}) (err error) {
 	uri, err := url.Parse(requestURI)
 	if err != nil {
@@ -385,45 +287,6 @@ func (cli *Client) getPage(requestURI string, page int, model interface{}) (err 
 		return err
 	}
 	err = cli.errorOut(cli.Render(model))
-	return err
-}
-
-// ShowBridge returns the info for the given Bridge name.
-func (cli *Client) ShowBridge(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the name of the bridge to be shown"))
-	}
-	bridgeName := c.Args().First()
-	resp, err := cli.HTTP.Get("/v2/bridge_types/" + bridgeName)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var bridge models.BridgeType
-	return cli.renderAPIResponse(resp, &bridge)
-}
-
-// RemoveBridge removes a specific Bridge by name.
-func (cli *Client) RemoveBridge(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the name of the bridge to be removed"))
-	}
-	bridgeName := c.Args().First()
-	resp, err := cli.HTTP.Delete("/v2/bridge_types/" + bridgeName)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var bridge models.BridgeType
-	err = cli.renderAPIResponse(resp, &bridge)
 	return err
 }
 

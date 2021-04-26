@@ -1,0 +1,6 @@
+{
+  "name": "randomNumber",
+  "url": "https://example.com/randomNumber",
+  "confirmations": 10,
+  "minimumContractPayment": "100"
+}

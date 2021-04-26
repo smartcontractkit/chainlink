@@ -1,0 +1,4 @@
+{
+  "initiators": [{ "type": "cron", "params": { "schedule": "CRON_TZ=UTC * * * * *" }}],
+  "tasks": [{ "type": "IdoNotExist", "params": { "description": "Or do I?" } }]
+}
