@@ -187,6 +187,18 @@ func (j *JSON) Scan(value interface{}) error {
 	return nil
 }
 
+func MustParseJSON(b []byte) JSON {
+	var j JSON
+	str := string(b)
+	if len(str) == 0 {
+		panic("empty byte array")
+	}
+	if err := json.Unmarshal([]byte(str), &j); err != nil {
+		panic(err)
+	}
+	return j
+}
+
 // ParseJSON attempts to coerce the input byte array into valid JSON
 // and parse it into a JSON object.
 func ParseJSON(b []byte) (JSON, error) {
@@ -643,11 +655,6 @@ type SendEtherRequest struct {
 	DestinationAddress common.Address `json:"address"`
 	FromAddress        common.Address `json:"from"`
 	Amount             assets.Eth     `json:"amount"`
-}
-
-// CreateJobSpecRequest represents a request to create and start and OCR job spec.
-type CreateJobSpecRequest struct {
-	TOML string `json:"toml"`
 }
 
 // AddressCollection is an array of common.Address

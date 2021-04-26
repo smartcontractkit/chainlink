@@ -113,6 +113,9 @@ func (er *EthResender) resendUnconfirmed() error {
 
 	now := time.Now()
 	batchSize := int(er.config.EthRPCDefaultBatchSize())
+	if batchSize == 0 {
+		batchSize = len(reqs)
+	}
 	for i := 0; i < len(reqs); i += batchSize {
 		j := i + batchSize
 		if j > len(reqs) {

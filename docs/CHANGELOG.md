@@ -9,7 +9,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- New CLI command to convert v1 flux monitor jobs (JSON) to 
+v2 flux monitor jobs (TOML). Running it will archive the v1 
+job and create a new v2 job. Example:
+```
+// Get v1 job ID:
+chainlink job_specs list
+// Migrate it to v2:
+chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
+
+// To undo the migration:
+1. Archive the v2 job in the UI
+2. Unarchive the v1 job manually in the db:
+update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
+```
+
+- Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_LIMIT_DEFAULT` is ignored.
+
+## [0.10.5] - 2021-04-26
+
+### Added
+
 - Add `MockOracle.sol` for testing contracts
+- Cron jobs can now be created for the v2 job pipeline:
+```
+type            = "cron"
+schemaVersion   = 1
+schedule        = "*/10 * * * *"
+observationSource   = """
+ds          [type=http method=GET url="http://example.com"];
+ds_parse    [type=jsonparse path="data"];
+ds -> ds_parse;
+"""
+```
 
 ### Changed
 
@@ -18,6 +50,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OCR jobs no longer show `TaskRuns` in success cases. This reduces
 DB load and significantly improves the performance of archiving OCR jobs.
 - Archiving OCR jobs should be 5-10x faster.
+
+### Fixed
+
+- Added `GAS_UPDATER_BATCH_SIZE` option to workaround `websocket: read limit exceeded` issues on BSC
+
+- Basic support for Optimism chain: node no longer gets stuck with 'nonce too low' error if connection is lost
 
 ## [0.10.4] - 2021-04-05
 

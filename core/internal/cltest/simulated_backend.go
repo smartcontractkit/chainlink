@@ -222,19 +222,6 @@ func (c *SimulatedBackendClient) GetLINKBalance(linkAddress common.Address, addr
 	panic("not implemented")
 }
 
-// SendRawTx sends a signed transaction to the transaction pool.
-func (c *SimulatedBackendClient) SendRawTx(txBytes []byte) (txHash common.Hash, err error) {
-	tx, err := utils.DecodeEthereumTx(hexutil.Encode(txBytes))
-	if err != nil {
-		logger.Errorf("could not deserialize transaction: %x", txBytes)
-		return common.Hash{}, errors.Wrapf(err, "while sending tx %x", txBytes)
-	}
-	if err = c.b.SendTransaction(context.Background(), &tx); err == nil {
-		c.b.Commit()
-	}
-	return tx.Hash(), err
-}
-
 // TransactionReceipt returns the transaction receipt for the given transaction hash.
 func (c *SimulatedBackendClient) TransactionReceipt(ctx context.Context, receipt common.Hash) (*types.Receipt, error) {
 	return c.b.TransactionReceipt(ctx, receipt)
@@ -300,6 +287,10 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 	return c.b.PendingNonceAt(ctx, account)
 }
 
+func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return c.b.NonceAt(ctx, account, blockNumber)
+}
+
 func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
@@ -327,6 +318,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
+
+		var lastHead *models.Head
+
 		for {
 			select {
 			case h := <-ch:
@@ -334,7 +328,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				case nil:
 					channel <- nil
 				default:
-					channel <- &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash}
+					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
+					lastHead = head
+					channel <- head
 				}
 			case <-subscription.close:
 				return

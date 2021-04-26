@@ -75,7 +75,7 @@ func (e EthTx) GetID() string {
 type EthTxAttempt struct {
 	ID                      int64
 	EthTxID                 int64
-	EthTx                   EthTx
+	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
 	GasPrice                utils.Big
 	SignedRawTx             []byte
 	Hash                    common.Hash
@@ -185,6 +185,21 @@ func (h Head) ChainLength() uint32 {
 	return l
 }
 
+// ChainHashes returns an array of block hashes by recursively looking up parents
+func (h Head) ChainHashes() []common.Hash {
+	var hashes []common.Hash
+
+	for {
+		hashes = append(hashes, h.Hash)
+		if h.Parent != nil {
+			h = *h.Parent
+		} else {
+			break
+		}
+	}
+	return hashes
+}
+
 // String returns a string representation of this number.
 func (h *Head) String() string {
 	return h.ToInt().String()
@@ -269,8 +284,6 @@ func (h *Head) MarshalJSON() ([]byte, error) {
 
 // WeiPerEth is amount of Wei currency units in one Eth.
 var WeiPerEth = new(big.Int).Exp(big.NewInt(10), big.NewInt(18), nil)
-
-type Log = types.Log
 
 var emptyHash = common.Hash{}
 
@@ -404,6 +417,27 @@ type blockInternal struct {
 // Int64ToHex converts an int64 into go-ethereum's hex representation
 func Int64ToHex(n int64) string {
 	return hexutil.EncodeBig(big.NewInt(n))
+}
+
+// HexToInt64 performs the inverse of Int64ToHex
+// Returns 0 on invalid input
+func HexToInt64(input interface{}) int64 {
+	switch v := input.(type) {
+	case string:
+		big, err := hexutil.DecodeBig(v)
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	case []byte:
+		big, err := hexutil.DecodeBig(string(v))
+		if err != nil {
+			return 0
+		}
+		return big.Int64()
+	default:
+		return 0
+	}
 }
 
 // Block represents an ethereum block

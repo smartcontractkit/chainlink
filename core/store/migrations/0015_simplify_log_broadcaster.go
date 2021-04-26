@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -38,7 +37,7 @@ const down15 = `
 `
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0015_simplify_log_broadcaster",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up15).Error

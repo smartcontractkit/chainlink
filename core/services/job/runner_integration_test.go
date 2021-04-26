@@ -111,7 +111,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 		m, err := models.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{Val: m}, *logger.Default, true)
 		require.NoError(t, err)
 
 		require.Len(t, results.Values, 2)
@@ -207,12 +207,12 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Errors, 1)
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -233,7 +233,7 @@ func TestRunner(t *testing.T) {
 				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -257,7 +257,7 @@ func TestRunner(t *testing.T) {
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
@@ -305,11 +305,11 @@ func TestRunner(t *testing.T) {
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
 
-		runID, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		runID, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -328,7 +328,7 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -663,7 +663,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(dbSpec.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Len(t, results.Values, 1)
 		assert.Nil(t, results.Errors[0])
@@ -674,7 +674,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Create another run
-		_, _, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.Error(t, err)
 	})
 
@@ -697,7 +697,7 @@ ds1 -> ds1_parse;
 
 		jb, err := jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err := runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err := runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Nil(t, results.Values[0])
 
@@ -707,7 +707,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
-		_, results, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.Equal(t, 10.1, results.Values[0])
 		assert.Nil(t, results.Errors[0])
@@ -721,7 +721,7 @@ ds1 -> ds1_parse;
 		jb, err = jobORM.FindJob(jbs.ID)
 		require.NoError(t, err)
 
-		_, results, err = runner.ExecuteAndInsertNewRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
+		_, results, err = runner.ExecuteAndInsertFinishedRun(context.Background(), *jb.PipelineSpec, pipeline.JSONSerializable{}, *logger.Default, true)
 		require.NoError(t, err)
 		assert.NotNil(t, results.Errors[0])
 	})

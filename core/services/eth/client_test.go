@@ -102,34 +102,6 @@ func TestEthClient_PendingNonceAt(t *testing.T) {
 	require.Equal(t, result, expected)
 }
 
-func TestEthClient_SendRawTx(t *testing.T) {
-	t.Parallel()
-
-	txData := "0xdeadbeef"
-
-	returnedHash := cltest.NewHash()
-	_, url, cleanup := cltest.NewWSServer(`{
-      "id": 1,
-      "jsonrpc": "2.0",
-      "result": "`+returnedHash.Hex()+`"
-    }`, func(data []byte) {
-		resp := cltest.ParseJSON(t, bytes.NewReader(data))
-		require.Equal(t, "eth_sendRawTransaction", resp.Get("method").String())
-		require.True(t, resp.Get("params").IsArray())
-		require.Equal(t, txData, resp.Get("params").Get("0").String())
-	})
-	defer cleanup()
-
-	ethClient, err := eth.NewClient(url)
-	require.NoError(t, err)
-	err = ethClient.Dial(context.Background())
-	require.NoError(t, err)
-
-	result, err := ethClient.SendRawTx(hexutil.MustDecode(txData))
-	assert.NoError(t, err)
-	assert.Equal(t, result, returnedHash)
-}
-
 func TestEthClient_BalanceAt(t *testing.T) {
 	t.Parallel()
 
