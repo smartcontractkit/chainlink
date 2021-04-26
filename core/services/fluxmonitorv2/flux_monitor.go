@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
-	"github.com/tevino/abool"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
@@ -68,13 +67,11 @@ type FluxMonitor struct {
 	logger    *logger.Logger
 	precision int32
 
-	connected     *abool.AtomicBool
 	backlog       *utils.BoundedPriorityQueue
 	chProcessLogs chan struct{}
 
-	readyForLogs func()
-	chStop       chan struct{}
-	waitOnStop   chan struct{}
+	chStop     chan struct{}
+	waitOnStop chan struct{}
 }
 
 // NewFluxMonitor returns a new instance of PollingDeviationChecker.
@@ -94,7 +91,6 @@ func NewFluxMonitor(
 	fluxAggregator flux_aggregator_wrapper.FluxAggregatorInterface,
 	logBroadcaster log.Broadcaster,
 	precision int32,
-	readyForLogs func(),
 	fmLogger *logger.Logger,
 ) (*FluxMonitor, error) {
 	fm := &FluxMonitor{
@@ -110,12 +106,10 @@ func NewFluxMonitor(
 		deviationChecker:  deviationChecker,
 		submissionChecker: submissionChecker,
 		flags:             flags,
-		readyForLogs:      readyForLogs,
 		logBroadcaster:    logBroadcaster,
 		fluxAggregator:    fluxAggregator,
 		precision:         precision,
 		logger:            fmLogger,
-		connected:         abool.New(),
 		backlog: utils.NewBoundedPriorityQueue(map[uint]uint{
 			// We want reconnecting nodes to be able to submit to a round
 			// that hasn't hit maxAnswers yet, as well as the newest round.
@@ -155,7 +149,6 @@ func NewFromJobSpec(
 	}
 
 	// Set up the flux aggregator
-	logBroadcaster.AddDependents(1)
 	fluxAggregator, err := flux_aggregator_wrapper.NewFluxAggregator(
 		fmSpec.ContractAddress.Address(),
 		ethClient,
@@ -243,7 +236,6 @@ func NewFromJobSpec(
 		fluxAggregator,
 		logBroadcaster,
 		fmSpec.Precision,
-		func() { logBroadcaster.DependentReady() },
 		fmLogger,
 	)
 }
@@ -289,20 +281,6 @@ func (fm *FluxMonitor) Close() error {
 	<-fm.waitOnStop
 
 	return nil
-}
-
-// OnConnect sets the poller as connected
-func (fm *FluxMonitor) OnConnect() {
-	fm.logger.Debugw("Flux Monitor connected to Ethereum node")
-
-	fm.connected.Set()
-}
-
-// OnDisconnect sets the poller as disconnected
-func (fm *FluxMonitor) OnDisconnect() {
-	fm.logger.Debugw("Flux Monitor disconnected from Ethereum node")
-
-	fm.connected.UnSet()
 }
 
 // JobID implements the listener.Listener interface.
@@ -371,34 +349,28 @@ func (fm *FluxMonitor) consume() {
 	}
 
 	// Subscribe to contract logs
-	isConnected, unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
+	unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
 		Contract: fm.fluxAggregator,
 		Logs: []generated.AbigenLog{
 			flux_aggregator_wrapper.FluxAggregatorNewRound{},
 			flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{},
 		},
+		NumConfirmations: 1,
 	})
 	defer unsubscribe()
 
 	if fm.flags.ContractExists() {
-		flagsConnected, unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
+		unsubscribe := fm.logBroadcaster.Register(fm, log.ListenerOpts{
 			Contract: fm.flags,
 			Logs: []generated.AbigenLog{
 				flags_wrapper.FlagsFlagLowered{},
 				flags_wrapper.FlagsFlagRaised{},
 			},
+			NumConfirmations: 1,
 		})
-		isConnected = isConnected && flagsConnected
 		defer unsubscribe()
 	}
 
-	if isConnected {
-		fm.connected.Set()
-	} else {
-		fm.connected.UnSet()
-	}
-
-	fm.readyForLogs()
 	fm.pollManager.Start(fm.IsHibernating(), fm.initialRoundState())
 
 	tickLogger := fm.logger.With(
@@ -736,9 +708,8 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 		"absoluteThreshold", deviationChecker.Thresholds.Abs,
 	)
 
-	if !fm.connected.IsSet() {
-		l.Warnw("not connected to Ethereum node, skipping poll")
-
+	if !fm.logBroadcaster.IsConnected() {
+		l.Warnw("FluxMonitor: LogBroadcaster is not connected to Ethereum node, skipping poll")
 		return
 	}
 

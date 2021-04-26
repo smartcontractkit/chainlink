@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- New CLI command to convert v1 flux monitor jobs (JSON) to 
+v2 flux monitor jobs (TOML). Running it will archive the v1 
+job and create a new v2 job. Example:
+```
+// Get v1 job ID:
+chainlink job_specs list
+// Migrate it to v2:
+chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
+
+// To undo the migration:
+1. Archive the v2 job in the UI
+2. Unarchive the v1 job manually in the db:
+update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
+```
+
 ## [0.10.5] - 2021-04-26
 
 ### Added

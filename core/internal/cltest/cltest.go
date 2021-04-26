@@ -480,6 +480,7 @@ func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.Ge
 	r, g, s, assertMocksCalled := NewEthMocks(t)
 	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
 	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	g.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
@@ -1776,8 +1777,8 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	}
 }
 
-func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- models.Log {
-	logsCh := make(chan chan<- models.Log, 1)
+func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- types.Log {
+	logsCh := make(chan chan<- types.Log, 1)
 	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
@@ -1800,6 +1801,13 @@ func BatchElemMatchesHash(req rpc.BatchElem, hash common.Hash) bool {
 		len(req.Args) == 1 && req.Args[0] == hash
 }
 
+func BatchElemMustMatchHash(t *testing.T, req rpc.BatchElem, hash common.Hash) {
+	t.Helper()
+	if !BatchElemMatchesHash(req, hash) {
+		t.Fatalf("Batch hash %v does not match expected %v", req.Args[0], hash)
+	}
+}
+
 type SimulateIncomingHeadsArgs struct {
 	StartBlock, EndBlock int64
 	BackfillDepth        int64
@@ -1809,7 +1817,7 @@ type SimulateIncomingHeadsArgs struct {
 	Hashes               map[int64]common.Hash
 }
 
-func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanup func()) {
+func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (func(), chan struct{}) {
 	t.Helper()
 
 	if args.BackfillDepth == 0 {
@@ -1875,6 +1883,7 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 					ht.OnNewLongestChain(ctx, *heads[current])
 				}
 				if args.EndBlock >= 0 && current == args.EndBlock {
+					chDone <- struct{}{}
 					return
 				}
 				current++
@@ -1883,12 +1892,13 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (cleanu
 		}
 	}()
 	var once sync.Once
-	return func() {
+	cleanup := func() {
 		once.Do(func() {
 			close(chDone)
 			cancel()
 		})
 	}
+	return cleanup, chDone
 }
 
 type HeadTrackableFunc func(context.Context, models.Head)

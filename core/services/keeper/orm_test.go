@@ -26,6 +26,7 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 		UpkeepID:   upkeepID,
 		ExecuteGas: executeGas,
 		Registry:   registry,
+		RegistryID: registry.ID,
 		CheckData:  checkData,
 	}
 }
@@ -59,6 +60,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 		UpkeepID:            0,
 		ExecuteGas:          executeGas,
 		Registry:            registry,
+		RegistryID:          registry.ID,
 		CheckData:           checkData,
 		LastRunBlockHeight:  1,
 		PositioningConstant: 1,
@@ -98,7 +100,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
 
-	err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
+	_, err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
 	require.NoError(t, err)
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
 

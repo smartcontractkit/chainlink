@@ -72,7 +72,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 			}
 
 			sp := cltest.MinimalOCRNonBootstrapSpec(contractAddress, address, tc.pid, tc.kb)
-			body, _ := json.Marshal(models.CreateJobSpecRequest{
+			body, _ := json.Marshal(web.CreateJobRequest{
 				TOML: sp,
 			})
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -90,7 +90,7 @@ func TestJobsController_Create_HappyPath_OffchainReportingSpec(t *testing.T) {
 
 	toml := string(cltest.MustReadFile(t, "../testdata/tomlspecs/oracle-spec.toml"))
 	toml = strings.Replace(toml, "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4", app.Key.Address.Hex(), 1)
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: toml,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -129,7 +129,7 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/keeper-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -194,7 +194,7 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
@@ -230,7 +230,7 @@ func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
 	client := app.NewHTTPClient()
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/flux-monitor-spec.toml")
-	body, _ := json.Marshal(models.CreateJobSpecRequest{
+	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: string(tomlBytes),
 	})
 

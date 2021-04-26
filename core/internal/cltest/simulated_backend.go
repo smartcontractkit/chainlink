@@ -300,6 +300,10 @@ func (c *SimulatedBackendClient) PendingNonceAt(ctx context.Context, account com
 	return c.b.PendingNonceAt(ctx, account)
 }
 
+func (c *SimulatedBackendClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	return c.b.NonceAt(ctx, account, blockNumber)
+}
+
 func (c *SimulatedBackendClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return c.b.BalanceAt(ctx, account, blockNumber)
 }
@@ -327,6 +331,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 	subscription := &headSubscription{close: make(chan struct{})}
 	ch := make(chan *types.Header)
 	go func() {
+
+		var lastHead *models.Head
+
 		for {
 			select {
 			case h := <-ch:
@@ -334,7 +341,9 @@ func (c *SimulatedBackendClient) SubscribeNewHead(
 				case nil:
 					channel <- nil
 				default:
-					channel <- &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash}
+					head := &models.Head{Number: h.Number.Int64(), Hash: h.Hash(), ParentHash: h.ParentHash, Parent: lastHead}
+					lastHead = head
+					channel <- head
 				}
 			case <-subscription.close:
 				return
