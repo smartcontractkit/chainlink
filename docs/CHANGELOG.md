@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
 v2 flux monitor jobs (TOML). Running it will archive the v1 
 job and create a new v2 job. Example:
@@ -21,6 +23,7 @@ chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
 2. Unarchive the v1 job manually in the db:
 update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
 ```
+- Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_LIMIT_DEFAULT` is ignored.
 
 ## [0.10.5] - 2021-04-26
 
