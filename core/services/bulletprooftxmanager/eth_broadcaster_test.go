@@ -252,7 +252,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 		return tx.GasPrice().Cmp(big.NewInt(1)) == 0 && tx.Gas() == estimatedGas
 	})).Return(nil).Once()
 
-	// Insertion order deliberately reversed to test ordering
 	require.NoError(t, store.DB.Save(&tx).Error)
 
 	// Do the thing
