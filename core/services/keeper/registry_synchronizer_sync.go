@@ -132,7 +132,8 @@ func (rs *RegistrySynchronizer) deleteCanceledUpkeeps(reg Registry) error {
 	}
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	return rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	_, err = rs.orm.BatchDeleteUpkeepsForJob(ctx, rs.job.ID, canceled)
+	return err
 }
 
 // newRegistryFromChain returns a Registry stuct with fields synched from those on chain
@@ -141,6 +142,9 @@ func (rs *RegistrySynchronizer) newRegistryFromChain() (Registry, error) {
 	contractAddress := rs.job.KeeperSpec.ContractAddress
 	config, err := rs.contract.GetConfig(nil)
 	if err != nil {
+		ctx, cancel := postgres.DefaultQueryCtx()
+		defer cancel()
+		rs.jrm.RecordError(ctx, rs.job.ID, err.Error())
 		return Registry{}, err
 	}
 	keeperAddresses, err := rs.contract.GetKeeperList(nil)

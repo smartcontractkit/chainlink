@@ -13,7 +13,7 @@ func (t *PanicTask) Type() TaskType {
 	return TaskTypePanic
 }
 
-func (t *PanicTask) SetDefaults(_ map[string]string, _ TaskDAG, _ taskDAGNode) error {
+func (t *PanicTask) SetDefaults(_ map[string]string, _ TaskDAG, _ TaskDAGNode) error {
 	return nil
 }
 

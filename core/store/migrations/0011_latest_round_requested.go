@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
@@ -22,7 +21,7 @@ DROP TABLE offchainreporting_latest_round_requested;
 )
 
 func init() {
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0011_latest_round_requested",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(up11).Error

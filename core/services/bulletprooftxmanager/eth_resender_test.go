@@ -39,11 +39,11 @@ func Test_EthResender_FindEthTxesRequiringResend(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 1, fromAddress, time.Unix(1616509200, 0)),
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastAttempt(t, store, 2, fromAddress, time.Unix(1616509300, 0)),
 	}
-	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID, store)
+	attempt1_2 := newBroadcastEthTxAttempt(t, etxs[0].ID)
 	attempt1_2.GasPrice = *utils.NewBig(big.NewInt(10))
 	require.NoError(t, store.DB.Create(&attempt1_2).Error)
 
-	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID, store)
+	attempt3_2 := newInProgressEthTxAttempt(t, etxs[2].ID)
 	attempt3_2.GasPrice = *utils.NewBig(big.NewInt(10))
 	require.NoError(t, store.DB.Create(&attempt3_2).Error)
 

@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/core/store"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +26,7 @@ func newUpkeep(registry keeper.Registry, upkeepID int64) keeper.UpkeepRegistrati
 		UpkeepID:   upkeepID,
 		ExecuteGas: executeGas,
 		Registry:   registry,
+		RegistryID: registry.ID,
 		CheckData:  checkData,
 	}
 }
@@ -60,6 +60,7 @@ func TestKeeperDB_UpsertUpkeep(t *testing.T) {
 		UpkeepID:            0,
 		ExecuteGas:          executeGas,
 		Registry:            registry,
+		RegistryID:          registry.ID,
 		CheckData:           checkData,
 		LastRunBlockHeight:  1,
 		PositioningConstant: 1,
@@ -99,7 +100,7 @@ func TestKeeperDB_BatchDeleteUpkeepsForJob(t *testing.T) {
 
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 3)
 
-	err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
+	_, err := orm.BatchDeleteUpkeepsForJob(context.Background(), job.ID, []int64{0, 2})
 	require.NoError(t, err)
 	cltest.AssertCount(t, store, &keeper.UpkeepRegistration{}, 1)
 
@@ -303,12 +304,9 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
 	require.NoError(t, err)
 
-	var ethTX models.EthTx
-	err = store.DB.First(&ethTX).Error
-	require.NoError(t, err)
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)
 	require.Equal(t, registry.ContractAddress.Address(), ethTX.ToAddress)
 	require.Equal(t, payload, ethTX.EncodedPayload)

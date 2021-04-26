@@ -83,7 +83,7 @@ describe('augmentOcrTasksList', () => {
       id: '321',
       jobId: '2',
       status: 'errored',
-      type: 'Off-chain reporting job run',
+      type: 'Pipeline job run',
     }
     expect(augmentOcrTasksList({ jobRun })).toEqual([
       {

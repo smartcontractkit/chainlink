@@ -461,7 +461,7 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	}
 	require.NoError(t, app.Store.CreateBridgeType(bridge))
 
-	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -485,7 +485,7 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
-	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job.json")
+	jsonStr := cltest.MustReadFile(t, "../testdata/jsonspecs/flux_monitor_bridge_job_noop.json")
 	resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
 	defer cleanup()
 
@@ -582,6 +582,48 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	expected := `{"errors":[{"detail":"Must have at least one Initiator and one Task"}]}`
 	body := string(cltest.ParseResponseBody(t, resp))
 	assert.Equal(t, expected, strings.TrimSpace(body))
+}
+
+func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
+	t.Parallel()
+
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplication(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	t.Cleanup(cleanup)
+	app.Config.Set("ETH_DISABLED", true)
+	require.NoError(t, app.Start())
+
+	client := app.NewHTTPClient()
+
+	t.Run("VRF", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "./../testdata/jsonspecs/randomness_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 1)
+	})
+
+	t.Run("runlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 2)
+	})
+
+	t.Run("ethlog", func(t *testing.T) {
+		jsonStr := cltest.MustReadFile(t, "../internal/fixtures/web/runlog_noop_job.json")
+		resp, cleanup := client.Post("/v2/specs", bytes.NewBuffer(jsonStr))
+		t.Cleanup(cleanup)
+
+		assert.Equal(t, 200, resp.StatusCode)
+		cltest.AssertCount(t, app.Store, models.JobSpec{}, 3)
+	})
 }
 
 func BenchmarkJobSpecsController_Show(b *testing.B) {

@@ -1,14 +1,13 @@
 package migrations
 
 import (
-	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
 func init() {
 	// Note this is the 1612225637 v1 migration which never got run
 	// because the v2 migrations started after 1611847145.
-	Migrations = append(Migrations, &gormigrate.Migration{
+	Migrations = append(Migrations, &Migration{
 		ID: "0004_cleanup_tx_state",
 		Migrate: func(db *gorm.DB) error {
 			return db.Exec(`

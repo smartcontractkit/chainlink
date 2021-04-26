@@ -19,7 +19,21 @@
   }],
   "tasks": [
     {
-      "type": "NoOp"
+      "type": "multiply",
+      "confirmations": null,
+      "params": {
+        "times": 100
+      }
+    },
+    {
+      "type": "ethuint256",
+      "confirmations": null,
+      "params": {}
+    },
+    {
+      "type": "ethtx",
+      "confirmations": null,
+      "params": {}
     }
   ]
 }
