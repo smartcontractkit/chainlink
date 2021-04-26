@@ -95,7 +95,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 
 		// turn falls somewhere between 20-39 (blockCountPerTurn=20)
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
-		head := models.NewHead(big.NewInt(36), cltest.NewHash(), cltest.NewHash(), 1000)
+		head := *cltest.Head(36)
 
 		executor.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
@@ -105,15 +105,15 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		_, ok := runs[0].Meta.Val.(map[string]interface{})["eth_tx_id"]
 		assert.True(t, ok)
 
-		// heads 36, 37 etc do nothing
-		for i := 36; i < 40; i++ {
-			head = models.NewHead(big.NewInt(int64(i)), cltest.NewHash(), cltest.NewHash(), 1000)
+		// heads 37, 38 etc do nothing
+		for i := 37; i < 40; i++ {
+			head = *cltest.Head(i)
 			executor.OnNewLongestChain(context.Background(), head)
 			cltest.AssertCountStays(t, store, models.EthTx{}, 1)
 		}
 
 		// head 40 triggers a new run
-		head = models.NewHead(big.NewInt(40), cltest.NewHash(), cltest.NewHash(), 1000)
+		head = *cltest.Head(40)
 
 		executor.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 2)
