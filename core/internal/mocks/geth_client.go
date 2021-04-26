@@ -179,6 +179,27 @@ func (_m *GethClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	return r0, r1
 }
 
+// NonceAt provides a mock function with given fields: ctx, account, blockNumber
+func (_m *GethClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	ret := _m.Called(ctx, account, blockNumber)
+
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint64); ok {
+		r0 = rf(ctx, account, blockNumber)
+	} else {
+		r0 = ret.Get(0).(uint64)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, account, blockNumber)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // PendingCodeAt provides a mock function with given fields: ctx, account
 func (_m *GethClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	ret := _m.Called(ctx, account)

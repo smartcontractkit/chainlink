@@ -21,7 +21,7 @@ func (t *AnyTask) Type() TaskType {
 	return TaskTypeAny
 }
 
-func (t *AnyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *AnyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 

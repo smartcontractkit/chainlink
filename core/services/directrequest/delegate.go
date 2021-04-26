@@ -82,7 +82,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		pipelineRunner:  d.pipelineRunner,
 		db:              d.db,
 		pipelineORM:     d.pipelineORM,
-		spec:            *job.PipelineSpec,
 		job:             job,
 
 		// At the moment the mailbox would start skipping if there were
@@ -111,7 +110,6 @@ type listener struct {
 	pipelineRunner    pipeline.Runner
 	db                *gorm.DB
 	pipelineORM       pipeline.ORM
-	spec              pipeline.Spec
 	job               job.Job
 	onChainJobSpecID  common.Hash
 	runs              sync.Map
@@ -279,8 +277,8 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 	meta["oracleRequest"] = oracleRequestToMap(request)
 
 	logger := logger.CreateLogger(logger.Default.With(
-		"jobName", l.spec.JobName,
-		"jobID", l.spec.JobID,
+		"jobName", l.job.PipelineSpec.JobName,
+		"jobID", l.job.PipelineSpec.JobID,
 	))
 
 	l.shutdownWaitGroup.Add(1)
@@ -295,7 +293,7 @@ func (l *listener) handleOracleRequest(request *oracle_wrapper.OracleOracleReque
 		ctx, cancel := utils.CombinedContext(runCloserChannel, context.Background())
 		defer cancel()
 
-		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, l.spec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
+		_, _, err := l.pipelineRunner.ExecuteAndInsertFinishedRun(ctx, *l.job.PipelineSpec, pipeline.JSONSerializable{Val: meta, Null: false}, *logger, true)
 		if ctx.Err() != nil {
 			return
 		} else if err != nil {

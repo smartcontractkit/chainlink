@@ -135,6 +135,7 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	gethClient.On("ChainID", mock.Anything).Return(config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	gethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(100), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	gethClient.On("SendTransaction", mock.Anything, mock.Anything).
@@ -165,6 +166,9 @@ func TestIntegration_HttpRequestWithHeaders(t *testing.T) {
 
 	// Do the thing
 	newHeads <- cltest.Head(safe)
+
+	// sending another head to make sure EthTx executes after EthConfirmer is done
+	newHeads <- cltest.Head(safe + 1)
 
 	cltest.WaitForJobRunToComplete(t, app.Store, jr)
 }
@@ -826,6 +830,7 @@ func TestIntegration_FluxMonitor_Deviation(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	gethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	newHeads := make(chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
@@ -958,6 +963,7 @@ func TestIntegration_FluxMonitor_NewRound(t *testing.T) {
 	// Start, connect, and initialize node
 	gethClient.On("ChainID", mock.Anything).Maybe().Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	gethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	gethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	newHeadsCh := make(chan chan<- *models.Head, 1)
@@ -1110,6 +1116,7 @@ func TestIntegration_MultiwordV1(t *testing.T) {
 	sub.On("Unsubscribe").Return(nil).Maybe()
 	gethClient.On("ChainID", mock.Anything).Return(app.Store.Config.ChainID(), nil)
 	gethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
+	gethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(uint64(0), nil)
 	headsCh := make(chan chan<- *models.Head, 1)
 	rpcClient.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").
 		Run(func(args mock.Arguments) { headsCh <- args.Get(1).(chan<- *models.Head) }).
@@ -1647,7 +1654,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	directRequestSpec := string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml"))
 	directRequestSpec = strings.Replace(directRequestSpec, "http://example.com", httpServer.URL, 1)
-	request := models.CreateJobSpecRequest{TOML: directRequestSpec}
+	request := web.CreateJobRequest{TOML: directRequestSpec}
 	output, err := json.Marshal(request)
 	require.NoError(t, err)
 	job := cltest.CreateJobViaWeb(t, app, output)
