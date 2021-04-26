@@ -141,7 +141,7 @@ test:ts)
   $deps up --exit-code-from wait-db-2 wait-db-2
   echo "RUN INTEGRATION"
   set +e
-  $ts_test run integration-ts /bin/sh -c "echo 'ECHOING ${@:2}'"
+  $ts_test --verbose run integration-ts /bin/sh -c "echo 'ECHOING ${@:2}'"
 
 #  $ts_test run integration-ts /bin/sh -c \
 #    "docker cp chainlink-node:/usr/local/bin/chainlink /usr/local/bin/chainlink \
