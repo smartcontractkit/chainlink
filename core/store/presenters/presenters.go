@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	uuid "github.com/satori/go.uuid"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -334,9 +336,11 @@ func (i Initiator) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(&struct {
+		ID     int64       `json:"id"`
+		JobID  uuid.UUID   `json:"jobSpecId"`
 		Type   string      `json:"type"`
 		Params interface{} `json:"params"`
-	}{i.Type, p})
+	}{i.ID, i.JobSpecID.UUID(), i.Type, p})
 }
 
 func initiatorParams(i Initiator) (interface{}, error) {
