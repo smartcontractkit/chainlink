@@ -17,7 +17,12 @@ job and create a new v2 job. Example:
 // Get v1 job ID:
 chainlink job_specs list
 // Migrate it to v2:
-chainlink jobs migrate 123e4567e89b12d3a456426614174000 
+chainlink jobs migrate fe279ed9c36f4eef9dc1bdb7bef21264
+
+// To undo the migration:
+1. Archive the v2 job in the UI
+2. Unarchive the v1 job manually in the db:
+update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7bef21264'
 ```
 
 
