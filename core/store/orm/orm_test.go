@@ -125,7 +125,8 @@ func TestORM_ShowJobWithMultipleTasks(t *testing.T) {
 
 	orm := store.ORM
 	retrievedJob, err := orm.FindJobSpec(job.ID)
-	assert.NoError(t, err)
+	require.NoError(t, err)
+	require.Len(t, retrievedJob.Tasks, 4)
 	assert.Equal(t, string(retrievedJob.Tasks[0].Type), "task1")
 	assert.Equal(t, string(retrievedJob.Tasks[1].Type), "task2")
 	assert.Equal(t, string(retrievedJob.Tasks[2].Type), "task3")
@@ -1156,7 +1157,7 @@ func TestBulkDeleteRuns(t *testing.T) {
 
 		err = db.Model(&models.RunResult{}).Count(&resultCount).Error
 		assert.NoError(t, err)
-		assert.Equal(t, 3, int(resultCount))
+		assert.Equal(t, 6, int(resultCount))
 
 		return nil
 	})
@@ -1237,70 +1238,96 @@ const linkEthTxWithTaskRunQuery = `
 INSERT INTO eth_task_run_txes (task_run_id, eth_tx_id) VALUES (?, ?)
 `
 
-func TestORM_RemoveUnstartedTransaction(t *testing.T) {
-	storeInstance, cleanup := cltest.NewStore(t)
+func TestORM_RemoveUnstartedTransaction_RemoveByEthTx(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
 	defer cleanup()
-	ormInstance := storeInstance.ORM
 
 	jobSpec := cltest.NewJobWithRunLogInitiator()
-	require.NoError(t, storeInstance.CreateJob(&jobSpec))
+	require.NoError(t, store.CreateJob(&jobSpec))
 
-	for _, status := range []models.RunStatus{
-		"in_progress",
-		"unstarted",
-	} {
-		jobRun := cltest.NewJobRun(jobSpec)
-		jobRun.Status = status
-		jobRun.TaskRuns = []models.TaskRun{
-			{
-				ID:         uuid.NewV4(),
-				Status:     models.RunStatusUnstarted,
-				TaskSpecID: jobSpec.Tasks[0].ID,
-			},
-		}
-		runRequest := models.NewRunRequest(models.JSON{})
-		require.NoError(t, storeInstance.DB.Create(&runRequest).Error)
-		jobRun.RunRequest = *runRequest
-		require.NoError(t, storeInstance.CreateJobRun(&jobRun))
+	runRequest := models.NewRunRequest(models.JSON{})
+	require.NoError(t, store.DB.Create(runRequest).Error)
+	unstartedJobRun := cltest.NewJobRun(jobSpec)
+	unstartedJobRun.RunRequest = *runRequest
+	unstartedJobRun.Status = models.RunStatusInProgress
+	require.NoError(t, store.CreateJobRun(&unstartedJobRun))
 
-		key := cltest.MustInsertRandomKey(t, storeInstance.DB)
-		ethTx := cltest.NewEthTx(t, storeInstance, key.Address.Address())
-		ethTx.State = models.EthTxState(status)
-		if status == "in_progress" {
-			var nonce int64 = 1
-			ethTx.Nonce = &nonce
-		}
-		require.NoError(t, storeInstance.DB.Save(&ethTx).Error)
+	runRequest = models.NewRunRequest(models.JSON{})
+	require.NoError(t, store.DB.Create(runRequest).Error)
+	startedJobRun := cltest.NewJobRun(jobSpec)
+	startedJobRun.RunRequest = *runRequest
+	startedJobRun.Status = models.RunStatusInProgress
+	require.NoError(t, store.CreateJobRun(&startedJobRun))
 
-		ethTxAttempt := cltest.NewEthTxAttempt(t, ethTx.ID)
-		ethTxAttempt.State = models.EthTxAttemptInProgress
-		require.NoError(t, storeInstance.DB.Save(&ethTxAttempt).Error)
+	key := cltest.MustInsertRandomKey(t, store.DB)
+	ethTx := cltest.NewEthTx(t, store, key.Address.Address())
+	require.NoError(t, store.DB.Create(&ethTx).Error)
 
-		require.NoError(t, storeInstance.DB.Exec(linkEthTxWithTaskRunQuery, jobRun.TaskRuns[0].ID, ethTx.ID).Error)
-	}
+	ethTxAttempt := cltest.NewEthTxAttempt(t, ethTx.ID)
+	require.NoError(t, store.DB.Create(&ethTxAttempt).Error)
+	require.NoError(t, store.DB.Exec(linkEthTxWithTaskRunQuery, unstartedJobRun.TaskRuns[0].ID, ethTx.ID).Error)
 
-	assert.NoError(t, ormInstance.RemoveUnstartedTransactions())
+	assert.NoError(t, store.RemoveUnstartedTransactions())
 
-	jobRuns, err := ormInstance.JobRunsFor(jobSpec.ID, 10)
-	assert.NoError(t, err)
-	assert.Len(t, jobRuns, 1, "expected only one JobRun to be left in the db")
-	assert.Equal(t, jobRuns[0].Status, models.RunStatusInProgress)
+	jobRuns, err := store.JobRunsFor(jobSpec.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, jobRuns, 1, "expected only one JobRun to be left in the db")
+	assert.Equal(t, models.RunStatusInProgress, jobRuns[0].Status)
 
 	taskRuns := []models.TaskRun{}
-	assert.NoError(t, storeInstance.DB.Find(&taskRuns).Error)
+	require.NoError(t, store.DB.Find(&taskRuns).Error)
 	assert.Len(t, taskRuns, 1, "expected only one TaskRun to be left in the db")
 
 	runRequests := []models.RunRequest{}
-	assert.NoError(t, storeInstance.DB.Find(&runRequests).Error)
-	assert.Len(t, runRequests, 1, "expected only one RunRequest to be left in the db")
+	require.NoError(t, store.DB.Find(&runRequests).Error)
+	assert.Len(t, runRequests, 1, "expected only one RunRequests to be left in the db")
 
 	ethTxes := []models.EthTx{}
-	assert.NoError(t, storeInstance.DB.Find(&ethTxes).Error)
+	require.NoError(t, store.DB.Find(&ethTxes).Error)
 	assert.Len(t, ethTxes, 1, "expected only one EthTx to be left in the db")
 
 	ethTxAttempts := []models.EthTxAttempt{}
-	assert.NoError(t, storeInstance.DB.Find(&ethTxAttempts).Error)
+	require.NoError(t, store.DB.Find(&ethTxAttempts).Error)
 	assert.Len(t, ethTxAttempts, 1, "expected only one EthTxAttempt to be left in the db")
+}
+
+func TestORM_RemoveUnstartedTransaction_RemoveByJobRun(t *testing.T) {
+	store, cleanup := cltest.NewStore(t)
+	defer cleanup()
+
+	jobSpec := cltest.NewJobWithRunLogInitiator()
+	require.NoError(t, store.CreateJob(&jobSpec))
+
+	runRequest := models.NewRunRequest(models.JSON{})
+	require.NoError(t, store.DB.Create(runRequest).Error)
+
+	unstartedJobRun := cltest.NewJobRun(jobSpec)
+	unstartedJobRun.RunRequest = *runRequest
+	unstartedJobRun.Status = models.RunStatusUnstarted
+	require.NoError(t, store.CreateJobRun(&unstartedJobRun))
+
+	runRequest = models.NewRunRequest(models.JSON{})
+	require.NoError(t, store.DB.Create(runRequest).Error)
+
+	startedJobRun := cltest.NewJobRun(jobSpec)
+	startedJobRun.RunRequest = *runRequest
+	startedJobRun.Status = models.RunStatusInProgress
+	require.NoError(t, store.CreateJobRun(&startedJobRun))
+
+	assert.NoError(t, store.RemoveUnstartedTransactions())
+
+	jobRuns, err := store.JobRunsFor(jobSpec.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, jobRuns, 1, "expected only one JobRun to be left in the db")
+	assert.Equal(t, models.RunStatusInProgress, jobRuns[0].Status)
+
+	taskRuns := []models.TaskRun{}
+	require.NoError(t, store.DB.Find(&taskRuns).Error)
+	assert.Len(t, taskRuns, 1, "expected only one TaskRun to be left in the db")
+
+	runRequests := []models.RunRequest{}
+	require.NoError(t, store.DB.Find(&runRequests).Error)
+	assert.Len(t, runRequests, 1, "expected only one RunRequest to be left in the db")
 }
 
 func TestORM_EthTransactionsWithAttempts(t *testing.T) {
