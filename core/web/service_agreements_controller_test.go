@@ -7,6 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
 
 	"github.com/stretchr/testify/assert"
@@ -25,9 +26,13 @@ func TestServiceAgreementsController_Show(t *testing.T) {
 
 	client := app.NewHTTPClient()
 
+	j := models.NewJob()
+	require.NoError(t, app.Store.CreateJob(&j))
+
 	input := cltest.MustReadFile(t, "../testdata/jsonspecs/hello_world_agreement.json")
 	sa, err := cltest.ServiceAgreementFromString(string(input))
 	require.NoError(t, err)
+	sa.JobSpecID = j.ID
 	require.NoError(t, app.Store.CreateServiceAgreement(&sa))
 
 	resp, cleanup := client.Get("/v2/service_agreements/" + sa.ID)
