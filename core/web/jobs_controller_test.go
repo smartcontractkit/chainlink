@@ -152,6 +152,35 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 	require.Equal(t, models.EIP55Address("0xa8037A20989AFcBC51798de9762b351D63ff462e"), jb.KeeperSpec.FromAddress)
 }
 
+func TestJobsController_Create_CronRequestSpec(t *testing.T) {
+	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	defer assertMocksCalled()
+	app, cleanup := cltest.NewApplicationWithKey(t,
+		eth.NewClientWith(rpcClient, gethClient),
+	)
+	defer cleanup()
+	require.NoError(t, app.StartAndConnect())
+
+	client := app.NewHTTPClient()
+
+	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/cron-spec.toml")
+	body, _ := json.Marshal(web.CreateJobRequest{
+		TOML: string(tomlBytes),
+	})
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer cleanup()
+	require.Equal(t, http.StatusOK, response.StatusCode)
+
+	jb := job.Job{}
+	require.NoError(t, app.Store.DB.Preload("CronSpec").First(&jb).Error)
+
+	resource := presenters.JobResource{}
+	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
+	assert.NoError(t, err)
+	assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
+	require.Equal(t, "0 0 1 1 *", jb.CronSpec.CronSchedule)
+}
+
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)

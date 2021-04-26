@@ -61,6 +61,7 @@ type ConfigSchema struct {
 	ExplorerAccessKey                         string          `env:"EXPLORER_ACCESS_KEY"`
 	ExplorerSecret                            string          `env:"EXPLORER_SECRET"`
 	ExplorerURL                               *url.URL        `env:"EXPLORER_URL"`
+	FeatureCronV2                             bool            `env:"FEATURE_CRON_V2" default:"false"`
 	FeatureExternalInitiators                 bool            `env:"FEATURE_EXTERNAL_INITIATORS" default:"false"`
 	FeatureFluxMonitor                        bool            `env:"FEATURE_FLUX_MONITOR" default:"true"`
 	FeatureFluxMonitorV2                      bool            `env:"FEATURE_FLUX_MONITOR_V2" default:"false"`
