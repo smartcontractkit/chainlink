@@ -3,12 +3,13 @@
 package mocks
 
 import (
-	context "context"
 	big "math/big"
 
 	assets "github.com/smartcontractkit/chainlink/core/assets"
 
 	common "github.com/ethereum/go-ethereum/common"
+
+	context "context"
 
 	ethereum "github.com/ethereum/go-ethereum"
 
