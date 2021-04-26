@@ -4,6 +4,7 @@ const {
   expectRevert,
   expectEvent,
 } = require('@openzeppelin/test-helpers')
+const { publicAbi } = require('./helpers')
 
 describe('ValidatorProxy', () => {
   let accounts
@@ -20,6 +21,23 @@ describe('ValidatorProxy', () => {
     validatorProxy = await ValidatorProxyArtifact.new(aggregator, validator, {
       from: owner,
     })
+  })
+
+  it('has a limited public interface', async () => {
+    publicAbi(validatorProxy, [
+      // ConfirmedOwner functions
+      'acceptOwnership',
+      'owner',
+      'transferOwnership',
+      // ValidatorProxy functions
+      'validate',
+      'proposeNewAggregator',
+      'upgradeAggregator',
+      'getAggregators',
+      'proposeNewValidator',
+      'upgradeValidator',
+      'getValidators',
+    ])
   })
 
   describe('#constructor', () => {
