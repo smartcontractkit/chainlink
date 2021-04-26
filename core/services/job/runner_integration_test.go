@@ -212,7 +212,7 @@ func TestRunner(t *testing.T) {
 
 		assert.Len(t, results.Errors, 1)
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -233,7 +233,7 @@ func TestRunner(t *testing.T) {
 				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -309,7 +309,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -328,7 +328,7 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())

@@ -75,7 +75,7 @@ func (e EthTx) GetID() string {
 type EthTxAttempt struct {
 	ID                      int64
 	EthTxID                 int64
-	EthTx                   EthTx
+	EthTx                   EthTx `gorm:"foreignkey:EthTxID;->"`
 	GasPrice                utils.Big
 	SignedRawTx             []byte
 	Hash                    common.Hash
