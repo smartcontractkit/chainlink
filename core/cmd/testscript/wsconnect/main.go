@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 )
 
 func panicErr(err error) {
@@ -18,7 +18,7 @@ func panicErr(err error) {
 }
 
 func main() {
-	cb := func(log models.Log) {}
+	cb := func(log types.Log) {}
 	c, err := eth.NewClient("ws://localhost:8546")
 	panicErr(err)
 	err = c.Dial(context.Background())

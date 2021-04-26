@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/models"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 )
 
 // OCRKeysController manages OCR key bundles
@@ -21,24 +22,24 @@ type OCRKeysController struct {
 // Example:
 // "GET <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Index(c *gin.Context) {
-	keys, err := ocrkc.App.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
+	ekbs, err := ocrkc.App.GetStore().OCRKeyStore.FindEncryptedOCRKeyBundles()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, keys, "offChainReportingKeyBundle")
+	jsonAPIResponse(c, presenters.NewOCRKeysBundleResources(ekbs), "offChainReportingKeyBundle")
 }
 
 // Create and return an OCR key bundle
 // Example:
 // "POST <application>/keys/ocr"
 func (ocrkc *OCRKeysController) Create(c *gin.Context) {
-	_, encryptedKeyBundle, err := ocrkc.App.GetStore().OCRKeyStore.GenerateEncryptedOCRKeyBundle()
+	_, ekb, err := ocrkc.App.GetStore().OCRKeyStore.GenerateEncryptedOCRKeyBundle()
 	if err != nil {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, encryptedKeyBundle, "offChainReportingKeyBundle")
+	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(ekb), "offChainReportingKeyBundle")
 }
 
 // Delete an OCR key bundle
@@ -75,7 +76,7 @@ func (ocrkc *OCRKeysController) Delete(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	jsonAPIResponse(c, ekb, "offChainReportingKeyBundle")
+	jsonAPIResponse(c, presenters.NewOCRKeysBundleResource(ekb), "offChainReportingKeyBundle")
 }
 
 // Import imports an OCR key bundle

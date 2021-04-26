@@ -1,18 +1,79 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"testing"
+	"time"
 
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/ocrkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
+
+func TestOCRKeyBundlePresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		createdAt = time.Now()
+		updatedAt = time.Now().Add(time.Second)
+		deletedAt = time.Now().Add(2 * time.Second)
+		bundleID  = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+		buffer    = bytes.NewBufferString("")
+		r         = cmd.RendererTable{Writer: buffer}
+	)
+
+	pk, err := ocrkey.NewKeyBundle()
+	require.NoError(t, err)
+	pkEncrypted, err := pk.Encrypt("p4SsW0rD1!@#_", utils.FastScryptParams)
+	require.NoError(t, err)
+
+	p := cmd.OCRKeyBundlePresenter{
+		JAID: cmd.JAID{ID: bundleID},
+		OCRKeysBundleResource: presenters.OCRKeysBundleResource{
+			JAID:                  presenters.NewJAID(bundleID),
+			OnChainSigningAddress: pkEncrypted.OnChainSigningAddress,
+			OffChainPublicKey:     pkEncrypted.OffChainPublicKey,
+			ConfigPublicKey:       pkEncrypted.ConfigPublicKey,
+			CreatedAt:             createdAt,
+			UpdatedAt:             updatedAt,
+			DeletedAt:             &deletedAt,
+		},
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, bundleID)
+	assert.Contains(t, output, pkEncrypted.OnChainSigningAddress.String())
+	assert.Contains(t, output, pkEncrypted.OffChainPublicKey.String())
+	assert.Contains(t, output, pkEncrypted.ConfigPublicKey.String())
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.OCRKeyBundlePresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, bundleID)
+	assert.Contains(t, output, pkEncrypted.OnChainSigningAddress.String())
+	assert.Contains(t, output, pkEncrypted.OffChainPublicKey.String())
+	assert.Contains(t, output, pkEncrypted.ConfigPublicKey.String())
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+}
 
 func TestClient_ListOCRKeyBundles(t *testing.T) {
 	t.Parallel()
@@ -33,15 +94,15 @@ func TestClient_ListOCRKeyBundles(t *testing.T) {
 
 	assert.Nil(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	keys := *r.Renders[0].(*[]ocrkey.EncryptedKeyBundle)
-	assert.Equal(t, encKey.ID, keys[1].ID)
+	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenters)
+	assert.Equal(t, encKey.ID.String(), output[1].ID)
 }
 
 func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 	store := app.GetStore()
 
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
@@ -54,17 +115,22 @@ func TestClient_CreateOCRKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 2)
 
+	// Check we can decrypt the created key
 	for _, e := range keys {
 		_, err = e.Decrypt(cltest.Password)
 		require.NoError(t, err)
 	}
+
+	require.Equal(t, 1, len(r.Renders))
+	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenter)
+	assert.Equal(t, keys[1].ID.String(), output.ID)
 }
 
 func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	app.Store.OCRKeyStore.Unlock(cltest.Password)
 
@@ -84,13 +150,17 @@ func TestClient_DeleteOCRKeyBundle(t *testing.T) {
 
 	require.NoError(t, client.DeleteOCRKeyBundle(c))
 	requireOCRKeyCount(t, app.Store, 1) // Only fixture key remains
+
+	require.Equal(t, 1, len(r.Renders))
+	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenter)
+	assert.Equal(t, key.ID.String(), output.ID)
 }
 
 func TestClient_ImportExportOCRKeyBundle(t *testing.T) {
 	defer deleteKeyExportFile(t)
 
 	app := startNewApplication(t)
-	client, _ := app.NewClientAndRenderer()
+	client, r := app.NewClientAndRenderer()
 
 	store := app.GetStore()
 	store.OCRKeyStore.Unlock(cltest.Password)
@@ -129,6 +199,10 @@ func TestClient_ImportExportOCRKeyBundle(t *testing.T) {
 	require.NoError(t, client.ImportOCRKey(c))
 
 	requireOCRKeyCount(t, store, 1)
+
+	require.Equal(t, 1, len(r.Renders))
+	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenter)
+	assert.Equal(t, key.ID.String(), output.ID)
 }
 
 func requireOCRKeyCount(t *testing.T, store *store.Store, length int) []ocrkey.EncryptedKeyBundle {

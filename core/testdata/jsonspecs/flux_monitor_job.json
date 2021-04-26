@@ -29,7 +29,7 @@
       }
     },
     {
-      "type": "ethint256",
+      "type": "ethuint256",
       "confirmations": null,
       "params": {}
     },
