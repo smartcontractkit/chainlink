@@ -7,6 +7,7 @@ import {
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { utils } from 'ethers'
+import { ContractReceipt } from 'ethers/contract'
 import { GetterSetter__factory } from '../../ethers/v0.4/factories/GetterSetter__factory'
 import { OperatorForwarder__factory } from '../../ethers/v0.7/factories/OperatorForwarder__factory'
 
@@ -59,6 +60,84 @@ describe('OperatorForwarder', () => {
     it('sets no authorized senders', async () => {
       const senders = await operatorForwarder.getAuthorizedSenders();
       assert.equal(senders.length, 0);
+    })
+  })
+
+  describe('#setAuthorizedSenders', () => {
+    let newSenders: string[]
+    let receipt: ContractReceipt
+    describe('when called by the owner', () => {
+      describe('setting 3 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = [
+            roles.oracleNode1.address,
+            roles.oracleNode2.address,
+            roles.oracleNode3.address,
+          ]
+          const tx = await operatorForwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders(newSenders)
+          receipt = await tx.wait()
+        })
+
+        it('adds the authorized nodes', async () => {
+          const authorizedSenders = await operatorForwarder.getAuthorizedSenders()
+          assert.equal(newSenders.length, authorizedSenders.length)
+          for (let i = 0; i < authorizedSenders.length; i++) {
+            assert.equal(authorizedSenders[i], newSenders[i])
+          }
+        })
+
+        it('emits an event', async () => {
+          assert.equal(receipt.events?.length, 1)
+          const responseEvent = receipt.events?.[0]
+          assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
+          const encodedSenders = utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [newSenders],
+          )
+          assert.equal(responseEvent?.data, encodedSenders)
+        })
+
+        it('replaces the authorized nodes', async () => {
+          const newSenders = await operatorForwarder
+            .connect(roles.defaultAccount)
+            .getAuthorizedSenders()
+          assert.notIncludeOrderedMembers(newSenders, [roles.oracleNode.address])
+        })
+
+        afterAll(async () => {
+          await operatorForwarder
+            .connect(roles.defaultAccount)
+            .setAuthorizedSenders([roles.oracleNode.address])
+        })
+      })
+
+      describe('setting 0 authorized senders', () => {
+        beforeEach(async () => {
+          newSenders = []
+        })
+
+        it('reverts with a minimum senders message', async () => {
+          await matchers.evmRevert(async () => {
+            await operatorForwarder
+              .connect(roles.defaultAccount)
+              .setAuthorizedSenders(newSenders),
+              'Must have at least 1 authorized sender'
+          })
+        })
+      })
+    })
+
+    describe('when called by a non-owner', () => {
+      it('cannot add an authorized node', async () => {
+        await matchers.evmRevert(async () => {
+          await operatorForwarder
+            .connect(roles.stranger)
+            .setAuthorizedSenders([roles.stranger.address])
+          ;('Only callable by owner')
+        })
+      })
     })
   })
 
