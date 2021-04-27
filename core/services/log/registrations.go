@@ -233,10 +233,8 @@ func (r *registrations) sendLog(log types.Log, orm ORM, latestHead *models.Head,
 		}
 
 		if len(metadata.filters) > 0 && len(log.Topics) > 1 {
-			logger.Tracew("LogBroadcaster: Checking filters")
 			topicValues := log.Topics[1:]
 			if !filtersContainValues(topicValues, metadata.filters) {
-				logger.Tracew("LogBroadcaster: Skipping send because it does not match the log filter by value for this listener")
 				continue
 			}
 		}
