@@ -286,6 +286,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/jobs", jc.Create)
 		authv2.DELETE("/jobs/:ID", jc.Delete)
 
+		mc := MigrateController{app}
+		authv2.POST("/migrate/:ID", mc.Migrate)
+
 		prc := PipelineRunsController{app}
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
 		authv2.GET("/jobs/:ID/runs/:runID", prc.Show)

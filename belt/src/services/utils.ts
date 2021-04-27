@@ -7,12 +7,14 @@ import * as config from './config'
  * Get contract versions and their directories
  */
 export function getContractDirs(conf: config.App) {
-  const contractDirs = ls(conf.contractsDir)
-
-  return contractDirs.map((d) => ({
-    dir: d,
-    version: conf.compilerSettings.versions[d],
-  }))
+  const contractsMap = []
+  for (const dir in conf.compilerSettings.versions) {
+    contractsMap.push({
+      dir,
+      version: conf.compilerSettings.versions[dir],
+    })
+  }
+  return contractsMap
 }
 
 /**

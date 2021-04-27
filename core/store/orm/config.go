@@ -362,6 +362,11 @@ func (c Config) ClientNodeURL() string {
 	return c.viper.GetString(EnvVarName("ClientNodeURL"))
 }
 
+// FeatureCronV2 enables the Cron v2 feature.
+func (c Config) FeatureCronV2() bool {
+	return c.getWithFallback("FeatureCronV2", parseBool).(bool)
+}
+
 func (c Config) DatabaseListenerMinReconnectInterval() time.Duration {
 	return c.getWithFallback("DatabaseListenerMinReconnectInterval", parseDuration).(time.Duration)
 }
@@ -970,6 +975,12 @@ func (c Config) OperatorContractAddress() common.Address {
 		return common.Address{}
 	}
 	return *address
+}
+
+// OptimismGasFees enables asking the network for gas price before submitting
+// transactions, enabling compatibility with Optimism's L2 chain
+func (c Config) OptimismGasFees() bool {
+	return c.viper.GetBool(EnvVarName("OptimismGasFees"))
 }
 
 // LogLevel represents the maximum level of log messages to output.

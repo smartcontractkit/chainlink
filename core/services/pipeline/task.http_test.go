@@ -29,7 +29,7 @@ func TestHTTPTask_Happy(t *testing.T) {
 	defer cleanup()
 
 	btcUSDPairing := utils.MustUnmarshalToMap(`{"data":{"coin":"BTC","market":"USD"}}`)
-	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700)))
+	s1 := httptest.NewServer(fakePriceResponder(t, btcUSDPairing, decimal.NewFromInt(9700), "", nil))
 	defer s1.Close()
 	feedURL, err := url.ParseRequestURI(s1.URL)
 	require.NoError(t, err)

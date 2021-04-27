@@ -22,7 +22,7 @@ func (t *MedianTask) Type() TaskType {
 	return TaskTypeMedian
 }
 
-func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *MedianTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	if _, exists := inputValues["allowedFaults"]; !exists {
 		if len(self.inputs()) == 0 {
 			return errors.Wrapf(ErrWrongInputCardinality, "MedianTask requires at least 1 input")
