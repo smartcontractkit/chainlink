@@ -52,7 +52,9 @@ describe('Operator', () => {
     operator = await operatorFactory
       .connect(roles.defaultAccount)
       .deploy(link.address, roles.defaultAccount.address)
-    await operator.setAuthorizedSenders([roles.oracleNode.address])
+    await operator
+      .connect(roles.defaultAccount)
+      .setAuthorizedSenders([roles.oracleNode.address])
   })
 
   beforeEach(async () => {
@@ -75,116 +77,12 @@ describe('Operator', () => {
       'withdrawable',
       'operatorTransferAndCall',
       'distributeFunds',
-      'createForwarder',
-      'getForwarders',
+      'getForwarder',
       // Ownable methods:
       'acceptOwnership',
       'owner',
       'transferOwnership',
     ])
-  })
-
-  describe('#createForwarder', () => {
-    let receipt: ContractReceipt
-    let operatorForwarder: contract.Instance<OperatorForwarder__factory>
-    let newSenders: Array<string>
-    describe('when called by an authorized sender', () => {
-      describe('with 3 authorized senders', () => {
-        beforeEach(async () => {
-          newSenders = [roles.oracleNode2.address, roles.oracleNode3.address]
-          await operator
-            .connect(roles.defaultAccount)
-            .setAuthorizedSenders(newSenders)
-
-          const tx = await operator.connect(roles.oracleNode2).createForwarder()
-          receipt = await tx.wait()
-        })
-
-        it('Emits a ForwarderCreated event', async () => {
-          const eventFound = h.findEventIn(
-            receipt,
-            operatorFactory.interface.events.ForwarderCreated,
-          )
-          assert.exists(eventFound)
-        })
-
-        it('adds a forwarder to storage', async () => {
-          const forwarders = await operator
-            .connect(roles.oracleNode1)
-            .getForwarders()
-          assert.equal(forwarders.length, 1)
-        })
-
-        it('sets the correct authorized senders on the forwarder', async () => {
-          const forwarders = await operator
-            .connect(roles.oracleNode1)
-            .getForwarders()
-          operatorForwarder = await operatorForwarderFactory
-            .connect(roles.oracleNode1)
-            .attach(forwarders[0])
-          assert.equal(
-            await operatorForwarder.authorizedSender1(),
-            roles.defaultAccount.address,
-          )
-          assert.equal(
-            await operatorForwarder.authorizedSender2(),
-            newSenders[0],
-          )
-          assert.equal(
-            await operatorForwarder.authorizedSender3(),
-            newSenders[1],
-          )
-        })
-      })
-
-      describe('with 1 authorized sender', () => {
-        beforeEach(async () => {
-          newSenders = [roles.oracleNode2.address]
-          await operator
-            .connect(roles.defaultAccount)
-            .setAuthorizedSenders(newSenders)
-
-          const tx = await operator.connect(roles.oracleNode2).createForwarder()
-          receipt = await tx.wait()
-        })
-
-        it('Emits a ForwarderCreated event', async () => {
-          const eventFound = h.findEventIn(
-            receipt,
-            operatorFactory.interface.events.ForwarderCreated,
-          )
-          assert.exists(eventFound)
-        })
-
-        it('adds a forwarder to storage', async () => {
-          const forwarders = await operator
-            .connect(roles.oracleNode1)
-            .getForwarders()
-          assert.equal(forwarders.length, 1)
-        })
-
-        it('sets the correct authorized sender on the forwarder', async () => {
-          const forwarders = await operator
-            .connect(roles.oracleNode1)
-            .getForwarders()
-          operatorForwarder = await operatorForwarderFactory
-            .connect(roles.oracleNode1)
-            .attach(forwarders[0])
-          assert.equal(
-            await operatorForwarder.authorizedSender1(),
-            roles.defaultAccount.address,
-          )
-          assert.equal(
-            await operatorForwarder.authorizedSender2(),
-            newSenders[0],
-          )
-          assert.equal(
-            await operatorForwarder.authorizedSender3(),
-            '0x0000000000000000000000000000000000000000',
-          )
-        })
-      })
-    })
   })
 
   describe('#distributeFunds', () => {
@@ -296,7 +194,7 @@ describe('Operator', () => {
         })
 
         it('emits an event', async () => {
-          assert.equal(receipt.events?.length, 1)
+          assert.equal(receipt.events?.length, 2)
           const responseEvent = receipt.events?.[0]
           assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
           const encodedSenders = ethers.utils.defaultAbiCoder.encode(
@@ -311,6 +209,23 @@ describe('Operator', () => {
             .connect(roles.defaultAccount)
             .isAuthorizedSender(roles.oracleNode.address)
           assert.isFalse(originalAuthorization)
+        })
+
+        it('replaces the authorized nodes on the forwarder plus owner', async () => {
+          const forwarder = await operator
+            .connect(roles.defaultAccount)
+            .getForwarder()
+          const operatorForwarder = await operatorForwarderFactory
+            .connect(roles.defaultAccount)
+            .attach(forwarder)
+          const authorizedSenders = await operatorForwarder.getAuthorizedSenders()
+          const expectedAuthorized = [
+            roles.oracleNode1.address,
+            roles.oracleNode2.address,
+            roles.oracleNode3.address,
+            roles.defaultAccount.address,
+          ]
+          assert.deepEqual(authorizedSenders, expectedAuthorized)
         })
 
         afterAll(async () => {
