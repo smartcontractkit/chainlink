@@ -3,6 +3,7 @@ package log_test
 import (
 	"context"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -62,12 +63,39 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	t.Parallel()
 
 	const (
-		numContracts       = 3
-		blockHeight  int64 = 123
+		numContracts                = 3
+		blockHeight           int64 = 123
+		lastStoredBlockHeight       = blockHeight - 25
 	)
 
-	helper := newBroadcasterHelper(t, blockHeight, 1)
-	helper.start()
+	backfillTimes := 2
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: backfillTimes,
+		HeaderByNumber:      backfillTimes,
+		FilterLogs:          backfillTimes,
+		Unsubscribe:         backfillTimes,
+	}
+
+	chchRawLogs := make(chan chan<- types.Log, backfillTimes)
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.ethClient)
+	helper.mockEth = mockEth
+
+	blockBackfillDepth := helper.store.Config.BlockBackfillDepth()
+
+	var backfillCount int64
+	var backfillCountPtr = &backfillCount
+
+	// the first backfill should use the last known height from db
+	mockEth.checkBackfill = func(fromBlock int64) {
+		atomic.StoreInt64(backfillCountPtr, 1)
+		require.Equal(t, lastStoredBlockHeight, fromBlock)
+	}
+
+	listener := helper.newLogListener("initial")
+	helper.register(listener, newMockContract(), 1)
+	helper.startWithLatestHeadInDb(cltest.Head(lastStoredBlockHeight))
+
 	defer helper.stop()
 
 	for i := 0; i < numContracts; i++ {
@@ -79,11 +107,23 @@ func TestBroadcaster_ResubscribesOnAddOrRemoveContract(t *testing.T) {
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(0)))
 
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 1 }, 5*time.Second, 10*time.Millisecond)
 	helper.unsubscribeAll()
 
-	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() == 1 }, 5*time.Second, 10*time.Millisecond)
-	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(1)))
+	// now the backfill must use the blockBackfillDepth
+	mockEth.checkBackfill = func(fromBlock int64) {
+		require.Equal(t, blockHeight-int64(blockBackfillDepth), fromBlock)
+		atomic.StoreInt64(backfillCountPtr, 2)
+	}
+
+	listenerLast := helper.newLogListener("last")
+	helper.register(listenerLast, newMockContract(), 1)
+
+	require.Eventually(t, func() bool { return helper.mockEth.unsubscribeCallCount() >= 1 }, 5*time.Second, 10*time.Millisecond)
+	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.subscribeCallCount() }).Should(gomega.Equal(int32(2)))
 	gomega.NewGomegaWithT(t).Consistently(func() int32 { return helper.mockEth.unsubscribeCallCount() }).Should(gomega.Equal(int32(1)))
+
+	require.Eventually(t, func() bool { return atomic.LoadInt64(backfillCountPtr) == 2 }, 5*time.Second, 10*time.Millisecond)
 
 	helper.mockEth.assertExpectations(t)
 }

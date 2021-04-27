@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
@@ -40,7 +41,15 @@ func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int) *
 	store, cleanup := cltest.NewStore(t)
 
 	chchRawLogs := make(chan chan<- types.Log, 1)
-	mockEth := newMockEthClient(chchRawLogs, blockHeight, timesSubscribe)
+
+	expectedCalls := mockEthClientExpectedCalls{
+		SubscribeFilterLogs: timesSubscribe,
+		HeaderByNumber:      1,
+		FilterLogs:          1,
+		Unsubscribe:         1,
+	}
+
+	mockEth := newMockEthClient(chchRawLogs, blockHeight, expectedCalls)
 	store.EthClient = mockEth.ethClient
 
 	dborm := log.NewORM(store.DB)
@@ -78,9 +87,13 @@ func (helper *broadcasterHelper) newLogListener(name string) *simpleLogListener 
 	return newLogListener(helper.t, helper.store, name)
 }
 func (helper *broadcasterHelper) start() {
+	helper.startWithLatestHeadInDb(nil)
+}
+
+func (helper *broadcasterHelper) startWithLatestHeadInDb(head *models.Head) {
 	err := helper.lb.Start()
 	require.NoError(helper.t, err)
-	helper.lb.SetLatestHeadFromStorage(nil)
+	helper.lb.SetLatestHeadFromStorage(head)
 }
 
 func (helper *broadcasterHelper) register(listener log.Listener, contract log.AbigenContract, numConfirmations uint64) {
@@ -275,6 +288,7 @@ type mockEth struct {
 	sub              *mocks.Subscription
 	subscribeCalls   int32
 	unsubscribeCalls int32
+	checkBackfill    func(int64)
 }
 
 func (mock *mockEth) assertExpectations(t *testing.T) {
@@ -290,10 +304,18 @@ func (mock *mockEth) unsubscribeCallCount() int32 {
 	return atomic.LoadInt32(&mock.unsubscribeCalls)
 }
 
-func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, timesSubscribe int) *mockEth {
+type mockEthClientExpectedCalls struct {
+	SubscribeFilterLogs int
+	HeaderByNumber      int
+	FilterLogs          int
+	Unsubscribe         int
+}
+
+func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, expectedCalls mockEthClientExpectedCalls) *mockEth {
 	mockEth := &mockEth{
-		ethClient: new(mocks.Client),
-		sub:       new(mocks.Subscription),
+		ethClient:     new(mocks.Client),
+		sub:           new(mocks.Subscription),
+		checkBackfill: nil,
 	}
 	mockEth.ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Run(func(args mock.Arguments) {
@@ -301,10 +323,26 @@ func newMockEthClient(chchRawLogs chan chan<- types.Log, blockHeight int64, time
 			chchRawLogs <- args.Get(2).(chan<- types.Log)
 		}).
 		Return(mockEth.sub, nil).
-		Times(timesSubscribe)
-	mockEth.ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(&models.Head{Number: blockHeight}, nil).Times(1)
-	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(1)
-	mockEth.sub.On("Err").Return(nil)
+		Times(expectedCalls.SubscribeFilterLogs)
+
+	mockEth.ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).
+		Return(&models.Head{Number: blockHeight}, nil).
+		Times(expectedCalls.HeaderByNumber)
+
+	mockEth.ethClient.On("FilterLogs", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			filterQuery := args.Get(1).(ethereum.FilterQuery)
+			fromBlock := filterQuery.FromBlock.Int64()
+			if mockEth.checkBackfill != nil {
+				mockEth.checkBackfill(fromBlock)
+			}
+		}).
+		Return(nil, nil).
+		Times(expectedCalls.FilterLogs)
+
+	mockEth.sub.On("Err").
+		Return(nil)
+
 	mockEth.sub.On("Unsubscribe").
 		Return().
 		Run(func(mock.Arguments) { atomic.AddInt32(&(mockEth.unsubscribeCalls), 1) })

@@ -46,10 +46,10 @@ type (
 	}
 
 	broadcaster struct {
-		orm        ORM
-		config     Config
-		connected  *abool.AtomicBool
-		latestHead *models.Head
+		orm              ORM
+		config           Config
+		connected        *abool.AtomicBool
+		latestHeadFromDb *models.Head
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -121,14 +121,14 @@ func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
 }
 
 func (b *broadcaster) SetLatestHeadFromStorage(head *models.Head) {
-	b.latestHead = head
+	b.latestHeadFromDb = head
 }
 
 func (b *broadcaster) Start() error {
 	return b.StartOnce("LogBroadcaster", func() error {
 		b.wgDone.Add(2)
-		if b.latestHead != nil {
-			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHead.Number, "blockHash", b.latestHead.Hash)
+		if b.latestHeadFromDb != nil {
+			logger.Debugw("LogBroadcaster: Starting at latest head from DB", "blockNumber", b.latestHeadFromDb.Number, "blockHash", b.latestHeadFromDb.Hash)
 		} else {
 			logger.Warn("LogBroadcaster: Latest head from DB was not set or does not exist.")
 		}
@@ -138,7 +138,7 @@ func (b *broadcaster) Start() error {
 }
 
 func (b *broadcaster) LatestHead() *models.Head {
-	return b.latestHead
+	return b.latestHeadFromDb
 }
 
 func (b *broadcaster) TrackedAddressesCount() uint32 {
@@ -222,10 +222,13 @@ func (b *broadcaster) startResubscribeLoop() {
 			return
 		}
 
-		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHead, addresses, topics)
+		chBackfilledLogs, abort := b.ethSubscriber.backfillLogs(b.latestHeadFromDb, addresses, topics)
 		if abort {
 			return
 		}
+
+		// latestHeadFromDb is only used in the first backfill
+		b.latestHeadFromDb = nil
 
 		// Each time this loop runs, chRawLogs is reconstituted as:
 		//     remaining logs from last subscription <- backfilled logs <- logs from new subscription
@@ -301,6 +304,7 @@ func (b *broadcaster) onNewLog(log types.Log) {
 }
 
 func (b *broadcaster) onNewHeads() {
+	var latestHead *models.Head
 	for {
 		// We only care about the most recent head
 		x := b.newHeads.RetrieveLatestAndClear()
@@ -314,11 +318,11 @@ func (b *broadcaster) onNewHeads() {
 			continue
 		}
 		logger.Tracew("LogBroadcaster: Received head", "blockNumber", head.Number, "blockHash", head.Hash)
-		b.latestHead = &head
+		latestHead = &head
 	}
 
-	logs := b.logPool.getLogsToSend(b.latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
-	b.registrations.sendLogs(logs, b.orm, b.latestHead)
+	logs := b.logPool.getLogsToSend(latestHead, b.registrations.highestNumConfirmations, uint64(b.config.EthFinalityDepth()))
+	b.registrations.sendLogs(logs, b.orm, latestHead)
 }
 
 func (b *broadcaster) onAddSubscribers() (needsResubscribe bool) {
