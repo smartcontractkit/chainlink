@@ -36,7 +36,7 @@ export class Jobs {
   }
 
   @boundMethod
-  public  createJobRunV2(id: string): Promise<jsonapi.ApiResponse<null>> {
+  public createJobRunV2(id: string): Promise<jsonapi.ApiResponse<null>> {
     return this.post(undefined, { specId: id })
   }
 
@@ -64,10 +64,10 @@ export class Jobs {
   >(DESTROY_ENDPOINT)
 
   private post = this.api.createResource<
-      undefined,
-      null,
-      {
-        specId: string
-      }
-      >(RUN_JOB_ENDPOINT)
+    undefined,
+    null,
+    {
+      specId: string
+    }
+  >(RUN_JOB_ENDPOINT)
 }

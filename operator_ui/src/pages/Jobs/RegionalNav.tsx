@@ -27,8 +27,8 @@ import CopyJobSpec from 'components/CopyJobSpec'
 import Close from 'components/Icons/Close'
 import Link from 'components/Link'
 import ErrorMessage from 'components/Notifications/DefaultError'
-import {JobData} from './sharedTypes'
-import {isJobV2} from "pages/Jobs/utils";
+import { JobData } from './sharedTypes'
+import { isJobV2 } from 'pages/Jobs/utils'
 
 const styles = (theme: Theme) =>
   createStyles({
@@ -163,7 +163,11 @@ const RegionalNavComponent = ({
     const size = params.get('size')
 
     if (job?.id && isJobV2(job.id)) {
-      await createJobRunV2(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
+      await createJobRunV2(
+        jobSpecId,
+        CreateRunSuccessNotification,
+        ErrorMessage,
+      )
     } else {
       await createJobRun(jobSpecId, CreateRunSuccessNotification, ErrorMessage)
     }
@@ -312,14 +316,15 @@ const RegionalNavComponent = ({
                     </Button>
                     {((job.type === 'Direct request' &&
                       job.initiators &&
-                      isWebInitiator(job.initiators)) || (job.type == "v2" && job.specType == 'web')) && (
-                        <Button
-                          onClick={handleRun}
-                          className={classes.regionalNavButton}
-                        >
-                          Run
-                        </Button>
-                      )}
+                      isWebInitiator(job.initiators)) ||
+                      (job.type == 'v2' && job.specType == 'web')) && (
+                      <Button
+                        onClick={handleRun}
+                        className={classes.regionalNavButton}
+                      >
+                        Run
+                      </Button>
+                    )}
                     {job.definition && (
                       <>
                         <Button
