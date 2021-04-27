@@ -72,59 +72,59 @@ func NewUpkeepExecuter(
 	}
 }
 
-func (executor *UpkeepExecuter) Start() error {
-	return executor.StartOnce("UpkeepExecuter", func() error {
-		executor.wgDone.Add(2)
-		go executor.run()
-		unsubscribe := executor.headBroadcaster.Subscribe(executor)
+func (executer *UpkeepExecuter) Start() error {
+	return executer.StartOnce("UpkeepExecuter", func() error {
+		executer.wgDone.Add(2)
+		go executer.run()
+		unsubscribe := executer.headBroadcaster.Subscribe(executer)
 		go func() {
 			defer unsubscribe()
-			defer executor.wgDone.Done()
-			<-executor.chStop
+			defer executer.wgDone.Done()
+			<-executer.chStop
 		}()
 		return nil
 	})
 }
 
-func (executor *UpkeepExecuter) Close() error {
-	if !executor.OkayToStop() {
+func (executer *UpkeepExecuter) Close() error {
+	if !executer.OkayToStop() {
 		return errors.New("UpkeepExecuter is already stopped")
 	}
-	close(executor.chStop)
-	executor.wgDone.Wait()
+	close(executer.chStop)
+	executer.wgDone.Wait()
 	return nil
 }
 
-func (executor *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
-	executor.mailbox.Deliver(head)
+func (executer *UpkeepExecuter) OnNewLongestChain(ctx context.Context, head models.Head) {
+	executer.mailbox.Deliver(head)
 }
 
-func (executor *UpkeepExecuter) run() {
-	defer executor.wgDone.Done()
+func (executer *UpkeepExecuter) run() {
+	defer executer.wgDone.Done()
 	for {
 		select {
-		case <-executor.chStop:
+		case <-executer.chStop:
 			return
-		case <-executor.mailbox.Notify():
-			executor.processActiveUpkeeps()
+		case <-executer.mailbox.Notify():
+			executer.processActiveUpkeeps()
 		}
 	}
 }
 
-func (executor *UpkeepExecuter) processActiveUpkeeps() {
+func (executer *UpkeepExecuter) processActiveUpkeeps() {
 	// Keepers could miss their turn in the turn taking algo if they are too overloaded
 	// with work because processActiveUpkeeps() blocks
-	head, ok := executor.mailbox.Retrieve().(models.Head)
+	head, ok := executer.mailbox.Retrieve().(models.Head)
 	if !ok {
 		logger.Errorf("expected `models.Head`, got %T", head)
 		return
 	}
 
-	logger.Debugw("UpkeepExecuter: checking active upkeeps", "blockheight", head.Number, "jobID", executor.job.ID)
+	logger.Debugw("UpkeepExecuter: checking active upkeeps", "blockheight", head.Number, "jobID", executer.job.ID)
 
 	ctx, cancel := postgres.DefaultQueryCtx()
 	defer cancel()
-	activeUpkeeps, err := executor.orm.EligibleUpkeeps(ctx, head.Number, executor.maxGracePeriod)
+	activeUpkeeps, err := executer.orm.EligibleUpkeeps(ctx, head.Number, executer.maxGracePeriod)
 	if err != nil {
 		logger.Errorf("unable to load active registrations: %v", err)
 		return
@@ -132,10 +132,10 @@ func (executor *UpkeepExecuter) processActiveUpkeeps() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(activeUpkeeps))
-	done := func() { <-executor.executionQueue; wg.Done() }
+	done := func() { <-executer.executionQueue; wg.Done() }
 	for _, reg := range activeUpkeeps {
-		executor.executionQueue <- struct{}{}
-		go executor.execute(reg, head.Number, done)
+		executer.executionQueue <- struct{}{}
+		go executer.execute(reg, head.Number, done)
 	}
 
 	wg.Wait()
@@ -143,11 +143,11 @@ func (executor *UpkeepExecuter) processActiveUpkeeps() {
 
 // execute will call checkForUpkeep and, if it succeeds, trigger a job on the CL node
 // DEV: must perform contract call "manually" because abigen wrapper can only send tx
-func (executor *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
+func (executer *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber int64, done func()) {
 	defer done()
 	start := time.Now()
 	logArgs := []interface{}{
-		"jobID", executor.job.ID,
+		"jobID", executer.job.ID,
 		"blockNum", headNumber,
 		"registryAddress", upkeep.Registry.ContractAddress.Hex(),
 		"upkeepID", upkeep.UpkeepID,
@@ -161,10 +161,10 @@ func (executor *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	logger.Debugw("UpkeepExecuter: checking upkeep", logArgs...)
 
-	ctxService, cancel := utils.ContextFromChan(executor.chStop)
+	ctxService, cancel := utils.ContextFromChan(executer.chStop)
 	defer cancel()
 
-	checkUpkeepResult, err := executor.ethClient.CallContract(ctxService, msg, nil)
+	checkUpkeepResult, err := executer.ethClient.CallContract(ctxService, msg, nil)
 	if err != nil {
 		logger.Debugw(fmt.Sprintf("UpkeepExecuter: checkUpkeep failed: %v", err), logArgs...)
 		return
@@ -179,18 +179,18 @@ func (executor *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 	logger.Debugw("UpkeepExecuter: performing upkeep", logArgs...)
 
 	ctxQuery, _ := postgres.DefaultQueryCtx()
-	ctxCombined, cancel := utils.CombinedContext(executor.chStop, ctxQuery)
+	ctxCombined, cancel := utils.CombinedContext(executer.chStop, ctxQuery)
 	defer cancel()
 
-	etx, err := executor.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
+	etx, err := executer.orm.CreateEthTransactionForUpkeep(ctxCombined, upkeep, performTxData)
 	if err != nil {
 		logger.Error(err)
 	}
 
 	// Save a run indicating we performed an upkeep.
 	f := time.Now()
-	_, err = executor.pr.InsertFinishedRun(ctxCombined, pipeline.Run{
-		PipelineSpecID: executor.job.PipelineSpecID,
+	_, err = executer.pr.InsertFinishedRun(ctxCombined, pipeline.Run{
+		PipelineSpecID: executer.job.PipelineSpecID,
 		Meta: pipeline.JSONSerializable{
 			Val: map[string]interface{}{"eth_tx_id": etx.ID},
 		},
@@ -205,12 +205,12 @@ func (executor *UpkeepExecuter) execute(upkeep UpkeepRegistration, headNumber in
 
 	ctxQuery, cancel = postgres.DefaultQueryCtx()
 	defer cancel()
-	ctxCombined, cancel = utils.CombinedContext(executor.chStop, ctxQuery)
+	ctxCombined, cancel = utils.CombinedContext(executer.chStop, ctxQuery)
 	defer cancel()
 	// DEV: this is the block that initiated the run, not the block height when broadcast nor the block
 	// that the tx gets confirmed in. This is fine because this grace period is just used as a fallback
 	// in case we miss the UpkeepPerformed log or the tx errors. It does not need to be exact.
-	err = executor.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executor.job.ID, upkeep.UpkeepID, headNumber)
+	err = executer.orm.SetLastRunHeightForUpkeepOnJob(ctxCombined, executer.job.ID, upkeep.UpkeepID, headNumber)
 	if err != nil {
 		logger.Errorw("UpkeepExecuter: unable to setLastRunHeightForUpkeep for upkeep", logArgs...)
 	}

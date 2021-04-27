@@ -37,12 +37,12 @@ func setup(t *testing.T) (
 	registry, job := cltest.MustInsertKeeperRegistry(t, store)
 	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
 	headBroadcaster := services.NewHeadBroadcaster()
-	executor := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, 0)
+	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, 0)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
-	err := executor.Start()
-	t.Cleanup(func() { executor.Close() })
+	err := executer.Start()
+	t.Cleanup(func() { executer.Close() })
 	require.NoError(t, err)
-	return store, ethMock, executor, registry, upkeep, job, jpv2
+	return store, ethMock, executer, registry, upkeep, job, jpv2
 }
 
 var checkUpkeepResponse = struct {
@@ -61,8 +61,8 @@ var checkUpkeepResponse = struct {
 
 func Test_UpkeepExecuter_ErrorsIfStartedTwice(t *testing.T) {
 	t.Parallel()
-	_, _, executor, _, _, _, _ := setup(t)
-	err := executor.Start() // already started in setup()
+	_, _, executer, _, _, _, _ := setup(t)
+	err := executer.Start() // already started in setup()
 	require.Error(t, err)
 }
 
@@ -70,13 +70,13 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Parallel()
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
-		store, ethMock, executor, registry, upkeep, job, jpv2 := setup(t)
+		store, ethMock, executer, registry, upkeep, job, jpv2 := setup(t)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
 
 		head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-		executor.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 20)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -88,7 +88,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("triggers exactly one upkeep if heads are skipped but later heads arrive within range", func(t *testing.T) {
-		store, ethMock, executor, registry, upkeep, job, jpv2 := setup(t)
+		store, ethMock, executer, registry, upkeep, job, jpv2 := setup(t)
 
 		registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
 		registryMock.MockResponse("checkUpkeep", checkUpkeepResponse)
@@ -97,7 +97,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// heads 20 thru 35 were skipped (e.g. due to node reboot)
 		head := *cltest.Head(36)
 
-		executor.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 1)
 		assertLastRunHeight(t, store, upkeep, 36)
 		runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -108,14 +108,14 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		// heads 37, 38 etc do nothing
 		for i := 37; i < 40; i++ {
 			head = *cltest.Head(i)
-			executor.OnNewLongestChain(context.Background(), head)
+			executer.OnNewLongestChain(context.Background(), head)
 			cltest.AssertCountStays(t, store, models.EthTx{}, 1)
 		}
 
 		// head 40 triggers a new run
 		head = *cltest.Head(40)
 
-		executor.OnNewLongestChain(context.Background(), head)
+		executer.OnNewLongestChain(context.Background(), head)
 		cltest.WaitForCount(t, store, models.EthTx{}, 2)
 		assertLastRunHeight(t, store, upkeep, 40)
 		runs = cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jpv2.Jrm, time.Second, 100*time.Millisecond)
@@ -132,7 +132,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	t.Parallel()
 	g := gomega.NewGomegaWithT(t)
 
-	store, ethMock, executor, registry, _, _, _ := setup(t)
+	store, ethMock, executer, registry, _, _, _ := setup(t)
 
 	wasCalled := atomic.NewBool(false)
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.RegistryABI, registry.ContractAddress.Address())
@@ -141,7 +141,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	})
 
 	head := models.NewHead(big.NewInt(20), cltest.NewHash(), cltest.NewHash(), 1000)
-	executor.OnNewLongestChain(context.TODO(), head)
+	executer.OnNewLongestChain(context.TODO(), head)
 
 	g.Eventually(wasCalled).Should(gomega.Equal(atomic.NewBool(true)))
 	cltest.AssertCountStays(t, store, models.EthTx{}, 0)
