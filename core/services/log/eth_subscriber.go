@@ -30,8 +30,9 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 	}
 }
 
-func (sub *ethSubscriber) backfillLogs(latestHeadInDb *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
+func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
+		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)
 		close(ch)
 		return ch, false
@@ -61,10 +62,9 @@ func (sub *ethSubscriber) backfillLogs(latestHeadInDb *models.Head, addresses []
 			fromBlock = 0 // Overflow protection
 		}
 
-		if latestHeadInDb != nil && uint64(latestHeadInDb.Number) > fromBlock {
-			logger.Infow("LogBroadcaster: Using the latest stored head a limit of backfill", "blockNumber", latestHeadInDb.Number, "blockHash", latestHeadInDb.Hash)
-			// if the latest head stored in DB is newer, we use it instead as the limit of backfill
-			fromBlock = uint64(latestHeadInDb.Number)
+		if fromBlockOverride != nil {
+			logger.Infow("LogBroadcaster: Using the override a limit of backfill", "blockNumber", fromBlockOverride.Number, "blockHash", fromBlockOverride.Hash)
+			fromBlock = uint64(fromBlockOverride.Number)
 		}
 
 		logger.Infow("LogBroadcaster: Backfilling logs from", "blockNumber", fromBlock)
