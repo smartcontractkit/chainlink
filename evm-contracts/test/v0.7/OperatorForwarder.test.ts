@@ -1,8 +1,6 @@
 import {
   contract,
-  // helpers as h,
   matchers,
-  // oracle,
   setup,
 } from '@chainlink/test-helpers'
 import { assert } from 'chai'
