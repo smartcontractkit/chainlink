@@ -100,6 +100,11 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 
+	if _, exists := js.jobSubscriptions[job.ID.String()]; exists {
+		logger.Errorw("job subscription already added", "job", job)
+		return nil
+	}
+	// Create a new subscription for this job
 	sub, err := StartJobSubscription(job, bn, js.store, js.runManager)
 	if err != nil {
 		js.store.UpsertErrorFor(job.ID, "Unable to start job subscription")
