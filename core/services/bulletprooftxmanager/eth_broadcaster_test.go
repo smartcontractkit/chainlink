@@ -249,7 +249,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Success_OnOptimism(t *testing.T) 
 	}
 	ethClient.On("EstimateGas", mock.Anything, mock.Anything).Return(estimatedGas, nil).Once()
 	ethClient.On("SendTransaction", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
-		return tx.GasPrice().Cmp(big.NewInt(1)) == 0 && tx.Gas() == estimatedGas
+		return tx.GasPrice().Cmp(big.NewInt(1000000000)) == 0 && tx.Gas() == estimatedGas
 	})).Return(nil).Once()
 
 	require.NoError(t, store.DB.Save(&tx).Error)
