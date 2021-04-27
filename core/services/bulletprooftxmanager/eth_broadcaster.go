@@ -21,6 +21,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const optimismGasPrice int64 = 1e9 // 1 GWei
+
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
 // somewhere has received the transaction successfully.
@@ -232,7 +234,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 
 func (eb *ethBroadcaster) initialTxGasPrice() *big.Int {
 	if eb.config.OptimismGasFees() {
-		return big.NewInt(1)
+		return big.NewInt(optimismGasPrice)
 	}
 	return eb.config.EthGasPriceDefault()
 }
@@ -277,13 +279,15 @@ func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models
 	}
 
 	if eb.config.OptimismGasFees() {
+		// Optimism requires special handling, it assumes that clients always call EstimateGas
 		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
 		gasLimit, err := eb.ethClient.EstimateGas(context.TODO(), callMsg)
 		if err != nil {
 			return err
 		}
 		etx.GasLimit = gasLimit
-		attempt.GasPrice = *utils.NewBig(big.NewInt(1))
+		// Make sure to never use a bumped gas price; always overwrite with the network-specific value
+		attempt.GasPrice = *utils.NewBigI(optimismGasPrice)
 	}
 
 	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
