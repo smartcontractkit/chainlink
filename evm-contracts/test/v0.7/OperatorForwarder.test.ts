@@ -1,8 +1,4 @@
-import {
-  contract,
-  matchers,
-  setup,
-} from '@chainlink/test-helpers'
+import { contract, matchers, setup } from '@chainlink/test-helpers'
 import { assert } from 'chai'
 import { utils } from 'ethers'
 import { ContractReceipt } from 'ethers/contract'
