@@ -74,8 +74,6 @@ func (n *node) Dial(ctx context.Context) error {
 		}
 		n.http.rpc = rpc
 		n.http.geth = ethclient.NewClient(rpc)
-	} else {
-		n.log.Warn("ETH_HTTP_URL was not set for the primary node. It is recommended that node operators set ETH_HTTP_URL in addition to ETH_URL to improve performance and reliability")
 	}
 
 	return nil
