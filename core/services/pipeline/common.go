@@ -33,7 +33,7 @@ type (
 		SetOutputTask(task Task)
 		OutputIndex() int32
 		TaskTimeout() (time.Duration, bool)
-		SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error
+		SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error
 		NPreds() int
 	}
 
@@ -219,6 +219,10 @@ func (js JSONSerializable) Value() (driver.Value, error) {
 }
 
 type TaskType string
+
+func (t TaskType) String() string {
+	return string(t)
+}
 
 const (
 	TaskTypeHTTP      TaskType = "http"

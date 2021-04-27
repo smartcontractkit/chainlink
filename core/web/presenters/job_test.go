@@ -23,6 +23,7 @@ func TestJob(t *testing.T) {
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	contractAddress, err := models.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")
 	require.NoError(t, err)
+	cronSchedule := "0 0 0 1 1 *"
 
 	// Used in OCR tests
 	var (
@@ -89,6 +90,7 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"fluxMonitorSpec": null,
 						"keeperSpec": null,
+                        "cronSpec": null,
 						"errors": []
 					}
 				}
@@ -149,6 +151,7 @@ func TestJob(t *testing.T) {
 						"offChainReportingOracleSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
+                        "cronSpec": null,
 						"errors": []
 					}
 				}
@@ -214,6 +217,7 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"keeperSpec": null,
+                        "cronSpec": null,
 						"errors": []
 					}
 				}
@@ -261,10 +265,57 @@ func TestJob(t *testing.T) {
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
 						"offChainReportingOracleSpec": null,
+                        "cronSpec": null,
 						"errors": []
 					}
 				}
 			}`, contractAddress, fromAddress),
+		},
+		{
+			name: "cron spec",
+			job: job.Job{
+				ID: 1,
+				CronSpec: &job.CronSpec{
+					CronSchedule: cronSchedule,
+					CreatedAt:    timestamp,
+					UpdatedAt:    timestamp,
+				},
+				PipelineSpec: &pipeline.Spec{
+					ID:           1,
+					DotDagSource: "",
+				},
+				Type:            job.Type("cron"),
+				SchemaVersion:   1,
+				Name:            null.StringFrom("test"),
+				MaxTaskDuration: models.Interval(1 * time.Minute),
+			},
+			want: fmt.Sprintf(`
+            {
+                "data":{
+                    "type":"jobs",
+                    "id":"1",
+                    "attributes":{
+                        "name": "test",
+                        "schemaVersion": 1,
+                        "type": "cron",
+                        "maxTaskDuration": "1m0s",
+                        "pipelineSpec": {
+                            "id": 1,
+                            "dotDagSource": ""
+                        },
+                        "cronSpec": {
+                            "schedule": "%s",
+                            "createdAt":"2000-01-01T00:00:00Z",
+                            "updatedAt":"2000-01-01T00:00:00Z"
+                        },
+                        "fluxMonitorSpec": null,
+                        "directRequestSpec": null,
+                        "keeperSpec": null,
+                        "offChainReportingOracleSpec": null,
+                        "errors": []
+                    }
+                }
+            }`, cronSchedule),
 		},
 		{
 			name: "with errors",
@@ -317,13 +368,14 @@ func TestJob(t *testing.T) {
 						},
 						"fluxMonitorSpec": null,
 						"directRequestSpec": null,
+                        "cronSpec": null,
 						"offChainReportingOracleSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",
 							"occurrences": 1,
 							"createdAt":"2000-01-01T00:00:00Z",
-							"updatedAt":"2000-01-01T00:00:00Z"							
+							"updatedAt":"2000-01-01T00:00:00Z"
 						}]
 					}
 				}

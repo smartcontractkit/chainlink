@@ -20,7 +20,7 @@ func (t *MultiplyTask) Type() TaskType {
 	return TaskTypeMultiply
 }
 
-func (t *MultiplyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *MultiplyTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
