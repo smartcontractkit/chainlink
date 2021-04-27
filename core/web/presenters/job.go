@@ -153,6 +153,22 @@ func NewKeeperSpec(spec *job.KeeperSpec) *KeeperSpec {
 	}
 }
 
+// CronSpec defines the spec details of a Cron Job
+type CronSpec struct {
+	CronSchedule string    `json:"schedule" tom:"schedule"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
+// NewCronSpec generates a new CronSpec from a job.CronSpec
+func NewCronSpec(spec *job.CronSpec) *CronSpec {
+	return &CronSpec{
+		CronSchedule: spec.CronSchedule,
+		CreatedAt:    spec.CreatedAt,
+		UpdatedAt:    spec.UpdatedAt,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -183,6 +199,7 @@ type JobResource struct {
 	FluxMonitorSpec       *FluxMonitorSpec       `json:"fluxMonitorSpec"`
 	OffChainReportingSpec *OffChainReportingSpec `json:"offChainReportingOracleSpec"`
 	KeeperSpec            *KeeperSpec            `json:"keeperSpec"`
+	CronSpec              *CronSpec              `json:"cronSpec"`
 	PipelineSpec          PipelineSpec           `json:"pipelineSpec"`
 	Errors                []JobError             `json:"errors"`
 }
@@ -205,6 +222,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
 	case job.OffchainReporting:
 		resource.OffChainReportingSpec = NewOffChainReportingSpec(j.OffchainreportingOracleSpec)
+	case job.Cron:
+		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.Keeper:
 		resource.KeeperSpec = NewKeeperSpec(j.KeeperSpec)
 	}

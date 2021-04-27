@@ -44,11 +44,6 @@ func (nc *NullClient) GetEthBalance(context.Context, common.Address, *big.Int) (
 	return assets.NewEth(0), nil
 }
 
-func (nc *NullClient) SendRawTx(bytes []byte) (common.Hash, error) {
-	logger.Debug("NullClient#SendRawTx")
-	return common.Hash{}, nil
-}
-
 func (nc *NullClient) Call(result interface{}, method string, args ...interface{}) error {
 	logger.Debug("NullClient#Call")
 	return nil
