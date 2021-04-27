@@ -211,15 +211,15 @@ func TestKeeperDB_EligibleUpkeeps_KeepersRotate(t *testing.T) {
 
 	// out of 5 valid block ranges, with 5 keepers, we are eligible
 	// to submit on exactly 1 of them
-	list1, err := orm.EligibleUpkeeps(context.Background(), 20, 0) // someone eligible
+	list1, err := orm.EligibleUpkeeps(context.Background(), 20, 0)
 	require.NoError(t, err)
-	list2, err := orm.EligibleUpkeeps(context.Background(), 41, 0) // noone eligible
+	list2, err := orm.EligibleUpkeeps(context.Background(), 41, 0)
 	require.NoError(t, err)
-	list3, err := orm.EligibleUpkeeps(context.Background(), 62, 0) // someone eligible
+	list3, err := orm.EligibleUpkeeps(context.Background(), 62, 0)
 	require.NoError(t, err)
-	list4, err := orm.EligibleUpkeeps(context.Background(), 83, 0) // someone eligible
+	list4, err := orm.EligibleUpkeeps(context.Background(), 83, 0)
 	require.NoError(t, err)
-	list5, err := orm.EligibleUpkeeps(context.Background(), 104, 0) // someone eligible
+	list5, err := orm.EligibleUpkeeps(context.Background(), 104, 0)
 	require.NoError(t, err)
 
 	totalEligible := len(list1) + len(list2) + len(list3) + len(list4) + len(list5)
