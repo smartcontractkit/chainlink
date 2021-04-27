@@ -8,7 +8,7 @@ set -e
 
 SOLC_6_6_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.6.6"
 SOLC_7_6_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.7.6"
-SOLC_8_3_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.8.3"
+SOLC_8_3_LOCAL_PATH="$HOME/.solc-select/artifacts/solc-0.8.4"
 
 SOLC_6_6_LOCAL_SHA=`sha256sum -b $SOLC_6_6_LOCAL_PATH | cut -d " " -f1`
 SOLC_6_6_EXPECTED_SHA="5d8cd4e0cc02e9946497db68c06d56326a78ff95a21c9265cfedb819a10a539d"
@@ -30,7 +30,7 @@ if [ "$SOLC_7_6_LOCAL_SHA" != "$SOLC_7_6_EXPECTED_SHA" ]; then
 fi
 
 if [ "$SOLC_8_3_LOCAL_SHA" != "$SOLC_8_3_EXPECTED_SHA" ]; then
-  printf "solc 0.8.3 did not match checksum.\nGot '$SOLC_8_3_LOCAL_SHA'\nExpected '$SOLC_8_3_EXPECTED_SHA'\n"
+  printf "solc 0.8.4 did not match checksum.\nGot '$SOLC_8_3_LOCAL_SHA'\nExpected '$SOLC_8_3_EXPECTED_SHA'\n"
   exit 1
 fi
 
