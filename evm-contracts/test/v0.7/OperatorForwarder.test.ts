@@ -58,8 +58,8 @@ describe('OperatorForwarder', () => {
     })
 
     it('sets no authorized senders', async () => {
-      const senders = await operatorForwarder.getAuthorizedSenders();
-      assert.equal(senders.length, 0);
+      const senders = await operatorForwarder.getAuthorizedSenders()
+      assert.equal(senders.length, 0)
     })
   })
 
@@ -103,7 +103,9 @@ describe('OperatorForwarder', () => {
           const newSenders = await operatorForwarder
             .connect(roles.defaultAccount)
             .getAuthorizedSenders()
-          assert.notIncludeOrderedMembers(newSenders, [roles.oracleNode.address])
+          assert.notIncludeOrderedMembers(newSenders, [
+            roles.oracleNode.address,
+          ])
         })
 
         afterAll(async () => {
