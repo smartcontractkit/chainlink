@@ -32,6 +32,7 @@ func newEthSubscriber(ethClient eth.Client, config Config, chStop chan struct{})
 
 func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses []common.Address, topics []common.Hash) (chBackfilledLogs chan types.Log, abort bool) {
 	if len(addresses) == 0 {
+		logger.Debug("LogBroadcaster: No addresses to backfill for, returning")
 		ch := make(chan types.Log)
 		close(ch)
 		return ch, false
