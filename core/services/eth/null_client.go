@@ -123,6 +123,10 @@ func (nc *NullClient) BlockByHash(ctx context.Context, hash common.Hash) (*types
 	logger.Debug("NullClient#BlockByHash")
 	return nil, nil
 }
+func (nc *NullClient) FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	logger.Debug("NullClient#FastBlockByHash")
+	return nil, nil
+}
 
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	logger.Debug("NullClient#BalanceAt")
