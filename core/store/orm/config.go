@@ -816,7 +816,8 @@ func (c Config) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
 
-// JSONConsole enables the JSON console.
+// JSONConsole when set to true causes logging to be made in JSON format
+// If set to false, logs in console format
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
 }
