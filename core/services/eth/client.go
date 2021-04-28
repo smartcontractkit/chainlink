@@ -2,6 +2,8 @@ package eth
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/url"
 	"strings"
@@ -45,6 +47,7 @@ type Client interface {
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	RoundRobinBatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 
+	FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	// These methods are reimplemented due to a difference in how block header hashes are
 	// calculated by Parity nodes running on Kovan.  We have to return our own wrapper
 	// type to capture the correct hash from the RPC response.
@@ -304,6 +307,80 @@ func (client *client) BlockByNumber(ctx context.Context, number *big.Int) (*type
 		"number", number,
 	)
 	return client.GethClient.BlockByNumber(ctx, number)
+}
+
+func (client *client) FastBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+	logger.Debugw("eth.Client#FastBlockByHash(...)",
+		"hash", hash,
+	)
+	var raw json.RawMessage
+
+	err := client.RPCClient.CallContext(ctx, &raw, "eth_getBlockByHash", hash, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
+	} else if len(raw) == 0 {
+		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead block not found")
+	}
+
+	// Decode header and transactions.
+	var head *types.Header
+	var body rpcBlock
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return nil, err
+	}
+
+	// Quick-verify transaction and uncle lists. This mostly helps with debugging the server.
+	if head.UncleHash == types.EmptyUncleHash && len(body.UncleHashes) > 0 {
+		return nil, fmt.Errorf("server returned non-empty uncle list but block header indicates no uncles")
+	}
+	if head.UncleHash != types.EmptyUncleHash && len(body.UncleHashes) == 0 {
+		return nil, fmt.Errorf("server returned empty uncle list but block header indicates uncles")
+	}
+	if head.TxHash == types.EmptyRootHash && len(body.Transactions) > 0 {
+		return nil, fmt.Errorf("server returned non-empty transaction list but block header indicates no transactions")
+	}
+	if head.TxHash != types.EmptyRootHash && len(body.Transactions) == 0 {
+		return nil, fmt.Errorf("server returned empty transaction list but block header indicates transactions")
+	}
+
+	txs := make([]*types.Transaction, len(body.Transactions))
+	for i, tx := range body.Transactions {
+		if tx.tx != nil {
+			txs[i] = tx.tx
+		} else {
+			logger.Warnf("tx is null! From: %v", tx.txExtraInfo.From)
+		}
+		//TODO: check if pending
+	}
+
+	return types.NewBlockWithHeader(head).WithBody(txs, make([]*types.Header, 0)), nil
+}
+
+type rpcBlock struct {
+	Hash         common.Hash      `json:"hash"`
+	Transactions []rpcTransaction `json:"transactions"`
+	UncleHashes  []common.Hash    `json:"uncles"`
+}
+
+type rpcTransaction struct {
+	tx *types.Transaction
+	txExtraInfo
+}
+
+func (tx *rpcTransaction) UnmarshalJSON(msg []byte) error {
+	if err := json.Unmarshal(msg, &tx.tx); err != nil {
+		return err
+	}
+	return json.Unmarshal(msg, &tx.txExtraInfo)
+}
+
+type txExtraInfo struct {
+	BlockNumber *string         `json:"blockNumber,omitempty"`
+	BlockHash   *common.Hash    `json:"blockHash,omitempty"`
+	From        *common.Address `json:"from,omitempty"`
 }
 
 func (client *client) HeaderByNumber(ctx context.Context, number *big.Int) (*models.Head, error) {
