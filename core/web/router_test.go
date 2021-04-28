@@ -6,8 +6,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -18,10 +16,10 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -37,10 +35,10 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -57,10 +55,10 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -94,10 +92,10 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -131,10 +129,10 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -164,10 +162,10 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -188,10 +186,10 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
