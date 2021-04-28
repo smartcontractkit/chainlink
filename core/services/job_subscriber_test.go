@@ -103,7 +103,16 @@ func TestJobSubscriber_AddJob_RemoveJob(t *testing.T) {
 	err := jobSubscriber.AddJob(jobSpec, cltest.Head(321))
 	require.NoError(t, err)
 
-	assert.Len(t, jobSubscriber.Jobs(), 1)
+	// Re-adding the same jobID should be idempotent
+	// and NOT create a new subscription and overwrite
+	jobSpec2 := cltest.NewJobWithLogInitiator()
+	jobSpec2.ID = jobSpec.ID
+	jobSpec2.Name = "should not overwrite"
+	err = jobSubscriber.AddJob(jobSpec, cltest.Head(321))
+	require.NoError(t, err)
+	jbs := jobSubscriber.Jobs()
+	require.Equal(t, 1, len(jbs))
+	require.Equal(t, "", jbs[0].Name)
 
 	err = jobSubscriber.RemoveJob(jobSpec.ID)
 	require.NoError(t, err)
