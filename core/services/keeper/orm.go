@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	gasBuffer         = int32(200_000)
-	maxUnconfirmedTXs = uint64(5)
+	gasBuffer = int32(200_000)
 )
 
 func NewORM(db *gorm.DB) ORM {
@@ -134,7 +133,7 @@ func (korm ORM) SetLastRunHeightForUpkeepOnJob(ctx context.Context, jobID int32,
 	).Error
 }
 
-func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte) (models.EthTx, error) {
+func (korm ORM) CreateEthTransactionForUpkeep(ctx context.Context, upkeep UpkeepRegistration, payload []byte, maxUnconfirmedTXs uint64) (models.EthTx, error) {
 	var etx models.EthTx
 	sqlDB, err := korm.DB.DB()
 	if err != nil {

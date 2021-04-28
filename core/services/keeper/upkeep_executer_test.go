@@ -31,13 +31,16 @@ func setup(t *testing.T) (
 	job.Job,
 	cltest.JobPipelineV2TestHelper,
 ) {
-	store, strCleanup := cltest.NewStore(t)
+	config, cfgCleanup := cltest.NewConfig(t)
+	t.Cleanup(cfgCleanup)
+	config.Set("KEEPER_MAXIMUM_GRACE_PERIOD", 0)
+	store, strCleanup := cltest.NewStoreWithConfig(t, config)
 	t.Cleanup(strCleanup)
 	ethMock := new(mocks.Client)
 	registry, job := cltest.MustInsertKeeperRegistry(t, store)
 	jpv2 := cltest.NewJobPipelineV2(t, store.DB)
 	headBroadcaster := services.NewHeadBroadcaster()
-	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, 0)
+	executer := keeper.NewUpkeepExecuter(job, store.DB, jpv2.Pr, ethMock, headBroadcaster, store.Config)
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, store, registry)
 	err := executer.Start()
 	t.Cleanup(func() { executer.Close() })
