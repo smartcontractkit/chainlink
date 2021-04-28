@@ -76,7 +76,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job) (services []job.Service, err er
 		d.pr,
 		d.ethClient,
 		d.headBroadcaster,
-		d.config.KeeperMaximumGracePeriod(),
+		d.config,
 	)
 
 	return []job.Service{
