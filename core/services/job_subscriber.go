@@ -90,8 +90,8 @@ func (js *jobSubscriber) Stop() error {
 }
 
 func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
-	js.jobsMutex.Lock()
-	defer js.jobsMutex.Unlock()
+	js.jobsMutex.RLock()
+	defer js.jobsMutex.RUnlock()
 	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
 		logger.Errorw("job subscription already added", "jobID", jobID)
 		return true
