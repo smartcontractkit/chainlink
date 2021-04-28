@@ -89,6 +89,16 @@ func (js *jobSubscriber) Stop() error {
 	return js.jobResumer.Stop()
 }
 
+func (js *jobSubscriber) alreadySubscribed(jobID models.JobID) bool {
+	js.jobsMutex.Lock()
+	defer js.jobsMutex.Unlock()
+	if _, exists := js.jobSubscriptions[jobID.String()]; exists {
+		logger.Errorw("job subscription already added", "jobID", jobID)
+		return true
+	}
+	return false
+}
+
 // AddJob subscribes to ethereum log events for each "runlog" and "ethlog"
 // initiator in the passed job spec.
 func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
@@ -100,8 +110,7 @@ func (js *jobSubscriber) AddJob(job models.JobSpec, bn *models.Head) error {
 		return nil
 	}
 
-	if _, exists := js.jobSubscriptions[job.ID.String()]; exists {
-		logger.Errorw("job subscription already added", "job", job)
+	if js.alreadySubscribed(job.ID) {
 		return nil
 	}
 	// Create a new subscription for this job
