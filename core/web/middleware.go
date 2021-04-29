@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gobuffalo/packr"
+	"github.com/smartcontractkit/chainlink/core/logger"
 )
 
 const (
@@ -169,8 +170,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Find the best acceptable file, including trying uncompressed
 	if file, info, err := f.findBestFile(w, r, fpath); err == nil {
 		http.ServeContent(w, r, fpath, info.ModTime(), file)
-		// Satisy errcheck
-		_ = file.Close()
+		logger.ErrorIfCalling(file.Close)
 		return
 	}
 
