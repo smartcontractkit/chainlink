@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/core/services"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/smartcontractkit/chainlink/core/adapters"
@@ -44,10 +43,10 @@ func BenchmarkJobSpecsController_Index(b *testing.B) {
 func TestJobSpecsController_Index_noSort(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -97,10 +96,10 @@ func TestJobSpecsController_Index_noSort(t *testing.T) {
 func TestJobSpecsController_Index_sortCreatedAt(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -177,10 +176,10 @@ func setupJobSpecsControllerIndex(app *cltest.TestApplication) (*models.JobSpec,
 func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -228,10 +227,10 @@ func TestJobSpecsController_Create_HappyPath(t *testing.T) {
 func TestJobSpecsController_Create_CustomName(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -273,10 +272,10 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 	)
 	defer assertCalled()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 		services.NewExternalInitiatorManager(),
 	)
 	defer cleanup()
@@ -307,10 +306,10 @@ func TestJobSpecsController_CreateExternalInitiator_Success(t *testing.T) {
 
 func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -338,10 +337,10 @@ func TestJobSpecsController_Create_CaseInsensitiveTypes(t *testing.T) {
 
 func TestJobSpecsController_Create_NonExistentTaskJob(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -365,10 +364,10 @@ func TestJobSpecsController_Create_FluxMonitor_disabled(t *testing.T) {
 	config.Set("FEATURE_FLUX_MONITOR", "FALSE")
 	config.Set("GAS_UPDATER_ENABLED", false)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -392,25 +391,25 @@ func TestJobSpecsController_Create_FluxMonitor_enabled(t *testing.T) {
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_UPDATER_ENABLED", false)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
 	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
 		Return(nil, errors.New("first round"))
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
 		Return(result, nil).Maybe()
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
@@ -430,25 +429,25 @@ func TestJobSpecsController_Create_FluxMonitor_Bridge(t *testing.T) {
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_UPDATER_ENABLED", false)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
 	getOraclesResult, err := cltest.GenericEncode([]string{"address[]"}, []common.Address{})
 	require.NoError(t, err)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "getOracles").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "getOracles").
 		Return(getOraclesResult, nil)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "latestRoundData").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "latestRoundData").
 		Return(nil, errors.New("first round"))
 	result := cltest.MakeRoundStateReturnData(2, true, 10000, 7, 0, 1000, 100, 1)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "oracleRoundState").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "oracleRoundState").
 		Return(result, nil).Maybe()
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "minSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "minSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(0)), nil)
-	cltest.MockFluxAggCall(gethClient, cltest.FluxAggAddress, "maxSubmissionValue").
+	cltest.MockFluxAggCall(ethClient, cltest.FluxAggAddress, "maxSubmissionValue").
 		Return(cltest.MustGenericEncode([]string{"uint256"}, big.NewInt(10000000)), nil)
 
 	require.NoError(t, app.Start())
@@ -474,10 +473,10 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 	config.Set("FEATURE_FLUX_MONITOR", "TRUE")
 	config.Set("GAS_UPDATER_ENABLED", false)
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplicationWithConfig(t, config,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 
@@ -494,10 +493,10 @@ func TestJobSpecsController_Create_FluxMonitor_NoBridgeError(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -517,10 +516,10 @@ func TestJobSpecsController_Create_InvalidJob(t *testing.T) {
 
 func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -540,10 +539,10 @@ func TestJobSpecsController_Create_InvalidCron(t *testing.T) {
 
 func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -563,10 +562,10 @@ func TestJobSpecsController_Create_Initiator_Only(t *testing.T) {
 
 func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -587,10 +586,10 @@ func TestJobSpecsController_Create_Task_Only(t *testing.T) {
 func TestJobSpecsController_Create_EthDisabled(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	app.Config.Set("ETH_DISABLED", true)
@@ -644,10 +643,10 @@ func BenchmarkJobSpecsController_Show(b *testing.B) {
 func TestJobSpecsController_Show(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -671,10 +670,10 @@ func TestJobSpecsController_Show(t *testing.T) {
 func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -704,10 +703,10 @@ func TestJobSpecsController_Show_FluxMonitorJob(t *testing.T) {
 func TestJobSpecsController_Show_MultipleTasks(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -753,10 +752,10 @@ func setupJobSpecsControllerShow(t assert.TestingT, app *cltest.TestApplication)
 
 func TestJobSpecsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -770,10 +769,10 @@ func TestJobSpecsController_Show_NotFound(t *testing.T) {
 
 func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -787,10 +786,10 @@ func TestJobSpecsController_Show_InvalidUuid(t *testing.T) {
 
 func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -802,10 +801,10 @@ func TestJobSpecsController_Show_Unauthenticated(t *testing.T) {
 
 func TestJobSpecsController_Destroy(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -822,10 +821,10 @@ func TestJobSpecsController_Destroy(t *testing.T) {
 }
 
 func TestJobSpecsController_DestroyAdd(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())
@@ -855,10 +854,10 @@ func TestJobSpecsController_DestroyAdd(t *testing.T) {
 
 func TestJobSpecsController_Destroy_MultipleJobs(t *testing.T) {
 	t.Parallel()
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	require.NoError(t, app.Start())

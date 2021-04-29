@@ -365,7 +365,7 @@ func (app *ChainlinkApplication) Start() error {
 		app.Exiter(0)
 	}()
 
-	// EthClient must be dialled first because it is required in subtasks
+	// EthClient must be dialed first because it is required in subtasks
 	if err := app.Store.EthClient.Dial(context.TODO()); err != nil {
 		return err
 	}
