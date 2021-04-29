@@ -87,6 +87,7 @@ type (
 		HeadTimeBudget                   time.Duration
 		MinIncomingConfirmations         uint32
 		MinRequiredOutgoingConfirmations uint64
+		OptimismGasFees                  bool
 	}
 )
 
@@ -158,9 +159,28 @@ func init() {
 		MinRequiredOutgoingConfirmations: 39, // mainnet * 13
 	}
 
+	// Optimism is an L2 chain. Pending proper L2 support, for now we rely on Optimism's sequencer
+	optimism := ChainSpecificDefaultSet{
+		EthGasBumpThreshold:              0, // Never bump gas on optimism
+		EthFinalityDepth:                 1, // Sequencer offers absolute finality as long as no re-org longer than 20 blocks occurs on main chain, this event would require special handling (new txm)
+		EthHeadTrackerHistoryDepth:       10,
+		EthBalanceMonitorBlockDelay:      0,
+		EthTxResendAfterThreshold:        5 * time.Second,
+		GasUpdaterBlockHistorySize:       0,                      // Force an error if someone set GAS_UPDATER_ENABLED=true by accident; we never want to run the gas updater on optimism
+		HeadTimeBudget:                   100 * time.Millisecond, // Actually heads on Optimism happen every time a transaction is sent so it could be much more frequent than this. Will need to observe in practice how rapid they are and maybe implement special casing
+		MinIncomingConfirmations:         0,
+		MinRequiredOutgoingConfirmations: 0,
+		OptimismGasFees:                  true,
+	}
+
 	GeneralDefaults = mainnet
 	ChainSpecificDefaults[1] = mainnet
 	ChainSpecificDefaults[42] = kovan
+
+	ChainSpecificDefaults[10] = optimism
+	ChainSpecificDefaults[69] = optimism
+	ChainSpecificDefaults[420] = optimism
+
 	ChainSpecificDefaults[56] = bscMainnet
 	ChainSpecificDefaults[128] = hecoMainnet
 	ChainSpecificDefaults[80001] = polygonMatic
@@ -228,12 +248,20 @@ func (c *Config) Validate() error {
 		return errors.New("ETH_HEAD_TRACKER_HISTORY_DEPTH must be equal to or greater than ETH_FINALITY_DEPTH")
 	}
 
+	if c.GasUpdaterEnabled() && c.GasUpdaterBlockHistorySize() <= 0 {
+		return errors.New("GAS_UPDATER_BLOCK_HISTORY_SIZE must be greater than or equal to 1 if gas updater is enabled")
+	}
+
 	if c.P2PAnnouncePort() != 0 && c.P2PAnnounceIP() == nil {
 		return errors.Errorf("P2P_ANNOUNCE_PORT was given as %v but P2P_ANNOUNCE_IP was unset. You must also set P2P_ANNOUNCE_IP if P2P_ANNOUNCE_PORT is set", c.P2PAnnouncePort())
 	}
 
 	if c.FeatureOffchainReporting() && c.P2PListenPort() == 0 {
 		return errors.New("P2P_LISTEN_PORT must be set to a non-zero value if FEATURE_OFFCHAIN_REPORTING is enabled")
+	}
+
+	if c.EthFinalityDepth() < 1 {
+		return errors.New("ETH_FINALITY_DEPTH must be greater than or equal to 1")
 	}
 
 	var override time.Duration
@@ -630,6 +658,10 @@ func (c Config) SetEthGasPriceDefault(value *big.Int) error {
 // It is practically limited by the number of heads we store in the database and should be less than this with a comfortable margin.
 // If a transaction is mined in a block more than this many blocks ago, and is reorged out, we will NOT retransmit this transaction and undefined behaviour can occur including gaps in the nonce sequence that require manual intervention to fix.
 // Therefore this number represents a number of blocks we consider large enough that no re-org this deep will ever feasibly happen.
+//
+// Special cases:
+// ETH_FINALITY_DEPTH=0 would imply that transactions can be final even before they were mined into a block. This is not supported.
+// ETH_FINALITY_DEPTH=1 implies that transactions are final after we see them in one block.
 func (c Config) EthFinalityDepth() uint {
 	if c.viper.IsSet(EnvVarName("EthFinalityDepth")) {
 		return uint(c.viper.GetUint64(EnvVarName("EthFinalityDepth")))
@@ -980,7 +1012,10 @@ func (c Config) OperatorContractAddress() common.Address {
 // OptimismGasFees enables asking the network for gas price before submitting
 // transactions, enabling compatibility with Optimism's L2 chain
 func (c Config) OptimismGasFees() bool {
-	return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+	if c.viper.IsSet(EnvVarName("OptimismGasFees")) {
+		return c.viper.GetBool(EnvVarName("OptimismGasFees"))
+	}
+	return chainSpecificConfig(c).OptimismGasFees
 }
 
 // LogLevel represents the maximum level of log messages to output.
