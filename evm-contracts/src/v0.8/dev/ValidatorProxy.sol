@@ -156,10 +156,10 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
     // Perform the upgrade
     require(current.hasNewProposal == true, "No proposal");
-    current.target = proposed;
-    current.hasNewProposal = false;
-
-    s_currentAggregator = current;
+    s_currentAggregator = ProxyConfiguration({
+      target: proposed,
+      hasNewProposal: false
+    });
     s_proposedAggregator = address(0);
 
     emit AggregatorUpgraded(previous, proposed);
@@ -219,10 +219,10 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
     // Perform the upgrade
     require(current.hasNewProposal == true, "No proposal");
-    current.target = proposed;
-    current.hasNewProposal = false;
-
-    s_currentValidator = current;
+    s_currentValidator = ProxyConfiguration({
+      target: proposed,
+      hasNewProposal: false
+    });
     s_proposedValidator = address(0);
 
     emit ValidatorUpgraded(previous, proposed);
