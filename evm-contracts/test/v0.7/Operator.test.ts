@@ -205,7 +205,7 @@ describe('Operator', () => {
           assert.equal(responseEvent1?.event, 'AuthorizedSendersChanged')
           assert.equal(responseEvent1?.data, encodedSenders1)
 
-          let operatorForwarderSenders = newSenders
+          const operatorForwarderSenders = newSenders
           operatorForwarderSenders.push(roles.defaultAccount.address)
           const encodedSenders2 = ethers.utils.defaultAbiCoder.encode(
             ['address[]'],
