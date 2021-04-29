@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
@@ -120,28 +121,29 @@ func (r *headRingBuffer) run() {
 // in a thread safe manner. Reconstitutes the last block number from the data
 // store on reboot.
 type HeadTracker struct {
-	callbacks             []strpkg.HeadTrackable
-	inHeaders             chan *models.Head
-	outHeaders            chan models.Head
-	headSubscription      ethereum.Subscription
-	highestSeenHead       *models.Head
-	store                 *strpkg.Store
-	headMutex             sync.RWMutex
-	connected             bool
-	sleeper               utils.Sleeper
-	done                  chan struct{}
-	started               bool
-	listenForNewHeadsWg   sync.WaitGroup
-	backfillMB            utils.Mailbox
-	subscriptionSucceeded chan struct{}
-	logger                *logger.Logger
-	blockFetcher          *BlockFetcher
+	headTrackerAddressChannel chan common.Address
+	callbacks                 []strpkg.HeadTrackable
+	inHeaders                 chan *models.Head
+	outHeaders                chan models.Head
+	headSubscription          ethereum.Subscription
+	highestSeenHead           *models.Head
+	store                     *strpkg.Store
+	headMutex                 sync.RWMutex
+	connected                 bool
+	sleeper                   utils.Sleeper
+	done                      chan struct{}
+	started                   bool
+	listenForNewHeadsWg       sync.WaitGroup
+	backfillMB                utils.Mailbox
+	subscriptionSucceeded     chan struct{}
+	logger                    *logger.Logger
+	blockFetcher              *BlockFetcher
 }
 
 // NewHeadTracker instantiates a new HeadTracker using the orm to persist new block numbers.
 // Can be passed in an optional sleeper object that will dictate how often
 // it tries to reconnect.
-func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
+func NewHeadTracker(store *strpkg.Store, headTrackerAddressChannel chan common.Address, callbacks []strpkg.HeadTrackable, sleepers ...utils.Sleeper) *HeadTracker {
 	var sleeper utils.Sleeper
 	if len(sleepers) > 0 {
 		sleeper = sleepers[0]
@@ -152,13 +154,14 @@ func NewHeadTracker(store *strpkg.Store, callbacks []strpkg.HeadTrackable, sleep
 		"id", "head_tracker",
 	))
 	return &HeadTracker{
-		store:        store,
-		callbacks:    callbacks,
-		sleeper:      sleeper,
-		logger:       l,
-		backfillMB:   *utils.NewMailbox(1),
-		done:         make(chan struct{}),
-		blockFetcher: NewBlockFetcher(store),
+		headTrackerAddressChannel: headTrackerAddressChannel,
+		store:                     store,
+		callbacks:                 callbacks,
+		sleeper:                   sleeper,
+		logger:                    l,
+		backfillMB:                *utils.NewMailbox(1),
+		done:                      make(chan struct{}),
+		blockFetcher:              NewBlockFetcher(store),
 	}
 }
 
@@ -293,6 +296,9 @@ func (ht *HeadTracker) backfiller() {
 	defer ht.listenForNewHeadsWg.Done()
 	for {
 		select {
+		case address := <-ht.headTrackerAddressChannel:
+			ht.blockFetcher.AddAddress(address)
+
 		case <-ht.done:
 			return
 		case <-ht.backfillMB.Notify():

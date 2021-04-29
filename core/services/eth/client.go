@@ -95,6 +95,11 @@ type client struct {
 	roundRobinCount uint32
 }
 
+func (client client) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
+
+	panic("implement me")
+}
+
 var _ Client = (*client)(nil)
 
 func NewClient(rpcUrl string, rpcHTTPURL *url.URL, secondaryRPCURLs []url.URL) (*client, error) {
@@ -261,7 +266,7 @@ func (client *client) FastBlockByHash(ctx context.Context, hash common.Hash) (*t
 	)
 	var raw json.RawMessage
 
-	err := client.RPCClient.CallContext(ctx, &raw, "eth_getBlockByHash", hash, true)
+	err := client.CallContext(ctx, &raw, "eth_getBlockByHash", hash, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "HeadTracker#handleNewHighestHead failed fetching BlockByHash")
 	} else if len(raw) == 0 {

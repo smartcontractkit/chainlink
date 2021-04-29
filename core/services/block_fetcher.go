@@ -22,8 +22,9 @@ type BlockWithReceipts struct {
 }
 
 type BlockFetcher struct {
-	store  *strpkg.Store
-	logger *logger.Logger
+	store     *strpkg.Store
+	logger    *logger.Logger
+	addresses map[common.Address]struct{}
 }
 
 func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
@@ -32,7 +33,13 @@ func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
 		logger: logger.CreateLogger(logger.Default.With(
 			"id", "block_fetcher",
 		)),
+		addresses: make(map[common.Address]struct{}),
 	}
+}
+
+func (ht *BlockFetcher) AddAddress(address common.Address) {
+	ht.logger.Debugw("========================= HeadTracker: adding address", "address", address)
+	ht.addresses[address] = struct{}{}
 }
 
 func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*BlockWithReceipts, error) {
@@ -50,9 +57,37 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*Bloc
 	logger.Warnf("rpcBlock.num Transactions: %v", block.Transactions().Len())
 
 	start2 := time.Now()
-	ht.logger.Debugf("========================= HeadTracker: getting receipts for %v transactions", block.Transactions().Len())
 
-	receipts, err := ht.batchFetchReceipts(ctx, block.Transactions())
+	var preserved []*types.Transaction
+
+	for _, transaction := range block.Transactions() {
+		to := transaction.To()
+		if to == nil {
+			preserved = append(preserved, transaction)
+		} else {
+			for address := range ht.addresses {
+				if address == *to {
+					preserved = append(preserved, transaction)
+				} else {
+					var signer types.Signer
+					if transaction.Protected() {
+						signer = types.LatestSignerForChainID(transaction.ChainId())
+					} else {
+						signer = types.HomesteadSigner{}
+					}
+
+					from, _ := types.Sender(signer, transaction)
+
+					if address == from {
+						preserved = append(preserved, transaction)
+					}
+				}
+			}
+		}
+	}
+	ht.logger.Debugf("========================= HeadTracker: getting receipts for %v transactions", len(preserved))
+
+	receipts, err := ht.batchFetchReceipts(ctx, preserved)
 	if err != nil {
 		return nil, errors.Wrap(err, "HeadTracker#batchFetchReceipts failed ")
 	}

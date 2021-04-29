@@ -46,10 +46,11 @@ type (
 	}
 
 	broadcaster struct {
-		orm              ORM
-		config           Config
-		connected        *abool.AtomicBool
-		latestHeadFromDb *models.Head
+		headTrackerAddressChannel chan common.Address
+		orm                       ORM
+		config                    Config
+		connected                 *abool.AtomicBool
+		latestHeadFromDb          *models.Head
 
 		ethSubscriber *ethSubscriber
 		registrations *registrations
@@ -92,20 +93,21 @@ type (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient eth.Client, config Config) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient eth.Client, config Config, headTrackerAddressChannel chan common.Address) *broadcaster {
 	chStop := make(chan struct{})
 	return &broadcaster{
-		orm:              orm,
-		config:           config,
-		connected:        abool.New(),
-		ethSubscriber:    newEthSubscriber(ethClient, config, chStop),
-		registrations:    newRegistrations(),
-		logPool:          newLogPool(),
-		addSubscriber:    utils.NewMailbox(0),
-		rmSubscriber:     utils.NewMailbox(0),
-		newHeads:         utils.NewMailbox(1),
-		DependentAwaiter: utils.NewDependentAwaiter(),
-		chStop:           chStop,
+		headTrackerAddressChannel: headTrackerAddressChannel,
+		orm:                       orm,
+		config:                    config,
+		connected:                 abool.New(),
+		ethSubscriber:             newEthSubscriber(ethClient, config, chStop),
+		registrations:             newRegistrations(),
+		logPool:                   newLogPool(),
+		addSubscriber:             utils.NewMailbox(0),
+		rmSubscriber:              utils.NewMailbox(0),
+		newHeads:                  utils.NewMailbox(1),
+		DependentAwaiter:          utils.NewDependentAwaiter(),
+		chStop:                    chStop,
 	}
 }
 
@@ -163,6 +165,7 @@ func (b *broadcaster) awaitInitialSubscribers() {
 }
 
 func (b *broadcaster) Register(listener Listener, opts ListenerOpts) (unsubscribe func()) {
+	b.headTrackerAddressChannel <- opts.Contract.Address()
 	if len(opts.Logs) < 1 {
 		logger.Fatal("Must supply at least 1 Log to Register")
 	}

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/core/services/gasupdater"
@@ -174,12 +175,13 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		logger.Info("DatabaseBackup: periodic database backups are disabled")
 	}
 
+	headTrackerAddressChannel := make(chan common.Address, 100)
 	runExecutor := services.NewRunExecutor(store, statsPusher)
 	runQueue := services.NewRunQueue(runExecutor)
 	runManager := services.NewRunManager(runQueue, config, store.ORM, statsPusher, store.Clock)
 	jobSubscriber := services.NewJobSubscriber(store, runManager)
 	promReporter := services.NewPromReporter(store.MustSQLDB())
-	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config)
+	logBroadcaster := log.NewBroadcaster(log.NewORM(store.DB), ethClient, store.Config, headTrackerAddressChannel)
 	eventBroadcaster := postgres.NewEventBroadcaster(config.DatabaseURL(), config.DatabaseListenerMinReconnectInterval(), config.DatabaseListenerMaxReconnectDuration())
 	fluxMonitor := fluxmonitor.New(store, runManager, logBroadcaster)
 	ethBroadcaster := bulletprooftxmanager.NewEthBroadcaster(store, config, eventBroadcaster)
@@ -306,7 +308,7 @@ func NewApplication(config *orm.Config, ethClient eth.Client, advisoryLocker pos
 		}}
 		headTrackables = append(headTrackables, headTrackable)
 	}
-	app.HeadTracker = services.NewHeadTracker(store, headTrackables)
+	app.HeadTracker = services.NewHeadTracker(store, headTrackerAddressChannel, headTrackables)
 
 	// Log Broadcaster uses the last stored head as a limit of log backfill
 	// which needs to be set before it's started
