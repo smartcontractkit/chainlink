@@ -28,6 +28,14 @@ func (s *SendError) Fatal() bool {
 	return s != nil && s.fatal
 }
 
+// CauseStr returns the string of the original error
+func (s *SendError) CauseStr() string {
+	if s.err != nil {
+		return errors.Cause(s.err).Error()
+	}
+	return ""
+}
+
 // Parity errors
 var (
 	// Non-fatal
@@ -71,7 +79,8 @@ func (s *SendError) IsReplacementUnderpriced() bool {
 		return false
 	}
 
-	str := s.Error()
+	str := s.CauseStr()
+
 	switch {
 	case gethReplacementTransactionUnderpriced.MatchString(str):
 		return true
@@ -87,7 +96,7 @@ func (s *SendError) IsNonceTooLowError() bool {
 		return false
 	}
 
-	str := s.Error()
+	str := s.CauseStr()
 	switch {
 	case gethNonceTooLow.MatchString(str):
 		return true
@@ -104,7 +113,7 @@ func (s *SendError) IsTransactionAlreadyInMempool() bool {
 		return false
 	}
 
-	str := s.Error()
+	str := s.CauseStr()
 	switch {
 	case gethKnownTransaction.MatchString(str):
 		return true
@@ -122,7 +131,7 @@ func (s *SendError) IsTerminallyUnderpriced() bool {
 		return false
 	}
 
-	str := s.Error()
+	str := s.CauseStr()
 	switch {
 	case gethTransactionUnderpriced.MatchString(str):
 		return true
@@ -134,7 +143,7 @@ func (s *SendError) IsTerminallyUnderpriced() bool {
 }
 
 func (s *SendError) IsTemporarilyUnderpriced() bool {
-	return s != nil && s.err != nil && s.Error() == parLimitReached
+	return s != nil && s.err != nil && s.CauseStr() == parLimitReached
 }
 
 func (s *SendError) IsInsufficientEth() bool {
@@ -142,7 +151,7 @@ func (s *SendError) IsInsufficientEth() bool {
 		return false
 	}
 
-	str := s.Error()
+	str := s.CauseStr()
 	switch {
 	case gethInsufficientEth.MatchString(str):
 		return true
@@ -162,7 +171,9 @@ func (s *SendError) IsTooExpensive() bool {
 		return false
 	}
 
-	return gethTxFeeExceedsCap.MatchString(s.Error())
+	str := s.CauseStr()
+
+	return gethTxFeeExceedsCap.MatchString(str)
 }
 
 func NewFatalSendErrorS(s string) *SendError {
@@ -195,8 +206,8 @@ func isFatalSendError(err error) bool {
 	if err == nil {
 		return false
 	}
-	s := err.Error()
-	return isGethFatal(s) || isParityFatal(s)
+	str := errors.Cause(err).Error()
+	return isGethFatal(str) || isParityFatal(str)
 }
 
 func isGethFatal(s string) bool {
