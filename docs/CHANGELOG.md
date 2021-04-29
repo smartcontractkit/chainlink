@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `MockOracle.sol` for testing contracts
+
 - New CLI command to convert v1 flux monitor jobs (JSON) to 
 v2 flux monitor jobs (TOML). Running it will archive the v1 
 job and create a new v2 job. Example:
@@ -25,6 +27,10 @@ update job_specs set deleted_at = null where id = 'fe279ed9-c36f-4eef-9dc1-bdb7b
 ```
 
 - Added a new boolean `OPTIMISM_GAS_FEES` configuration variable which makes a call to estimate gas before all transactions, suitable for use with Optimism's L2 chain. When this option is used `ETH_GAS_LIMIT_DEFAULT` is ignored.
+
+- Chainlink now supports routing certain calls to the eth node over HTTP instead of websocket, when available. This has a number of advantages - HTTP is more robust and simpler than websockets, reducing complexity and allowing us to make large queries without running the risk of hitting websocket send limits. The HTTP url should point to the same node as the ETH_URL and can be specified with an env var like so: `ETH_HTTP_URL=https://my.ethereumnode.example/endpoint`.
+
+Adding an HTTP endpoint is particularly recommended for BSC, which is hitting websocket limitations on certain queries due to its large block size.
 
 ## [0.10.5] - 2021-04-26
 
