@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,7 @@ import (
 
 type BlockWithReceipts struct {
 	block    *types.Block
-	receipts []bulletprooftxmanager.Receipt
+	receipts []*bulletprooftxmanager.Receipt
 }
 
 type BlockFetcher struct {
@@ -49,12 +50,28 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*Bloc
 	logger.Warnf("rpcBlock.num Transactions: %v", block.Transactions().Len())
 
 	start2 := time.Now()
+	ht.logger.Debugf("========================= HeadTracker: getting receipts for %v transactions", block.Transactions().Len())
 
 	receipts, err := ht.batchFetchReceipts(ctx, block.Transactions())
+	if err != nil {
+		return nil, errors.Wrap(err, "HeadTracker#batchFetchReceipts failed ")
+	}
 
+	//receipts := make([]*bulletprooftxmanager.Receipt, 0)
+	//for _, tx := range block.Transactions() {
+	//	receipt, err := ht.store.EthClient.TransactionReceipt(ctx, tx.Hash())
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	receipts = append(receipts, bulletprooftxmanager.FromGethReceipt(receipt))
+	//	ht.logger.Debugf("========================= HeadTracker: receipt log len %v", len(receipt.Logs))
+	//}
+
+	topicCount := 0
 	receiptsSizeBytes := 0
 	for _, receipt := range receipts {
 		for _, log := range receipt.Logs {
+			topicCount += len(log.Topics)
 			receiptsSizeBytes += len(log.Data)
 			receiptsSizeBytes += (len(log.Topics) + 2) * common.HashLength
 			receiptsSizeBytes += common.AddressLength
@@ -63,11 +80,7 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*Bloc
 
 	elapsed2 := time.Since(start2)
 	ht.logger.Debugw("========================= HeadTracker: getting tx receipts took",
-		"elapsedMs", elapsed2.Milliseconds(), "receiptsSizeBytes", receiptsSizeBytes)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "HeadTracker#batchFetchReceipts failed ")
-	}
+		"elapsedMs", elapsed2.Milliseconds(), "receiptsSizeBytes", receiptsSizeBytes, "count", len(receipts), "topicCount", topicCount)
 
 	return &BlockWithReceipts{
 		block,
@@ -75,7 +88,91 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*Bloc
 	}, nil
 }
 
-func (ht *BlockFetcher) batchFetchReceipts(ctx context.Context, txs []*types.Transaction) (receipts []bulletprooftxmanager.Receipt, err error) {
+type result struct {
+	index int
+	res   *bulletprooftxmanager.Receipt
+	err   error
+}
+
+// boundedParallelGet sends requests in parallel but only up to a certain
+// limit, and furthermore it's only parallel up to the amount of CPUs but
+// is always concurrent up to the concurrency limit
+func (ht *BlockFetcher) getResultsParallel(ctx context.Context, txs []*types.Transaction) (receipts []*bulletprooftxmanager.Receipt, err error) {
+
+	concurrencyLimit := 10
+	// this buffered channel will block at the concurrency limit
+	semaphoreChan := make(chan struct{}, concurrencyLimit)
+
+	// this channel will not block and collect the http request results
+	resultsChan := make(chan *result)
+
+	// make sure we close these channels when we're done with them
+	defer func() {
+		close(semaphoreChan)
+		close(resultsChan)
+	}()
+
+	// keen an index and loop through every url we will send a request to
+	for i, tx := range txs {
+
+		// start a go routine with the index and url in a closure
+		go func(i int, tx *types.Transaction) {
+
+			// this sends an empty struct into the semaphoreChan which
+			// is basically saying add one to the limit, but when the
+			// limit has been reached block until there is room
+			semaphoreChan <- struct{}{}
+
+			// send the request and put the response in a result struct
+			// along with the index so we can sort them later along with
+			// any error that might have occoured
+
+			receipt, err := ht.store.EthClient.TransactionReceipt(ctx, tx.Hash())
+			//if err != nil {
+			//	return nil, err
+			//}
+
+			result := &result{i, bulletprooftxmanager.FromGethReceipt(receipt), err}
+
+			// now we can send the result struct through the resultsChan
+			resultsChan <- result
+
+			// once we're done it's we read from the semaphoreChan which
+			// has the effect of removing one from the limit and allowing
+			// another goroutine to start
+			<-semaphoreChan
+
+		}(i, tx)
+	}
+
+	// make a slice to hold the results we're expecting
+	var results []result
+
+	// start listening for any results over the resultsChan
+	// once we get a result append it to the result slice
+	for {
+		result := <-resultsChan
+		results = append(results, *result)
+
+		// if we've reached the expected amount of urls then stop
+		if len(results) == len(txs) {
+			break
+		}
+	}
+
+	// let's sort these results real quick
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].index < results[j].index
+	})
+
+	for _, res := range results {
+		receipts = append(receipts, res.res)
+	}
+	// now we're done we return the results
+	return receipts, nil
+}
+
+func (ht *BlockFetcher) getResultsBatch(ctx context.Context, txs []*types.Transaction) (receipts []*bulletprooftxmanager.Receipt, err error) {
 	var reqs []rpc.BatchElem
 	for _, tx := range txs { // TODO: how many is too many?
 		req := rpc.BatchElem{
@@ -83,6 +180,8 @@ func (ht *BlockFetcher) batchFetchReceipts(ctx context.Context, txs []*types.Tra
 			Args:   []interface{}{tx.Hash()},
 			Result: &bulletprooftxmanager.Receipt{},
 		}
+		//ht.logger.Debugf("========================= HeadTracker: getting receipt for transaction %v", tx.Hash())
+
 		reqs = append(reqs, req)
 	}
 
@@ -94,14 +193,28 @@ func (ht *BlockFetcher) batchFetchReceipts(ctx context.Context, txs []*types.Tra
 		return nil, errors.Wrap(err, "EthConfirmer#batchFetchReceipts error fetching receipts with BatchCallContext")
 	}
 
-	for i, req := range reqs {
-		tx := txs[i]
+	for _, req := range reqs {
 		result, err := req.Result, req.Error
-
+		if err != nil {
+			ht.logger.Errorw("EthConfirmer#batchFetchReceipts: fetchReceipt failed")
+			return nil, err
+		}
 		receipt, is := result.(*bulletprooftxmanager.Receipt)
 		if !is {
 			return nil, errors.Errorf("expected result to be a %T, got %T", (*bulletprooftxmanager.Receipt)(nil), result)
 		}
+
+		receipts = append(receipts, receipt)
+	}
+	return receipts, nil
+}
+
+func (ht *BlockFetcher) batchFetchReceipts(ctx context.Context, txs []*types.Transaction) (receipts []*bulletprooftxmanager.Receipt, err error) {
+
+	receiptsRaw, err := ht.getResultsBatch(ctx, txs)
+
+	for i, receipt := range receiptsRaw {
+		tx := txs[i]
 
 		l := ht.logger.With(
 			"txHash", tx.Hash().Hex(), "err", err,
@@ -143,14 +256,14 @@ func (ht *BlockFetcher) batchFetchReceipts(ctx context.Context, txs []*types.Tra
 			continue
 		}
 
-		if receipt.Status == 0 {
-			l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
-			// This is safe to increment here because we save the receipt immediately after
-			// and once its saved we do not fetch it again.
-			//promRevertedTxCount.Add(1)
-		}
+		//if receipt.Status == 0 {
+		//	l.Warnf("transaction %s reverted on-chain", receipt.TxHash)
+		//	// This is safe to increment here because we save the receipt immediately after
+		//	// and once its saved we do not fetch it again.
+		//	//promRevertedTxCount.Add(1)
+		//}
 
-		receipts = append(receipts, *receipt)
+		receipts = append(receipts, receipt)
 	}
 
 	return
