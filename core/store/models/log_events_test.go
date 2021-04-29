@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/core/assets"
@@ -117,23 +116,23 @@ func TestStartRunOrSALogSubscription_ValidateSenders(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			rpcClient, gethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+			ethClient, sub, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 			defer assertMocksCalled()
 			app, cleanup := cltest.NewApplicationWithKey(t,
-				eth.NewClientWith(rpcClient, gethClient),
+				ethClient,
 			)
 			defer cleanup()
 
 			js := test.job
 			log := test.logFactory(t, models.IDToTopic(js.ID), cltest.NewAddress(), test.requester, 1, `{}`)
 
-			logsCh := cltest.MockSubscribeToLogsCh(gethClient, sub)
-			gethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
+			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
+			ethClient.On("TransactionReceipt", mock.Anything, mock.Anything).Maybe().Return(&types.Receipt{TxHash: cltest.NewHash(), BlockNumber: big.NewInt(1), BlockHash: log.BlockHash}, nil)
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
-			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 
 			assert.NoError(t, app.StartAndConnect())
 
