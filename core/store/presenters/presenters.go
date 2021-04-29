@@ -90,12 +90,14 @@ type EnvPrinter struct {
 	OCRDatabaseTimeout                    time.Duration   `json:"ocrDatabaseTimeout"`
 	P2PListenIP                           string          `json:"ocrListenIP"`
 	P2PListenPort                         uint16          `json:"ocrListenPort"`
+	P2PPeerID                             string          `json:"ocrDefaultPeerID"`
 	OCRIncomingMessageBufferSize          int             `json:"ocrIncomingMessageBufferSize"`
 	OCROutgoingMessageBufferSize          int             `json:"ocrOutgoingMessageBufferSize"`
 	OCRNewStreamTimeout                   time.Duration   `json:"ocrNewStreamTimeout"`
 	OCRDHTLookupInterval                  int             `json:"ocrDHTLookupInterval"`
 	OCRTraceLogging                       bool            `json:"ocrTraceLogging"`
 	OperatorContractAddress               common.Address  `json:"operatorContractAddress"`
+	OptimismGasFees                       bool            `json:"optimismGasFees"`
 	Port                                  uint16          `json:"chainlinkPort"`
 	ReaperExpiration                      models.Duration `json:"reaperExpiration"`
 	ReplayFromBlock                       int64           `json:"replayFromBlock"`
@@ -172,12 +174,14 @@ func NewConfigPrinter(store *store.Store) (ConfigPrinter, error) {
 			OCRDatabaseTimeout:                    config.OCRDatabaseTimeout(),
 			P2PListenIP:                           config.P2PListenIP().String(),
 			P2PListenPort:                         config.P2PListenPort(),
+			P2PPeerID:                             config.P2PPeerIDRaw(),
 			OCRIncomingMessageBufferSize:          config.OCRIncomingMessageBufferSize(),
 			OCROutgoingMessageBufferSize:          config.OCROutgoingMessageBufferSize(),
 			OCRNewStreamTimeout:                   config.OCRNewStreamTimeout(),
 			OCRDHTLookupInterval:                  config.OCRDHTLookupInterval(),
 			OCRTraceLogging:                       config.OCRTraceLogging(),
 			OperatorContractAddress:               config.OperatorContractAddress(),
+			OptimismGasFees:                       config.OptimismGasFees(),
 			Port:                                  config.Port(),
 			ReaperExpiration:                      config.ReaperExpiration(),
 			ReplayFromBlock:                       config.ReplayFromBlock(),
