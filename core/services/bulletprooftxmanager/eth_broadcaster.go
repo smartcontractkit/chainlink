@@ -3,6 +3,7 @@ package bulletprooftxmanager
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -14,11 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/core/store/orm"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
+	ethereum "github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
+
+const optimismGasPrice int64 = 1e9 // 1 GWei
 
 // EthBroadcaster monitors eth_txes for transactions that need to
 // be broadcast, assigns nonces and ensures that at least one eth node
@@ -214,7 +217,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
-		a, err := newAttempt(eb.store, *etx, eb.config.EthGasPriceDefault())
+		a, err := newAttempt(eb.store, *etx, eb.initialTxGasPrice())
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
@@ -227,6 +230,13 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
 		}
 	}
+}
+
+func (eb *ethBroadcaster) initialTxGasPrice() *big.Int {
+	if eb.config.OptimismGasFees() {
+		return big.NewInt(optimismGasPrice)
+	}
+	return eb.config.EthGasPriceDefault()
 }
 
 // handleInProgressEthTx checks if there is any transaction
@@ -266,6 +276,18 @@ func getInProgressEthTx(store *store.Store, fromAddress gethCommon.Address) (*mo
 func (eb *ethBroadcaster) handleInProgressEthTx(etx models.EthTx, attempt models.EthTxAttempt, initialBroadcastAt time.Time) error {
 	if etx.State != models.EthTxInProgress {
 		return errors.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State)
+	}
+
+	if eb.config.OptimismGasFees() {
+		// Optimism requires special handling, it assumes that clients always call EstimateGas
+		callMsg := ethereum.CallMsg{To: &etx.ToAddress, From: etx.FromAddress, Data: etx.EncodedPayload}
+		gasLimit, err := eb.ethClient.EstimateGas(context.TODO(), callMsg)
+		if err != nil {
+			return err
+		}
+		etx.GasLimit = gasLimit
+		// Make sure to never use a bumped gas price; always overwrite with the network-specific value
+		attempt.GasPrice = *utils.NewBigI(optimismGasPrice)
 	}
 
 	sendError := sendTransaction(context.TODO(), eb.ethClient, attempt)
@@ -391,10 +413,10 @@ func (eb *ethBroadcaster) saveInProgressTransaction(etx *models.EthTx, attempt *
 	}
 	etx.State = models.EthTxInProgress
 	return eb.store.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Omit(clause.Associations).Create(attempt).Error; err != nil {
+		if err := tx.Create(attempt).Error; err != nil {
 			return errors.Wrap(err, "saveInProgressTransaction failed to create eth_tx_attempt")
 		}
-		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Save(etx).Error, "saveInProgressTransaction failed to save eth_tx")
 	})
 }
 
@@ -423,10 +445,10 @@ func saveAttempt(store *store.Store, etx *models.EthTx, attempt models.EthTxAtte
 		if err := IncrementNextNonce(tx, etx.FromAddress, *etx.Nonce); err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed")
 		}
-		if err := tx.Omit(clause.Associations).Save(etx).Error; err != nil {
+		if err := tx.Save(etx).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx")
 		}
-		if err := tx.Omit(clause.Associations).Save(&attempt).Error; err != nil {
+		if err := tx.Save(&attempt).Error; err != nil {
 			return errors.Wrap(err, "saveUnconfirmed failed to save eth_tx_attempt")
 		}
 		for _, f := range callbacks {
@@ -474,7 +496,7 @@ func saveFatallyErroredTransaction(store *store.Store, etx *models.EthTx) error 
 		if err := tx.Exec(`DELETE FROM eth_tx_attempts WHERE eth_tx_id = ?`, etx.ID).Error; err != nil {
 			return errors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
-		return errors.Wrap(tx.Omit(clause.Associations).Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
+		return errors.Wrap(tx.Save(etx).Error, "saveFatallyErroredTransaction failed to save eth_tx")
 	})
 }
 

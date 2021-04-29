@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/services/offchainreporting"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -59,14 +58,9 @@ func TestRunner(t *testing.T) {
 	key := cltest.MustInsertRandomKey(t, db, 0)
 	transmitterAddress := key.Address.Address()
 
-	rpc, geth, _, _ := cltest.NewEthMocks(t)
-	rpc.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
-		Run(func(args mock.Arguments) {
-			head := args.Get(1).(**models.Head)
-			*head = cltest.Head(10)
-		}).
-		Return(nil)
-	geth.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
+	ethClient, _, _ := cltest.NewEthMocks(t)
+	ethClient.On("HeaderByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
+	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 
 	t.Run("gets the election result winner", func(t *testing.T) {
 		var httpURL string
@@ -212,7 +206,7 @@ func TestRunner(t *testing.T) {
 
 		assert.Len(t, results.Errors, 1)
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -233,7 +227,7 @@ func TestRunner(t *testing.T) {
 				// FIXME: Shouldn't it be the Val that is null?
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -309,7 +303,7 @@ func TestRunner(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Len(t, results.Values, 1)
-		assert.Equal(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
+		assert.Contains(t, results.Errors[0].Error(), "type <nil> cannot be converted to decimal.Decimal")
 		assert.Nil(t, results.Values[0])
 
 		// Verify individual task results
@@ -328,7 +322,7 @@ func TestRunner(t *testing.T) {
 				assert.True(t, run.Error.IsZero())
 				assert.Nil(t, run.Output)
 			} else if run.GetDotID() == "ds1_multiply" {
-				assert.Equal(t, "type <nil> cannot be converted to decimal.Decimal", run.Error.ValueOrZero())
+				assert.Contains(t, run.Error.ValueOrZero(), "type <nil> cannot be converted to decimal.Decimal")
 				assert.Nil(t, run.Output)
 			} else {
 				t.Fatalf("unknown task '%v'", run.GetDotID())
@@ -372,7 +366,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			nil,
 			monitoringEndpoint)
@@ -419,7 +413,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -482,7 +476,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -527,7 +521,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -565,7 +559,7 @@ ds1 -> ds1_parse;
 			config.Config,
 			keyStore,
 			nil,
-			eth.NewClientWith(rpc, geth),
+			ethClient,
 			nil,
 			pw,
 			monitoringEndpoint)
@@ -597,7 +591,6 @@ ds1 -> ds1_parse;
 		pw := offchainreporting.NewSingletonPeerWrapper(keyStore, config.Config, db)
 		require.NoError(t, pw.Start())
 
-		ethClient := eth.NewClientWith(rpc, geth)
 		sd := offchainreporting.NewDelegate(
 			db,
 			jobORM,
@@ -612,7 +605,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		// Return an error getting the contract code.
-		geth.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
+		ethClient.On("CodeAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("no such code"))
 		for _, s := range services {
 			err = s.Start()
 			require.NoError(t, err)

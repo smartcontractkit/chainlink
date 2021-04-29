@@ -506,10 +506,11 @@ func NewEthTx(t *testing.T, store *strpkg.Store, fromAddress common.Address) mod
 		EncodedPayload: []byte{1, 2, 3},
 		Value:          assets.NewEthValue(142),
 		GasLimit:       uint64(1000000000),
+		State:          models.EthTxUnstarted,
 	}
 }
 
-func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+func MustInsertUnconfirmedEthTx(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
 	broadcastAt := time.Now()
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -524,6 +525,11 @@ func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.
 	etx.Nonce = &n
 	etx.State = models.EthTxUnconfirmed
 	require.NoError(t, store.DB.Save(&etx).Error)
+	return etx
+}
+
+func MustInsertUnconfirmedEthTxWithBroadcastAttempt(t *testing.T, store *strpkg.Store, nonce int64, fromAddress common.Address, opts ...interface{}) models.EthTx {
+	etx := MustInsertUnconfirmedEthTx(t, store, nonce, fromAddress, opts...)
 	attempt := NewEthTxAttempt(t, etx.ID)
 
 	tx := types.NewTransaction(uint64(nonce), NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
@@ -612,6 +618,7 @@ func NewEthTxAttempt(t *testing.T, etxID int64) models.EthTxAttempt {
 		// Ignore all actual values
 		SignedRawTx: hexutil.MustDecode("0xf889808504a817c8008307a12094000000000000000000000000000000000000000080a400000000000000000000000000000000000000000000000000000000000000000000000025a0838fe165906e2547b9a052c099df08ec891813fea4fcdb3c555362285eb399c5a070db99322490eb8a0f2270be6eca6e3aedbc49ff57ef939cf2774f12d08aa85e"),
 		Hash:        NewHash(),
+		State:       models.EthTxAttemptInProgress,
 	}
 }
 
@@ -732,13 +739,20 @@ func MustInsertV2JobSpec(t *testing.T, store *strpkg.Store, transmitterAddress c
 	addr, err := models.NewEIP55Address(transmitterAddress.Hex())
 	require.NoError(t, err)
 
+	pipelineSpec := pipeline.Spec{}
+	err = store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
+
 	oracleSpec := MustInsertOffchainreportingOracleSpec(t, store, addr)
 	jb := job.Job{
-		OffchainreportingOracleSpec: &oracleSpec,
-		Type:                        job.OffchainReporting,
-		SchemaVersion:               1,
-		PipelineSpec:                &pipeline.Spec{},
+		OffchainreportingOracleSpec:   &oracleSpec,
+		OffchainreportingOracleSpecID: &oracleSpec.ID,
+		Type:                          job.OffchainReporting,
+		SchemaVersion:                 1,
+		PipelineSpec:                  &pipelineSpec,
+		PipelineSpecID:                pipelineSpec.ID,
 	}
+
 	err = store.DB.Create(&jb).Error
 	require.NoError(t, err)
 	return jb
@@ -765,6 +779,21 @@ func MustInsertOffchainreportingOracleSpec(t *testing.T, store *strpkg.Store, tr
 	return spec
 }
 
+func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
+	t.Helper()
+	drs := &job.DirectRequestSpec{}
+	onChainJobSpecID := uuid.NewV4()
+	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
+	spec := &job.Job{
+		Type:              job.DirectRequest,
+		SchemaVersion:     1,
+		DirectRequestSpec: drs,
+		Pipeline:          *pipeline.NewTaskDAG(),
+		PipelineSpec:      &pipeline.Spec{},
+	}
+	return spec
+}
+
 func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 	j := NewJob()
 	require.NoError(t, s.CreateJob(&j))
@@ -773,17 +802,22 @@ func MustInsertJobSpec(t *testing.T, s *strpkg.Store) models.JobSpec {
 
 func MustInsertKeeperJob(t *testing.T, store *strpkg.Store, from models.EIP55Address, contract models.EIP55Address) job.Job {
 	t.Helper()
+	pipelineSpec := pipeline.Spec{}
+	err := store.DB.Create(&pipelineSpec).Error
+	require.NoError(t, err)
 	keeperSpec := job.KeeperSpec{
 		ContractAddress: contract,
 		FromAddress:     from,
 	}
-	err := store.DB.Create(&keeperSpec).Error
+	err = store.DB.Create(&keeperSpec).Error
 	require.NoError(t, err)
 	specDB := job.Job{
-		KeeperSpec:    &keeperSpec,
-		Type:          job.Keeper,
-		SchemaVersion: 1,
-		PipelineSpec:  &pipeline.Spec{},
+		KeeperSpec:     &keeperSpec,
+		KeeperSpecID:   &keeperSpec.ID,
+		Type:           job.Keeper,
+		SchemaVersion:  1,
+		PipelineSpec:   &pipelineSpec,
+		PipelineSpecID: pipelineSpec.ID,
 	}
 	err = store.DB.Create(&specDB).Error
 	require.NoError(t, err)
@@ -818,6 +852,7 @@ func MustInsertUpkeepForRegistry(t *testing.T, store *strpkg.Store, registry kee
 		UpkeepID:   upkeepID,
 		ExecuteGas: int32(10_000),
 		Registry:   registry,
+		RegistryID: registry.ID,
 		CheckData:  common.Hex2Bytes("ABC123"),
 	}
 	positioningConstant, err := keeper.CalcPositioningConstant(upkeepID, registry.ContractAddress)

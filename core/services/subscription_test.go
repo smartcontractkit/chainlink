@@ -5,8 +5,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/ethereum/go-ethereum"
@@ -133,12 +131,12 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	t.Parallel()
 
 	store, cleanup := cltest.NewStore(t)
-	defer cleanup()
-	rpcClient, gethClient, subMock, assertMocksCalled := cltest.NewEthMocks(t)
-	defer assertMocksCalled()
-	store.EthClient = eth.NewClientWith(rpcClient, gethClient)
-	subMock.On("Unsubscribe").Return(nil)
-	subMock.On("Err").Return(nil)
+	t.Cleanup(cleanup)
+	ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
+	t.Cleanup(assertMocksCalled)
+	store.EthClient = ethClient
+	sub.On("Unsubscribe").Return(nil)
+	sub.On("Err").Return(nil)
 
 	job := cltest.NewJobWithLogInitiator()
 	initr := job.Initiators[0]
@@ -147,16 +145,16 @@ func TestServices_NewInitiatorSubscription_PreventsDoubleDispatch(t *testing.T) 
 	b := types.NewBlockWithHeader(&types.Header{
 		Number: big.NewInt(2),
 	})
-	gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-	gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
-	logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
+	ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+	ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{log}, nil)
+	logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 	var count int32
 	callback := func(services.RunManager, models.LogRequest) { atomic.AddInt32(&count, 1) }
 	head := cltest.Head(0)
 	jm := new(mocks.RunManager)
-	sub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, head.NextInt(), store.Config, callback)
+	initrSub, err := services.NewInitiatorSubscription(initr, store.EthClient, jm, head.NextInt(), store.Config, callback)
 	assert.NoError(t, err)
-	defer sub.Unsubscribe()
+	defer initrSub.Unsubscribe()
 	logs := <-logsCh
 	logs <- log
 	// Add the same original log
@@ -246,16 +244,16 @@ func TestServices_StartJobSubscription(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			rpcClient, gethClient, subMock, assertMocksCalled := cltest.NewEthMocks(t)
+			ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 			defer assertMocksCalled()
-			store.EthClient = eth.NewClientWith(rpcClient, gethClient)
-			subMock.On("Err").Return(nil)
+			store.EthClient = ethClient
+			sub.On("Err").Return(nil)
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
-			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
-			logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 			job := cltest.NewJob()
 			initr := models.Initiator{Type: test.initType}
 			initr.Address = test.initrAddr
@@ -316,17 +314,17 @@ func TestServices_StartJobSubscription_RunlogNoTopicMatch(t *testing.T) {
 			store, cleanup := cltest.NewStore(t)
 			defer cleanup()
 
-			rpcClient, gethClient, subMock, assertMocksCalled := cltest.NewEthMocks(t)
+			ethClient, sub, assertMocksCalled := cltest.NewEthMocks(t)
 			defer assertMocksCalled()
-			store.EthClient = eth.NewClientWith(rpcClient, gethClient)
-			subMock.On("Err").Maybe().Return(nil)
+			store.EthClient = ethClient
+			sub.On("Err").Maybe().Return(nil)
 
-			logsCh := cltest.MockSubscribeToLogsCh(gethClient, subMock)
+			logsCh := cltest.MockSubscribeToLogsCh(ethClient, sub)
 			b := types.NewBlockWithHeader(&types.Header{
 				Number: big.NewInt(100),
 			})
-			gethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
-			gethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
+			ethClient.On("BlockByNumber", mock.Anything, mock.Anything).Maybe().Return(b, nil)
+			ethClient.On("FilterLogs", mock.Anything, mock.Anything).Maybe().Return([]types.Log{}, nil)
 			job := cltest.NewJob()
 			initr := models.Initiator{Type: "runlog"}
 			initr.Address = sharedAddr

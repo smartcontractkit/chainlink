@@ -6,8 +6,6 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 
@@ -17,11 +15,10 @@ import (
 )
 
 func TestChainlinkApplication_SignalShutdown(t *testing.T) {
-
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	completed := abool.New()
@@ -38,10 +35,10 @@ func TestChainlinkApplication_SignalShutdown(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	store := app.Store
@@ -56,10 +53,10 @@ func TestChainlinkApplication_resumesPendingConnection_Happy(t *testing.T) {
 }
 
 func TestChainlinkApplication_resumesPendingConnection_Archived(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	defer assertMocksCalled()
 	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	defer cleanup()
 	store := app.Store

@@ -211,13 +211,22 @@ type Initiator struct {
 // InitiatorParams is a collection of the possible parameters that different
 // Initiators may require.
 type InitiatorParams struct {
-	Schedule   Cron              `json:"schedule,omitempty"`
-	Time       AnyTime           `json:"time,omitempty"`
-	Ran        bool              `json:"ran,omitempty"`
-	Address    common.Address    `json:"address,omitempty" gorm:"index"`
+	// Common parameters
+	Address common.Address `json:"address,omitempty" gorm:"index"`
+	Name    string         `json:"name,omitempty"`
+
+	// Cron parameters
+	Schedule Cron `json:"schedule,omitempty"`
+
+	// RunAt parameters.
+	Time AnyTime `json:"time,omitempty"`
+	Ran  bool    `json:"ran,omitempty"`
+
+	// External initiator job parameters.
+	Body *JSON `json:"body,omitempty" gorm:"column:params"`
+
+	// Log specific job parameters.
 	Requesters AddressCollection `json:"requesters,omitempty" gorm:"type:text"`
-	Name       string            `json:"name,omitempty"`
-	Body       *JSON             `json:"body,omitempty" gorm:"column:params"`
 	FromBlock  *utils.Big        `json:"fromBlock,omitempty" gorm:"type:varchar(255)"`
 	ToBlock    *utils.Big        `json:"toBlock,omitempty" gorm:"type:varchar(255)"`
 	Topics     Topics            `json:"topics,omitempty"`
@@ -225,6 +234,7 @@ type InitiatorParams struct {
 	// initiator logs
 	JobIDTopicFilter JobID `json:"jobIDTopicFilter,omitempty"`
 
+	// Flux monitior specific parameters.
 	RequestData JSON    `json:"requestData,omitempty" gorm:"type:text"`
 	Feeds       Feeds   `json:"feeds,omitempty" gorm:"type:text"`
 	Precision   int32   `json:"precision,omitempty" gorm:"type:smallint"`
@@ -363,7 +373,7 @@ type Feeds = JSON
 // additional information that adapter would need to operate.
 type TaskSpec struct {
 	ID                               int64         `gorm:"primary_key"`
-	JobSpecID                        JobID         `json:"-"`
+	JobSpecID                        JobID         `json:"jobSpecId"`
 	Type                             TaskType      `json:"type" gorm:"index;not null"`
 	MinRequiredIncomingConfirmations clnull.Uint32 `json:"confirmations" gorm:"column:confirmations"`
 	Params                           JSON          `json:"params" gorm:"type:text"`

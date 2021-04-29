@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/gofrs/uuid"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -27,7 +26,7 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	gethClient := new(mocks.Client)
+	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
@@ -38,7 +37,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, gethClient, orm.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, ethClient, orm.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -66,7 +65,7 @@ type DirectRequestUniverse struct {
 }
 
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
-	gethClient := new(mocks.Client)
+	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
@@ -87,9 +86,9 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	drConfig := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, gethClient, db, drConfig)
+	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, ethClient, db, drConfig)
 
-	spec := factoryJobSpec(t)
+	spec := cltest.MakeDirectRequestJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
 	require.NoError(t, err)
 	serviceArray, err := delegate.ServicesForSpec(*spec)
@@ -331,22 +330,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.AssertExpectations(t)
 		uni.runner.AssertExpectations(t)
 	})
-}
-
-func factoryJobSpec(t *testing.T) *job.Job {
-	t.Helper()
-	drs := &job.DirectRequestSpec{}
-	onChainJobSpecID, err := uuid.NewV4()
-	require.NoError(t, err)
-	copy(drs.OnChainJobSpecID[:], onChainJobSpecID[:])
-	spec := &job.Job{
-		Type:              job.DirectRequest,
-		SchemaVersion:     1,
-		DirectRequestSpec: drs,
-		Pipeline:          *pipeline.NewTaskDAG(),
-		PipelineSpec:      &pipeline.Spec{},
-	}
-	return spec
 }
 
 type testConfig struct {

@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/logger"
 	"github.com/smartcontractkit/chainlink/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
-	"github.com/smartcontractkit/chainlink/core/store/presenters"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/ulule/limiter"
 	mgin "github.com/ulule/limiter/drivers/middleware/gin"
 	"github.com/ulule/limiter/drivers/store/memory"
@@ -285,6 +285,9 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/jobs/:ID", jc.Show)
 		authv2.POST("/jobs", jc.Create)
 		authv2.DELETE("/jobs/:ID", jc.Delete)
+
+		mc := MigrateController{app}
+		authv2.POST("/migrate/:ID", mc.Migrate)
 
 		prc := PipelineRunsController{app}
 		authv2.GET("/jobs/:ID/runs", paginatedRequest(prc.Index))
