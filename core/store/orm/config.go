@@ -688,6 +688,20 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
+// EthereumHTTPURL is an optional but recommended url that points to the HTTP port of the primary node
+func (c Config) EthereumHTTPURL() (uri *url.URL) {
+	urlStr := c.viper.GetString(EnvVarName("EthereumHTTPURL"))
+	if urlStr == "" {
+		return nil
+	}
+	var err error
+	uri, err = url.Parse(urlStr)
+	if err != nil || !(uri.Scheme == "http" || uri.Scheme == "https") {
+		logger.Fatalf("Invalid Ethereum HTTP URL: %s, got error: %s", urlStr, err)
+	}
+	return
+}
+
 // EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node

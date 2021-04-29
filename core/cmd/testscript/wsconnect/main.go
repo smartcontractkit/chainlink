@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -19,7 +20,7 @@ func panicErr(err error) {
 
 func main() {
 	cb := func(log types.Log) {}
-	c, err := eth.NewClient("ws://localhost:8546")
+	c, err := eth.NewClient("ws://localhost:8546", nil, []url.URL{})
 	panicErr(err)
 	err = c.Dial(context.Background())
 	panicErr(err)
