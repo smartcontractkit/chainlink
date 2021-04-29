@@ -193,15 +193,28 @@ describe('Operator', () => {
           }
         })
 
-        it('emits an event', async () => {
+        it('emits an event on the Operator and another on the OperatorForwarder', async () => {
           assert.equal(receipt.events?.length, 2)
-          const responseEvent = receipt.events?.[0]
-          assert.equal(responseEvent?.event, 'AuthorizedSendersChanged')
-          const encodedSenders = ethers.utils.defaultAbiCoder.encode(
+
+          const encodedSenders1 = ethers.utils.defaultAbiCoder.encode(
             ['address[]'],
             [newSenders],
           )
-          assert.equal(responseEvent?.data, encodedSenders)
+
+          const responseEvent1 = receipt.events?.[0]
+          assert.equal(responseEvent1?.event, 'AuthorizedSendersChanged')
+          assert.equal(responseEvent1?.data, encodedSenders1)
+
+          let operatorForwarderSenders = newSenders
+          operatorForwarderSenders.push(roles.defaultAccount.address)
+          const encodedSenders2 = ethers.utils.defaultAbiCoder.encode(
+            ['address[]'],
+            [operatorForwarderSenders],
+          )
+
+          const responseEvent2 = receipt.events?.[1]
+          assert.equal(responseEvent2?.event, 'AuthorizedSendersChanged')
+          assert.equal(responseEvent2?.data, encodedSenders2)
         })
 
         it('replaces the authorized nodes', async () => {
