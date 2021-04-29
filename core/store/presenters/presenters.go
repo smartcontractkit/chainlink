@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/auth"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/orm"
@@ -560,20 +559,4 @@ func (*ExternalInitiatorAuthentication) GetName() string {
 func (ei *ExternalInitiatorAuthentication) SetID(name string) error {
 	ei.Name = name
 	return nil
-}
-
-// ExplorerStatus represents the connected server and status of the connection
-type ExplorerStatus struct {
-	Status string `json:"status"`
-	Url    string `json:"url"`
-}
-
-// NewExplorerStatus returns an initialized ExplorerStatus from the store
-func NewExplorerStatus(statsPusher synchronization.StatsPusher) ExplorerStatus {
-	url := statsPusher.GetURL()
-
-	return ExplorerStatus{
-		Status: string(statsPusher.GetStatus()),
-		Url:    url.String(),
-	}
 }
