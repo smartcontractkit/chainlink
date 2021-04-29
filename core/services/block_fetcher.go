@@ -57,16 +57,6 @@ func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*Bloc
 		return nil, errors.Wrap(err, "HeadTracker#batchFetchReceipts failed ")
 	}
 
-	//receipts := make([]*bulletprooftxmanager.Receipt, 0)
-	//for _, tx := range block.Transactions() {
-	//	receipt, err := ht.store.EthClient.TransactionReceipt(ctx, tx.Hash())
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	receipts = append(receipts, bulletprooftxmanager.FromGethReceipt(receipt))
-	//	ht.logger.Debugf("========================= HeadTracker: receipt log len %v", len(receipt.Logs))
-	//}
-
 	topicCount := 0
 	receiptsSizeBytes := 0
 	for _, receipt := range receipts {
@@ -180,7 +170,7 @@ func (ht *BlockFetcher) getResultsBatch(ctx context.Context, txs []*types.Transa
 			Args:   []interface{}{tx.Hash()},
 			Result: &bulletprooftxmanager.Receipt{},
 		}
-		//ht.logger.Debugf("========================= HeadTracker: getting receipt for transaction %v", tx.Hash())
+		ht.logger.Debugf("========================= HeadTracker: getting receipt for transaction %v", tx.To())
 
 		reqs = append(reqs, req)
 	}
