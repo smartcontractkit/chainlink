@@ -88,7 +88,6 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 		// too many relevant logs for the same job (> 50) in each block.
 		// This is going to get fixed after new LB changes are merged.
 		mbLogs:           utils.NewMailbox(50),
-		chHeads:          d.chHeads,
 		minConfirmations: minConfirmations,
 		chStop:           make(chan struct{}),
 	}
@@ -115,7 +114,6 @@ type listener struct {
 	runs              sync.Map
 	shutdownWaitGroup sync.WaitGroup
 	mbLogs            *utils.Mailbox
-	chHeads           chan models.Head
 	minConfirmations  uint64
 	chStop            chan struct{}
 	utils.StartStopOnce
@@ -134,11 +132,9 @@ func (l *listener) Start() error {
 		})
 		l.shutdownWaitGroup.Add(2)
 		go l.run()
-		unsubscribeHeads := l.headBroadcaster.Subscribe(l)
 
 		go func() {
 			<-l.chStop
-			unsubscribeHeads()
 			unsubscribeLogs()
 			l.shutdownWaitGroup.Done()
 		}()
@@ -170,13 +166,6 @@ func (*listener) OnConnect() {}
 // OnDisconnect complies with log.Listener
 func (*listener) OnDisconnect() {}
 
-func (l *listener) OnNewLongestChain(ctx context.Context, head models.Head) {
-	select {
-	case l.chHeads <- head:
-	default:
-	}
-}
-
 func (l *listener) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := l.mbLogs.Deliver(lb)
 	if wasOverCapacity {
@@ -190,7 +179,7 @@ func (l *listener) run() {
 		case <-l.chStop:
 			l.shutdownWaitGroup.Done()
 			return
-		case <-l.chHeads:
+		case <-l.mbLogs.Notify():
 			l.handleReceivedLogs()
 		}
 	}
