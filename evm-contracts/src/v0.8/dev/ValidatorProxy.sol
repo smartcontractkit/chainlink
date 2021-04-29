@@ -56,8 +56,14 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
   )
     ConfirmedOwner(msg.sender)
   {
-    s_currentAggregator.target = aggregator;
-    s_currentValidator.target = validator;
+    s_currentAggregator = ProxyConfiguration({
+      target: aggregator,
+      hasNewProposal: false
+    });
+    s_currentValidator = ProxyConfiguration({
+      target: validator,
+      hasNewProposal: false
+    });
   }
 
   /**
@@ -135,6 +141,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     external
     onlyOwner()
   {
+    require(s_proposedAggregator != proposed, "No change");
     s_proposedAggregator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentAggregator.hasNewProposal = (proposed != address(0));
@@ -198,6 +205,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     external
     onlyOwner()
   {
+    require(s_proposedValidator != proposed, "No change");
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
     s_currentValidator.hasNewProposal = (proposed != address(0));
