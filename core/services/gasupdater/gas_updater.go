@@ -217,6 +217,10 @@ func (gu *gasUpdater) FetchBlocks(ctx context.Context, head models.Head) error {
 	blockDelay := int64(gu.config.GasUpdaterBlockDelay())
 	historySize := int64(gu.config.GasUpdaterBlockHistorySize())
 
+	if historySize <= 0 {
+		return errors.Errorf("GasUpdater: history size must be > 0, got: %d", historySize)
+	}
+
 	highestBlockToFetch := head.Number - blockDelay
 	if highestBlockToFetch < 0 {
 		return errors.Errorf("GasUpdater: cannot fetch, current block height %v is lower than GAS_UPDATER_BLOCK_DELAY=%v", head.Number, blockDelay)
