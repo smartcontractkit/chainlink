@@ -37,11 +37,6 @@ func NewBlockFetcher(store *strpkg.Store) *BlockFetcher {
 	}
 }
 
-func (ht *BlockFetcher) AddAddress(address common.Address) {
-	ht.logger.Debugw("========================= HeadTracker: adding address", "address", address)
-	ht.addresses[address] = struct{}{}
-}
-
 func (ht *BlockFetcher) fetchBlock(ctx context.Context, head models.Head) (*BlockWithReceipts, error) {
 
 	start := time.Now()
