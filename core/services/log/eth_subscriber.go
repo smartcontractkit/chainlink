@@ -76,7 +76,9 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 		}
 
 		chBackfilledLogs = make(chan types.Log)
+		defer close(chBackfilledLogs)
 
+		allLogs := make([]types.Log, 0)
 		start := time.Now()
 		// If we are significantly behind the latest head, there could be a very large (1000s)
 		// of blocks to check for logs. We read the blocks in batches to avoid hitting the websocket
@@ -101,46 +103,21 @@ func (sub *ethSubscriber) backfillLogs(fromBlockOverride *models.Head, addresses
 				return true
 			}
 
-			for _, log := range batchLogs {
-				select {
-				case chBackfilledLogs <- log:
-				case <-sub.chStop:
-					return
-				}
+			select {
+			case <-sub.chStop:
+				return
+			default:
+				allLogs = append(allLogs, batchLogs...)
 			}
-
-			//go func() {
-			//	defer close(chBackfilledLogs)
-			//
-			//}()
-
-			//for _, log := range batchLogs {
-			//
-			//	select {
-			//
-			//	case <-ctx.Done():
-			//
-			//		logger.Errorw("Deadline exceeded, unable to backfill logs", "elapsed", time.Since(start), "fromBlock", q.FromBlock.String(), "toBlock", q.ToBlock.String())
-			//
-			//		return backfilledSet
-			//
-			//	default:
-			//
-			//		backfilledSet[log.BlockHash.String()] = true
-			//
-			//		sub.callback(log)
-			//
-			//	}
-			//
-			//}
-
 		}
 
-		//logs, err := sub.ethClient.FilterLogs(ctx, q)
-		//if err != nil {
-		//	logger.Errorw("Log subscriber backfill: could not fetch logs", "error", err)
-		//	return true
-		//}
+		for _, log := range allLogs {
+			select {
+			case chBackfilledLogs <- log:
+			case <-sub.chStop:
+				return
+			}
+		}
 
 		return false
 	})

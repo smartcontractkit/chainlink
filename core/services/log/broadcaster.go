@@ -70,7 +70,7 @@ type (
 	Config interface {
 		BlockBackfillDepth() uint64
 		EthFinalityDepth() uint
-		EthLogBackfillBatchSize() uint
+		EthLogBackfillBatchSize() uint32
 	}
 
 	ListenerOpts struct {
