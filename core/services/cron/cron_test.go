@@ -61,7 +61,7 @@ func TestCronV2Schedule(t *testing.T) {
 	type tc struct {
 		name             string
 		schedule         string
-		expectedNumCalls int // can only be 0, 1 or 2
+		expectedNumCalls int
 		waitMinutes      time.Duration
 	}
 	for _, testCase := range []tc{
@@ -115,14 +115,14 @@ func TestCronV2Schedule(t *testing.T) {
 			err = service.Start()
 			require.NoError(t, err)
 			defer service.Close()
-			if testCase.expectedNumCalls == 1 {
-				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Once().Return(int64(0), pipeline.FinalResult{}, nil)
-			} else if testCase.expectedNumCalls == 2 {
-				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Twice().Return(int64(0), pipeline.FinalResult{}, nil)
+			if testCase.expectedNumCalls > 0 {
+				runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Times(testCase.expectedNumCalls).
+					Return(int64(0), pipeline.FinalResult{}, nil)
 			}
 			// Wait for cron schedules to execute given test case + buffer
 			time.Sleep(testCase.waitMinutes + (10 * time.Second))
-			assert.True(t, runner.AssertExpectations(t))
+			runner.AssertExpectations(t)
 		})
 	}
 }
