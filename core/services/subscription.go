@@ -76,6 +76,7 @@ func StartJobSubscription(job models.JobSpec, head *models.Head, store *strpkg.S
 func (js JobSubscription) Unsubscribe() {
 	waiter := sync.WaitGroup{}
 	waiter.Add(len(js.unsubscribers))
+	logger.Debugw("unsubscribing", "unsubscribers", js.unsubscribers)
 	for _, sub := range js.unsubscribers {
 		go func(sub Unsubscriber) {
 			sub.Unsubscribe()
@@ -216,6 +217,7 @@ func NewManagedSubscription(logSubscriber eth.Client, filter ethereum.FilterQuer
 		ethSubscription:   es,
 		backfillBatchSize: backfillBatchSize,
 	}
+	logger.Debugw("creating new managed subscription", "logs", fmt.Sprintf("%p", logs))
 	go sub.listenToLogs(filter)
 	return sub, nil
 }
@@ -254,6 +256,7 @@ func (sub ManagedSubscription) listenToLogs(q ethereum.FilterQuery) {
 				return
 			}
 			if _, present := backfilledSet[log.BlockHash.String()]; !present {
+				logger.Debugw("new log received", "log", log, "logs", fmt.Sprintf("%p", sub.logs))
 				sub.callback(log)
 			}
 		case err, ok := <-sub.ethSubscription.Err():
@@ -314,6 +317,7 @@ func (sub ManagedSubscription) backfillLogs(q ethereum.FilterQuery) map[string]b
 
 	for _, log := range logs {
 		backfilledSet[log.BlockHash.String()] = true
+		logger.Debugw("backfilling log", "log", log)
 		sub.callback(log)
 	}
 	return backfilledSet

@@ -189,6 +189,11 @@ func (rm *runManager) Create(
 	logger.Debugw(fmt.Sprintf("New run triggered by %s", initiator.Type),
 		"job", jobSpecID.String(),
 		"creation_height", creationHeight.String(),
+		"txHash", runRequest.TxHash,
+		"blockHash", runRequest.BlockHash,
+		"requester", runRequest.Requester,
+		"requestID", runRequest.ID,
+		"requestIDHash", runRequest.RequestID,
 	)
 
 	job, err := rm.orm.Unscoped().FindJobSpec(jobSpecID)
