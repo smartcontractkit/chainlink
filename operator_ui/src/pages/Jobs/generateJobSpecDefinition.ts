@@ -7,6 +7,7 @@ import {
   OffChainReportingOracleJobV2Spec,
   KeeperV2Spec,
   CronV2Spec,
+  WebV2Spec,
 } from 'core/store/models'
 import { stringifyJobSpec, JobSpecFormats } from './utils'
 
@@ -118,6 +119,10 @@ export const generateTOMLDefinition = (
 
   if (jobSpecAttributes.type === 'cron') {
     return generateCronDefinition(jobSpecAttributes)
+  }
+
+  if (jobSpecAttributes.type === 'web') {
+    return generateWebDefinition(jobSpecAttributes)
   }
 
   return ''
@@ -244,6 +249,22 @@ function generateCronDefinition(
       schemaVersion,
       name,
       schedule,
+      observationSource: pipelineSpec.dotDagSource,
+    },
+    format: JobSpecFormats.TOML,
+  })
+}
+
+function generateWebDefinition(
+  attrs: ApiResponse<WebV2Spec>['data']['attributes'],
+) {
+  const { pipelineSpec, name, schemaVersion, type } = attrs
+
+  return stringifyJobSpec({
+    value: {
+      type,
+      schemaVersion,
+      name,
       observationSource: pipelineSpec.dotDagSource,
     },
     format: JobSpecFormats.TOML,

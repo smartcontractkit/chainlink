@@ -185,6 +185,30 @@ export const createJobRun = (
   }
 }
 
+export const createJobRunV2 = (
+  id: string,
+  successCallback: React.ReactNode,
+  errorCallback: React.ReactNode,
+): ThunkAction<Promise<void>, AppState, void, Action<string>> => {
+  return (dispatch: Dispatch) => {
+    dispatch({ type: ResourceActionType.REQUEST_CREATE })
+
+    return api.v2.jobs
+      .createJobRunV2(id)
+      .then((doc) => {
+        dispatch(RECEIVE_CREATE_SUCCESS_ACTION)
+        dispatch(notifySuccess(successCallback, doc))
+      })
+      .catch((error: Errors) => {
+        curryErrorHandler(
+          dispatch,
+          ResourceActionType.RECEIVE_CREATE_ERROR,
+        )(error)
+        dispatch(notifyError(errorCallback, error))
+      })
+  }
+}
+
 export const createBridge = (
   data: Parameter<typeof api.v2.bridgeTypes.createBridge>,
   successCallback: React.ReactNode,
