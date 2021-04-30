@@ -55,25 +55,6 @@ func (m *Mailbox) Deliver(x interface{}) (wasOverCapacity bool) {
 func (m *Mailbox) Retrieve() interface{} {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.retrieve()
-}
-
-// RetrieveIf returns the first item in the mailbox if it meets the provided criteria
-func (m *Mailbox) RetrieveIf(conditional func(interface{}) bool) interface{} {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if len(m.queue) == 0 {
-		return nil
-	}
-	x := m.queue[len(m.queue)-1]
-	if !conditional(x) {
-		return nil
-	}
-	return m.retrieve()
-}
-
-// DEV: not thread safe - caller must hold lock
-func (m *Mailbox) retrieve() interface{} {
 	if len(m.queue) == 0 {
 		return nil
 	}
