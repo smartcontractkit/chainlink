@@ -361,8 +361,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 
 		uni.listener.HandleLog(log)
 
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
-
 		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
 
 		uni.service.Close()
@@ -402,8 +400,6 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		require.NoError(t, err)
 
 		uni.listener.HandleLog(log)
-
-		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
 
 		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
 

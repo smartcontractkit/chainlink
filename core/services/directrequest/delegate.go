@@ -75,7 +75,7 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
-		config:          d.config,
+		config:         d.config,
 		logBroadcaster: d.logBroadcaster,
 		oracle:         oracle,
 		pipelineRunner: d.pipelineRunner,
