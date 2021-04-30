@@ -12,7 +12,7 @@ import { DirectRequestJobRun, PipelineJobRun } from '../sharedTypes'
 import { Overview } from './Overview/Overview'
 import { PipelineJobRunOverview } from './Overview/PipelineJobRunOverview'
 import { Json } from './Json'
-import { isOcrJob } from '../utils'
+import { isJobV2 } from '../utils'
 import { TaskList } from '../TaskListDag'
 import { augmentOcrTasksList } from './augmentOcrTasksList'
 import {
@@ -56,7 +56,7 @@ export const Show = ({ match }: Props) => {
   }, [])
 
   const getJobRun = React.useCallback(async () => {
-    if (isOcrJob(jobSpecId)) {
+    if (isJobV2(jobSpecId)) {
       v2.ocrRuns
         .getJobSpecRun({ jobSpecId, runId: jobRunId })
         .then((jobSpecRunResponse) => jobSpecRunResponse.data)
