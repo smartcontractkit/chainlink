@@ -7,7 +7,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 solc-select install 0.6.6
 solc-select install 0.7.6
-solc-select install 0.8.3
+solc-select install 0.8.4
 
 $SCRIPTPATH/native_solc6_compile Flags.sol
 $SCRIPTPATH/native_solc6_compile Oracle.sol
