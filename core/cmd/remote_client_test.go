@@ -12,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/web"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/auth"
@@ -22,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -112,13 +109,13 @@ func startAndConnect() func(opts *startOptions) {
 	}
 }
 
-func newEthMocks(t *testing.T) (*mocks.RPCClient, *mocks.GethClient) {
+func newEthMock(t *testing.T) *mocks.Client {
 	t.Helper()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 
-	return rpcClient, gethClient
+	return ethClient
 }
 
 func keyNameForTest(t *testing.T) string {
@@ -498,40 +495,6 @@ func TestClient_RemoteLogin(t *testing.T) {
 	}
 }
 
-func TestClient_SendEther_From_BPTXM(t *testing.T) {
-	t.Parallel()
-
-	rpcClient, gethClient := newEthMocks(t)
-	oca := common.HexToAddress("0xDEADB3333333F")
-	app := startNewApplication(t,
-		withKey(),
-		withConfig(map[string]interface{}{
-			"OPERATOR_CONTRACT_ADDRESS": &oca,
-		}),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
-		startAndConnect(),
-	)
-	client, _ := app.NewClientAndRenderer()
-	s := app.GetStore()
-
-	set := flag.NewFlagSet("sendether", 0)
-	amount := "100.5"
-	_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, s, 0)
-	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
-	set.Parse([]string{amount, fromAddress.Hex(), to})
-
-	cliapp := cli.NewApp()
-	c := cli.NewContext(cliapp, set, nil)
-
-	assert.NoError(t, client.SendEther(c))
-
-	etx := models.EthTx{}
-	require.NoError(t, s.DB.First(&etx).Error)
-	require.Equal(t, "100.500000000000000000", etx.Value.String())
-	require.Equal(t, fromAddress, etx.FromAddress)
-	require.Equal(t, to, etx.ToAddress.Hex())
-}
-
 func TestClient_ChangePassword(t *testing.T) {
 	t.Parallel()
 
@@ -567,106 +530,17 @@ func TestClient_ChangePassword(t *testing.T) {
 	require.Contains(t, err.Error(), "Unauthorized")
 }
 
-func TestClient_IndexTransactions(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
-
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
-
-	// page 1
-	set := flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 1, "doc")
-	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
-
-	renderedTxs := *r.Renders[0].(*[]webpresenters.EthTxResource)
-	assert.Equal(t, 1, len(renderedTxs))
-	assert.Equal(t, attempt.Hash.Hex(), renderedTxs[0].Hash.Hex())
-
-	// page 2 which doesn't exist
-	set = flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 2, "doc")
-	c = cli.NewContext(nil, set, nil)
-	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTransactions(c))
-
-	renderedTxs = *r.Renders[1].(*[]webpresenters.EthTxResource)
-	assert.Equal(t, 0, len(renderedTxs))
-}
-
-func TestClient_ShowTransaction(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
-
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-	attempt := tx.EthTxAttempts[0]
-
-	set := flag.NewFlagSet("test get tx", 0)
-	set.Parse([]string{attempt.Hash.Hex()})
-	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.ShowTransaction(c))
-
-	renderedTx := *r.Renders[0].(*webpresenters.EthTxResource)
-	assert.Equal(t, &tx.FromAddress, renderedTx.From)
-}
-
-func TestClient_IndexTxAttempts(t *testing.T) {
-	t.Parallel()
-
-	app := startNewApplication(t)
-	client, r := app.NewClientAndRenderer()
-
-	store := app.GetStore()
-	_, from := cltest.MustAddRandomKeyToKeystore(t, store)
-
-	tx := cltest.MustInsertConfirmedEthTxWithAttempt(t, store, 0, 1, from)
-
-	// page 1
-	set := flag.NewFlagSet("test txattempts", 0)
-	set.Int("page", 1, "doc")
-	c := cli.NewContext(nil, set, nil)
-	require.Equal(t, 1, c.Int("page"))
-	assert.NoError(t, client.IndexTxAttempts(c))
-
-	renderedAttempts := *r.Renders[0].(*[]webpresenters.EthTxResource)
-	require.Len(t, tx.EthTxAttempts, 1)
-	assert.Equal(t, tx.EthTxAttempts[0].Hash.Hex(), renderedAttempts[0].Hash.Hex())
-
-	// page 2 which doesn't exist
-	set = flag.NewFlagSet("test transactions", 0)
-	set.Int("page", 2, "doc")
-	c = cli.NewContext(nil, set, nil)
-	require.Equal(t, 2, c.Int("page"))
-	assert.NoError(t, client.IndexTxAttempts(c))
-
-	renderedAttempts = *r.Renders[1].(*[]webpresenters.EthTxResource)
-	assert.Equal(t, 0, len(renderedAttempts))
-}
-
 func TestClient_SetMinimumGasPrice(t *testing.T) {
 	t.Parallel()
 
 	// Setup Withdrawals application
-	rpcClient, gethClient := newEthMocks(t)
 	oca := common.HexToAddress("0xDEADB3333333F")
 	app := startNewApplication(t,
 		withKey(),
 		withConfig(map[string]interface{}{
 			"OPERATOR_CONTRACT_ADDRESS": &oca,
 		}),
-		withMocks(eth.NewClientWith(rpcClient, gethClient)),
+		withMocks(newEthMock(t)),
 		startAndConnect(),
 	)
 	client, _ := app.NewClientAndRenderer()
