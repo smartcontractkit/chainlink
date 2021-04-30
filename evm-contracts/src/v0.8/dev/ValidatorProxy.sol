@@ -7,20 +7,25 @@ import "../interfaces/AggregatorValidatorInterface.sol";
 contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
 
   /// @notice Uses a single storage slot to store the current address
-  struct ProxyConfiguration {
+  struct AggregatorConfiguration {
     address target;
     bool hasNewProposal;
   }
 
+  struct ValidatorConfiguration {
+    AggregatorValidatorInterface target;
+    bool hasNewProposal;
+  }
+
   // Configuration for the current aggregator
-  ProxyConfiguration private s_currentAggregator;
+  AggregatorConfiguration private s_currentAggregator;
   // Proposed aggregator address
   address private s_proposedAggregator;
 
   // Configuration for the current validator
-  ProxyConfiguration private s_currentValidator;
+  ValidatorConfiguration private s_currentValidator;
   // Proposed validator address
-  address private s_proposedValidator;
+  AggregatorValidatorInterface private s_proposedValidator;
 
   event AggregatorProposed(
     address indexed aggregator
@@ -30,11 +35,11 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     address indexed current
   );
   event ValidatorProposed(
-    address indexed validator
+    AggregatorValidatorInterface indexed validator
   );
   event ValidatorUpgraded(
-    address indexed previous,
-    address indexed current
+    AggregatorValidatorInterface indexed previous,
+    AggregatorValidatorInterface indexed current
   );
   /// @notice The proposed aggregator called validate, but the call was not passed on to any validators
   event ProposedAggregatorValidateCall(
@@ -52,15 +57,15 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
    */
   constructor(
     address aggregator,
-    address validator
+    AggregatorValidatorInterface validator
   )
     ConfirmedOwner(msg.sender)
   {
-    s_currentAggregator = ProxyConfiguration({
+    s_currentAggregator = AggregatorConfiguration({
       target: aggregator,
       hasNewProposal: false
     });
-    s_currentValidator = ProxyConfiguration({
+    s_currentValidator = ValidatorConfiguration({
       target: validator,
       hasNewProposal: false
     });
@@ -108,9 +113,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     }
 
     // Send the validate call to the current validator
-    ProxyConfiguration memory currentValidator = s_currentValidator;
-    require(s_currentValidator.target != address(0), "No validator set");
-    AggregatorValidatorInterface(currentValidator.target).validate(
+    ValidatorConfiguration memory currentValidator = s_currentValidator;
+    require(address(s_currentValidator.target) != address(0), "No validator set");
+    currentValidator.target.validate(
       previousRoundId,
       previousAnswer,
       currentRoundId,
@@ -118,7 +123,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     );
     // If there is a new proposed validator, send the validate call to that validator also
     if (currentValidator.hasNewProposal) {
-      AggregatorValidatorInterface(s_proposedValidator).validate(
+      s_proposedValidator.validate(
         previousRoundId,
         previousAnswer,
         currentRoundId,
@@ -157,17 +162,17 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     onlyOwner()
   {
     // Get configuration in memory
-    ProxyConfiguration memory current = s_currentAggregator;
+    AggregatorConfiguration memory current = s_currentAggregator;
     address previous = current.target;
     address proposed = s_proposedAggregator;
 
     // Perform the upgrade
     require(current.hasNewProposal == true, "No proposal");
-    s_currentAggregator = ProxyConfiguration({
+    s_currentAggregator = AggregatorConfiguration({
       target: proposed,
       hasNewProposal: false
     });
-    s_proposedAggregator = address(0);
+    delete s_proposedAggregator;
 
     emit AggregatorUpgraded(previous, proposed);
   }
@@ -200,7 +205,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
    * @param proposed address
    */
   function proposeNewValidator(
-    address proposed
+    AggregatorValidatorInterface proposed
   )
     external
     onlyOwner()
@@ -208,7 +213,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     require(s_proposedValidator != proposed, "No change");
     s_proposedValidator = proposed;
     // If proposed is zero address, hasNewProposal = false
-    s_currentValidator.hasNewProposal = (proposed != address(0));
+    s_currentValidator.hasNewProposal = (address(proposed) != address(0));
     emit ValidatorProposed(proposed);
   }
 
@@ -221,17 +226,17 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     onlyOwner()
   {
     // Get configuration in memory
-    ProxyConfiguration memory current = s_currentValidator;
-    address previous = current.target;
-    address proposed = s_proposedValidator;
+    ValidatorConfiguration memory current = s_currentValidator;
+    AggregatorValidatorInterface previous = current.target;
+    AggregatorValidatorInterface proposed = s_proposedValidator;
 
     // Perform the upgrade
     require(current.hasNewProposal == true, "No proposal");
-    s_currentValidator = ProxyConfiguration({
+    s_currentValidator = ValidatorConfiguration({
       target: proposed,
       hasNewProposal: false
     });
-    s_proposedValidator = address(0);
+    delete s_proposedValidator;
 
     emit ValidatorUpgraded(previous, proposed);
   }
@@ -246,9 +251,9 @@ contract ValidatorProxy is AggregatorValidatorInterface, ConfirmedOwner {
     external
     view
     returns(
-      address current,
+      AggregatorValidatorInterface current,
       bool hasProposal,
-      address proposed
+      AggregatorValidatorInterface proposed
     )
   {
     current = s_currentValidator.target;

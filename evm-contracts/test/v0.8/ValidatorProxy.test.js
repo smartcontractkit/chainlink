@@ -67,14 +67,29 @@ describe('ValidatorProxy', () => {
       newAggregator = accounts[3]
     })
 
-    it('should only be called by the owner', async () => {
-      const stranger = accounts[4]
-      await expectRevert(
-        validatorProxy.proposeNewAggregator(newAggregator, {
-          from: stranger,
-        }),
-        'Only callable by owner',
-      )
+    describe('failure', () => {
+      it('should only be called by the owner', async () => {
+        const stranger = accounts[4]
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(newAggregator, {
+            from: stranger,
+          }),
+          'Only callable by owner',
+        )
+      })
+
+      it('should revert if no change in proposal', async () => {
+        await validatorProxy.proposeNewAggregator(newAggregator, {
+          from: owner,
+        })
+
+        await expectRevert(
+          validatorProxy.proposeNewAggregator(newAggregator, {
+            from: owner,
+          }),
+          'No change',
+        )
+      })
     })
 
     describe('success', () => {
@@ -172,14 +187,29 @@ describe('ValidatorProxy', () => {
       newValidator = accounts[3]
     })
 
-    it('should only be called by the owner', async () => {
-      const stranger = accounts[4]
-      await expectRevert(
-        validatorProxy.proposeNewValidator(newValidator, {
-          from: stranger,
-        }),
-        'Only callable by owner',
-      )
+    describe('failure', () => {
+      it('should only be called by the owner', async () => {
+        const stranger = accounts[4]
+        await expectRevert(
+          validatorProxy.proposeNewValidator(newValidator, {
+            from: stranger,
+          }),
+          'Only callable by owner',
+        )
+      })
+
+      it('should revert if no change in proposal', async () => {
+        await validatorProxy.proposeNewValidator(newValidator, {
+          from: owner,
+        })
+
+        await expectRevert(
+          validatorProxy.proposeNewValidator(newValidator, {
+            from: owner,
+          }),
+          'No change',
+        )
+      })
     })
 
     describe('success', () => {
