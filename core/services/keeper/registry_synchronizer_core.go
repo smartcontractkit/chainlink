@@ -113,6 +113,7 @@ func (rs *RegistrySynchronizer) run() {
 	logTicker := time.NewTicker(time.Second)
 	defer rs.wgDone.Done()
 	defer syncTicker.Stop()
+	defer logTicker.Stop()
 
 	rs.fullSync()
 
