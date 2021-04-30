@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/core/services/eth"
-
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +11,7 @@ import (
 )
 
 func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
+	t.Parallel()
 
 	app, cleanup := cltest.NewApplication(t)
 	t.Cleanup(cleanup)
@@ -43,6 +42,8 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 }
 
 func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
+	t.Parallel()
+
 	app, cleanup := cltest.NewApplication(t)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
@@ -101,12 +102,8 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 func TestGuiAssets_AssetsExact(t *testing.T) {
 	t.Parallel()
 
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
-	app, cleanup := cltest.NewApplication(t,
-		eth.NewClientWith(rpcClient, gethClient),
-	)
-	defer cleanup()
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
 
 	client := &http.Client{}
@@ -117,5 +114,32 @@ func TestGuiAssets_AssetsExact(t *testing.T) {
 
 	resp, err = client.Get(app.Server.URL + "/assets/mmain.js")
 	require.NoError(t, err)
+	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
+}
+
+func TestGuiAssets_AssetsExactCompressed(t *testing.T) {
+	t.Parallel()
+
+	app, cleanup := cltest.NewApplication(t)
+	t.Cleanup(cleanup)
+	require.NoError(t, app.Start())
+
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", app.Server.URL+"/assets/main.js", nil)
+	require.NoError(t, err)
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+	assert.Equal(t, "gzip", resp.Header["Content-Encoding"][0])
+	assert.Equal(t, "Accept-Encoding", resp.Header["Vary"][0])
+
+	req, err = http.NewRequest("GET", app.Server.URL+"/assets/doesnotexist.js", nil)
+	require.NoError(t, err)
+	req.Header.Set("Accept-Encoding", "gzip")
+	resp, err = client.Do(req)
+	require.NoError(t, err)
+
 	cltest.AssertServerResponse(t, resp, http.StatusNotFound)
 }
