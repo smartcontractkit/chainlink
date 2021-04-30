@@ -24,39 +24,39 @@ type JobPresenter struct {
 }
 
 // ToRows returns the job as a multiple rows per task
-func (j JobPresenter) ToRows() [][]string {
+func (p JobPresenter) ToRows() [][]string {
 	row := [][]string{}
 
 	// Produce a row when there are no tasks
-	if len(j.FriendlyTasks()) == 0 {
-		row = append(row, j.toRow(""))
+	if len(p.FriendlyTasks()) == 0 {
+		row = append(row, p.toRow(""))
 
 		return row
 	}
 
-	for _, t := range j.FriendlyTasks() {
-		row = append(row, j.toRow(t))
+	for _, t := range p.FriendlyTasks() {
+		row = append(row, p.toRow(t))
 	}
 
 	return row
 }
 
 // ToRow generates a row for a task
-func (j JobPresenter) toRow(task string) []string {
+func (p JobPresenter) toRow(task string) []string {
 	return []string{
-		j.GetID(),
-		j.Name,
-		j.Type.String(),
+		p.GetID(),
+		p.Name,
+		p.Type.String(),
 		task,
-		j.FriendlyCreatedAt(),
+		p.FriendlyCreatedAt(),
 	}
 }
 
 // GetTasks extracts the tasks from the dependency graph
-func (j JobPresenter) GetTasks() ([]string, error) {
+func (p JobPresenter) GetTasks() ([]string, error) {
 	types := []string{}
 	dag := pipeline.NewTaskDAG()
-	err := dag.UnmarshalText([]byte(j.PipelineSpec.DotDAGSource))
+	err := dag.UnmarshalText([]byte(p.PipelineSpec.DotDAGSource))
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func (j JobPresenter) GetTasks() ([]string, error) {
 }
 
 // FriendlyTasks returns the tasks
-func (j JobPresenter) FriendlyTasks() []string {
-	taskTypes, err := j.GetTasks()
+func (p JobPresenter) FriendlyTasks() []string {
+	taskTypes, err := p.GetTasks()
 	if err != nil {
 		return []string{"error parsing DAG"}
 	}
@@ -88,23 +88,23 @@ func (j JobPresenter) FriendlyTasks() []string {
 
 // FriendlyCreatedAt returns the created at timestamp of the spec which matches the
 // type in RFC3339 format.
-func (j JobPresenter) FriendlyCreatedAt() string {
-	switch j.Type {
+func (p JobPresenter) FriendlyCreatedAt() string {
+	switch p.Type {
 	case presenters.DirectRequestJobSpec:
-		if j.DirectRequestSpec != nil {
-			return j.DirectRequestSpec.CreatedAt.Format(time.RFC3339)
+		if p.DirectRequestSpec != nil {
+			return p.DirectRequestSpec.CreatedAt.Format(time.RFC3339)
 		}
 	case presenters.FluxMonitorJobSpec:
-		if j.FluxMonitorSpec != nil {
-			return j.FluxMonitorSpec.CreatedAt.Format(time.RFC3339)
+		if p.FluxMonitorSpec != nil {
+			return p.FluxMonitorSpec.CreatedAt.Format(time.RFC3339)
 		}
 	case presenters.OffChainReportingJobSpec:
-		if j.OffChainReportingSpec != nil {
-			return j.OffChainReportingSpec.CreatedAt.Format(time.RFC3339)
+		if p.OffChainReportingSpec != nil {
+			return p.OffChainReportingSpec.CreatedAt.Format(time.RFC3339)
 		}
 	case presenters.KeeperJobSpec:
-		if j.KeeperSpec != nil {
-			return j.KeeperSpec.CreatedAt.Format(time.RFC3339)
+		if p.KeeperSpec != nil {
+			return p.KeeperSpec.CreatedAt.Format(time.RFC3339)
 		}
 	default:
 		return "unknown"
@@ -115,9 +115,37 @@ func (j JobPresenter) FriendlyCreatedAt() string {
 	return "N/A"
 }
 
+// RenderTable implements TableRenderer
+func (p *JobPresenter) RenderTable(rt RendererTable) error {
+	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
+	table.SetAutoMergeCells(true)
+	for _, r := range p.ToRows() {
+		table.Append(r)
+	}
+
+	render("Jobs (V2)", table)
+	return nil
+}
+
+type JobPresenters []JobPresenter
+
+// RenderTable implements TableRenderer
+func (ps JobPresenters) RenderTable(rt RendererTable) error {
+	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
+	table.SetAutoMergeCells(true)
+	for _, p := range ps {
+		for _, r := range p.ToRows() {
+			table.Append(r)
+		}
+	}
+
+	render("Jobs (V2)", table)
+	return nil
+}
+
 // ListJobsV2 lists all v2 jobs
 func (cli *Client) ListJobsV2(c *cli.Context) (err error) {
-	return cli.getPage("/v2/jobs", c.Int("page"), &[]JobPresenter{})
+	return cli.getPage("/v2/jobs", c.Int("page"), &JobPresenters{})
 }
 
 // CreateJobV2 creates a V2 job
@@ -159,8 +187,7 @@ func (cli *Client) CreateJobV2(c *cli.Context) (err error) {
 		return cli.errorOut(err)
 	}
 
-	var presenter JobPresenter
-	err = cli.renderAPIResponse(resp, &presenter, "Job created")
+	err = cli.renderAPIResponse(resp, &JobPresenter{}, "Job created")
 	return err
 }
 
