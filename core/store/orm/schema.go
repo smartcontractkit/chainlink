@@ -55,6 +55,7 @@ type ConfigSchema struct {
 	EthRPCDefaultBatchSize                    uint32          `env:"ETH_RPC_DEFAULT_BATCH_SIZE" default:"100"`
 	EthTxResendAfterThreshold                 time.Duration   `env:"ETH_TX_RESEND_AFTER_THRESHOLD"`
 	EthereumDisabled                          bool            `env:"ETH_DISABLED" default:"false"`
+	EthereumHTTPURL                           string          `env:"ETH_HTTP_URL"`
 	EthereumSecondaryURL                      string          `env:"ETH_SECONDARY_URL" default:""`
 	EthereumSecondaryURLs                     string          `env:"ETH_SECONDARY_URLS" default:""`
 	EthereumURL                               string          `env:"ETH_URL" default:"ws://localhost:8546"`

@@ -71,18 +71,8 @@ func CreateLogger(zl *zap.SugaredLogger) *Logger {
 
 // CreateProductionLogger returns a log config for the passed directory
 // with the given LogLevel and customizes stdout for pretty printing.
-func CreateProductionLogger(
-	dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *Logger {
-	config := zap.NewProductionConfig()
-	if !jsonConsole {
-		config.OutputPaths = []string{"pretty://console"}
-	}
-	if toDisk {
-		destination := logFileURI(dir)
-		config.OutputPaths = append(config.OutputPaths, destination)
-		config.ErrorOutputPaths = append(config.ErrorOutputPaths, destination)
-	}
-	config.Level.SetLevel(lvl)
+func CreateProductionLogger(dir string, jsonConsole bool, lvl zapcore.Level, toDisk bool) *Logger {
+	config := NewProductionConfig(lvl, dir, jsonConsole, toDisk)
 
 	zl, err := config.Build(zap.AddCallerSkip(1))
 	if err != nil {
@@ -91,4 +81,30 @@ func CreateProductionLogger(
 	return &Logger{
 		SugaredLogger: zl.Sugar(),
 	}
+}
+
+// NewProductionConfig returns a production logging config
+func NewProductionConfig(lvl zapcore.Level, dir string, jsonConsole, toDisk bool) (c zap.Config) {
+	var outputPath string
+	if jsonConsole {
+		outputPath = "stderr"
+	} else {
+		outputPath = "pretty://console"
+	}
+	// Mostly copied from zap.NewProductionConfig with sampling disabled
+	c = zap.Config{
+		Level:            zap.NewAtomicLevelAt(lvl),
+		Development:      false,
+		Sampling:         nil,
+		Encoding:         "json",
+		EncoderConfig:    zap.NewProductionEncoderConfig(),
+		OutputPaths:      []string{outputPath},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	if toDisk {
+		destination := logFileURI(dir)
+		c.OutputPaths = append(c.OutputPaths, destination)
+		c.ErrorOutputPaths = append(c.ErrorOutputPaths, destination)
+	}
+	return
 }

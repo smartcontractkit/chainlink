@@ -14,7 +14,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
-	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web"
@@ -153,12 +152,12 @@ func TestJobsController_Create_HappyPath_KeeperSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_CronRequestSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
-	defer assertMocksCalled()
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
-	defer cleanup()
+	t.Cleanup(cleanup)
 	require.NoError(t, app.StartAndConnect())
 
 	client := app.NewHTTPClient()
@@ -182,14 +181,14 @@ func TestJobsController_Create_CronRequestSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
@@ -218,14 +217,14 @@ func TestJobsController_Create_HappyPath_DirectRequestSpec(t *testing.T) {
 }
 
 func TestJobsController_Create_HappyPath_FluxMonitorSpec(t *testing.T) {
-	rpcClient, gethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient, _, assertMocksCalled := cltest.NewEthMocksWithStartupAssertions(t)
 	t.Cleanup(assertMocksCalled)
 	app, cleanup := cltest.NewApplicationWithKey(t,
-		eth.NewClientWith(rpcClient, gethClient),
+		ethClient,
 	)
 	t.Cleanup(cleanup)
 	require.NoError(t, app.Start())
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(cltest.EmptyMockSubscription(), nil)
 
 	client := app.NewHTTPClient()
 
