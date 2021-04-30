@@ -11,6 +11,7 @@ import (
 	"math/big"
 	mrand "math/rand"
 	"reflect"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -49,6 +50,8 @@ var ZeroAddress = common.Address{}
 // EmptyHash is a hash of all zeroes, otherwise in Ethereum as
 // 0x0000000000000000000000000000000000000000000000000000000000000000
 var EmptyHash = common.Hash{}
+
+var hexDataRegex = regexp.MustCompile(`0x\w+$`)
 
 // WithoutZeroAddresses returns a list of addresses excluding the zero address.
 func WithoutZeroAddresses(addresses []common.Address) []common.Address {
@@ -934,4 +937,39 @@ func WithJitter(d time.Duration) time.Duration {
 	jitter := mrand.Intn(int(d) / 5)
 	jitter = jitter - (jitter / 2)
 	return time.Duration(int(d) + jitter)
+}
+
+// ExtractRevertReasonFromRPCError attempts to extract the revert reason from the response of
+// an RPC eth_call that reverted by parsing the message from the "data" field
+// ex:
+// kovan (parity)
+// { "error": { "code" : -32015, "data": "Reverted 0xABC123...", "message": "VM execution error." } } // revert reason always omitted
+// rinkeby / ropsten (geth)
+// { "error":  { "code": 3, "data": "0x0xABC123...", "message": "execution reverted: hello world" } } // revert reason included in message
+func ExtractRevertReasonFromRPCError(err error) (string, error) {
+	if err == nil {
+		return "", errors.New("no error present")
+	}
+	field := reflect.ValueOf(err).Elem().FieldByName("Data")
+	if !field.IsValid() {
+		return "", errors.New("invalid error type")
+	}
+	dataStr, ok := field.Interface().(string)
+	if !ok {
+		return "", errors.New("invalid error type")
+	}
+	matches := hexDataRegex.FindStringSubmatch(dataStr)
+	if len(matches) != 1 {
+		return "", errors.New("unknown data payload format")
+	}
+	hexData := RemoveHexPrefix(matches[0])
+	if len(hexData) < 8 {
+		return "", errors.New("unknown data payload format")
+	}
+	bytes, err := hex.DecodeString(RemoveHexPrefix(matches[0])[8:])
+	if err != nil {
+		return "", errors.Wrap(err, "unable to decode hex to bytes")
+	}
+	revertReason := strings.TrimSpace(string(bytes))
+	return revertReason, nil
 }
