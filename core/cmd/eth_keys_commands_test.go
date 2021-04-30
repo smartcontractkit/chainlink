@@ -1,16 +1,21 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/core/assets"
+	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
@@ -21,6 +26,70 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
+
+func TestEthKeysPresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		address     = "0x5431F5F973781809D18643b87B44921b11355d81"
+		ethBalance  = assets.NewEth(1)
+		linkBalance = assets.NewLink(2)
+		nextNonce   = int64(0)
+		isFunding   = true
+		createdAt   = time.Now()
+		updatedAt   = time.Now().Add(time.Second)
+		deletedAt   = time.Now().Add(2 * time.Second)
+		lastUsed    = time.Now()
+		bundleID    = "7f993fb701b3410b1f6e8d4d93a7462754d24609b9b31a4fe64a0cb475a4d934"
+		buffer      = bytes.NewBufferString("")
+		r           = cmd.RendererTable{Writer: buffer}
+	)
+
+	p := cmd.EthKeyPresenter{
+		ETHKeyResource: presenters.ETHKeyResource{
+			JAID:        presenters.NewJAID(bundleID),
+			Address:     address,
+			EthBalance:  ethBalance,
+			LinkBalance: linkBalance,
+			NextNonce:   nextNonce,
+			LastUsed:    &lastUsed,
+			IsFunding:   isFunding,
+			CreatedAt:   createdAt,
+			UpdatedAt:   updatedAt,
+			DeletedAt:   &deletedAt,
+		},
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, address)
+	assert.Contains(t, output, ethBalance.String())
+	assert.Contains(t, output, linkBalance.String())
+	assert.Contains(t, output, fmt.Sprintf("%d", nextNonce))
+	assert.Contains(t, output, lastUsed.String())
+	assert.Contains(t, output, strconv.FormatBool(isFunding))
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.EthKeyPresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, address)
+	assert.Contains(t, output, ethBalance.String())
+	assert.Contains(t, output, linkBalance.String())
+	assert.Contains(t, output, fmt.Sprintf("%d", nextNonce))
+	assert.Contains(t, output, lastUsed.String())
+	assert.Contains(t, output, strconv.FormatBool(isFunding))
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+}
 
 func TestClient_ListETHKeys(t *testing.T) {
 	t.Parallel()
@@ -38,7 +107,7 @@ func TestClient_ListETHKeys(t *testing.T) {
 
 	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	balances := *r.Renders[0].(*[]presenters.ETHKeyResource)
+	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Key.Address.Hex(), balances[0].Address)
 }
 
@@ -122,7 +191,7 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]presenters.ETHKeyResource), 0)
+	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 0)
 
 	r.Renders = nil
 
@@ -139,9 +208,9 @@ func TestClient_ImportExportETHKey(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.ListETHKeys(c)
 	assert.NoError(t, err)
-	require.Len(t, *r.Renders[0].(*[]presenters.ETHKeyResource), 1)
+	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
 
-	ethkeys := *r.Renders[0].(*[]presenters.ETHKeyResource)
+	ethkeys := *r.Renders[0].(*cmd.EthKeyPresenters)
 	addr := common.HexToAddress("0x69Ca211a68100E18B40683E96b55cD217AC95006")
 	assert.Equal(t, addr.Hex(), ethkeys[0].Address)
 
