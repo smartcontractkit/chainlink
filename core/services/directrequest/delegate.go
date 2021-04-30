@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/logger"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/eth"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -23,14 +22,13 @@ import (
 
 type (
 	Delegate struct {
-		logBroadcaster  log.Broadcaster
-		headBroadcaster *services.HeadBroadcaster
-		pipelineRunner  pipeline.Runner
-		pipelineORM     pipeline.ORM
-		db              *gorm.DB
-		ethClient       eth.Client
-		chHeads         chan models.Head
-		config          Config
+		logBroadcaster log.Broadcaster
+		pipelineRunner pipeline.Runner
+		pipelineORM    pipeline.ORM
+		db             *gorm.DB
+		ethClient      eth.Client
+		chHeads        chan models.Head
+		config         Config
 	}
 
 	Config interface {
@@ -38,12 +36,11 @@ type (
 	}
 )
 
-func NewDelegate(logBroadcaster log.Broadcaster, headBroadcaster *services.HeadBroadcaster,
+func NewDelegate(logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner, pipelineORM pipeline.ORM,
 	ethClient eth.Client, db *gorm.DB, config Config) *Delegate {
 	return &Delegate{
 		logBroadcaster,
-		headBroadcaster,
 		pipelineRunner,
 		pipelineORM,
 		db,
@@ -76,13 +73,12 @@ func (d *Delegate) ServicesForSpec(job job.Job) (services []job.Service, err err
 	}
 
 	logListener := &listener{
-		logBroadcaster:  d.logBroadcaster,
-		headBroadcaster: d.headBroadcaster,
-		oracle:          oracle,
-		pipelineRunner:  d.pipelineRunner,
-		db:              d.db,
-		pipelineORM:     d.pipelineORM,
-		job:             job,
+		logBroadcaster: d.logBroadcaster,
+		oracle:         oracle,
+		pipelineRunner: d.pipelineRunner,
+		db:             d.db,
+		pipelineORM:    d.pipelineORM,
+		job:            job,
 
 		// At the moment the mailbox would start skipping if there were
 		// too many relevant logs for the same job (> 50) in each block.
@@ -104,7 +100,6 @@ var (
 
 type listener struct {
 	logBroadcaster    log.Broadcaster
-	headBroadcaster   *services.HeadBroadcaster
 	oracle            oracle_wrapper.OracleInterface
 	pipelineRunner    pipeline.Runner
 	db                *gorm.DB
@@ -159,12 +154,6 @@ func (l *listener) Close() error {
 		return nil
 	})
 }
-
-// OnConnect complies with log.Listener
-func (*listener) OnConnect() {}
-
-// OnDisconnect complies with log.Listener
-func (*listener) OnDisconnect() {}
 
 func (l *listener) HandleLog(lb log.Broadcast) {
 	wasOverCapacity := l.mbLogs.Deliver(lb)

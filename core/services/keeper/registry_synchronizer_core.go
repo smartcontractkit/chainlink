@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"context"
 	"sync"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
-	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/utils"
 	"gorm.io/gorm"
 )
@@ -30,7 +28,6 @@ func NewRegistrySynchronizer(
 	contract *keeper_registry_wrapper.KeeperRegistry,
 	db *gorm.DB,
 	jrm job.ORM,
-	headBroadcaster *services.HeadBroadcaster,
 	logBroadcaster log.Broadcaster,
 	syncInterval time.Duration,
 	minConfirmations uint64,
@@ -42,10 +39,8 @@ func NewRegistrySynchronizer(
 		mbUpkeepRegistered: utils.NewMailbox(50),
 	}
 	return &RegistrySynchronizer{
-		chHeads:          make(chan models.Head, 1),
 		chStop:           make(chan struct{}),
 		contract:         contract,
-		headBroadcaster:  headBroadcaster,
 		interval:         syncInterval,
 		job:              job,
 		jrm:              jrm,
@@ -61,10 +56,8 @@ func NewRegistrySynchronizer(
 // RegistrySynchronizer conforms to the Service, Listener, and HeadRelayable interfaces
 var _ job.Service = (*RegistrySynchronizer)(nil)
 var _ log.Listener = (*RegistrySynchronizer)(nil)
-var _ services.HeadBroadcastable = (*RegistrySynchronizer)(nil)
 
 type RegistrySynchronizer struct {
-	chHeads          chan models.Head
 	chStop           chan struct{}
 	contract         *keeper_registry_wrapper.KeeperRegistry
 	headBroadcaster  *services.HeadBroadcaster
@@ -96,10 +89,8 @@ func (rs *RegistrySynchronizer) Start() error {
 			NumConfirmations: rs.minConfirmations,
 		}
 		lbUnsubscribe := rs.logBroadcaster.Register(rs, logListenerOpts)
-		hbUnsubscribe := rs.headBroadcaster.Subscribe(rs)
 
 		go func() {
-			defer hbUnsubscribe()
 			defer lbUnsubscribe()
 			defer rs.wgDone.Done()
 			<-rs.chStop
@@ -117,17 +108,11 @@ func (rs *RegistrySynchronizer) Close() error {
 	return nil
 }
 
-func (rs *RegistrySynchronizer) OnNewLongestChain(ctx context.Context, head models.Head) {
-	select {
-	case rs.chHeads <- head:
-	default:
-	}
-}
-
 func (rs *RegistrySynchronizer) run() {
-	ticker := time.NewTicker(rs.interval)
+	syncTicker := time.NewTicker(rs.interval)
+	logTicker := time.NewTicker(time.Second)
 	defer rs.wgDone.Done()
-	defer ticker.Stop()
+	defer syncTicker.Stop()
 
 	rs.fullSync()
 
@@ -135,9 +120,9 @@ func (rs *RegistrySynchronizer) run() {
 		select {
 		case <-rs.chStop:
 			return
-		case <-ticker.C:
+		case <-syncTicker.C:
 			rs.fullSync()
-		case <-rs.chHeads:
+		case <-logTicker.C:
 			rs.processLogs()
 		}
 	}

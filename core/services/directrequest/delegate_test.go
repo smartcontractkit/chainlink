@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
@@ -27,7 +26,6 @@ import (
 func TestDelegate_ServicesForSpec(t *testing.T) {
 	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
 
 	_, orm, cleanupDB := cltest.BootstrapThrowawayORM(t, "event_broadcaster", true)
@@ -36,7 +34,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, ethClient, orm.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, runner, nil, ethClient, orm.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -65,7 +63,6 @@ type DirectRequestUniverse struct {
 func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
-	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
 
 	config, oldORM, cleanupDB := cltest.BootstrapThrowawayORM(t, "delegate_services_listener_handlelog", true, true)
@@ -84,7 +81,7 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	drConfig := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, ethClient, db, drConfig)
+	delegate := directrequest.NewDelegate(broadcaster, runner, orm, ethClient, db, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
 	err := jobORM.CreateJob(context.Background(), spec, spec.Pipeline)
