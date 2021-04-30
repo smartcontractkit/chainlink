@@ -69,6 +69,14 @@ function isOCRJobSpecV2(job: JobSpecV2) {
   return job.attributes.type === 'offchainreporting'
 }
 
+function isCronSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'cron'
+}
+
+function isWebSpecV2(job: JobSpecV2) {
+  return job.attributes.type === 'web'
+}
+
 function getCreatedAt(job: CombinedJobs) {
   if (isJobSpecV1(job)) {
     return job.attributes.createdAt
@@ -85,6 +93,12 @@ function getCreatedAt(job: CombinedJobs) {
 
       case 'keeper':
         return job.attributes.keeperSpec.createdAt
+
+      case 'cron':
+        return job.attributes.cronSpec.createdAt
+
+      case 'web':
+        return job.attributes.webSpec.createdAt
     }
   } else {
     return new Date().toString()
@@ -141,6 +155,14 @@ export const simpleJobFilter = (search: string) => (job: CombinedJobs) => {
 
     if (isKeeperSpecV2(job)) {
       return matchKeeper(job, search)
+    }
+
+    if (isCronSpecV2(job)) {
+      return matchCron(job, search)
+    }
+
+    if (isWebSpecV2(job)) {
+      return matchWeb(job, search)
     }
   }
 
@@ -252,6 +274,34 @@ function matchKeeper(job: JobSpecV2, term: string) {
     job.attributes.name || '',
     'keeper', // Hardcoded to match the type column
   ]
+
+  return dataset.some(match)
+}
+
+/**
+ * matchCron determines whether the Cron job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchCron(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'cron']
+
+  return dataset.some(match)
+}
+
+/**
+ * matchWeb determines whether the Web job matches the search terms
+ *
+ * @param job {JobSpecV2} The V2 Job Spec
+ * @param term {string} The search term
+ */
+function matchWeb(job: JobSpecV2, term: string) {
+  const match = searchIncludes(term)
+
+  const dataset: string[] = [job.id, job.attributes.name || '', 'web']
 
   return dataset.some(match)
 }

@@ -12,8 +12,9 @@ import (
 type BridgeTask struct {
 	BaseTask `mapstructure:",squash"`
 
-	Name        string          `json:"name"`
-	RequestData HttpRequestData `json:"requestData"`
+	Name              string          `json:"name"`
+	RequestData       HttpRequestData `json:"requestData"`
+	IncludeInputAtKey string          `json:"includeInputAtKey"`
 
 	safeTx SafeTx
 	config Config
@@ -25,13 +26,15 @@ func (t *BridgeTask) Type() TaskType {
 	return TaskTypeBridge
 }
 
-func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self taskDAGNode) error {
+func (t *BridgeTask) SetDefaults(inputValues map[string]string, g TaskDAG, self TaskDAGNode) error {
 	return nil
 }
 
 func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Result) (result Result) {
-	if len(inputs) > 0 {
-		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 inputs")}
+	if len(inputs) > 1 {
+		return Result{Error: errors.Wrapf(ErrWrongInputCardinality, "BridgeTask requires 0 or 1 inputs")}
+	} else if len(inputs) == 1 && inputs[0].Error != nil {
+		return Result{Error: inputs[0].Error}
 	}
 
 	url, err := t.getBridgeURLFromName()
@@ -51,15 +54,20 @@ func (t *BridgeTask) Run(ctx context.Context, meta JSONSerializable, inputs []Re
 		)
 	}
 
+	requestData := withMeta(t.RequestData, metaMap)
+	if t.IncludeInputAtKey != "" && len(inputs) > 0 {
+		requestData[t.IncludeInputAtKey] = inputs[0].Value
+	}
+
 	result = (&HTTPTask{
 		URL:         models.WebURL(url),
 		Method:      "POST",
-		RequestData: withMeta(t.RequestData, metaMap),
+		RequestData: requestData,
 		// URL is "safe" because it comes from the node's own database
 		// Some node operators may run external adapters on their own hardware
 		AllowUnrestrictedNetworkAccess: MaybeBoolTrue,
 		config:                         t.config,
-	}).Run(ctx, meta, inputs)
+	}).Run(ctx, meta, nil)
 	if result.Error != nil {
 		return result
 	}

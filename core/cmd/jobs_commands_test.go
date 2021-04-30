@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"testing"
 	"time"
@@ -8,11 +9,76 @@ import (
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/services/job"
+	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
+
+func TestJobPresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id              = "1"
+		name            = "Job 1"
+		jobSpecType     = "fluxmonitor"
+		schemaVersion   = uint32(1)
+		maxTaskDuration = models.Interval(1 * time.Second)
+
+		createdAt = time.Now()
+		updatedAt = time.Now().Add(time.Second)
+		buffer    = bytes.NewBufferString("")
+		r         = cmd.RendererTable{Writer: buffer}
+	)
+
+	p := cmd.JobPresenter{
+		JobResource: presenters.JobResource{
+			JAID:              presenters.NewJAID(id),
+			Name:              name,
+			Type:              presenters.JobSpecType(jobSpecType),
+			SchemaVersion:     schemaVersion,
+			MaxTaskDuration:   maxTaskDuration,
+			DirectRequestSpec: nil,
+			FluxMonitorSpec: &presenters.FluxMonitorSpec{
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+			},
+			OffChainReportingSpec: nil,
+			KeeperSpec:            nil,
+			PipelineSpec: presenters.PipelineSpec{
+				ID:           1,
+				DotDAGSource: "ds1 [type=http method=GET url=\"example.com\" allowunrestrictednetworkaccess=\"true\"];\n    ds1_parse    [type=jsonparse path=\"USD\"];\n    ds1_multiply [type=multiply times=100];\n    ds1 -\u003e ds1_parse -\u003e ds1_multiply;\n",
+			},
+		},
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, id)
+	assert.Contains(t, output, name)
+	assert.Contains(t, output, jobSpecType)
+	assert.Contains(t, output, "ds1 http")
+	assert.Contains(t, output, "ds1_parse jsonparse")
+	assert.Contains(t, output, "ds1_multiply multiply")
+	assert.Contains(t, output, createdAt.Format(time.RFC3339))
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.JobPresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, id)
+	assert.Contains(t, output, name)
+	assert.Contains(t, output, jobSpecType)
+	assert.Contains(t, output, "ds1 http")
+	assert.Contains(t, output, "ds1_parse jsonparse")
+	assert.Contains(t, output, "ds1_multiply multiply")
+	assert.Contains(t, output, createdAt.Format(time.RFC3339))
+}
 
 func TestJobRenderer_GetTasks(t *testing.T) {
 	t.Parallel()
@@ -191,7 +257,7 @@ func TestClient_ListJobsV2(t *testing.T) {
 	createOutput := *r.Renders[0].(*cmd.JobPresenter)
 
 	require.Nil(t, client.ListJobsV2(cltest.EmptyCLIContext()))
-	jobs := *r.Renders[1].(*[]cmd.JobPresenter)
+	jobs := *r.Renders[1].(*cmd.JobPresenters)
 	require.Equal(t, 1, len(jobs))
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
 }
@@ -250,4 +316,30 @@ func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
 	jobs, err := orm.JobsV2()
 	require.NoError(t, err)
 	require.Len(t, jobs, expected)
+}
+
+func TestClient_Migrate(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplication(t)
+	app.Config.Set("FEATURE_FLUX_MONITOR_V2", true)
+	client, _ := app.NewClientAndRenderer()
+	cltest.CreateBridgeTypeViaWeb(t, app, `{"name":"testbridge","url":"http://data.com"}`)
+
+	// Create a v1 job.
+	set := flag.NewFlagSet("create", 0)
+	set.Parse([]string{"../testdata/jsonspecs/flux_monitor_bridge_job.json"})
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, client.CreateJobSpec(c))
+
+	// Migrate v1 job to v2 using the cli.
+	var js models.JobSpec
+	err := app.Store.Jobs(func(spec *models.JobSpec) bool {
+		js = *spec
+		return true
+	})
+	require.NoError(t, err)
+	set = flag.NewFlagSet("test", 0)
+	set.Parse([]string{js.ID.String()})
+	require.NoError(t, client.Migrate(cli.NewContext(nil, set, nil)))
 }

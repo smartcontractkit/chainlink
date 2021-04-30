@@ -187,6 +187,8 @@ describe('generateTOMLDefinition', () => {
       fluxMonitorSpec: null,
       directRequestSpec: null,
       keeperSpec: null,
+      cronSpec: null,
+      webSpec: null,
       schemaVersion: 1,
       offChainReportingOracleSpec: {
         contractAddress: '0x1469877c88F19E273EFC7Ef3C9D944574583B8a0',
@@ -263,6 +265,8 @@ maxTaskDuration = "10s"
         minPayment: null,
       },
       keeperSpec: null,
+      cronSpec: null,
+      webSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -304,6 +308,8 @@ observationSource = """
       type: 'directrequest',
       fluxMonitorSpec: null,
       keeperSpec: null,
+      cronSpec: null,
+      webSpec: null,
       directRequestSpec: {
         initiator: 'runlog',
         contractAddress: '0x3cCad4715152693fE3BC4460591e3D3Fbd071b42',
@@ -347,6 +353,8 @@ observationSource = """
         fromAddress: '0xa8037A20989AFcBC51798de9762b351D63ff462e',
         updatedAt: '2021-04-05T15:21:30.392021+08:00',
       },
+      cronSpec: null,
+      webSpec: null,
       directRequestSpec: null,
       offChainReportingOracleSpec: null,
       maxTaskDuration: '10s',
@@ -364,6 +372,81 @@ contractAddress = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
 fromAddress = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
 `
 
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid Cron definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'Cron Job Spec',
+      schemaVersion: 1,
+      type: 'cron',
+      fluxMonitorSpec: null,
+      keeperSpec: null,
+      cronSpec: {
+        schedule: '*/2 * * * *',
+        createdAt: '2021-04-05T15:21:30.392021+08:00',
+        updatedAt: '2021-04-05T15:21:30.392021+08:00',
+      },
+      webSpec: null,
+      directRequestSpec: null,
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    ds    [type=http method=GET url="http://localhost:8001"];\n    ds_parse    [type=jsonparse path="data,result"];\n    ds_multiply [type=multiply times=100];\n    ds -> ds_parse -> ds_multiply;\n',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "cron"
+schemaVersion = 1
+name = "Cron Job Spec"
+schedule = "*/2 * * * *"
+observationSource = """
+    ds    [type=http method=GET url="http://localhost:8001"];
+    ds_parse    [type=jsonparse path="data,result"];
+    ds_multiply [type=multiply times=100];
+    ds -> ds_parse -> ds_multiply;
+"""
+`
+
+    const output = generateTOMLDefinition(jobSpecAttributesInput)
+    expect(output).toEqual(expectedOutput)
+  })
+
+  it('generates a valid Web definition', () => {
+    const jobSpecAttributesInput = {
+      name: 'Web Job Spec',
+      schemaVersion: 1,
+      type: 'web',
+      fluxMonitorSpec: null,
+      keeperSpec: null,
+      cronSpec: null,
+      webSpec: {
+        createdAt: '2021-04-05T15:21:30.392021+08:00',
+        updatedAt: '2021-04-05T15:21:30.392021+08:00',
+      },
+      directRequestSpec: null,
+      offChainReportingOracleSpec: null,
+      maxTaskDuration: '10s',
+      pipelineSpec: {
+        dotDagSource:
+          '    ds    [type=http method=GET url="http://localhost:8001"];\n    ds_parse    [type=jsonparse path="data,result"];\n    ds_multiply [type=multiply times=100];\n    ds -> ds_parse -> ds_multiply;\n',
+      },
+      errors: [],
+    } as JobSpecV2
+
+    const expectedOutput = `type = "web"
+schemaVersion = 1
+name = "Web Job Spec"
+observationSource = """
+    ds    [type=http method=GET url="http://localhost:8001"];
+    ds_parse    [type=jsonparse path="data,result"];
+    ds_multiply [type=multiply times=100];
+    ds -> ds_parse -> ds_multiply;
+"""
+`
     const output = generateTOMLDefinition(jobSpecAttributesInput)
     expect(output).toEqual(expectedOutput)
   })

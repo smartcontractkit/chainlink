@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink/core/logger"
+	"github.com/smartcontractkit/chainlink/core/services/postgres"
 	strpkg "github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
@@ -152,6 +153,7 @@ func NewHeadTracker(l *logger.Logger, store *strpkg.Store, callbacks []strpkg.He
 		sleeper:    sleeper,
 		log:        l,
 		backfillMB: *utils.NewMailbox(1),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -190,7 +192,6 @@ func (ht *HeadTracker) Start() error {
 		)
 	}
 
-	ht.done = make(chan struct{})
 	ht.subscriptionSucceeded = make(chan struct{})
 
 	ht.listenForNewHeadsWg.Add(2)
@@ -492,6 +493,7 @@ func (ht *HeadTracker) handleNewHead(ctx context.Context, head models.Head) erro
 	ht.logger().Debugw(fmt.Sprintf("HeadTracker: Received new head %v", presenters.FriendlyBigInt(head.ToInt())),
 		"blockHeight", head.ToInt(),
 		"blockHash", head.Hash,
+		"parentHeadHash", head.ParentHash,
 	)
 
 	err := ht.Save(ctx, head)
@@ -612,12 +614,19 @@ func (ht *HeadTracker) unsubscribeFromHead() error {
 }
 
 func (ht *HeadTracker) setHighestSeenHeadFromDB() error {
-	head, err := ht.store.LastHead(context.Background())
+	head, err := ht.HighestSeenHeadFromDB()
 	if err != nil {
 		return err
 	}
 	ht.highestSeenHead = head
 	return nil
+}
+
+func (ht *HeadTracker) HighestSeenHeadFromDB() (*models.Head, error) {
+	ctxQuery, _ := postgres.DefaultQueryCtx()
+	ctx, cancel := utils.CombinedContext(ht.done, ctxQuery)
+	defer cancel()
+	return ht.store.LastHead(ctx)
 }
 
 // chainIDVerify checks whether or not the ChainID from the Chainlink config

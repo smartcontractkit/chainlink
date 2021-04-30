@@ -181,6 +181,19 @@ func TestRegisterProvingKey(t *testing.T) {
 		"VRFCoordinator registered wrong fee, on service agreement!")
 }
 
+func TestFailToRegisterProvingKeyFromANonOwnerAddress(t *testing.T) {
+	key := cltest.MustGenerateRandomKey(t)
+	coordinator := newVRFCoordinatorUniverse(t, key)
+
+	var jobID [32]byte
+	copy(jobID[:], []byte("exactly 32 characters in length."))
+	_, err := coordinator.rootContract.RegisterProvingKey(
+		coordinator.ned, vrfFee, coordinator.neil.From, pair(secp256k1.Coordinates(publicKey)), jobID)
+
+	require.Error(t, err, "expected an error")
+	require.Contains(t, err.Error(), "Ownable: caller is not the owner")
+}
+
 // requestRandomness sends a randomness request via Carol's consuming contract,
 // in the VRFCoordinator universe represented by coordinator, specifying the
 // given keyHash and seed, and paying the given fee. It returns the log emitted

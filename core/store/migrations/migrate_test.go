@@ -334,3 +334,18 @@ func TestMigrate_LogConfigTables(t *testing.T) {
 	assert.NotNil(t, res)
 	assert.False(t, res.Next())
 }
+
+func TestMigrate_CreateCronTables(t *testing.T) {
+	_, orm, cleanup := cltest.BootstrapThrowawayORM(t, "migrations_create_cron_tables", false)
+	defer cleanup()
+
+	require.NoError(t, migrations.MigrateUp(orm.DB, "0024_add_cron_spec_tables"))
+
+	cs := job.CronSpec{
+		ID:           int32(1),
+		CronSchedule: "0 0 0 1 1 *",
+	}
+	require.NoError(t, orm.DB.Create(&cs).Error)
+	require.NoError(t, orm.DB.Find(&cs).Error)
+	require.NoError(t, migrations.MigrateDownFrom(orm.DB, "0024_add_cron_spec_tables"))
+}

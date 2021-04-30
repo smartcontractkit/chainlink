@@ -174,3 +174,29 @@ func (l *Logger) ServiceLogLevel(serviceName string) (string, error) {
 	}
 	return "info", nil
 }
+
+// NewProductionConfig returns a production logging config
+func NewProductionConfig(lvl zapcore.Level, dir string, jsonConsole, toDisk bool) (c zap.Config) {
+	var outputPath string
+	if jsonConsole {
+		outputPath = "stderr"
+	} else {
+		outputPath = "pretty://console"
+	}
+	// Mostly copied from zap.NewProductionConfig with sampling disabled
+	c = zap.Config{
+		Level:            zap.NewAtomicLevelAt(lvl),
+		Development:      false,
+		Sampling:         nil,
+		Encoding:         "json",
+		EncoderConfig:    zap.NewProductionEncoderConfig(),
+		OutputPaths:      []string{outputPath},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	if toDisk {
+		destination := logFileURI(dir)
+		c.OutputPaths = append(c.OutputPaths, destination)
+		c.ErrorOutputPaths = append(c.ErrorOutputPaths, destination)
+	}
+	return
+}
