@@ -2,11 +2,13 @@ package utils_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/utils"
 
@@ -468,4 +470,53 @@ func Test_WithJitter(t *testing.T) {
 		require.GreaterOrEqual(t, int(r), int(9*time.Second))
 		require.LessOrEqual(t, int(r), int(11*time.Second))
 	}
+}
+
+// go-ethereum@v1.10.0/rpc/json.go
+type jsonError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+func (err *jsonError) Error() string {
+	if err.Message == "" {
+		return fmt.Sprintf("json-rpc error %d", err.Code)
+	}
+	return err.Message
+}
+
+func Test_ExtractRevertReasonFromRPCError(t *testing.T) {
+	t.Run("it extracts revert reasons when present", func(tt *testing.T) {
+		message := "important revert reason"
+		messageHex := utils.RemoveHexPrefix(hexutil.Encode([]byte(message)))
+		sigHash := "12345678"
+		var jsonErr error = &jsonError{
+			Code:    1,
+			Data:    fmt.Sprintf("0x%s%s", sigHash, messageHex),
+			Message: "something different",
+		}
+		revertReason, err := utils.ExtractRevertReasonFromRPCError(jsonErr)
+		require.NoError(t, err)
+		require.Equal(t, message, revertReason)
+	})
+
+	t.Run("it gracefully errors when no data present", func(tt *testing.T) {
+		var jsonErr error = &jsonError{
+			Code:    1,
+			Message: "something different",
+		}
+		_, err := utils.ExtractRevertReasonFromRPCError(jsonErr)
+		require.Error(t, err)
+	})
+
+	t.Run("gracefully errors when given a normal error", func(tt *testing.T) {
+		_, err := utils.ExtractRevertReasonFromRPCError(errors.New("normal error"))
+		require.Error(tt, err)
+	})
+
+	t.Run("gracefully errors when given no error", func(tt *testing.T) {
+		_, err := utils.ExtractRevertReasonFromRPCError(nil)
+		require.Error(tt, err)
+	})
 }
