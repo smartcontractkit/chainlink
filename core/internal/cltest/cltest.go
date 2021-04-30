@@ -1221,7 +1221,11 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, j
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
-					completed = append(completed, prs[i])
+					// txdb does not seem to provide ReadCommitted guarantee, so we need to guard against job runs without any tasks
+					// (if the read occurrs mid-transaction).
+					if len(prs[i].PipelineTaskRuns) > 0 {
+						completed = append(completed, prs[i])
+					}
 				}
 			}
 		}
