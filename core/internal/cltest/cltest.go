@@ -1209,7 +1209,7 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 	return prs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
@@ -1221,9 +1221,9 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, j
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
-					// txdb does not seem to provide ReadCommitted guarantee, so we need to guard against job runs without any tasks
-					// (if the read occurrs mid-transaction).
-					if len(prs[i].PipelineTaskRuns) > 0 {
+					// txdb does not seem to provide ReadCommitted guarantee, so we need to explicitly expect a number of task runs
+					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
 						completed = append(completed, prs[i])
 					}
 				}
