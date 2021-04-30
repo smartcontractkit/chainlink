@@ -68,64 +68,23 @@ func (rt RendererTable) Render(v interface{}, headers ...string) error {
 		return rt.renderJobRuns(*typed)
 	case *presenters.JobRun:
 		return rt.renderJobRun(*typed)
-	case *webpresenters.BridgeResource:
-		return rt.renderBridge(*typed)
-	case *[]webpresenters.BridgeResource:
-		return rt.renderBridges(*typed)
 	case *presenters.ServiceAgreement:
 		return rt.renderServiceAgreement(*typed)
-	case *[]webpresenters.EthTxResource:
-		return rt.renderEthTxs(*typed)
-	case *webpresenters.EthTxResource:
-		return rt.renderEthTx(*typed)
 	case *presenters.ExternalInitiatorAuthentication:
 		return rt.renderExternalInitiatorAuthentication(*typed)
 	case *web.ConfigPatchResponse:
 		return rt.renderConfigPatchResponse(typed)
 	case *presenters.ConfigPrinter:
 		return rt.renderConfiguration(*typed)
-	case *webpresenters.ETHKeyResource:
-		return rt.renderETHKeys([]webpresenters.ETHKeyResource{*typed})
-	case *[]webpresenters.ETHKeyResource:
-		return rt.renderETHKeys(*typed)
-	case *P2PKeyPresenter:
-		return rt.renderP2PKeys([]P2PKeyPresenter{*typed})
-	case *[]P2PKeyPresenter:
-		return rt.renderP2PKeys(*typed)
-	case *[]JobPresenter:
-		return rt.renderJobsV2(*typed)
-	case *JobPresenter:
-		return rt.renderJobsV2([]JobPresenter{*typed})
 	case *pipeline.Run:
 		return rt.renderPipelineRun(*typed)
 	case *webpresenters.LogResource:
 		return rt.renderLogResource(*typed)
-	case *[]VRFKeyPresenter:
-		return rt.renderVRFKeys(*typed)
 	case TableRenderer:
 		return typed.RenderTable(rt)
 	default:
 		return fmt.Errorf("unable to render object of type %T: %v", typed, typed)
 	}
-}
-
-func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
-	var rows [][]string
-
-	for _, key := range keys {
-		rows = append(rows, []string{
-			key.Compressed,
-			key.Uncompressed,
-			key.Hash,
-			key.FriendlyCreatedAt(),
-			key.FriendlyUpdatedAt(),
-			key.FriendlyDeletedAt(),
-		})
-	}
-
-	renderList([]string{"Compressed", "Uncompressed", "Hash", "Created", "Updated", "Deleted"}, rows, rt.Writer)
-
-	return nil
 }
 
 func (rt RendererTable) renderLogResource(logResource webpresenters.LogResource) error {
@@ -146,19 +105,6 @@ func (rt RendererTable) renderJobs(jobs []models.JobSpec) error {
 	}
 
 	render("Jobs", table)
-	return nil
-}
-
-func (rt RendererTable) renderJobsV2(jobs []JobPresenter) error {
-	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
-	table.SetAutoMergeCells(true)
-	for _, j := range jobs {
-		for _, r := range j.ToRows() {
-			table.Append(r)
-		}
-	}
-
-	render("Jobs (V2)", table)
 	return nil
 }
 
@@ -249,36 +195,6 @@ func jobRowToStrings(job models.JobSpec) []string {
 		p.FriendlyInitiators(),
 		p.FriendlyTasks(),
 	}
-}
-
-func bridgeRowToStrings(bridge webpresenters.BridgeResource) []string {
-	return []string{
-		bridge.Name,
-		bridge.URL,
-		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-	}
-}
-
-func (rt RendererTable) renderBridges(bridges []webpresenters.BridgeResource) error {
-	table := rt.newTable([]string{"Name", "URL", "Confirmations"})
-	for _, v := range bridges {
-		table.Append(bridgeRowToStrings(v))
-	}
-
-	render("Bridges", table)
-	return nil
-}
-
-func (rt RendererTable) renderBridge(bridge webpresenters.BridgeResource) error {
-	table := rt.newTable([]string{"Name", "URL", "Default Confirmations", "Outgoing Token"})
-	table.Append([]string{
-		bridge.Name,
-		bridge.URL,
-		strconv.FormatUint(uint64(bridge.Confirmations), 10),
-		bridge.OutgoingToken,
-	})
-	render("Bridge", table)
-	return nil
 }
 
 func (rt RendererTable) renderJob(job presenters.JobSpec) error {
@@ -394,36 +310,6 @@ func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
 	return table
 }
 
-func (rt RendererTable) renderEthTx(tx webpresenters.EthTxResource) error {
-	table := rt.newTable([]string{"From", "Nonce", "To", "State"})
-	table.Append([]string{
-		tx.From.Hex(),
-		tx.Nonce,
-		tx.To.Hex(),
-		fmt.Sprint(tx.State),
-	})
-
-	render(fmt.Sprintf("Ethereum Transaction %v", tx.Hash.Hex()), table)
-	return nil
-}
-
-func (rt RendererTable) renderEthTxs(txs []webpresenters.EthTxResource) error {
-	table := rt.newTable([]string{"Hash", "Nonce", "From", "GasPrice", "SentAt", "State"})
-	for _, tx := range txs {
-		table.Append([]string{
-			tx.Hash.Hex(),
-			tx.Nonce,
-			tx.From.Hex(),
-			tx.GasPrice,
-			tx.SentAt,
-			fmt.Sprint(tx.State),
-		})
-	}
-
-	render("Ethereum Transactions", table)
-	return nil
-}
-
 func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchResponse) error {
 	table := rt.newTable([]string{"Config", "Old Value", "New Value"})
 	table.Append([]string{
@@ -432,56 +318,6 @@ func (rt RendererTable) renderConfigPatchResponse(config *web.ConfigPatchRespons
 		config.EthGasPriceDefault.To,
 	})
 	render("Configuration Changes", table)
-	return nil
-}
-
-func (rt RendererTable) renderETHKeys(keys []webpresenters.ETHKeyResource) error {
-	var rows [][]string
-	for _, key := range keys {
-		nextNonce := fmt.Sprintf("%d", key.NextNonce)
-		var lastUsed string
-		if key.LastUsed != nil {
-			lastUsed = key.LastUsed.String()
-		}
-		var deletedAt string
-		if key.DeletedAt.Valid {
-			deletedAt = key.DeletedAt.Time.String()
-		}
-		rows = append(rows, []string{
-			key.Address,
-			key.EthBalance.String(),
-			key.LinkBalance.String(),
-			nextNonce,
-			lastUsed,
-			fmt.Sprintf("%v", key.IsFunding),
-			key.CreatedAt.String(),
-			key.UpdatedAt.String(),
-			deletedAt,
-		})
-	}
-
-	renderList([]string{"Address", "ETH", "LINK", "Next nonce", "Last used", "Is funding", "Created", "Updated", "Deleted"}, rows, rt.Writer)
-	return nil
-}
-
-func (rt RendererTable) renderP2PKeys(presenters []P2PKeyPresenter) error {
-	var rows [][]string
-	for _, p := range presenters {
-		var deletedAt string
-		if p.DeletedAt != nil {
-			deletedAt = p.DeletedAt.String()
-		}
-		rows = append(rows, []string{
-			p.ID,
-			p.PeerID,
-			p.PubKey,
-			fmt.Sprintf("%v", p.CreatedAt),
-			fmt.Sprintf("%v", p.UpdatedAt),
-			deletedAt,
-		})
-	}
-	fmt.Println("\n🔑 P2P Keys")
-	renderList([]string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}, rows, rt.Writer)
 	return nil
 }
 

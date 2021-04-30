@@ -312,7 +312,7 @@ func TestKeeperDB_CreateEthTransactionForUpkeep(t *testing.T) {
 	payload := common.Hex2Bytes("1234")
 	gasBuffer := int32(200_000)
 
-	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload)
+	ethTX, err := orm.CreateEthTransactionForUpkeep(context.Background(), upkeep, payload, 500)
 	require.NoError(t, err)
 
 	require.Equal(t, registry.FromAddress.Address(), ethTX.FromAddress)

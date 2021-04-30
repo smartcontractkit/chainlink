@@ -8,6 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/core/internal/mocks"
@@ -26,7 +27,7 @@ import (
 )
 
 func TestDelegate_ServicesForSpec(t *testing.T) {
-	gethClient := new(mocks.Client)
+	ethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	headBroadcaster := services.NewHeadBroadcaster()
 	runner := new(pipeline_mocks.Runner)
@@ -37,7 +38,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	config := testConfig{
 		minRequiredOutgoingConfirmations: 1,
 	}
-	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, gethClient, orm.DB, config)
+	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, nil, ethClient, orm.DB, config)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -64,7 +65,7 @@ type DirectRequestUniverse struct {
 	cleanup           func()
 }
 
-func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
+func NewDirectRequestUniverseWithConfig(t *testing.T, drConfig testConfig) *DirectRequestUniverse {
 	gethClient := new(mocks.Client)
 	broadcaster := new(log_mocks.Broadcaster)
 	headBroadcaster := services.NewHeadBroadcaster()
@@ -83,9 +84,6 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 		jobORM.Close()
 	}
 
-	drConfig := testConfig{
-		minRequiredOutgoingConfirmations: 1,
-	}
 	delegate := directrequest.NewDelegate(broadcaster, headBroadcaster, runner, orm, gethClient, db, drConfig)
 
 	spec := cltest.MakeDirectRequestJobSpec(t)
@@ -113,6 +111,13 @@ func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
 	})
 
 	return uni
+}
+
+func NewDirectRequestUniverse(t *testing.T) *DirectRequestUniverse {
+	drConfig := testConfig{
+		minRequiredOutgoingConfirmations: 1,
+	}
+	return NewDirectRequestUniverseWithConfig(t, drConfig)
 }
 
 func (uni *DirectRequestUniverse) Cleanup() {
@@ -330,12 +335,109 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		uni.logBroadcaster.AssertExpectations(t)
 		uni.runner.AssertExpectations(t)
 	})
+
+	t.Run("Log has sufficient funds", func(t *testing.T) {
+		drConfig := testConfig{
+			minRequiredOutgoingConfirmations: 1,
+			minimumContractPayment:           assets.NewLink(100),
+		}
+		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
+		defer uni.Cleanup()
+
+		log := new(log_mocks.Broadcast)
+		defer log.AssertExpectations(t)
+
+		log.On("WasAlreadyConsumed").Return(false, nil)
+		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+			CancelExpiration: big.NewInt(0),
+			Payment:          big.NewInt(100),
+		}
+		log.On("RawLog").Return(types.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
+		log.On("DecodedLog").Return(&logOracleRequest)
+		log.On("MarkConsumed").Return(nil)
+
+		runBeganAwaiter := cltest.NewAwaiter()
+		uni.runner.On("ExecuteAndInsertFinishedRun", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+			runBeganAwaiter.ItHappened()
+		}).Once().Return(int64(0), pipeline.FinalResult{}, nil)
+
+		err := uni.service.Start()
+		require.NoError(t, err)
+
+		// check if the job exists under the correct ID
+		drJob, jErr := uni.jobORM.FindJob(uni.listener.JobIDV2())
+		require.NoError(t, jErr)
+		require.Equal(t, drJob.ID, uni.listener.JobIDV2())
+		require.NotNil(t, drJob.DirectRequestSpec)
+
+		uni.listener.HandleLog(log)
+
+		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
+
+		runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+
+		uni.service.Close()
+		uni.logBroadcaster.AssertExpectations(t)
+		uni.runner.AssertExpectations(t)
+	})
+
+	t.Run("Log has insufficient funds", func(t *testing.T) {
+		drConfig := testConfig{
+			minRequiredOutgoingConfirmations: 1,
+			minimumContractPayment:           assets.NewLink(100),
+		}
+		uni := NewDirectRequestUniverseWithConfig(t, drConfig)
+		defer uni.Cleanup()
+
+		log := new(log_mocks.Broadcast)
+		defer log.AssertExpectations(t)
+
+		log.On("WasAlreadyConsumed").Return(false, nil)
+		logOracleRequest := oracle_wrapper.OracleOracleRequest{
+			CancelExpiration: big.NewInt(0),
+			Payment:          big.NewInt(99),
+		}
+		log.On("RawLog").Return(types.Log{
+			Topics: []common.Hash{
+				common.Hash{},
+				uni.spec.DirectRequestSpec.OnChainJobSpecID,
+			},
+		})
+		log.On("DecodedLog").Return(&logOracleRequest)
+		markConsumedLogAwaiter := cltest.NewAwaiter()
+		log.On("MarkConsumed").Run(func(args mock.Arguments) {
+			markConsumedLogAwaiter.ItHappened()
+		}).Return(nil)
+
+		err := uni.service.Start()
+		require.NoError(t, err)
+
+		uni.listener.HandleLog(log)
+
+		uni.headBroadcastable.OnNewLongestChain(context.TODO(), models.Head{Number: 10})
+
+		markConsumedLogAwaiter.AwaitOrFail(t, 5*time.Second)
+
+		uni.service.Close()
+		uni.logBroadcaster.AssertExpectations(t)
+		uni.runner.AssertExpectations(t)
+	})
 }
 
 type testConfig struct {
 	minRequiredOutgoingConfirmations uint64
+	minimumContractPayment           *assets.Link
 }
 
 func (c testConfig) MinRequiredOutgoingConfirmations() uint64 {
 	return c.minRequiredOutgoingConfirmations
+}
+
+func (c testConfig) MinimumContractPayment() *assets.Link {
+	return c.minimumContractPayment
 }
