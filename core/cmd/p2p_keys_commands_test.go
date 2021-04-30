@@ -1,21 +1,75 @@
 package cmd_test
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/core/cmd"
 	"github.com/smartcontractkit/chainlink/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/core/store"
 	"github.com/smartcontractkit/chainlink/core/store/models/p2pkey"
 	"github.com/smartcontractkit/chainlink/core/utils"
+	"github.com/smartcontractkit/chainlink/core/web/presenters"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 )
+
+func TestP2PKeyPresenter_RenderTable(t *testing.T) {
+	t.Parallel()
+
+	var (
+		id        = "1"
+		peerID    = "12D3KooWApUJaQB2saFjyEUfq6BmysnsSnhLnY5CF9tURYVKgoXK"
+		pubKey    = "somepubkey"
+		createdAt = time.Now()
+		updatedAt = time.Now().Add(time.Second)
+		deletedAt = time.Now().Add(2 * time.Second)
+		buffer    = bytes.NewBufferString("")
+		r         = cmd.RendererTable{Writer: buffer}
+	)
+
+	p := cmd.P2PKeyPresenter{
+		JAID: cmd.JAID{ID: id},
+		P2PKeyResource: presenters.P2PKeyResource{
+			JAID:      presenters.NewJAID(id),
+			PeerID:    peerID,
+			PubKey:    pubKey,
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+			DeletedAt: &deletedAt,
+		},
+	}
+
+	// Render a single resource
+	require.NoError(t, p.RenderTable(r))
+
+	output := buffer.String()
+	assert.Contains(t, output, id)
+	assert.Contains(t, output, peerID)
+	assert.Contains(t, output, pubKey)
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+
+	// Render many resources
+	buffer.Reset()
+	ps := cmd.P2PKeyPresenters{p}
+	require.NoError(t, ps.RenderTable(r))
+
+	output = buffer.String()
+	assert.Contains(t, output, id)
+	assert.Contains(t, output, peerID)
+	assert.Contains(t, output, pubKey)
+	assert.Contains(t, output, createdAt.String())
+	assert.Contains(t, output, updatedAt.String())
+	assert.Contains(t, output, deletedAt.String())
+}
 
 func TestClient_ListP2PKeys(t *testing.T) {
 	t.Parallel()
@@ -36,7 +90,7 @@ func TestClient_ListP2PKeys(t *testing.T) {
 
 	assert.Nil(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
 	require.Equal(t, 1, len(r.Renders))
-	keys := *r.Renders[0].(*[]cmd.P2PKeyPresenter)
+	keys := *r.Renders[0].(*cmd.P2PKeyPresenters)
 	assert.Equal(t, encKey.PubKey.String(), keys[1].PubKey)
 }
 

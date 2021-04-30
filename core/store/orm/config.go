@@ -688,6 +688,20 @@ func (c Config) EthereumURL() string {
 	return c.viper.GetString(EnvVarName("EthereumURL"))
 }
 
+// EthereumHTTPURL is an optional but recommended url that points to the HTTP port of the primary node
+func (c Config) EthereumHTTPURL() (uri *url.URL) {
+	urlStr := c.viper.GetString(EnvVarName("EthereumHTTPURL"))
+	if urlStr == "" {
+		return nil
+	}
+	var err error
+	uri, err = url.Parse(urlStr)
+	if err != nil || !(uri.Scheme == "http" || uri.Scheme == "https") {
+		logger.Fatalf("Invalid Ethereum HTTP URL: %s, got error: %s", urlStr, err)
+	}
+	return
+}
+
 // EthereumSecondaryURLs is an optional backup RPC URL
 // Must be http(s) format
 // If specified, transactions will also be broadcast to this ethereum node
@@ -816,7 +830,8 @@ func (c Config) KeeperMaximumGracePeriod() int64 {
 	return c.viper.GetInt64(EnvVarName("KeeperMaximumGracePeriod"))
 }
 
-// JSONConsole enables the JSON console.
+// JSONConsole when set to true causes logging to be made in JSON format
+// If set to false, logs in console format
 func (c Config) JSONConsole() bool {
 	return c.viper.GetBool(EnvVarName("JSONConsole"))
 }
