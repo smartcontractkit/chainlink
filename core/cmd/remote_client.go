@@ -20,11 +20,9 @@ import (
 	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/core/assets"
 	"github.com/smartcontractkit/chainlink/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/core/store/models"
 	"github.com/smartcontractkit/chainlink/core/store/presenters"
-	"github.com/smartcontractkit/chainlink/core/utils"
 	"github.com/smartcontractkit/chainlink/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/core/web/presenters"
 )
@@ -300,62 +298,6 @@ func (cli *Client) RemoteLogin(c *clipkg.Context) error {
 	return cli.errorOut(err)
 }
 
-// SendEther transfers ETH from the node's account to a specified address.
-func (cli *Client) SendEther(c *clipkg.Context) (err error) {
-	if c.NArg() < 3 {
-		return cli.errorOut(errors.New("sendether expects three arguments: amount, fromAddress and toAddress"))
-	}
-
-	amount, err := assets.NewEthValueS(c.Args().Get(0))
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			errors.New("while parsing ETH transfer amount"), err))
-	}
-
-	unparsedFromAddress := c.Args().Get(1)
-	fromAddress, err := utils.ParseEthereumAddress(unparsedFromAddress)
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal source address %v",
-				unparsedFromAddress), err))
-	}
-
-	unparsedDestinationAddress := c.Args().Get(2)
-	destinationAddress, err := utils.ParseEthereumAddress(unparsedDestinationAddress)
-	if err != nil {
-		return cli.errorOut(multierr.Combine(
-			fmt.Errorf("while parsing withdrawal destination address %v",
-				unparsedDestinationAddress), err))
-	}
-
-	request := models.SendEtherRequest{
-		DestinationAddress: destinationAddress,
-		FromAddress:        fromAddress,
-		Amount:             amount,
-	}
-
-	requestData, err := json.Marshal(request)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-
-	buf := bytes.NewBuffer(requestData)
-
-	resp, err := cli.HTTP.Post("/v2/transfers", buf)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	var tx webpresenters.EthTxResource
-	err = cli.renderAPIResponse(resp, &tx)
-	return err
-}
-
 // ChangePassword prompts the user for the old password and a new one, then
 // posts it to Chainlink to change the password.
 func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
@@ -388,38 +330,6 @@ func (cli *Client) ChangePassword(c *clipkg.Context) (err error) {
 		return cli.printResponseBody(resp)
 	}
 	return nil
-}
-
-// IndexTransactions returns the list of transactions in descending order,
-// taking an optional page parameter
-func (cli *Client) IndexTransactions(c *clipkg.Context) error {
-	return cli.getPage("/v2/transactions", c.Int("page"), &[]webpresenters.EthTxResource{})
-}
-
-// ShowTransaction returns the info for the given transaction hash
-func (cli *Client) ShowTransaction(c *clipkg.Context) (err error) {
-	if !c.Args().Present() {
-		return cli.errorOut(errors.New("Must pass the hash of the transaction"))
-	}
-	hash := c.Args().First()
-	resp, err := cli.HTTP.Get("/v2/transactions/" + hash)
-	if err != nil {
-		return cli.errorOut(err)
-	}
-	defer func() {
-		if cerr := resp.Body.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	var tx webpresenters.EthTxResource
-	err = cli.renderAPIResponse(resp, &tx)
-	return err
-}
-
-// IndexTxAttempts returns the list of transactions in descending order,
-// taking an optional page parameter
-func (cli *Client) IndexTxAttempts(c *clipkg.Context) error {
-	return cli.getPage("/v2/tx_attempts", c.Int("page"), &[]webpresenters.EthTxResource{})
 }
 
 func (cli *Client) buildSessionRequest(flag string) (models.SessionRequest, error) {
