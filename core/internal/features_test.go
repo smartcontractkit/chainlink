@@ -1551,7 +1551,7 @@ observationSource = """
 		go func() {
 			defer wg.Done()
 			// Want at least 2 runs so we see all the metadata.
-			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
+			pr := cltest.WaitForPipelineComplete(t, ic, jids[ic], 2, 0, apps[ic].GetJobORM(), 1*time.Minute, 1*time.Second)
 			jb, err := pr[0].Outputs.MarshalJSON()
 			require.NoError(t, err)
 			assert.Equal(t, []byte(fmt.Sprintf("[\"%d\"]", 10*ic)), jb)
@@ -1660,7 +1660,7 @@ func TestIntegration_DirectRequest(t *testing.T) {
 
 	httpAwaiter.AwaitOrFail(t)
 
-	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, jobORM, 5*time.Second, 300*time.Millisecond)
+	runs := cltest.WaitForPipelineComplete(t, 0, job.ID, 1, 3, jobORM, 5*time.Second, 300*time.Millisecond)
 	require.Len(t, runs, 1)
 	run := runs[0]
 	require.Len(t, run.PipelineTaskRuns, 3)
