@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/core/internal/gethwrappers/generated/keeper_registry_wrapper"
-	"github.com/smartcontractkit/chainlink/core/services"
 	"github.com/smartcontractkit/chainlink/core/services/job"
 	"github.com/smartcontractkit/chainlink/core/services/log"
 	"github.com/smartcontractkit/chainlink/core/utils"
@@ -60,7 +59,6 @@ var _ log.Listener = (*RegistrySynchronizer)(nil)
 type RegistrySynchronizer struct {
 	chStop           chan struct{}
 	contract         *keeper_registry_wrapper.KeeperRegistry
-	headBroadcaster  *services.HeadBroadcaster
 	interval         time.Duration
 	job              job.Job
 	jrm              job.ORM
