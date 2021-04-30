@@ -20,6 +20,55 @@ type P2PKeyPresenter struct {
 	presenters.P2PKeyResource
 }
 
+// RenderTable implements TableRenderer
+func (p *P2PKeyPresenter) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}
+	rows := [][]string{p.ToRow()}
+
+	if _, err := rt.Write([]byte("🔑 P2P Keys\n")); err != nil {
+		return err
+	}
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
+func (p *P2PKeyPresenter) ToRow() []string {
+	var deletedAt string
+	if p.DeletedAt != nil {
+		deletedAt = p.DeletedAt.String()
+	}
+	row := []string{
+		p.ID,
+		p.PeerID,
+		p.PubKey,
+		fmt.Sprintf("%v", p.CreatedAt),
+		fmt.Sprintf("%v", p.UpdatedAt),
+		deletedAt,
+	}
+
+	return row
+}
+
+type P2PKeyPresenters []P2PKeyPresenter
+
+// RenderTable implements TableRenderer
+func (ps P2PKeyPresenters) RenderTable(rt RendererTable) error {
+	headers := []string{"ID", "Peer ID", "Public key", "Created", "Updated", "Deleted"}
+	rows := [][]string{}
+
+	for _, p := range ps {
+		rows = append(rows, p.ToRow())
+	}
+
+	if _, err := rt.Write([]byte("🔑 P2P Keys\n")); err != nil {
+		return err
+	}
+	renderList(headers, rows, rt.Writer)
+
+	return nil
+}
+
 // ListP2PKeys retrieves a list of all P2P keys
 func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
 	resp, err := cli.HTTP.Get("/v2/keys/p2p", nil)
@@ -32,8 +81,7 @@ func (cli *Client) ListP2PKeys(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenters []P2PKeyPresenter
-	return cli.renderAPIResponse(resp, &presenters)
+	return cli.renderAPIResponse(resp, &P2PKeyPresenters{})
 }
 
 // CreateP2PKey creates a new P2P key
@@ -48,8 +96,7 @@ func (cli *Client) CreateP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenter P2PKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "Created P2P keypair")
+	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "Created P2P keypair")
 }
 
 // DeleteP2PKey deletes a P2P key,
@@ -82,8 +129,7 @@ func (cli *Client) DeleteP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenter P2PKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "P2P key deleted")
+	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "P2P key deleted")
 }
 
 // ImportP2PKey imports and stores a P2P key,
@@ -119,8 +165,7 @@ func (cli *Client) ImportP2PKey(c *cli.Context) (err error) {
 		}
 	}()
 
-	var presenter P2PKeyPresenter
-	return cli.renderAPIResponse(resp, &presenter, "🔑 Imported P2P key")
+	return cli.renderAPIResponse(resp, &P2PKeyPresenter{}, "🔑 Imported P2P key")
 }
 
 // ExportP2PKey exports a P2P key,
