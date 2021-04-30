@@ -458,33 +458,33 @@ func NewApplicationWithConfig(t testing.TB, tc *TestConfig, flagsAndDeps ...inte
 	}
 }
 
-func NewEthMocks(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
-	r := new(mocks.RPCClient)
-	g := new(mocks.GethClient)
+func NewEthMocks(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+	c := new(mocks.Client)
 	s := new(mocks.Subscription)
 	var assertMocksCalled func()
 	switch tt := t.(type) {
 	case *testing.T:
 		assertMocksCalled = func() {
-			r.AssertExpectations(tt)
-			g.AssertExpectations(tt)
+			c.AssertExpectations(tt)
 			s.AssertExpectations(tt)
 		}
 	case *testing.B:
 		assertMocksCalled = func() {}
 	}
-	return r, g, s, assertMocksCalled
+	return c, s, assertMocksCalled
 }
 
-func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.RPCClient, *mocks.GethClient, *mocks.Subscription, func()) {
-	r, g, s, assertMocksCalled := NewEthMocks(t)
-	g.On("ChainID", mock.Anything).Return(NewTestConfig(t).ChainID(), nil)
-	g.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	g.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
-	r.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Return(EmptyMockSubscription(), nil)
+func NewEthMocksWithStartupAssertions(t testing.TB) (*mocks.Client, *mocks.Subscription, func()) {
+	c, s, assertMocksCalled := NewEthMocks(t)
+	c.On("Dial", mock.Anything).Maybe().Return(nil)
+	c.On("ChainID", mock.Anything).Maybe().Return(NewTestConfig(t).ChainID(), nil)
+	c.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	c.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
+	c.On("EthSubscribe", mock.Anything, mock.Anything, "newHeads").Maybe().Return(EmptyMockSubscription(), nil)
+	c.On("SubscribeNewHead", mock.Anything, mock.Anything).Maybe().Return(EmptyMockSubscription(), nil)
 	s.On("Err").Return(nil).Maybe()
 	s.On("Unsubscribe").Return(nil).Maybe()
-	return r, g, s, assertMocksCalled
+	return c, s, assertMocksCalled
 }
 
 func newServer(app chainlink.Application) *httptest.Server {
@@ -1066,7 +1066,7 @@ func SendBlocksUntilComplete(
 	jr models.JobRun,
 	blockCh chan<- *models.Head,
 	start int64,
-	gethClient *mocks.GethClient,
+	ethClient *mocks.Client,
 ) models.JobRun {
 	t.Helper()
 
@@ -1209,7 +1209,7 @@ func WaitForPipelineRuns(t testing.TB, nodeID int, jobID int32, jo job.ORM, want
 	return prs
 }
 
-func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
+func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, expectedTaskRuns int, jo job.ORM, timeout, poll time.Duration) []pipeline.Run {
 	t.Helper()
 
 	var pr []pipeline.Run
@@ -1221,7 +1221,11 @@ func WaitForPipelineComplete(t testing.TB, nodeID int, jobID int32, count int, j
 		for i := range prs {
 			if !prs[i].Outputs.Null {
 				if !prs[i].Errors.HasError() {
-					completed = append(completed, prs[i])
+					// txdb effectively ignores transactionality of queries, so we need to explicitly expect a number of task runs
+					// (if the read occurrs mid-transaction and a job run in inserted but task runs not yet).
+					if len(prs[i].PipelineTaskRuns) == expectedTaskRuns {
+						completed = append(completed, prs[i])
+					}
 				}
 			}
 		}
@@ -1692,7 +1696,7 @@ func MakeRoundStateReturnData(
 
 var fluxAggregatorABI = eth.MustGetABI(flux_aggregator_wrapper.FluxAggregatorABI)
 
-func MockFluxAggCall(client *mocks.GethClient, address common.Address, funcName string) *mock.Call {
+func MockFluxAggCall(client *mocks.Client, address common.Address, funcName string) *mock.Call {
 	funcSig := hexutil.Encode(fluxAggregatorABI.Methods[funcName].ID)
 	if len(funcSig) != 10 {
 		panic(fmt.Sprintf("Unable to find FluxAgg function with name %s", funcName))
@@ -1777,9 +1781,9 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *mock
 	}
 }
 
-func MockSubscribeToLogsCh(gethClient *mocks.GethClient, sub *mocks.Subscription) chan chan<- types.Log {
+func MockSubscribeToLogsCh(ethClient *mocks.Client, sub *mocks.Subscription) chan chan<- types.Log {
 	logsCh := make(chan chan<- types.Log, 1)
-	gethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
+	ethClient.On("SubscribeFilterLogs", mock.Anything, mock.Anything, mock.Anything).
 		Return(sub, nil).
 		Run(func(args mock.Arguments) { // context.Context, ethereum.FilterQuery, chan<- types.Log
 			logsCh <- args.Get(2).(chan<- types.Log)

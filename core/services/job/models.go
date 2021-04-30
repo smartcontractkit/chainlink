@@ -16,6 +16,7 @@ import (
 )
 
 const (
+	Cron              Type = "cron"
 	DirectRequest     Type = "directrequest"
 	FluxMonitor       Type = "fluxmonitor"
 	OffchainReporting Type = "offchainreporting"
@@ -26,6 +27,8 @@ type Job struct {
 	ID                            int32 `toml:"-" gorm:"primary_key"`
 	OffchainreportingOracleSpecID *int32
 	OffchainreportingOracleSpec   *OffchainReportingOracleSpec
+	CronSpecID                    *int32
+	CronSpec                      *CronSpec
 	DirectRequestSpecID           *int32
 	DirectRequestSpec             *DirectRequestSpec
 	FluxMonitorSpecID             *int32
@@ -145,6 +148,41 @@ type DirectRequestSpec struct {
 
 func (DirectRequestSpec) TableName() string {
 	return "direct_request_specs"
+}
+
+type CronSpec struct {
+	ID           int32     `toml:"-" gorm:"primary_key"`
+	CronSchedule string    `toml:"schedule"`
+	CreatedAt    time.Time `toml:"-"`
+	UpdatedAt    time.Time `toml:"-"`
+}
+
+func (s CronSpec) GetID() string {
+	return fmt.Sprintf("%v", s.ID)
+}
+
+func (s *CronSpec) SetID(value string) error {
+	ID, err := strconv.ParseInt(value, 10, 32)
+	if err != nil {
+		return err
+	}
+	s.ID = int32(ID)
+	return nil
+}
+
+func (s *CronSpec) BeforeCreate(db *gorm.DB) error {
+	s.CreatedAt = time.Now()
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (s *CronSpec) BeforeSave(db *gorm.DB) error {
+	s.UpdatedAt = time.Now()
+	return nil
+}
+
+func (CronSpec) TableName() string {
+	return "cron_specs"
 }
 
 type FluxMonitorSpec struct {
