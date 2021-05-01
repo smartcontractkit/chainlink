@@ -6,6 +6,7 @@ import {
   KeeperV2Spec,
   OffChainReportingOracleJobV2Spec,
   CronV2Spec,
+  WebV2Spec,
 } from 'core/store/models'
 import { generateUuid } from '../test-helpers/generateUuid'
 
@@ -48,6 +49,7 @@ export function ocrJobSpecV2(
     directRequestSpec: null,
     keeperSpec: null,
     cronSpec: null,
+    webSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -84,6 +86,7 @@ export function fluxMonitorJobV2(
     offChainReportingOracleSpec: null,
     keeperSpec: null,
     cronSpec: null,
+    webSpec: null,
     fluxMonitorSpec,
     errors: [],
     maxTaskDuration: '',
@@ -120,8 +123,9 @@ export function directRequestJobV2(
     directRequestSpec,
     offChainReportingOracleSpec: null,
     keeperSpec: null,
-    fluxMonitorSpec: null,
     cronSpec: null,
+    webSpec: null,
+    fluxMonitorSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -152,6 +156,7 @@ export function keeperJobV2(
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec: null,
+    webSpec: null,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
@@ -179,6 +184,35 @@ export function cronJobV2(
     offChainReportingOracleSpec: null,
     fluxMonitorSpec: null,
     cronSpec,
+    webSpec: null,
+    errors: [],
+    maxTaskDuration: '',
+    pipelineSpec: {
+      dotDagSource: '',
+    },
+  }
+}
+
+export function webJobV2(
+  spec: Partial<WebV2Spec['webSpec']> = {},
+  config: Partial<{
+    name?: string
+    id?: string
+  }> = {},
+): JobSpecV2 {
+  const webSpec = partialAsFull<WebV2Spec['webSpec']>({
+    createdAt: spec.createdAt || new Date(1600775300410).toISOString(),
+  })
+  return {
+    name: config.name || 'Web V2 job',
+    type: 'web',
+    schemaVersion: 1,
+    directRequestSpec: null,
+    keeperSpec: null,
+    offChainReportingOracleSpec: null,
+    fluxMonitorSpec: null,
+    cronSpec: null,
+    webSpec,
     errors: [],
     maxTaskDuration: '',
     pipelineSpec: {
