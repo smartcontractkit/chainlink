@@ -52,6 +52,34 @@ var (
 		Name: "head_tracker_eth_connection_errors",
 		Help: "The total number of eth node connection errors",
 	})
+
+	promBlockFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "head_tracker_block_fetch_execution_duration_hist",
+		Help:    "How long it took to fetch block data (ms) histogram",
+		Buckets: []float64{100, 150, 200, 250, 300, 400, 500, 800, 1500, 2000, 3000, 4000, 5000, 8000, 12000, 18000},
+	})
+
+	promReceiptsFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "head_tracker_receipts_fetch_execution_duration_hist",
+		Help:    "How long it took to fetch receipt data (ms) histogram",
+		Buckets: []float64{100, 150, 200, 250, 300, 400, 500, 800, 1500, 2000, 3000, 4000, 5000, 8000, 12000, 18000},
+	})
+
+	promReceiptsLimitedFetchDurationHist = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "head_tracker_receipts_limited_fetch_execution_duration_hist",
+		Help:    "How long it took to fetch receipt data (ms) histogram",
+		Buckets: []float64{60, 80, 100, 120, 160, 200, 250, 300, 350, 400, 500, 800, 1500, 2000, 5000, 8000, 12000, 18000},
+	})
+
+	promReceiptCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_receipts_count",
+		Help: "The total number of receipts fetched",
+	})
+
+	promHeadTimeoutsCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "head_tracker_head_timeouts_count",
+		Help: "The total number of receipts fetched",
+	})
 )
 
 // headRingBuffer is a small goroutine that sits between the eth client and the
@@ -296,8 +324,8 @@ func (ht *HeadTracker) backfiller() {
 	defer ht.listenForNewHeadsWg.Done()
 	for {
 		select {
-		case address := <-ht.headTrackerAddressChannel:
-			ht.blockFetcher.AddAddress(address)
+		case <-ht.headTrackerAddressChannel:
+			//ht.blockFetcher.AddAddress(address)
 
 		case <-ht.done:
 			return
@@ -458,8 +486,9 @@ func (ht *HeadTracker) receiveHeaders(ctx context.Context) error {
 				if ctx.Err() != nil {
 					return nil
 				} else if deadlineCtx.Err() != nil {
+					promHeadTimeoutsCount.Inc()
 					logger.Warnw("HeadTracker: handling of new head timed out", "error", ctx.Err(), "timeBudget", timeBudget.String())
-					return err
+					//return err
 				} else if err != nil {
 					return err
 				}
@@ -525,7 +554,7 @@ func (ht *HeadTracker) handleNewHighestHead(ctx context.Context, head models.Hea
 	}
 	ht.backfillMB.Deliver(headWithChain)
 
-	_, err = ht.blockFetcher.fetchBlock(ctx, head)
+	_, err = ht.blockFetcher.fetchBlock(ctx, head, promBlockFetchDurationHist, promReceiptsFetchDurationHist, promReceiptsLimitedFetchDurationHist, promReceiptCount)
 	if ctx.Err() != nil {
 		return nil
 	} else if err != nil {
