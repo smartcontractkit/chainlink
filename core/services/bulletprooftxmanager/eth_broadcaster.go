@@ -217,6 +217,7 @@ func (eb *ethBroadcaster) processUnstartedEthTxs(fromAddress gethCommon.Address)
 			return nil
 		}
 		n++
+		etx.GasLimit = (uint64)((float64)(etx.GasLimit) * (float64)(eb.config.EthGasLimitMultiplier()))
 		a, err := newAttempt(eb.store, *etx, eb.initialTxGasPrice())
 		if err != nil {
 			return errors.Wrap(err, "processUnstartedEthTxs failed")
